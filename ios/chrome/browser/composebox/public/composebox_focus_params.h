@@ -13,6 +13,7 @@
 #import "ios/chrome/browser/composebox/public/composebox_mode.h"
 #import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_image_result.h"
+#import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 #import "ios/web/public/web_state_id.h"
 
 @class ComposeboxAttachmentSelection;
@@ -42,6 +43,12 @@
 
 // Whether there are initial tab IDs set.
 @property(nonatomic, readonly) BOOL hasInitialTabIDs;
+
+// Whether there are any attachments (images, files, or tabs) set.
+@property(nonatomic, readonly) BOOL hasInitialAttachments;
+
+// The optional shared metrics recorder.
+@property(nonatomic, strong) ComposeboxMetricsRecorder* metricsRecorder;
 
 /// The initial model option to force the composebox into.
 @property(nonatomic, assign) ComposeboxModelOption initialModelOption;

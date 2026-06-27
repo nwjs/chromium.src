@@ -34,6 +34,7 @@
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
@@ -88,7 +89,7 @@
 #include "chrome/browser/sessions/session_service_test_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
@@ -100,6 +101,7 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/permissions/permission_request_manager.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/devtools_agent_host_client.h"
 #include "content/public/test/browser_test_utils.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -428,7 +430,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, MAYBE_AutoAttachToUnloadedTab) {
 
   chrome::NewEmptyWindow(profile);
 
-  Browser* new_browser = chrome::FindBrowserWithTab(tab_waiter.Wait());
+  BrowserWindowInterface* new_browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          tab_waiter.Wait());
 
   base::MemoryPressureListenerRegistry::SimulatePressureNotification(
       base::MEMORY_PRESSURE_LEVEL_CRITICAL);
@@ -437,11 +441,11 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, MAYBE_AutoAttachToUnloadedTab) {
   profile_keep_alive.reset();
 
   // The new browser should have 2 tabs.
-  ASSERT_EQ(2, new_browser->tab_strip_model()->count());
-  ASSERT_EQ(1, new_browser->tab_strip_model()->active_index());
+  ASSERT_EQ(2, new_browser->GetTabStripModel()->count());
+  ASSERT_EQ(1, new_browser->GetTabStripModel()->active_index());
 
-  background_tab = new_browser->tab_strip_model()->GetWebContentsAt(0);
-  active_tab = new_browser->tab_strip_model()->GetWebContentsAt(1);
+  background_tab = new_browser->GetTabStripModel()->GetWebContentsAt(0);
+  active_tab = new_browser->GetTabStripModel()->GetWebContentsAt(1);
 
   // Background tab should not have a renderer.
   EXPECT_FALSE(background_tab->GetPrimaryMainFrame()->IsRenderFrameLive());
@@ -1485,9 +1489,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionProtocolTest,
   EXPECT_THAT(*detached.FindString("sessionId"), Eq("sessionId"));
 }
 
-// TODO(https://crbug.com/501442926): The following tests use guest view, which
-// is not yet supported on Android.
-#if !BUILDFLAG(IS_ANDROID)
+// TODO(https://crbug.com/501442926): The following tests use guest view in a
+// Chrome App, which is only supported on ChromeOS.
+#if BUILDFLAG(IS_CHROMEOS)
 
 // Accepts a list of URL predicates and allows awaiting for all matching
 // WebContents to load.
@@ -1794,7 +1798,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionProtocolTestWithGuestViewMPArch,
       *frame_id,
       guest_view->GetGuestMainFrame()->GetDevToolsFrameToken().ToString());
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
@@ -2129,6 +2133,104 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
   // CDP `Target.getTargets` result should contain the new target.
   SendCommandSync("Target.getTargets");
   EXPECT_EQ(2u, result()->FindList("targetInfos")->size());
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       TargetGetTargetsIncludesTabEmbedderData) {
+  AttachToBrowserTarget();
+
+  ASSERT_EQ(browser()->tab_strip_model()->count(), 1);
+  browser()->tab_strip_model()->SetTabPinned(0, true);
+
+  // Open a background tab to cover active and inactive tab metadata.
+  SendCommandSync("Target.createTarget", base::DictValue()
+                                             .Set("url", "about:blank")
+                                             .Set("forTab", true)
+                                             .Set("background", true));
+  ASSERT_FALSE(error());
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+
+  const tab_groups::TabGroupId group_id =
+      browser()->tab_strip_model()->AddToNewGroup({1});
+
+  base::DictValue tab_filter;
+  tab_filter.Set("type", "tab");
+  tab_filter.Set("exclude", false);
+  base::ListValue target_filter =
+      base::ListValue().Append(std::move(tab_filter));
+  base::DictValue get_targets_params;
+  get_targets_params.Set("filter", std::move(target_filter));
+  SendCommandSync("Target.getTargets", std::move(get_targets_params));
+  ASSERT_TRUE(result());
+
+  const base::ListValue* target_infos = result()->FindList("targetInfos");
+  ASSERT_TRUE(target_infos);
+  ASSERT_EQ(2u, target_infos->size());
+
+  const base::DictValue* first_tab_data = nullptr;
+  const base::DictValue* second_tab_data = nullptr;
+  std::string first_tab_target_id;
+  std::string second_tab_target_id;
+  for (const auto& target_info : *target_infos) {
+    const base::DictValue& target_info_dict = target_info.GetDict();
+    EXPECT_EQ("tab", *target_info_dict.FindString("type"));
+    const std::string* browser_context_id =
+        target_info_dict.FindString("browserContextId");
+    ASSERT_TRUE(browser_context_id);
+    EXPECT_EQ(browser()->profile()->UniqueId(), *browser_context_id);
+    const std::string* target_id = target_info_dict.FindString("targetId");
+    ASSERT_TRUE(target_id);
+    const base::DictValue* embedder_data =
+        target_info_dict.FindDict("embedderData");
+    ASSERT_TRUE(embedder_data);
+    std::optional<int> tab_strip_index =
+        embedder_data->FindInt("tabStripIndex");
+    ASSERT_TRUE(tab_strip_index);
+    if (*tab_strip_index == 0) {
+      first_tab_data = embedder_data;
+      first_tab_target_id = *target_id;
+    } else if (*tab_strip_index == 1) {
+      second_tab_data = embedder_data;
+      second_tab_target_id = *target_id;
+    }
+  }
+
+  ASSERT_TRUE(first_tab_data);
+  EXPECT_EQ(true, *first_tab_data->FindBool("tabActive"));
+  EXPECT_EQ(true, *first_tab_data->FindBool("tabPinned"));
+
+  ASSERT_TRUE(second_tab_data);
+  EXPECT_EQ(false, *second_tab_data->FindBool("tabActive"));
+  EXPECT_EQ(false, *second_tab_data->FindBool("tabPinned"));
+  EXPECT_EQ(group_id.ToString(), *second_tab_data->FindString("tabGroupId"));
+
+  ASSERT_FALSE(first_tab_target_id.empty());
+  SendCommandSync("Target.getTargetInfo",
+                  base::DictValue().Set("targetId", first_tab_target_id));
+  ASSERT_TRUE(result());
+  const base::Value* first_target_info_embedder_data =
+      result()->FindByDottedPath("targetInfo.embedderData");
+  ASSERT_TRUE(first_target_info_embedder_data);
+  const base::DictValue& first_get_target_info_data =
+      first_target_info_embedder_data->GetDict();
+  EXPECT_EQ(0, *first_get_target_info_data.FindInt("tabStripIndex"));
+  EXPECT_EQ(true, *first_get_target_info_data.FindBool("tabActive"));
+  EXPECT_EQ(true, *first_get_target_info_data.FindBool("tabPinned"));
+
+  ASSERT_FALSE(second_tab_target_id.empty());
+  SendCommandSync("Target.getTargetInfo",
+                  base::DictValue().Set("targetId", second_tab_target_id));
+  ASSERT_TRUE(result());
+  const base::Value* second_target_info_embedder_data =
+      result()->FindByDottedPath("targetInfo.embedderData");
+  ASSERT_TRUE(second_target_info_embedder_data);
+  const base::DictValue& second_get_target_info_data =
+      second_target_info_embedder_data->GetDict();
+  EXPECT_EQ(1, *second_get_target_info_data.FindInt("tabStripIndex"));
+  EXPECT_EQ(false, *second_get_target_info_data.FindBool("tabActive"));
+  EXPECT_EQ(false, *second_get_target_info_data.FindBool("tabPinned"));
+  EXPECT_EQ(group_id.ToString(),
+            *second_get_target_info_data.FindString("tabGroupId"));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

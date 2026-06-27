@@ -663,6 +663,18 @@ TEST_F(FilePathWatcherTest, WindowsBufferOverflow) {
   event_expecter.AddExpectedEventForPath(test_file());
   delegate.RunUntilEventsMatch(event_expecter);
 }
+
+TEST_F(FilePathWatcherTest, WindowsUsesSeparateOverlappedPerWatcher) {
+  FilePathWatcher watcher1, watcher2;
+  TestDelegate delegate1, delegate2;
+  ASSERT_TRUE(SetupWatch(test_file(), &watcher1, &delegate1,
+                         FilePathWatcher::Type::kNonRecursive));
+  ASSERT_TRUE(SetupWatch(test_file(), &watcher2, &delegate2,
+                         FilePathWatcher::Type::kNonRecursive));
+
+  EXPECT_NE(watcher1.GetOverlappedPointerForTest(),
+            watcher2.GetOverlappedPointerForTest());
+}
 #endif
 
 namespace {
@@ -932,7 +944,13 @@ TEST_F(FilePathWatcherTest, WatchDirectory) {
   delegate.RunUntilEventsMatch(event_expecter);
 }
 
-TEST_F(FilePathWatcherTest, MoveParent) {
+// TODO(crbug.com/40846416): Re-enable this test on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_MoveParent DISABLED_MoveParent
+#else
+#define MAYBE_MoveParent MoveParent
+#endif
+TEST_F(FilePathWatcherTest, MAYBE_MoveParent) {
   FilePathWatcher file_watcher, subdir_watcher;
   TestDelegate file_delegate, subdir_delegate;
   AccumulatingEventExpecter file_event_expecter, subdir_event_expecter;

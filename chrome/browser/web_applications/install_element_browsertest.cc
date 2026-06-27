@@ -14,6 +14,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_install_service_impl.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -71,7 +73,7 @@ class InstallElementBrowserTest : public WebAppBrowserTestBase {
     scoped_feature_list_.InitWithFeatures(
         {blink::features::kInstallElement,
          blink::features::kBypassPepcSecurityForTesting},
-        {});
+        {features::kWebAppInstallDialog});
   }
 
   void SetUpOnMainThread() override {
@@ -161,8 +163,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, Install) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
 
   // Click the install element and wait for the app to open.
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
@@ -214,8 +215,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, InstallWithUrl) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
   // Dynamically set the installurl attribute.
@@ -290,8 +290,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, InstallWithUrlAndId) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
   // Dynamically set the installurl and manifestid attributes.
@@ -361,8 +360,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, InstallWithUrl_UserDenies) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Simulate the user declining the install prompt.
-  auto auto_decline_pwa_install_confirmation =
-      SetAutoDeclinePWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoDeclineInstallDialogs auto_decline;
   base::HistogramTester histograms;
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
@@ -421,8 +419,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, Install_DenyPermission) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl);
   EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), current_document_url));
 
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
   base::HistogramTester histograms;
 
   // Block the web install permission for the current document origin.
@@ -470,8 +467,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest,
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
 
   // Dynamically set the installurl attribute to a background document URL.
   const GURL install_url =
@@ -709,7 +705,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementAndApiInteractionBrowserTest,
       browser(),
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
-  auto auto_accept = SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept;
 
   // Set the <install> element's installurl to a another test page.
   const GURL element_install_url =
@@ -791,18 +787,19 @@ class InstallElementOriginTrialBrowserTest
       case BaseFeatureStatus::kDisabled:
         scoped_feature_list_.InitWithFeatures(
             {blink::features::kBypassPepcSecurityForTesting},
-            {blink::features::kInstallElement});
+            {blink::features::kInstallElement, features::kWebAppInstallDialog});
         break;
       case BaseFeatureStatus::kEnabled:
         scoped_feature_list_.InitWithFeatures(
             {blink::features::kBypassPepcSecurityForTesting,
              blink::features::kInstallElement},
-            {});
+            {features::kWebAppInstallDialog});
         break;
       case BaseFeatureStatus::kDefault:
         // Only enable the bypass feature, let kInstallElement be at default.
         scoped_feature_list_.InitWithFeatures(
-            {blink::features::kBypassPepcSecurityForTesting}, {});
+            {blink::features::kBypassPepcSecurityForTesting},
+            {features::kWebAppInstallDialog});
         break;
     }
   }

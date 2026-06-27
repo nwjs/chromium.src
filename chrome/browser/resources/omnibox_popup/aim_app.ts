@@ -8,6 +8,7 @@ import '/strings.m.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {ComposeboxElement} from '//resources/cr_components/composebox/composebox.js';
+import type {VoicePermissionPromptState} from '//resources/cr_components/composebox/composebox_voice_search.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
@@ -17,9 +18,9 @@ import type {InputState} from '//resources/mojo/components/omnibox/composebox/co
 
 import {getCss} from './aim_app.css.js';
 import {getHtml} from './aim_app.html.js';
-import {BrowserProxy} from './aim_browser_proxy.js';
 import type {OmniboxComposeboxElement} from './omnibox_composebox.js';
-import type {PageCallbackRouter, PageHandlerInterface} from './omnibox_popup_aim.mojom-webui.js';
+import {browserProxyFactory} from './omnibox_popup_aim.mojom-webui.js';
+import type {BrowserProxy} from './omnibox_popup_aim.mojom-webui.js';
 
 export interface OmniboxAimAppElement {
   $: {
@@ -57,6 +58,8 @@ export class OmniboxAimAppElement extends CrLitElement {
       },
       disableVoiceSearchAnimation_: {type: Boolean},
       usePecApi_: {type: Boolean},
+      isOblongShape_: {type: Boolean},
+      webuiOmniboxSimplificationEnabled_: {type: Boolean},
     };
   }
 
@@ -82,31 +85,38 @@ export class OmniboxAimAppElement extends CrLitElement {
       loadTimeData.getBoolean('energyEffectEnabled');
   protected accessor usePecApi_: boolean =
       loadTimeData.getBoolean('contextualMenuUsePecApi');
+  protected accessor isOblongShape_: boolean =
+      loadTimeData.getBoolean('contextButtonShapeIsOblong');
+  protected accessor webuiOmniboxSimplificationEnabled_: boolean =
+      loadTimeData.getBoolean('webuiOmniboxSimplificationEnabled');
 
   private eventTracker_ = new EventTracker();
-  private pageHandler_: PageHandlerInterface;
-  private callbackRouter_: PageCallbackRouter;
+  private browserProxy_: BrowserProxy;
   private listenerIds_: number[] = [];
   private preserveContextOnClose_: boolean = false;
 
   constructor() {
     super();
     ColorChangeUpdater.forDocument().start();
-    this.callbackRouter_ = BrowserProxy.getInstance().callbackRouter;
-    this.pageHandler_ = BrowserProxy.getInstance().handler;
+    this.browserProxy_ = browserProxyFactory.getInstance();
   }
 
   override connectedCallback() {
     super.connectedCallback();
 
     this.listenerIds_ = [
-      this.callbackRouter_.onPopupShown.addListener(
+      this.browserProxy_.callbackRouter.onPopupShown.addListener(
           this.onPopupShown_.bind(this)),
-      this.callbackRouter_.addContext.addListener(this.addContext_.bind(this)),
-      this.callbackRouter_.focusInput.addListener(this.focusInput_.bind(this)),
-      this.callbackRouter_.clearPopup.addListener(this.clearPopup_.bind(this)),
-      this.callbackRouter_.setPreserveContextOnClose.addListener(
+      this.browserProxy_.callbackRouter.addContext.addListener(
+          this.addContext_.bind(this)),
+      this.browserProxy_.callbackRouter.focusInput.addListener(
+          this.focusInput_.bind(this)),
+      this.browserProxy_.callbackRouter.clearPopup.addListener(
+          this.clearPopup_.bind(this)),
+      this.browserProxy_.callbackRouter.setPreserveContextOnClose.addListener(
           this.setPreserveContextOnClose_.bind(this)),
+      this.browserProxy_.callbackRouter.onContextMenuClosed.addListener(
+          this.onContextMenuClosed_.bind(this)),
     ];
 
     this.eventTracker_.add(
@@ -126,7 +136,7 @@ export class OmniboxAimAppElement extends CrLitElement {
     this.eventTracker_.removeAll();
 
     for (const listenerId of this.listenerIds_) {
-      this.callbackRouter_.removeListener(listenerId);
+      this.browserProxy_.callbackRouter.removeListener(listenerId);
     }
     this.listenerIds_ = [];
   }
@@ -146,11 +156,46 @@ export class OmniboxAimAppElement extends CrLitElement {
       x: e.detail.x,
       y: e.detail.y,
     };
-    this.pageHandler_.showContextMenu(point);
+    // Force the button to keep its hover background visually while
+    // the menu is open, even if the mouse doesn't move out of the button
+    // area after clicking.
+    const contextButton = this.$.composebox.getContextEntrypointElement();
+    if (contextButton) {
+      contextButton.classList.add('menu-open');
+    }
+
+    this.browserProxy_.handler.showContextMenu(point);
   }
 
+  private onContextMenuClosed_() {
+    const contextButton = this.$.composebox.getContextEntrypointElement();
+    if (contextButton) {
+      contextButton.classList.remove('menu-open');
+    }
+  }
+
+  // Fired from voice search component in cr-composebox.
+  protected onEmbeddedVoicePermissionPromptChanged(
+      e: CustomEvent<VoicePermissionPromptState>) {
+    if (e.detail.isOpened) {  // Permission prompt opened.
+      if (this.$.composebox) {
+        this.$.composebox.classList.add('has-embedded-permission-prompt');
+        this.$.composebox.style.setProperty(
+            '--cr_composebox_minimum_height', `${e.detail.height}px`);
+        this.$.composebox.style.setProperty(
+            '--cr_composebox_minimum_width', `${e.detail.width}px`);
+      }
+    } else {  // Permission prompt closed.
+      if (this.$.composebox) {
+        this.$.composebox.classList.remove('has-embedded-permission-prompt');
+        this.$.composebox.style.removeProperty(
+            '--cr_composebox_minimum_height');
+        this.$.composebox.style.removeProperty('--cr_composebox_minimum_width');
+      }
+    }
+  }
   protected onCloseComposebox_() {
-    this.pageHandler_.requestClose();
+    this.browserProxy_.handler.requestClose();
   }
 
   protected setPreserveContextOnClose_(preserveContextOnClose: boolean) {

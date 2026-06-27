@@ -29,7 +29,6 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
@@ -118,8 +117,10 @@ class ProfileWindowBrowserTest : public InProcessBrowserTest {
   ~ProfileWindowBrowserTest() override = default;
 };
 
-IN_PROC_BROWSER_TEST_F(ProfileWindowBrowserTest, CountForNullBrowser) {
-  EXPECT_EQ(0, chrome::GetOffTheRecordBrowsersActiveForProfile(nullptr));
+IN_PROC_BROWSER_TEST_F(ProfileWindowBrowserTest,
+                       OffTheRecordCountWithNoIncognitoBrowsers) {
+  EXPECT_EQ(0u, ProfileBrowserCollection::GetForProfile(browser()->profile())
+                    ->GetOffTheRecordBrowserCount());
 }
 
 class ProfileWindowCountBrowserTest : public ProfileWindowBrowserTest,
@@ -130,10 +131,12 @@ class ProfileWindowCountBrowserTest : public ProfileWindowBrowserTest,
   bool is_incognito() { return GetParam(); }
 
   int GetWindowCount() {
-    return is_incognito() ? static_cast<int>(
-                                chrome::GetOffTheRecordBrowsersActiveForProfile(
-                                    browser()->profile()))
-                          : static_cast<int>(chrome::GetGuestBrowserCount());
+    return is_incognito()
+               ? static_cast<int>(ProfileBrowserCollection::GetForProfile(
+                                      browser()->profile())
+                                      ->GetOffTheRecordBrowserCount())
+               : static_cast<int>(GlobalBrowserCollection::GetInstance()
+                                      ->GetGuestBrowserCount());
   }
 
   Browser* CreateGuestOrIncognitoBrowser() {

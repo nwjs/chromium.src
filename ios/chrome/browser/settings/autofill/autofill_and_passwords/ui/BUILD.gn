@@ -4,9 +4,14 @@
 
 source_set("autofill_and_passwords") {
   sources = [
+    "autofill_ai_base_item_type.h",
+    "autofill_ai_base_mutator.h",
     "autofill_and_passwords_consumer.h",
     "autofill_and_passwords_table_view_controller.h",
     "autofill_and_passwords_table_view_controller.mm",
+    "autofill_settings_consumer.h",
+    "autofill_settings_table_view_controller.h",
+    "autofill_settings_table_view_controller.mm",
     "identity_docs_consumer.h",
     "identity_docs_table_view_controller.h",
     "identity_docs_table_view_controller.mm",
@@ -16,14 +21,19 @@ source_set("autofill_and_passwords") {
   ]
   deps = [
     "//base",
+    "//components/autofill/core/browser",
     "//components/strings",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/settings/autofill/autofill_ai/ui",
     "//ios/chrome/browser/settings/autofill/autofill_and_passwords/utils:autofill_and_passwords_item_utils",
     "//ios/chrome/browser/settings/ui_bundled:constants",
     "//ios/chrome/browser/settings/ui_bundled:settings_root",
+    "//ios/chrome/browser/settings/ui_bundled:settings_root_categories",
+    "//ios/chrome/browser/shared/ui/list_model",
     "//ios/chrome/browser/shared/ui/table_view",
     "//ios/chrome/browser/shared/ui/table_view:utils",
     "//ios/chrome/browser/shared/ui/table_view/cells",
+    "//ios/chrome/common/ui/table_view:cells_constants",
     "//ui/base",
   ]
 }

@@ -67,9 +67,6 @@ std::string DescribeTestVariant(const TestVariant& test_variant) {
   description += "And";
 
   switch (experiment_stage) {
-    case MV2ExperimentStage::kWarning:
-      description += "WarningExperiment";
-      break;
     case MV2ExperimentStage::kDisableWithReEnable:
       description += "DisableExperiment";
       break;
@@ -233,8 +230,7 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     MV2DeprecationImpactCheckerUnitTest,
     testing::Combine(
-        testing::Values(MV2ExperimentStage::kWarning,
-                        MV2ExperimentStage::kDisableWithReEnable,
+        testing::Values(MV2ExperimentStage::kDisableWithReEnable,
                         MV2ExperimentStage::kUnsupported),
         testing::Values(MV2PolicyLevel::kUnset,
                         MV2PolicyLevel::kAllowed,
@@ -248,8 +244,7 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     MV2DeprecationImpactCheckerUnitTestWithAllowlist,
     testing::Combine(
-        testing::Values(MV2ExperimentStage::kWarning,
-                        MV2ExperimentStage::kDisableWithReEnable,
+        testing::Values(MV2ExperimentStage::kDisableWithReEnable,
                         MV2ExperimentStage::kUnsupported),
         testing::Values(MV2PolicyLevel::kUnset,
                         MV2PolicyLevel::kAllowed,
@@ -509,6 +504,22 @@ TEST_P(MV2DeprecationImpactCheckerUnitTest, NonExtensionsAreNotAffected) {
 
   EXPECT_FALSE(impact_checker()->IsExtensionAffected(*platform_app));
   EXPECT_FALSE(impact_checker()->IsExtensionAffected(*hosted_app));
+}
+
+// Tests that user script MV2 extensions are properly considered affected by
+// the MV2 deprecation experiment.
+TEST_P(MV2DeprecationImpactCheckerUnitTest, UserScriptsAreAffected) {
+  scoped_refptr<const Extension> user_script =
+      ExtensionBuilder("user script")
+          .SetLocation(mojom::ManifestLocation::kInternal)
+          .SetManifestVersion(2)
+          .SetManifestKey("converted_from_user_script", true)
+          .Build();
+  ASSERT_EQ(Manifest::Type::kUserScript, user_script->GetType());
+
+  bool expected_affected = policy_level() != MV2PolicyLevel::kAllowed;
+  EXPECT_EQ(expected_affected,
+            impact_checker()->IsExtensionAffected(*user_script));
 }
 
 // Tests the allowlist is taken into account.

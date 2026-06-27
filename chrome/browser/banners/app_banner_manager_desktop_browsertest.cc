@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/password_manager/content/common/web_ui_constants.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -53,9 +55,10 @@ using State = AppBannerManager::State;
 class AppBannerManagerDesktopBrowserTest
     : public AppBannerManagerBrowserTestBase {
  public:
-  AppBannerManagerDesktopBrowserTest()
-      : auto_accept_pwa_install_confirmation_(
-            web_app::SetAutoAcceptPWAInstallConfirmationForTesting()) {}
+  AppBannerManagerDesktopBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        ::features::kWebAppInstallDialog);
+  }
 
   void SetUp() override {
     TestAppBannerManagerDesktop::SetUp();
@@ -72,8 +75,10 @@ class AppBannerManagerDesktopBrowserTest
       const AppBannerManagerDesktopBrowserTest&) = delete;
 
  private:
-  base::AutoReset<bool> auto_accept_pwa_install_confirmation_;
-};
+  base::test::ScopedFeatureList scoped_feature_list_;
+  web_app::test::ScopedAutoAcceptWebAppDialogs
+      auto_accept_pwa_install_confirmation_;
+};  // namespace webapps
 
 IN_PROC_BROWSER_TEST_F(AppBannerManagerDesktopBrowserTest,
                        WebAppBannerResolvesUserChoice) {
@@ -140,8 +145,8 @@ IN_PROC_BROWSER_TEST_F(AppBannerManagerDesktopBrowserTest,
         base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id,
                                        webapps::InstallResultCode code) {
           EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall, code);
-          EXPECT_EQ(installed_app_id,
-                    web_app::GenerateAppId(/*manifest_id=*/std::nullopt, url));
+          EXPECT_EQ(installed_app_id, web_app::GenerateAppId(
+                                          /*manifest_id=*/std::nullopt, url));
           callback_called = true;
         }));
 

@@ -264,6 +264,12 @@ void AXRelationCache::ProcessUpdatesWithCleanLayout() {
   owner_axids_to_update_.clear();
 }
 
+void AXRelationCache::QueueOwnerToUpdate(AXObject* owner) {
+  DCHECK(owner);
+  DCHECK(!owner->IsDetached());
+  owner_axids_to_update_.insert(owner->AXObjectID());
+}
+
 bool AXRelationCache::IsDirty() const {
   return !owner_axids_to_update_.empty();
 }
@@ -816,9 +822,13 @@ void AXRelationCache::MapOwnedChildrenWithCleanLayout(
             original_parent->ParentObject());
       }
     }
-    // Now that the child is owned, it's "included in tree" state must be
-    // recomputed because owned children are always included in the tree.
     added_child->UpdateCachedAttributeValuesIfNeeded(false);
+
+    // Re-evaluate the role since its required parent context is now satisfied.
+    if (added_child->RoleValue() !=
+        added_child->DetermineRawAriaRoleWithContext()) {
+      added_child->UpdateRole();
+    }
 
     // If the added child had a change in an inherited state because of the new
     // owner, that state needs to propagate into the subtree. Remove its
@@ -924,7 +934,9 @@ void AXRelationCache::UpdateAriaOwnsWithCleanLayout(AXObject* owner,
                             html_names::kAriaOwnsAttr)) {
     // TODO (crbug.com/41469336): Also check ElementInternals here.
     UpdateAriaOwnsFromAttrAssociatedElementsWithCleanLayout(
-        owner, *element->GetAttrAssociatedElements(html_names::kAriaOwnsAttr),
+        owner,
+        *element->GetAttrAssociatedElementsResolvingReferenceTarget(
+            html_names::kAriaOwnsAttr),
         owned_children, force);
   } else {
     // Figure out the ids that actually correspond to children that exist

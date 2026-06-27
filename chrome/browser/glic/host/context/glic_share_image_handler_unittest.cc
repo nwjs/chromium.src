@@ -136,8 +136,8 @@ class GlicShareImageHandlerTest : public testing::Test {
     handler_->is_share_in_progress_ = in_progress;
   }
 
-  void PerformPastePolicyCheckWhenReady() {
-    handler_->PerformPastePolicyCheckWhenReady();
+  void PerformTaskWhenReady(base::OnceClosure callback = base::DoNothing()) {
+    handler_->PerformTaskWhenReady(std::move(callback));
   }
 
   void ShareComplete(ShareImageResult result) {
@@ -151,6 +151,8 @@ class GlicShareImageHandlerTest : public testing::Test {
   void CallDidFinishNavigation(content::NavigationHandle* handle) {
     handler_->DidFinishNavigation(handle);
   }
+
+  void OnInvokeError(GlicInvokeError error) { handler_->OnInvokeError(error); }
 
  protected:
   content::BrowserTaskEnvironment task_environment_;
@@ -175,7 +177,7 @@ TEST_F(GlicShareImageHandlerTest, TimeoutNoInstance) {
   EXPECT_CALL(*handler_, IsClientReady(_)).WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_service_, GetInstanceForTab(_))
       .WillRepeatedly(Return(nullptr));
-  PerformPastePolicyCheckWhenReady();
+  PerformTaskWhenReady();
   task_environment_.FastForwardBy(base::Seconds(kBeyondShareTimeoutSeconds));
 
   histogram_tester_.ExpectBucketCount(
@@ -199,7 +201,7 @@ TEST_F(GlicShareImageHandlerTest, TimeoutNoWebClient) {
   EXPECT_CALL(mock_host, IsWebClientConnected()).WillRepeatedly(Return(false));
   EXPECT_CALL(*mock_service_, GetInstanceForTab(_))
       .WillRepeatedly(Return(&mock_instance));
-  PerformPastePolicyCheckWhenReady();
+  PerformTaskWhenReady();
   task_environment_.FastForwardBy(base::Seconds(kBeyondShareTimeoutSeconds));
 
   histogram_tester_.ExpectBucketCount(
@@ -223,7 +225,7 @@ TEST_F(GlicShareImageHandlerTest, TimeoutDidNotCompleteOnboarding) {
   EXPECT_CALL(mock_host, IsWebClientConnected()).WillRepeatedly(Return(true));
   EXPECT_CALL(*mock_service_, GetInstanceForTab(_))
       .WillRepeatedly(Return(&mock_instance));
-  PerformPastePolicyCheckWhenReady();
+  PerformTaskWhenReady();
   task_environment_.FastForwardBy(base::Seconds(kBeyondShareTimeoutSeconds));
 
   histogram_tester_.ExpectBucketCount(
@@ -245,6 +247,118 @@ TEST_F(GlicShareImageHandlerTest, SawNavigationDidNotCompleteOnboarding) {
       static_cast<int>(
           ShareImageResult::kFailedSawNavigationDidNotCompleteOnboarding),
       1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorUnknown) {
+  OnInvokeError(GlicInvokeError::kUnknown);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedUnknown), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorInvalidConversationId) {
+  OnInvokeError(GlicInvokeError::kInvalidConversationId);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedInvalidConversationId), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorInvokeInProgress) {
+  OnInvokeError(GlicInvokeError::kInvokeInProgress);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedInvokeInProgress), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorInvalidConfiguration) {
+  OnInvokeError(GlicInvokeError::kInvalidConfiguration);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedInvalidConfiguration), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorAdditionalContextNoClientFrame) {
+  OnInvokeError(GlicInvokeError::kAdditionalContextNoClientFrame);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedNoClientFrame), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest,
+       OnInvokeErrorAdditionalContextNoClipboardMetadata) {
+  OnInvokeError(GlicInvokeError::kAdditionalContextNoClipboardMetadata);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedNoClipboardMetadata), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorTimeoutConsented) {
+  SetFreCompletion(true);
+  OnInvokeError(GlicInvokeError::kTimeout);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedTimedOut), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorTimeoutNotConsented) {
+  SetFreCompletion(false);
+  OnInvokeError(GlicInvokeError::kTimeout);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(
+          ShareImageResult::kFailedTimedOutDidNotCompleteOnboarding),
+      1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorInvalidTab) {
+  OnInvokeError(GlicInvokeError::kInvalidTab);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedNoTab), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorTabClosed) {
+  OnInvokeError(GlicInvokeError::kTabClosed);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedNoTab), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorInstanceDestroyed) {
+  OnInvokeError(GlicInvokeError::kInstanceDestroyed);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedLostInstance), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorAdditionalContextSawNavigation) {
+  OnInvokeError(GlicInvokeError::kAdditionalContextSawNavigation);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedSawNavigation), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest,
+       OnInvokeErrorAdditionalContextFailedCopyPolicy) {
+  OnInvokeError(GlicInvokeError::kAdditionalContextFailedCopyPolicy);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedClipboardCopyPolicy), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest,
+       OnInvokeErrorAdditionalContextFailedPastePolicy) {
+  OnInvokeError(GlicInvokeError::kAdditionalContextFailedPastePolicy);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedClipboardPastePolicy), 1);
+}
+
+TEST_F(GlicShareImageHandlerTest, OnInvokeErrorAdditionalContextNoSourceFrame) {
+  OnInvokeError(GlicInvokeError::kAdditionalContextNoSourceFrame);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.TabContext.ShareImageResult",
+      static_cast<int>(ShareImageResult::kFailedNoFrame), 1);
 }
 
 }  // namespace glic

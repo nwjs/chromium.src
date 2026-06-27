@@ -13,12 +13,14 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "build/build_config.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
 #include "components/password_manager/core/browser/affiliation/mock_affiliated_match_helper.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/password_manager/core/browser/sharing/incoming_password_sharing_invitation_sync_bridge.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -42,8 +44,8 @@ using testing::Field;
 using testing::IsEmpty;
 using testing::ValuesIn;
 
-constexpr std::string_view kUrl = "https://www.test.com";
-constexpr std::string_view kPslMatchUrl = "https://m.test.com";
+constexpr std::string_view kUrl = "https://www.test.com/";
+constexpr std::string_view kPslMatchUrl = "https://m.test.com/";
 constexpr std::string_view kGroupedMatchUrl = "https://grouped.match.com/";
 constexpr std::u16string_view kUsername = u"username";
 constexpr std::u16string_view kPassword = u"password";
@@ -105,10 +107,11 @@ PasswordFormToIncomingSharingInvitation(const PasswordForm& form) {
 }
 
 scoped_refptr<TestPasswordStore> CreateStoreAndInit(
-    std::unique_ptr<AffiliatedMatchHelper> affiliated_match_helper) {
+    AffiliatedMatchHelper* affiliated_match_helper) {
   scoped_refptr<TestPasswordStore> store =
       base::MakeRefCounted<TestPasswordStore>();
-  store->Init(std::move(affiliated_match_helper));
+  store->SetAffiliatedMatchHelper(affiliated_match_helper);
+  store->Init();
   return store;
 }
 
@@ -122,8 +125,6 @@ class PasswordReceiverServiceImplTest : public testing::Test {
   }
 
   ~PasswordReceiverServiceImplTest() override {
-    affiliated_match_helper_profile_store_ = nullptr;
-    affiliated_match_helper_account_store_ = nullptr;
     account_password_store_->ShutdownOnUIThread();
     profile_password_store_->ShutdownOnUIThread();
   }
@@ -132,7 +133,7 @@ class PasswordReceiverServiceImplTest : public testing::Test {
 
   void AddLoginAndWait(const PasswordForm& form,
                        TestPasswordStore& password_store) {
-    password_store.AddLogin(form);
+    password_store.AddLogin(password_manager::FromPasswordForm(form));
     RunUntilIdle();
   }
 
@@ -199,20 +200,34 @@ class PasswordReceiverServiceImplTest : public testing::Test {
 
   syncer::TestSyncService& sync_service() { return sync_service_; }
 
+  void SetupAffiliatedAndGroupedRealms(
+      const PasswordFormDigest& form,
+      const std::vector<std::string>& affiliated_realms,
+      const std::vector<std::string>& grouped_realms = {}) {
+#if BUILDFLAG(IS_ANDROID)
+    expected_password_store_for_syncing().SetAffiliatedAndGroupedRealms(
+        form.signon_realm, affiliated_realms, grouped_realms);
+#else
+    expected_affiliated_match_helper_for_syncing()
+        .ExpectCallToGetAffiliatedAndGrouped(
+            form, affiliated_realms, grouped_realms, /*repeatedly=*/true);
+#endif
+  }
+
  private:
   base::test::SingleThreadTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   affiliations::FakeAffiliationService affiliation_service_;
-  raw_ptr<MockAffiliatedMatchHelper> affiliated_match_helper_profile_store_ =
-      new MockAffiliatedMatchHelper(&affiliation_service_);
+  std::unique_ptr<MockAffiliatedMatchHelper>
+      affiliated_match_helper_profile_store_ =
+          std::make_unique<MockAffiliatedMatchHelper>(&affiliation_service_);
   const scoped_refptr<TestPasswordStore> profile_password_store_ =
-      CreateStoreAndInit(
-          base::WrapUnique(affiliated_match_helper_profile_store_.get()));
-  raw_ptr<MockAffiliatedMatchHelper> affiliated_match_helper_account_store_ =
-      new MockAffiliatedMatchHelper(&affiliation_service_);
+      CreateStoreAndInit(affiliated_match_helper_profile_store_.get());
+  std::unique_ptr<MockAffiliatedMatchHelper>
+      affiliated_match_helper_account_store_ =
+          std::make_unique<MockAffiliatedMatchHelper>(&affiliation_service_);
   const scoped_refptr<TestPasswordStore> account_password_store_ =
-      CreateStoreAndInit(
-          base::WrapUnique(affiliated_match_helper_account_store_.get()));
+      CreateStoreAndInit(affiliated_match_helper_account_store_.get());
   std::unique_ptr<PasswordReceiverServiceImpl> password_receiver_service_ =
       std::make_unique<PasswordReceiverServiceImpl>(
           /*sync_bridge=*/nullptr,
@@ -650,9 +665,8 @@ TEST_F(PasswordReceiverServiceImplTest, ShouldIgnoreGroupedCredentials) {
 
   PasswordForm shared_form = CreatePasswordForm();
   PasswordFormDigest digest = PasswordFormDigest(shared_form);
-  expected_affiliated_match_helper_for_syncing()
-      .ExpectCallToGetAffiliatedAndGrouped(digest, {std::string(kUrl)},
-                                           {std::string(kGroupedMatchUrl)});
+  SetupAffiliatedAndGroupedRealms(digest, {std::string(kUrl)},
+                                  {std::string(kGroupedMatchUrl)});
   // Simulate an incoming invitation for the same stored passwords.
   sync_pb::IncomingPasswordSharingInvitationSpecifics invitation =
       PasswordFormToIncomingSharingInvitation(shared_form);

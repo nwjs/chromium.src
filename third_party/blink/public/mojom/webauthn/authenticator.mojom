@@ -59,6 +59,8 @@ enum AuthenticatorStatus {
   // credentials are found for a `get()` request.
   IMMEDIATE_NOT_FOUND,
 
+  CROSS_DEVICE_FALLBACK,
+
   UNKNOWN_ERROR,
 };
 
@@ -110,6 +112,12 @@ struct UvmEntry {
 // The output for the `supplementalPubKeys` extension.
 struct SupplementalPubKeysResponse {
   array<array<uint8>> signatures;
+};
+
+// The output for the CMTG key extension.
+struct CmtgKeyResponse {
+  array<uint8> cmtg_key;
+  array<uint8> signature;
 };
 
 // The `payment` extension response.
@@ -179,6 +187,9 @@ struct MakeCredentialAuthenticatorResponse {
 
   // The response for the payment extension.
   AuthenticationExtensionsPaymentResponse? payment;
+
+  // The response for the Credential Manager Trust Group key extension.
+  CmtgKeyResponse? cmtg_key;
 };
 
 struct GetAssertionAuthenticatorResponse {
@@ -214,6 +225,7 @@ struct AuthenticationExtensionsClientOutputs {
   // If so, |user_verification_methods| contains the actual value.
   [EnableIf=is_android]
   bool echo_user_verification_methods;
+
   [EnableIf=is_android]
   array<UvmEntry>? user_verification_methods;
 
@@ -247,6 +259,13 @@ struct AuthenticationExtensionsClientOutputs {
 
   // The response for the payment extension.
   AuthenticationExtensionsPaymentResponse? payment;
+
+  // The response for the Credential Manager Trust Group key extension.
+  CmtgKeyResponse? cmtg_key;
+
+  // The value of the `crossDeviceFallbackUrl` extension output, or null if
+  // none.
+  bool? cross_device_fallback_url;
 };
 
 // Information about the relying party. These fields take arbitrary input.
@@ -449,6 +468,15 @@ struct AuthenticationExtensionsClientInputs {
   // Parameters defining the type of browser bound keys that the relying party
   // would accept.
   array<PublicKeyCredentialParameters>? payment_browser_bound_key_parameters;
+
+  // `cmtg_key` is true if the request contained a Credential Manager Trust
+  // Group key extension.
+  // https://github.com/w3c/webauthn/pull/2377
+  bool cmtg_key = false;
+
+  // The cross-device fallback URL extension, if present.
+  // https://github.com/w3c/webauthn/pull/2380
+  url.mojom.Url? cross_device_fallback_url;
 };
 
 struct GetCredentialOptions {
@@ -597,6 +625,11 @@ struct PublicKeyCredentialCreationOptions {
   array<string> attestation_formats;
 
   bool is_conditional = false;
+
+  // `cmtg_key` is true if the request contained a Credential Manager Trust
+  // Group key extension.
+  // https://github.com/w3c/webauthn/pull/2377
+  bool cmtg_key = false;
 };
 
 // See https://w3c.github.io/webauthn/#enumdef-attestationconveyancepreference

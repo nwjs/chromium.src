@@ -28,7 +28,6 @@ import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.Before;
@@ -46,6 +45,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
@@ -62,11 +62,13 @@ import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper.FaviconImageCallback;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
+import org.chromium.components.tab_groups.TabGroupsFeatureMap;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.test.util.MockitoHelper;
 
 /** Unit tests for {@link StripDragShadowView}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
 public class StripDragShadowViewUnitTest {
     @Rule
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
@@ -252,7 +254,7 @@ public class StripDragShadowViewUnitTest {
     @Test
     public void testUpdate_OriginalFavicon() {
         TabFavicon.setInstanceForTesting(mMockTabFavicon);
-        when(mMockTabFavicon.getFavicon()).thenReturn(mMockOriginalFaviconBitmap);
+        when(mMockTabFavicon.getFavicon(anyBoolean())).thenReturn(mMockOriginalFaviconBitmap);
 
         mStripDragShadowView.prepareForTabDrag(mMockTab, 0);
         assertEquals(
@@ -338,8 +340,8 @@ public class StripDragShadowViewUnitTest {
         // Verify text color
         @ColorRes
         int expectedTextColor =
-                AppCompatResources.getColorStateList(
-                                mActivity,
+                mActivity
+                        .getColorStateList(
                                 incognito
                                         ? R.color.compositor_tab_title_bar_text_incognito
                                         : R.color.compositor_tab_title_bar_text)

@@ -4,7 +4,7 @@
 
 import("//ui/webui/webui_features.gni")
 
-assert(enable_webui_ntp)
+assert(!is_ios)
 
 source_set("searchbox") {
   sources = [
@@ -34,8 +34,6 @@ source_set("searchbox") {
   ]
   deps = [
     "//build:branding_buildflags",
-    "//chrome/app:generated_resources",
-    "//chrome/app:generated_resources_grit",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
     "//chrome/browser/autocomplete",
@@ -44,8 +42,6 @@ source_set("searchbox") {
     "//chrome/browser/omnibox",
     "//chrome/browser/preloading/search_preload",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/resources/new_tab_page:resources",
-    "//chrome/browser/resources/new_tab_page:resources_grit",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/search_engines",
     "//chrome/browser/ui/browser_window",
@@ -91,12 +87,15 @@ source_set("searchbox") {
     public_deps += [ "//chrome/browser/ui/webui/top_chrome" ]
     deps += [
       "//chrome/browser/contextual_tasks",
+      "//chrome/browser/resources/new_tab_page:resources",
+      "//chrome/browser/resources/new_tab_page:resources_grit",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/search",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/location_bar",
       "//chrome/browser/ui/webui/omnibox_popup/mojom",
       "//chrome/browser/ui/webui/top_chrome",
+      "//components/omnibox/common:features",
     ]
   }
 }

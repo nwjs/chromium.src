@@ -21,6 +21,7 @@ import org.junit.runner.RunWith;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -57,6 +58,7 @@ import org.chromium.ui.test.util.DeviceRestriction;
     ChromeFeatureList.ANDROID_THEME_MODULE
 })
 @Batch(Batch.PER_CLASS)
+@DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288348
 public class TabGroupListBottomSheetTest {
     @Rule
     public AutoResetCtaTransitTestRule mCtaTestRule =
@@ -64,6 +66,8 @@ public class TabGroupListBottomSheetTest {
 
     @Test
     @MediumTest
+    @EnableFeatures(
+            ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2 + ":show_tip_bottom_sheet/false")
     public void testNewGroup_RegularNewTabPageStation() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         WebPageStation pageStation =

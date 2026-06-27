@@ -18,47 +18,21 @@
 #include "chrome/browser/autofill/actor/actor_form_filling_service.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
-#include "chrome/common/actor/actor_logging.h"
-#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor_webui.mojom.h"
+#include "components/actor/core/actor_logging.h"
 #include "components/actor/core/actor_switches.h"
+#include "components/actor/core/journal_details_builder.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 
 namespace actor {
 
 using autofill::FieldGlobalId;
-using content::RenderFrameHost;
-using content::WebContents;
-using optimization_guide::TargetNodeInfo;
-using optimization_guide::proto::AnnotatedPageContent;
 
 namespace {
-
-FieldGlobalId GetFieldIdFromPageTarget(
-    const optimization_guide::proto::AnnotatedPageContent* last_observation,
-    tabs::TabInterface* tab,
-    const PageTarget& target) {
-  if (std::optional<TargetNodeInfo> node_info =
-          FindLastObservedNodeForActionTarget(last_observation, target)) {
-    if (WebContents* web_contents = tab->GetContents()) {
-      if (RenderFrameHost* rfh =
-              optimization_guide::GetRenderFrameForDocumentIdentifier(
-                  *web_contents,
-                  node_info->document_identifier.serialized_token())) {
-        return FieldGlobalId(
-            autofill::LocalFrameToken(rfh->GetFrameToken().value()),
-            autofill::FieldRendererId(node_info->node->content_attributes()
-                                          .common_ancestor_dom_node_id()));
-      }
-    }
-  }
-  return {};
-}
 
 mojom::ActionResultPtr FromServiceError(autofill::ActorFormFillingError error) {
   switch (error) {
@@ -151,8 +125,8 @@ mojom::ActionResultPtr AttemptFormFillingTool::TimeOfUseValidation(
                         /*requires_page_stabilization=*/false,
                         "At least one trigger field must be provided.");
     }
-    service_fill_requests_.emplace_back(request.requested_data,
-                                        std::move(field_ids));
+    service_fill_requests_.emplace_back(
+        request.requested_data, std::move(field_ids), request.section_label);
   }
 
   if (service_fill_requests_.empty()) {
@@ -322,7 +296,7 @@ bool AttemptFormFillingTool::OnFormPresented(
 
   form_fill_metrics::RecordOnSuggestionPresentedMetrics(
       /*is_first=*/request_index == 0,
-      service_fill_requests_[request_index].first);
+      service_fill_requests_[request_index].requested_data);
   tool_delegate().GetActorFormFillingService().ScrollToForm(*tab,
                                                             request_index);
   return true;
@@ -369,7 +343,7 @@ bool AttemptFormFillingTool::OnFormConfirmed(
 
   form_fill_metrics::RecordOnSuggestionConfirmedMetrics(
       /*is_last=*/request_index == service_fill_requests_.size() - 1,
-      service_fill_requests_[request_index].first);
+      service_fill_requests_[request_index].requested_data);
   autofill::ActorFormFillingSelection selection;
   selection.selected_suggestion_id = autofill::ActorSuggestionId(id);
   tool_delegate().GetActorFormFillingService().FillForm(

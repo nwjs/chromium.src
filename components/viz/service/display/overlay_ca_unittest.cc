@@ -219,7 +219,7 @@ class CALayerOverlayTest : public testing::Test {
   std::unique_ptr<ClientResourceProvider> child_resource_provider_;
   std::unique_ptr<CATestOverlayProcessor> overlay_processor_;
   gfx::Rect damage_rect_ = kOverlayDamageRect;
-  std::vector<gfx::Rect> content_bounds_;
+
 
  private:
   std::optional<OverlayCandidate> primary_plane_;
@@ -242,7 +242,7 @@ TEST_F(CALayerOverlayTest, AllowNonAxisAlignedTransform) {
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
       std::move(surface_damage_rect_list),
       GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-      &ca_layer_list, &damage_rect_, &content_bounds_);
+      &ca_layer_list, &damage_rect_);
   EXPECT_EQ(gfx::Rect(), damage_rect_);
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
   gfx::Rect overlay_damage = overlay_processor_->GetAndResetOverlayDamage();
@@ -266,7 +266,7 @@ TEST_F(CALayerOverlayTest, ThreeDTransform) {
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
       std::move(surface_damage_rect_list),
       GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-      &ca_layer_list, &damage_rect_, &content_bounds_);
+      &ca_layer_list, &damage_rect_);
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
   gfx::Rect overlay_damage = overlay_processor_->GetAndResetOverlayDamage();
   EXPECT_EQ(kRenderPassOutputRect, overlay_damage);
@@ -293,7 +293,7 @@ TEST_F(CALayerOverlayTest, AllowContainingClip) {
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
       std::move(surface_damage_rect_list),
       GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-      &ca_layer_list, &damage_rect_, &content_bounds_);
+      &ca_layer_list, &damage_rect_);
   EXPECT_EQ(gfx::Rect(), damage_rect_);
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
 }
@@ -314,7 +314,7 @@ TEST_F(CALayerOverlayTest, NontrivialClip) {
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
       std::move(surface_damage_rect_list),
       GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-      &ca_layer_list, &damage_rect_, &content_bounds_);
+      &ca_layer_list, &damage_rect_);
   EXPECT_EQ(gfx::Rect(), damage_rect_);
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
   EXPECT_EQ(gfx::Rect(64, 64, 128, 128),
@@ -337,7 +337,7 @@ TEST_F(CALayerOverlayTest, SkipTransparent) {
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
       std::move(surface_damage_rect_list),
       GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-      &ca_layer_list, &damage_rect_, &content_bounds_);
+      &ca_layer_list, &damage_rect_);
   EXPECT_EQ(gfx::Rect(), damage_rect_);
   EXPECT_EQ(0U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
 }
@@ -358,7 +358,7 @@ TEST_F(CALayerOverlayTest, SkipNonVisible) {
       resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
       std::move(surface_damage_rect_list),
       GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-      &ca_layer_list, &damage_rect_, &content_bounds_);
+      &ca_layer_list, &damage_rect_);
   EXPECT_EQ(gfx::Rect(), damage_rect_);
   EXPECT_EQ(0U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
 }
@@ -396,7 +396,7 @@ TEST_F(CALayerOverlayTest, TextureDrawQuadVideoOverlay) {
         resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
         std::move(surface_damage_rect_list),
         GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-        &ca_layer_list, &damage_rect_, &content_bounds_);
+        &ca_layer_list, &damage_rect_);
     EXPECT_EQ(gfx::Rect(), damage_rect_);
     EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
   }
@@ -419,7 +419,7 @@ TEST_F(CALayerOverlayTest, OverlayErrorCode) {
         resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
         std::move(surface_damage_rect_list),
         GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-        &ca_layer_list, &damage_rect_, &content_bounds_);
+        &ca_layer_list, &damage_rect_);
 
     // There should be no error.
     gfx::CALayerResult error_code = overlay_processor_->GetCALayerErrorCode();
@@ -447,7 +447,7 @@ TEST_F(CALayerOverlayTest, OverlayErrorCode) {
         resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
         std::move(surface_damage_rect_list),
         GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-        &ca_layer_list, &damage_rect_, &content_bounds_);
+        &ca_layer_list, &damage_rect_);
 
     // Overlay should fail when there is a copy request.
     EXPECT_EQ(0U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list));
@@ -473,7 +473,7 @@ class CALayerOverlayRPDQTest : public CALayerOverlayTest {
         resource_provider_.get(), &pass_list_, GetIdentityColorMatrix(),
         std::move(surface_damage_rect_list_),
         GetDefaultPrimaryPlane(pass_->output_rect.size()), &ca_layer_list_,
-        &damage_rect_, &content_bounds_);
+        &damage_rect_);
   }
   AggregatedRenderPassList pass_list_;
   raw_ptr<AggregatedRenderPass> pass_;
@@ -486,7 +486,7 @@ class CALayerOverlayRPDQTest : public CALayerOverlayTest {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadNoFilters) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   ProcessForOverlays();
 
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
@@ -495,7 +495,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadNoFilters) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadAllValidFilters) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   cc::FilterOperations filters;
   filters.Append(cc::FilterOperation::CreateGrayscaleFilter(0.1f));
   filters.Append(cc::FilterOperation::CreateSepiaFilter(0.2f));
@@ -522,7 +522,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadAllValidFilters) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadOpacityFilterScale) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   quad_->SetFilters(
       /*filters=*/cc::FilterOperations(
           {cc::FilterOperation::CreateOpacityFilter(0.8f)}),
@@ -537,7 +537,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadOpacityFilterScale) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBlurFilterScale) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   quad_->SetFilters(
       /*filters=*/cc::FilterOperations(
           {cc::FilterOperation::CreateBlurFilter(0.8f)}),
@@ -552,7 +552,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBlurFilterScale) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadDropShadowFilterScale) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   quad_->SetFilters(
       /*filters=*/cc::FilterOperations(
           {cc::FilterOperation::CreateDropShadowFilter(gfx::Point(10, 20), 1.0f,
@@ -568,7 +568,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadDropShadowFilterScale) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBackgroundFilter) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   quad_->SetFilters(
       /*filters=*/{},
       /*backdrop_filters=*/
@@ -583,7 +583,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBackgroundFilter) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadMask) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, ResourceId(2), gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   ProcessForOverlays();
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -591,7 +591,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadMask) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadUnsupportedFilter) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   quad_->SetFilters(
       /*filters=*/cc::FilterOperations(
           {cc::FilterOperation::CreateZoomFilter(0.9f, 1)}),
@@ -607,12 +607,12 @@ TEST_F(CALayerOverlayRPDQTest, TooManyRenderPassDrawQuads) {
   int count = 35;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, ResourceId(2), gfx::RectF(),
-                gfx::Size(), gfx::RectF(), false);
+                gfx::Size(), false);
   for (int i = 1; i < count; ++i) {
     auto* quad = pass_->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
     quad->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                  kOverlayRect, render_pass_id_, ResourceId(2), gfx::RectF(),
-                 gfx::Size(), gfx::RectF(), false);
+                 gfx::Size(), false);
   }
 
   ProcessForOverlays();

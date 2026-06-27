@@ -22,6 +22,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/load_credentials_state.h"
 #include "components/signin/public/identity_manager/token_binding_info.h"
+#include "crypto/signature_verifier.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "google_apis/gaia/oauth2_access_token_manager.h"
@@ -33,6 +34,7 @@
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "components/signin/internal/identity_manager/token_binding_helper.h"
+#include "components/signin/public/base/binding_key_registration_token_result.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_IOS)
@@ -48,6 +50,7 @@ class OAuth2AccessTokenFetcher;
 class OAuth2AccessTokenConsumer;
 class ProfileOAuth2TokenServiceObserver;
 class ProfileOAuth2TokenService;
+class FakeProfileOAuth2TokenServiceDelegate;
 
 // Abstract base class to fetch and maintain refresh tokens from various
 // entities. Concrete subclasses should implement RefreshTokenIsAvailable and
@@ -110,6 +113,21 @@ class ProfileOAuth2TokenServiceDelegate {
                                bool fire_auth_error_changed = true);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Asynchronously generates a registration token for binding a refresh token
+  // to a shared binding key.
+  // `supported_algorithms` is a list of acceptable signature algorithms. This
+  // parameter may be ignored if an existing binding key is reused instead of
+  // generating a new one.
+  // Returns false if the generation cannot be started. In that case, `callback`
+  // will not be invoked.
+  virtual bool GenerateBindingKeyRegistrationToken(
+      base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
+          supported_algorithms,
+      std::string_view auth_code,
+      base::OnceCallback<
+          void(std::optional<signin::BindingKeyRegistrationTokenResult>)>
+          callback) = 0;
+
   // Returns true iff (a) a refresh token exists for `account_id`, and (b) the
   // refresh token is bound to a device.
   virtual bool IsRefreshTokenBoundToKey(
@@ -199,6 +217,10 @@ class ProfileOAuth2TokenServiceDelegate {
   // Returns a pointer to its instance of net::BackoffEntry if it has one
   // (`use_backoff` was true in the constructor), or a nullptr otherwise.
   virtual const net::BackoffEntry* BackoffEntry() const;
+
+  // Returns `this` if this delegate is a fake, nullptr otherwise.
+  virtual FakeProfileOAuth2TokenServiceDelegate*
+  AsFakeProfileOAuth2TokenServiceDelegateForTesting();
 
   // -----------------------------------------------------------------------
   // Methods that are only used by ProfileOAuth2TokenService.

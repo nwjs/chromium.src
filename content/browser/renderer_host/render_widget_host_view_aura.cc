@@ -12,10 +12,12 @@
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_auto_reset.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "base/strings/strcat.h"
@@ -73,6 +75,7 @@
 #include "ui/aura/window_observer.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/aura_extra/window_position_in_root_monitor.h"
+#include "ui/base/class_property.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/cursor/cursor.h"
@@ -155,6 +158,13 @@ using blink::WebInputEvent;
 using blink::WebGestureEvent;
 using blink::WebTouchEvent;
 
+#if BUILDFLAG(IS_WIN)
+DEFINE_UI_CLASS_PROPERTY_TYPE(InputScope)
+DEFINE_UI_CLASS_PROPERTY_KEY(InputScope,
+                             kLastInputScopeKey,
+                             static_cast<InputScope>(-1))
+#endif
+
 namespace content {
 
 namespace {
@@ -165,6 +175,8 @@ namespace {
 BASE_FEATURE(kRenderWidgetHostHiddenCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kDeduplicateSetInputScope, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Arabic (101) HKL: 00000401
 const std::wstring_view kArabic101KeyboardLayoutName = L"00000401";
 
@@ -223,6 +235,7 @@ bool ShouldInputArabicIndicDigits(const ui::KeyEvent& event) {
          event.key_code() >= ui::VKEY_0 && event.key_code() <= ui::VKEY_9;
 }
 #endif  // BUILDFLAG(IS_WIN)
+
 }  // namespace
 
 #if BUILDFLAG(IS_WIN)
@@ -415,8 +428,19 @@ void RenderWidgetHostViewAura::InitAsChild(gfx::NativeView parent_view) {
   // once for each hwnd.
   if (window_->GetHost() && GetInputMethod()) {
     InputScope input_scope = ShouldDoLearning() ? IS_DEFAULT : IS_PRIVATE;
-    ui::tsf_inputscope::SetInputScope(
-        RenderWidgetHostViewAura::GetHostWindowHWND(), input_scope);
+    if (base::FeatureList::IsEnabled(kDeduplicateSetInputScope)) {
+      aura::WindowTreeHost* host = window_->GetHost();
+      InputScope last_input_scope =
+          host->window()->GetProperty(kLastInputScopeKey);
+      if (last_input_scope != input_scope) {
+        ui::tsf_inputscope::SetInputScope(
+            RenderWidgetHostViewAura::GetHostWindowHWND(), input_scope);
+        host->window()->SetProperty(kLastInputScopeKey, input_scope);
+      }
+    } else {
+      ui::tsf_inputscope::SetInputScope(
+          RenderWidgetHostViewAura::GetHostWindowHWND(), input_scope);
+    }
   }
 #endif
 }
@@ -474,7 +498,7 @@ void RenderWidgetHostViewAura::InitAsPopup(
                                         display::kInvalidDisplayId);
 
   SetBounds(bounds_in_screen);
-  Show();
+  ShowWithVisibility(PageVisibilityState::kVisible);
   if (NeedsMouseCapture())
     window_->SetCapture();
 
@@ -579,8 +603,15 @@ RenderFrameHostImpl* RenderWidgetHostViewAura::GetFocusedFrame() const {
 void RenderWidgetHostViewAura::HandleBoundsInRootChanged() {
 #if BUILDFLAG(IS_WIN)
   if (legacy_render_widget_host_HWND_) {
+    // `SetBounds()` calls ::SetWindowPos which can spin a nested message loop
+    // on Windows, potentially destroying `this`.
+    base::WeakPtr<RenderWidgetHostViewAura> weak_this(
+        weak_ptr_factory_.GetWeakPtr());
     legacy_render_widget_host_HWND_->SetBounds(
         window_->GetBoundsInRootWindow());
+    if (!weak_this) {
+      return;
+    }
   }
 #endif
   if (!in_shutdown_) {
@@ -647,10 +678,6 @@ bool RenderWidgetHostViewAura::IsShowing() {
   return window_->IsVisible();
 }
 
-void RenderWidgetHostViewAura::WasUnOccluded() {
-  ShowImpl(PageVisibilityState::kVisible);
-}
-
 void RenderWidgetHostViewAura::ShowImpl(PageVisibilityState page_visibility) {
   // OnShowWithPageVisibility will not call NotifyHostAndDelegateOnWasShown,
   // which updates `visibility_`, unless the host is hidden. Make sure no update
@@ -704,6 +731,8 @@ void RenderWidgetHostViewAura::NotifyHostAndDelegateOnWasShown(
 
 #if BUILDFLAG(IS_WIN)
   UpdateLegacyWin();
+  // WARNING: Do not add any code after this line, since the last call can
+  // potentially destroy `this`.
 #endif
 }
 
@@ -977,6 +1006,21 @@ void RenderWidgetHostViewAura::SetInsets(const gfx::Insets& insets) {
   }
 }
 
+void RenderWidgetHostViewAura::SetForceSpecifiedDeadline(
+    std::optional<uint32_t> deadline_in_frames) {
+  if (delegated_frame_host_) {
+    delegated_frame_host_->SetForceSpecifiedDeadline(deadline_in_frames);
+  }
+}
+
+std::optional<uint32_t>
+RenderWidgetHostViewAura::GetForceSpecifiedDeadlineForTesting() {
+  if (delegated_frame_host_) {
+    return delegated_frame_host_->GetForceSpecifiedDeadlineForTesting();
+  }
+  return std::nullopt;
+}
+
 void RenderWidgetHostViewAura::UpdateCursor(const ui::Cursor& cursor) {
   GetCursorManager()->UpdateCursor(this, cursor);
 }
@@ -1017,8 +1061,15 @@ void RenderWidgetHostViewAura::ShowWithVisibility(
   }
 
   window_->Show();
+
+  base::WeakPtr<RenderWidgetHostViewAura> weak_this(
+      weak_ptr_factory_.GetWeakPtr());
+
   ShowImpl(page_visibility);
 #if BUILDFLAG(IS_WIN)
+  if (!weak_this) {
+    return;
+  }
   if (page_visibility != PageVisibilityState::kVisible &&
       legacy_render_widget_host_HWND_) {
     legacy_render_widget_host_HWND_->Hide();
@@ -1331,9 +1382,18 @@ void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
   for (size_t i = 0; i < touch.event.touches_length; ++i) {
     if (touch.event.touches[i].state == required_state) {
       CHECK(!sent_ack);
+      // ProcessedTouchEvent() triggers synchronous gesture dispatch, which can
+      // lead to focus or window activation changes. Observers of these changes
+      // may synchronously destroy the WebContents and this view. We must guard
+      // this call with a WeakPtr liveness check before dereferencing 'this'
+      // (e.g., via host() or delegate calls below).
+      auto weak_this = weak_ptr_factory_.GetWeakPtr();
       window_host->dispatcher()->ProcessedTouchEvent(
           touch.event.unique_touch_event_id, window_, result,
           input::InputEventResultStateIsSetBlocking(ack_result));
+      if (!weak_this) {
+        return;
+      }
       if (touch.event.touch_start_or_first_touch_move &&
           result == ui::ER_HANDLED && host()->delegate() &&
           host()->delegate()->GetInputEventRouter()) {
@@ -2235,7 +2295,13 @@ std::optional<gfx::Size> RenderWidgetHostViewAura::GetMaximumSize() const {
 
 void RenderWidgetHostViewAura::OnBoundsChanged(const gfx::Rect& old_bounds,
                                                const gfx::Rect& new_bounds) {
-  base::AutoReset<bool> in_bounds_changed(&in_bounds_changed_, true);
+  // OnCaretBoundsChanged() below may call out to a third-party TSF IME on
+  // Windows, which can re-entrantly destroy `this`. Use WeakAutoReset so the
+  // unwind write does not land in freed memory (AutoReset::scoped_variable_ is
+  // RAW_PTR_EXCLUSION and not BRP-protected).
+  base::WeakAutoReset in_bounds_changed(
+      weak_ptr_factory_.GetWeakPtr(),
+      &RenderWidgetHostViewAura::in_bounds_changed_, true);
   // We care about this whenever RenderWidgetHostViewAura is not owned by a
   // WebContentsViewAura since changes to the Window's bounds need to be
   // messaged to the renderer.  WebContentsViewAura invokes SetSize() or
@@ -2244,7 +2310,12 @@ void RenderWidgetHostViewAura::OnBoundsChanged(const gfx::Rect& old_bounds,
   SetSize(new_bounds.size());
 
   if (GetInputMethod()) {
+    auto weak_this = weak_ptr_factory_.GetWeakPtr();
     GetInputMethod()->OnCaretBoundsChanged(this);
+    // `this` may have been deleted inside the IME callout.
+    if (!weak_this) {
+      return;
+    }
     UpdateInsetsWithVirtualKeyboardEnabled();
   }
 }
@@ -2511,8 +2582,11 @@ void RenderWidgetHostViewAura::OnStartStylusWriting() {
   // callback response from the renderer process. This will be used to discard
   // responses in OnFocusHandled()/OnFocusFailed() later for such cases.
   handwriting_controller->OnStartStylusWriting(
-      base::BindRepeating(&RenderWidgetHostViewAura::OnFocusHandwritingTarget,
-                          weak_ptr_factory_.GetWeakPtr()),
+      stylus_handwriting_focus_callback_.is_null()
+          ? base::BindRepeating(
+                &RenderWidgetHostViewAura::OnFocusHandwritingTarget,
+                weak_ptr_factory_.GetWeakPtr())
+          : std::move(stylus_handwriting_focus_callback_),
       last_stylus_handwriting_properties_.value());
   last_stylus_handwriting_properties_.reset();
 }
@@ -2560,14 +2634,24 @@ void RenderWidgetHostViewAura::OnEditElementFocusedForStylusWriting(
                : handwriting_controller->OnFocusFailed();
 }
 
+void RenderWidgetHostViewAura::SetStylusHandwritingFocusCallback(
+    OnFocusHandwritingTargetCallback callback) {
+  stylus_handwriting_focus_callback_ = std::move(callback);
+}
+
 void RenderWidgetHostViewAura::OnFocusHandwritingTarget(
     const gfx::Rect& focus_screen_rect_in_dips,
     const gfx::Size& tolerance_screen_distance_in_dips) {
   // TODO(crbug.com/355578906): Consider `tolerance_screen_distance_in_dips`.
-  if (host()) {
-    host()->UpdateElementFocusForStylusWriting(
-        ConvertRectFromScreen(focus_screen_rect_in_dips));
+  if (!host()) {
+    if (StylusHandwritingControllerWin::GetInstance()) {
+      StylusHandwritingControllerWin::GetInstance()->OnFocusFailed();
+    }
+    return;
   }
+
+  host()->UpdateElementFocusForStylusWriting(
+      ConvertRectFromScreen(focus_screen_rect_in_dips));
 }
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -2998,6 +3082,11 @@ void RenderWidgetHostViewAura::ResetGestureDetection() {
   // which can confuse event validation.
 }
 
+void RenderWidgetHostViewAura::SetShouldUseDefaultDeadlineOnResize(
+    bool enable) {
+  use_default_deadline_on_resize_ = enable;
+}
+
 bool RenderWidgetHostViewAura::FocusedFrameHasStickyActivation() const {
   // Unless user has interacted with the iframe, we shouldn't be displaying VK
   // or fire geometrychange event.
@@ -3079,7 +3168,14 @@ void RenderWidgetHostViewAura::InternalSetBounds(const gfx::Rect& rect) {
                               window_->GetLocalSurfaceId());
 
 #if BUILDFLAG(IS_WIN)
+  // `UpdateLegacyWin()` can spin a nested message loop on Windows, potentially
+  // destroying `this`.
+  base::WeakPtr<RenderWidgetHostViewAura> weak_this(
+      weak_ptr_factory_.GetWeakPtr());
   UpdateLegacyWin();
+  if (!weak_this) {
+    return;
+  }
 
   if (IsPointerLocked()) {
     UpdateMouseLockRegion();
@@ -3109,9 +3205,19 @@ void RenderWidgetHostViewAura::UpdateLegacyWin() {
   }
 
   if (legacy_render_widget_host_HWND_) {
+    // Both UpdateParent and SetBounds can spin a nested message loop on
+    // Windows, potentially destroying `this`.
+    base::WeakPtr<RenderWidgetHostViewAura> weak_this(
+        weak_ptr_factory_.GetWeakPtr());
     legacy_render_widget_host_HWND_->UpdateParent(GetHostWindowHWND());
+    if (!weak_this) {
+      return;
+    }
     legacy_render_widget_host_HWND_->SetBounds(
         window_->GetBoundsInRootWindow());
+    if (!weak_this) {
+      return;
+    }
     // There are cases where the parent window is created, made visible and
     // the associated RenderWidget is also visible before the
     // LegacyRenderWidgetHostHWND instace is created. Ensure that it is shown
@@ -3142,7 +3248,14 @@ void RenderWidgetHostViewAura::AddedToRootWindow() {
   }
 
 #if BUILDFLAG(IS_WIN)
+  // `UpdateLegacyWin()` can spin a nested message loop on Windows, potentially
+  // destroying `this`.
+  base::WeakPtr<RenderWidgetHostViewAura> weak_this(
+      weak_ptr_factory_.GetWeakPtr());
   UpdateLegacyWin();
+  if (!weak_this) {
+    return;
+  }
 #endif
 
   delegated_frame_host_->AttachToCompositor(GetCompositor());
@@ -3526,6 +3639,10 @@ ui::Compositor* RenderWidgetHostViewAura::GetCompositor() {
     return nullptr;
 
   return window_->GetHost()->compositor();
+}
+
+bool RenderWidgetHostViewAura::ShouldUseDefaultDeadlineOnResize() const {
+  return use_default_deadline_on_resize_;
 }
 
 #if BUILDFLAG(IS_WIN)

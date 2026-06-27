@@ -64,31 +64,30 @@ inline bool ShouldUseDecoratingBox(const ComputedStyle& style) {
 
 float ComputeDecorationThickness(
     const TextDecorationThickness& text_decoration_thickness,
-    float computed_font_size,
-    const SimpleFontData* font_data) {
-  const float auto_underline_thickness = computed_font_size / 10.f;
+    const UsedFont& used_font) {
+  float used_font_size = used_font.UsedSize();
+  const float auto_underline_thickness = used_font_size / 10.f;
 
   if (text_decoration_thickness.IsAuto())
     return auto_underline_thickness;
 
-  // In principle we would not need to test for font_data if
-  // |text_decoration_thickness.Thickness()| is fixed, but a null font_data here
-  // would be a rare / error situation anyway, so practically, we can
+  // In principle we would not need to test for PrimaryFont() if
+  // |text_decoration_thickness.Thickness()| is fixed, but a null PrimaryFont()
+  // here would be a rare / error situation anyway, so practically, we can
   // early out here.
-  if (!font_data)
+  if (!used_font.PrimaryFont()) {
     return auto_underline_thickness;
+  }
 
   if (text_decoration_thickness.IsFromFont()) {
-    std::optional<float> font_underline_thickness =
-        font_data->GetFontMetrics().UnderlineThickness();
-    return font_underline_thickness.value_or(auto_underline_thickness);
+    return used_font.UnderlineThickness().value_or(auto_underline_thickness);
   }
 
   DCHECK(!text_decoration_thickness.IsFromFont());
 
   const Length& thickness_length = text_decoration_thickness.Thickness();
   const float text_decoration_thickness_pixels =
-      FloatValueForLength(thickness_length, computed_font_size);
+      FloatValueForLength(thickness_length, used_font_size);
   return roundf(text_decoration_thickness_pixels);
 }
 
@@ -348,8 +347,7 @@ DecorationGeometry TextDecorationInfo::ComputeUnderlineLineData(
   }
   float paint_underline_offset = decoration_offset.ComputeUnderlineOffset(
       decoration.underline_position, decoration.used_font.ComputedSize(),
-      decoration.used_font.PrimaryFont(), line_offset,
-      decoration.resolved_thickness);
+      decoration.used_font, line_offset, decoration.resolved_thickness);
   // The offset is for the decorating box. Convert it for the target text/box.
   paint_underline_offset += decoration.offset_from_decorating_box;
   return ComputeLineData(decoration, TextDecorationLine::kUnderline,
@@ -372,9 +370,8 @@ DecorationGeometry TextDecorationInfo::ComputeOverlineLineData(
   }
   const int paint_overline_offset =
       decoration_offset.ComputeUnderlineOffsetForUnder(
-          line_offset, TargetStyle().ComputedFontSize(),
-          decoration.used_font.PrimaryFont(), decoration.resolved_thickness,
-          position);
+          line_offset, TargetStyle().ComputedFontSize(), decoration.used_font,
+          decoration.resolved_thickness, position);
   return ComputeLineData(decoration, TextDecorationLine::kOverline,
                          paint_overline_offset);
 }
@@ -400,8 +397,7 @@ DecorationGeometry TextDecorationInfo::ComputeSpellingOrGrammarErrorLineData(
   DCHECK(!decoration.HasLineThrough());
   const int paint_underline_offset = decoration_offset.ComputeUnderlineOffset(
       decoration.underline_position, TargetStyle().ComputedFontSize(),
-      decoration.used_font.PrimaryFont(), Length(),
-      decoration.resolved_thickness);
+      decoration.used_font, Length(), decoration.resolved_thickness);
   return ComputeLineData(decoration,
                          decoration.HasSpellingError()
                              ? TextDecorationLine::kSpellingError
@@ -451,8 +447,7 @@ float TextDecorationInfo::ComputeThickness(
 #endif
   }
   const float thickness = ComputeDecorationThickness(
-      decoration.applied_text_decoration->Thickness(),
-      decoration.used_font.ComputedSize(), decoration.used_font.PrimaryFont());
+      decoration.applied_text_decoration->Thickness(), decoration.used_font);
   return std::max(is_svg_text_ ? 0.0f : 1.0f, thickness);
 }
 

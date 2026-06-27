@@ -165,6 +165,10 @@ id<GREYMatcher> PrimaryToolbar() {
   return [ChromeMatchersAppInterface primaryToolbar];
 }
 
+id<GREYMatcher> SecondaryToolbar() {
+  return [ChromeMatchersAppInterface secondaryToolbar];
+}
+
 id<GREYMatcher> CancelButton() {
   return [ChromeMatchersAppInterface cancelButton];
 }
@@ -271,6 +275,10 @@ id<GREYMatcher> ToolsMenuButton() {
   return [ChromeMatchersAppInterface toolsMenuButton];
 }
 
+id<GREYMatcher> ToolsMenuNTPButton() {
+  return [ChromeMatchersAppInterface toolsMenuNTPButton];
+}
+
 id<GREYMatcher> NewTabButton() {
   return [ChromeMatchersAppInterface openNewTabButton];
 }
@@ -287,8 +295,17 @@ id<GREYMatcher> TabShareButton() {
   return [ChromeMatchersAppInterface tabShareButton];
 }
 
+id<GREYMatcher> OverflowMenuShareButton() {
+  return [ChromeMatchersAppInterface overflowMenuShareButton];
+}
+
 id<GREYMatcher> ShowTabsButton() {
   return [ChromeMatchersAppInterface showTabsButton];
+}
+
+id<GREYMatcher> ShowTabsButtonWithCount(NSString* count) {
+  return grey_allOf(grey_descendant(grey_accessibilityLabel(count)),
+                    ShowTabsButton(), nil);
 }
 
 id<GREYMatcher> BlueDotOnShowTabsButton() {

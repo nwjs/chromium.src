@@ -24,9 +24,9 @@ source_set("android_tab_model_impl") {
     "//chrome/browser/android:tabs_public",
     "//chrome/browser/favicon",
     "//chrome/browser/ui/android/tab_model",
-    "//chrome/browser/ui/tabs/tab_strip_api/adapters",
-    "//chrome/browser/ui/tabs/tab_strip_api/types",
     "//components/browser_apis/tab_strip:mojom",
+    "//components/browser_apis/tab_strip/adapters",
+    "//components/browser_apis/tab_strip/types",
     "//components/tabs:public",
     "//mojo/public/mojom/base",
     "//skia",
@@ -40,6 +40,7 @@ source_set("browser_tests") {
 
   sources = [
     "android_tab_strip_api_browsertest.cc",
+    "android_tab_strip_api_events_browsertest.cc",
     "android_translation_adapter_browsertest.cc",
   ]
 
@@ -49,9 +50,10 @@ source_set("browser_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ui/tabs/tab_strip_api",
-    "//chrome/browser/ui/tabs/tab_strip_api:impl",
-    "//chrome/browser/ui/tabs/tab_strip_api/adapters",
     "//chrome/test:test_support",
+    "//components/browser_apis/tab_strip:service",
+    "//components/browser_apis/tab_strip/adapters",
+    "//components/browser_apis/tab_strip/testing",
     "//content/test:test_support",
     "//testing/gtest",
   ]

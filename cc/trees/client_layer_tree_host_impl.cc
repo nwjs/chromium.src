@@ -50,12 +50,12 @@ std::unique_ptr<ClientLayerTreeHostImpl> ClientLayerTreeHostImpl::Create(
     RasterDarkModeFilter* dark_mode_filter,
     int id,
     scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
-    LayerTreeHostSchedulingClient* scheduling_client) {
+    LayerTreeHostSchedulingDelegate* scheduling_delegate) {
   CHECK(!settings.trees_in_viz_in_viz_process);
   return base::WrapUnique(new ClientLayerTreeHostImpl(
       settings, delegate, task_runner_provider, rendering_stats_instrumentation,
       task_graph_runner, std::move(mutator_host), dark_mode_filter, id,
-      std::move(image_worker_task_runner), scheduling_client));
+      std::move(image_worker_task_runner), scheduling_delegate));
 }
 
 ClientLayerTreeHostImpl::~ClientLayerTreeHostImpl() = default;
@@ -170,7 +170,6 @@ void ClientLayerTreeHostImpl::PullLayerTreeHostPropertiesFrom(
   set_viewport_mobile_optimized(commit_state.is_viewport_mobile_optimized);
   SetPrefersReducedMotion(commit_state.prefers_reduced_motion);
   SetMayThrottleIfUndrawnFrames(commit_state.may_throttle_if_undrawn_frames);
-  prefer_efficient_scheduling_ = commit_state.prefer_efficient_scheduling;
 }
 
 void ClientLayerTreeHostImpl::RecordGpuRasterizationHistogram() {

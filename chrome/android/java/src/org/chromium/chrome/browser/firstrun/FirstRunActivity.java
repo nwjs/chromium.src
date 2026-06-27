@@ -31,6 +31,7 @@ import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureList;
 import org.chromium.base.Promise;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.Initializer;
@@ -248,8 +249,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        if (FeatureList.isNativeInitialized()
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)) {
+        if (ChromeFeatureList.sDefaultBrowserPromoFre.isEnabled()) {
             // Called by Android right before the First Run Activity is destroyed (toggle dark mode,
             // etc.). Before activity recreation, store which page the user was looking at.
             outState.putInt(KEY_LAST_PAGER_INDEX, mPager.getCurrentItem());
@@ -530,16 +530,14 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
         RecordHistogram.recordTimesHistogram(
                 "MobileFre.NativeInitialized", SystemClock.elapsedRealtime() - getStartTime());
 
-        if (FeatureList.isNativeInitialized()) {
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.XPLAT_SYNCED_SETUP)) {
-                SharedPreferencesManager prefManager = ChromeSharedPreferences.getInstance();
-                prefManager.writeBoolean(
-                        ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX, false);
-                prefManager.writeBoolean(
-                        ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_ALL_SETTINGS, false);
-            }
-        } else {
-            assert false : "Expected feature list to be initialized during FRE.";
+        assert FeatureList.isNativeInitialized()
+                : "Expected feature list to be initialized during FRE.";
+        if (ChromeFeatureList.sXplatSyncedSetup.isEnabled()) {
+            SharedPreferencesManager prefManager = ChromeSharedPreferences.getInstance();
+            prefManager.writeBoolean(
+                    ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX, false);
+            prefManager.writeBoolean(
+                    ChromePreferenceKeys.CROSS_DEVICE_IMPORTED_ALL_SETTINGS, false);
         }
     }
 
@@ -651,8 +649,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
 
         int position = mPager.getCurrentItem() - 1;
 
-        if (FeatureList.isNativeInitialized()
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)
+        if (ChromeFeatureList.sDefaultBrowserPromoFre.isEnabled()
                 && position >= 0
                 && mPages.get(position).getFragmentClass() == HistorySyncFirstRunFragment.class) {
             // The user can now go back to history sync.
@@ -778,8 +775,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
 
     /** Initialize local state from launch intent and from saved instance state. */
     private void initializeStateFromLaunchData() {
-        if (FeatureList.isNativeInitialized()
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)) {
+        if (ChromeFeatureList.sDefaultBrowserPromoFre.isEnabled()) {
             // When a configuration change (like a theme toggle) occurs, the FirstRunActivity
             // instance is destroyed and recreated. We restore the saved state from the previous
             // instance's Bundle to ensure the user's progress in the FRE flow is preserved.
@@ -873,9 +869,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
                         @Override
                         public void onAnimationEnd(Animator animation) {
                             mPager.endFakeDrag();
-                            if (FeatureList.isNativeInitialized()
-                                    && ChromeFeatureList.isEnabled(
-                                            ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)
+                            if (ChromeFeatureList.sDefaultBrowserPromoFre.isEnabled()
                                     && mPager.getCurrentItem() != position) {
                                 // When the user stays signed out, we jump from index 0 (sign-in
                                 // page) to index 2 (promo page) and skip index 1 (History sync).
@@ -971,6 +965,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
     public static void setObserverForTest(FirstRunActivityObserver observer) {
         assert sObserver == null;
         sObserver = observer;
+        ResettersForTesting.register(() -> sObserver = null);
     }
 
     public static void disableAnimationForTesting(boolean isAnimationDisabled) {

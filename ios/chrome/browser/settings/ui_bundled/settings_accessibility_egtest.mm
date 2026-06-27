@@ -1,9 +1,11 @@
 // Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+#import <TargetConditionals.h>
 
 #import "base/ios/ios_util.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -215,6 +217,14 @@ id<GREYMatcher> BandwidthSettingsButton() {
 // Verifies the UI elements are accessible on the Bandwidth Preload Webpages
 // Settings page.
 - (void)testAccessibilityOnBandwidthPreloadWebpagesSettingsPage {
+#if !TARGET_OS_SIMULATOR
+  // TODO(crbug.com/455701421): Re-enable this flaky test on iPhone device on
+  // iOS below 26.
+  if (![ChromeEarlGrey isIPadIdiom] && !base::ios::IsRunningOnIOS26OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Flaky on iPhone device on iOS below 26.");
+  }
+#endif
+
   [ChromeEarlGreyUI openSettingsMenu];
   [ChromeEarlGreyUI tapSettingsMenuButton:BandwidthSettingsButton()];
   [[EarlGrey selectElementWithMatcher:BandwidthPreloadWebpagesButton()]

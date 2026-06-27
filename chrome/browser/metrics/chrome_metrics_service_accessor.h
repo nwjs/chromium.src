@@ -49,6 +49,7 @@ class TestDomainReliabilityServiceDelegate;
 namespace extensions {
 class ChromeGuestViewManagerDelegate;
 class ChromeMetricsPrivateDelegate;
+class GlicPrivateInvokeFunction;
 }  // namespace extensions
 
 namespace first_run {
@@ -150,15 +151,13 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class domain_reliability::TestDomainReliabilityServiceDelegate;
   friend class extensions::ChromeGuestViewManagerDelegate;
   friend class extensions::ChromeMetricsPrivateDelegate;
-  friend void ChangeMetricsReportingStateWithReply(
+  friend class extensions::GlicPrivateInvokeFunction;
+  friend void metrics::ChangeMetricsReportingStateWithReplyImpl(
       bool,
-      OnMetricsReportingCallbackType,
-      ChangeMetricsReportingStateCalledFrom);
-  friend void ChangeMetricsReportingLevelWithReply(
-      metrics::MetricsReportingLevel,
-      OnMetricsReportingLevelCallbackType,
-      ChangeMetricsReportingLevelCalledFrom);
-  friend void ApplyMetricsReportingPolicy();
+      metrics::OnMetricsReportingCallbackType,
+      metrics::ChangeMetricsReportingStateCalledFrom,
+      std::optional<metrics::MetricsReportingLevel>);
+  friend void metrics::ApplyMetricsReportingPolicy();
   friend class ash::settings::PerSessionSettingsUserActionTracker;
   friend class settings::MetricsReportingHandler;
   friend class UmaSessionStats;

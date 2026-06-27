@@ -124,6 +124,7 @@ export class ComposeboxFile {
   iconName: string|null;
   supportsUnimodal: boolean;
   thumbnailUrl?: string|null;
+  iconUrl?: Url|null;
 
   constructor(
       uuid: UnguessableToken, name: string, type: string, inputType: InputType,
@@ -141,6 +142,7 @@ export class ComposeboxFile {
     this.iconName = options?.iconName ?? null;
     this.supportsUnimodal = options?.supportsUnimodal ?? false;
     this.thumbnailUrl = options?.thumbnailUrl ?? null;
+    this.iconUrl = options?.iconUrl ?? null;
   }
 
   static createFromFile(
@@ -196,6 +198,7 @@ export interface DriveUpload {
   mimeType: string;
   fileName: string;
   thumbnailUrl: string|null;
+  iconUrl: Url|null;
 }
 
 export enum TabUploadOrigin {
@@ -399,6 +402,9 @@ export function recordInputTypeShown(
     case InputType.kBrowserTab:
       contextType = ContextType.TAB;
       break;
+    case InputType.kDrive:
+      contextType = ContextType.DRIVE;
+      break;
     default:
       break;
   }
@@ -446,5 +452,27 @@ export function isContextUploadStatusTerminal(status: ContextUploadStatus):
       return false;
     default:
       assertNotReachedCase(status, 'Unknown enum value');
+  }
+}
+
+export function mapUploadErrorToProcessFilesError(errorType: ContextUploadErrorType):
+    ProcessFilesError {
+  switch (errorType) {
+    case ContextUploadErrorType.kBrowserProcessingFileTooLargeError:
+      return ProcessFilesError.FILE_TOO_LARGE;
+    case ContextUploadErrorType.kBrowserProcessingFileEmptyError:
+      return ProcessFilesError.FILE_EMPTY;
+    case ContextUploadErrorType.kBrowserProcessingMaxFilesExceededError:
+      return ProcessFilesError.MAX_FILES_EXCEEDED;
+    case ContextUploadErrorType.kBrowserProcessingUnsupportedFileTypeError:
+      return ProcessFilesError.INVALID_TYPE;
+    case ContextUploadErrorType.kBrowserProcessingFileUploadNotAllowedError:
+      return ProcessFilesError.FILE_UPLOAD_NOT_ALLOWED;
+    case ContextUploadErrorType.kBrowserProcessingMaxImagesExceededError:
+      return ProcessFilesError.MAX_IMAGES_EXCEEDED;
+    case ContextUploadErrorType.kBrowserProcessingMaxPdfsExceededError:
+      return ProcessFilesError.MAX_PDFS_EXCEEDED;
+    default:
+      return ProcessFilesError.NONE;
   }
 }

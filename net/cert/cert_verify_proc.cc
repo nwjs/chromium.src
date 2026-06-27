@@ -240,6 +240,8 @@ void BestEffortCheckOCSP(const std::string& raw_response,
 // |spki_hashes| - that is, situations in which the OS methods of detecting
 // a known root flag a certificate as known, but its hash is not known as part
 // of the built-in list.
+// TODO(crbug.com/347047630): Remove this after the new histogram has
+// accumulated sufficient history.
 void RecordTrustAnchorHistogram(const std::vector<SHA256HashValue>& spki_hashes,
                                 bool is_issued_by_known_root) {
   int32_t id = 0;
@@ -587,8 +589,8 @@ void CertVerifyProc::LogNameNormalizationResult(
     const std::string& histogram_suffix,
     NameNormalizationResult result) {
   base::UmaHistogramEnumeration(
-      std::string("Net.CertVerifier.NameNormalizationPrivateRoots") +
-          histogram_suffix,
+      base::StrCat(
+          {"Net.CertVerifier.NameNormalizationPrivateRoots", histogram_suffix}),
       result);
 }
 

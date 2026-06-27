@@ -69,12 +69,12 @@ class SubtleCrypto final : public ScriptWrappable {
                              ExceptionState&);
   // Note that this is not named "verify" because when compiling on Mac that
   // expands to a macro and breaks.
-  ScriptPromise<IDLAny> verifySignature(ScriptState*,
-                                        const V8AlgorithmIdentifier*,
-                                        CryptoKey*,
-                                        const V8BufferSource* signature,
-                                        const V8BufferSource* data,
-                                        ExceptionState&);
+  ScriptPromise<IDLBoolean> verifySignature(ScriptState*,
+                                            const V8AlgorithmIdentifier*,
+                                            CryptoKey*,
+                                            const V8BufferSource* signature,
+                                            const V8BufferSource* data,
+                                            ExceptionState&);
   ScriptPromise<IDLAny> digest(ScriptState*,
                                const V8AlgorithmIdentifier*,
                                const V8BufferSource* data,
@@ -158,6 +158,10 @@ class SubtleCrypto final : public ScriptWrappable {
       CryptoKey* decapsulation_key,
       const V8BufferSource* ciphertext,
       ExceptionState&);
+  ScriptPromise<CryptoKey> getPublicKey(ScriptState*,
+                                        CryptoKey*,
+                                        const Vector<String>& key_usages,
+                                        ExceptionState&);
 
   // Length is in bits
   static bool supports(ScriptState*,

@@ -90,6 +90,31 @@ int GetWidth(const base::Value& value) {
   return value.GetInt();
 }
 
+// Helper function to return the HTML string for the fixed bottom element test.
+std::string GetFixedBottomHtml() {
+  return "<!DOCTYPE html>\n"
+         "<html>\n"
+         "<head>\n"
+         "  <meta name='viewport' content='width=device-width, "
+         "initial-scale=1.0'>\n"
+         "  <style>\n"
+         "    body { margin: 0; height: 2000px; }\n"
+         "    #fixed { \n"
+         "      position: fixed; \n"
+         "      bottom: 0; \n"
+         "      left: 0; \n"
+         "      right: 0; \n"
+         "      height: 50px; \n"
+         "      background-color: red; \n"
+         "    }\n"
+         "  </style>\n"
+         "</head>\n"
+         "<body>\n"
+         "  <div id='fixed'>Fixed</div>\n"
+         "</body>\n"
+         "</html>";
+}
+
 // Helper function to create 404 Not Found responses.
 std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   auto response = std::make_unique<net::test_server::BasicHttpResponse>();
@@ -117,6 +142,9 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_disabled.push_back(web::features::kSmoothScrollingDefault);
+  config.features_disabled.push_back(kFullscreenRefactoring);
+  // TODO(crbug.com/511992708): Fix these tests when Chrome Next is enabled.
+  config.features_disabled.push_back(kChromeNextIa);
   config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
   return config;
 }
@@ -671,6 +699,37 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
                                    error:nil];
 }
 
+- (void)testFixedElementBottom {
+  // TODO(crbug.com/514648248): Re-enable this test on iPad.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Disabled for iPad (crbug.com/514648248).");
+  }
+
+  _responses["/fixed-bottom"] = GetFixedBottomHtml();
+
+  GURL URL = self.testServer->GetURL("/fixed-bottom");
+  [ChromeEarlGrey loadURL:URL];
+  [ChromeEarlGrey waitForWebStateContainingText:"Fixed"];
+
+  int elementBottom = GetWidth([ChromeEarlGrey
+      evaluateJavaScript:
+          @"document.getElementById('fixed').getBoundingClientRect().bottom"]);
+  int screenHeight =
+      [ChromeEarlGrey screenPositionOfScreenWithNumber:0].size.height;
+  UIEdgeInsets insets = [FullscreenAppInterface currentViewportInsets];
+  UIEdgeInsets safeArea = [FullscreenAppInterface currentWindowSafeArea];
+
+  int screenBottom = insets.top + elementBottom;
+  int expectedScreenBottom =
+      screenHeight - ([FullscreenAppInterface isFullscreenRefactoringEnabled]
+                          ? insets.bottom
+                          : MAX(insets.bottom, safeArea.bottom));
+
+  GREYAssertEqual(screenBottom, expectedScreenBottom,
+                  @"Fixed element bottom should be on top of the bottom "
+                  @"toolbar or safe area.");
+}
+
 @end
 
 #pragma mark - Smooth scrolling enabled Tests
@@ -687,6 +746,9 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
   config.features_disabled.push_back(
       web::features::kSmoothScrollingUseDelegate);
+  config.features_disabled.push_back(kFullscreenRefactoring);
+  // TODO(crbug.com/511992708): Fix these tests when Chrome Next is enabled.
+  config.features_disabled.push_back(kChromeNextIa);
   return config;
 }
 
@@ -753,6 +815,9 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   config.features_enabled.push_back(web::features::kSmoothScrollingDefault);
   config.features_enabled.push_back(web::features::kSmoothScrollingUseDelegate);
   config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
+  config.features_disabled.push_back(kFullscreenRefactoring);
+  // TODO(crbug.com/511992708): Fix these tests when Chrome Next is enabled.
+  config.features_disabled.push_back(kChromeNextIa);
   return config;
 }
 
@@ -777,6 +842,52 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
       assertWithMatcher:grey_scrollViewContentOffset(
                             CGPointMake(0, expectedYOffset))];
+}
+
+@end
+
+#pragma mark - FullscreenRefactoring tests
+
+// Fullscreens tests for FullscreenRefactoring implementation.
+@interface FullscreenRefactoringTestCase : ZZZFullscreenTestCase
+@end
+
+@implementation FullscreenRefactoringTestCase
+
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config;
+  config.features_enabled.push_back(kFullscreenRefactoring);
+  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
+  config.features_disabled.push_back(web::features::kSmoothScrollingDefault);
+  // TODO(crbug.com/511992708): Fix these tests when Chrome Next is enabled.
+  config.features_disabled.push_back(kChromeNextIa);
+  return config;
+}
+
+// This is currently needed to prevent this test case from being ignored.
+- (void)testEmpty {
+}
+
+// TODO(crbug.com/499969010): Ensure PDFs display properly with new Fullscreen
+// implementation.
+- (void)testLongPDFInitialState {
+  EARL_GREY_TEST_SKIPPED(@"Skipped for FullscreenRefactoringTestCase.");
+}
+
+// TODO(crbug.com/499969010): Ensure PDFs display properly with new Fullscreen
+// implementation.
+- (void)testLongPDFScroll {
+  EARL_GREY_TEST_SKIPPED(@"Skipped for FullscreenRefactoringTestCase.");
+}
+
+// TODO(crbug.com/500414020): Implement force fullscreen in refactored code.
+- (void)testTapOnCollapsedToolbarExitsForceFullscreenMode {
+  EARL_GREY_TEST_SKIPPED(@"Skipped for FullscreenRefactoringTestCase.");
+}
+
+// Viewport-fit=cover is not supported for FullscreenRefactoring.
+- (void)testViewportFitCover {
+  EARL_GREY_TEST_SKIPPED(@"Skipped for FullscreenRefactoringTestCase.");
 }
 
 @end

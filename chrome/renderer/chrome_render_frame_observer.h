@@ -12,10 +12,10 @@
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "chrome/common/actor.mojom.h"
-#include "chrome/common/actor/task_id.h"  // nogncheck
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/renderer/actor/tool_executor.h"
+#include "components/actor/core/task_id.h"  // nogncheck
 #include "components/page_content_annotations/content/mojom/page_stability.mojom.h"
 #include "components/safe_browsing/buildflags.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -141,6 +141,7 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
       mojo::PendingAssociatedRemote<actor::mojom::JournalClient> client)
       override;
   void GetCrossDocumentScriptToolResult(
+      const base::UnguessableToken& execution_id,
       GetCrossDocumentScriptToolResultCallback callback) override;
   // Multiple calls will clobber a PageStabilityMonitor previously created and
   // it's the caller's responsibility to ensure the monitor is unneeded before

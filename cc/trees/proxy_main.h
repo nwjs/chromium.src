@@ -96,7 +96,7 @@ class CC_EXPORT ProxyMain : public Proxy {
       LayerTreeFrameSink* layer_tree_frame_sink) override;
   void SetVisible(bool visible) override;
   void SetShouldWarmUp() override;
-  void SetNeedsAnimate(bool urgent) override;
+  void SetNeedsAnimate(BeginMainFrameReason, bool urgent) override;
   void SetNeedsUpdateLayers() override;
   void SetNeedsCommit() override;
   void SetNeedsRedraw(const gfx::Rect& damage_rect) override;
@@ -110,7 +110,7 @@ class CC_EXPORT ProxyMain : public Proxy {
   void SetInputResponsePending() override;
   bool StartDeferringCommits(base::TimeDelta timeout,
                              PaintHoldingReason reason) override;
-  void StopDeferringCommits(PaintHoldingCommitTrigger) override;
+  void StopDeferringCommits() override;
   bool IsDeferringCommits() const override;
   void SetShouldThrottleFrameRate(bool flag) override;
   void SetRequestHighFramerate(bool flag) override;
@@ -132,6 +132,7 @@ class CC_EXPORT ProxyMain : public Proxy {
       base::optional_ref<const BrowserControlsOffsetTagModifications>
           offset_tag_modifications) override;
   void RequestBeginMainFrameNotExpected(bool new_state) override;
+  void SendImmediateBeginMainFrame() override;
   void SetSourceURL(ukm::SourceId source_id, const GURL& url) override;
   void SetRenderFrameObserver(
       std::unique_ptr<RenderFrameMetadataObserver> observer) override;
@@ -144,7 +145,8 @@ class CC_EXPORT ProxyMain : public Proxy {
 
   // Returns |true| if the request was actually sent, |false| if one was
   // already outstanding.
-  bool SendCommitRequestToImplThreadIfNeeded(CommitPipelineStage required_stage,
+  bool SendCommitRequestToImplThreadIfNeeded(BeginMainFrameReason reason,
+                                             CommitPipelineStage required_stage,
                                              bool urgent);
   // Indicates whether the main thread needs a BeginMainFrame callback in order
   // to make progress.
@@ -166,6 +168,10 @@ class CC_EXPORT ProxyMain : public Proxy {
   // notifications. This is different from BeginFrameNeeded() for cases where we
   // temporarily stop drawing.
   bool ShouldSubscribeToBeginFrames() const;
+
+  void set_begin_main_frame_reason(const BeginMainFrameReason reason) {
+    begin_main_frame_reason_.set(static_cast<int>(reason));
+  }
 
   raw_ptr<LayerTreeHost> layer_tree_host_;
 
@@ -219,6 +225,7 @@ class CC_EXPORT ProxyMain : public Proxy {
   bool begin_frame_source_paused_ = false;
   int main_frames_in_flight_ = 0;
   bool needs_begin_main_frame_ = false;
+  std::bitset<BeginMainFrameReasonSize> begin_main_frame_reason_;
   viz::BeginFrameArgs last_begin_main_frame_args_;
   bool begin_impl_frame_idle_ = false;
   bool request_begin_main_frame_not_expected_ = false;

@@ -6,6 +6,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 
@@ -13,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -24,6 +26,7 @@
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/media_service.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/service_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -62,8 +65,11 @@
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
 #if BUILDFLAG(IS_WIN)
+#include "base/win/windows_handle_util.h"
+#include "content/browser/media/content_protection_window.h"
 #include "content/browser/media/dcomp_surface_registry_broker.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "media/base/media_switches.h"
 #include "media/base/win/mf_feature_checks.h"
 #include "media/cdm/win/media_foundation_cdm.h"
 #include "ui/display/screen.h"
@@ -230,6 +236,34 @@ class FrameInterfaceFactoryImpl : public media::mojom::FrameInterfaceFactory,
     }
     std::move(callback).Run(frame_rect);
   }
+
+  // Returns a browser-owned HWND parented to the frame's top-level browser
+  // window, transmitted as `uint32`. The HWND lives in
+  // `content_protection_window_` and is created lazily on the first call
+  // so frames that never use Media Foundation hardware DRM pay no cost.
+  // Returns 0 if the feature flag is disabled or if the HWND
+  // cannot be created (headless mode, frame torn down, etc.).
+  void GetContentProtectionWindow(
+      GetContentProtectionWindowCallback callback) override {
+    if (!base::FeatureList::IsEnabled(
+            media::kMediaFoundationMultiGpuAdapterSelection)) {
+      std::move(callback).Run(0u);
+      return;
+    }
+    if (!content_protection_window_.has_value()) {
+      ContentProtectionWindowOrStatus result =
+          ContentProtectionWindow::Create(render_frame_host_);
+      base::UmaHistogramEnumeration(
+          "Media.EME.ContentProtectionWindow.CreateStatus",
+          result.has_value() ? ContentProtectionWindowStatus::kSuccess
+                             : result.error());
+      content_protection_window_ =
+          result.has_value() ? std::move(result).value() : nullptr;
+    }
+    auto* window = content_protection_window_->get();
+    std::move(callback).Run(
+        base::win::HandleToUint32(window ? window->hwnd() : nullptr));
+  }
 #endif  // BUILDFLAG(IS_WIN)
 
   void BindEmbedderReceiver(mojo::GenericPendingReceiver receiver) override {
@@ -251,6 +285,12 @@ class FrameInterfaceFactoryImpl : public media::mojom::FrameInterfaceFactory,
 
 #if BUILDFLAG(IS_WIN)
   mojo::RemoteSet<media::mojom::MuteStateObserver> site_mute_observers_;
+
+  // `has_value()` indicates `ContentProtectionWindow::Create()` has been
+  // attempted. The inner pointer is null if creation failed. This prevents
+  // retrying creation (and re-recording the UMA) on every call.
+  std::optional<std::unique_ptr<ContentProtectionWindow>>
+      content_protection_window_;
 #endif  // BUILDFLAG(IS_WIN)
 };
 
@@ -405,8 +445,7 @@ void MediaInterfaceProxy::CreateMediaFoundationRenderer(
 
     // `MediaFoundationRenderer` bypasses the browser's audio service.
     // Authorize the frame for audibility bypass claims.
-    AudibilityBypassAuthorization::GetOrCreateForCurrentDocument(
-        &render_frame_host());
+    AudibilityBypassTracker::AddGrant(&render_frame_host());
   }
 }
 #endif  // BUILDFLAG(IS_WIN)
@@ -531,7 +570,11 @@ void MediaInterfaceProxy::ConnectToMediaFoundationService(
   // Passing an empty CdmType since it is not needed in this scenario.
   auto& mf_service = GetMediaFoundationService(
       media::CdmType(), render_frame_host().GetBrowserContext(),
-      render_frame_host().GetSiteInstance()->GetSiteURL(), cdm_path);
+      render_frame_host()
+          .GetSiteInstance()
+          ->GetSecurityPrincipal()
+          .GetDeprecatedSiteURL(),
+      cdm_path);
 
   // Passing an empty CdmType as MediaFoundation-based CDMs don't use CdmStorage
   // currently.
@@ -595,7 +638,10 @@ media::mojom::CdmFactory* MediaInterfaceProxy::ConnectToCdmService(
   DCHECK(!cdm_factory_map_.count(cdm_info.type));
 
   auto* browser_context = render_frame_host().GetBrowserContext();
-  auto& site = render_frame_host().GetSiteInstance()->GetSiteURL();
+  auto& site = render_frame_host()
+                   .GetSiteInstance()
+                   ->GetSecurityPrincipal()
+                   .GetDeprecatedSiteURL();
   auto& cdm_service = GetCdmService(browser_context, site, cdm_info);
 
   mojo::Remote<media::mojom::CdmFactory> cdm_factory_remote;

@@ -13,7 +13,6 @@
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_context.h"
@@ -30,7 +29,6 @@
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_builder.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/features/feature_provider.h"
 #include "extensions/common/features/simple_feature.h"
@@ -50,7 +48,8 @@ class MockEventRouterObserver : public EventRouter::Observer {
  public:
   MockEventRouterObserver()
       : listener_added_count_(0),
-        listener_removed_count_(0) {}
+        listener_removed_count_(0),
+        listener_updated_count_(0) {}
 
   MockEventRouterObserver(const MockEventRouterObserver&) = delete;
   MockEventRouterObserver& operator=(const MockEventRouterObserver&) = delete;
@@ -59,11 +58,13 @@ class MockEventRouterObserver : public EventRouter::Observer {
 
   int listener_added_count() const { return listener_added_count_; }
   int listener_removed_count() const { return listener_removed_count_; }
+  int listener_updated_count() const { return listener_updated_count_; }
   const std::string& last_event_name() const { return last_event_name_; }
 
   void Reset() {
     listener_added_count_ = 0;
     listener_removed_count_ = 0;
+    listener_updated_count_ = 0;
     last_event_name_.clear();
   }
 
@@ -78,9 +79,15 @@ class MockEventRouterObserver : public EventRouter::Observer {
     last_event_name_ = details.event_name;
   }
 
+  void OnListenerUpdated(const EventListenerInfo& details) override {
+    listener_updated_count_++;
+    last_event_name_ = details.event_name;
+  }
+
  private:
   int listener_added_count_;
   int listener_removed_count_;
+  int listener_updated_count_;
   std::string last_event_name_;
 };
 
@@ -645,10 +652,6 @@ TEST_F(EventRouterTest, AddLazyListenerForUnloadedExtension) {
 // TODO(crbug.com/474558883): Remove this after webRequest listener
 // persistence is stable for a few milestones.
 TEST_F(EventRouterTest, RemovesOrphanedWebRequestEvents) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      extensions_features::kWebRequestPersistFilteredEventsViaEventRouter);
-
   EventRouter* router = EventRouter::Get(browser_context());
   scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
 
@@ -846,6 +849,67 @@ TEST_P(EventRouterFilterTest, SubEventNamedListenerReplacesPersistedFilter) {
   EXPECT_TRUE(ContainsFilter(kExtensionId, kEventName, filter_bar));
 }
 
+// Re-registering a sub-event-named listener with a different filter must
+// update the in-memory lazy listener in place rather than accumulate a stale
+// entry alongside the new one. Regression test for crbug.com/508672617.
+TEST_P(EventRouterFilterTest,
+       SubEventNamedListenerReplacesInMemoryLazyListener) {
+  const std::string kEventName = "webRequest.onBeforeRequest/s0";
+  const std::string kExtensionId = "mbflcebpggnecokmikipoihdbecnjfoj";
+  auto param = mojom::EventListenerOwner::NewExtensionId(kExtensionId);
+
+  // The extension must be enabled so the lazy listener actually lands in the
+  // in-memory map.
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("Test").SetID(kExtensionId).Build();
+  ExtensionRegistry::Get(browser_context())->AddEnabled(extension);
+
+  std::unique_ptr<mojom::ServiceWorkerContext> worker_context;
+  if (is_for_service_worker()) {
+    worker_context = std::make_unique<mojom::ServiceWorkerContext>(
+        Extension::GetBaseURLFromExtensionId(kExtensionId),
+        99,    // Placeholder version_id.
+        199);  // Placeholder thread_id.
+  }
+
+  // Register a listener for "foo.com".
+  const base::DictValue filter_foo = CreateHostSuffixFilter("foo.com");
+  event_router()->AddFilteredEventListener(
+      kEventName, render_process_host(), param.Clone(), worker_context.get(),
+      filter_foo, /*add_lazy_listener=*/true);
+  ASSERT_TRUE(event_router()->HasLazyEventListenerWithFilterForTesting(
+      kEventName, filter_foo));
+
+  MockEventRouterObserver observer;
+  event_router()->RegisterObserver(&observer,
+                                   EventRouter::GetBaseEventName(kEventName));
+
+  // Re-register the same sub-event with a different filter.
+  const base::DictValue filter_bar = CreateHostSuffixFilter("bar.com");
+  event_router()->AddFilteredEventListener(
+      kEventName, render_process_host(), param.Clone(), worker_context.get(),
+      filter_bar, /*add_lazy_listener=*/true);
+
+  // The lazy listener's filter changed but the listener itself was neither
+  // added nor removed: observers see exactly one `OnListenerUpdated()` and no
+  // `OnListenerRemoved()`. The single `OnListenerAdded()` is for the (separate)
+  // active listener's re-registration, not the lazy one.
+  EXPECT_EQ(0, observer.listener_removed_count());
+  EXPECT_EQ(1, observer.listener_updated_count());
+  EXPECT_EQ(1, observer.listener_added_count());
+  event_router()->UnregisterObserver(&observer);
+
+  // The new lazy listener is present and the stale one is gone.
+  EXPECT_TRUE(event_router()->HasLazyEventListenerWithFilterForTesting(
+      kEventName, filter_bar));
+  EXPECT_FALSE(event_router()->HasLazyEventListenerWithFilterForTesting(
+      kEventName, filter_foo));
+
+  // Prefs also reflect only the latest filter.
+  EXPECT_TRUE(ContainsFilter(kExtensionId, kEventName, filter_bar));
+  EXPECT_FALSE(ContainsFilter(kExtensionId, kEventName, filter_foo));
+}
+
 // TODO(crbug.com/40281129): test is flaky across platforms.
 TEST_P(EventRouterFilterTest, DISABLED_URLBasedFilteredEventListener) {
   const std::string kEventName = "windows.onRemoved";
@@ -1019,12 +1083,10 @@ TEST_F(EventRouterDispatchTest, TestDispatchCallback) {
   const int sw_version_id = 10;
   const int sw_thread_id = 100;
   MockEventDispatcher sw_event_dispatcher;
-  event_router()->AddServiceWorkerEventListener(
-      mojom::EventListener::New(
-          mojom::EventListenerOwner::NewExtensionId(ext3), event_name,
-          mojom::ServiceWorkerContext::New(GURL(), sw_version_id, sw_thread_id),
-          /*event_filter=*/std::nullopt),
-      process4.get());
+  auto sw_context =
+      mojom::ServiceWorkerContext::New(GURL(), sw_version_id, sw_thread_id);
+  event_router()->AddServiceWorkerEventListener(ext3, event_name, *sw_context,
+                                                process4.get());
   event_router()->BindServiceWorkerEventDispatcher(
       process4->GetDeprecatedID(), sw_thread_id,
       sw_event_dispatcher.BindAndPassRemote());

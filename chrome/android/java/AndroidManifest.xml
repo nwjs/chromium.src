@@ -103,7 +103,6 @@ by a child template that "extends" this file.
       resizeTo, moveBy}|).
     -->
     <uses-permission android:name="android.permission.REPOSITION_SELF_WINDOWS"/>
-    <uses-permission android:name="android.permission.REQUEST_FULLSCREEN_MODE"/>
     <uses-permission android:name="android.permission.USE_CREDENTIALS"/>
     <uses-permission-sdk-23 android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission-sdk-23 android:name="android.permission.USE_FINGERPRINT"/>
@@ -394,7 +393,7 @@ by a child template that "extends" this file.
                 {% if enable_jxl_decoder == "true" %}
                 <data android:mimeType="image/jxl" />
                 {% endif %}
-                {% if enable_av1_decoder == "true" %}
+                {% if enable_dav1d_decoder == "true" %}
                 <data android:mimeType="image/avif" />
                 {% endif %}
                 <data android:mimeType="image/webp" />
@@ -485,6 +484,7 @@ by a child template that "extends" this file.
             android:theme="@style/Theme.BrowserUI.NoDisplay"
             android:taskAffinity=""
             android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
             android:exported="false">
             <property android:name="android.window.PROPERTY_SUPPORTS_MULTI_INSTANCE_SYSTEM_UI"
                 android:value="true" />
@@ -1175,6 +1175,14 @@ by a child template that "extends" this file.
             android:launchMode="singleInstance">
         </activity>
 
+        <activity
+            android:name="org.chromium.chrome.browser.devtools.DevToolsActivity"
+            android:theme="@style/Theme.Chromium.Activity"
+            android:exported="false"
+            {{ self.chrome_activity_common() }}>
+            {{ self.extra_web_rendering_activity_definitions() }}
+        </activity>
+
         <receiver android:name="org.chromium.chrome.browser.notifications.scheduler.DisplayAgent$Receiver"
             android:exported="false"/>
 
@@ -1232,15 +1240,7 @@ by a child template that "extends" this file.
         <service android:name="org.chromium.chrome.browser.app.usb.UsbNotificationService"
             android:exported="false"/>
 
-        <service android:name="org.chromium.chrome.browser.data_import.DataImporterService"
-            android:exported="true" tools:ignore="ExportedService">
-          <intent-filter>
-            <action android:name="io.grpc.action.BIND" />
-            <data android:host=""
-                android:path="/com.google.osmigration.systemappapi.TargetService"
-                android:scheme="grpc" />
-          </intent-filter>
-        </service>
+
 
         <meta-data android:name="org.chromium.content.browser.SMART_CLIP_PROVIDER"
             android:value="org.chromium.content_public.browser.SmartClipProvider"/>

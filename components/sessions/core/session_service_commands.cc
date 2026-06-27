@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include <map>
+#include <memory>
 #include <set>
 #include <tuple>
 #include <utility>
@@ -31,9 +32,9 @@ namespace {
 
 std::string SplitTabLayoutToString(split_tabs::SplitTabLayout split_layout) {
   switch (split_layout) {
-    case split_tabs::SplitTabLayout::kVertical:
+    case split_tabs::SplitTabLayout::kSideBySide:
       return "Vertical";
-    case split_tabs::SplitTabLayout::kHorizontal:
+    case split_tabs::SplitTabLayout::kStacked:
       return "Horizontal";
   }
   NOTREACHED();
@@ -42,11 +43,11 @@ std::string SplitTabLayoutToString(split_tabs::SplitTabLayout split_layout) {
 split_tabs::SplitTabLayout SplitTabLayoutFromString(
     std::string split_tab_layout_string) {
   if (split_tab_layout_string == "Horizontal") {
-    return split_tabs::SplitTabLayout::kHorizontal;
+    return split_tabs::SplitTabLayout::kStacked;
   }
 
   // By default make the split vertical if input is bad from the pickle.
-  return split_tabs::SplitTabLayout::kVertical;
+  return split_tabs::SplitTabLayout::kSideBySide;
 }
 
 }  // namespace
@@ -288,28 +289,24 @@ using SplitIdToSessionSplitTab =
 // Returns the window in windows with the specified id. If a window does
 // not exist, one is created.
 SessionWindow* GetWindow(SessionID window_id, IdToSessionWindow* windows) {
-  auto i = windows->find(window_id);
-  if (i == windows->end()) {
-    SessionWindow* window = new SessionWindow();
-    window->window_id = window_id;
-    (*windows)[window_id] = base::WrapUnique(window);
-    return window;
+  auto [it, inserted] = windows->try_emplace(window_id);
+  if (inserted) {
+    it->second = std::make_unique<SessionWindow>();
+    it->second->window_id = window_id;
   }
-  return i->second.get();
+  return it->second.get();
 }
 
 // Returns the tab with the specified id in tabs. If a tab does not exist,
 // it is created.
 SessionTab* GetTab(SessionID tab_id, IdToSessionTab* tabs) {
   DCHECK(tabs);
-  auto i = tabs->find(tab_id);
-  if (i == tabs->end()) {
-    SessionTab* tab = new SessionTab();
-    tab->tab_id = tab_id;
-    (*tabs)[tab_id] = base::WrapUnique(tab);
-    return tab;
+  auto [it, inserted] = tabs->try_emplace(tab_id);
+  if (inserted) {
+    it->second = std::make_unique<SessionTab>();
+    it->second->tab_id = tab_id;
   }
-  return i->second.get();
+  return it->second.get();
 }
 
 SessionTabGroup* GetTabGroup(tab_groups::TabGroupId group_id,

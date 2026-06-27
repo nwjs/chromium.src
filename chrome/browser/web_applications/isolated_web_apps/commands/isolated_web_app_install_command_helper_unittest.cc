@@ -291,7 +291,7 @@ TEST_F(IsolatedWebAppInstallCommandHelperLoadUrlTest,
           ".well-known/_generated_install_page.html"),
       webapps::WebAppUrlLoaderResult::kUrlLoaded);
 
-  std::optional<IwaSourceWithMode> source = std::nullopt;
+  std::optional<IwaSourceWithMode> source;
   url_loader->TrackLoadUrlCalls(base::BindLambdaForTesting(
       [&](const GURL& unused_url, content::WebContents* web_contents,
           webapps::WebAppUrlLoader::UrlComparison unused_url_comparison) {
@@ -323,7 +323,7 @@ TEST_F(IsolatedWebAppInstallCommandHelperLoadUrlTest,
           ".well-known/_generated_install_page.html"),
       webapps::WebAppUrlLoaderResult::kUrlLoaded);
 
-  std::optional<IwaSourceWithMode> source = std::nullopt;
+  std::optional<IwaSourceWithMode> source;
   url_loader->TrackLoadUrlCalls(base::BindLambdaForTesting(
       [&](const GURL& unused_url, content::WebContents* web_contents,
           webapps::WebAppUrlLoader::UrlComparison unused_url_comparison) {
@@ -606,7 +606,7 @@ TEST_F(InstallIsolatedWebAppCommandHelperManifestIconsTest,
   auto result = future.Take();
   EXPECT_THAT(result, HasValue());
 
-  std::map<SquareSizePx, SkBitmap> icon_bitmaps = result->icon_bitmaps.any;
+  OrderedSizeToBitmap icon_bitmaps = result->icon_bitmaps.any;
   EXPECT_THAT(result, ValueIs(Field(
                           &WebAppInstallInfo::icon_bitmaps,
                           Field(&IconBitmaps::any,

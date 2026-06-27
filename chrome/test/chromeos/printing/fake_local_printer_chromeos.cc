@@ -6,22 +6,6 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 
-void FakeLocalPrinter::ShowSystemPrintSettings(
-    ShowSystemPrintSettingsCallback callback) {
-  FAIL();
-}
-
-void FakeLocalPrinter::CreatePrintJob(crosapi::mojom::PrintJobPtr job,
-                                      CreatePrintJobCallback callback) {
-  FAIL();
-}
-
-void FakeLocalPrinter::CancelPrintJob(const std::string& printer_id,
-                                      unsigned int job_id,
-                                      CancelPrintJobCallback callback) {
-  FAIL();
-}
-
 void FakeLocalPrinter::GetPrintServersConfig(
     GetPrintServersConfigCallback callback) {
   FAIL();
@@ -39,19 +23,9 @@ void FakeLocalPrinter::AddPrintServerObserver(
   FAIL();
 }
 
-void FakeLocalPrinter::GetPolicies(GetPoliciesCallback callback) {
-  FAIL();
-}
 
 
 void FakeLocalPrinter::GetPrinterTypeDenyList(
     GetPrinterTypeDenyListCallback callback) {
-  FAIL();
-}
-
-void FakeLocalPrinter::AddPrintJobObserver(
-    mojo::PendingRemote<crosapi::mojom::PrintJobObserver> remote,
-    crosapi::mojom::PrintJobSource source,
-    AddPrintJobObserverCallback callback) {
   FAIL();
 }

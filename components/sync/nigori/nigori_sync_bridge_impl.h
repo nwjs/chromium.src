@@ -13,8 +13,7 @@
 
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
-#include "components/sync/engine/nigori/key_derivation_params.h"
-#include "components/sync/engine/nigori/keystore_keys_handler.h"
+#include "components/sync/engine/keystore_keys_handler.h"
 #include "components/sync/engine/sync_encryption_handler.h"
 #include "components/sync/model/conflict_resolution.h"
 #include "components/sync/model/model_error.h"
@@ -22,6 +21,7 @@
 #include "components/sync/nigori/nigori_local_change_processor.h"
 #include "components/sync/nigori/nigori_state.h"
 #include "components/sync/nigori/nigori_sync_bridge.h"
+#include "components/sync/nigori/sync_encryption_handler_observer_list.h"
 
 namespace sync_pb {
 class NigoriLocalData;
@@ -30,7 +30,6 @@ class NigoriSpecifics;
 
 namespace syncer {
 
-class KeyDerivationParams;
 class NigoriStorage;
 class PendingLocalNigoriCommit;
 
@@ -61,10 +60,10 @@ class NigoriSyncBridgeImpl : public KeystoreKeysHandler,
   DataTypeSet GetEncryptedTypes() override;
   Cryptographer* GetCryptographer() override;
   PassphraseType GetPassphraseType() override;
-  void SetEncryptionPassphrase(
-      const std::string& passphrase,
-      const KeyDerivationParams& key_derivation_params) override;
-  void SetExplicitPassphraseDecryptionKey(std::unique_ptr<Nigori> key) override;
+  void SetEncryptionPassphrase(const std::string& passphrase) override;
+  void SetDecryptionPassphrase(const std::string& passphrase) override;
+  void SetDecryptionBootstrapToken(
+      const CustomPassphraseBootstrapToken& bootstrap_token) override;
   void AddTrustedVaultDecryptionKeys(
       const std::vector<std::vector<uint8_t>>& keys) override;
   base::Time GetKeystoreMigrationTime() override;
@@ -126,6 +125,10 @@ class NigoriSyncBridgeImpl : public KeystoreKeysHandler,
   // the appropriate observer methods (if any).
   void MaybeNotifyOfPendingKeys() const;
 
+  // Attempts to decrypt pending keys with `key_bag`. If successful, updates the
+  // cryptographer and stores local data.
+  void SetExplicitPassphraseDecryptionKeyBag(const NigoriKeyBag& key_bag);
+
   // Queues keystore rotation or full keystore migration if current state
   // assumes it should happen.
   void MaybeTriggerKeystoreReencryption();
@@ -159,10 +162,9 @@ class NigoriSyncBridgeImpl : public KeystoreKeysHandler,
   std::list<std::unique_ptr<PendingLocalNigoriCommit>>
       pending_local_commit_queue_;
 
-  // Observer that owns the list of actual observers, and broadcasts
-  // notifications to all observers in the list.
-  class BroadcastingObserver;
-  const std::unique_ptr<BroadcastingObserver> broadcasting_observer_;
+  // Observer list wrapper that broadcasts Sync encryption status updates to
+  // registered observers.
+  SyncEncryptionHandlerObserverList observer_list_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 };

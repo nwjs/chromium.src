@@ -52,7 +52,6 @@ using ::chromeos::settings::mojom::kAppParentalControlsSubpagePath;
 using ::chromeos::settings::mojom::kAppsSectionPath;
 using ::chromeos::settings::mojom::kArcVmUsbPreferencesSubpagePath;
 using ::chromeos::settings::mojom::kGooglePlayStoreSubpagePath;
-using ::chromeos::settings::mojom::kManageIsolatedWebAppsSubpagePath;
 using ::chromeos::settings::mojom::kPluginVmSharedPathsSubpagePath;
 using ::chromeos::settings::mojom::kPluginVmUsbPreferencesSubpagePath;
 using ::chromeos::settings::mojom::Section;
@@ -202,16 +201,6 @@ base::span<const SearchConcept> GetAndroidPlayStoreDisabledSearchConcepts() {
   return tags;
 }
 
-base::span<const SearchConcept> GetManageIsolatedWebAppsSearchConcepts() {
-  static constexpr auto tags = std::to_array<SearchConcept>(
-      {{IDS_OS_SETTINGS_TAG_MANAGE_ISOLATED_WEB_APPS,
-        mojom::kManageIsolatedWebAppsSubpagePath,
-        mojom::SearchResultIcon::kNotifications,
-        mojom::SearchResultDefaultRank::kMedium,
-        mojom::SearchResultType::kSubpage,
-        {.subpage = mojom::Subpage::kManageIsolatedWebApps}}});
-  return tags;
-}
 
 base::span<const SearchConcept> GetParentalControlsSearchConcepts() {
   // Redirect search queries to the parental controls row in the Apps section
@@ -232,7 +221,7 @@ base::span<const SearchConcept> GetParentalControlsSearchConcepts() {
 base::span<const SearchConcept> GetTurnOnIsolatedWebAppsSearchConcepts() {
   static constexpr auto tags = std::to_array<SearchConcept>(
       {{IDS_OS_SETTINGS_TAG_TURN_ON_ISOLATED_WEB_APPS,
-        mojom::kManageIsolatedWebAppsSubpagePath,
+        mojom::kAppsSectionPath,
         mojom::SearchResultIcon::kNotifications,
         mojom::SearchResultDefaultRank::kMedium,
         mojom::SearchResultType::kSetting,
@@ -260,6 +249,8 @@ void AddAppManagementStrings(content::WebUIDataSource* html_source) {
        IDS_APP_MANAGEMENT_APP_DETAILS_INSTALL_SOURCE_PLAY_STORE},
       {"appManagementAppDetailsInstallSourceBrowser",
        IDS_APP_MANAGEMENT_APP_DETAILS_INSTALL_SOURCE_BROWSER},
+      {"appManagementAppDetailsSubappDataSharingExplanation",
+       IDS_APP_MANAGEMENT_APP_DETAILS_SUBAPP_DATA_SHARING_EXPLANATION},
       {"appManagementAppDetailsTypeAndSourcePreinstalledApp",
        IDS_APP_MANAGEMENT_APP_DETAILS_TYPE_AND_SOURCE_PREINSTALLED_APP},
       {"appManagementAppDetailsTypeAndSourceCombined",
@@ -525,7 +516,6 @@ AppsSection::AppsSection(Profile* profile,
   }
 
   if (web_app::IsIwaUnmanagedInstallFeatureEnabled(profile)) {
-    updater.AddSearchTags(GetManageIsolatedWebAppsSearchConcepts());
     updater.AddSearchTags(GetTurnOnIsolatedWebAppsSearchConcepts());
   }
 
@@ -640,6 +630,8 @@ void AppsSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
                          l10n_util::GetStringFUTF16(
                              IDS_SETTINGS_ISOLATED_WEB_APPS_DESCRIPTION,
                              ash::external_urls::kIsolatedWebAppsLearnMoreUrl));
+  html_source->AddString("isolatedWebAppsLearnMoreUrl",
+                         ash::external_urls::kIsolatedWebAppsLearnMoreUrl);
 
   html_source->AddBoolean("privacyHubLocationAccessControlEnabled",
                           ash::features::IsCrosPrivacyHubLocationEnabled());
@@ -729,14 +721,8 @@ void AppsSection::RegisterHierarchy(HierarchyGenerator* generator) const {
   generator->RegisterNestedSetting(mojom::Setting::kAppNotificationOnOff,
                                    mojom::Subpage::kAppNotifications);
 
-  // Manage Isolated Web Apps
-  generator->RegisterTopLevelSubpage(IDS_SETTINGS_APPS_LINK_TEXT,
-                                     mojom::Subpage::kManageIsolatedWebApps,
-                                     mojom::SearchResultIcon::kAppsGrid,
-                                     mojom::SearchResultDefaultRank::kMedium,
-                                     mojom::kManageIsolatedWebAppsSubpagePath);
-  generator->RegisterNestedSetting(mojom::Setting::kEnableIsolatedWebAppsOnOff,
-                                   mojom::Subpage::kManageIsolatedWebApps);
+  generator->RegisterTopLevelSetting(
+      mojom::Setting::kEnableIsolatedWebAppsOnOff);
 
   // Note: The subpage name in the UI is updated dynamically based on the app
   // being shown, but we use a generic "App details" string here.

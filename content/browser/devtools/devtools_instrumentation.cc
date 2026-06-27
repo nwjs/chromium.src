@@ -490,6 +490,194 @@ BuildFederatedAuthUserInfoRequestIssue(
   return issue;
 }
 
+protocol::Audits::EmailVerificationRequestIssueReason
+EmailVerificationRequestResultToProtocol(
+    blink::mojom::EmailVerificationRequestResult result) {
+  using blink::mojom::EmailVerificationRequestResult;
+  namespace EmailVerificationRequestIssueReasonEnum =
+      protocol::Audits::EmailVerificationRequestIssueReasonEnum;
+  switch (result) {
+    case EmailVerificationRequestResult::kInvalidEmail:
+      return EmailVerificationRequestIssueReasonEnum::InvalidEmail;
+    case EmailVerificationRequestResult::kDnsFetchFailed:
+      return EmailVerificationRequestIssueReasonEnum::DnsFetchFailed;
+    case EmailVerificationRequestResult::kDnsInvalidRecord:
+      return EmailVerificationRequestIssueReasonEnum::DnsInvalidRecord;
+    case EmailVerificationRequestResult::kWellKnownHttpNotFound:
+      return EmailVerificationRequestIssueReasonEnum::WellKnownHttpNotFound;
+    case EmailVerificationRequestResult::kWellKnownNoResponse:
+      return EmailVerificationRequestIssueReasonEnum::WellKnownNoResponse;
+    case EmailVerificationRequestResult::kWellKnownInvalidResponse:
+      return EmailVerificationRequestIssueReasonEnum::WellKnownInvalidResponse;
+    case EmailVerificationRequestResult::kWellKnownListEmpty:
+      return EmailVerificationRequestIssueReasonEnum::WellKnownListEmpty;
+    case EmailVerificationRequestResult::kWellKnownInvalidContentType:
+      return EmailVerificationRequestIssueReasonEnum::
+          WellKnownInvalidContentType;
+    case EmailVerificationRequestResult::kWellKnownMissingIssuanceEndpoint:
+      return EmailVerificationRequestIssueReasonEnum::
+          WellKnownMissingIssuanceEndpoint;
+    case EmailVerificationRequestResult::kWellKnownIssuanceEndpointCrossOrigin:
+      return EmailVerificationRequestIssueReasonEnum::
+          WellKnownIssuanceEndpointCrossOrigin;
+    case EmailVerificationRequestResult::kWellKnownUnsupportedSigningAlgorithm:
+      return EmailVerificationRequestIssueReasonEnum::
+          WellKnownUnsupportedSigningAlgorithm;
+    case EmailVerificationRequestResult::kTokenHttpNotFound:
+      return EmailVerificationRequestIssueReasonEnum::TokenHttpNotFound;
+    case EmailVerificationRequestResult::kTokenNoResponse:
+      return EmailVerificationRequestIssueReasonEnum::TokenNoResponse;
+    case EmailVerificationRequestResult::kTokenInvalidResponse:
+      return EmailVerificationRequestIssueReasonEnum::TokenInvalidResponse;
+    case EmailVerificationRequestResult::kTokenInvalidContentType:
+      return EmailVerificationRequestIssueReasonEnum::TokenInvalidContentType;
+    case EmailVerificationRequestResult::kTokenMalformedSdJwt:
+      return EmailVerificationRequestIssueReasonEnum::TokenMalformedSdJwt;
+    case EmailVerificationRequestResult::kTokenInvalidSdJwt:
+      return EmailVerificationRequestIssueReasonEnum::TokenInvalidSdJwt;
+    case EmailVerificationRequestResult::kKeyBindingSigningFailed:
+      return EmailVerificationRequestIssueReasonEnum::KeyBindingSigningFailed;
+    case EmailVerificationRequestResult::kRpOriginIsOpaque:
+      return EmailVerificationRequestIssueReasonEnum::RpOriginIsOpaque;
+    case EmailVerificationRequestResult::kWellKnownMissingAccountsEndpoint:
+      return EmailVerificationRequestIssueReasonEnum::
+          WellKnownMissingAccountsEndpoint;
+    case EmailVerificationRequestResult::kUserLoggedOut:
+      return EmailVerificationRequestIssueReasonEnum::UserLoggedOut;
+    case EmailVerificationRequestResult::kWellKnownAccountsEndpointCrossOrigin:
+      return EmailVerificationRequestIssueReasonEnum::
+          WellKnownAccountsEndpointCrossOrigin;
+    case EmailVerificationRequestResult::kAccountsHttpNotFound:
+      return EmailVerificationRequestIssueReasonEnum::AccountsHttpNotFound;
+    case EmailVerificationRequestResult::kAccountsNoResponse:
+      return EmailVerificationRequestIssueReasonEnum::AccountsNoResponse;
+    case EmailVerificationRequestResult::kAccountsInvalidResponse:
+      return EmailVerificationRequestIssueReasonEnum::AccountsInvalidResponse;
+    case EmailVerificationRequestResult::kAccountsInvalidContentType:
+      return EmailVerificationRequestIssueReasonEnum::
+          AccountsInvalidContentType;
+    case EmailVerificationRequestResult::kAccountsEmptyList:
+      return EmailVerificationRequestIssueReasonEnum::AccountsEmptyList;
+    case EmailVerificationRequestResult::
+        kEmailVerificationWellKnownHttpNotFound:
+      return EmailVerificationRequestIssueReasonEnum::
+          EmailVerificationWellKnownHttpNotFound;
+    case EmailVerificationRequestResult::kEmailVerificationWellKnownNoResponse:
+      return EmailVerificationRequestIssueReasonEnum::
+          EmailVerificationWellKnownNoResponse;
+    case EmailVerificationRequestResult::
+        kEmailVerificationWellKnownInvalidResponse:
+      return EmailVerificationRequestIssueReasonEnum::
+          EmailVerificationWellKnownInvalidResponse;
+    case EmailVerificationRequestResult::
+        kEmailVerificationWellKnownInvalidContentType:
+      return EmailVerificationRequestIssueReasonEnum::
+          EmailVerificationWellKnownInvalidContentType;
+    case EmailVerificationRequestResult::kJwksHttpNotFound:
+      return EmailVerificationRequestIssueReasonEnum::JwksHttpNotFound;
+    case EmailVerificationRequestResult::kJwksInvalidResponse:
+      return EmailVerificationRequestIssueReasonEnum::JwksInvalidResponse;
+    case EmailVerificationRequestResult::
+        kTokenVerificationSdJwtUnsupportedHeaderAlg:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtUnsupportedHeaderAlg;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtMissingIss:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtMissingIss;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtMissingIat:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtMissingIat;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtMissingCnf:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtMissingCnf;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtMissingEmail:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtMissingEmail;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtInvalidIssuedAt:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtInvalidIssuedAt;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtInvalidIssuer:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtInvalidIssuer;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtJwksMissingKeys:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtJwksMissingKeys;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtSignatureFailed:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtSignatureFailed;
+    case EmailVerificationRequestResult::
+        kTokenVerificationSdJwtInvalidEmailVerified:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtInvalidEmailVerified;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtInvalidEmail:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtInvalidEmail;
+    case EmailVerificationRequestResult::
+        kTokenVerificationSdJwtInvalidHolderKey:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtInvalidHolderKey;
+    case EmailVerificationRequestResult::kTokenVerificationKbInvalidTyp:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbInvalidTyp;
+    case EmailVerificationRequestResult::kTokenVerificationKbMissingAud:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbMissingAud;
+    case EmailVerificationRequestResult::kTokenVerificationKbMissingNonce:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbMissingNonce;
+    case EmailVerificationRequestResult::kTokenVerificationKbMissingIat:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbMissingIat;
+    case EmailVerificationRequestResult::kTokenVerificationKbMissingSdHash:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbMissingSdHash;
+    case EmailVerificationRequestResult::kTokenVerificationKbInvalidIssuedAt:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbInvalidIssuedAt;
+    case EmailVerificationRequestResult::kTokenVerificationKbInvalidAudience:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbInvalidAudience;
+    case EmailVerificationRequestResult::kTokenVerificationKbInvalidNonce:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbInvalidNonce;
+    case EmailVerificationRequestResult::kTokenVerificationKbInvalidSdHash:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbInvalidSdHash;
+    case EmailVerificationRequestResult::kTokenVerificationKbMissingCnf:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbMissingCnf;
+    case EmailVerificationRequestResult::kTokenVerificationKbSignatureFailed:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationKbSignatureFailed;
+    case EmailVerificationRequestResult::kSuccess:
+      NOTREACHED();
+  }
+}
+
+std::unique_ptr<protocol::Audits::InspectorIssue>
+BuildEmailVerificationRequestIssue(
+    const blink::mojom::EmailVerificationRequestIssueDetailsPtr&
+        issue_details) {
+  auto email_verification_request_details =
+      protocol::Audits::EmailVerificationRequestIssueDetails::Create()
+          .SetEmailVerificationRequestIssueReason(
+              EmailVerificationRequestResultToProtocol(issue_details->status))
+          .Build();
+
+  auto protocol_issue_details =
+      protocol::Audits::InspectorIssueDetails::Create()
+          .SetEmailVerificationRequestIssueDetails(
+              std::move(email_verification_request_details))
+          .Build();
+
+  auto issue = protocol::Audits::InspectorIssue::Create()
+                   .SetCode(protocol::Audits::InspectorIssueCodeEnum::
+                                EmailVerificationRequestIssue)
+                   .SetDetails(std::move(protocol_issue_details))
+                   .Build();
+  return issue;
+}
+
 const char* DeprecationIssueTypeToProtocol(
     blink::mojom::DeprecationIssueType error_type) {
   switch (error_type) {
@@ -1049,6 +1237,28 @@ void OnNavigationEntryMarkedSkippable(const GURL& url,
   ReportBrowserInitiatedIssue(rfh, std::move(issue));
 }
 
+void OnBackUINavigationWouldSkipAd(RenderFrameHostImpl* rfh) {
+  CHECK(rfh);
+
+  auto generic_details =
+      protocol::Audits::GenericIssueDetails::Create()
+          .SetErrorType(protocol::Audits::GenericIssueErrorTypeEnum::
+                            BackUINavigationWouldSkipAd)
+          .Build();
+
+  auto details = protocol::Audits::InspectorIssueDetails::Create()
+                     .SetGenericIssueDetails(std::move(generic_details))
+                     .Build();
+
+  auto issue =
+      protocol::Audits::InspectorIssue::Create()
+          .SetCode(protocol::Audits::InspectorIssueCodeEnum::GenericIssue)
+          .SetDetails(std::move(details))
+          .Build();
+
+  ReportBrowserInitiatedIssue(rfh, std::move(issue));
+}
+
 bool ShouldBypassCSP(const NavigationRequest& nav_request) {
   DevToolsAgentHostImpl* agent_host =
       RenderFrameDevToolsAgentHost::GetFor(nav_request.frame_tree_node());
@@ -1298,6 +1508,16 @@ void ThrottleServiceWorkerMainScriptFetch(
 
   ThrottleForServiceWorkerAgentHost(agent_host, requesting_agent_host,
                                     throttle_handle);
+
+  // When the service worker is throttled for DevTools, there is no
+  // renderer for the service worker yet and that means that the NetworkHandler
+  // does not have a reference to the network content and DevTools protocol
+  // commands that depend on it will not work. To fix this, we need to set the
+  // storage partition for the service worker on the Network handler.
+  for (auto* network_handler :
+       protocol::NetworkHandler::ForAgentHost(agent_host)) {
+    network_handler->SetStoragePartition(wrapper->storage_partition());
+  }
 }
 
 void ThrottleWorkerMainScriptFetch(
@@ -1319,7 +1539,17 @@ void ThrottleWorkerMainScriptFetch(
 
   FrameTreeNode* ftn = rfh->frame_tree_node();
   DispatchToAgents(ftn, &protocol::TargetHandler::AddWorkerThrottle, agent_host,
-                   std::move(throttle_handle));
+                   throttle_handle);
+
+  if (agent_host->GetParentId() !=
+      ftn->current_frame_host()->GetDevToolsFrameToken().ToString()) {
+    if (auto parent_host =
+            DevToolsAgentHostImpl::GetForId(agent_host->GetParentId())) {
+      DispatchToAgents(parent_host.get(),
+                       &protocol::TargetHandler::AddWorkerThrottle, agent_host,
+                       throttle_handle);
+    }
+  }
 }
 
 bool ShouldWaitForDebuggerInWindowOpen() {
@@ -1662,6 +1892,17 @@ WillCreateURLLoaderFactoryParams::ForWorkerMainScript(
     DevToolsAgentHostImpl* agent_host,
     const base::UnguessableToken& worker_token,
     RenderFrameHostImpl& ancestor_render_frame_host) {
+  if (agent_host &&
+      agent_host->GetParentId() !=
+          ancestor_render_frame_host.GetDevToolsFrameToken().ToString()) {
+    if (auto parent_host =
+            DevToolsAgentHostImpl::GetForId(agent_host->GetParentId())) {
+      return WillCreateURLLoaderFactoryParams(
+          parent_host.get(), worker_token,
+          ancestor_render_frame_host.GetProcess()->GetDeprecatedID(),
+          ancestor_render_frame_host.GetProcess()->GetStoragePartition());
+    }
+  }
   // Use the ancestor frame's interceptor to align with the interception
   // behavior in the renderer that reuses the same url loader factory from
   // the ancestor frame for the worker.
@@ -2259,6 +2500,10 @@ void BuildAndReportBrowserInitiatedIssue(
              blink::mojom::InspectorIssueCode::kUserReidentificationIssue) {
     issue = BuildUserReidentificationIssue(
         info->details->user_reidentification_issue_details);
+  } else if (info->code ==
+             blink::mojom::InspectorIssueCode::kEmailVerificationRequestIssue) {
+    issue = BuildEmailVerificationRequestIssue(
+        info->details->email_verification_request_details);
   } else {
     NOTREACHED() << "Unsupported type of browser-initiated issue";
   }
@@ -2399,6 +2644,13 @@ void OnServiceWorkerMainScriptRequestWillBeSent(
     const ServiceWorkerContextWrapper* context_wrapper,
     int64_t version_id,
     network::ResourceRequest& request) {
+  ServiceWorkerDevToolsAgentHost* agent_host =
+      ServiceWorkerDevToolsManager::GetInstance()
+          ->GetDevToolsAgentHostForNewInstallingWorker(context_wrapper,
+                                                       version_id);
+  CHECK(agent_host);
+  request.throttling_profile_id = agent_host->devtools_worker_token();
+
   // Currently, `requesting_frame_id` is invalid when payment apps and
   // extensions register a service worker. See the callers of
   // ServiceWorkerContextWrapper::RegisterServiceWorker().
@@ -2416,11 +2668,6 @@ void OnServiceWorkerMainScriptRequestWillBeSent(
   network::mojom::URLRequestDevToolsInfoPtr request_info =
       network::ExtractDevToolsInfo(request);
 
-  ServiceWorkerDevToolsAgentHost* agent_host =
-      ServiceWorkerDevToolsManager::GetInstance()
-          ->GetDevToolsAgentHostForNewInstallingWorker(context_wrapper,
-                                                       version_id);
-  DCHECK(agent_host);
   const std::string request_id = agent_host->devtools_worker_token().ToString();
   MaybeAssignResourceRequestId(agent_host, request_id, request);
   for (auto* network_handler :
@@ -2455,24 +2702,31 @@ void OnWorkerMainScriptLoadingFailed(
 
 void OnWorkerMainScriptRequestWillBeSent(
     RenderFrameHostImpl& ancestor_frame_host,
+    DedicatedWorkerHost* creator_worker,
     const base::UnguessableToken& worker_token,
     network::ResourceRequest& request) {
   FrameTreeNode* ftn = ancestor_frame_host.frame_tree_node();
 
   auto timestamp = base::TimeTicks::Now();
+
+  DevToolsAgentHostImpl* effective_host =
+      creator_worker ? DedicatedWorkerDevToolsAgentHost::GetFor(creator_worker)
+                     : RenderFrameDevToolsAgentHost::GetFor(ftn);
+
+  if (!effective_host) {
+    return;
+  }
+
   network::mojom::URLRequestDevToolsInfoPtr request_info =
       network::ExtractDevToolsInfo(request);
 
-  auto* owner_host = RenderFrameDevToolsAgentHost::GetFor(ftn);
-  if (!owner_host) {
-    return;
-  }
-  MaybeAssignResourceRequestId(owner_host, worker_token.ToString(), request);
+  MaybeAssignResourceRequestId(effective_host, worker_token.ToString(),
+                               request);
 
   // Note: we apply overrides from the owner frame to match the behavior in the
   // renderer.
   bool disable_cache = false;
-  ApplyNetworkRequestOverrides(owner_host, &request.headers, &disable_cache,
+  ApplyNetworkRequestOverrides(effective_host, &request.headers, &disable_cache,
                                nullptr, &request.skip_service_worker,
                                &request.devtools_accepted_stream_types, nullptr,
                                nullptr, nullptr);
@@ -2483,12 +2737,13 @@ void OnWorkerMainScriptRequestWillBeSent(
     request.load_flags |= net::LOAD_BYPASS_CACHE;
   }
 
-  DispatchToAgents(
-      ftn, &protocol::NetworkHandler::RequestSent, worker_token.ToString(),
-      /*loader_id=*/"", request.headers, *request_info,
-      protocol::Network::Initiator::TypeEnum::Other, ftn->current_url(),
-      /*initiator_devtools_request_id*/ "",
-      ancestor_frame_host.devtools_frame_token(), timestamp);
+  DispatchToAgents(effective_host, &protocol::NetworkHandler::RequestSent,
+                   worker_token.ToString(),
+                   /*loader_id=*/"", request.headers, *request_info,
+                   protocol::Network::Initiator::TypeEnum::Other,
+                   ftn->current_url(),
+                   /*initiator_devtools_request_id*/ "",
+                   ancestor_frame_host.devtools_frame_token(), timestamp);
 }
 
 void LogWorkletMessage(RenderFrameHostImpl& frame_host,
@@ -2591,6 +2846,9 @@ protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
     case blink::mojom::GenericIssueErrorType::kNavigationEntryMarkedSkippable:
       return protocol::Audits::GenericIssueErrorTypeEnum::
           NavigationEntryMarkedSkippable;
+    case blink::mojom::GenericIssueErrorType::kBackUINavigationWouldSkipAd:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          BackUINavigationWouldSkipAd;
     case blink::mojom::GenericIssueErrorType::
         kAutofillAndManualTextPolicyControlledFeaturesInfo:
       return protocol::Audits::GenericIssueErrorTypeEnum::

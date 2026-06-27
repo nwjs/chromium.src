@@ -45,7 +45,6 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/testing_profile.h"
@@ -858,7 +857,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AccessiblePopup) {
   OmniboxPopupView* popup_view =
       BrowserView::GetBrowserViewForBrowser(browser())
           ->GetLocationBarView()
-          ->GetOmniboxPopupViewForTesting();
+          ->GetOmniboxPopupView();
   ui::AXNodeData popup_node_data_1;
   popup_view->GetPopupAccessibleNodeData(&popup_node_data_1);
   EXPECT_FALSE(popup_node_data_1.HasState(ax::mojom::State::kExpanded));
@@ -1981,7 +1980,6 @@ class OmniboxViewViewsDumpAccessibilityEventsTest
 IN_PROC_BROWSER_TEST_P(OmniboxViewViewsDumpAccessibilityEventsTest,
                        OmniboxPopupOpenClose) {
   SetFilters(R"(
-    @UIA-WIN-DENY:*
     @UIA-WIN-ALLOW:ControllerFor*
   )");
 

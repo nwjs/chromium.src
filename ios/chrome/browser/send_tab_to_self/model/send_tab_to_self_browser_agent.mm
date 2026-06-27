@@ -25,6 +25,8 @@
 #import "ios/chrome/browser/send_tab_to_self/model/ios_send_tab_to_self_infobar_delegate.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
 #import "ios/web/public/web_state.h"
 
@@ -38,12 +40,8 @@ SendTabToSelfBrowserAgent::SendTabToSelfBrowserAgent(Browser* browser)
 
 SendTabToSelfBrowserAgent::~SendTabToSelfBrowserAgent() = default;
 
-void SendTabToSelfBrowserAgent::SendTabToSelfModelLoaded() {
-  // TODO(crbug.com/40621767): Push changes that happened before the model was
-  // loaded.
-}
 
-void SendTabToSelfBrowserAgent::EntriesAddedRemotely(
+void SendTabToSelfBrowserAgent::OnEntriesAddedRemotely(
     const std::vector<const send_tab_to_self::SendTabToSelfEntry*>&
         new_entries) {
   if (new_entries.empty()) {
@@ -80,7 +78,7 @@ void SendTabToSelfBrowserAgent::EntriesAddedRemotely(
   DisplayInfoBar(web_state, new_entries.back());
 }
 
-void SendTabToSelfBrowserAgent::EntriesRemovedRemotely(
+void SendTabToSelfBrowserAgent::OnEntriesRemovedRemotely(
     const std::vector<std::string>& guids) {
   NOTIMPLEMENTED();
 }
@@ -134,8 +132,10 @@ void SendTabToSelfBrowserAgent::DisplayInfoBar(
   send_tab_to_self::RecordNotificationShown();
 
   infobar_manager->AddInfoBar(CreateConfirmInfoBar(
-      send_tab_to_self::IOSSendTabToSelfInfoBarDelegate::Create(entry,
-                                                                model_)));
+      send_tab_to_self::IOSSendTabToSelfInfoBarDelegate::Create(
+          entry, model_,
+          HandlerForProtocol(browser_->GetCommandDispatcher(),
+                             SceneCommands))));
 }
 
 void SendTabToSelfBrowserAgent::CleanUpObserversAndVariables() {

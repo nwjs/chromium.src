@@ -36,13 +36,6 @@ struct AccountInfo {
 };
 std::ostream& operator<<(std::ostream& os, const AccountInfo& o);
 
-enum class RefreshTaskId {
-  kRefreshForYouFeed,
-  // TODO(crbug.com/40158714): Refresh is not currently used for the Web Feed.
-  // Remove this code if we don't need it.
-  kRefreshWebFeed,
-};
-
 enum class AccountTokenFetchStatus {
   // Token fetch was not attempted, or status is unknown.
   kUnspecified = 0,
@@ -150,8 +143,6 @@ class WebFeedPageInformation {
   // The Canonical URL for the page, if one was found. `url().has_ref()` is
   // always false
   const GURL& canonical_url() const { return canonical_url_; }
-  // The list of RSS urls embedded in the page with the <link> tag.
-  const std::vector<GURL>& GetRssUrls() const { return rss_urls_; }
 
   // Set the URL for the page. Trims off the URL ref.
   void SetUrl(const GURL& url);
@@ -159,12 +150,9 @@ class WebFeedPageInformation {
   // Set the canonical URL for the page. Trims off the URL ref.
   void SetCanonicalUrl(const GURL& url);
 
-  void SetRssUrls(const std::vector<GURL>& rss_urls);
-
  private:
   GURL url_;
   GURL canonical_url_;
-  std::vector<GURL> rss_urls_;
 };
 std::ostream& operator<<(std::ostream& os, const WebFeedPageInformation& value);
 
@@ -251,10 +239,9 @@ enum class StreamKind : int {
   kUnknown = 0,
   // For you stream.
   kForYou = 1,
-  // Following stream.
-  kFollowing = 2,
-
-  kMaxValue = kFollowing,
+  // Deprecated, as web feed is removed
+  // kFollowing = 2,
+  kMaxValue = kForYou,
 };
 
 // Used to tell how to open an URL.

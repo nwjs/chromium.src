@@ -89,7 +89,9 @@ public class TabListModel extends ModelList {
      * @return The index within the model list or {@link TabModel.INVALID_TAB_INDEX}.
      */
     public int indexFromTabId(int tabId) {
-        for (int i = 0; i < size(); i++) {
+        // Search in reverse to find the child tab card first rather than the group header card,
+        // since the first child and header share the same tab ID.
+        for (int i = size() - 1; i >= 0; i--) {
             PropertyModel model = get(i).model;
             if (model.get(CARD_TYPE) == TAB && model.get(TAB_ID) == tabId) return i;
         }
@@ -119,7 +121,8 @@ public class TabListModel extends ModelList {
      * @return The property model in the model list or null.
      */
     public @Nullable PropertyModel getModelFromTabId(int tabId) {
-        for (int i = 0; i < size(); i++) {
+        // Search in reverse to find the child tab card first rather than the group header card.
+        for (int i = size() - 1; i >= 0; i--) {
             PropertyModel model = get(i).model;
             if (model.get(CARD_TYPE) == TAB && model.get(TAB_ID) == tabId) return model;
         }
@@ -342,7 +345,7 @@ public class TabListModel extends ModelList {
      * TabListModel} that the moved tab should exist in. The source index may be invalid if a group
      * of size 1 is created or the tab was moved between groups. In the case of moving between
      * groups as the other group will be updated by {@link
-     * TabGroupModelFilterObserver#didMoveTabOutOfGroup(Tab, int)}.
+     * TabGroupObserver#didMoveTabOutOfGroup(Tab, int)}.
      *
      * @param tabModel The tabModel that owns the tabs.
      * @param movedTab The tab that is being merged.

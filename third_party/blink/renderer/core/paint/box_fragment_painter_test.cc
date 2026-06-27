@@ -8,6 +8,8 @@
 #include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom-blink.h"
+#include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/block_node.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
@@ -412,6 +414,174 @@ TEST_P(BoxFragmentPainterTest, TrackElementWithSubRectNoIntersection) {
               ElementsAre(VIEW_SCROLLING_BACKGROUND_CHUNK_COMMON,
                           IsPaintChunkWithTrackedElementData(
                               1, 2, tracked_element_data)));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountShorthand) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        column-rule: 1px solid red;
+      }
+    </style>
+    <div class="container">
+      <div>A</div>
+      <div>B</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountLonghand) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        width: 200px;
+        gap: 10px;
+        column-rule-style: solid;
+        column-rule-width: 1px;
+        column-rule-color: red;
+      }
+    </style>
+    <div class="container">
+      <div style="width: 80px">A</div>
+      <div style="width: 80px">B</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountRowRule) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+        gap: 10px;
+        row-rule: 1px solid red;
+      }
+    </style>
+    <div class="container">
+      <div>A</div>
+      <div>B</div>
+      <div>C</div>
+      <div>D</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountNotCounted) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+    </style>
+    <div class="container">
+      <div>A</div>
+      <div>B</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountStyleOnly) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        column-rule-style: solid;
+      }
+    </style>
+    <div class="container">
+      <div>A</div>
+      <div>B</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountWidthOnlyNotCounted) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        width: 200px;
+        gap: 10px;
+        column-rule-width: 3px;
+      }
+    </style>
+    <div class="container">
+      <div style="width: 80px">A</div>
+      <div style="width: 80px">B</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, GapDecorationsUseCountColorOnlyNotCounted) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .container {
+        columns: 2;
+        column-gap: 10px;
+        column-rule-color: red;
+      }
+    </style>
+    <div class="container">
+      <p>Some text content to fill the columns.</p>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(GetDocument().IsWebDXFeatureCounted(
+      mojom::blink::WebDXFeature::kGapDecorations));
+}
+
+TEST_P(BoxFragmentPainterTest, NodeAtPointWithFilterOnInline) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      body { margin: 0; }
+      #container { position: absolute; left: 0; top: 0; width: 200px; height: 200px; }
+      #target { filter: drop-shadow(100px 100px red); background: green; font-size: 20px; }
+    </style>
+    <div id="container">
+      <span id="target">Text</span>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  gfx::PointF hit_point(105, 105);
+  HitTestLocation location(hit_point);
+  HitTestRequest::HitTestRequestType hit_type =
+      HitTestRequest::kReadOnly | HitTestRequest::kHitTestVisualOverflow;
+  HitTestResult result =
+      GetDocument().GetFrame()->GetEventHandler().HitTestResultAtLocation(
+          location, hit_type);
+  EXPECT_EQ(result.InnerElement(), target);
 }
 
 }  // namespace blink

@@ -37,6 +37,7 @@ import org.chromium.base.test.util.CloseableOnMainThread;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -53,6 +54,7 @@ import org.chromium.chrome.test.util.FullscreenTestUtils;
 import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.content_public.browser.test.util.UiUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 
 /** Find in page tests. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -223,6 +225,7 @@ public class FindTest {
     /** Verify Find In Page Next button. */
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/515428606")
     @Feature({"FindInPage"})
     public void testFindNext() {
         String query = "pitts";
@@ -241,6 +244,7 @@ public class FindTest {
     /** Verify Find In Page Next/Previous button. */
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/515428606")
     @Feature({"FindInPage"})
     public void testFindNextPrevious() {
         String query = "pitts";
@@ -466,6 +470,7 @@ public class FindTest {
     @Test
     @SmallTest
     @Feature({"FindInPage"})
+    @DisabledTest(message = "https://crbug.com/515428606")
     public void testFindNextPreviousIncognitoTab() {
         String query = "pitts";
         var incognitoPage = mPage.openNewIncognitoTabOrWindowFast();
@@ -564,6 +569,7 @@ public class FindTest {
      */
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
     @Feature({"FindInPage"})
     public void testBackKeyDoesNotDismissFindWhenImeIsPresent() {
         mActivityTestRule.loadUrl(mActivityTestRule.getTestServer().getURL(FILEPATH));

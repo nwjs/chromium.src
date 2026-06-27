@@ -4,7 +4,6 @@
 
 #include "chrome/browser/glic/public/widget/glic_side_panel_coordinator_impl.h"
 
-#include "base/debug/stack_trace.h"
 #include "base/functional/callback.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -46,9 +45,7 @@ GlicSidePanelCoordinatorImpl::GlicSidePanelCoordinatorImpl(
       glic_service->enabling().RegisterAllowedChanged(base::BindRepeating(
           &GlicSidePanelCoordinatorImpl::OnGlicEnabledChanged,
           base::Unretained(this)));
-  if (glic_service->enabling().IsAllowed()) {
-    CreateAndRegisterEntry();
-  }
+  OnGlicEnabledChanged();
 }
 
 GlicSidePanelCoordinatorImpl::~GlicSidePanelCoordinatorImpl() {
@@ -160,7 +157,7 @@ void GlicSidePanelCoordinatorImpl::OnEntryShown(SidePanelEntry* entry) {
 
 void GlicSidePanelCoordinatorImpl::OnGlicEnabledChanged() {
   // Maybe register side panel entry if not yet registered.
-  if (glic::GlicEnabling::IsEnabledForProfile(tab_->GetProfile())) {
+  if (glic::GlicEnabling::ShouldShowGlicButton(tab_->GetProfile())) {
     CreateAndRegisterEntry();
   }
 }

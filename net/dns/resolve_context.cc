@@ -373,6 +373,13 @@ base::TimeDelta ResolveContext::NextDohFallbackPeriod(
       0 /* num_backoffs */);
 }
 
+base::TimeDelta ResolveContext::NextPlatformFallbackPeriod(
+    const DnsSession* session) {
+  // TODO(crbug.com/493024959): Experiment with different fallback periods
+  // specific to platform queries.
+  return max_fallback_period_;
+}
+
 base::TimeDelta ResolveContext::ClassicTransactionTimeout(
     const DnsSession* session) {
   if (!IsCurrentSession(session))
@@ -401,6 +408,13 @@ base::TimeDelta ResolveContext::SecureTransactionTimeout(
 
   return TransactionTimeoutHelper(doh_server_stats_.cbegin(),
                                   doh_server_stats_.cend());
+}
+
+base::TimeDelta ResolveContext::PlatformTransactionTimeout(
+    const DnsSession* session) {
+  // TODO(crbug.com/493024959): Experiment with different transaction timeouts
+  // specific to platform queries.
+  return features::kDnsMinTransactionTimeout.Get();
 }
 
 void ResolveContext::RegisterDohStatusObserver(DohStatusObserver* observer) {
@@ -719,22 +733,6 @@ void ResolveContext::EmitDohAutoupgradeSuccessMetrics() {
             "."),
         status);
   }
-}
-
-bool ResolveContext::IsDohFallbackProbeEnabled() const {
-  // It's important to check the feature flag after the DohConfig and
-  // `doh_fallback_upgrade_allowed()` checks for when we conduct an experiment
-  // enabling the functionality.
-  // TODO(crbug.com/490045356): Remove the `doh_fallback_upgrade_allowed()`
-  // check and the kForceSecureDnsDohFallback feature flag check once the
-  // experiment has concluded and kBundledSecuritySettingsSecureDnsV2 has been
-  // enabled by default.
-  return IsDohConfigFromFallbackDohNameservers() &&
-         doh_fallback_upgrade_allowed() &&
-         base::FeatureList::IsEnabled(
-             net::features::kForceSecureDnsDohFallback) &&
-         doh_fallback_canary_domain_check_status_ !=
-             CanaryDomainCheckStatus::kInactive;
 }
 
 bool ResolveContext::IsDohConfigFromFallbackDohNameservers() const {

@@ -114,6 +114,7 @@ class SessionStorageNamespace;
 class SiteInstanceGroup;
 struct ContextMenuParams;
 struct CookieAccessDetails;
+struct GlobalRenderFrameHostId;
 struct GlobalRequestID;
 struct TrustTokenAccessDetails;
 
@@ -158,6 +159,7 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   virtual void OnDidBlockNavigation(
       const GURL& blocked_url,
       const GURL& initiator_url,
+      const url::Origin& initiator_origin,
       blink::mojom::NavigationBlockedReason reason) {}
 
   // Called when blink.mojom.LocalFrameHost::DidFinishLoad() is invoked.
@@ -648,7 +650,8 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
           blink_popup_widget_host,
       mojo::PendingAssociatedReceiver<blink::mojom::WidgetHost>
           blink_widget_host,
-      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget);
+      mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget,
+      GlobalRenderFrameHostId creator_frame_id);
 
   virtual void DidLoadResourceFromMemoryCache(
       RenderFrameHostImpl* source,

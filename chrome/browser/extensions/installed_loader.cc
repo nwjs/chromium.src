@@ -360,7 +360,7 @@ void InstalledLoader::LoadAllExtensions() {
 
 void InstalledLoader::LoadAllExtensions(Profile* profile) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  TRACE_EVENT0("browser,startup", "InstalledLoader::LoadAllExtensions");
+  TRACE_EVENT("browser,startup", "InstalledLoader::LoadAllExtensions");
 
   bool is_user_profile =
       profile_util::ProfileCanUseNonComponentExtensions(profile);
@@ -379,6 +379,8 @@ void InstalledLoader::LoadAllExtensions(Profile* profile) {
     }
 
     if (ShouldReloadExtensionManifest(info)) {
+      TRACE_EVENT("browser,startup", "Reload Extension Manifest");
+
       // Reloading an extension reads files from disk.  We do this on the
       // UI thread because reloads should be very rare, and the complexity
       // added by delaying the time when the extensions service knows about
@@ -408,6 +410,7 @@ void InstalledLoader::LoadAllExtensions(Profile* profile) {
 
   for (const auto& info : extensions_info) {
     if (info.extension_location != mojom::ManifestLocation::kCommandLine) {
+      TRACE_EVENT("browser,startup", "Load Extension");
       Load(info, should_write_prefs);
     }
   }
@@ -461,6 +464,7 @@ void InstalledLoader::RecordExtensionsIncrementedMetricsForTesting(
 
 // TODO(crbug.com/40739895): Separate out Webstore/Offstore metrics.
 void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
+  TRACE_EVENT("browser,startup", "RecordExtensionsMetrics");
   DCHECK(profile_util::ProfileCanUseNonComponentExtensions(profile));
 
   int app_user_count = 0;
@@ -585,7 +589,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
     // 10 is arbitrarily chosen.
     static constexpr int kMaxManifestVersion = 10;
     // ManifestVersion split by location for items of type
-    // Manifest::TYPE_EXTENSION. An ungrouped histogram is below, includes all
+    // Manifest::Type::kExtension. An ungrouped histogram is below, includes all
     // extension-y types (such as platform apps and hosted apps), and doesn't
     // include unpacked or component locations.
     if (extension->is_extension()) {
@@ -695,7 +699,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
     // We might have wanted to count legacy packaged apps here, too, since they
     // are effectively extensions. Unfortunately, it's too late, as we don't
     // want to mess up the existing stats.
-    if (type == Manifest::TYPE_EXTENSION) {
+    if (type == Manifest::Type::kExtension) {
       base::UmaHistogramEnumeration("Extensions.BackgroundPageType2",
                                     GetBackgroundPageType(extension));
 
@@ -715,15 +719,15 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
     // Using the totals per user at each startup tells us the distribution of
     // usage for each user (e.g. 40% of users have at least one app installed).
     UMA_HISTOGRAM_ENUMERATION("Extensions.LoadType2", type,
-                              Manifest::NUM_LOAD_TYPES);
+                              Manifest::Type::kNumLoadTypes);
     switch (type) {
-      case Manifest::TYPE_THEME:
+      case Manifest::Type::kTheme:
         ++theme_count;
         break;
-      case Manifest::TYPE_USER_SCRIPT:
+      case Manifest::Type::kUserScript:
         // No histogram.
         break;
-      case Manifest::TYPE_HOSTED_APP:
+      case Manifest::Type::kHostedApp:
         ++hosted_app_count;
         if (Manifest::IsExternalLocation(location)) {
           ++app_external_count;
@@ -731,7 +735,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
           ++app_user_count;
         }
         break;
-      case Manifest::TYPE_LEGACY_PACKAGED_APP:
+      case Manifest::Type::kLegacyPackagedApp:
         ++legacy_packaged_app_count;
         if (Manifest::IsExternalLocation(location)) {
           ++app_external_count;
@@ -739,7 +743,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
           ++app_user_count;
         }
         break;
-      case Manifest::TYPE_PLATFORM_APP:
+      case Manifest::Type::kPlatformApp:
         ++platform_app_count;
         if (Manifest::IsExternalLocation(location)) {
           ++app_external_count;
@@ -747,7 +751,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
           ++app_user_count;
         }
         break;
-      case Manifest::TYPE_EXTENSION:
+      case Manifest::Type::kExtension:
       default:
         if (Manifest::IsExternalLocation(location)) {
           ++extension_external_count;

@@ -382,7 +382,7 @@ bool FFmpegAudioDecoder::ConfigureDecoder(const AudioDecoderConfig& config) {
 
     // Disable phase inversion to avoid artifacts in mono downmix. See
     // http://crbug.com/806219
-    if (config.target_output_channel_layout() == CHANNEL_LAYOUT_MONO) {
+    if (config.target_output_channel_layout() == ChannelLayoutConfig::Mono()) {
       int result = av_dict_set(&codec_options, "apply_phase_inv", "0", 0);
       DCHECK_GE(result, 0);
     }
@@ -418,9 +418,10 @@ void FFmpegAudioDecoder::ResetTimestampState(const AudioDecoderConfig& config) {
   // Opus codec delay is handled by ffmpeg.
   const int codec_delay =
       config.codec() == AudioCodec::kOpus ? 0 : config.codec_delay();
+  // TODO(crbug.com/498560799): Remove delayed discard functionality now that
+  // it's no loner used.
   discard_helper_ = std::make_unique<AudioDiscardHelper>(
-      config.samples_per_second(), codec_delay,
-      config.codec() == AudioCodec::kVorbis);
+      config.samples_per_second(), codec_delay, /*delayed_discard=*/false);
   discard_helper_->Reset(codec_delay);
 }
 

@@ -38,13 +38,9 @@ class StubFeedApi : public FeedApi {
   void UpdateUserProfileOnLinkClick(
       const GURL& url,
       const std::vector<int64_t>& entity_mids) override {}
-  void AddUnreadContentObserver(const StreamType& stream_type,
-                                UnreadContentObserver* observer) override {}
-  void RemoveUnreadContentObserver(const StreamType& stream_type,
-                                   UnreadContentObserver* observer) override {}
   bool IsArticlesListVisible() override;
   std::string GetSessionId() const override;
-  void ExecuteRefreshTask(RefreshTaskId task_id) override {}
+  void ExecuteRefreshTask() override {}
   void LoadMore(SurfaceId surface_id,
                 base::OnceCallback<void(bool)> callback) override {}
   void ManualRefresh(SurfaceId surface_id,

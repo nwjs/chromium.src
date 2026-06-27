@@ -727,9 +727,7 @@ LayoutUnit GridLayoutAlgorithm::ContributionSizeForGridItem(
       };
 
       auto subgrid_minmax_sizes = [&]() -> MinMaxSizesResult {
-        if (!grid_item->IsSubgrid()) {
-          return MinMaxSizesResult();
-        }
+        CHECK(grid_item->IsSubgrid());
         const GridSizingSubtree& subgrid_sizing_subtree =
             sizing_subtree.SubgridSizingSubtree(*grid_item);
         if (subgrid_sizing_subtree.LayoutData().IsSubgridWithStandaloneAxis(
@@ -791,7 +789,7 @@ void GridLayoutAlgorithm::BuildSizingCollection(
     GridLayoutData& layout_data,
     SizingConstraint sizing_constraint,
     bool needs_intrinsic_track_size,
-    GridItems** opt_virtual_items) const {
+    VirtualItems** opt_virtual_items) const {
   wtf_size_t start_offset = 0;
   if (Node().HasCachedPlacementData()) {
     start_offset = Node().CachedPlacementData().StartOffset(track_direction);
@@ -1659,7 +1657,9 @@ class GapAccumulator {
     return gap_idx_to_set_idx;
   }
 
-  const GapGeometry* FinalizeGapGeometry() {
+  const GapGeometry* FinalizeGapGeometry(
+      const GridLayoutTrackCollection& rows,
+      const GridLayoutTrackCollection& columns) {
     // `GapGeometry` requires both row(main) and column(cross) gaps to be valid.
     if (gap_geometry_->MainGapCount() == 0 &&
         gap_geometry_->CrossGapCount() == 0) {
@@ -1670,22 +1670,15 @@ class GapAccumulator {
     gap_geometry_->SetBlockGapSize(row_gutter_size_);
 
     // Finalize the `GapSegmentStateRanges` for each gap using the aggregated
-    // cell states collected during `AggregateCellStates`. Only finalize if there
-    // were any cells for that axis.
-    if (main_gaps_aggregator_.GetCellCount() > 0) {
-      for (wtf_size_t gap_index = 0; gap_index < gap_geometry_->MainGapCount();
-           ++gap_index) {
-        main_gaps_aggregator_.FinalizeGapSegmentStateRangesFor(
-            gap_geometry_->MainGapAt(gap_index), gap_index);
-      }
+    // cell states collected during `AggregateCellStates`.
+    if (main_gaps_aggregator_.GetCellCount() > 0 &&
+        gap_geometry_->MainGapCount() > 0) {
+      FinalizeAxisRanges(rows, GapAxis::kMain);
     }
 
-    if (cross_gaps_aggregator_.GetCellCount() > 0) {
-      for (wtf_size_t gap_index = 0; gap_index < gap_geometry_->CrossGapCount();
-           ++gap_index) {
-        cross_gaps_aggregator_.FinalizeGapSegmentStateRangesFor(
-            gap_geometry_->CrossGapAt(gap_index), gap_index);
-      }
+    if (cross_gaps_aggregator_.GetCellCount() > 0 &&
+        gap_geometry_->CrossGapCount() > 0) {
+      FinalizeAxisRanges(columns, GapAxis::kCross);
     }
 
     gap_geometry_->SetContentInlineOffsets(content_inline_start_,
@@ -1699,6 +1692,57 @@ class GapAccumulator {
   }
 
  private:
+  enum class GapAxis { kMain, kCross };
+
+  // Finalizes each gap's `GapSegmentStateRanges` using the adjacent track
+  // index as the key, adjusting for collapsed tracks.
+  //
+  // TODO(samomekarajr): Apply the same range-based iteration to
+  // `BuildMainGaps` and `BuildCrossGaps`, which still walk every line with
+  // an O(nlogn) `RangeIndexFromGridLine` lookup per line.
+  void FinalizeAxisRanges(const GridLayoutTrackCollection& tracks,
+                          GapAxis axis) {
+    const wtf_size_t gap_count = axis == GapAxis::kMain
+                                     ? gap_geometry_->MainGapCount()
+                                     : gap_geometry_->CrossGapCount();
+    const wtf_size_t first_non_collapsed_line =
+        tracks.FirstNonCollapsedLineIndex();
+    wtf_size_t gap_index = 0;
+    for (wtf_size_t range_index = 0;
+         range_index < tracks.RangeCount() && gap_index < gap_count;
+         ++range_index) {
+      // Skip collapsed ranges, as the don't contribute to the gap geometry.
+      if (tracks.RangeProperties(range_index)
+              .HasProperty(TrackSpanProperties::kIsCollapsed)) {
+        continue;
+      }
+
+      const wtf_size_t start_line = tracks.RangeStartLine(range_index);
+      const wtf_size_t end_line =
+          start_line + tracks.RangeTrackCount(range_index);
+      wtf_size_t line_index = start_line;
+
+      // The first non-collapsed range's leading line is the outer edge of
+      // the grid content, so it's not a gap and we skip it.
+      if (start_line == first_non_collapsed_line) {
+        ++line_index;
+      }
+
+      for (; line_index < end_line && gap_index < gap_count; ++line_index) {
+        const wtf_size_t track_index = line_index - 1;
+        if (axis == GapAxis::kMain) {
+          main_gaps_aggregator_.FinalizeGapSegmentStateRangesFor(
+              gap_geometry_->MainGapAt(gap_index), track_index);
+        } else {
+          cross_gaps_aggregator_.FinalizeGapSegmentStateRangesFor(
+              gap_geometry_->CrossGapAt(gap_index), track_index);
+        }
+        ++gap_index;
+      }
+    }
+    CHECK_EQ(gap_index, gap_count);
+  }
+
   GapGeometry* gap_geometry_ = nullptr;
 
   LayoutUnit content_block_start_;
@@ -1854,7 +1898,8 @@ void GridLayoutAlgorithm::PlaceGridItems(
   }
 
   if (gap_accumulator) {
-    if (const auto* gap_geometry = gap_accumulator->FinalizeGapGeometry()) {
+    if (const auto* gap_geometry = gap_accumulator->FinalizeGapGeometry(
+            layout_data->Rows(), layout_data->Columns())) {
       // If `out_unfragmented_gap_geometry` is present we just want to record
       // the initial position of all gaps for the purposes of fragmentation.
       // Don't add these to the builder.
@@ -2105,8 +2150,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
           // fragmentainer space we'd need to fit more content.
           DisableLayoutSideEffectsScope disable_side_effects;
           auto* result = grid_item.node.Layout(space, break_token);
-          PropagateSpaceShortage(constraint_space, result,
-                                 fragmentainer_block_offset,
+          PropagateSpaceShortage(result, fragmentainer_block_offset,
                                  fragmentainer_block_size, &container_builder_);
         }
         has_subsequent_children = true;
@@ -2161,8 +2205,7 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
 
           // We are choosing to add an early breakpoint at a row. Propagate our
           // space shortage to the column balancer.
-          PropagateSpaceShortage(constraint_space, result,
-                                 fragmentainer_block_offset,
+          PropagateSpaceShortage(result, fragmentainer_block_offset,
                                  fragmentainer_block_size, &container_builder_);
 
           // We may have "break-before:avoid" or similar on this row. Instead
@@ -2555,6 +2598,11 @@ void GridLayoutAlgorithm::PlaceOutOfFlowItems(
   const auto default_containing_block_size =
       ShrinkLogicalSize(total_fragment_size, BorderScrollbarPadding());
 
+  const auto border_scrollbar = Borders() + Scrollbar();
+  const LogicalRect padding_box_rect = {
+      border_scrollbar.StartOffset(),
+      ShrinkLogicalSize(total_fragment_size, border_scrollbar)};
+
   for (LayoutBox* oof_child : oofs) {
     GridItemData* out_of_flow_item = MakeGarbageCollected<GridItemData>(
         BlockNode(oof_child), container_style);
@@ -2568,8 +2616,8 @@ void GridLayoutAlgorithm::PlaceOutOfFlowItems(
     if ((is_absolute_container && position == EPosition::kAbsolute) ||
         (is_fixed_container && position == EPosition::kFixed)) {
       containing_block_rect.emplace(ComputeOutOfFlowItemContainingRect(
-          placement_data, layout_data, container_style,
-          container_builder_.Borders(), total_fragment_size, out_of_flow_item));
+          placement_data, layout_data, container_style, padding_box_rect,
+          out_of_flow_item));
     }
 
     LogicalStaticPosition static_pos;
@@ -2666,27 +2714,51 @@ LogicalRect GridLayoutAlgorithm::ComputeOutOfFlowItemContainingRect(
     const GridPlacementData& placement_data,
     const GridLayoutData& layout_data,
     const ComputedStyle& grid_style,
-    const BoxStrut& borders,
-    const LogicalSize& border_box_size,
-    GridItemData* out_of_flow_item) {
-  DCHECK(out_of_flow_item && out_of_flow_item->IsOutOfFlow());
+    const LogicalRect& padding_box_rect,
+    GridItemData* item) {
+  DCHECK(item && item->IsOutOfFlow());
 
-  out_of_flow_item->ComputeOutOfFlowItemPlacement(layout_data.Columns(),
-                                                  placement_data, grid_style);
-  out_of_flow_item->ComputeOutOfFlowItemPlacement(layout_data.Rows(),
-                                                  placement_data, grid_style);
+  item->ComputeOutOfFlowItemPlacement(layout_data.Columns(), placement_data,
+                                      grid_style);
+  item->ComputeOutOfFlowItemPlacement(layout_data.Rows(), placement_data,
+                                      grid_style);
 
-  LogicalRect containing_rect;
+  LogicalRect rect = padding_box_rect;
+  {
+    const auto& placement = item->column_placement;
+    const auto& track_collection = layout_data.Columns();
+    if (placement.range_index.begin != kNotFound) {
+      DCHECK_NE(placement.offset_in_range.begin, kNotFound);
+      rect.ShiftInlineStartEdgeTo(
+          TrackStartOffset(track_collection, placement.range_index.begin,
+                           placement.offset_in_range.begin));
+    }
+    if (placement.range_index.end != kNotFound) {
+      DCHECK_NE(placement.offset_in_range.end, kNotFound);
+      rect.ShiftInlineEndEdgeTo(TrackEndOffset(track_collection,
+                                               placement.range_index.end,
+                                               placement.offset_in_range.end));
+    }
+  }
 
-  ComputeOutOfFlowOffsetAndSize(
-      *out_of_flow_item, layout_data.Columns(), borders, border_box_size,
-      &containing_rect.offset.inline_offset, &containing_rect.size.inline_size);
+  {
+    const auto& placement = item->row_placement;
+    const auto& track_collection = layout_data.Rows();
+    if (placement.range_index.begin != kNotFound) {
+      DCHECK_NE(placement.offset_in_range.begin, kNotFound);
+      rect.ShiftBlockStartEdgeTo(
+          TrackStartOffset(track_collection, placement.range_index.begin,
+                           placement.offset_in_range.begin));
+    }
+    if (placement.range_index.end != kNotFound) {
+      DCHECK_NE(placement.offset_in_range.end, kNotFound);
+      rect.ShiftBlockEndEdgeTo(TrackEndOffset(track_collection,
+                                              placement.range_index.end,
+                                              placement.offset_in_range.end));
+    }
+  }
 
-  ComputeOutOfFlowOffsetAndSize(
-      *out_of_flow_item, layout_data.Rows(), borders, border_box_size,
-      &containing_rect.offset.block_offset, &containing_rect.size.block_size);
-
-  return containing_rect;
+  return rect;
 }
 
 }  // namespace blink

@@ -53,6 +53,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/webapps/browser/install_result_code.h"
+#include "components/webapps/browser/web_app_url_config.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -66,7 +67,6 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/web_app_id_constants.h"
 #include "ash/edusumer/graduation_utils.h"
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/policy/system_features_disable_list_policy_handler.h"
@@ -75,6 +75,7 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/ash/components/policy/system_features_disable_list/system_features_disable_list_policy_utils.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/system_features_disable_list_constants.h"
 #include "components/user_manager/user_manager.h"
@@ -648,7 +649,7 @@ WebAppPolicyManager::ParseInstallPolicyEntry(const base::DictValue& entry) {
          (*default_launch_container == kDefaultLaunchContainerWindowValue) ||
          (*default_launch_container == kDefaultLaunchContainerTabValue));
 
-  if (!install_gurl.is_valid()) {
+  if (!webapps::IsUrlEligibleForWebApp(install_gurl)) {
     LOG(WARNING) << "Policy-installed web app has invalid URL " << *install_url;
     return std::nullopt;
   }
@@ -709,8 +710,10 @@ WebAppPolicyManager::ParseInstallPolicyEntry(const base::DictValue& entry) {
       GURL icon_gurl = GURL(*icon_url);
       if (icon_gurl.SchemeIs(url::kHttpsScheme)) {
         install_options.override_icon_url = icon_gurl;
-        if (install_gurl.is_valid()) {
-          custom_manifest_values_by_url_[install_gurl].SetIcon(icon_gurl);
+        const std::string* icon_hash =
+            custom_icon->FindString(kCustomIconHashKey);
+        if (icon_hash) {
+          install_options.override_icon_hash = *icon_hash;
         }
       } else {
         LOG(WARNING) << "Policy-installed web app " << *install_url

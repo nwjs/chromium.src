@@ -31,6 +31,7 @@
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/web_applications/test/ssl_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
@@ -48,6 +49,7 @@
 #include "chrome/browser/web_applications/test/test_file_utils.h"
 #include "chrome/browser/web_applications/test/web_app_icon_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
+#include "chrome/browser/web_applications/test/web_app_page_waiter.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/user_uninstalled_preinstalled_web_app_prefs.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -64,6 +66,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
 #include "components/services/app_service/public/cpp/app_update.h"
+#include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_launcher.h"
@@ -1519,6 +1522,12 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 // obtained via sync install.
 IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
                        OfflineOnlyManifest_SiteAlreadyInstalledFromSync) {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile());
+  signin::MakePrimaryAccountAvailable(identity_manager, "user@gmail.com",
+                                      signin::ConsentLevel::kSignin);
+  ui::DeviceDataManagerTestApi().OnDeviceListsComplete();
+
   ASSERT_TRUE(embedded_test_server()->Start());
 
   GURL install_url = GetAppUrl();
@@ -2054,7 +2063,10 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerSimpleBrowserTest,
   base::WeakPtr<content::WebContents> web_contents =
       launch.Get<base::WeakPtr<content::WebContents>>();
   ASSERT_TRUE(web_contents);
-  content::WaitForLoadStop(web_contents.get());
+  EXPECT_TRUE(test::WebAppPageWaiter(web_contents.get())
+                  .ExpectUrl(GetOutOfScopeUrl())
+                  .ManifestOrLoadedNoManifest()
+                  .WaitAndFlushCommands());
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
 
   EXPECT_EQ(provider().registrar_unsafe().GetAppShortName(GetAppId()),
@@ -2082,7 +2094,10 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerSimpleBrowserTest,
   base::WeakPtr<content::WebContents> web_contents =
       launch.Get<base::WeakPtr<content::WebContents>>();
   ASSERT_TRUE(web_contents);
-  content::WaitForLoadStop(web_contents.get());
+  EXPECT_TRUE(test::WebAppPageWaiter(web_contents.get())
+                  .ExpectUrl(GetOutOfScopeUrl())
+                  .ManifestOrLoadedNoManifest()
+                  .WaitAndFlushCommands());
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
   histogram_tester.ExpectUniqueSample("WebApp.FetchManifestAndUpdate.Result",
                                       FetchManifestAndUpdateResult::kSuccess,

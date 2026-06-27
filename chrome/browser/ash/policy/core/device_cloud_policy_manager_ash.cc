@@ -10,6 +10,8 @@
 #include <utility>
 
 #include "ash/constants/ash_paths.h"
+#include "ash/constants/ash_policy_pref_names.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -25,7 +27,6 @@
 #include "chrome/browser/ash/login/reporting/lock_unlock_reporter.h"
 #include "chrome/browser/ash/login/reporting/login_logout_reporter.h"
 #include "chrome/browser/ash/policy/core/device_cloud_policy_store_ash.h"
-#include "chrome/browser/ash/policy/core/policy_pref_names.h"
 #include "chrome/browser/ash/policy/core/reporting_user_tracker.h"
 #include "chrome/browser/ash/policy/enrollment/auto_enrollment_type_checker.h"
 #include "chrome/browser/ash/policy/networking/euicc_status_uploader.h"
@@ -167,8 +168,8 @@ void DeviceCloudPolicyManagerAsh::RegisterPrefs(PrefRegistrySimple* registry) {
   ReportingUserTracker::RegisterPrefs(registry);
 
   registry->RegisterDictionaryPref(::prefs::kServerBackedDeviceState);
-  registry->RegisterBooleanPref(::prefs::kRemoveUsersRemoteCommand, false);
-  registry->RegisterStringPref(::prefs::kLastRsuDeviceIdUploaded,
+  registry->RegisterBooleanPref(ash::prefs::kRemoveUsersRemoteCommand, false);
+  registry->RegisterStringPref(ash::prefs::kLastRsuDeviceIdUploaded,
                                std::string());
   registry->RegisterListPref(prefs::kStoreLogStatesAcrossReboots);
   registry->RegisterDictionaryPref(
@@ -405,7 +406,7 @@ void DeviceCloudPolicyManagerAsh::CreateManagedSessionServiceAndReporters() {
 
   managed_session_service_ = std::make_unique<ManagedSessionService>();
   login_logout_reporter_ = ash::reporting::LoginLogoutReporter::Create(
-      managed_session_service_.get());
+      local_state_, managed_session_service_.get());
 
   user_added_removed_reporter_ = ::reporting::UserAddedRemovedReporter::Create(
       std::move(users_to_be_removed_), managed_session_service_.get());

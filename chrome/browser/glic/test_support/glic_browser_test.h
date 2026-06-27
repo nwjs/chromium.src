@@ -19,11 +19,13 @@
 #include "base/test/gmock_expected_support.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
 #include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -31,21 +33,27 @@
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
+#include "chrome/browser/glic/test_support/glic_test_tab_added_waiter.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/test_result.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/platform_browser_test.h"
+#include "components/feature_engagement/test/scoped_iph_feature_list.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/base_window.h"
+#include "ui/gfx/geometry/point_conversions.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "base/android/android_info.h"
 #include "base/android/device_info.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
+#include "chrome/browser/ui/android/tab_model/tab_model.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS)
@@ -142,21 +150,44 @@ class GlicBrowserTestMixin : public T {
         {chrome::android::kBrowserWindowInterfaceMobile, {}},
         {chrome::android::kTabBottomSheet, {}},
 #endif
+    // TODO(crbug.com/516793173): Remove this compile-time check once C++
+    // browser tests automatically inherit --force-desktop-android just like
+    // Java.
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+        {chrome::android::kEnableAndroidSidePanel, {}},
+        {features::kGlicAndroidSidePanel, {}},
+#endif
     };
     glic_test_environment_.SetGlicPagePath(
         "/glic/browser_tests/minimal_client.html");
     scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
+    // Globally block all In-Product Help (IPH) triggers in all Glic browser
+    // tests to avoid flakiness caused by unexpected IPH popups (e.g., adaptive
+    // top toolbar customization cues on Android), which can make glic hide.
+    scoped_iph_feature_list_.InitWithNoFeaturesAllowed();
   }
   ~GlicBrowserTestMixin() override = default;
 
   // PlatformBrowserTest:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     T::SetUpCommandLine(command_line);
+    // TODO(crbug.com/516793173): Remove this switch once C++ browser tests
+    // automatically inherit --force-desktop-android just like Java.
 #if BUILDFLAG(IS_DESKTOP_ANDROID)
     // This is needed to force is_desktop() to return true for desktop Android
     // builds.
     command_line->AppendSwitch(switches::kForceDesktopAndroid);
 #endif
+  }
+
+  void SetUp() override {
+#if BUILDFLAG(IS_ANDROID)
+    if (base::android::android_info::sdk_int() <
+        base::android::android_info::SDK_VERSION_S) {
+      GTEST_SKIP() << "Glic requires Android S+ to run";
+    }
+#endif
+    T::SetUp();
   }
 
   void SetUpOnMainThread() override {
@@ -202,6 +233,14 @@ class GlicBrowserTestMixin : public T {
     return WaitForGlicOpen(T::GetTabListInterface()->GetActiveTab());
   }
 
+  void RegisterConversation(GlicInstanceImpl* instance,
+                            const std::string& conversation_id) {
+    CHECK(instance);
+    auto info = mojom::ConversationInfo::New();
+    info->conversation_id = conversation_id;
+    instance->RegisterConversation(std::move(info), base::DoNothing());
+  }
+
   // Registers a conversation and submits input to prevent the instance from
   // being deleted when closed.
   void PreventDeletionOnClose(
@@ -212,9 +251,7 @@ class GlicBrowserTestMixin : public T {
     }
     CHECK(instance);
     if (!instance->conversation_id().has_value()) {
-      auto info = mojom::ConversationInfo::New();
-      info->conversation_id = conversation_id;
-      instance->RegisterConversation(std::move(info), base::DoNothing());
+      RegisterConversation(instance, conversation_id);
     }
     instance->OnUserInputSubmitted(mojom::WebClientMode::kText);
   }
@@ -359,6 +396,162 @@ class GlicBrowserTestMixin : public T {
     return new_tab;
   }
 
+  content::Visibility GetContentsVisibility(GlicInstanceImpl* instance) {
+    EXPECT_TRUE(instance);
+    content::WebContents* webui_contents = instance->host().webui_contents();
+    return webui_contents ? webui_contents->GetVisibility()
+                          : content::Visibility::HIDDEN;
+  }
+
+  std::string VisibilityAsString(content::Visibility visibility) {
+    switch (visibility) {
+      case content::Visibility::HIDDEN:
+        return "HIDDEN";
+      case content::Visibility::OCCLUDED:
+        return "OCCLUDED";
+      case content::Visibility::VISIBLE:
+        return "VISIBLE";
+    }
+    return "UNKNOWN";
+  }
+
+  [[nodiscard]] TestResult<> WaitForWebUiContentsVisibility(
+      GlicInstanceImpl* instance,
+      content::Visibility visibility) {
+    return RunUntilEqual(
+        [&]() { return VisibilityAsString(GetContentsVisibility(instance)); },
+        VisibilityAsString(visibility),
+        "Timeout waiting for webui WebContents visibility to be " +
+            VisibilityAsString(visibility));
+  }
+
+  void ActivateTab(tabs::TabInterface* tab) {
+    CHECK(tab);
+    tab->GetContents()->GetDelegate()->ActivateContents(tab->GetContents());
+  }
+
+  tabs::TabInterface* CreateUserInitiatedTab(const GURL& url) {
+#if BUILDFLAG(IS_ANDROID)
+    auto* tab_list = T::GetTabListInterface();
+    CHECK(tab_list) << "TabListInterface is null";
+    auto* tab_model = static_cast<TabModel*>(tab_list);
+    Profile* profile = T::GetProfile();
+    CHECK(profile) << "Profile is null";
+
+    std::unique_ptr<content::WebContents> web_contents =
+        content::WebContents::Create(
+            content::WebContents::CreateParams(profile));
+    web_contents->GetController().LoadURL(
+        url, content::Referrer(), ui::PAGE_TRANSITION_LINK, std::string());
+    tabs::TabInterface* new_tab =
+        tab_model->CreateTab(nullptr, std::move(web_contents), -1,
+                             TabModel::TabLaunchType::FROM_CHROME_UI, false);
+    tab_model->ActivateTab(new_tab->GetHandle());
+    return new_tab;
+#else
+    return CreateAndActivateTab(url);
+#endif
+  }
+
+  // Simulates a click on a link with the given modifiers.
+  // On Android, this uses a tap with modifiers, and injects a viewport meta tag
+  // to ensure coordinates are correct.
+  void SimulateLinkClick(tabs::TabInterface* tab,
+                         bool ctrl_key,
+                         bool shift_key) {
+    content::WebContents* contents = tab->GetContents();
+    std::string link_id = "simulator-link";
+    std::string script = base::StringPrintf(
+        R"(
+          (() => {
+            const meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width,minimum-scale=1';
+            document.head.appendChild(meta);
+
+            const a = document.createElement('a');
+            a.id = '%s';
+            a.href = 'about:blank';
+            a.innerText = 'Click me';
+            a.style.position = 'fixed';
+            a.style.left = '0';
+            a.style.top = '0';
+            a.style.width = '100vw';
+            a.style.height = '100vh';
+            a.style.zIndex = '9999';
+            document.body.appendChild(a);
+          })();
+        )",
+        link_id.c_str());
+
+    content::RenderFrameSubmissionObserver frame_observer(contents);
+
+    frame_observer.SetWaitForNextFrame();
+    EXPECT_TRUE(content::ExecJs(contents, script));
+
+    // Wait for the next frame to ensure the element is visible to the
+    // compositor. Without this wait, the click might happen too early and not
+    // trigger the navigation.
+    frame_observer.WaitForNextFrameSubmission();
+
+    int modifiers = 0;
+    if (ctrl_key) {
+#if BUILDFLAG(IS_MAC)
+      modifiers |= blink::WebInputEvent::kMetaKey;
+#else
+      modifiers |= blink::WebInputEvent::kControlKey;
+#endif
+    }
+    if (shift_key) {
+      modifiers |= blink::WebInputEvent::kShiftKey;
+    }
+
+    gfx::Point point = gfx::ToFlooredPoint(
+        content::GetCenterCoordinatesOfElementWithId(contents, link_id));
+
+#if BUILDFLAG(IS_ANDROID)
+    content::SimulateTapWithModifiersAt(contents, modifiers, point);
+#else
+    content::SimulateMouseClickAt(contents, modifiers,
+                                  blink::WebMouseEvent::Button::kLeft, point);
+#endif
+  }
+
+  TestResult<> WaitForActiveEmbedderToMatchTab(GlicInstanceImpl* instance,
+                                               tabs::TabInterface* tab) {
+    CHECK(tab);
+    CHECK(instance);
+    return RunUntilEqual(
+        [&]() { return instance->GetActiveEmbedderTabForTesting(); }, tab,
+        "Timeout waiting for active embedder to match tab");
+  }
+
+  TestResult<> WaitForEmbedderActivationOrPeek(GlicInstanceImpl* instance,
+                                               tabs::TabInterface* tab) {
+    CHECK(tab);
+    CHECK(instance);
+
+    auto* side_panel_coordinator = GlicSidePanelCoordinator::GetForTab(tab);
+    bool supports_peek =
+        side_panel_coordinator && side_panel_coordinator->SupportsPeek();
+
+    if (supports_peek) {
+      RETURN_IF_ERROR(RunUntilEqual(
+          [&]() { return instance->GetEmbedderForTab(tab) != nullptr; }, true,
+          "Timeout waiting for embedder to bind"));
+      RETURN_IF_ERROR(
+          WaitForSidePanelState(tab, GlicSidePanelCoordinator::State::kPeek));
+      return WaitForWebUiContentsVisibility(instance,
+                                            content::Visibility::HIDDEN);
+    } else {
+      RETURN_IF_ERROR(RunUntilEqual(
+          [&]() { return instance->GetActiveEmbedderTabForTesting(); }, tab,
+          "Timeout waiting for active embedder to match tab"));
+      return WaitForWebUiContentsVisibility(instance,
+                                            content::Visibility::VISIBLE);
+    }
+  }
+
   [[nodiscard]] TestResult<> WaitForWebUiState(mojom::WebUiState state) {
     auto state_to_string = [](mojom::WebUiState state) -> std::string {
       std::stringstream ss;
@@ -409,14 +602,67 @@ class GlicBrowserTestMixin : public T {
     glic_test_environment_.SetGlicFreUrlOverride(url);
   }
 
+  [[nodiscard]] TestResult<void> WaitForGlicClient(GlicInstance* instance) {
+    auto* instance_impl = GetInstanceImpl(instance);
+    return RunUntilEqual(
+        [&]() { return instance_impl->host().IsWebClientConnected(); }, true,
+        "WaitForGlicClient: client client did not connect");
+  }
+
+  // Create an actor task for the instance.
+  [[nodiscard]] TestResult<actor::TaskId> CreateActorTask(
+      GlicInstance* instance = nullptr) {
+    auto instance_impl = GetInstanceImpl(instance);
+    base::test::TestFuture<
+        base::expected<int32_t, glic::mojom::CreateTaskErrorReason>>
+        create_task_future;
+    RETURN_IF_ERROR(WaitForGlicClient(instance));
+    instance_impl->GetActorTaskManager()
+        ->GetClientSessionForTesting()
+        ->CreateTask(actor::webui::mojom::TaskOptions::New(),
+                     create_task_future.GetCallback());
+    return create_task_future.Get()
+        .transform(
+            [](int32_t id) -> actor::TaskId { return actor::TaskId(id); })
+        .transform_error([](const auto& e) -> std::string {
+          std::stringstream ss;
+          ss << "Failed to create actor task: " << e;
+          return ss.str();
+        });
+  }
+
  protected:
   GlicTestEnvironment& glic_test_environment() {
     return glic_test_environment_;
   }
 
+  GlicInstanceImpl* GetInstanceImpl(GlicInstance* instance = nullptr) {
+    if (!instance) {
+      instance = GetOnlyGlicInstance();
+    }
+    return static_cast<GlicInstanceImpl*>(instance);
+  }
+
  private:
+  // Hide functionality not available on Android to discourage use.
+  // Callers can instead use, e.g. PlatformBrowserTest::browser(), or
+  // redeclare PlatformBrowserTest::browser as public on the test fixture.
+#if !BUILDFLAG(IS_ANDROID)
+  // Alternative: CreateAndActivateTab(GURL("about:blank"))
+  using T::AddBlankTabAndShow;
+  // Alternative: GetBrowser()
+  using T::browser;
+  // Alternative:
+  // chrome/browser/ui/browser_window/public/create_browser_window.h.
+  using T::CreateBrowser;
+  using T::CreateBrowserForApp;
+  using T::CreateBrowserForPopup;
+  using T::CreateIncognitoBrowser;
+  using T::OpenURLOffTheRecord;
+#endif
   GlicTestEnvironment glic_test_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
+  feature_engagement::test::ScopedIphFeatureList scoped_iph_feature_list_;
 #if defined(USE_MOCK_ACTIVATION_CONTROLLER)
   std::unique_ptr<views::test::MockActivationController> activation_controller_;
 #endif

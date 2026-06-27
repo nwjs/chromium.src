@@ -18,6 +18,7 @@ import '../settings_page/settings_section.js';
 import '../settings_shared.css.js';
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
+import {CrSettingsPrefs} from '/shared/settings/prefs/prefs_types.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -138,7 +139,7 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
   // </if>
   // <if expr="is_win">
   declare private showProcessIsolationSetting_: boolean;
-  private processIsolationEnabledAtStartup_: boolean = false;
+  private processIsolationEnabledAtStartup_: boolean|undefined;
   // </if>
 
   // <if expr="_google_chrome">
@@ -154,8 +155,10 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
   // <if expr="is_win">
   override connectedCallback() {
     super.connectedCallback();
-    this.processIsolationEnabledAtStartup_ =
-        this.getPref('isolation_state.enabled').value;
+    CrSettingsPrefs.initialized.then(() => {
+      this.processIsolationEnabledAtStartup_ =
+          this.getPref<boolean>('isolation_state.enabled').value;
+    });
   }
   // </if>
 
@@ -203,7 +206,7 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
         (pref.extensionId !== rulesPref.extensionId);
   }
 
-  private onExtensionDisable_() {
+  private onDisableExtensionClick_() {
     // TODO(dbeam): this is a pretty huge bummer. It means there are things
     // (inputs) that our prefs system is not observing. And that changes from
     // other sources (i.e. disabling/enabling an extension from
@@ -269,6 +272,9 @@ export class SettingsSystemPageElement extends SettingsSystemPageElementBase
 
   // <if expr="is_win">
   private shouldShowIsolationRestart_(): boolean {
+    if (this.processIsolationEnabledAtStartup_ === undefined) {
+      return false;
+    }
     return this.getPref('isolation_state.enabled').value !==
         this.processIsolationEnabledAtStartup_;
   }

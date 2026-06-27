@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
@@ -23,7 +24,6 @@
 #include "chrome/browser/ash/login/lock/online_reauth/lock_screen_reauth_manager.h"
 #include "chrome/browser/ash/login/lock/online_reauth/lock_screen_reauth_manager_factory.h"
 #include "chrome/browser/ash/login/login_constants.h"
-#include "chrome/browser/ash/login/login_pref_names.h"
 #include "chrome/browser/ash/login/reauth_stats.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
@@ -318,9 +318,11 @@ void OfflineSigninLimiter::ForceOnlineLogin() {
   user_manager::UserManager::Get()->SaveForceOnlineSignin(user.GetAccountId(),
                                                           true);
   if (user.using_saml()) {
-    RecordReauthReason(user.GetAccountId(), ReauthReason::kSamlReauthPolicy);
+    RecordReauthReason(local_state_.get(), user.GetAccountId(),
+                       ReauthReason::kSamlReauthPolicy);
   } else {
-    RecordReauthReason(user.GetAccountId(), ReauthReason::kGaiaReauthPolicy);
+    RecordReauthReason(local_state_.get(), user.GetAccountId(),
+                       ReauthReason::kGaiaReauthPolicy);
   }
   offline_signin_limit_timer_->Stop();
 }
@@ -338,7 +340,7 @@ void OfflineSigninLimiter::ForceOnlineLockScreenReauth() {
       LockScreenReauthManagerFactory::GetForProfile(profile_);
   DCHECK(lock_screen_reauth_manager);
   lock_screen_reauth_manager->MaybeForceReauthOnLockScreen(reauth_reason);
-  RecordReauthReason(user.GetAccountId(), reauth_reason);
+  RecordReauthReason(local_state_.get(), user.GetAccountId(), reauth_reason);
   offline_lock_screen_signin_limit_timer_->Stop();
 }
 

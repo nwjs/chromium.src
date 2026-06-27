@@ -11,6 +11,7 @@ enum class AiModeActivationSource;
 enum class ComposeboxDragAndDropType;
 @class ComposeboxInputPlateViewController;
 enum class ComposeboxMode;
+enum class ComposeboxModelOption;
 @class ComposeboxUIInputState;
 enum class FuseboxAttachmentButtonType;
 
@@ -50,7 +51,8 @@ enum class FuseboxAttachmentButtonType;
 - (void)composeboxViewController:
             (ComposeboxInputPlateViewController*)composeboxViewController
     didOpenPlusMenuWithVisibleInternalButtons:
-        (const std::vector<FuseboxAttachmentButtonType>&)visibleInternalButtons;
+        (const std::vector<FuseboxAttachmentButtonType>&)visibleInternalButtons
+                                 uiInputState:(ComposeboxUIInputState*)state;
 
 /// Informs the delegate that a user did tap on the file button.
 - (void)composeboxViewControllerDidTapFileButton:
@@ -65,23 +67,17 @@ enum class FuseboxAttachmentButtonType;
             (ComposeboxInputPlateViewController*)viewController
        didAttemptDragAndDropType:(ComposeboxDragAndDropType)type;
 
-/// Informs the delegate that a user did tap on the AI button.
-- (void)composeboxViewControllerDidTapAIMButton:
+/// Informs the delegate that a user did tap on a tool button.
+- (void)composeboxViewController:
             (ComposeboxInputPlateViewController*)composeboxViewController
-                               activationSource:
-                                   (AiModeActivationSource)activationSource;
+                      didTapTool:(ComposeboxMode)toolMode
+                activationSource:(AiModeActivationSource)activationSource;
 
-/// Informs the delegate that a user did tap on the image generation button.
-- (void)composeboxViewControllerDidTapImageGenerationButton:
-    (ComposeboxInputPlateViewController*)composeboxViewController;
-
-/// Informs the delegate that a user did tap on the canvas button.
-- (void)composeboxViewControllerDidTapCanvasButton:
-    (ComposeboxInputPlateViewController*)composeboxViewController;
-
-/// Informs the delegate that a user did tap on the deep search button.
-- (void)composeboxViewControllerDidTapDeepSearchButton:
-    (ComposeboxInputPlateViewController*)composeboxViewController;
+/// Informs the delegate that a user did select a model option from the
+/// tool menu.
+- (void)composeboxViewController:
+            (ComposeboxInputPlateViewController*)composeboxViewController
+                  didSelectModel:(ComposeboxModelOption)modelOption;
 
 /// Informs the delegate that a user did tap on the plus button.
 - (void)composeboxViewControllerDidTapPlusButton:

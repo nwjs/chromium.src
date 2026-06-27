@@ -16,6 +16,7 @@ import android.content.res.Configuration;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.test.filters.MediumTest;
 
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -25,6 +26,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.params.ParameterAnnotations;
@@ -32,6 +34,7 @@ import org.chromium.base.test.params.ParameterProvider;
 import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -62,6 +65,7 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DisableFeatures({ChromeFeatureList.USE_ALTERNATE_HISTORY_SYNC_ILLUSTRATION})
 @DoNotBatch(reason = "This test relies on native initialization")
+@DisableLeakChecks("crbug.com/512492471 (IdentityManagerImpl)")
 public class HistorySyncRenderTest {
     /** Parameter provider for night mode state and device orientation. */
     public static class NightModeAndOrientationParameterProvider implements ParameterProvider {
@@ -136,6 +140,8 @@ public class HistorySyncRenderTest {
     @ParameterAnnotations.UseMethodParameter(
             HistorySyncRenderTest.NightModeAndOrientationParameterProvider.class)
     public void testHistorySyncView(boolean nightModeEnabled, int orientation) throws IOException {
+        Assume.assumeFalse(
+                DeviceInfo.isDesktop() && orientation == Configuration.ORIENTATION_PORTRAIT);
         mSigninTestRule.addAccountThenSignin(TestAccounts.AADC_ADULT_ACCOUNT);
 
         buildHistorySyncCoordinator(orientation);
@@ -151,6 +157,8 @@ public class HistorySyncRenderTest {
             HistorySyncRenderTest.NightModeAndOrientationParameterProvider.class)
     public void testHistorySyncViewWithMinorModeRestrictions(
             boolean nightModeEnabled, int orientation) throws IOException {
+        Assume.assumeFalse(
+                DeviceInfo.isDesktop() && orientation == Configuration.ORIENTATION_PORTRAIT);
         mSigninTestRule.addAccountThenSignin(TestAccounts.AADC_MINOR_ACCOUNT);
         buildHistorySyncCoordinator(orientation);
 
@@ -167,6 +175,8 @@ public class HistorySyncRenderTest {
     @EnableFeatures({ChromeFeatureList.USE_ALTERNATE_HISTORY_SYNC_ILLUSTRATION})
     public void testHistorySyncViewWithAlternateIllustration(
             boolean nightModeEnabled, int orientation) throws IOException {
+        Assume.assumeFalse(
+                DeviceInfo.isDesktop() && orientation == Configuration.ORIENTATION_PORTRAIT);
         mSigninTestRule.addAccountThenSignin(TestAccounts.AADC_ADULT_ACCOUNT);
 
         buildHistorySyncCoordinator(orientation);

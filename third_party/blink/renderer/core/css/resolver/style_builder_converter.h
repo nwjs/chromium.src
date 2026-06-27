@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/flow_tolerance.h"
 #include "third_party/blink/renderer/core/style/grid_area.h"
+#include "third_party/blink/renderer/core/style/max_lines_data.h"
 #include "third_party/blink/renderer/core/style/named_grid_lines_map.h"
 #include "third_party/blink/renderer/core/style/ordered_named_grid_lines.h"
 #include "third_party/blink/renderer/core/style/scroll_marker_group.h"
@@ -85,6 +86,7 @@ class RotateTransformOperation;
 class ScaleTransformOperation;
 class ScopedCSSName;
 class StyleAutoColor;
+class StyleCaretColor;
 class StylePath;
 class StyleResolverState;
 class StyleSVGResource;
@@ -231,6 +233,7 @@ class StyleBuilderConverter {
                                                       const CSSValue&);
   template <typename T>
   static T ConvertLineWidth(StyleResolverState&, const CSSValue&);
+  static int ClampLineWidth(double);
   static int ConvertBorderWidth(const StyleResolverState&, const CSSValue&);
   static int ConvertOutlineOffset(const StyleResolverState&, const CSSValue&);
   static uint16_t ConvertColumnRuleWidth(StyleResolverState&, const CSSValue&);
@@ -323,6 +326,9 @@ class StyleBuilderConverter {
   static StyleAutoColor ConvertStyleAutoColor(StyleResolverState&,
                                               const CSSValue&,
                                               bool for_visited_link = false);
+  static StyleCaretColor ConvertStyleCaretColor(StyleResolverState&,
+                                                const CSSValue&,
+                                                bool for_visited_link = false);
   static SVGPaint ConvertSVGPaint(StyleResolverState&,
                                   const CSSValue&,
                                   bool for_visited_link,
@@ -461,9 +467,10 @@ class StyleBuilderConverter {
       StyleResolverState&,
       const CSSValue&,
       bool allow_any_keyword_in_position_area = false);
-  static FitText ConvertFitText(StyleResolverState&, const CSSValue&);
+  static TextFit ConvertTextFit(StyleResolverState&, const CSSValue&);
   static TextOverflowData ConvertTextOverflow(StyleResolverState&,
                                               const CSSValue&);
+  static MaxLinesData ConvertMaxLines(StyleResolverState&, const CSSValue&);
 
   static ScopedCSSNameList* ConvertTimelineTriggerName(StyleResolverState&,
                                                        const CSSValue&);

@@ -446,17 +446,9 @@ void WebGL2RenderingContextBase::getBufferSubData(
     return;
   }
 
-  void* mapped_data = ContextGL()->MapBufferRange(
+  ContextGL()->GetBufferSubDataCHROMIUM(
       target, static_cast<GLintptr>(src_byte_offset),
-      static_cast<GLsizeiptr>(destination_byte_length), GL_MAP_READ_BIT);
-
-  if (!mapped_data)
-    return;
-
-  UNSAFE_TODO(memcpy(destination_data_ptr, mapped_data,
-                     static_cast<size_t>(destination_byte_length)));
-
-  ContextGL()->UnmapBuffer(target);
+      static_cast<GLsizeiptr>(destination_byte_length), destination_data_ptr);
 }
 
 void WebGL2RenderingContextBase::blitFramebuffer(GLint src_x0,
@@ -5838,6 +5830,20 @@ WebGL2RenderingContextBase::GetUnpackPixelStoreParams(
     params.skip_images = unpack_skip_images_;
   }
   return params;
+}
+
+void WebGL2RenderingContextBase::DrawingBufferClientRestoreRasterizerDiscard() {
+  if (destruction_in_progress_) {
+    return;
+  }
+  if (!ContextGL()) {
+    return;
+  }
+  if (rasterizer_discard_enabled_) {
+    ContextGL()->Enable(GL_RASTERIZER_DISCARD);
+  } else {
+    ContextGL()->Disable(GL_RASTERIZER_DISCARD);
+  }
 }
 
 void WebGL2RenderingContextBase::

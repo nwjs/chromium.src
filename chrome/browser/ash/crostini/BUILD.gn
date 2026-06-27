@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
 assert(is_chromeos)
@@ -80,6 +79,7 @@ static_library("crostini") {
     "//ash/webui/settings/public/constants:mojom",
     "//base",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/drive",
     "//chrome/browser/profiles:profile",
@@ -100,6 +100,7 @@ static_library("crostini") {
     ":crostini_installer_types_mojom",
     "//ash/constants",
     "//ash/resources/vector_icons",
+    "//ash/strings",
     "//chrome/app/vector_icons",
     "//chrome/browser:primitives",
     "//chrome/browser/ash/accessibility",
@@ -215,6 +216,7 @@ static_library("browser_test_support") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser",
+    "//chrome/browser:chrome_browser_main",
     "//chrome/browser:main_extra_parts",
     "//chrome/browser/ash/guest_os/public",
     "//chrome/browser/ui",
@@ -252,11 +254,12 @@ source_set("unit_tests") {
     ":crostini",
     ":test_support",
     "//ash/constants",
+    "//ash/strings",
     "//base",
     "//base/test:test_support",
-    "//chrome/app:generated_resources",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/crostini/throttle:unit_tests",
     "//chrome/browser/ash/file_manager",
     "//chrome/browser/ash/guest_os",
@@ -330,6 +333,7 @@ source_set("browser_tests") {
     "//base/test:test_support",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser:main_extra_parts",
     "//chrome/browser/ash/guest_os",
     "//chrome/browser/ui",

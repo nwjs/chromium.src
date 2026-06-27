@@ -31,9 +31,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
-import static org.chromium.chrome.browser.settings.MainSettings.PREF_APPEARANCE;
-import static org.chromium.chrome.browser.settings.MainSettings.PREF_TOOLBAR_SHORTCUT;
-import static org.chromium.chrome.browser.settings.MainSettings.PREF_UI_THEME;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -81,12 +78,14 @@ import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.about_settings.AboutChromeSettings;
 import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillPaymentMethodsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillProfilesFragment;
+import org.chromium.chrome.browser.autofill.settings.HomeOfTransactionsFragment.AutofillSettingsReferrer;
 import org.chromium.chrome.browser.download.settings.DownloadSettings;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -94,8 +93,6 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.homepage.HomepageTestRule;
 import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
 import org.chromium.chrome.browser.language.settings.LanguageSettings;
-import org.chromium.chrome.browser.night_mode.NightModeMetrics.ThemeSettingsEntry;
-import org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -113,7 +110,6 @@ import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.tasks.tab_management.TabsSettings;
 import org.chromium.chrome.browser.toolbar.ToolbarPositionController;
-import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarSettingsFragment;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
@@ -146,6 +142,7 @@ import org.chromium.ui.text.SpanApplier;
 import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 /** Test for {@link MainSettings}. Main purpose is to have a quick confidence check on the xml. */
@@ -290,6 +287,7 @@ public class MainSettingsFragmentTest {
     /** Test for the "Account" section. */
     @Test
     @SmallTest
+    @DisableFeatures(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)
     public void testStartup() {
         startSettings();
 
@@ -586,6 +584,58 @@ public class MainSettingsFragmentTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true")
+    public void testHomeButtonRemovalEnabled() {
+        startSettings();
+
+        // Verify UI removal
+        Assert.assertNull(
+                "Homepage preference should be removed when flag is on",
+                mMainSettings.findPreference(MainSettings.PREF_HOMEPAGE));
+
+        // Verify Search Index removal
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    MainSettings.SEARCH_INDEX_DATA_PROVIDER.updateDynamicPreferences(
+                            mSettingsActivityTestRule.getActivity(),
+                            mSearchIndexDataMock,
+                            mMainSettings.getProfile());
+                });
+
+        verify(mSearchIndexDataMock)
+                .removeEntry(
+                        MainSettings.SEARCH_INDEX_DATA_PROVIDER.getUniqueId(
+                                MainSettings.PREF_HOMEPAGE));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/false")
+    public void testHomeButtonRemovalDisabled() {
+        startSettings();
+
+        // Verify UI visibility
+        Assert.assertNotNull(
+                "Homepage preference should be visible when flag is off",
+                mMainSettings.findPreference(MainSettings.PREF_HOMEPAGE));
+
+        // Verify Search Index (not removed)
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    MainSettings.SEARCH_INDEX_DATA_PROVIDER.updateDynamicPreferences(
+                            mSettingsActivityTestRule.getActivity(),
+                            mSearchIndexDataMock,
+                            mMainSettings.getProfile());
+                });
+
+        verify(mSearchIndexDataMock, never())
+                .removeEntry(
+                        MainSettings.SEARCH_INDEX_DATA_PROVIDER.getUniqueId(
+                                MainSettings.PREF_HOMEPAGE));
+    }
+
+    @Test
+    @SmallTest
     public void testSearchEngineDisabled() {
         Mockito.doReturn(false).when(mMockTemplateUrlService).isLoaded();
         configureMockSearchEngine();
@@ -860,30 +910,6 @@ public class MainSettingsFragmentTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.ANDROID_APPEARANCE_SETTINGS)
-    public void testAppearanceSettingsEnabled() {
-        startSettings();
-        assertSettingsExists(PREF_APPEARANCE, AppearanceSettingsFragment.class);
-        Assert.assertNull(mMainSettings.findPreference(PREF_TOOLBAR_SHORTCUT));
-        Assert.assertNull(mMainSettings.findPreference(PREF_UI_THEME));
-    }
-
-    @Test
-    @SmallTest
-    @DisableFeatures(ChromeFeatureList.ANDROID_APPEARANCE_SETTINGS)
-    public void testAppearanceSettingsDisabled() {
-        startSettings();
-        Assert.assertNull(mMainSettings.findPreference(PREF_APPEARANCE));
-        assertSettingsExists(PREF_TOOLBAR_SHORTCUT, AdaptiveToolbarSettingsFragment.class);
-        final var themePref = assertSettingsExists(PREF_UI_THEME, ThemeSettingsFragment.class);
-        Assert.assertEquals(
-                ThemeSettingsEntry.SETTINGS,
-                themePref.getExtras().getInt(ThemeSettingsFragment.KEY_THEME_SETTINGS_ENTRY));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.ANDROID_APPEARANCE_SETTINGS)
     public void testAppearanceSettingsNewLabel() {
         testNewPreferenceLabel(
                 AppearanceSettingsFragment.class,
@@ -1016,7 +1042,18 @@ public class MainSettingsFragmentTest {
     @SmallTest
     @EnableFeatures(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)
     public void testClickAutofillAndPasswordsLaunchesNewScreen() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Autofill.YourSavedInfoSettingsPage.VisitReferrer",
+                        AutofillSettingsReferrer.SETTINGS_MENU);
         startSettings();
+
+        // Anonymous class as fake is used instead of a mock.
+        // ProGuard/R8 sees MainSettings.Observer having single implementation, inlining the
+        // implementation instead of the interface and causing a ClassCastException using a mock.
+        AtomicBoolean selected = new AtomicBoolean(false);
+        MainSettings.Observer observer = preference -> selected.set(true);
+        mMainSettings.addObserver(observer);
 
         onView(withId(R.id.recycler_view))
                 .perform(
@@ -1030,6 +1067,8 @@ public class MainSettingsFragmentTest {
                                 withText(R.string.autofill_and_passwords_settings_title),
                                 withParent(withId(R.id.action_bar))))
                 .check(matches(isDisplayed()));
+        assertTrue(selected.get());
+        histogramWatcher.assertExpected();
     }
 
     private void startSettings() {

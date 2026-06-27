@@ -14,8 +14,8 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
-#include "chrome/browser/actor/aggregated_journal.h"
-#include "chrome/common/actor/task_id.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/task_id.h"
 #include "components/page_content_annotations/content/browser/page_settled_monitor.h"
 #include "components/page_content_annotations/content/mojom/page_stability.mojom.h"
 #include "components/tabs/public/tab_interface.h"
@@ -85,12 +85,14 @@ class ObservationDelayController : public content::WebContentsObserver {
 
   // Internal states of the controller, including both generic page settling
   // states and Actor-specific wait states.
+  // LINT.IfChange(State)
   enum class State {
     kInitial,
     kWaitForPageStability,
     kPageStabilityMonitorDisconnected,
     kWaitForFederatedLogin,
     kWaitForLoadCompletion,
+    kWaitForPdfLoadCompletion,
     kWaitForVisualStateUpdate,
     kMaybeDelayForLcp,
     kDelayForLcp,
@@ -99,6 +101,8 @@ class ObservationDelayController : public content::WebContentsObserver {
     kPageNavigated,
     kDone
   };
+  // LINT.ThenChange(//components/page_content_annotations/content/browser/page_settled_monitor.h:State)
+
   static std::string_view StateToString(State state);
 
  protected:

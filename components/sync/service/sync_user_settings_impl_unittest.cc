@@ -7,9 +7,11 @@
 #include <memory>
 
 #include "base/feature_list.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/os_crypt/async/browser/test_utils.h"
 #include "components/os_crypt/async/common/encryptor.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
@@ -19,6 +21,7 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/sync/base/custom_passphrase_bootstrap_token.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -37,6 +40,11 @@ namespace {
 
 using testing::ContainerEq;
 using testing::Return;
+
+MATCHER_P(MatchesToken, expected_token, "") {
+  return arg.ToProto().SerializeAsString() ==
+         expected_token.ToProto().SerializeAsString();
+}
 
 constexpr GaiaId::Literal kTestGaiaId("1111");
 
@@ -71,9 +79,13 @@ class MockSyncServiceCryptoDelegate : public SyncServiceCrypto::Delegate {
               (const override));
   MOCK_METHOD(void,
               SetEncryptionBootstrapToken,
-              (const std::string&),
+              (const CustomPassphraseBootstrapToken&,
+               const os_crypt_async::Encryptor&),
               (override));
-  MOCK_METHOD(std::string, GetEncryptionBootstrapToken, (), (const override));
+  MOCK_METHOD(CustomPassphraseBootstrapToken,
+              GetEncryptionBootstrapToken,
+              (const os_crypt_async::Encryptor&),
+              (const override));
 };
 
 class MockDelegate : public SyncUserSettingsImpl::Delegate {
@@ -114,8 +126,7 @@ class SyncUserSettingsImplTest : public testing::Test {
 
     sync_service_crypto_ = std::make_unique<SyncServiceCrypto>(
         &sync_service_crypto_delegate_, &trusted_vault_client_);
-    sync_service_crypto_->SetEncryptor(
-        std::make_unique<os_crypt_async::Encryptor>(GetEncryptorForTest()));
+    sync_service_crypto_->SetEncryptor(GetEncryptorForTest());
 
     ON_CALL(delegate_, IsCustomPassphraseAllowed).WillByDefault(Return(true));
     ON_CALL(delegate_, GetSyncAccountStateForPrefs)
@@ -175,13 +186,6 @@ TEST_F(SyncUserSettingsImplTest, PreferredTypesSyncEverything) {
   // to a selectable type.
   expected_types.Remove(CONTEXTUAL_TASK);
 
-  // TODO(crbug.com/486879778): In CL #3, delete (ACCESSIBILITY_ANNOTATION is
-  // now mapped to a selectable type.
-  expected_types.Remove(ACCESSIBILITY_ANNOTATION);
-
-  // TODO(crbug.com/488439751): In CL #3, delete (THEMES_ANDROID is now mapped
-  // to a selectable type.
-  expected_types.Remove(THEMES_ANDROID);
 
 #if BUILDFLAG(IS_CHROMEOS)
   expected_types.RemoveAll({WEB_APKS});
@@ -273,18 +277,22 @@ TEST_F(SyncUserSettingsImplTest,
 
   const UserSelectableTypeSet registered_types =
       sync_user_settings->GetRegisteredSelectableTypes();
-  // History and Tabs require a separate opt-in.
-  // SavedTabGroups also requires a separate opt-in, either the same one as
-  // history and tabs (on mobile), or a dedicated opt-in.
-  // Cookies are not supported in transport mode.
-  UserSelectableTypeSet expected_disabled_types = {
-      UserSelectableType::kHistory, UserSelectableType::kTabs,
-      UserSelectableType::kSavedTabGroups, UserSelectableType::kCookies};
+
+  UserSelectableTypeSet expected_disabled_types = {};
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
   // Themes is not supported on mobile.
   expected_disabled_types.Put(UserSelectableType::kThemes);
 #endif
+#if !BUILDFLAG(IS_CHROMEOS)
+  // History, Tabs and Saved Tab Groups are enabled by default on ChromeOS,
+  // while they require a separate opt-in on the other platforms.
+  expected_disabled_types.Put(UserSelectableType::kHistory);
+  expected_disabled_types.Put(UserSelectableType::kTabs);
+  expected_disabled_types.Put(UserSelectableType::kSavedTabGroups);
+  // Cookies is only supported on ChromeOS.
+  expected_disabled_types.Put(UserSelectableType::kCookies);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   EXPECT_THAT(
       sync_user_settings->GetSelectedTypes(),
@@ -356,13 +364,7 @@ TEST_F(SyncUserSettingsImplTest, PreferredTypesSyncAllOsTypes) {
   // selectable type.
   expected_types.Remove(CONTEXTUAL_TASK);
 
-  // TODO(crbug.com/486879778): In CL #3, delete (ACCESSIBILITY_ANNOTATION is
-  // now mapped to a selectable type.
-  expected_types.Remove(ACCESSIBILITY_ANNOTATION);
 
-  // TODO(crbug.com/488439751): In CL #3, delete (THEMES_ANDROID is now mapped
-  // to a selectable type.
-  expected_types.Remove(THEMES_ANDROID);
   EXPECT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
   EXPECT_THAT(GetPreferredUserTypes(*sync_user_settings),
               ContainerEq(expected_types));
@@ -657,43 +659,74 @@ TEST_F(SyncUserSettingsImplTest, EncryptionBootstrapTokenForSyncingUser) {
   SetSyncAccountState(SyncPrefs::SyncAccountState::kSyncing);
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
-  ASSERT_TRUE(sync_user_settings->GetEncryptionBootstrapToken().empty());
-  sync_user_settings->SetEncryptionBootstrapToken("token");
-  EXPECT_EQ("token", sync_user_settings->GetEncryptionBootstrapToken());
-  EXPECT_EQ(sync_user_settings->GetEncryptionBootstrapToken(),
-            sync_prefs_->GetEncryptionBootstrapTokenForAccount(kTestGaiaId));
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  ASSERT_TRUE(
+      sync_user_settings->GetEncryptionBootstrapToken(*encryptor).IsEmpty());
+
+  CustomPassphraseBootstrapToken token =
+      CustomPassphraseBootstrapToken::CreateFakeForTesting(1);
+
+  sync_user_settings->SetEncryptionBootstrapToken(token, *encryptor);
+  EXPECT_THAT(sync_user_settings->GetEncryptionBootstrapToken(*encryptor),
+              MatchesToken(token));
+  EXPECT_THAT(sync_user_settings->GetEncryptionBootstrapToken(*encryptor),
+              MatchesToken(sync_prefs_->GetEncryptionBootstrapTokenForAccount(
+                  *encryptor, kTestGaiaId)));
   sync_prefs_->ClearEncryptionBootstrapTokenForAccount(kTestGaiaId);
-  EXPECT_TRUE(sync_user_settings->GetEncryptionBootstrapToken().empty());
+  EXPECT_TRUE(
+      sync_user_settings->GetEncryptionBootstrapToken(*encryptor).IsEmpty());
 }
 
 TEST_F(SyncUserSettingsImplTest, EncryptionBootstrapTokenPerAccountSignedOut) {
   SetSyncAccountState(SyncPrefs::SyncAccountState::kNotSignedIn);
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
-  EXPECT_TRUE(sync_user_settings->GetEncryptionBootstrapToken().empty());
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  EXPECT_TRUE(
+      sync_user_settings->GetEncryptionBootstrapToken(*encryptor).IsEmpty());
 }
 
 TEST_F(SyncUserSettingsImplTest, EncryptionBootstrapTokenPerAccount) {
   SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
-  ASSERT_TRUE(sync_user_settings->GetEncryptionBootstrapToken().empty());
-  sync_user_settings->SetEncryptionBootstrapToken("token");
-  EXPECT_EQ("token", sync_user_settings->GetEncryptionBootstrapToken());
-  EXPECT_EQ(sync_user_settings->GetEncryptionBootstrapToken(),
-            sync_prefs_->GetEncryptionBootstrapTokenForAccount(kTestGaiaId));
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  ASSERT_TRUE(
+      sync_user_settings->GetEncryptionBootstrapToken(*encryptor).IsEmpty());
+
+  CustomPassphraseBootstrapToken token =
+      CustomPassphraseBootstrapToken::CreateFakeForTesting(1);
+
+  sync_user_settings->SetEncryptionBootstrapToken(token, *encryptor);
+  EXPECT_THAT(sync_user_settings->GetEncryptionBootstrapToken(*encryptor),
+              MatchesToken(token));
+  EXPECT_THAT(sync_user_settings->GetEncryptionBootstrapToken(*encryptor),
+              MatchesToken(sync_prefs_->GetEncryptionBootstrapTokenForAccount(
+                  *encryptor, kTestGaiaId)));
 }
 
 TEST_F(SyncUserSettingsImplTest, ClearEncryptionBootstrapTokenPerAccount) {
   SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
-  ASSERT_TRUE(sync_user_settings->GetEncryptionBootstrapToken().empty());
-  sync_user_settings->SetEncryptionBootstrapToken("token");
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  ASSERT_TRUE(
+      sync_user_settings->GetEncryptionBootstrapToken(*encryptor).IsEmpty());
+
+  CustomPassphraseBootstrapToken token =
+      CustomPassphraseBootstrapToken::CreateFakeForTesting(1);
+
+  sync_user_settings->SetEncryptionBootstrapToken(token, *encryptor);
   sync_user_settings->KeepAccountSettingsPrefsOnlyForUsers({kTestGaiaId});
-  EXPECT_EQ("token", sync_user_settings->GetEncryptionBootstrapToken());
+  EXPECT_THAT(sync_user_settings->GetEncryptionBootstrapToken(*encryptor),
+              MatchesToken(token));
   sync_user_settings->KeepAccountSettingsPrefsOnlyForUsers({});
-  EXPECT_TRUE(sync_user_settings->GetEncryptionBootstrapToken().empty());
+  EXPECT_TRUE(
+      sync_user_settings->GetEncryptionBootstrapToken(*encryptor).IsEmpty());
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -715,6 +748,61 @@ TEST_F(SyncUserSettingsImplTest, SyncFeatureDisabledViaDashboard) {
   EXPECT_CALL(delegate_, OnSyncFeatureDisabledViaDashboardCleared).Times(0);
   sync_user_settings->ClearSyncFeatureDisabledViaDashboard();
   EXPECT_FALSE(sync_user_settings->IsSyncFeatureDisabledViaDashboard());
+}
+
+TEST_F(
+    SyncUserSettingsImplTest,
+    SetSyncFeatureDisabledViaDashboardDisablesOsTypesWhenFlagEnabledAndNotSyncing) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
+
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
+  std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
+      MakeSyncUserSettings(GetUserTypes());
+
+  // Ensure OS types are enabled by default.
+  ASSERT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+
+  sync_user_settings->SetSyncFeatureDisabledViaDashboard();
+
+  EXPECT_FALSE(sync_user_settings->IsSyncAllOsTypesEnabled());
+  EXPECT_TRUE(sync_user_settings->GetSelectedOsTypes().empty());
+}
+
+TEST_F(SyncUserSettingsImplTest,
+       SetSyncFeatureDisabledViaDashboardDoesNotDisableOsTypesWithSyncConsent) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
+
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSyncing);
+  std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
+      MakeSyncUserSettings(GetUserTypes());
+
+  // Ensure OS types are enabled by default.
+  ASSERT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+
+  sync_user_settings->SetSyncFeatureDisabledViaDashboard();
+
+  EXPECT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+}
+
+TEST_F(
+    SyncUserSettingsImplTest,
+    SetSyncFeatureDisabledViaDashboardDoesNotDisableOsTypesWhenFlagDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      syncer::kReplaceSyncPromosWithSignInPromos);
+
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
+  std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
+      MakeSyncUserSettings(GetUserTypes());
+
+  // Ensure OS types are enabled by default.
+  ASSERT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+
+  sync_user_settings->SetSyncFeatureDisabledViaDashboard();
+
+  EXPECT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
 }
 
 TEST_F(SyncUserSettingsImplTest,

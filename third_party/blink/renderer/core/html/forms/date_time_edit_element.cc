@@ -271,7 +271,7 @@ void DateTimeEditBuilder::VisitField(DateTimeFormat::FieldType field_type,
     case DateTimeFormat::kFieldTypePeriodFlexible: {
       DateTimeFieldElement* field =
           MakeGarbageCollected<DateTimeAMPMFieldElement>(
-              document, EditElement(), parameters_.locale.TimeAMPMLabels());
+              document, EditElement(), parameters_.locale.TimeAmPmLabels());
       EditElement().AddField(field);
       return;
     }
@@ -449,7 +449,7 @@ void DateTimeEditBuilder::VisitLiteral(const String& text) {
   element->SetShadowPseudoId(text_pseudo_id);
   element->SetInlineStyleProperty(CSSPropertyID::kUnicodeBidi,
                                   CSSValueID::kNormal);
-  if (parameters_.locale.IsRTL() && text.length()) {
+  if (parameters_.locale.IsRtl() && text.length()) {
     unicode::CharDirection dir = unicode::Direction(text[0]);
     if (dir == unicode::kSegmentSeparator ||
         dir == unicode::kWhiteSpaceNeutral || dir == unicode::kOtherNeutral) {

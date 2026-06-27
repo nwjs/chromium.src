@@ -9,13 +9,12 @@
 #include "base/memory/weak_ptr.h"
 #include "base/notimplemented.h"
 #include "base/time/time.h"
-#include "chrome/browser/glic/common/application_hotkey_delegate.h"
-#include "chrome/browser/glic/common/glic_panel_hotkey_delegate.h"
+#include "chrome/browser/glic/common/panel_focus_dependent_hotkey_manager.h"
+#include "chrome/browser/glic/common/panel_visibility_dependent_hotkey_manager.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
-#include "chrome/browser/glic/widget/glic_inactive_floating_ui.h"
 #include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
 #include "chrome/browser/glic/widget/glic_window_animator.h"
@@ -70,15 +69,18 @@ GlicFloatingUi::GlicFloatingUi(Profile* profile,
               &GlicFloatingUi::OnSourceTabDestroyed, base::Unretained(this)));
     }
   }
-  application_hotkey_manager_ =
-      MakeApplicationHotkeyManager(weak_ptr_factory_.GetWeakPtr());
-  glic_panel_hotkey_manager_ =
-      MakeGlicWindowHotkeyManager(weak_ptr_factory_.GetWeakPtr());
+  panel_visibility_dependent_hotkey_manager_ =
+      std::make_unique<PanelVisibilityDependentHotkeyManager>(
+          profile_, weak_ptr_factory_.GetWeakPtr());
+  panel_focus_dependent_hotkey_manager_ =
+      std::make_unique<PanelFocusDependentHotkeyManager>(
+          weak_ptr_factory_.GetWeakPtr());
   CreateAndSetupWidget(initial_bounds);
   panel_state_.kind = mojom::PanelStateKind::kDetached;
   PictureInPictureOcclusionTracker* tracker =
       PictureInPictureWindowManager::GetInstance()->GetOcclusionTracker();
   tracker->OnPictureInPictureWidgetOpened(glic_widget_.get());
+  browser_attach_observation_ = ObserveBrowserForAttachment(profile_, this);
 }
 
 GlicFloatingUi::~GlicFloatingUi() {
@@ -129,9 +131,9 @@ GlicView* GlicFloatingUi::GetGlicView() const {
 }
 
 void GlicFloatingUi::CreateAndSetupWidget(gfx::Rect initial_bounds) {
-  auto glic_view =
-      std::make_unique<GlicView>(profile_, initial_bounds.size(),
-                                 glic_panel_hotkey_manager_->GetWeakPtr());
+  auto glic_view = std::make_unique<GlicView>(
+      profile_, initial_bounds.size(),
+      panel_focus_dependent_hotkey_manager_->GetAcceleratorTargetWeakPtr());
   glic_view->SetWebContents(delegate_->host().webui_contents());
   glic_delegate_ =
       GlicWidget::CreateWidgetDelegate(std::move(glic_view), user_resizable_);
@@ -285,6 +287,10 @@ void GlicFloatingUi::FloatingPanelCanAttachChanged(bool can_attach) {
   delegate_->host().FloatingPanelCanAttachChanged(can_attach);
 }
 
+void GlicFloatingUi::CanAttachToBrowserChanged(bool can_attach) {
+  FloatingPanelCanAttachChanged(can_attach && source_tab_.Get() != nullptr);
+}
+
 void GlicFloatingUi::ConfigureWebContentsModalDialogs() {
   // Add capability to show web modal dialogs (e.g. Data Controls Dialogs for
   // enterprise users) via constrained_window APIs.
@@ -322,13 +328,15 @@ bool GlicFloatingUi::IsShowingOrBackgrounded() const {
 }
 
 void GlicFloatingUi::Show(const ShowOptions& options) {
-  FloatingPanelCanAttachChanged(source_tab_.Get() != nullptr);
+  FloatingPanelCanAttachChanged(
+      browser_attach_observation_->CanAttachToBrowser() &&
+      source_tab_.Get() != nullptr);
   instance_metrics_->OnShowInFloaty(options);
   GlicProfileManager::GetInstance()->SetCurrentDetachedGlic(profile_);
   GetGlicWidget()->Show();
   GetGlicView()->UpdateBackgroundColor();
-  application_hotkey_manager_->InitializeAccelerators();
-  glic_panel_hotkey_manager_->InitializeAccelerators();
+  panel_visibility_dependent_hotkey_manager_->InitializeAccelerators();
+  panel_focus_dependent_hotkey_manager_->InitializeAccelerators();
   ConfigureWebContentsModalDialogs();
 }
 
@@ -350,7 +358,8 @@ void GlicFloatingUi::Close(const CloseOptions& options) {
   glic_delegate_.reset();
   user_resizable_ = false;
   // NOTE: `this` will be destroyed after this call.
-  delegate_->WillCloseFor(FloatingEmbedderKey{});
+  delegate_->DidCloseFor(FloatingEmbedderKey{},
+                         EmbedderCloseReason::kExplicitlyClosed);
 }
 
 void GlicFloatingUi::ClearWebContentsDelegate() {
@@ -472,7 +481,7 @@ void GlicFloatingUi::RemoveObserver(
 }
 
 std::unique_ptr<GlicUiEmbedder> GlicFloatingUi::CreateInactiveEmbedder() const {
-  return GlicInactiveFloatingUi::From(*this);
+  return nullptr;
 }
 
 #if !BUILDFLAG(IS_ANDROID)

@@ -25,6 +25,7 @@
 #include "ui/actions/actions.h"
 #include "ui/base/class_property.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
@@ -50,6 +51,8 @@ AiOverlayDialogController::AiOverlayDialogController(
       scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
       host_content_settings_map_(
           HostContentSettingsMapFactory::GetForProfile(browser->GetProfile())) {
+  // TODO(crbug.com/502801064): If this is to ever be productionized this isn't
+  // the right way to get microphone permission.
   auto url = GURL(chrome::kChromeUIAiOverlayDialogUntrustedURL);
   host_content_settings_map_->SetContentSettingDefaultScope(
       url, url, ContentSettingsType::MEDIASTREAM_MIC, CONTENT_SETTING_ALLOW);
@@ -92,9 +95,10 @@ void AiOverlayDialogController::ShowOverlay() {
   if (auto* action_item = actions::ActionManager::Get().FindAction(
           kActionShowAiOverlayDialog,
           browser_->GetActions()->root_action_item())) {
-    action_item->SetImage(
-        ui::ImageModel::FromVectorIcon(vector_icons::kPauseIcon, ui::kColorIcon,
-                                       ui::SimpleMenuModel::kDefaultIconSize));
+    action_item->SetImage(ui::ImageModel::FromVectorIcon(
+        features::IsRoundedIconsEnabled() ? vector_icons::kPauseFilledIcon
+                                          : vector_icons::kPauseOldIcon,
+        ui::kColorIcon, ui::SimpleMenuModel::kDefaultIconSize));
     action_item->SetProperty(kActionAiOverlayActiveKey, true);
   }
 
@@ -115,9 +119,10 @@ void AiOverlayDialogController::HideOverlay() {
   if (auto* action_item = actions::ActionManager::Get().FindAction(
           kActionShowAiOverlayDialog,
           browser_->GetActions()->root_action_item())) {
-    action_item->SetImage(
-        ui::ImageModel::FromVectorIcon(vector_icons::kMicIcon, ui::kColorIcon,
-                                       ui::SimpleMenuModel::kDefaultIconSize));
+    action_item->SetImage(ui::ImageModel::FromVectorIcon(
+        features::IsRoundedIconsEnabled() ? vector_icons::kMicFilledIcon
+                                          : vector_icons::kMicOldIcon,
+        ui::kColorIcon, ui::SimpleMenuModel::kDefaultIconSize));
     action_item->SetProperty(kActionAiOverlayActiveKey, false);
   }
 

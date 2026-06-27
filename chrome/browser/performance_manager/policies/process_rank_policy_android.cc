@@ -4,9 +4,11 @@
 
 #include "chrome/browser/performance_manager/policies/process_rank_policy_android.h"
 
+#include <optional>
 #include <utility>
 
 #include "base/android/android_info.h"
+#include "base/android/device_info.h"
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -18,7 +20,6 @@
 #include "components/performance_manager/public/graph/node_attached_data.h"
 #include "content/public/browser/android/child_process_importance.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/content_features.h"
 #include "extensions/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
@@ -125,8 +126,19 @@ class WebViewUpdater : public PageNodeObserver,
 
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
+namespace {
+
+bool IsChangeUnfocusedPriorityEnabled() {
+  return base::android::device_info::is_desktop() ||
+         base::FeatureList::IsEnabled(
+             chrome::android::kChangeUnfocusedPriority);
+}
+
+}  // namespace
+
 ProcessRankPolicyAndroid::ProcessRankPolicyAndroid()
-    : ProcessRankPolicyAndroid(content::IsPerceptibleImportanceSupported()) {}
+    : ProcessRankPolicyAndroid(content::IsNotPerceptibleImportanceSupported()) {
+}
 
 ProcessRankPolicyAndroid::ProcessRankPolicyAndroid(
     bool is_perceptible_importance_supported)
@@ -331,22 +343,19 @@ void ProcessRankPolicyAndroid::UpdateProcessRank(const PageNode* page_node) {
 
   const base::WeakPtr<content::WebContents> web_contents =
       page_node->GetWebContents();
-  CHECK(web_contents, base::NotFatalUntil::M140);
-  if (web_contents) {
-    content::ChildProcessImportance subframe_importance =
-        content::ChildProcessImportance::NORMAL;
-    if (base::FeatureList::IsEnabled(features::kSubframeImportance) &&
-        importance >= content::ChildProcessImportance::PERCEPTIBLE) {
-      if (is_perceptible_importance_supported_) {
-        subframe_importance = content::ChildProcessImportance::PERCEPTIBLE;
-      } else if (base::FeatureList::IsEnabled(
-                     chrome::android::kProtectedTabsAndroid) &&
-                 chrome::android::kFallbackToModerateParam.Get()) {
-        subframe_importance = content::ChildProcessImportance::MODERATE;
-      }
+  CHECK(web_contents);
+  content::ChildProcessImportance subframe_importance =
+      content::ChildProcessImportance::NORMAL;
+  if (importance >= content::ChildProcessImportance::NOT_PERCEPTIBLE) {
+    if (is_perceptible_importance_supported_) {
+      subframe_importance = content::ChildProcessImportance::NOT_PERCEPTIBLE;
+    } else if (base::FeatureList::IsEnabled(
+                   chrome::android::kProtectedTabsAndroid) &&
+               chrome::android::kFallbackToModerateParam.Get()) {
+      subframe_importance = content::ChildProcessImportance::MODERATE;
     }
-    web_contents->SetPrimaryPageImportance(importance, subframe_importance);
   }
+  web_contents->SetPrimaryPageImportance(importance, subframe_importance);
 }
 
 content::ChildProcessImportance ProcessRankPolicyAndroid::CalculateRank(
@@ -368,8 +377,7 @@ content::ChildProcessImportance ProcessRankPolicyAndroid::CalculateRank(
     // visible.
     // When the page is embedded, the focus might be in the embedder or the
     // embeddee. In either case, the page should be considered important.
-    if (!base::FeatureList::IsEnabled(
-            chrome::android::kChangeUnfocusedPriority) ||
+    if (!IsChangeUnfocusedPriorityEnabled() ||
         node_to_check_visibility_and_focus->IsFocused() ||
         page_node->IsFocused()) {
       return content::ChildProcessImportance::IMPORTANT;
@@ -400,7 +408,7 @@ content::ChildProcessImportance ProcessRankPolicyAndroid::CalculateRank(
             page_node, DiscardEligibilityPolicy::DiscardReason::PROACTIVE,
             minimum_time_in_background) != CanDiscardResult::kEligible) {
       if (is_perceptible_importance_supported_) {
-        return content::ChildProcessImportance::PERCEPTIBLE;
+        return content::ChildProcessImportance::NOT_PERCEPTIBLE;
       } else if (chrome::android::kFallbackToModerateParam.Get()) {
         return content::ChildProcessImportance::MODERATE;
       }

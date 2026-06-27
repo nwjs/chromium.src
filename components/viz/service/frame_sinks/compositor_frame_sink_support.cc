@@ -624,6 +624,9 @@ bool CompositorFrameSinkSupport::WantsAnimateOnlyBeginFrames() const {
 void CompositorFrameSinkSupport::BindLayerContext(
     mojom::PendingLayerContext& context,
     mojom::LayerContextSettingsPtr settings) {
+  if (!base::FeatureList::IsEnabled(features::kTreesInViz)) {
+    return;
+  }
   layer_context_ =
       std::make_unique<LayerContextImpl>(this, context, std::move(settings));
 }
@@ -635,10 +638,9 @@ void CompositorFrameSinkSupport::SetThreads(
     threads_ = std::move(unverified_threads);
     return;
   }
-  base::flat_set<base::PlatformThreadId> thread_ids;
-  for (const auto& thread : unverified_threads) {
-    thread_ids.insert(base::PlatformThreadId(thread.id));
-  }
+  auto thread_ids = base::MakeFlatSet<base::PlatformThreadId>(
+      unverified_threads, /*comp=*/{},
+      [&](const auto& thread) { return base::PlatformThreadId(thread.id); });
   frame_sink_manager_->VerifySandboxedThreadIds(
       thread_ids,
       base::BindOnce(
@@ -754,9 +756,15 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
             frame.metadata.begin_frame_ack.trace_id);
       });
 
-  DCHECK(local_surface_id.is_valid());
-  DCHECK(!frame.render_pass_list.empty());
-  DCHECK(!frame.size_in_pixels().IsEmpty());
+  if (!local_surface_id.is_valid() || frame.render_pass_list.empty() ||
+      frame.size_in_pixels().IsEmpty()) {
+    return SubmitResult::INVALID_FRAME;
+  }
+
+  if (!is_root_ &&
+      frame.metadata.display_transform_hint != gfx::OVERLAY_TRANSFORM_NONE) {
+    return SubmitResult::INVALID_DISPLAY_TRANSFORM;
+  }
 
   CHECK(callback_received_begin_frame_);
   CHECK(callback_received_receive_ack_);
@@ -770,13 +778,6 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
       std::make_unique<PendingFrameDetails>(
           now_time, frame.metadata.trees_in_viz_timing_details,
           surface_manager_));
-
-#if BUILDFLAG(IS_ANDROID)
-  // If the renderer thread has requested a temporary boost for
-  // interaction, we ask ADPF to temporarily lift CPU capacity restrictions.
-  frame_sink_manager_->SetPreferEfficientScheduling(
-      frame.metadata.prefer_efficient_scheduling);
-#endif
 
   // Override the has_damage flag (ignoring invalid data from clients).
   frame.metadata.begin_frame_ack.has_damage = true;
@@ -1050,7 +1051,7 @@ SurfaceReference CompositorFrameSinkSupport::MakeTopLevelRootReference(
 }
 
 void CompositorFrameSinkSupport::DidReceiveCompositorFrameAck() {
-  DCHECK_GT(pending_frames_, 0);
+  CHECK_GT(pending_frames_, 0);
   pending_frames_--;
 
   if (!client_) {
@@ -1359,6 +1360,16 @@ CompositorFrameSinkSupport::GetRequestRegionProperties(
 
   // If we don't have a sub target, capture everything in the frame.
   if (IsEntireTabCapture(sub_target)) {
+#if BUILDFLAG(IS_ANDROID)
+    // On Android, the browser viewport includes the space used for browser
+    // controls so that scrolling can hide controls smoothly without the need to
+    // resize the viewport. However, for media capture scenarios (e.g. tab
+    // sharing), the desired capture area is just the web content viewport.
+    if (!frame.metadata.visible_viewport_size.IsEmpty()) {
+      out.render_pass_subrect = gfx::Rect(frame.metadata.visible_viewport_size);
+      return out;
+    }
+#endif
     out.render_pass_subrect = gfx::Rect(out.root_render_pass_size);
     return out;
   }
@@ -1454,6 +1465,10 @@ const char* CompositorFrameSinkSupport::GetSubmitResultAsString(
       return "Surface belongs to another client";
     case SubmitResult::HIT_TEST_DATA_INVALID:
       return "Invalid hit-test data";
+    case SubmitResult::INVALID_FRAME:
+      return "Invalid CompositorFrame";
+    case SubmitResult::INVALID_DISPLAY_TRANSFORM:
+      return "Invalid display transform hint";
   }
   NOTREACHED();
 }
@@ -1612,8 +1627,7 @@ void CompositorFrameSinkSupport::ProcessCompositorFrameTransitionDirective(
         return;
       }
 
-      if (features::ShouldAckCOREarlyForViewTransition() &&
-          !directive.maybe_cross_frame_sink() &&
+      if (!directive.maybe_cross_frame_sink() &&
           directive.delay_layer_tree_view_deletion()) {
         // Register the token for same-doc transitions to ensure
         // CopyOutputRequest can complete.

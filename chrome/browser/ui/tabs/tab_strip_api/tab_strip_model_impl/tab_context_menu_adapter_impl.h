@@ -8,9 +8,9 @@
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/adapters/context_menu_adapter.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_context_menu_controller.h"
+#include "components/browser_apis/tab_strip/adapters/context_menu_adapter.h"
 
 class BrowserWindowInterface;
 
@@ -36,11 +36,11 @@ class TabContextMenuAdapterImpl : public ContextMenuAdapter,
   bool IsContextMenuCommandChecked(
       TabStripModel::ContextMenuCommand command_id) override;
   bool IsContextMenuCommandEnabled(
-      int index,
+      tabs::TabInterface* tab,
       TabStripModel::ContextMenuCommand command_id) override;
   bool IsContextMenuCommandAlerted(
       TabStripModel::ContextMenuCommand command_id) override;
-  void ExecuteContextMenuCommand(int index,
+  void ExecuteContextMenuCommand(tabs::TabInterface* tab,
                                  TabStripModel::ContextMenuCommand command_id,
                                  int event_flags) override;
   bool GetContextMenuAccelerator(int command_id,

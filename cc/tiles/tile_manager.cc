@@ -415,20 +415,20 @@ TileManager::~TileManager() {
 }
 
 void TileManager::FinishTasksAndCleanUp() {
-  if (!tile_task_manager_)
-    return;
+  if (tile_task_manager_) {
+    global_state_ = GlobalStateThatImpactsTilePriority();
 
-  global_state_ = GlobalStateThatImpactsTilePriority();
+    // This cancels tasks if possible, finishes pending tasks, and release any
+    // uninitialized resources.
+    tile_task_manager_->Shutdown();
 
-  // This cancels tasks if possible, finishes pending tasks, and release any
-  // uninitialized resources.
-  tile_task_manager_->Shutdown();
+    raster_buffer_provider_->Shutdown();
 
-  raster_buffer_provider_->Shutdown();
+    tile_task_manager_->CheckForCompletedTasks();
 
-  tile_task_manager_->CheckForCompletedTasks();
+    tile_task_manager_ = nullptr;
+  }
 
-  tile_task_manager_ = nullptr;
   resource_pool_ = nullptr;
   pending_raster_queries_ = nullptr;
   more_tiles_need_prepare_check_notifier_.Cancel();
@@ -671,6 +671,7 @@ void TileManager::ExternalDependencyCompletedForRasterTask(
 
 bool TileManager::PrepareTiles(
     const GlobalStateThatImpactsTilePriority& state) {
+  TRACE_EVENT("cc", __PRETTY_FUNCTION__);
   ++prepare_tiles_count_;
   last_active_time_ = NowWithOverride();
   ScheduleReduceTileMemoryWhenIdle(base::TimeDelta());
@@ -685,6 +686,10 @@ bool TileManager::PrepareTiles(
   }
 
   signals_ = Signals();
+  if (global_state_.viewport_size != state.viewport_size) {
+    resource_pool_->NotifyOfViewportSizeChange(global_state_.viewport_size,
+                                               state.viewport_size);
+  }
   global_state_ = state;
 
   // Ensure that we don't schedule any decode work for checkered images until
@@ -1087,19 +1092,33 @@ TileManager::PrioritizedWorkToSchedule TileManager::AssignGpuMemoryToTiles() {
 
   did_oom_on_last_assign_ = !had_enough_memory_to_schedule_tiles_needed_now;
   // Since this is recorded once per frame, subsample these metrics.
-  if (metrics_sub_sampler_.ShouldSample(metrics_sampling_rate_)) {
+  if (base::ShouldRecordSubsampledMetric(metrics_sampling_rate_)) {
     if (!running_on_renderer_process_) {
       UMA_HISTOGRAM_BOOLEAN("Compositing.TileManager.EnoughMemory.Browser",
                             had_enough_memory_to_schedule_tiles_needed_now);
       if (had_enough_memory_to_schedule_tiles_needed_now) {
         UMA_HISTOGRAM_MEMORY_MEDIUM_MB(
-            "Compositing.TileManager.MemoryUsageWhenEnoughMemory",
+            "Compositing.TileManager.MemoryUsageWhenEnoughMemory.Browser",
             memory_usage.memory_bytes() / (1024 * 1024));
       }
       if (did_oom_on_last_assign_) {
         auto memory_limit = hard_memory_limit.memory_bytes() / (1024 * 1024);
         UMA_HISTOGRAM_MEMORY_MEDIUM_MB(
             "Compositing.TileManager.LimitWhenNotEnoughMemory.Browser",
+            memory_limit);
+      }
+    } else {
+      UMA_HISTOGRAM_BOOLEAN("Compositing.TileManager.EnoughMemory.Renderer",
+                            had_enough_memory_to_schedule_tiles_needed_now);
+      if (had_enough_memory_to_schedule_tiles_needed_now) {
+        UMA_HISTOGRAM_MEMORY_MEDIUM_MB(
+            "Compositing.TileManager.MemoryUsageWhenEnoughMemory.Renderer",
+            memory_usage.memory_bytes() / (1024 * 1024));
+      }
+      if (did_oom_on_last_assign_) {
+        auto memory_limit = hard_memory_limit.memory_bytes() / (1024 * 1024);
+        UMA_HISTOGRAM_MEMORY_MEDIUM_MB(
+            "Compositing.TileManager.LimitWhenNotEnoughMemory.Renderer",
             memory_limit);
       }
     }
@@ -1213,7 +1232,7 @@ void TileManager::AddCheckeredImagesToDecodeQueue(
 }
 
 void TileManager::ScheduleTasks(PrioritizedWorkToSchedule work_to_schedule) {
-  auto start_time = metrics_sub_sampler_.ShouldSample(metrics_sampling_rate_)
+  auto start_time = base::ShouldRecordSubsampledMetric(metrics_sampling_rate_)
                         ? base::TimeTicks::Now()
                         : base::TimeTicks();
 
@@ -1461,7 +1480,7 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
         &invalidated_rect, target_color_params.color_space, debug_name);
 
     constexpr double kLogProbability = 0.001;
-    if (metrics_sub_sampler_.ShouldSample(kLogProbability)) {
+    if (base::ShouldRecordSubsampledMetric(kLogProbability)) {
       // Note this minimum area needs to be above zero to avoid division by zero
       // error.
       constexpr uint64_t kMinAreaForReporting = 256 * 256;

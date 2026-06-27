@@ -12,6 +12,7 @@ import org.chromium.base.CallbackUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.omnibox.BackKeyBehaviorDelegate;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
@@ -20,13 +21,13 @@ import org.chromium.chrome.browser.omnibox.LocationBarEmbedderUiOverrides;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.chrome.browser.ui.edge_to_edge.NoOpTopInsetProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.ui.base.WindowAndroid;
 
 /** The fusebox (omnibox) component for contextual tasks. */
@@ -97,7 +98,7 @@ public class ContextualTasksFusebox {
                         anchorView,
                         profileSupplier,
                         mDataProvider,
-                        /* actionModeCallback */ null,
+                        /* actionModeCallback= */ null,
                         windowAndroid,
                         /* activityTabSupplier= */ ObservableSuppliers.alwaysNull(),
                         windowAndroid::getModalDialogManager,
@@ -115,7 +116,7 @@ public class ContextualTasksFusebox {
                         /* isToolbarMicEnabledSupplier= */ () -> true,
                         config.omniboxActionDelegate,
                         /* browserControlsVisibilityDelegate= */ null,
-                        /* backPressManager= */ null,
+                        /* backPressManager= */ new BackPressManager(),
                         /* omniboxSuggestionsDropdownScrollListener= */ null,
                         /* tabModelSelectorSupplier= */ tabModelSelectorSupplier,
                         /* topInsetProvider= */ new NoOpTopInsetProvider(),
@@ -145,14 +146,10 @@ public class ContextualTasksFusebox {
                     new UrlFocusChangeListener() {
                         @Override
                         public void onUrlFocusChange(boolean hasFocus) {
-                            if (hasFocus) {
-                                // If user clicked/tapped, ensure we transition to Expanded
-                                // (AI_MODE).
-                                var session = mDataProvider.getFuseboxSessionState();
-                                if (session != null) {
-                                    session.getAutocompleteInput()
-                                            .setRequestType(AutocompleteRequestType.AI_MODE);
-                                }
+                            FuseboxCoordinator coordinator =
+                                    mLocationBarCoordinator.getFuseboxCoordinator();
+                            if (coordinator != null) {
+                                coordinator.onContextualTaskFocusChanged(hasFocus);
                             }
                         }
                     });
@@ -163,14 +160,35 @@ public class ContextualTasksFusebox {
         mLocationBarCoordinator.destroy();
     }
 
+    /** Triggers the start of an Omnibox input session for Contextual Tasks. */
+    public void beginInput() {
+        var session = mDataProvider.getFuseboxSessionState();
+        if (session != null) {
+            mLocationBarCoordinator.setUrlBarFocus(session.getAutocompleteInput());
+        }
+    }
+
+    /** Ends the current Omnibox input session for Contextual Tasks. */
+    public void endInput() {
+        mLocationBarCoordinator.setUrlBarFocus(null);
+    }
+
     private boolean onUrlLoad(String url, Callback<String> loadUrlCallback) {
         ComposeboxQueryControllerBridge bridge = mDataProvider.getComposeboxQueryControllerBridge();
         if (bridge == null) {
             loadUrlCallback.onResult(url);
         } else {
-            String rawQueryText = mLocationBarCoordinator.getUrlBarData().displayText.toString();
-            bridge.submitQueryToAimPage(rawQueryText);
+            bridge.submitQueryToAimPage(url);
+
+            var session = mDataProvider.getFuseboxSessionState();
+            if (session != null) {
+                var input = session.getAutocompleteInput();
+                input.setUserText("");
+                input.setInitialUserText("");
+            }
+
             mLocationBarCoordinator.setOmniboxEditingText("");
+            mLocationBarCoordinator.clearOmniboxFocus();
         }
         return true;
     }

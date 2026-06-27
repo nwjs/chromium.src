@@ -35,6 +35,7 @@ import org.chromium.base.metrics.ScopedSysTraceEvent;
 import org.chromium.base.version_info.VersionConstants;
 import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.autofill.AutofillPopup.AutofillDropdownItem;
 import org.chromium.components.autofill.AutofillRequest.FocusField;
 import org.chromium.content_public.browser.RenderCoordinates;
 import org.chromium.content_public.browser.WebContents;
@@ -89,7 +90,7 @@ public class AutofillProvider {
     private long mAutofillTriggeredTimeMillis;
     private WeakReference<Context> mContextRef; // Use `getContext()` to access the Context.
     private AutofillPopup mDatalistPopup;
-    private AutofillSuggestion[] mDatalistSuggestions;
+    private @Nullable AutofillDropdownItem[] mDatalistSuggestions;
     private WebContentsAccessibility mWebContentsAccessibility;
     private View mAnchorView;
     private PrefillRequest mPrefillRequest;
@@ -258,11 +259,8 @@ public class AutofillProvider {
     }
 
     public boolean shouldOfferPasskeyEntry() {
-        if (!AndroidAutofillFeatures.ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_PASSKEY_LONG_PRESS
-                .isEnabled()) {
-            return false;
-        }
-        return AutofillProviderJni.get().hasPasskeyRequest(mNativeAutofillProvider);
+        return mNativeAutofillProvider != 0
+                && AutofillProviderJni.get().hasPasskeyRequest(mNativeAutofillProvider);
     }
 
     public void triggerPasskeyRequest() {
@@ -274,11 +272,13 @@ public class AutofillProvider {
     public void queryAutofillSuggestion() {
         if (shouldQueryAutofillSuggestion()) {
             FocusField focusField = mRequest.getFocusField();
+            @Nullable Rect clampedBounds = clampToVisibleBounds(focusField.absBound);
+            if (clampedBounds == null) return;
             getAutofillManagerWrapper()
                     .requestAutofill(
                             mContainerView,
                             mRequest.getFieldVirtualId(focusField.fieldIndex),
-                            focusField.absBound);
+                            clampedBounds);
         }
     }
 
@@ -498,9 +498,13 @@ public class AutofillProvider {
     private void notifyVirtualViewEntered(View parent, int index, Rect absBounds) {
         // Refer to notifyVirtualValueChanged() for the reason of the datalist's special handling.
         if (isDatalistField(index)) return;
+
+        @Nullable Rect clampedBounds = clampToVisibleBounds(absBounds);
+        if (clampedBounds == null) return;
+
         getAutofillManagerWrapper()
                 .notifyVirtualViewEntered(
-                        parent, mRequest.getFieldVirtualId((short) index), absBounds);
+                        parent, mRequest.getFieldVirtualId((short) index), clampedBounds);
     }
 
     private void notifyVirtualViewExited(View parent, int index) {
@@ -664,15 +668,10 @@ public class AutofillProvider {
      */
     private void showDatalistPopup(
             String[] datalistValues, String[] datalistLabels, RectF bounds, boolean isRtl) {
-        mDatalistSuggestions = new AutofillSuggestion[datalistValues.length];
+        mDatalistSuggestions = new AutofillDropdownItem[datalistValues.length];
         for (int i = 0; i < mDatalistSuggestions.length; i++) {
             mDatalistSuggestions[i] =
-                    new AutofillSuggestion.Builder()
-                            .setLabel(datalistValues[i])
-                            .setSubLabel(datalistLabels[i])
-                            .setSuggestionType(SuggestionType.DATALIST_ENTRY)
-                            .setFeatureForIph("")
-                            .build();
+                    new AutofillDropdownItem(datalistValues[i], datalistLabels[i]);
         }
         if (mWebContentsAccessibility == null) {
             mWebContentsAccessibility = WebContentsAccessibility.fromWebContents(mWebContents);
@@ -801,6 +800,50 @@ public class AutofillProvider {
         return mDatalistPopup;
     }
 
+    /**
+     * Calculates the visible bounds of the container view in screen coordinates.
+     *
+     * @return a {@link Rect} representing the visible area of the container in screen coordinates,
+     *     or an empty {@link Rect} if the container is not visible.
+     */
+    private Rect getContainerVisibleScreenBounds() {
+        Rect rect = new Rect();
+        if (mContainerView.getGlobalVisibleRect(rect)) {
+            int[] windowLocation = new int[2];
+            mContainerView.getLocationInWindow(windowLocation);
+            int[] screenLocation = new int[2];
+            mContainerView.getLocationOnScreen(screenLocation);
+            int offsetX = screenLocation[0] - windowLocation[0];
+            int offsetY = screenLocation[1] - windowLocation[1];
+            rect.offset(offsetX, offsetY);
+        }
+        return rect;
+    }
+
+    /**
+     * Clamps the given absolute bounds to the visible screen bounds of the container view.
+     *
+     * <p>Calculates the intersection of {@code absBounds} with the visible area of {@code
+     * mContainerView}. If the bounds are entirely outside the visible area, returns {@code null}.
+     *
+     * <p>This method returns new coordinates and does not mutate the input.
+     *
+     * @param absBounds the absolute bounds in screen coordinates to clamp.
+     * @return coordinates representing the clamped bounds, or {@code null} if the bounds do not
+     *     intersect with the container's visible area.
+     */
+    private @Nullable Rect clampToVisibleBounds(Rect absBounds) {
+        Rect visibleBounds = getContainerVisibleScreenBounds();
+        if (absBounds.isEmpty()) {
+            return visibleBounds.contains(absBounds.left, absBounds.top)
+                    ? new Rect(absBounds)
+                    : null;
+        }
+
+        Rect clampedBounds = new Rect(absBounds);
+        return clampedBounds.intersect(visibleBounds) ? clampedBounds : null;
+    }
+
     private Rect transformToWindowBounds(RectF rect) {
         // Refer to crbug.com/1085294 for the reason of offset.
         // The current version of Mockito didn't support mock static method, adding extra method so
@@ -849,28 +892,29 @@ public class AutofillProvider {
         }
     }
 
-    /**
-     * Inform native provider to autofill.
-     *
-     * @param nativeAutofillProvider the native autofill provider.
-     */
     private void autofill(long nativeAutofillProvider) {
-        AutofillProviderJni.get().onAutofillAvailable(nativeAutofillProvider);
+        if (nativeAutofillProvider != 0) {
+            AutofillProviderJni.get().onAutofillAvailable(nativeAutofillProvider);
+        }
     }
 
     private void acceptDataListSuggestion(long nativeAutofillProvider, String value) {
-        AutofillProviderJni.get().onAcceptDataListSuggestion(nativeAutofillProvider, value);
+        if (nativeAutofillProvider != 0) {
+            AutofillProviderJni.get().onAcceptDataListSuggestion(nativeAutofillProvider, value);
+        }
     }
 
     private void setAnchorViewRect(long nativeAutofillProvider, View anchorView, RectF rect) {
-        AutofillProviderJni.get()
-                .setAnchorViewRect(
-                        nativeAutofillProvider,
-                        anchorView,
-                        rect.left,
-                        rect.top,
-                        rect.width(),
-                        rect.height());
+        if (nativeAutofillProvider != 0) {
+            AutofillProviderJni.get()
+                    .setAnchorViewRect(
+                            nativeAutofillProvider,
+                            anchorView,
+                            rect.left,
+                            rect.top,
+                            rect.width(),
+                            rect.height());
+        }
     }
 
     @CalledByNative

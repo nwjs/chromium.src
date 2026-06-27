@@ -46,10 +46,13 @@ const size_t kMaxBatchReadCapacity = 256 * 1024;
 class MessageView {
  public:
   // Owns |message|. |offset| indexes the first unsent byte in the message.
-  MessageView(Channel::MessagePtr message, size_t offset)
+  MessageView(Channel::MessagePtr message,
+              size_t offset,
+              base::TimeTicks start_time = base::TimeTicks::Now())
       : message_(std::move(message)),
         offset_(offset),
-        handles_(message_->TakeHandles()) {
+        handles_(message_->TakeHandles()),
+        start_time_(start_time) {
     DCHECK(!message_->data_num_bytes() || message_->data_num_bytes() > offset_);
   }
 
@@ -61,9 +64,13 @@ class MessageView {
   MessageView& operator=(const MessageView&) = delete;
 
   ~MessageView() {
-    if (message_ && base::ShouldRecordSubsampledMetric(0.001)) {
-      UMA_HISTOGRAM_TIMES("Mojo.Channel.WriteMessageLatency",
-                          base::TimeTicks::Now() - start_time_);
+    if (message_ && base::ShouldRecordSubsampledMetric(
+                        Channel::kMetricSubsamplingProbability)) {
+      base::TimeDelta latency = base::TimeTicks::Now() - start_time_;
+      UMA_HISTOGRAM_TIMES("Mojo.Channel.WriteMessageLatency", latency);
+      UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("Mojo.Channel.WriteLatencyUs",
+                                              latency, base::Microseconds(1),
+                                              base::Seconds(1), 100);
     }
   }
 
@@ -105,7 +112,7 @@ class MessageView {
   std::vector<PlatformHandleInTransit> handles_;
   size_t num_handles_sent_ = 0;
 
-  base::TimeTicks start_time_ = base::TimeTicks::Now();
+  base::TimeTicks start_time_;
 };
 
 ChannelPosix::ChannelPosix(
@@ -141,7 +148,9 @@ void ChannelPosix::ShutDownImpl() {
 }
 
 void ChannelPosix::Write(MessagePtr message) {
-  RecordSentMessageMetrics(message->data_num_bytes());
+  RecordSentMessageMetricsSubsampled(message->data_num_bytes());
+
+  base::TimeTicks start_time = base::TimeTicks::Now();
 
   bool write_error = false;
   {
@@ -150,11 +159,11 @@ void ChannelPosix::Write(MessagePtr message) {
       return;
     }
     if (outgoing_messages_.empty()) {
-      if (!WriteNoLock(MessageView(std::move(message), 0))) {
+      if (!WriteNoLock(MessageView(std::move(message), 0, start_time))) {
         reject_writes_ = write_error = true;
       }
     } else {
-      outgoing_messages_.emplace_back(std::move(message), 0);
+      outgoing_messages_.emplace_back(std::move(message), 0, start_time);
     }
   }
   if (write_error) {

@@ -51,13 +51,12 @@ class WebUIPinnedToolbarActions : public PinnedToolbarActions,
   views::BubbleAnchor GetBubbleAnchor(actions::ActionId action_id) override;
   void GetBubbleAnchorAsync(
       actions::ActionId action_id,
-      base::OnceCallback<
-          void(base::expected<views::BubbleAnchor, GetAnchorFailureReason>)>
-          callback) override;
+      base::OnceCallback<void(BubbleAnchorResult)> callback) override;
   PinnedActionToolbarButton* GetChromeLabsButton() override;
   void UpdatePinnedStateAndAnnounce(actions::ActionId id, bool pin) override;
 
   void Init();
+  void OnThemeChanged();
 
   // Handle a context menu request from WebUI.
   void HandleContextMenu(toolbar_ui_api::mojom::ContextMenuType menu_type,

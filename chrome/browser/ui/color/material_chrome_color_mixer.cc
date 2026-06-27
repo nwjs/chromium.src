@@ -46,6 +46,14 @@ void ApplyDefaultChromeRefreshToolbarColors(ui::ColorMixer& mixer,
       kColorAvatarButtonHighlightDefault};
 }
 
+void ApplyChromeRefresh2026ColorOverrides(ui::ColorMixer& mixer) {
+  if (!features::IsWebuiRefresh2026Enabled()) {
+    return;
+  }
+
+  mixer[ui::kColorToolbarSearchFieldBackground] = {ui::kColorSysSurface4};
+}
+
 }  // namespace
 
 void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
@@ -72,6 +80,13 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorActivityIndicatorSubtitleForeground] = {
       ui::kColorSysOnSurfaceSubtle};
 
+  // Bookmark Manager page colors.
+  mixer[kColorBookmarkManagerItemBackgroundSelected] = {
+      ui::kColorSysBaseContainer};
+  mixer[kColorBookmarkManagerItemOutline] = {ui::kColorSysPrimary};
+  mixer[kColorBookmarkManagerItemText] = {ui::kColorSysOnSurfaceSubtle};
+  mixer[kColorBookmarkManagerItemTitle] = {ui::kColorSysOnSurface};
+
   // Desktop Media picker colors.
   mixer[kColorDesktopMediaPickerDescriptionLabel] = {
       ui::kColorSysOnSurfaceSubtle};
@@ -96,6 +111,13 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
       ui::kColorSysNeutralOutline};
   mixer[kColorDownloadToolbarButtonAnimationForeground] =
       AdjustHighlightColorForContrast(ui::kColorSysPrimary, ui::kColorSysBase);
+
+  // Download History WebUI colors.
+  mixer[kColorDownloadManagerItemError] = {ui::kColorSysError};
+  mixer[kColorDownloadManagerItemBackground] = {ui::kColorSysSurface1};
+  mixer[kColorDownloadManagerItemBackgroundInactive] = {
+      ui::kColorSysStateDisabledContainer};
+  mixer[kColorDownloadManagerProgress] = {ui::kColorSysPrimary};
 
   // Extensions colors.
   mixer[kColorExtensionsMenuText] = {ui::kColorSysOnSurface};
@@ -177,6 +199,14 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorSplitViewBackground] = {ui::kColorSysSurface2};
   mixer[kColorMultiContentsViewMiniToolbarForeground] = {kColorToolbarText};
 
+  // Slider colors.
+  mixer[kColorSliderActive] = {ui::kColorSysPrimary};
+  mixer[kColorSliderActiveContainer] = {ui::kColorSysDivider};
+  mixer[kColorSliderActiveRipple] = {ui::kColorSysStateRipplePrimary};
+  mixer[kColorSliderActiveText] = {ui::kColorSysOnPrimary};
+  mixer[kColorSliderDisabled] = {ui::kColorSysNeutralOutline};
+  mixer[kColorSliderDisabledContainer] = {ui::kColorSysSurfaceVariant};
+
   // Side Panel colors.
   mixer[kColorSidePanelBackground] = {ui::kColorSysBaseContainer};
 
@@ -251,6 +281,11 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorComposeDialogSelectOptionDisabled] = {
       ui::kColorLabelForegroundDisabled};
 #endif  // BUILDFLAG(ENABLE_COMPOSE)
+
+  // History colors.
+  mixer[kColorHistoryPageBookmarkStar] = {ui::kColorSysPrimary};
+  mixer[kColorHistoryPageSeparator] = {ui::kColorSysSurfaceVariant};
+  mixer[kColorHistoryPageText] = {ui::kColorSysOnSurfaceSubtle};
 
   // History Embeddings colors.
   mixer[kColorHistoryEmbeddingsBackground] = {
@@ -342,6 +377,12 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorMultiContentsViewInactiveContentOutline] = {
       ui::kColorSysNeutralOutline};
 
+  // Nav menu item colors.
+  mixer[kColorNavMenuItem] = {ui::kColorSysOnSurface};
+  mixer[kColorNavMenuItemSelected] = {ui::kColorSysPrimary};
+  mixer[kColorNavMenuItemBackgroundHover] = {ui::kColorSysStateHover};
+  mixer[kColorNavMenuItemBackgroundSelected] = {ui::kColorSysBaseContainer};
+
   mixer[kColorNewTabButtonFocusRing] = ui::PickGoogleColorTwoBackgrounds(
       ui::kColorSysStateFocusRing,
       ui::GetResultingPaintColor(kColorNewTabButtonBackgroundFrameActive,
@@ -373,6 +414,13 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorOmniboxChipOnSystemBlockedActivityIndicatorForeground] = {
       ui::kColorSysError};
 
+  // Settings columned header colors.
+  mixer[kColorSettingsColumnedSectionDescriptionHeader] = {
+      ui::kColorSysPrimary};
+
+  // Settings info card colors.
+  mixer[kColorSettingsInfoCardBackground] = {ui::kColorSysBaseContainer};
+
   // Tabstrip tab alert colors.
   mixer[kColorTabAlertAudioPlayingActiveFrameActive] = {
       ui::kColorSysOnSurfaceSubtle};
@@ -391,6 +439,9 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorTabAlertPipPlayingActiveFrameInactive] = {ui::kColorSysPrimary};
   mixer[kColorTabAlertPipPlayingInactiveFrameActive] = {ui::kColorSysPrimary};
   mixer[kColorTabAlertPipPlayingInactiveFrameInactive] = {ui::kColorSysPrimary};
+
+  /* cr-tab colors. */
+  mixer[kColorTabNavItemSelected] = {ui::kColorSysPrimary};
 
   // Hover card tab alert colors.
   mixer[kColorHoverCardTabAlertMediaRecordingIcon] = {ui::kColorSysError};
@@ -440,4 +491,13 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorGlicSelectionOverlayToast] = {ui::kColorSysInverseSurfacePrimary};
   mixer[kColorGlicSelectionOverlayToastCancelButton] = {
       ui::kColorSysInversePrimary};
+
+  // General WebUI page colors.
+  mixer[kColorWebuiCardBackground] = {ui::kColorSysSurfaceSection};
+  mixer[kColorWebuiDialogBackground] = {ui::kColorSysSurface};
+  mixer[kColorWebuiDialogContainerBackground] = {
+      ui::kColorSysBaseContainerOnSurface};
+  mixer[kColorWebuiPageBackground] = {ui::kColorSysSurface};
+
+  ApplyChromeRefresh2026ColorOverrides(mixer);
 }

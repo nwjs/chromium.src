@@ -12,9 +12,9 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/observation/tab_strip_api_batched_observer.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
+#include "components/browser_apis/tab_strip/observation/tab_strip_api_batched_observer.h"
 #include "components/browser_apis/tab_strip/tab_strip_api.mojom.h"
 #include "components/browser_apis/tab_strip/tab_strip_api_events.mojom.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -121,12 +121,14 @@ class TabSearchPageHandler
                      std::set<DedupKey>& tab_dedup_keys,
                      std::set<tab_groups::TabGroupId>& tab_group_ids);
 
-  // Adds recently closed tabs and tab groups.
+  // Adds recently closed tabs, tab groups, and split views.
   void AddRecentlyClosedEntries(
       std::vector<tab_search::mojom::RecentlyClosedTabPtr>&
           recently_closed_tabs,
       std::vector<tab_search::mojom::RecentlyClosedTabGroupPtr>&
           recently_closed_tab_groups,
+      std::vector<tab_search::mojom::RecentlyClosedSplitViewPtr>&
+          recently_closed_split_views,
       std::set<tab_groups::TabGroupId>& tab_group_ids,
       std::vector<tab_search::mojom::TabGroupPtr>& tab_groups,
       std::set<DedupKey>& tab_dedup_keys);

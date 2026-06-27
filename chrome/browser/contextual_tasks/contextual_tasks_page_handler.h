@@ -78,6 +78,15 @@ class ContextualTasksPageHandler
   void ReopenTabs() override;
   void PinSidePanel() override;
   void UnpinSidePanel() override;
+  void OnContextMenuOpened() override;
+  void NotifySmartTabSharingTryItIphResult(bool accepted) override;
+  void NotifySmartTabSharingDefaultOnIphResult(bool accepted) override;
+  void RegisterWindow(
+      const contextual_tasks::ContextualTaskId& task_id,
+      const GURL& url,
+      const contextual_tasks::ContextualWindowId& window_id) override;
+  void CloseWindow(
+      const contextual_tasks::ContextualWindowId& window_id) override;
   void PostMessageToWebview(const lens::ClientToAimMessage& message);
 
   // contextual_tasks::ContextualTasksService::Observer:

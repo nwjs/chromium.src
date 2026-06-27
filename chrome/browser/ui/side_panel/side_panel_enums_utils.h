@@ -62,6 +62,10 @@ inline std::string ToString(SidePanelOpenTrigger trigger) {
       return "ReadAnythingTogglePresentationButton";
     case SidePanelOpenTrigger::kReadAnythingKeyboardShortcut:
       return "ReadAnythingKeyboardShortcut";
+#if BUILDFLAG(IS_ANDROID)
+    case SidePanelOpenTrigger::kWindowResized:
+      return "WindowResized";
+#endif
   }
   NOTREACHED();
 }
@@ -92,18 +96,6 @@ inline std::string ToString(SidePanelEntryHideReason reason) {
     case SidePanelEntryHideReason::kWindowResized:
       return "WindowResized";
 #endif
-  }
-  NOTREACHED();
-}
-
-inline std::string ToString(SidePanelAnimationType type) {
-  switch (type) {
-    case SidePanelAnimationType::kOpen:
-      return "Open";
-    case SidePanelAnimationType::kOpenWithContentTransition:
-      return "OpenWithContentTransition";
-    case SidePanelAnimationType::kClose:
-      return "Close";
   }
   NOTREACHED();
 }

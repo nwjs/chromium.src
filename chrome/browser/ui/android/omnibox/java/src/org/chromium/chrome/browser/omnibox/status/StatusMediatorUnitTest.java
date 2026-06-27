@@ -50,6 +50,7 @@ import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.composeplate.ComposeplateUtils;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
@@ -57,6 +58,8 @@ import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridgeJni;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator.PageInfoAction;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
@@ -72,6 +75,8 @@ import org.chromium.components.content_settings.CookieControlsState;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.prefs.PrefService;
@@ -114,6 +119,7 @@ public final class StatusMediatorUnitTest {
     @Mock private PageInfoAction mPageInfoAction;
     @Mock private Runnable mTogglePopupCallback;
     @Mock private Runnable mOnStatusViewHiddenForPageInfoRemoval;
+    @Mock private ComposeboxQueryControllerBridge.Natives mComposeboxBridgeJni;
 
     @Captor private ArgumentCaptor<PermissionDialogController.Observer> mPermissionObserverCaptor;
 
@@ -128,6 +134,8 @@ public final class StatusMediatorUnitTest {
             ObservableSuppliers.createNonNull(FuseboxState.DISABLED);
     private final SettableNullableObservableSupplier<GURL> mExactMatchUrlSupplier =
             ObservableSuppliers.createNullable();
+    private final SettableNonNullObservableSupplier<Integer> mRequestTypeSupplier =
+            ObservableSuppliers.createNonNull(AutocompleteRequestType.SEARCH);
 
     @Before
     public void setUp() {
@@ -135,10 +143,13 @@ public final class StatusMediatorUnitTest {
         TrackerFactory.setTrackerForTests(mTracker);
         CookieControlsBridgeJni.setInstanceForTesting(mCookieControlsBridgeJniMock);
         UserPrefsJni.setInstanceForTesting(mMockUserPrefsJni);
+        ComposeboxQueryControllerBridgeJni.setInstanceForTesting(mComposeboxBridgeJni);
+        doReturn(true).when(mComposeboxBridgeJni).isFuseboxEligibleForProfile(any());
         doReturn(mPrefs).when(mMockUserPrefsJni).get(mProfile);
         doReturn(false).when(mLocationBarDataProvider).isIncognito();
         doReturn(mNewTabPageDelegate).when(mLocationBarDataProvider).getNewTabPageDelegate();
         doReturn(mAutocompleteInput).when(mFuseboxSessionState).getAutocompleteInput();
+        doReturn(mRequestTypeSupplier).when(mAutocompleteInput).getRequestTypeSupplier();
 
         mContext =
                 new ContextThemeWrapper(
@@ -728,8 +739,13 @@ public final class StatusMediatorUnitTest {
 
     @Test
     @SmallTest
-    public void testFuseboxCompactMode() {
+    public void testFuseboxCompactMode_plusButton_allConditionsMet() {
         mFuseboxStateSupplier.set(FuseboxState.COMPACT);
+        mMediator.beginInput(mFuseboxSessionState);
+        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+        doReturn(AutocompleteRequestType.SEARCH).when(mAutocompleteInput).getRequestType();
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
 
         assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
         assertEquals(
@@ -752,6 +768,209 @@ public final class StatusMediatorUnitTest {
         mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
 
         verify(mOnStatusViewHiddenForPageInfoRemoval, times(3)).run();
+    }
+
+    @Test
+    @SmallTest
+    public void testFuseboxCompactMode_fallbackToSpark_notDesktop() {
+        mFuseboxStateSupplier.set(FuseboxState.COMPACT);
+        mMediator.beginInput(mFuseboxSessionState);
+        OmniboxCapabilities.setIsDesktopPlatformForTesting(false);
+        doReturn(AutocompleteRequestType.SEARCH).when(mAutocompleteInput).getRequestType();
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.ic_add_round_20dp_with_inset,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    @SmallTest
+    public void testFuseboxCompactMode_fallbackToSpark_notConventional() {
+        mFuseboxStateSupplier.set(FuseboxState.COMPACT);
+        mMediator.beginInput(mFuseboxSessionState);
+        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+        doReturn(AutocompleteRequestType.AI_MODE).when(mAutocompleteInput).getRequestType();
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.search_spark_black_24dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_unfocused_allConditionsMet() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.ic_add_round_20dp_with_inset,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    @SmallTest
+    @Config(qualifiers = "sw600dp")
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_unfocused_tablet() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        // Should fallback to Google logo or search logo on tablet NTP instead of plus button.
+        if (mModel.get(StatusProperties.STATUS_ICON_RESOURCE) != null) {
+            assertNotEquals(
+                    R.drawable.ic_add_round_20dp_with_inset,
+                    mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_unfocused_policyDisabled() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        doReturn(false).when(mComposeboxBridgeJni).isFuseboxEligibleForProfile(any());
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        // When policy is disabled, it should fall back to search engine logo.
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        assertEquals(
+                R.drawable.ic_logo_googleg_20dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_focused_fallsBackToGoogleLogo() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        // Focus the search box (sets mUrlHasFocus = true).
+        mMediator.beginInput(mFuseboxSessionState);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        assertNotNull(mModel.get(StatusProperties.STATUS_ICON_RESOURCE));
+        // Should not be the plus button when focused, falls back to Google logo on NTP.
+        assertEquals(
+                R.drawable.ic_logo_googleg_20dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/false")
+    public void testShowNtpPlusButton_unfocused_paramDisabled() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        assertEquals(
+                R.drawable.ic_logo_googleg_20dp,
+                mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_unfocused_notNtp() {
+        doReturn(false).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        // Should not be the plus button, fallback to secure icon or search icon.
+        // On non-NTP page, we might show a globe or lock.
+        if (mModel.get(StatusProperties.STATUS_ICON_RESOURCE) != null) {
+            assertNotEquals(
+                    R.drawable.ic_add_round_20dp_with_inset,
+                    mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_unfocused_isIncognito() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(true).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        // Incognito profile is OTR, which should disable composeplate / plus button.
+        doReturn(true).when(mProfile).isOffTheRecord();
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        // In incognito NTP, no search engine logo is shown, status icon is null or fallback.
+        // Just assert it is not the plus button.
+        if (mModel.get(StatusProperties.STATUS_ICON_RESOURCE) != null) {
+            assertNotEquals(
+                    R.drawable.ic_add_round_20dp_with_inset,
+                    mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
+    public void testShowNtpPlusButton_unfocused_notGoogle() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(false).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        if (mModel.get(StatusProperties.STATUS_ICON_RESOURCE) != null) {
+            assertNotEquals(
+                    R.drawable.ic_add_round_20dp_with_inset,
+                    mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
+    public void testShowNtpPlusButton_unfocused_featureDisabled() {
+        doReturn(true).when(mNewTabPageDelegate).isCurrentlyVisible();
+        doReturn(false).when(mLocationBarDataProvider).isIncognito();
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        ComposeplateUtils.setIsEnabledForTesting(true);
+
+        mMediator.updateLocationBarIcon(IconTransitionType.CROSSFADE);
+
+        if (mModel.get(StatusProperties.STATUS_ICON_RESOURCE) != null) {
+            assertNotEquals(
+                    R.drawable.ic_add_round_20dp_with_inset,
+                    mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes());
+        }
     }
 
     private String getIconIdentifierForTesting() {

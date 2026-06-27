@@ -4,7 +4,6 @@
 
 import("//build/config/chrome_build.gni")
 import("//build/config/chromebox_for_meetings/buildflags.gni")
-import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/locales.gni")
 import("//build/config/ozone.gni")
 import("//build/config/ui.gni")
@@ -17,6 +16,20 @@ assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
 
 if (is_android) {
   import("//build/config/android/rules.gni")
+}
+
+if (is_posix && !is_mac) {
+  # Header-only target so non-:browser targets can include this header
+  # without depending on //chrome/browser:browser. The .cc file remains
+  # in //chrome/browser:browser.
+  source_set("chrome_crash_reporter_client") {
+    public = [ "chrome_crash_reporter_client.h" ]
+    public_deps = [
+      "//base",
+      "//build:buildflag_header_h",
+      "//components/crash/core/app",
+    ]
+  }
 }
 
 # This target is for dependency tracking for the command ID header.
@@ -135,7 +148,11 @@ static_library("test_support") {
     "//base",
     "//chrome/browser",
     "//chrome/browser:buildflags",
+    "//chrome/browser:chrome_content_browser_client",
+    "//chrome/browser:defaults",
+    "//chrome/browser:process_singleton",
     "//chrome/browser:shell_integration",
+    "//chrome/browser:startup_data",
     "//chrome/browser/diagnostics",
     "//chrome/browser/lifetime",
     "//chrome/browser/policy:path_parser",
@@ -168,6 +185,7 @@ static_library("test_support") {
 
   if (is_android) {
     deps += [
+      "//chrome/browser/android",
       "//chrome/browser/flags:flags_android",
       "//components/crash/android:crash_android",
     ]
@@ -178,6 +196,7 @@ static_library("test_support") {
 
     deps += [
       "//chrome:chrome_framework",
+      "//chrome/browser:chrome_browser_application_mac",
       "//chrome/browser/mac",
     ]
   }
@@ -202,6 +221,14 @@ static_library("test_support") {
       "//chromeos/ash/experiences/arc:arc_base_utils",
       "//chromeos/dbus/constants",
     ]
+  }
+
+  if (is_posix && !is_mac) {
+    deps += [ ":chrome_crash_reporter_client" ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser:chrome_process_singleton" ]
   }
 
   if (use_ozone) {

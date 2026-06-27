@@ -198,6 +198,10 @@ public class ImeAdapterImpl
     // True if ImeAdapter is connected to render process.
     private boolean mIsConnected;
 
+    private boolean mAllowFullscreenIme;
+
+    private boolean mKeyboardSuppressed;
+
     // Whether to force show keyboard during stylus handwriting. We do not show it when writing
     // system is active and stylus is used to edit input text. This is used to show the soft
     // keyboard from Direct writing toolbar.
@@ -208,6 +212,8 @@ public class ImeAdapterImpl
     private String[] mSupportedMimeTypes = {};
 
     private @Nullable AutocorrectManager mAutocorrectManager;
+
+    private @Nullable ImeRenderWidgetHostImpl mBoundImeRenderWidgetHost;
 
     /**
      * {@ResultReceiver} passed in InputMethodManager#showSoftInput}. We need this to scroll to the
@@ -260,7 +266,9 @@ public class ImeAdapterImpl
         public void onConnectionError(MojoException e) {}
 
         @Override
-        public void close() {}
+        public void close() {
+            mHandle.close();
+        }
     }
 
     /**
@@ -528,9 +536,15 @@ public class ImeAdapterImpl
      */
     public @Nullable ChromiumBaseInputConnection onCreateInputConnection(
             EditorInfo outAttrs, boolean allowKeyboardLearning) {
+        outAttrs.imeOptions = 0;
+
         // InputMethodService evaluates fullscreen mode even when the new input connection is
         // null. This makes sure IME doesn't enter fullscreen mode or open custom UI.
-        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+        if (!mAllowFullscreenIme) {
+            outAttrs.imeOptions |=
+                    EditorInfo.IME_FLAG_NO_FULLSCREEN | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+        }
+
         if (ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_MEDIA_INSERTION)) {
             mSupportedMimeTypes =
                     ImeAdapterImplJni.get().getSupportedMimeTypes(mNativeImeAdapterAndroid);
@@ -601,6 +615,19 @@ public class ImeAdapterImpl
         mInputMethodManagerWrapper = immw;
         if (mCursorAnchorInfoController != null) {
             mCursorAnchorInfoController.setInputMethodManagerWrapper(immw);
+        }
+    }
+
+    @Override
+    public void setAllowFullscreenIme(boolean allow) {
+        mAllowFullscreenIme = allow;
+    }
+
+    @Override
+    public void setKeyboardSuppressed(boolean suppressed) {
+        mKeyboardSuppressed = suppressed;
+        if (mKeyboardSuppressed) {
+            hideKeyboard();
         }
     }
 
@@ -876,6 +903,10 @@ public class ImeAdapterImpl
     /** Show soft keyboard only if it is the current keyboard configuration. */
     private void showSoftKeyboard() {
         if (!isValid()) return;
+        if (mKeyboardSuppressed) {
+            Log.d(TAG, "showSoftKeyboard: blocked because keyboard is suppressed");
+            return;
+        }
         if (DEBUG_LOGS) Log.i(TAG, "showSoftKeyboard");
         View containerView = getContainerView();
 
@@ -1036,6 +1067,12 @@ public class ImeAdapterImpl
     public void onViewFocusChanged(boolean gainFocus, boolean hideKeyboardOnBlur) {
         if (DEBUG_LOGS) Log.i(TAG, "onViewFocusChanged: gainFocus [%b]", gainFocus);
         if (!gainFocus && hideKeyboardOnBlur) resetAndHideKeyboard();
+        if (gainFocus
+                && isValid()
+                && ContentFeatureMap.isEnabled(
+                        ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS)) {
+            requestTextInputStateUpdate();
+        }
         if (mInputConnectionFactory != null) {
             mInputConnectionFactory.onViewFocusChanged(gainFocus);
         }
@@ -1083,6 +1120,11 @@ public class ImeAdapterImpl
         mStylusWritingImeCallback = null;
         if (mWebContents.getStylusWritingHandler() != null) {
             mWebContents.getStylusWritingHandler().onImeAdapterDestroyed();
+        }
+
+        if (mBoundImeRenderWidgetHost != null) {
+            mBoundImeRenderWidgetHost.close();
+            mBoundImeRenderWidgetHost = null;
         }
 
         WeakReference<ImeAdapterImpl> oldValue = sNativeHelperMap.remove(mNativeImeAdapterAndroid);
@@ -1557,8 +1599,10 @@ public class ImeAdapterImpl
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
                 && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1
                 && ContentFeatureList.sAccessibilityMagnificationFollowsFocus.isEnabled()) {
-            Rect nodePix = fromCssToDevicePix(nodeLeftDip, nodeTopDip, nodeRightDip, nodeBottomDip);
-            if (!nodePix.isEmpty()) {
+            Rect nodePix =
+                    fromViewportDipToViewContentPix(
+                            nodeLeftDip, nodeTopDip, nodeRightDip, nodeBottomDip, containerView);
+            if (nodePix != null && !nodePix.isEmpty()) {
                 containerView.requestRectangleOnScreen(
                         nodePix,
                         /* immediate= */ false,
@@ -1621,8 +1665,11 @@ public class ImeAdapterImpl
     /** Send a request to the native counterpart to give the latest text input state update. */
     boolean requestTextInputStateUpdate() {
         if (!isValid()) return false;
-        // You won't get state update anyways.
-        if (mInputConnection == null) return false;
+        if (mInputConnection == null
+                && !ContentFeatureMap.isEnabled(
+                        ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS)) {
+            return false;
+        }
         return ImeAdapterImplJni.get().requestTextInputStateUpdate(mNativeImeAdapterAndroid);
     }
 
@@ -1732,23 +1779,49 @@ public class ImeAdapterImpl
     }
 
     /**
-     * Converts bounds from CSS pixels to device pixels, accounting for page scale, device scale,
-     * and content Y offset.
+     * Converts bounds from device-independent pixels in viewport space to device pixels in
+     * view-content space, clamped to the visible rectangle of the container view.
      *
-     * @param left left X coordinate in CSS pixels
-     * @param top top Y coordinate in CSS pixels
-     * @param right right X coordinate in CSS pixels
-     * @param bottom bottom Y coordinate in CSS pixels
-     * @return {@link Rect} with the device pixel equivalents of the provided coordinates.
+     * @param left left X coordinate in Blink viewport-relative DIPs
+     * @param top top Y coordinate in Blink viewport-relative DIPs
+     * @param right right X coordinate in Blink viewport-relative DIPs
+     * @param bottom bottom Y coordinate in Blink viewport-relative DIPs
+     * @param containerView view to clamp coordinates to
+     * @return {@link Rect} with the device pixel equivalents of the provided coordinates in
+     *     view-content space, clamped to the visible portion of the container view, or null if the
+     *     bounds do not intersect the visible portion of the container view.
      */
-    private Rect fromCssToDevicePix(float left, float top, float right, float bottom) {
+    private @Nullable Rect fromViewportDipToViewContentPix(
+            float left, float top, float right, float bottom, View containerView) {
+        // Get container view's visible area in view-content coordinates.
+        // Chrome team trial-and-error has determined that (inconsistently with other View
+        // documentation), "top left" in the View#getLocalVisibleRect is in content space rather
+        // than viewport space for the view.
+        Rect visibleRect = new Rect();
+        if (!containerView.getLocalVisibleRect(visibleRect)) {
+            return null; // The container is entirely offscreen.
+        }
+
+        // Scale bounds to device pixels in Android view coordinates.
         RenderCoordinatesImpl coords = mWebContents.getRenderCoordinates();
-        final int topOffset = coords.getContentOffsetYPixInt();
-        return new Rect(
-                (int) coords.fromLocalCssToPix(left),
-                ((int) coords.fromLocalCssToPix(top)) + topOffset,
-                (int) coords.fromLocalCssToPix(right),
-                ((int) coords.fromLocalCssToPix(bottom)) + topOffset);
+        final int topOffset = coords.getContentOffsetYPixInt(); // Offset for Chrome address bar.
+        final float scale = coords.getDeviceScaleFactor();
+        Rect bounds =
+                new Rect(
+                        (int) (left * scale),
+                        (int) (top * scale) + topOffset,
+                        (int) (right * scale),
+                        (int) (bottom * scale) + topOffset);
+
+        // Translate bounds to view-content coordinates by adding Android view scroll. This is a
+        // no-op for Chrome (which always reports zero scroll), but will adjust for WebView scroll.
+        bounds.offset(containerView.getScrollX(), containerView.getScrollY());
+
+        // Clamp to visible area and return clamped bounds in view-content coordinates.
+        if (!bounds.intersect(visibleRect)) {
+            return null; // The bounds are entirely offscreen.
+        }
+        return bounds;
     }
 
     /**
@@ -1774,23 +1847,26 @@ public class ImeAdapterImpl
             // Convert caret bounds from CSS pixels to device pixels relative to root view.
             var caretCss = cursorAnchorInfo.insertionMarker;
             Rect caretPix =
-                    fromCssToDevicePix(
+                    fromViewportDipToViewContentPix(
                             caretCss.x,
                             caretCss.y,
                             caretCss.x + caretCss.width,
-                            caretCss.y + caretCss.height);
+                            caretCss.y + caretCss.height,
+                            containerView);
 
-            // Note: `SDK_INT_FULL` added in `BAKLAVA`, hence two checks.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
-                    && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
-                containerView.requestRectangleOnScreen(
-                        caretPix,
-                        /* immediate= */ false,
-                        View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_TEXT_CURSOR);
-            } else {
-                // Fallback to previous API (where `requestRectangleOnScreen()` calls are assumed
-                // to come from text cursor moves).
-                containerView.requestRectangleOnScreen(caretPix);
+            if (caretPix != null) {
+                // Note: `SDK_INT_FULL` added in `BAKLAVA`, hence two checks.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
+                        && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+                    containerView.requestRectangleOnScreen(
+                            caretPix,
+                            /* immediate= */ false,
+                            View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_TEXT_CURSOR);
+                } else {
+                    // Fallback to previous API (where `requestRectangleOnScreen()` calls are
+                    // assumed to come from text cursor moves).
+                    containerView.requestRectangleOnScreen(caretPix);
+                }
             }
         }
     }
@@ -1804,9 +1880,13 @@ public class ImeAdapterImpl
      */
     @CalledByNative
     private void bindImeRenderHost(long nativeHandle) {
+        if (mBoundImeRenderWidgetHost != null) {
+            mBoundImeRenderWidgetHost.close();
+            mBoundImeRenderWidgetHost = null;
+        }
         MessagePipeHandle handle =
                 CoreImpl.getInstance().acquireNativeHandle(nativeHandle).toMessagePipeHandle();
-        new ImeRenderWidgetHostImpl(this, handle);
+        mBoundImeRenderWidgetHost = new ImeRenderWidgetHostImpl(this, handle);
     }
 
     /**
@@ -1831,6 +1911,9 @@ public class ImeAdapterImpl
             float insertionMarkerHorizontal,
             float insertionMarkerTop,
             float insertionMarkerBottom) {
+        View containerView = getContainerView();
+        if (containerView == null) return;
+
         mCursorAnchorInfoController.onUpdateFrameInfo(
                 scaleFactor,
                 contentOffsetYPix,
@@ -1839,7 +1922,7 @@ public class ImeAdapterImpl
                 insertionMarkerHorizontal,
                 insertionMarkerTop,
                 insertionMarkerBottom,
-                getContainerView());
+                containerView);
     }
 
     @CalledByNative

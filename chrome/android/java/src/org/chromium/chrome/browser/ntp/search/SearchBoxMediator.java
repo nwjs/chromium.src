@@ -27,11 +27,11 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.DestroyObserver;
 import org.chromium.chrome.browser.ntp.NewTabPageManager;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxFeatureUtils;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.components.omnibox.AutocompleteRequestType;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.ui.base.WindowAndroid;
@@ -51,10 +51,9 @@ class SearchBoxMediator implements DestroyObserver {
     private final TemplateUrlService mTemplateUrlService;
     private final float mTransitionEndOffset;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
+    private final Profile mProfile;
     private final TemplateUrlServiceObserver mTemplateUrlServiceObserver =
             this::onTemplateURLServiceChanged;
-
-    private boolean mIsFuseboxEligible;
 
     SearchBoxMediator(
             Context context,
@@ -72,6 +71,7 @@ class SearchBoxMediator implements DestroyObserver {
         mNewTabPageManager = newTabPageManager;
         mIsIncognito = isIncognito;
         mWindowAndroid = windowAndroid;
+        mProfile = profile;
         mTemplateUrlService = TemplateUrlServiceFactory.getForProfile(profile);
         mTemplateUrlService.addObserver(mTemplateUrlServiceObserver);
         PropertyModelChangeProcessor.create(mModel, mView, new SearchBoxViewBinder());
@@ -163,11 +163,8 @@ class SearchBoxMediator implements DestroyObserver {
     private void updateStartIcon() {
         mModel.set(
                 SearchBoxProperties.PLUS_BUTTON_VISIBILITY,
-                OmniboxFeatures.isMultimodalInputEnabled(mContext)
-                        && OmniboxFeatures.sShowNtpPlusButton.getValue()
-                        && mIsFuseboxEligible
-                        && OmniboxFeatures.isFuseboxSupportedDeviceType()
-                        && mTemplateUrlService.isDefaultSearchEngineGoogle());
+                FuseboxFeatureUtils.shouldShowNtpPlusButton(
+                        mContext, mProfile, mTemplateUrlService));
     }
 
     private void onTemplateURLServiceChanged() {
@@ -177,11 +174,6 @@ class SearchBoxMediator implements DestroyObserver {
     /** Called to set a drag listener for the search box. */
     void setSearchBoxDragListener(OnDragListener listener) {
         mModel.set(SearchBoxProperties.SEARCH_BOX_DRAG_CALLBACK, listener);
-    }
-
-    void setIsFuseboxEligible(boolean isEligible) {
-        mIsFuseboxEligible = isEligible;
-        updateStartIcon();
     }
 
     /**

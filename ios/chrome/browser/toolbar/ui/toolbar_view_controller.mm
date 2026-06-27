@@ -12,6 +12,7 @@
 #import "base/time/time.h"
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
@@ -29,10 +30,12 @@
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_factory.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_visibility.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_buttons_utils.h"
+#import "ios/chrome/browser/toolbar/ui/buttons/toolbar_tab_grid_badge_button.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_constants.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_height_delegate.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_mutator.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_utils.h"
+#import "ios/chrome/browser/toolbar/ui/toolbar_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
@@ -72,14 +75,11 @@ constexpr CGFloat kFullscreenCollapsedThreshold = 0.05;
 const base::TimeDelta kProgressBarEndAnimationDuration =
     base::Milliseconds(250);
 
-// The vertical offset between the bottom of the location bar container and
-// the top of the outer separator. Used to keep the spacing symmetrical
-// around the URL text when the bottom toolbar is collapsed above the keyboard.
-constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
-
 }  // namespace
 
-@interface ToolbarViewController () <TabGroupIndicatorViewDelegate>
+@interface ToolbarViewController () <TabGroupIndicatorViewDelegate,
+                                     ToolbarViewDelegate,
+                                     UIContextMenuInteractionDelegate>
 @end
 
 @implementation ToolbarViewController {
@@ -92,7 +92,7 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   ToolbarButton* _shareButton;
   ToolbarButton* _assistantButton;
   UIMenu* _assistantButtonMenu;
-  ToolbarButton* _tabGridButton;
+  ToolbarTabGridBadgeButton* _tabGridButton;
   UIMenu* _tabGridButtonMenu;
   ToolbarButton* _toolsMenuButton;
 
@@ -253,7 +253,9 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 }
 
 - (void)setNTPScrollProgress:(CGFloat)progress {
-  CHECK(_NTPVisible);
+  if (!_NTPVisible) {
+    return;
+  }
   _NTPScrollProgress = progress;
 
   if (!CanShowTabStrip(self)) {
@@ -324,11 +326,19 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 
 #pragma mark - UIViewController
 
+- (void)loadView {
+  ToolbarView* view = [[ToolbarView alloc] init];
+  view.delegate = self;
+  self.view = view;
+}
+
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.translatesAutoresizingMaskIntoConstraints = NO;
   self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-  self.view.accessibilityIdentifier = kToolbarViewIdentifier;
+  self.view.accessibilityIdentifier = _topPosition
+                                          ? kPrimaryToolbarViewIdentifier
+                                          : kSecondaryToolbarViewIdentifier;
 
   [self createView];
   [self setUpHierarchy];
@@ -336,6 +346,16 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [self updateToolbarElementsVisibility];
   [self updateToolbarVisibility];
   [self updateTabGroupIndicatorAvailability];
+
+  if (_topPosition) {
+    [self.layoutGuideCenter referenceView:self.view
+                                underName:kPrimaryToolbarGuide];
+    [self.layoutGuideCenter referenceView:_locationBarContainer
+                                underName:kTopOmniboxGuide];
+  } else {
+    [self.layoutGuideCenter referenceView:self.view
+                                underName:kSecondaryToolbarGuide];
+  }
 
   [self
       registerForTraitChanges:
@@ -352,6 +372,27 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [super viewSafeAreaInsetsDidChange];
   _bannerPromoBackgroundHeightConstraint.constant = [self
       bannerPromoBackgroundHeightForFullscreenProgress:_fullscreenProgress];
+}
+#pragma mark - UIContentContainer
+
+- (void)viewWillTransitionToSize:(CGSize)size
+       withTransitionCoordinator:
+           (id<UIViewControllerTransitionCoordinator>)coordinator {
+  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+  __weak __typeof(self) weakSelf = self;
+  CGFloat progress = _fullscreenProgress;
+  [coordinator
+      animateAlongsideTransition:^(
+          id<UIViewControllerTransitionCoordinatorContext> context) {
+        [weakSelf updateForFullscreenProgress:progress];
+      }
+                      completion:nil];
+}
+
+#pragma mark - ToolbarViewDelegate
+
+- (void)toolbarViewDidMoveToWindow:(ToolbarView*)view {
+  [self updateTabSwitcherGuide];
 }
 
 #pragma mark - PopupMenuUIUpdating
@@ -371,11 +412,16 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 
 #pragma mark - ToolbarConsumer
 
+- (void)setAssistantButtonVisible:(BOOL)visible enabled:(BOOL)enabled {
+  _assistantButton.forceHidden = !visible;
+  _assistantButton.enabled = enabled;
+}
+
 - (void)setCanGoBack:(BOOL)canGoBack {
   _backButton.enabled = canGoBack;
 }
 
-- (void)setCanGoForward:(BOOL)canGoForward {
+- (void)setCanGoForward:(BOOL)canGoForward animated:(BOOL)animated {
   if (_forwardButton.enabled == canGoForward) {
     return;
   }
@@ -384,8 +430,17 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
     _forwardButton.enabled = YES;
   }
 
-  // `_navigationButtonsContainer` is resized by sliding over its right edge to
-  // reveal or hide the `_forwardButton`.
+  // If no animation is requested, snap instantly.
+  if (!animated) {
+    _forwardButton.hidden = !canGoForward;
+    if (!canGoForward) {
+      _forwardButton.enabled = NO;
+    }
+    [self.view layoutIfNeeded];
+    return;
+  }
+
+  // Otherwise, do the smooth fade.
   __weak __typeof(self) weakSelf = self;
   ToolbarButton* forwardButton = _forwardButton;
   [UIView animateWithDuration:kAnimationDuration
@@ -441,6 +496,19 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [self loadViewIfNeeded];
   [self updateToolbarElementsVisibility];
   [self updateTabGroupIndicatorAvailability];
+
+  if (_visible) {
+    [self.layoutGuideCenter referenceView:_toolsMenuButton
+                                underName:kToolsMenuGuide];
+    [self.layoutGuideCenter referenceView:_backButton
+                                underName:kBackButtonGuide];
+    [self.layoutGuideCenter referenceView:_forwardButton
+                                underName:kForwardButtonGuide];
+    [self.layoutGuideCenter referenceView:_shareButton
+                                underName:kShareButtonGuide];
+
+    [self updateTabSwitcherGuide];
+  }
 }
 
 - (void)setNTPVisible:(BOOL)NTPVisible {
@@ -449,8 +517,14 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   }
   _NTPVisible = NTPVisible;
   [self updateToolbarVisibility];
-  /// TODO(crbug.com/508170459): The location bar should be initially hidden on
-  /// the NTP, until the fakebox is swiped up out of view.
+}
+
+- (void)updateTabCount:(NSUInteger)tabCount {
+  _tabGridButton.tabCount = tabCount;
+}
+
+- (void)setInTabGroup:(BOOL)inTabGroup {
+  _tabGridButton.inTabGroup = inTabGroup;
 }
 
 - (void)setMenu:(UIMenu*)menu forButtonType:(ToolbarButtonType)buttonType {
@@ -470,10 +544,7 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
       _assistantButton.menu = menu;
       return;
     case ToolbarButtonTypeTabGrid:
-      /// TODO:(crbug.com/493948951): Support this menu when the implementation
-      /// is working.
       _tabGridButtonMenu = menu;
-      _tabGridButton.menu = menu;
       return;
     case ToolbarButtonTypeReload:
     case ToolbarButtonTypeStop:
@@ -655,6 +726,62 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [self.mutator tabGroupIndicatorVisibilityUpdated:visible];
 }
 
+#pragma mark - UIContextMenuInteractionDelegate
+
+- (UIContextMenuConfiguration*)contextMenuInteraction:
+                                   (UIContextMenuInteraction*)interaction
+                       configurationForMenuAtLocation:(CGPoint)location {
+  if (interaction.view == _tabGridButton) {
+    UIMenu* menu = _tabGridButtonMenu;
+    if (!menu) {
+      return nil;
+    }
+    return [UIContextMenuConfiguration
+        configurationWithIdentifier:nil
+                    previewProvider:nil
+                     actionProvider:^UIMenu*(
+                         NSArray<UIMenuElement*>* suggestedActions) {
+                       return menu;
+                     }];
+  }
+  return nil;
+}
+
+- (UITargetedPreview*)contextMenuInteraction:
+                          (UIContextMenuInteraction*)interaction
+                               configuration:
+                                   (UIContextMenuConfiguration*)configuration
+       highlightPreviewForItemWithIdentifier:(id<NSCopying>)identifier {
+  UIView* view = interaction.view;
+  if ([view isKindOfClass:[ToolbarTabGridBadgeButton class]]) {
+    ToolbarTabGridBadgeButton* tabGridButton = (ToolbarTabGridBadgeButton*)view;
+    UIPreviewParameters* parameters = [[UIPreviewParameters alloc] init];
+    parameters.visiblePath = [tabGridButton visiblePath];
+    parameters.backgroundColor = self.view.backgroundColor;
+
+    return [[UITargetedPreview alloc] initWithView:view parameters:parameters];
+  }
+  return nil;
+}
+
+- (UITargetedPreview*)contextMenuInteraction:
+                          (UIContextMenuInteraction*)interaction
+                               configuration:
+                                   (UIContextMenuConfiguration*)configuration
+       dismissalPreviewForItemWithIdentifier:(id<NSCopying>)identifier {
+  UIView* view = interaction.view;
+  if ([view isKindOfClass:[ToolbarTabGridBadgeButton class]]) {
+    ToolbarTabGridBadgeButton* tabGridButton = (ToolbarTabGridBadgeButton*)view;
+    UIPreviewParameters* parameters = [[UIPreviewParameters alloc] init];
+    parameters.visiblePath = [tabGridButton visiblePath];
+    parameters.shadowPath = [UIBezierPath bezierPath];
+    parameters.backgroundColor = [UIColor clearColor];
+
+    return [[UITargetedPreview alloc] initWithView:view parameters:parameters];
+  }
+  return nil;
+}
+
 #pragma mark - Private
 
 // Creates and configures a separator line for the toolbar.
@@ -789,6 +916,10 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 - (void)updateButtons:(NSArray<UIView*>*)buttons
     forFullscreenProgress:(CGFloat)progress {
   for (UIView* button in buttons) {
+    if (button.hidden) {
+      button.alpha = 0;
+      continue;
+    }
     if (progress > 0.99) {
       button.alpha = 1;
       button.transform = CGAffineTransformIdentity;
@@ -803,6 +934,7 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 // Sets the NTP scroll progress for the toolbar. The toolbar is revealed as the
 // page is scrolled.
 - (void)setNTPScrollProgressForToolbar:(CGFloat)progress {
+  CHECK(_NTPVisible);
   [self updateToolbarVisibility];
   [self setNTPScrollProgressForOmnibox:progress];
   self.view.alpha = progress;
@@ -811,6 +943,7 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 // Sets the NTP scroll progress for the location bar. The location bar in the
 // toolbar is revealed with a translation effect as the page is scrolled.
 - (void)setNTPScrollProgressForOmnibox:(CGFloat)progress {
+  CHECK(_NTPVisible);
   // The vertical distance the location bar translates during the NTP scroll
   // animation. Set to `kToolbarPadding` so the location bar slides exactly down
   // to the bottom edge of the toolbar container as it fades out of view.
@@ -950,11 +1083,19 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [_backButton addTarget:self
                   action:@selector(backButtonTapped)
         forControlEvents:UIControlEventTouchUpInside];
+  [_backButton addAction:[UIAction actionWithHandler:^(UIAction*) {
+                 TriggerHapticFeedbackForImpact(UIImpactFeedbackStyleHeavy);
+               }]
+        forControlEvents:UIControlEventMenuActionTriggered];
   _forwardButton = [self.buttonFactory makeForwardButton];
   _forwardButton.menu = _forwardButtonMenu;
   [_forwardButton addTarget:self
                      action:@selector(forwardButtonTapped)
            forControlEvents:UIControlEventTouchUpInside];
+  [_forwardButton addAction:[UIAction actionWithHandler:^(UIAction*) {
+                    TriggerHapticFeedbackForImpact(UIImpactFeedbackStyleHeavy);
+                  }]
+           forControlEvents:UIControlEventMenuActionTriggered];
   _navigationButtonsContainer =
       [self.buttonFactory makeConjoinedBackButton:_backButton
                                     forwardButton:_forwardButton];
@@ -981,6 +1122,8 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [_tabGridButton addTarget:self
                      action:@selector(tabGridTouchUp)
            forControlEvents:UIControlEventTouchUpInside];
+  [_tabGridButton
+      addInteraction:[[UIContextMenuInteraction alloc] initWithDelegate:self]];
   _toolsMenuButton = [self.buttonFactory makeToolsMenuButton];
   [_toolsMenuButton addTarget:self
                        action:@selector(toolsMenuButtonTapped)
@@ -1222,11 +1365,11 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [NSLayoutConstraint deactivateConstraints:_landscapeOrientationConstraints];
   [NSLayoutConstraint deactivateConstraints:_regularRegularConstraints];
 
-  if (IsRegularXRegularSizeClass(self.view.window)) {
+  if (IsRegularXRegularSizeClass(self)) {
     _leadingStackLeadingConstraint.constant = kStackViewMarginRegularRegular;
     _trailingStackTrailingConstraint.constant = kStackViewMarginRegularRegular;
     [NSLayoutConstraint activateConstraints:_regularRegularConstraints];
-  } else if (IsIPhoneLandscape(self.view.window)) {
+  } else if (IsIPhoneLandscape(self)) {
     _leadingStackLeadingConstraint.constant = kStackViewMarginLandscape;
     _trailingStackTrailingConstraint.constant = kStackViewMarginLandscape;
     [NSLayoutConstraint activateConstraints:_landscapeOrientationConstraints];
@@ -1278,8 +1421,7 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 
 // Handles assistant button tap.
 - (void)assistantButtonTapped {
-  /// TODO(crbug.com/493956100): Implement this button (iPad).
-  NOTIMPLEMENTED();
+  [self.mutator assistantButtonTapped];
 }
 
 // Handles tools menu button tap.
@@ -1300,8 +1442,6 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
 
 // Updates the visibility of the toolbar.
 - (void)updateToolbarVisibility {
-  /// TODO(crbug.com/508170459): Allow the toolbar to be unhidden in split
-  /// toolbar mode.
   BOOL hideToolbar;
   BOOL alwaysShowToolbar = CanShowTabStrip(self) && _topPosition;
   if (alwaysShowToolbar) {
@@ -1309,10 +1449,13 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
     hideToolbar = NO;
   } else {
     hideToolbar = _NTPVisible && !_incognito && !CanShowTabStrip(self) &&
-                  (_NTPScrollProgress == 0.0 || IsSplitToolbarMode(self));
+                  _NTPScrollProgress == 0.0;
   }
 
   BOOL visibilityChanged = hideToolbar != self.view.isHidden;
+
+  // While browsing (non-NTP), the toolbar should be reset to be fully visible
+  // if it is not already.
   BOOL needsToolbarReset =
       !_NTPVisible &&
       (!CGAffineTransformIsIdentity(_locationBarContainer.transform) ||
@@ -1323,14 +1466,43 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
     return;
   }
 
+  BOOL toolbarWillAppear = visibilityChanged && !hideToolbar;
+
+  if (toolbarWillAppear) {
+    __weak __typeof(self) weakSelf = self;
+    [UIView performWithoutAnimation:^{
+      __strong __typeof(self) strongSelf = weakSelf;
+      if (!strongSelf) {
+        return;
+      }
+      // When unhiding the toolbar (e.g. when navigating forward from the NTP
+      // when the toolbar is hidden), resolve the parent constraints instantly.
+      // This prevents a race condition with the toolbar height and prevents
+      // visual glitching where the toolbar appears initially out of place.
+      [strongSelf applyToolbarVisibility:hideToolbar
+                       needsToolbarReset:needsToolbarReset];
+      [strongSelf.view.superview layoutIfNeeded];
+    }];
+  } else {
+    [self applyToolbarVisibility:hideToolbar
+               needsToolbarReset:needsToolbarReset];
+  }
+}
+
+// Helper for `-updateToolbarVisibility`. Applies the computed toolbar
+// visibility state and resets location bar transforms and transparency if
+// needed.
+- (void)applyToolbarVisibility:(BOOL)hideToolbar
+             needsToolbarReset:(BOOL)needsToolbarReset {
   self.view.hidden = hideToolbar;
 
-  // Resets the position of the location bar and the alpha of the toolbar. While
-  // browsing (non-NTP), the toolbar should be fully visible.
   if (needsToolbarReset) {
     _locationBarContainer.transform = CGAffineTransformIdentity;
     _locationBarContainer.alpha = 1.0;
     self.view.alpha = 1.0;
+    if (_fakeOmniboxTarget) {
+      _fakeOmniboxTarget.hidden = YES;
+    }
   }
 
   [self.toolbarHeightDelegate toolbarsHeightChanged];
@@ -1400,10 +1572,23 @@ constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
   [self updateLayoutConstraints];
   [self updateToolbarVisibility];
   [self updateTabGroupIndicatorAvailability];
+  [self updateTabSwitcherGuide];
   if (_topPosition) {
     [self updateBannerConstraints];
     _bannerPromoBackgroundHeightConstraint.constant = [self
         bannerPromoBackgroundHeightForFullscreenProgress:_fullscreenProgress];
+  }
+}
+
+// Conditionally registers the Tab Switcher layout guide.
+// It should only be registered to the toolbar if the App Bar is not visible.
+- (void)updateTabSwitcherGuide {
+  if (!_visible || !self.view.window) {
+    return;
+  }
+  if (self.layoutState.appBarPosition == AppBarPosition::kNone) {
+    [self.layoutGuideCenter referenceView:_tabGridButton
+                                underName:kTabSwitcherGuide];
   }
 }
 

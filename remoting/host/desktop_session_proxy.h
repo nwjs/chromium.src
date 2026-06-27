@@ -39,6 +39,7 @@
 #include "remoting/proto/coordinates.pb.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/proto/url_forwarder_control.pb.h"
+#include "remoting/protocol/audio_sample_info.h"
 #include "remoting/protocol/clipboard_stub.h"
 #include "remoting/protocol/desktop_capturer.h"
 #include "remoting/protocol/errors.h"
@@ -53,9 +54,9 @@ class ChannelProxy;
 
 namespace remoting {
 
-class AudioPacket;
 class ClientSessionControl;
 class DesktopSessionConnector;
+class IpcFifoBufferReader;
 class IpcAudioCapturer;
 class IpcMouseCursorMonitor;
 class IpcKeyboardLayoutMonitor;
@@ -167,8 +168,9 @@ class DesktopSessionProxy
   void SetVideoLayout(const protocol::VideoLayout& layout);
 
   // APIs used to implement the AudioInjector interface.
-  void StartAudioInjector();
-  void InjectAudioPacket(std::unique_ptr<AudioPacket> packet);
+  void StartAudioInjector(std::unique_ptr<IpcFifoBufferReader> audio_reader);
+  void SetAudioInjectorSampleInfo(const protocol::AudioSampleInfo& info,
+                                  base::OnceCallback<void(bool)> done);
 
   // API used to implement the ActionExecutor interface.
   void ExecuteAction(const protocol::ActionRequest& request);
@@ -214,6 +216,8 @@ class DesktopSessionProxy
   friend class base::DeleteHelper<DesktopSessionProxy>;
 
   ~DesktopSessionProxy() override;
+
+  void DoStartAudioInjector();
 
   // Called when the desktop agent has started and provides the remote used to
   // inject input events and control A/V capture.
@@ -351,6 +355,12 @@ class DesktopSessionProxy
   // `desktop_session_control_` is bound.
   bool should_start_audio_injector_ GUARDED_BY_CONTEXT(sequence_checker_) =
       false;
+  std::unique_ptr<IpcFifoBufferReader> pending_audio_reader_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+  std::optional<protocol::AudioSampleInfo> pending_audio_sample_info_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+  base::OnceCallback<void(bool)> pending_audio_format_ack_callback_
+      GUARDED_BY_CONTEXT(sequence_checker_);
 
   SEQUENCE_CHECKER(sequence_checker_);
 };

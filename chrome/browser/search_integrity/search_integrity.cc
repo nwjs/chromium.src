@@ -26,6 +26,8 @@
 #include "chrome/browser/search_integrity/search_integrity_allowlist.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/grit/browser_resources.h"
+#include "components/prefs/pref_service.h"
+#include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/template_url_service.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/url_util.h"
@@ -180,24 +182,15 @@ void SearchIntegrity::OnTemplateURLServiceLoaded() {
     base::UmaHistogramBoolean(
         "Search.Integrity.IsDefaultCustomWithMatchingPolicyEngine",
         report.is_default_custom_with_matching_policy_engine);
+    base::UmaHistogramBoolean("Search.Integrity.IsDefaultEnforcedWithoutPolicy",
+                              report.is_default_enforced_without_policy);
+    base::UmaHistogramEnumeration("Search.Integrity.DuplicateKeyword",
+                                  report.duplicate_keyword_status);
 
     if (report.referral_param_found.has_value()) {
       base::UmaHistogramEnumeration("Search.Integrity.Referral.ParameterFound",
                                     report.referral_param_found.value());
     }
-  }
-}
-
-void SearchIntegrity::LogEnterpriseMetrics(
-    const SearchIntegrityReport& report) {
-  base::UmaHistogramBoolean(
-      "Search.Integrity.Enterprise.IsDefaultCustomWithMatchingPolicyEngine",
-      report.is_default_custom_with_matching_policy_engine);
-
-  if (report.referral_param_found.has_value()) {
-    base::UmaHistogramEnumeration(
-        "Search.Integrity.Enterprise.Referral.ParameterFound",
-        report.referral_param_found.value());
   }
 
   SiteSearchIntegrityReport site_report = CheckSiteSearchReport();
@@ -210,6 +203,24 @@ void SearchIntegrity::LogEnterpriseMetrics(
                             site_report.has_cross_domain_search);
   base::UmaHistogramBoolean("Search.Integrity.ExtensionUrlSearch",
                             site_report.has_extension_url_search);
+}
+
+void SearchIntegrity::LogEnterpriseMetrics(
+    const SearchIntegrityReport& report) {
+  base::UmaHistogramBoolean(
+      "Search.Integrity.Enterprise.IsDefaultCustomWithMatchingPolicyEngine",
+      report.is_default_custom_with_matching_policy_engine);
+  base::UmaHistogramBoolean(
+      "Search.Integrity.Enterprise.IsDefaultEnforcedWithoutPolicy",
+      report.is_default_enforced_without_policy);
+  base::UmaHistogramEnumeration("Search.Integrity.Enterprise.DuplicateKeyword",
+                                report.duplicate_keyword_status);
+
+  if (report.referral_param_found.has_value()) {
+    base::UmaHistogramEnumeration(
+        "Search.Integrity.Enterprise.Referral.ParameterFound",
+        report.referral_param_found.value());
+  }
 }
 
 SearchIntegrityReport SearchIntegrity::CheckSearchEnginesReport() {
@@ -257,8 +268,46 @@ SearchIntegrityReport SearchIntegrity::CheckSearchEnginesReport() {
   const TemplateURL* default_search_provider =
       template_url_service_->GetDefaultSearchProvider();
 
+  std::set<std::u16string> seen_keywords;
+  bool default_duplicated = false;
+  bool non_default_duplicated = false;
+
+  const std::u16string default_keyword =
+      default_search_provider
+          ? base::i18n::ToLower(default_search_provider->keyword())
+          : std::u16string();
+
+  for (const TemplateURL* turl : template_urls) {
+    std::u16string keyword = base::i18n::ToLower(turl->keyword());
+    if (!seen_keywords.insert(keyword).second) {
+      if (default_search_provider && keyword == default_keyword) {
+        default_duplicated = true;
+      } else {
+        non_default_duplicated = true;
+      }
+    }
+  }
+
+  if (default_duplicated && non_default_duplicated) {
+    report.duplicate_keyword_status = SearchDuplicateKeyword::kBoth;
+  } else if (default_duplicated) {
+    report.duplicate_keyword_status =
+        SearchDuplicateKeyword::kDefaultDuplicated;
+  } else if (non_default_duplicated) {
+    report.duplicate_keyword_status =
+        SearchDuplicateKeyword::kNonDefaultDuplicated;
+  } else {
+    report.duplicate_keyword_status = SearchDuplicateKeyword::kNoDuplicates;
+  }
+
   if (!default_search_provider) {
     return report;
+  }
+
+  if (default_search_provider->enforced_by_policy() &&
+      !profile_->GetPrefs()->IsManagedPreference(
+          prefs::kDefaultSearchProviderEnabled)) {
+    report.is_default_enforced_without_policy = true;
   }
 
   if (IsDisallowedCustomSearchEngine(default_search_provider)) {

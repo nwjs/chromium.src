@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
-
 assert(is_chromeos)
 
 static_library("core") {
@@ -46,8 +44,6 @@ static_library("core") {
     "file_util.h",
     "policy_oauth2_token_fetcher.cc",
     "policy_oauth2_token_fetcher.h",
-    "policy_pref_names.cc",
-    "policy_pref_names.h",
     "reporting_user_tracker.cc",
     "reporting_user_tracker.h",
     "user_cloud_policy_manager_ash.cc",
@@ -70,6 +66,7 @@ static_library("core") {
     "//base",
     "//build:buildflag_header_h",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/ownership",
     "//chrome/browser/ash/policy/dev_mode",
     "//chrome/browser/ash/policy/enrollment",
@@ -110,6 +107,7 @@ static_library("core") {
     "//chromeos/ash/components/policy/device_local_account",
     "//chromeos/ash/components/settings",
     "//chromeos/ash/components/system",
+    "//chromeos/ash/components/timezone:util",
     "//chromeos/ash/experiences/arc:arc_features",
     "//chromeos/constants",
     "//chromeos/dbus/constants",
@@ -144,10 +142,12 @@ static_library("core") {
     "//ui/base",
     "//url",
 
-    # TODO: Use //chrome/browser/ash/attestation instead after fixing cyclic dependency.
+    # TODO: Use //chrome/browser/ash/attestation instead after fixing cyclic
+    # dependency.
     "//chromeos/ash/components/dbus/attestation:attestation_proto",
 
-    # TODO: Use //chrome/browser/ash/login/reporting instead after fixing cyclic dependency.
+    # TODO: Use //chrome/browser/ash/login/reporting instead after fixing cyclic
+    # dependency.
     "//chrome/browser/policy/messaging_layer/proto:lock_unlock_event_proto",
     "//chrome/browser/policy/messaging_layer/proto:login_logout_event_proto",
     "//chrome/browser/policy/messaging_layer/proto:os_events_proto",
@@ -187,6 +187,7 @@ static_library("test_support") {
     "//base",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/policy/remote_commands/crd:test_support",
     "//chrome/browser/ash/policy/test_support",
     "//chrome/browser/profiles:profile",
@@ -343,6 +344,7 @@ source_set("browser_tests") {
     "//chrome/app:generated_resources",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/ash/extensions",
     "//chrome/browser/ash/login",
@@ -385,6 +387,7 @@ source_set("browser_tests") {
     "//chromeos/ash/components/policy/device_policy:test_support",
     "//chromeos/ash/components/settings",
     "//chromeos/ash/components/system",
+    "//chromeos/ash/components/timezone:util",
     "//chromeos/ash/experiences/arc:prefs",
     "//chromeos/components/mgs",
     "//components/crx_file",

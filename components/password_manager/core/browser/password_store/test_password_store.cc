@@ -33,9 +33,19 @@ void TestPasswordStore::CallSyncEnabledOrDisabledCallbacks() {
 }
 
 void TestPasswordStore::TriggerOnLoginsRetainedForAndroid(
-    const std::vector<PasswordForm>& password_forms) {
-  fake_backend()->TriggerOnLoginsRetainedForAndroid(password_forms);
+    const std::vector<StoredCredential>& credentials) {
+  fake_backend()->TriggerOnLoginsRetainedForAndroid(credentials);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void TestPasswordStore::SetAffiliatedAndGroupedRealms(
+    const std::string& signon_realm,
+    const std::vector<std::string>& affiliated_realms,
+    const std::vector<std::string>& grouped_realms) {
+  fake_backend()->SetAffiliatedAndGroupedRealms(signon_realm, affiliated_realms,
+                                                grouped_realms);
+}
+#endif
 
 void TestPasswordStore::ReturnErrorOnRequest(
     PasswordStoreBackendError password_store_backend_error) {
@@ -44,6 +54,11 @@ void TestPasswordStore::ReturnErrorOnRequest(
 
 void TestPasswordStore::SetError(ActionableError error) {
   fake_backend()->SetError(error);
+}
+
+void TestPasswordStore::SetAffiliatedMatchHelper(
+    AffiliatedMatchHelper* helper) {
+  fake_backend()->SetAffiliatedMatchHelper(helper);
 }
 
 void TestPasswordStore::NotifyAboutError() {
@@ -63,10 +78,11 @@ const FakePasswordStoreBackend* TestPasswordStore::fake_backend() const {
 TestPasswordStore::PasswordMap GetAllLoginsSync(PasswordStoreInterface* store) {
   PasswordStoreResultsObserver observer;
   store->GetAllLogins(observer.GetWeakPtr());
-  std::vector<PasswordForm> results = observer.WaitForResults();
+  std::vector<StoredCredential> results = observer.WaitForResults();
   TestPasswordStore::PasswordMap map;
   for (auto& result : results) {
-    map[result.signon_realm].push_back(std::move(result));
+    std::string signon_realm = result.signon_realm;
+    map[signon_realm].push_back(ToPasswordForm(std::move(result)));
   }
   return map;
 }

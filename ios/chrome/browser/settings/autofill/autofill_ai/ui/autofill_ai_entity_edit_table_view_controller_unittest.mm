@@ -10,7 +10,9 @@
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
 #import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_date_picker_input_view.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_country_item.h"
+#import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_edit_date_item.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_edit_item.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_edit_mutator.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_edit_table_view_controller+testing.h"
@@ -23,6 +25,7 @@
 #import "testing/gtest_mac.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 @interface FakeMutator : NSObject <AutofillAIEntityEditMutator>
@@ -45,6 +48,17 @@
 @end
 
 namespace {
+
+// Expected text field bounds dimensions for layout validation under iPad
+// popover tests.
+constexpr CGFloat kMockTextFieldWidth = 400.0;
+constexpr CGFloat kMockTextFieldHeight = 44.0;
+constexpr CGFloat kDatePickerPopoverAnchorWidthRatio = 0.25;
+
+// Expected popover anchor width calculated dynamically as a ratio of
+// the simulated text field width bounds.
+constexpr CGFloat kExpectedDatePickerPopoverAnchorWidth =
+    kMockTextFieldWidth * kDatePickerPopoverAnchorWidthRatio;
 
 class AutofillAIEntityEditTableViewControllerTest
     : public LegacyChromeTableViewControllerTest {
@@ -89,7 +103,7 @@ class AutofillAIEntityEditTableViewControllerTest
 
 TEST_F(AutofillAIEntityEditTableViewControllerTest, TestInitialization) {
   CheckController();
-  EXPECT_EQ(1, NumberOfSections());
+  EXPECT_EQ(2, NumberOfSections());
 }
 
 TEST_F(AutofillAIEntityEditTableViewControllerTest, TestLoadModel) {
@@ -102,7 +116,7 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest, TestLoadModel) {
   [view_controller setEditItems:@[ item ]];
 
   CheckController();
-  EXPECT_EQ(1, NumberOfSections());
+  EXPECT_EQ(2, NumberOfSections());
   EXPECT_EQ(1, NumberOfItemsInSection(0));
 }
 
@@ -212,7 +226,7 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest, TestFooterForLocalItem) {
 
   TableViewLinkHeaderFooterItem* footer =
       base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
-          [view_controller.tableViewModel footerForSectionIndex:0]);
+          [view_controller.tableViewModel footerForSectionIndex:1]);
 
   EXPECT_TRUE(footer);
   EXPECT_NSEQ(footer.text,
@@ -232,7 +246,7 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest,
 
   TableViewLinkHeaderFooterItem* footer =
       base::apple::ObjCCastStrict<TableViewLinkHeaderFooterItem>(
-          [view_controller.tableViewModel footerForSectionIndex:0]);
+          [view_controller.tableViewModel footerForSectionIndex:1]);
 
   EXPECT_TRUE(footer);
   EXPECT_EQ(1U, footer.urls.count);
@@ -319,6 +333,71 @@ TEST_F(AutofillAIEntityEditTableViewControllerTest,
   [view_controller tableViewItemDidChange:item];
 
   EXPECT_FALSE(item.hasValidValueStatus);
+}
+
+TEST_F(AutofillAIEntityEditTableViewControllerTest,
+       TestDeleteButtonInToolbarDisabled) {
+  AutofillAIEntityEditTableViewController* view_controller =
+      base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
+          controller());
+
+  // Trigger view load.
+  [view_controller view];
+
+  EXPECT_FALSE(view_controller.shouldShowDeleteButtonInToolbar);
+  EXPECT_EQ(0U, view_controller.toolbarItems.count);
+}
+
+TEST_F(AutofillAIEntityEditTableViewControllerTest, TestSelectDateItem) {
+  AutofillAIEntityEditTableViewController* view_controller =
+      base::apple::ObjCCastStrict<AutofillAIEntityEditTableViewController>(
+          controller());
+
+  AutofillAIEntityEditDateItem* item =
+      [[AutofillAIEntityEditDateItem alloc] initWithType:kItemTypeEnumZero];
+  [view_controller setEditItems:@[ item ]];
+
+  CheckController();
+  [view_controller setEditing:YES animated:NO];
+
+  NSIndexPath* indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
+
+  id mock_table_view = OCMPartialMock(view_controller.tableView);
+  TableViewTextEditCell* cell =
+      [[TableViewTextEditCell alloc] initWithStyle:UITableViewCellStyleDefault
+                                   reuseIdentifier:@"test"];
+  // Set up a mock width for the text field to verify dynamic anchor sizing
+  // (anchor width should be exactly 1/4 of this text field width).
+  cell.textField.frame =
+      CGRectMake(0, 0, kMockTextFieldWidth, kMockTextFieldHeight);
+  OCMStub([mock_table_view cellForRowAtIndexPath:indexPath]).andReturn(cell);
+
+  id mock_view_controller = OCMPartialMock(view_controller);
+
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    OCMExpect([mock_view_controller
+        presentViewController:[OCMArg checkWithBlock:^BOOL(
+                                          UIViewController* viewController) {
+          EXPECT_EQ(viewController.modalPresentationStyle,
+                    UIModalPresentationPopover);
+          EXPECT_TRUE([viewController.view
+              isKindOfClass:[AutofillAIDatePickerInputView class]]);
+          UIPopoverPresentationController* popover =
+              viewController.popoverPresentationController;
+          EXPECT_EQ(popover.sourceRect.size.width,
+                    kExpectedDatePickerPopoverAnchorWidth);
+          return YES;
+        }]
+                     animated:YES
+                   completion:[OCMArg any]]);
+  }
+
+  [mock_view_controller tableView:view_controller.tableView
+          didSelectRowAtIndexPath:indexPath];
+
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    [mock_view_controller verify];
+  }
 }
 
 }  // namespace

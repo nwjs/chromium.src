@@ -6,6 +6,7 @@
 #include <queue>
 #include <string>
 
+#include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/run_until.h"
@@ -15,6 +16,8 @@
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/policy/profile_policy_connector_builder.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
+#include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_ask_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_base_view.h"
@@ -25,6 +28,8 @@
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_show_system_prompt_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_system_settings_view.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -46,12 +51,16 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "ui/base/interaction/element_identifier.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/compositor/layer.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/views_switches.h"
 #include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/widget/widget_deletion_observer.h"
 #include "url/origin.h"
 
 namespace {
@@ -1466,6 +1475,229 @@ IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptPolicyInteractiveTest,
   TestPolicy(policies, "geolocation",
              EmbeddedPermissionPromptPolicyView::kMainViewId,
              u"Your administrator doesn't allow location for this site");
+}
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
+                       ScrimSnapsToWebContentsBounds) {
+  views::NamedWidgetShownWaiter waiter(
+      views::test::AnyWidgetTestPasskey{},
+      "EmbeddedPermissionPromptContentScrimWidget");
+
+  RunTestSequence(
+      // Setup and trigger the permission prompt.
+      InstrumentTab(kWebContentsElementId),
+      NavigateWebContents(kWebContentsElementId, GetURL()),
+      ClickOnPEPCElement("camera"),
+      InAnyContext(WaitForShow(EmbeddedPermissionPromptBaseView::kMainViewId)),
+
+      Do([&]() {
+        views::Widget* scrim_widget = waiter.WaitIfNeededAndGet();
+        ASSERT_TRUE(scrim_widget);
+
+        content::WebContents* web_contents =
+            browser()->tab_strip_model()->GetActiveWebContents();
+
+        // Change scrim's bounds to be different from web contents so it
+        // is out of sync.
+        gfx::Rect wrong_bounds(0, 0, 10, 10);
+        scrim_widget->SetBounds(wrong_bounds);
+        EXPECT_EQ(scrim_widget->GetWindowBoundsInScreen(), wrong_bounds);
+
+        auto* scrim_view =
+            static_cast<EmbeddedPermissionPromptContentScrimView*>(
+                scrim_widget->GetContentsView());
+
+        // Simulate bounds event change. Pass empty rect bounds since
+        // code does not utilize bounds parameter and uses web contents bounds
+        // instead.
+        scrim_view->OnWidgetBoundsChanged(scrim_widget, gfx::Rect());
+
+        // The scrim should update its size to match the web contents bounds.
+        EXPECT_EQ(scrim_widget->GetWindowBoundsInScreen(),
+                  web_contents->GetContainerBounds());
+      }),
+
+      // Clean up.
+      Do([this]() {
+        auto* manager = permissions::PermissionRequestManager::FromWebContents(
+            browser()->tab_strip_model()->GetActiveWebContents());
+        manager->Dismiss(/*prompt_options=*/std::monostate());
+        manager->FinalizeCurrentRequests();
+      }));
+}
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
+                       ScrimSnapsToBoundsOnFrameSizeChanged) {
+  views::NamedWidgetShownWaiter waiter(
+      views::test::AnyWidgetTestPasskey{},
+      "EmbeddedPermissionPromptContentScrimWidget");
+
+  RunTestSequence(
+      // Setup and trigger the permission prompt.
+      InstrumentTab(kWebContentsElementId),
+      NavigateWebContents(kWebContentsElementId, GetURL()),
+      ClickOnPEPCElement("camera"),
+      InAnyContext(WaitForShow(EmbeddedPermissionPromptBaseView::kMainViewId)),
+
+      Do([&]() {
+        views::Widget* scrim_widget = waiter.WaitIfNeededAndGet();
+        ASSERT_TRUE(scrim_widget);
+
+        content::WebContents* web_contents =
+            browser()->tab_strip_model()->GetActiveWebContents();
+
+        // Change the scrim's bounds so it is out of sync with the window size.
+        gfx::Rect wrong_bounds(0, 0, 10, 10);
+        scrim_widget->SetBounds(wrong_bounds);
+        EXPECT_EQ(scrim_widget->GetWindowBoundsInScreen(), wrong_bounds);
+
+        auto* scrim_view =
+            static_cast<EmbeddedPermissionPromptContentScrimView*>(
+                scrim_widget->GetContentsView());
+        // Simulate the window changing size by calling `FrameSizeChanged` on a
+        // misc iframe. This way, `FrameSizeChanged` does not change the size of
+        // the scrim.
+        scrim_view->FrameSizeChanged(nullptr, gfx::Size());
+        EXPECT_NE(scrim_widget->GetWindowBoundsInScreen(),
+                  web_contents->GetContainerBounds());
+
+        // Simulate the window changing size by calling `FrameSizeChanged` on
+        // the main frame. This way, `FrameSizeChanged` updates the size of the
+        // scrim.
+        scrim_view->FrameSizeChanged(web_contents->GetPrimaryMainFrame(),
+                                     gfx::Size());
+
+        // The scrim must have instantly snapped back to match the size of the
+        // window.
+        EXPECT_EQ(scrim_widget->GetWindowBoundsInScreen(),
+                  web_contents->GetContainerBounds());
+      }),
+
+      // Cleanup.
+      Do([this]() {
+        auto* manager = permissions::PermissionRequestManager::FromWebContents(
+            browser()->tab_strip_model()->GetActiveWebContents());
+        manager->Dismiss(/*prompt_options=*/std::monostate());
+        manager->FinalizeCurrentRequests();
+      }));
+}
+
+namespace {
+class DummyOmniboxPopupWebUIContent : public OmniboxPopupWebUIBaseContent {
+  METADATA_HEADER(DummyOmniboxPopupWebUIContent, OmniboxPopupWebUIBaseContent)
+ public:
+  explicit DummyOmniboxPopupWebUIContent(LocationBar* location_bar)
+      : OmniboxPopupWebUIBaseContent(nullptr,
+                                     location_bar,
+                                     nullptr,
+                                     /*top_rounded_corners=*/true) {}
+
+  void Clear() override {}
+  std::string_view GetMetricPrefix() const override { return "Dummy"; }
+
+ protected:
+  void OnContextMenuClosed() override {}
+};
+
+BEGIN_METADATA(DummyOmniboxPopupWebUIContent)
+END_METADATA
+
+class TestScrimDelegate
+    : public EmbeddedPermissionPromptContentScrimView::Delegate {
+ public:
+  TestScrimDelegate() = default;
+  void DismissScrim() override {}
+  base::WeakPtr<permissions::PermissionPrompt::Delegate>
+  GetPermissionPromptDelegate() const override {
+    return nullptr;
+  }
+  base::WeakPtr<EmbeddedPermissionPromptContentScrimView::Delegate>
+  GetWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
+
+ private:
+  base::WeakPtrFactory<EmbeddedPermissionPromptContentScrimView::Delegate>
+      weak_factory_{this};
+};
+}  // namespace
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
+                       ScrimRoundedCornersMatchOmniboxPopup) {
+  // Construct a dummy widget and view hierarchy to host the mock Omnibox popup.
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.context = browser()->window()->GetNativeWindow();
+  auto widget = std::make_unique<views::Widget>();
+  widget->Init(std::move(params));
+  widget->SetBounds(gfx::Rect(0, 0, 800, 600));
+
+  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  auto* location_bar = browser_view->toolbar()->location_bar_view();
+
+  auto container = std::make_unique<views::View>();
+  auto* omnibox_content = container->AddChildView(
+      std::make_unique<DummyOmniboxPopupWebUIContent>(location_bar));
+
+  // Make omnibox the client of the PEPC scrim.
+  auto rounded_frame = std::make_unique<RoundedOmniboxResultsFrame>(
+      container.release(), location_bar, /*forward_mouse_events=*/false);
+
+  widget->SetContentsView(std::move(rounded_frame));
+  widget->Show();
+
+  // Create a new WebContents instead of using the browser's active WebContents.
+  std::unique_ptr<content::WebContents> test_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->profile()));
+
+  // Navigate the web contents to ensure its render widget host view is created
+  // and GetContentNativeView() is non-null.
+  ASSERT_TRUE(
+      content::NavigateToURL(test_web_contents.get(), GURL("about:blank")));
+
+  omnibox_content->SetWebContents(test_web_contents.get());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return views::Widget::GetTopLevelWidgetForNativeView(
+               test_web_contents->GetContentNativeView()) == widget.get();
+  }));
+
+  views::Widget* web_contents_widget =
+      views::Widget::GetTopLevelWidgetForNativeView(
+          test_web_contents->GetContentNativeView());
+  EXPECT_NE(web_contents_widget, nullptr);
+  EXPECT_EQ(web_contents_widget, widget.get());
+
+  // Get frame and validate it exists.
+  auto* rounded_frame_actual = views::AsViewClass<RoundedOmniboxResultsFrame>(
+      web_contents_widget->GetClientContentsView());
+  EXPECT_NE(rounded_frame_actual, nullptr);
+
+  // Get omnibox popup and confirm it exists and equal to the omnibox
+  // popup of interest.
+  auto* omnibox_content_actual =
+      rounded_frame_actual->GetOmniboxPopupWebUIBaseContent();
+  EXPECT_NE(omnibox_content_actual, nullptr);
+  EXPECT_EQ(omnibox_content_actual, omnibox_content);
+
+  TestScrimDelegate delegate;
+  auto scrim_view = std::make_unique<EmbeddedPermissionPromptContentScrimView>(
+      delegate.GetWeakPtr(), test_web_contents.get(),
+      /*should_dismiss_on_click=*/true);
+
+  // The scrim's layer rounded corner radius should match the radii of the
+  // omnibox popup content wrapper.
+  EXPECT_NE(scrim_view->layer(), nullptr);
+  EXPECT_FALSE(scrim_view->layer()->fills_bounds_opaquely());
+  EXPECT_EQ(scrim_view->layer()->rounded_corner_radii(),
+            omnibox_content->GetRoundedCornerRadii());
+
+  omnibox_content->SetWebContents(nullptr);
+  views::WidgetDeletionObserver deletion_observer(widget.get());
+  widget.reset();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !deletion_observer.IsWidgetAlive(); }));
 }
 
 // Setting up to run all tests with two screen scale factors.

@@ -15,6 +15,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
@@ -50,7 +51,9 @@ OverlayWindowLiveCaptionDialog::OverlayWindowLiveCaptionDialog(Profile* profile)
 
   auto live_caption_image = std::make_unique<views::ImageView>();
   live_caption_image->SetImage(ui::ImageModel::FromVectorIcon(
-      vector_icons::kLiveCaptionOnIcon, ui::kColorIcon, kImageWidthDip));
+      features::IsRoundedIconsEnabled() ? vector_icons::kSubtitlesIcon
+                                        : vector_icons::kLiveCaptionOnOldIcon,
+      ui::kColorIcon, kImageWidthDip));
   live_caption_container->AddChildView(std::move(live_caption_image));
 
   auto live_caption_title =
@@ -87,7 +90,7 @@ OverlayWindowLiveCaptionDialog::OverlayWindowLiveCaptionDialog(Profile* profile)
 
   auto live_translate_image = std::make_unique<views::ImageView>();
   live_translate_image->SetImage(ui::ImageModel::FromVectorIcon(
-      vector_icons::kTranslateIcon, ui::kColorIcon, kImageWidthDip));
+      vector_icons::kGTranslateIcon, ui::kColorIcon, kImageWidthDip));
   live_translate_container->AddChildView(std::move(live_translate_image));
 
   auto live_translate_label_wrapper = std::make_unique<View>();

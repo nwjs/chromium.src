@@ -5,20 +5,24 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_PAYMENTS_AUTOFILL_CLIENT_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_PAYMENTS_AUTOFILL_CLIENT_H_
 
+#include <stdint.h>
+
+#include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/risk_data_loader.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
-#include "components/signin/public/identity_manager/account_info.h"
 #include "url/origin.h"
 
 #if !BUILDFLAG(IS_IOS)
@@ -597,11 +601,6 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // by the user, if applicable.
   virtual bool IsMandatoryReauthEnabled() = 0;
 
-#if BUILDFLAG(IS_IOS)
-  // Returns true if the feature to use custom card icons is enabled.
-  virtual bool IsUsingCustomCardIconEnabled() const = 0;
-#endif
-
   // Prompt the user to enable mandatory reauthentication for payment method
   // autofill. When enabled, the user will be asked to authenticate using
   // biometrics or device unlock before filling in payment method information.
@@ -821,6 +820,14 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // nullptr on unsupported platforms. Handles the Autofill flow where the
   // Omnibox is the trigger point.
   virtual OmniboxAutofillDelegate* GetOmniboxAutofillDelegate() = 0;
+
+  // Shows the "Autofill payments" omnibox chip that appears for relevant
+  // payment checkout forms.
+  virtual void ShowOmniboxAutofillChip() = 0;
+
+  // Hides the "Autofill payments" omnibox chip that appears for relevant
+  // payment checkout forms.
+  virtual void HideOmniboxAutofillChip() = 0;
 #endif
 };
 

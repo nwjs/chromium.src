@@ -51,6 +51,7 @@
 #include "content/common/frame.mojom-forward.h"
 #include "content/common/input/synthetic_gesture.h"
 #include "content/common/input/synthetic_gesture_controller.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/render_process_host_priority_client.h"
 #include "content/public/browser/render_widget_host.h"
@@ -189,7 +190,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       RenderWidgetHostDelegate* delegate,
       base::SafeRef<SiteInstanceGroup> site_instance_group,
       int32_t routing_id,
-      bool hidden);
+      bool hidden,
+      GlobalRenderFrameHostId popup_creator_frame_id);
 
   RenderWidgetHostImpl(const RenderWidgetHostImpl&) = delete;
   RenderWidgetHostImpl& operator=(const RenderWidgetHostImpl&) = delete;
@@ -241,6 +243,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // RenderWidgetHost implementation.
   const viz::FrameSinkId& GetFrameSinkId() override;
+  std::optional<GlobalRenderFrameHostId> GetPopupCreatorFrameId()
+      const override;
   void UpdateTextDirection(base::i18n::TextDirection direction) override;
   void NotifyTextDirection() override;
   void Focus() override;
@@ -282,6 +286,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   float GetDeviceScaleFactor() override;
   std::optional<cc::TouchAction> GetAllowedTouchAction() override;
   void WriteIntoTrace(perfetto::TracedValue context) override;
+
+  // blink::mojom::FrameWidgetHost:
+  void AutoscrollEnd() override;
+
+  // RenderWidgetHost:
   // |drop_data| must have been filtered. The embedder should call
   // FilterDropData before passing the drop data to RWHI.
   void DragTargetDragEnter(const DropData& drop_data,
@@ -413,7 +422,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool UpdateVisualProperties(bool propagate);
 
   // Notification that the screen info has changed.
-  void NotifyScreenInfoChanged();
+  void NotifyScreenInfoChanged(bool ignore_ack = true);
 
   // Forces redraw in the renderer and when the update reaches the browser.
   // grabs snapshot from the compositor.
@@ -854,6 +863,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 #endif  // BUILDFLAG(IS_WIN)
       ) override;
   bool IsAutoscrollInProgress() override;
+  void OnAutoscrollTargetResolved(bool success);
   void SetMouseCapture(bool capture) override;
   void SetAutoscrollSelectionActiveInMainFrame(
       bool autoscroll_selection) override;
@@ -951,6 +961,13 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   widget_host_receiver_for_testing() {
     return blink_widget_host_receiver_;
   }
+
+  bool has_initial_frame_sink_for_testing() const {
+    return initial_frame_sink_pipes_ &&
+           initial_frame_sink_pipes_->receiver.is_valid();
+  }
+
+  bool is_hidden_for_testing() const { return is_hidden_; }
 
   std::optional<blink::VisualProperties> LastComputedVisualProperties() const;
 
@@ -1079,7 +1096,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
                        base::SafeRef<SiteInstanceGroup> site_instance_group,
                        int32_t routing_id,
                        bool hidden,
-                       bool renderer_initiated_creation);
+                       bool renderer_initiated_creation,
+                       std::optional<GlobalRenderFrameHostId>
+                           popup_creator_frame_id = std::nullopt);
   // ---------------------------------------------------------------------------
   // The following method is overridden by RenderViewHost to send upwards to
   // its delegate.
@@ -1146,6 +1165,16 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   friend class RenderViewHostTester;
   friend class TestRenderViewHost;
 
+  struct InitialFrameSinkPipes {
+    InitialFrameSinkPipes();
+    ~InitialFrameSinkPipes();
+    InitialFrameSinkPipes(InitialFrameSinkPipes&&);
+    InitialFrameSinkPipes& operator=(InitialFrameSinkPipes&&);
+    mojo::PendingReceiver<viz::mojom::CompositorFrameSink> receiver;
+    mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient> client;
+    mojo::PendingRemote<blink::mojom::RenderInputRouterClient> viz_rir_client;
+  };
+
   // Tell this object to destroy itself. If |also_delete| is specified, the
   // destructor is called as well.
   void Destroy(bool also_delete);
@@ -1181,7 +1210,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       blink::mojom::IntrinsicSizingInfoPtr sizing_info) override;
   void AutoscrollStart(const gfx::PointF& position) override;
   void AutoscrollFling(const gfx::Vector2dF& velocity) override;
-  void AutoscrollEnd() override;
 
   // When the RenderWidget is destroyed and recreated, this resets states in the
   // browser to match the clean start for the renderer side.
@@ -1494,6 +1522,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // True when the cursor has entered the autoscroll mode. A GSB is not
   // necessarily sent yet.
   bool autoscroll_in_progress_ = false;
+  bool autoscroll_targeting_pending_ = false;
+  std::optional<gfx::Vector2dF> pending_autoscroll_fling_velocity_;
 
   // TODO(crbug.com/40263900): The gesture controller can cause synchronous
   // destruction of the page (sending a click to the tab close button). Since
@@ -1624,6 +1654,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   std::unique_ptr<CompositorMetricRecorder> compositor_metric_recorder_;
   base::OnceClosure ready_for_input_callback_for_testing_;
+
+  std::optional<InitialFrameSinkPipes> initial_frame_sink_pipes_;
+
+  std::optional<GlobalRenderFrameHostId> popup_creator_frame_id_;
 
   base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_{this};
 };

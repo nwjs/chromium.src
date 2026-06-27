@@ -47,6 +47,7 @@
 #import "ios/chrome/browser/tabs/model/tabs_closer.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
 // TODO(crbug.com/40273478): Needed for `TabPresentationDelegate`, should be
@@ -214,8 +215,9 @@ using ScopedTabGroupSyncObservation =
   }
 }
 
-- (void)setPageAsActive {
-  [self.gridConsumer setActivePageFromPage:TabGridPageRegularTabs];
+- (void)setPageAsActiveWithBehavior:(TabGridScrollBehavior)behavior {
+  [self.gridConsumer setActivePageFromPage:TabGridPageRegularTabs
+                                  behavior:behavior];
 }
 
 #pragma mark - TabGridToolbarsGridDelegate
@@ -261,7 +263,8 @@ using ScopedTabGroupSyncObservation =
 }
 
 - (void)newTabButtonTapped:(id)sender {
-  CHECK(!IsChromeNextIaEnabled());
+  CHECK(!IsChromeNextIaEnabled() ||
+        ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET);
   // Ignore the tap if the current page is disabled for some reason, by policy
   // for instance. This is to avoid situations where the tap action from an
   // enabled page can make it to a disabled page by releasing the
@@ -359,7 +362,8 @@ using ScopedTabGroupSyncObservation =
 }
 
 - (void)displayActiveTab {
-  [self.gridConsumer setActivePageFromPage:TabGridPageRegularTabs];
+  [self.gridConsumer setActivePageFromPage:TabGridPageRegularTabs
+                                  behavior:TabGridScrollBehaviorAnimated];
   [self.tabPresentationDelegate showActiveTabInPage:TabGridPageRegularTabs
                                        focusOmnibox:NO];
 }

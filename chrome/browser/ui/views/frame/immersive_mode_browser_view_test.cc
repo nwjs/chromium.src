@@ -32,12 +32,14 @@
 #include "ui/aura/window.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/compositor/compositor.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/caption_button_layout_constants.h"
@@ -115,10 +117,38 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
 
 IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
                        LocatedEventShouldRevealTopChrome) {
+  gfx::ScopedAnimationDurationScaleMode scale_mode(
+      gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   auto* const immersive_mode_controller =
       ImmersiveModeController::From(browser());
 
   EnterImmersiveFullscreenMode(browser());
+
+  aura::Window* window = browser()->window()->GetNativeWindow();
+
+  auto* immersive_fullscreen_controller =
+      static_cast<ImmersiveModeControllerChromeos*>(immersive_mode_controller)
+          ->controller();
+
+  // In order for the reveal gesture to work, the animation on the frame has to
+  // be completely stopped. If this fails, investigate if the
+  // kGestureBeginScroll event is consumed by ash::ToplevelWindowEventHandler.
+  auto wait_for_unreveal_animation_complete = [immersive_fullscreen_controller,
+                                               window]() {
+    auto* animation = chromeos::ImmersiveFullscreenControllerTestApi(
+                          immersive_fullscreen_controller)
+                          .GetAnimation();
+    ASSERT_TRUE(base::test::RunUntil(
+        [animation]() { return animation->GetCurrentValue() == 0.0; }));
+
+    // Wait for the next begin frame after all animations are completed.
+    auto* compositor = window->layer()->GetCompositor();
+    ASSERT_TRUE(base::test::RunUntil(
+        [compositor]() { return !compositor->IsAnimating(); }));
+  };
+
+  wait_for_unreveal_animation_complete();
+  //  Animation is disabled, so it is not revealed when entered.
   EXPECT_FALSE(immersive_mode_controller->IsRevealed());
 
   enum EventType { kMouse, kTouch };
@@ -127,7 +157,6 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
 
     ImmersiveModeTester tester(browser());
 
-    aura::Window* window = browser()->window()->GetNativeWindow();
     ui::test::EventGenerator event_generator(window->GetRootWindow());
     gfx::Point point(std::roundl(window->bounds().width() / 2), 0);
 
@@ -138,6 +167,7 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
       event_generator.MoveTouchBy(0, 30);
       event_generator.ReleaseTouch();
     }
+    // We need to wait for timer.
     tester.WaitForRevealStarted();
     EXPECT_TRUE(immersive_mode_controller->IsRevealed());
 
@@ -150,7 +180,8 @@ IN_PROC_BROWSER_TEST_P(ImmersiveModeBrowserViewTest,
       event_generator.PressTouch(point);
       event_generator.ReleaseTouch();
     }
-    tester.WaitForRevealEnded();
+
+    wait_for_unreveal_animation_complete();
     EXPECT_FALSE(immersive_mode_controller->IsRevealed());
   }
 }

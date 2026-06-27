@@ -61,11 +61,17 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
     @Nullable private ActorNotificationService mNotificationService;
     private final ActorForegroundServiceController mServiceController;
     private int mPinnedNotificationId = INVALID_NOTIFICATION_ID;
+    @Nullable private Notification mPinnedNotification;
     private final Set<Integer> mActiveTaskIds = new HashSet<>();
 
     private @Nullable Runnable mStopCallbackForTesting;
 
     private final ProfileManager.Observer mProfileObserver;
+
+    /** Returns the singleton instance. */
+    public static @Nullable ActorForegroundServiceManager getInstance() {
+        return sInstance;
+    }
 
     /** Initializes the manager and starts observing profile changes. */
     public static void initialize() {
@@ -143,7 +149,7 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
                 taskId, newState, isActivityVisibleForTask(taskId));
 
         // Any task that is not completed is considered active for the foreground service.
-        if (!isCompletedState(newState)) {
+        if (!ActorUtils.isCompletedState(newState)) {
             mActiveTaskIds.add(taskId);
         } else {
             mActiveTaskIds.remove(taskId);
@@ -161,10 +167,24 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
         return task != null && mServiceController.isActivityVisibleForTabs(task.getTabs());
     }
 
-    private boolean isCompletedState(@ActorTaskState int state) {
-        return state == ActorTaskState.FINISHED
-                || state == ActorTaskState.FAILED
-                || state == ActorTaskState.CANCELLED;
+    /** Called when the Android task is removed (e.g. user swipes away the app). */
+    public void onAndroidTaskRemoved() {
+        if (mNotificationService == null || mKeyedService == null) return;
+
+        // Clear active task IDs first to prevent processTaskUpdateQueue from attempting
+        // updates during the shutdown loop.
+        mActiveTaskIds.clear();
+
+        // Explicitly stop all active tasks with SHUTDOWN reason. This ensures the backend performs
+        // cleanup and records metrics before the process potentially shuts down.
+        for (ActorTask task : mKeyedService.getActiveTasks()) {
+            mKeyedService.stopTask(task.getId(), StoppedReason.SHUTDOWN);
+        }
+
+        // Standard stop and unbind logic. This ensures stopForeground(REMOVE) and unbind are
+        // called,
+        // and importantly, the notification is reposted to ensure it's dismissable.
+        stopAndUnbindService();
     }
 
     /** Process the current task state and initiate any needed service actions. */
@@ -237,19 +257,26 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
 
     @VisibleForTesting
     void startOrUpdateForegroundService(int notificationId, @Nullable Notification notification) {
-        if (notification == null) return;
-
-        if (mServiceController.isConnected() && notificationId != INVALID_NOTIFICATION_ID) {
-            boolean killOldNotification =
-                    mPinnedNotificationId != INVALID_NOTIFICATION_ID
-                            && mPinnedNotificationId != notificationId;
-
-            mServiceController.startOrUpdateForegroundService(
-                    notificationId, notification, mPinnedNotificationId, killOldNotification);
-
-            mStartForegroundCalled = true;
-            mPinnedNotificationId = notificationId;
+        if (notification == null
+                || !mServiceController.isConnected()
+                || notificationId == INVALID_NOTIFICATION_ID) {
+            return;
         }
+
+        if (mPinnedNotificationId == notificationId && mPinnedNotification == notification) {
+            return;
+        }
+
+        boolean killOldNotification =
+                mPinnedNotificationId != INVALID_NOTIFICATION_ID
+                        && mPinnedNotificationId != notificationId;
+
+        mServiceController.startOrUpdateForegroundService(
+                notificationId, notification, mPinnedNotificationId, killOldNotification);
+
+        mStartForegroundCalled = true;
+        mPinnedNotificationId = notificationId;
+        mPinnedNotification = notification;
     }
 
     @VisibleForTesting
@@ -257,11 +284,19 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
         if (!mIsServiceBound) return;
         mIsServiceBound = false;
 
-        mServiceController.stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_DETACH);
+        int lastNotificationId = mPinnedNotificationId;
+
+        mServiceController.stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_REMOVE);
         mServiceController.unbindService();
 
         mStartForegroundCalled = false;
         mPinnedNotificationId = INVALID_NOTIFICATION_ID;
+        mPinnedNotification = null;
+
+        if (lastNotificationId != INVALID_NOTIFICATION_ID && mNotificationService != null) {
+            mNotificationService.repostNotification(lastNotificationId);
+        }
+
         if (mStopCallbackForTesting != null) {
             mStopCallbackForTesting.run();
         }
@@ -329,6 +364,7 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
         mIsServiceBound = false;
         mStartForegroundCalled = false;
         mPinnedNotificationId = INVALID_NOTIFICATION_ID;
+        mPinnedNotification = null;
         mHandler.removeCallbacks(mMaybeStopServiceRunnable);
     }
 

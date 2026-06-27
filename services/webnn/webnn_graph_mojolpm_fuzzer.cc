@@ -136,9 +136,8 @@ class WebnnGraphLPMFuzzer {
                   webnn::mojom::Device device) {
     mojo::Remote<webnn::mojom::WebNNContextProvider> webnn_provider_remote;
     mojo::Remote<webnn::mojom::WebNNContext> webnn_context_remote;
-    mojo::AssociatedRemote<webnn::mojom::WebNNGraphBuilder>
-        webnn_graph_builder_remote;
-    mojo::AssociatedRemote<webnn::mojom::WebNNGraph> webnn_graph_remote;
+    mojo::Remote<webnn::mojom::WebNNGraphBuilder> webnn_graph_builder_remote;
+    mojo::Remote<webnn::mojom::WebNNGraph> webnn_graph_remote;
 
     init_globals->webnn_test_environment_->BindWebNNContextProvider(
         webnn_provider_remote.BindNewPipeAndPassReceiver());
@@ -164,7 +163,7 @@ class WebnnGraphLPMFuzzer {
 
     // Create the GraphBuilder through the context.
     webnn_context_remote->CreateGraphBuilder(
-        webnn_graph_builder_remote.BindNewEndpointAndPassReceiver());
+        webnn_graph_builder_remote.BindNewPipeAndPassReceiver());
 
     base::test::TestFuture<base::expected<webnn::mojom::CreateGraphSuccessPtr,
                                           webnn::mojom::ErrorPtr>>
@@ -213,6 +212,8 @@ class WebnnGraphLPMFuzzer {
     }
     webnn_graph_remote.Bind(
         std::move(create_graph_result.value()->graph_remote));
+    blink::WebNNGraphToken graph_token =
+        create_graph_result.value()->graph_token;
 
     // Get graph_info again for tensor operations.
     graph_info = webnn::mojom::GraphInfo::New();
@@ -289,7 +290,8 @@ class WebnnGraphLPMFuzzer {
           *operand.name, create_tensor_result->get_success()->tensor_handle);
     }
 
-    webnn_graph_remote->Dispatch(named_input_handles, named_output_handles);
+    webnn_context_remote->Dispatch(graph_token, named_input_handles,
+                                   named_output_handles);
 
     // Wait for reading all output data.
     for (auto& remote : output_remotes) {
@@ -325,7 +327,11 @@ DEFINE_TEXT_PROTO_FUZZER(
 }  // namespace
 
 extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv) {
-  CHECK(base::CommandLine::Init(*argc, *argv));
+  // Avoid crashing if CommandLine is already initialized, which can happen on
+  // Android.
+  if (!base::CommandLine::InitializedForCurrentProcess()) {
+    CHECK(base::CommandLine::Init(*argc, *argv));
+  }
   static base::NoDestructor<InitGlobals> globals;
   init_globals = globals.get();
   return 0;

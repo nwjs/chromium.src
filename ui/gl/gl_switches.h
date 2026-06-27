@@ -12,6 +12,7 @@
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "ui/gl/buildflags.h"
 #include "ui/gl/gl_export.h"
 
 namespace gl {
@@ -65,6 +66,9 @@ GL_EXPORT extern const char kEnableGPUServiceTracing[];
 GL_EXPORT extern const char kGpuNoContextLost[];
 
 GL_EXPORT extern const char kUseANGLE[];
+#if BUILDFLAG(USE_STATIC_ANGLE)
+GL_EXPORT extern const char kUseDynamicAngle[];
+#endif
 GL_EXPORT extern const char kUseCmdDecoder[];
 GL_EXPORT extern const char kEnableANGLEFeatures[];
 GL_EXPORT extern const char kDisableANGLEFeatures[];
@@ -73,7 +77,6 @@ GL_EXPORT extern const char kTestGLLib[];
 GL_EXPORT extern const char kUseGpuInTests[];
 GL_EXPORT extern const char kEnableSgiVideoSync[];
 GL_EXPORT extern const char kDisableGLExtensions[];
-GL_EXPORT extern const char kEnableSwapBuffersWithBounds[];
 GL_EXPORT extern const char kDisableDirectComposition[];
 GL_EXPORT extern const char kEnableDirectCompositionVideoOverlays[];
 GL_EXPORT extern const char kUseAdapterLuid[];

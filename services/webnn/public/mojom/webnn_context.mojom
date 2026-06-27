@@ -36,7 +36,7 @@ union CreateTensorResult {
 [RuntimeFeature=webnn.mojom.features.kWebMachineLearningNeuralNetwork]
 interface WebNNContext {
   // Creates a connection to an `MLGraphBuilder` in the WebNN service.
-  CreateGraphBuilder(pending_associated_receiver<WebNNGraphBuilder> receiver);
+  CreateGraphBuilder(pending_receiver<WebNNGraphBuilder> receiver);
 
   // Called by the renderer process to create `WebNNTensor` message pipe for
   // creating platform specific tensors, the WebNN tensor will be validated and
@@ -52,4 +52,22 @@ interface WebNNContext {
   // must be verified and obtained from the SharedImageInterface.
   CreateTensorFromMailbox(TensorInfo tensor_info, gpu.mojom.Mailbox mailbox,
    gpu.mojom.SyncToken fence) => (CreateTensorResult result);
+
+  // Execute the compiled platform graph identified by `graph`. The graph is
+  // identified by a token rather than via the WebNNGraph interface to preserve
+  // message ordering with ReadTensor/WriteTensor: both Dispatch and
+  // ReadTensor/WriteTensor are on the WebNNContext pipe, so the service
+  // processes them in order. If Dispatch were on a separate (non-associated)
+  // WebNNGraph pipe, the service could receive Dispatch before a preceding
+  // WriteTensor, executing inference with stale input data.
+  Dispatch(blink.mojom.WebNNGraphToken graph,
+           map<string, blink.mojom.WebNNTensorToken> named_inputs,
+           map<string, blink.mojom.WebNNTensorToken> named_outputs);
+
+  // Explicitly destroy a graph, removing it from the context. This method is
+  // on the context pipe (rather than relying on WebNNGraph pipe disconnect)
+  // to ensure ordering with Dispatch/ReadTensor/WriteTensor: preceding
+  // operations on the context pipe are guaranteed to be processed before the
+  // graph is destroyed.
+  DestroyGraph(blink.mojom.WebNNGraphToken graph_handle);
 };

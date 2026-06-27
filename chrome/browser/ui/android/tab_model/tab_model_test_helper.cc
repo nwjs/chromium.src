@@ -115,6 +115,11 @@ TabAndroid* TestTabModel::GetTabAt(int index) const {
   return nullptr;
 }
 
+std::vector<tabs::TabHandle> TestTabModel::GetOrderedMultiSelectedTabs() const {
+  NOTIMPLEMENTED();
+  return {};
+}
+
 void TestTabModel::SetActiveIndex(int index) {}
 
 void TestTabModel::ForceCloseAllTabs() {}
@@ -296,10 +301,11 @@ void TestTabModel::MoveTabToWindow(tabs::TabHandle tab,
   NOTIMPLEMENTED();
 }
 
-void TestTabModel::MoveTabGroupToWindow(tab_groups::TabGroupId group_id,
+bool TestTabModel::MoveTabGroupToWindow(tab_groups::TabGroupId group_id,
                                         SessionID destination_window_id,
                                         int destination_index) {
   NOTIMPLEMENTED();
+  return false;
 }
 
 bool TestTabModel::IsThisTabListEditable() {
@@ -366,6 +372,12 @@ int OwningTestTabModel::GetActiveIndex() const {
 tabs::TabInterface* OwningTestTabModel::GetActiveTab() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return active_tab_.get();
+}
+
+std::vector<tabs::TabHandle> OwningTestTabModel::GetOrderedMultiSelectedTabs()
+    const {
+  NOTIMPLEMENTED();
+  return {};
 }
 
 content::WebContents* OwningTestTabModel::GetWebContentsAt(int index) const {
@@ -636,10 +648,11 @@ void OwningTestTabModel::MoveTabToWindow(tabs::TabHandle tab,
   NOTIMPLEMENTED();
 }
 
-void OwningTestTabModel::MoveTabGroupToWindow(tab_groups::TabGroupId group_id,
+bool OwningTestTabModel::MoveTabGroupToWindow(tab_groups::TabGroupId group_id,
                                               SessionID destination_window_id,
                                               int destination_index) {
   NOTIMPLEMENTED();
+  return false;
 }
 
 bool OwningTestTabModel::IsThisTabListEditable() {

@@ -111,6 +111,7 @@ import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.mock.MockWebContents;
+import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
 import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.display.DisplayAndroid;
@@ -154,6 +155,7 @@ public class ManualFillingControllerTest {
     @Mock private CompositorViewHolder mMockCompositorViewHolder;
     @Mock private BottomSheetController mMockBottomSheetController;
     @Mock private ManualFillingComponent.SoftKeyboardDelegate mMockSoftKeyboardDelegate;
+    @Mock private ActivityKeyboardVisibilityDelegate mMockKeyboardDelegate;
     @Mock private FullscreenManager mMockFullscreenManager;
     @Mock private InsetObserver mInsetObserver;
     @Mock private BackPressManager mMockBackPressManager;
@@ -353,6 +355,8 @@ public class ManualFillingControllerTest {
         ProfileJni.setInstanceForTesting(mProfileJniMock);
         when(mProfileJniMock.fromWebContents(any())).thenReturn(mMockProfile);
 
+        when(mMockWindow.getKeyboardDelegate()).thenReturn(mMockKeyboardDelegate);
+        when(mMockKeyboardDelegate.isKeyboardShowing(any())).thenReturn(false);
         when(mMockWindow.getInsetObserver()).thenReturn(mInsetObserver);
         simulateLayoutSizeChange(
                 2.f, 80, 128, /* keyboardShown= */ false, VirtualKeyboardMode.RESIZES_VISUAL);
@@ -362,6 +366,7 @@ public class ManualFillingControllerTest {
         when(mMockResources.getDimensionPixelSize(
                         R.dimen.keyboard_accessory_bar_dynamic_positioning_max_width))
                 .thenReturn(sDynamicPositioningMaxWidthPx);
+        DeviceInput.setSupportsAlphabeticKeyboardForTesting(null);
         doNothing()
                 .when(mMockBackPressManager)
                 .addHandler(any(), eq(BackPressHandler.Type.MANUAL_FILLING));
@@ -1537,7 +1542,7 @@ public class ManualFillingControllerTest {
         simulateVisibleViewportSize(/* width= */ 1000, /* height= */ 1000);
         mController.setFieldBounds(new RectF(leftBound, topBound, rightBound, bottomBound));
 
-        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign))
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height))
                 .thenReturn(barHeight);
         when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_notch_height))
                 .thenReturn(paddingForNotch);
@@ -1580,7 +1585,7 @@ public class ManualFillingControllerTest {
         simulateVisibleViewportSize(/* width= */ 1000, /* height= */ 90);
         mController.setFieldBounds(new RectF(leftBound, topBound, rightBound, bottomBound));
 
-        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign))
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height))
                 .thenReturn(barHeight);
         when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_notch_height))
                 .thenReturn(paddingForNotch);
@@ -1892,10 +1897,9 @@ public class ManualFillingControllerTest {
         // Return the correct keyboard_accessory_height for the current density:
         when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_suggestion_height))
                 .thenReturn((int) (density * 48));
-        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign))
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height))
                 .thenReturn((int) (density * 48));
-        when(mMockResources.getDimensionPixelSize(
-                        R.dimen.keyboard_accessory_height_with_shadow_redesign))
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_with_shadow))
                 .thenReturn((int) (density * 48));
     }
 

@@ -12,8 +12,6 @@ import org.chromium.base.FeatureList;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.actor.ActorKeyedService;
-import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -21,6 +19,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudFeatures;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
 import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
+import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.base.DeviceFormFactor;
 
@@ -166,18 +165,15 @@ public class AdaptiveToolbarFeatures {
      * @return Whether the translate button is enabled by policy/preference.
      */
     public static boolean isTranslateEnabled(Profile profile) {
-        return UserPrefs.get(profile).getBoolean(Pref.OFFER_TRANSLATE_ENABLED);
+        PrefService prefService = UserPrefs.get(profile);
+        if (prefService.isManagedPreference(Pref.OFFER_TRANSLATE_ENABLED)) {
+            return prefService.getBoolean(Pref.OFFER_TRANSLATE_ENABLED);
+        }
+        return true;
     }
 
     public static boolean isTabGroupingPageActionEnabled() {
         return ChromeFeatureList.sCpaTabGroupingButton.isEnabled();
-    }
-
-    /** Returns whether Glic is enabled by flags in the context of the adaptive toolbar. */
-    public static boolean isGlicActionEnabled() {
-        // TODO(crbug.com/500410559): Remove side panel check and instead check if tab strip is
-        // hidden after launch.
-        return ChromeFeatureList.sGlic.isEnabled() && !AndroidSidePanelEnabledFn.isEnabled();
     }
 
     /**
@@ -185,14 +181,6 @@ public class AdaptiveToolbarFeatures {
      */
     public static boolean isGlicEnabledForProfile(Profile profile) {
         return GlicEnabling.isEnabledForProfile(profile) && !AndroidSidePanelEnabledFn.isEnabled();
-    }
-
-    public static boolean shouldForciblyShowGlicButton(Context context, Profile profile) {
-        if (!isGlicEnabledForProfile(profile) || BottomBarConfigUtils.isBottomBarEnabled(context)) {
-            return false;
-        }
-        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
-        return service != null && service.getCurrentActiveTask() != null;
     }
 
     static void setDefaultSegmentForTesting(String defaultSegment) {

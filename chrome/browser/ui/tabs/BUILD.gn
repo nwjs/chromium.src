@@ -195,6 +195,7 @@ if (!is_android) {
       "recent_tabs_sub_menu_model.h",
       "split_tab_menu_model.h",
       "split_tab_swap_menu_model.h",
+      "split_view_layout_menu_model.h",
       "tab_model.h",
     ]
 
@@ -231,6 +232,7 @@ if (!is_android) {
       "existing_window_sub_menu_model.cc",
       "split_tab_menu_model.cc",
       "split_tab_swap_menu_model.cc",
+      "split_view_layout_menu_model.cc",
       "tab_model.cc",
     ]
 
@@ -341,49 +343,6 @@ if (!is_android) {
     configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 
-  source_set("glic") {
-    sources = [
-      "glic_actor_nudge_controller.h",
-      "glic_actor_task_icon_manager.h",
-      "glic_actor_task_icon_manager_factory.h",
-    ]
-    public_deps = [
-      "//base",
-      "//chrome/browser/actor",
-      "//chrome/browser/actor:types",
-      "//chrome/browser/actor/ui",
-      "//chrome/browser/glic",
-      "//chrome/browser/glic:mojo_bindings",
-      "//components/keyed_service/core",
-      "//ui/base/unowned_user_data",
-    ]
-
-    deps = [ "//chrome/browser/actor" ]
-  }
-
-  source_set("glic_impl") {
-    sources = [
-      "glic_actor_nudge_controller.cc",
-      "glic_actor_task_icon_manager.cc",
-      "glic_actor_task_icon_manager_factory.cc",
-    ]
-    deps = [
-      ":glic",
-      "//base",
-      "//chrome/browser/actor",
-      "//chrome/browser/actor/ui/task_list_bubble:controller",
-      "//chrome/browser/glic",
-      "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/call_to_action",
-      "//chrome/browser/ui/views/toolbar",
-      "//chrome/common:buildflags",
-      "//chrome/common:chrome_features",
-      "//components/prefs",
-      "//content/public/browser",
-    ]
-  }
-
   source_set("tabs") {
     sources = [
       "contents_observing_tab_feature.h",
@@ -397,6 +356,7 @@ if (!is_android) {
       "split_tab_metrics.h",
       "split_tab_util.h",
       "split_view_iph_controller.h",
+      "tab_attachment_tracker.h",
       "tab_creation_metrics_controller.h",
       "tab_data.h",
       "tab_metrics_provider.h",
@@ -463,6 +423,7 @@ if (!is_android) {
       "split_tab_metrics.cc",
       "split_tab_util.cc",
       "split_view_iph_controller.cc",
+      "tab_attachment_tracker.cc",
       "tab_creation_metrics_controller.cc",
       "tab_data.cc",
       "tab_dialog_manager.cc",
@@ -493,6 +454,7 @@ if (!is_android) {
       "//chrome/browser/bookmarks",
       "//chrome/browser/collaboration/messaging",
       "//chrome/browser/commerce",
+      "//chrome/browser/commerce/in_stock_notification",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/contextual_tasks",
       "//chrome/browser/favicon",
@@ -542,6 +504,7 @@ if (!is_android) {
       "//chrome/browser/ui/toolbar/pinned_toolbar",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views/contextual_tasks",
+      "//chrome/browser/ui/views/file_system_access",
       "//chrome/browser/ui/views/intent_picker:intent_picker_page_action",
       "//chrome/browser/ui/views/interaction",
       "//chrome/browser/ui/views/location_bar",
@@ -600,6 +563,10 @@ if (!is_android) {
         "//chrome/browser/multistep_filter/ui",
         "//chrome/browser/wallet",
       ]
+    }
+
+    if (is_win) {
+      deps += [ "//chrome/browser/ui/search_promotion" ]
     }
 
     if (is_chromeos) {
@@ -687,6 +654,7 @@ if (!is_android) {
       "recent_tabs_builder_test_helper.cc",
       "recent_tabs_builder_test_helper.h",
       "recent_tabs_sub_menu_model_browsertest.cc",
+      "tab_attachment_tracker_browsertest.cc",
       "tab_creation_metrics_controller_browsertest.cc",
       "tab_data_browsertest.cc",
       "tab_dialog_manager_browsertest.cc",
@@ -775,7 +743,6 @@ if (!is_android) {
   source_set("unit_tests") {
     testonly = true
     sources = [
-      "glic_actor_task_icon_manager_unittest.cc",
       "inactive_window_mouse_event_controller_unittest.cc",
       "split_view_iph_controller_unittest.cc",
       "tab_collection_storage_unittest.cc",
@@ -810,7 +777,6 @@ if (!is_android) {
       "tab_strip_api:unit_tests",
       "//base/test:test_support",
       "//chrome/app:command_ids",
-      "//chrome/app:generated_resources",
       "//chrome/browser",
       "//chrome/browser/actor",
       "//chrome/browser/actor:test_support",
@@ -818,6 +784,7 @@ if (!is_android) {
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/extensions",
       "//chrome/browser/glic",
+      "//chrome/browser/glic/browser_ui",
       "//chrome/browser/glic/test_support",
       "//chrome/browser/optimization_guide",
       "//chrome/browser/prefs",
@@ -827,7 +794,6 @@ if (!is_android) {
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/startup:startup_tab",
       "//chrome/browser/ui/tab_contents",
-      "//chrome/browser/ui/tabs:glic",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/thumbnails",
       "//chrome/browser/user_education",

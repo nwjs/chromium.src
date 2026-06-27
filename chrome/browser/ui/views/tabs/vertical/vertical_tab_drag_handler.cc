@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_link_drop_handler.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_controller.h"
+#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_view.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/split_tab_collection.h"
 #include "components/tabs/public/tab_collection.h"
@@ -73,6 +74,19 @@ class VerticalTabSlotView : public TabSlotView {
       default:
         NOTREACHED();
     }
+  }
+
+  // Updates the bounds of the slot view to match the bounds of the real view
+  // being dragged, skipping animations.
+  // Accurate bounds are necessary for the core `TabDragController` to determine
+  // the offset from the mouse when detaching into a new window.
+  void UpdateBounds() {
+    auto* view = node().view();
+    CHECK(view->parent());
+    gfx::Rect bounds = view->GetLocalBounds();
+    bounds.set_size(
+        view->GetPreferredSize(views::SizeBounds(view->parent()->size())));
+    SetBoundsRect(bounds);
   }
 
   TabSizeInfo GetTabSizeInfo() const override { return TabSizeInfo(); }
@@ -156,9 +170,11 @@ int GetInsertionIndexForNode(const TabCollectionNode& node,
 
 VerticalTabDragHandlerImpl::VerticalTabDragHandlerImpl(
     TabStripModel& tab_strip_model,
-    TabCollectionNode& root_node)
+    TabCollectionNode& root_node,
+    VerticalTabStripRegionView& tab_strip_region_view)
     : tab_strip_model_(tab_strip_model),
       root_node_(root_node),
+      tab_strip_region_view_(tab_strip_region_view),
       link_drop_handler_(
           std::make_unique<VerticalTabLinkDropHandler>(tab_strip_model)) {}
 
@@ -251,7 +267,6 @@ VerticalTabDragHandlerImpl::GetDragInitDataForTabDrag(
         root_node_->GetNodeForHandle(tab->GetHandle());
     CHECK(selected_node);
     auto* slot_view = &GetOrCreateSlotViewForNode(*selected_node);
-    slot_view->SetBoundsRect(selected_node->view()->GetLocalBounds());
     drag_init_data.dragged_views.push_back(slot_view);
     if (selected_node == &source_node) {
       drag_init_data.source_dragged_view = slot_view;
@@ -299,7 +314,6 @@ VerticalTabDragHandlerImpl::GetFullySelectedGroups(
     if (group->tab_count() == dragged_tab_count) {
       auto* selected_node = GetNodeForTabGroup(group_id);
       auto& slot_view = GetOrCreateSlotViewForNode(*selected_node);
-      slot_view.SetBoundsRect(selected_node->view()->GetLocalBounds());
       selected_groups.insert({group_id, &slot_view});
     }
   }
@@ -328,7 +342,13 @@ bool VerticalTabDragHandlerImpl::ContinueDrag(views::View& event_source_view,
 }
 
 void VerticalTabDragHandlerImpl::EndDrag(EndDragReason reason) {
-  if (TabDragController::IsSystemDnDSessionRunning()) {
+  // Note: we avoid ending the SystemDnD if the `EndDragReason` is "capture
+  // lost" because some window managers on Wayland don't send exit events to tab
+  // strips, which would cause this to incorrectly end the SystemDnD while the
+  // drag is attaching to a new tab strip. See http://crbug.com/505023370 for an
+  // example of this.
+  if (TabDragController::IsSystemDnDSessionRunning() &&
+      reason != EndDragReason::kCaptureLost) {
     TabDragController::OnSystemDnDEnded();
     return;
   }
@@ -354,7 +374,7 @@ void VerticalTabDragHandlerImpl::HandleDraggedTabsIntoNode(
   }
 
   int target_index;
-  std::optional<tab_groups::TabGroupId> target_group_id = std::nullopt;
+  std::optional<tab_groups::TabGroupId> target_group_id;
   if (node.type() == TabCollectionNode::Type::GROUP) {
     // If dragging into a group, then either put the dragged tabs into the
     // start/end if the source dragged tab is before/after the group, or move
@@ -689,6 +709,17 @@ void VerticalTabDragHandlerImpl::StartedDragging(
           browser_view->tab_strip_view()->GetExpandOnHoverLock(
               ExpandOnHoverLockType::kKeepExpanded);
     }
+
+    auto* tab_strip_view = views::AsViewClass<VerticalTabStripView>(
+        tab_strip_region_view_->GetTabStripView());
+    CHECK(tab_strip_view);
+    for (views::ScrollView* scroll_view :
+         {tab_strip_view->pinned_tabs_scroll_view(),
+          tab_strip_view->unpinned_tabs_scroll_view()}) {
+      CHECK(scroll_view);
+      scroll_synchronizers_.push_back(
+          scroll_view->EnableScrollSynchronization());
+    }
   }
 
   CHECK(drag_controller_);
@@ -711,21 +742,18 @@ void VerticalTabDragHandlerImpl::StartedDragging(
                            source_view_origin_in_screen;
     dragged_view->SetProperty(kOffsetAtTabDragStart, offset);
 
-    // Update the height to use preferred size because newly added tabs will
-    // animate in from 0, which affects the window offset for newly-detached
-    // windows.
-    gfx::Rect bounds = slot_view->node().view()->GetLocalBounds();
-    bounds.set_height(slot_view->node().view()->GetPreferredSize({}).height());
-    slot_view->SetBoundsRect(bounds);
+    slot_view->UpdateBounds();
   }
 }
 
 void VerticalTabDragHandlerImpl::DraggedTabsDetached() {
   expand_on_hover_lock_.reset();
+  scroll_synchronizers_.clear();
 }
 
 void VerticalTabDragHandlerImpl::StoppedDragging() {
   expand_on_hover_lock_.reset();
+  scroll_synchronizers_.clear();
 
   for (auto& [_, slot_view] : slot_views_) {
     views::View* dragged_view = ViewFromTabSlot(slot_view);
@@ -800,21 +828,23 @@ const TabCollectionNode* VerticalTabDragHandlerImpl::GetNodeForTabGroup(
 TabSlotView& VerticalTabDragHandlerImpl::GetOrCreateSlotViewForNode(
     TabCollectionNode& node) {
   auto update_tab_slot_view = [&node](TabSlotView& slot_view) -> void {
+    VerticalTabSlotView& vertical_slot_view =
+        static_cast<VerticalTabSlotView&>(slot_view);
     switch (node.type()) {
       case TabCollectionNode::Type::TAB: {
         const tabs::TabInterface* tab =
             std::get<const tabs::TabInterface*>(node.GetNodeData());
         CHECK(tab);
-        slot_view.SetGroup(tab->GetGroup());
-        slot_view.SetSplit(tab->GetSplit());
+        vertical_slot_view.SetGroup(tab->GetGroup());
+        vertical_slot_view.SetSplit(tab->GetSplit());
       } break;
       case TabCollectionNode::Type::GROUP:
-        slot_view.SetGroup(TabGroupDataFromNode(node).id());
+        vertical_slot_view.SetGroup(TabGroupDataFromNode(node).id());
         break;
       default:
         NOTREACHED();
     }
-    slot_view.SetBoundsRect(node.view()->GetLocalBounds());
+    vertical_slot_view.UpdateBounds();
   };
 
   CHECK(node.view());
@@ -846,6 +876,7 @@ void VerticalTabDragHandlerImpl::OnNodeWillDestroy(TabCollectionNode& node) {
 
 void VerticalTabDragHandlerImpl::ResetDragState() {
   drag_controller_.reset();
+  scroll_synchronizers_.clear();
 }
 
 bool VerticalTabDragHandlerImpl::HandleDraggedTabsIntoPosition(

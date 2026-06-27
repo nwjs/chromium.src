@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-cronet-x86-dbg",
-              "project": "chromium-m149"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.android",
@@ -41,7 +41,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-cronet-x86-dbg-10-tests",
-              "project": "chromium-m149"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.android",
@@ -69,7 +69,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "android-cronet-x86-dbg",
-                "project": "chromium-m149"
+                "project": "chromium"
               }
             }
           }
@@ -79,14 +79,14 @@
         {
           "bucket": "ci",
           "builder": "android-cronet-x86-dbg",
-          "project": "chromium-m149"
+          "project": "chromium"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "android-cronet-x86-dbg-10-tests",
-          "project": "chromium-m149"
+          "project": "chromium"
         }
       ],
       "targets_spec_directory": "infra/config/generated/builders/try/android-cronet-x86-dbg-10-tests/targets"
@@ -94,8 +94,7 @@
   },
   "$build/siso": {
     "configs": [
-      "builder",
-      "remote-link"
+      "builder"
     ],
     "enable_cloud_monitoring": true,
     "enable_cloud_trace": true,

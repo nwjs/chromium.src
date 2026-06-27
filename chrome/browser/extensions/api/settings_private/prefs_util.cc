@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/ash_switches.h"
 #include "base/feature_list.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -63,6 +64,7 @@
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/search_engines/default_search_manager.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/skills/public/skills_prefs.h"
 #include "components/spellcheck/browser/pref_names.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "components/themes/pref_names.h"
@@ -78,8 +80,11 @@
 #include "extensions/common/extension.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/ambient/ambient_prefs.h"
+#include "base/check_deref.h"
 #include "chrome/browser/ash/app_restore/full_restore_prefs.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_pref_names.h"
 #include "chrome/browser/ash/crostini/crostini_pref_names.h"
@@ -98,6 +103,7 @@
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/tether/pref_names.h"
+#include "chromeos/ash/components/timezone/timezone_util.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/components/quick_answers/public/cpp/quick_answers_prefs.h"
 #include "components/account_manager_core/pref_names.h"
@@ -163,12 +169,12 @@ bool IsSettingReadOnly(const std::string& pref_name) {
 #if BUILDFLAG(IS_CHROMEOS)
   // System timezone is never directly changeable by the user.
   if (pref_name == ash::kSystemTimezone) {
-    return ash::system::PerUserTimezoneEnabled();
+    return ash::switches::IsPerUserTimezoneEnabled();
   }
   // enable_screen_lock and pin_unlock_autosubmit_enabled
   // must be changed through the quickUnlockPrivate API.
   if (pref_name == ash::prefs::kEnableAutoScreenLock ||
-      pref_name == ::prefs::kPinUnlockAutosubmitEnabled) {
+      pref_name == ash::prefs::kPinUnlockAutosubmitEnabled) {
     return true;
   }
 
@@ -212,6 +218,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillCreditCardEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[autofill::prefs::kAutofillEmailVerificationEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[autofill::prefs::kAutofillEmailVerificationState] =
+      settings_api::PrefType::kDictionary;
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[autofill::prefs::kAutofillPaymentMethodsMandatoryReauth] =
       settings_api::PrefType::kBoolean;
@@ -244,6 +254,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kSidePanelHorizontalAlignment] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::prefs::kSidePanelAlignmentOverrides] =
+      settings_api::PrefType::kDictionary;
   (*s_allowlist)[::prefs::kVerticalTabsEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kVerticalTabsExpandOnHoverEnabled] =
@@ -274,6 +286,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
 
   // Appearance settings.
+  (*s_allowlist)[::prefs::kCtrlTabMru] = settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kCurrentThemeID] = settings_api::PrefType::kString;
   (*s_allowlist)[::prefs::kPinnedActions] = settings_api::PrefType::kList;
   (*s_allowlist)[themes::prefs::kPolicyThemeColor] =
@@ -427,6 +440,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::kGeneratedHttpsFirstModePref] =
       settings_api::PrefType::kNumber;
+  (*s_allowlist)[::prefs::kHttpsFirstModeBundleToastQueued] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kSecuritySettingsBundle] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[::safe_browsing::kGeneratedSecuritySettingsBundlePref] =
@@ -645,7 +660,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[ash::prefs::kEnableAutoScreenLock] =
       settings_api::PrefType::kBoolean;
   // kPinUnlockAutosubmitEnabled is read-only.
-  (*s_allowlist)[::prefs::kPinUnlockAutosubmitEnabled] =
+  (*s_allowlist)[ash::prefs::kPinUnlockAutosubmitEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kMessageCenterLockScreenMode] =
       settings_api::PrefType::kString;
@@ -1299,13 +1314,12 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[performance_manager::user_tuning::prefs::
                      kPerformanceInterventionNotificationEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[prefs::kCpuPerformanceTierOverride] =
+      settings_api::PrefType::kNumber;
 
   // AI settings.
   (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
       optimization_guide::UserVisibleFeatureKey::kCompose)] =
-      settings_api::PrefType::kNumber;
-  (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
-      optimization_guide::UserVisibleFeatureKey::kTabOrganization)] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
       optimization_guide::UserVisibleFeatureKey::kWallpaperSearch)] =
@@ -1324,10 +1338,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       optimization_guide::UserVisibleFeatureKey::kContextualCueing)] =
       settings_api::PrefType::kNumber;
 
+  (*s_allowlist)[skills::prefs::kChromeSkillsEnabled] =
+      settings_api::PrefType::kBoolean;
+
   // AI enterprise prefs
-  (*s_allowlist)
-      [optimization_guide::prefs::kTabOrganizationEnterprisePolicyAllowed] =
-          settings_api::PrefType::kNumber;
   (*s_allowlist)[optimization_guide::prefs::kComposeEnterprisePolicyAllowed] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)
@@ -1342,9 +1356,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[optimization_guide::prefs::
                      kAutofillPredictionImprovementsEnterprisePolicyAllowed] =
       settings_api::PrefType::kNumber;
-  (*s_allowlist)
-      [optimization_guide::prefs::kContextualCueingEnterprisePolicyAllowed] =
-          settings_api::PrefType::kNumber;
+  (*s_allowlist)[optimization_guide::prefs::kChromeSuggestionsSettings] =
+      settings_api::PrefType::kNumber;
+  (*s_allowlist)[contextual_tasks::kContextualTasksSmartTabSharingSettings] =
+      settings_api::PrefType::kNumber;
 
   // Glic prefs
   if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
@@ -1626,7 +1641,9 @@ settings_private::SetPrefResult PrefsUtil::SetCrosSettingsPref(
     }
     const user_manager::User* user =
         ash::ProfileHelper::Get()->GetUserByProfile(profile_);
-    if (user && ash::system::SetSystemTimezone(user, *string_value)) {
+    if (user && ash::system::SetSystemTimezone(
+                    CHECK_DEREF(g_browser_process->local_state()), user,
+                    *string_value)) {
       return settings_private::SetPrefResult::SUCCESS;
     }
     return settings_private::SetPrefResult::PREF_NOT_MODIFIABLE;

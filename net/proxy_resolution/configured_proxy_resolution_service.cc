@@ -25,6 +25,7 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_info_source_list.h"
 #include "net/base/network_anonymization_key.h"
+#include "net/base/network_handle.h"
 #include "net/base/proxy_delegate.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
@@ -967,6 +968,7 @@ int ConfiguredProxyResolutionService::ResolveProxy(
     const GURL& raw_url,
     const std::string& method,
     const NetworkAnonymizationKey& network_anonymization_key,
+    handles::NetworkHandle target_network,
     ProxyInfo* result,
     CompletionOnceCallback callback,
     std::unique_ptr<ProxyResolutionRequest>* out_request,
@@ -1010,8 +1012,8 @@ int ConfiguredProxyResolutionService::ResolveProxy(
   }
 
   auto req = std::make_unique<ConfiguredProxyResolutionRequest>(
-      this, url, method, network_anonymization_key, result, std::move(callback),
-      net_log, priority);
+      this, url, method, network_anonymization_key, target_network, result,
+      std::move(callback), net_log, priority);
 
   if (IsReady()) {
     // Start the resolve request.
@@ -1391,33 +1393,6 @@ PacFileFetcher* ConfiguredProxyResolutionService::GetPacFileFetcher() const {
   return pac_file_fetcher_.get();
 }
 
-ConfiguredProxyResolutionService::HostResolutionRequest::HostResolutionRequest(
-    std::unique_ptr<HostResolver::ResolveHostRequest> request,
-    RequestPriority initial_priority)
-    : request(std::move(request)), current_priority(initial_priority) {}
-
-ConfiguredProxyResolutionService::HostResolutionRequest::HostResolutionRequest(
-    HostResolutionRequest&&) = default;
-
-ConfiguredProxyResolutionService::HostResolutionRequest&
-ConfiguredProxyResolutionService::HostResolutionRequest::operator=(
-    HostResolutionRequest&&) = default;
-
-ConfiguredProxyResolutionService::HostResolutionRequest::
-    ~HostResolutionRequest() = default;
-
-void ConfiguredProxyResolutionService::HostResolutionRequest::AddListener(
-    base::WeakPtr<ConfiguredProxyResolutionRequest> listener,
-    RequestPriority priority) {
-  listeners.push_back(std::move(listener));
-
-  if (current_priority < priority) {
-    // If another request requiring the same DNS host resolution has a higher
-    // priority, bump the pending DNS resolution request's priority to match.
-    request->ChangeRequestPriority(priority);
-    current_priority = priority;
-  }
-}
 
 bool ConfiguredProxyResolutionService::GetLoadStateIfAvailable(
     LoadState* load_state) const {
@@ -1696,17 +1671,6 @@ ConfiguredProxyResolutionService::RequestHostResolution(
     const NetLogWithSource& net_log,
     RequestPriority priority) {
   CHECK(host_resolver_for_override_rules_);
-  auto key = std::make_pair(dns_condition.host, network_anonymization_key);
-  auto request_it = host_resolution_requests_.find(key);
-  if (request_it != host_resolution_requests_.end()) {
-    // A DNS resolution request is already pending for this host,
-    // subscribe to it.
-    net_log.AddEvent(
-        NetLogEventType::PROXY_OVERRIDE_BEGIN_HOST_RESOLUTION,
-        [&] { return CreateDnsConditionNetLogParam(dns_condition); });
-    request_it->second.AddListener(std::move(listener), priority);
-    return std::nullopt;
-  }
 
   HostResolver::ResolveHostParameters parameters;
   parameters.initial_priority = priority;
@@ -1736,34 +1700,34 @@ ConfiguredProxyResolutionService::RequestHostResolution(
     return dict;
   });
 
+  // `request` is owned by `this`, this makes it safe to use `base::Unretained`
+  // and pass a raw C++ pointer to `OnHostResolved`.
   int rv = request->Start(base::BindOnce(
       &ConfiguredProxyResolutionService::OnHostResolved, base::Unretained(this),
-      dns_condition.host, network_anonymization_key));
+      request.get(), std::move(listener), dns_condition.host));
   if (rv != ERR_IO_PENDING) {
     return ResolveHostResult(rv, *request);
   }
 
-  auto [inserted_request_it, inserted_unused] =
-      host_resolution_requests_.emplace(
-          key, HostResolutionRequest(std::move(request), priority));
-  inserted_request_it->second.AddListener(std::move(listener), priority);
+  host_resolution_requests_.insert(std::move(request));
   return std::nullopt;
 }
 
 void ConfiguredProxyResolutionService::OnHostResolved(
+    HostResolver::ResolveHostRequest* request,
+    base::WeakPtr<ConfiguredProxyResolutionRequest> listener,
     const url::SchemeHostPort& scheme_host_port,
-    const NetworkAnonymizationKey& network_anonymization_key,
     int net_error) {
-  auto key = std::make_pair(scheme_host_port, network_anonymization_key);
-  auto request_it = host_resolution_requests_.find(key);
+  auto request_it = host_resolution_requests_.find(request);
   CHECK(request_it != host_resolution_requests_.end());
 
-  auto map_node = host_resolution_requests_.extract(key);
-  ResolveHostResult result(net_error, *map_node.mapped().request);
-  for (auto& listener : map_node.mapped().listeners) {
-    if (listener) {
-      listener->OnDnsHostResolved(scheme_host_port, result);
-    }
+  auto node = host_resolution_requests_.extract(request_it);
+  std::unique_ptr<HostResolver::ResolveHostRequest> owned_request =
+      std::move(node.value());
+
+  ResolveHostResult result(net_error, *owned_request);
+  if (listener) {
+    listener->OnDnsHostResolved(scheme_host_port, result);
   }
 }
 

@@ -309,12 +309,6 @@ bool TestPaymentsAutofillClient::IsMandatoryReauthEnabled() {
   return GetPaymentsDataManager().IsPaymentMethodsMandatoryReauthEnabled();
 }
 
-#if BUILDFLAG(IS_IOS)
-bool TestPaymentsAutofillClient::IsUsingCustomCardIconEnabled() const {
-  return true;
-}
-#endif  // BUILDFLAG(IS_IOS)
-
 void TestPaymentsAutofillClient::ShowMandatoryReauthOptInPrompt(
     base::OnceClosure accept_mandatory_reauth_callback,
     base::OnceClosure cancel_mandatory_reauth_callback,
@@ -494,6 +488,16 @@ BnplUiDelegate* TestPaymentsAutofillClient::GetBnplUiDelegate() {
 OmniboxAutofillDelegate*
 TestPaymentsAutofillClient::GetOmniboxAutofillDelegate() {
   return omnibox_autofill_delegate_.get();
+}
+
+void TestPaymentsAutofillClient::ShowOmniboxAutofillChip() {
+  omnibox_autofill_chip_shown_ = true;
+  omnibox_autofill_chip_hidden_ = false;
+}
+
+void TestPaymentsAutofillClient::HideOmniboxAutofillChip() {
+  omnibox_autofill_chip_hidden_ = true;
+  omnibox_autofill_chip_shown_ = false;
 }
 #endif
 

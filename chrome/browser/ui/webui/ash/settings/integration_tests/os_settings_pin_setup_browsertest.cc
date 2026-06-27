@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/in_session_auth_dialog_controller.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -12,13 +13,12 @@
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_factory.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_storage.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ash/settings/test_support/os_settings_lock_screen_browser_test_base.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/data/webui/chromeos/settings/os_people_page/password_settings_api.test-mojom-test-utils.h"
 #include "chrome/test/data/webui/chromeos/settings/os_people_page/pin_settings_api.test-mojom-test-utils.h"
 #include "chrome/test/data/webui/chromeos/settings/test_api.test-mojom-test-utils.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/osauth/impl/auth_hub_common.h"
 #include "chromeos/ash/components/osauth/impl/auth_surface_registry.h"
 #include "chromeos/ash/components/osauth/public/auth_engine_api.h"
@@ -101,13 +101,16 @@ class OSSettingsPinSetupTest : public OSSettingsLockScreenBrowserTestBase,
 
   PrefService& Prefs() {
     PrefService* service =
-        ProfileHelper::Get()->GetProfileByAccountId(GetAccountId())->GetPrefs();
+        Profile::FromBrowserContext(
+            BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+                GetAccountId()))
+            ->GetPrefs();
     CHECK(service);
     return *service;
   }
 
   bool GetPinAutoSubmitState() {
-    return Prefs().GetBoolean(::prefs::kPinUnlockAutosubmitEnabled);
+    return Prefs().GetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled);
   }
 
   // Returns whether or not a PIN is configured in the backend.

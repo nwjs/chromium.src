@@ -23,6 +23,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -372,6 +373,13 @@ void SlimWebViewGuest::RequestMediaAccessPermission(
   GuestRequestMediaAccessPermission(request, std::move(callback));
 }
 
+void SlimWebViewGuest::CanDownload(const GURL& url,
+                                   const std::string& request_method,
+                                   base::OnceCallback<void(bool)> callback) {
+  CHECK(!base::FeatureList::IsEnabled(features::kGuestViewMPArch));
+  permission_helper_.CanDownload(url, request_method, std::move(callback));
+}
+
 void SlimWebViewGuest::DidStartNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!IsObservedNavigationWithinGuest(navigation_handle)) {
@@ -470,6 +478,9 @@ void SlimWebViewGuest::GuestSizeChangedDueToAutoSize(
 
 void SlimWebViewGuest::GuestViewMainFrameProcessGone(
     base::TerminationStatus status) {
+  TRACE_EVENT_INSTANT("content",
+                      "SlimWebViewGuest::GuestViewMainFrameProcessGone",
+                      perfetto::Flow::FromPointer(this));
   base::DictValue args;
   args.Set(slim_web_view::kReason, TerminationStatusToString(status));
   args.Set(slim_web_view::kProcessId,
@@ -532,7 +543,7 @@ void SlimWebViewGuest::CreateInnerPage(
   content::StoragePartitionConfig partition_config =
       content::StoragePartitionConfig::Create(
           browser_context(),
-          owner_rfh()->GetSiteInstance()->GetSiteURL().GetHost(),
+          owner_rfh()->GetSiteInstance()->GetSecurityPrincipal().GetHost(),
           storage_partition_id, !persist_storage);
 
   scoped_refptr<content::SiteInstance> guest_site_instance =

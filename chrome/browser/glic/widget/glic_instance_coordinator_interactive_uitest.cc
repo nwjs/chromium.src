@@ -9,7 +9,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/buildflag.h"
-#include "chrome/browser/background/glic/glic_controller.h"
+#include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_metrics.h"
@@ -93,14 +93,16 @@ class GlicInstanceCoordinatorUiTest : public test::InteractiveGlicTest {
   }
 
   auto SimulateOpenMenuItem() {
-    return Do([this]() {
-      glic_controller_->Show(mojom::InvocationSource::kOsButtonMenu);
+    return Do([]() {
+      GlicBackgroundModeManager::GetInstance()->ToggleUI(
+          /*prevent_close=*/true, mojom::InvocationSource::kOsButtonMenu);
     });
   }
 
   auto SimulateOsButton() {
-    return Do([this]() {
-      glic_controller_->Toggle(mojom::InvocationSource::kOsButton);
+    return Do([]() {
+      GlicBackgroundModeManager::GetInstance()->ToggleUI(
+          /*prevent_close=*/false, mojom::InvocationSource::kOsButton);
     });
   }
 
@@ -139,9 +141,6 @@ class GlicInstanceCoordinatorUiTest : public test::InteractiveGlicTest {
   }
 
  private:
-  std::unique_ptr<GlicController> glic_controller_ =
-      std::make_unique<GlicController>();
-
   base::test::ScopedFeatureList features_;
 };
 
@@ -279,19 +278,6 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       InAnyContext(ActivateSurface(test::kGlicHostElementId)),
       SimulateAcceleratorPress(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE)),
       WaitForGlicClose());
-}
-
-// TODO(crbug.com/454088252): Re-enable this test when there is a glic state for
-// post-resize.
-IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
-                       DISABLED_CloseWithContextMenu) {
-  RunTestSequence(
-      OpenGlicFloatingWindow(), MoveMouseTo(kGlicViewElementId),
-      MayInvolveNativeContextMenu(
-          ClickMouse(ui_controls::RIGHT), WaitForHide(kBrowserViewElementId),
-          InAnyContext(
-              SelectMenuItem(RenderViewContextMenu::kGlicCloseMenuItem))),
-      CheckControllerHasWidget(false));
 }
 
 // TODO(crbug.com/401158115): Flaky on macOS
@@ -603,16 +589,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest, TestInitialBounds) {
 class GlicInstanceCoordinatorLocationMetricsUiTest
     : public GlicInstanceCoordinatorUiTest {
  public:
-  GlicInstanceCoordinatorLocationMetricsUiTest() {
-    features_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{features::kGlicPanelResetOnSessionTimeout,
-                               features::kGlicPanelResetSizeAndLocationOnOpen});
-  }
   ~GlicInstanceCoordinatorLocationMetricsUiTest() override = default;
-
- private:
-  base::test::ScopedFeatureList features_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocationMetricsUiTest,
@@ -695,61 +672,6 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocationMetricsUiTest,
   // ChromeRelativePosition::kChromeOnOtherDisplay isn't being tested since
   // tests involving moving Glic to another display are flaky.
 }
-
-IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocationMetricsUiTest,
-                       TestPercentOverlapMetrics) {
-  if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
-    // TODO(b/453696965): Broken in multi-instance.
-    GTEST_SKIP() << "Skipping for kGlicMultiInstance";
-  }
-  if (IsWorkAreaTooSmallForTest()) {
-    GTEST_SKIP()
-        << "Test's work area bounds are too small for consistent results.";
-  }
-  // The GlicButton and Tabstrip are not actually shown until a tab is created.
-  chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
-  // Set browser bounds to the center cell of the work area bounds.
-  gfx::Rect browser_bounds = gfx::Rect(50, 50, 500, 400);
-  browser()->window()->SetBounds(browser_bounds);
-  browser_bounds = browser()->window()->GetBounds();
-  gfx::Size glic_expected_size = GlicWidget::GetInitialSize();
-
-  base::HistogramTester tester;
-
-  auto open_and_close = [this,
-                         &tester](PercentOverlap expected_percent_overlap) {
-    RunTestSequence(ActivateSurface(kBrowserViewElementId),
-                    SimulateGlicHotkey(), WaitForAndInstrumentGlic(kNone),
-                    CheckControllerWidgetMode(GlicWindowMode::kDetached),
-                    SimulateOsButton(), WaitForHide(test::kGlicHostElementId),
-                    CheckControllerHasWidget(false));
-
-    tester.ExpectBucketCount("Glic.PercentOverlapWithBrowser.OnOpen",
-                             expected_percent_overlap, 1);
-    tester.ExpectBucketCount("Glic.PercentOverlapWithBrowser.OnClose",
-                             expected_percent_overlap, 1);
-  };
-
-  gfx::Point test_origin = browser_bounds.top_right();
-  SetPreviousPosition(test_origin);
-  open_and_close(PercentOverlap::k0);
-
-  test_origin.Offset(-0.5 * glic_expected_size.width(), 0);
-  SetPreviousPosition(test_origin);
-  open_and_close(PercentOverlap::k50);
-
-  test_origin = browser_bounds.origin();
-  SetPreviousPosition(test_origin);
-  open_and_close(PercentOverlap::k100);
-
-  RunTestSequence(OpenGlicFloatingWindow());
-  browser()->window()->Minimize();
-  ASSERT_TRUE(ui_test_utils::WaitForMinimized(browser()));
-  EXPECT_FALSE(browser()->window()->IsActive());
-  RunTestSequence(CloseGlicWindow());
-  tester.ExpectBucketCount("Glic.PositionOnChrome.OnClose",
-                           ChromeRelativePosition::kNoVisibleChromeBrowser, 1);
-}
 #endif  // BUILDFLAG(IS_MAC)
 
 // Note: ChromeOS maintains account auth as a part of OS User session,
@@ -775,7 +697,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   g_browser_process->local_state()->SetBoolean(prefs::kGlicLauncherEnabled,
                                                true);
   service1->ToggleUI(nullptr, false, mojom::InvocationSource::kOsHotkey);
-  EXPECT_TRUE(service1->IsWindowShowing());
+  EXPECT_TRUE(service1->instance_coordinator().IsAnyPanelShowing());
 
   // Delete the second profile
   ui_test_utils::BrowserDestroyedObserver observer(browser1);
@@ -784,20 +706,13 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
   observer.Wait();
 
-  EXPECT_FALSE(service1->IsWindowShowing());
+  EXPECT_FALSE(service1->instance_coordinator().IsAnyPanelShowing());
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 class GlicInstanceCoordinatorWithPreviousPostionUiTest
     : public GlicInstanceCoordinatorUiTest {
  public:
-  GlicInstanceCoordinatorWithPreviousPostionUiTest() {
-    features_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{features::kGlicPanelResetOnSessionTimeout,
-                               features::kGlicPanelResetSizeAndLocationOnOpen,
-                               features::kGlicPanelResetOnStart});
-  }
   void SetUpBrowserContextKeyedServices(
       content::BrowserContext* context) override {
     // Set initial bounds via pref and check that they are used.
@@ -807,9 +722,6 @@ class GlicInstanceCoordinatorWithPreviousPostionUiTest
         prefs::kGlicPreviousPositionY, 10);
     test::InteractiveGlicTest::SetUpBrowserContextKeyedServices(context);
   }
-
- private:
-  base::test::ScopedFeatureList features_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorWithPreviousPostionUiTest,

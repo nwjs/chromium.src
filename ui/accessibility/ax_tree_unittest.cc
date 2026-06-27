@@ -4376,9 +4376,10 @@ TEST(AXTreeTest, SetSizePosInSetPopUpButtonAndSelect) {
   initial_state.nodes[5].role = ax::mojom::Role::kMenuListOption;
   AXTree tree(initial_state);
 
-  // The first popupbutton should have SetSize of 0.
+  // The first popupbutton has no controls, no details, and no children,
+  // so it has no SetSize.
   AXNode* popup_button_1 = tree.GetFromId(2);
-  EXPECT_OPTIONAL_EQ(0, popup_button_1->GetSetSize());
+  EXPECT_FALSE(popup_button_1->GetSetSize());
   // The combo box select should have SetSize of 2, since the menulistpopup
   // that it wraps has a SetSize of 2.
   AXNode* combo_box_select = tree.GetFromId(3);
@@ -4729,9 +4730,9 @@ TEST(AXTreeTest, SetSizePosInSetControls) {
   EXPECT_OPTIONAL_EQ(3, item->GetPosInSet());
   EXPECT_OPTIONAL_EQ(3, item->GetSetSize());
   button = tree.GetFromId(7);
-  EXPECT_OPTIONAL_EQ(0, button->GetSetSize());
+  EXPECT_FALSE(button->GetSetSize().has_value());
   button = tree.GetFromId(8);
-  EXPECT_OPTIONAL_EQ(0, button->GetSetSize());
+  EXPECT_FALSE(button->GetSetSize().has_value());
 }
 
 // Tests GetPosInSet and GetSetSize return the assigned int attribute values
@@ -5413,6 +5414,44 @@ TEST(AXTreeTest, SetSizePosInSetRadioButtonsWithGroupIds) {
   // Group 2: node 4. SetSize = 1.
   EXPECT_EQ(1, tree.GetPosInSet(*tree.GetFromId(4)));
   EXPECT_EQ(1, tree.GetSetSize(*tree.GetFromId(4)));
+}
+
+TEST(AXTreeTest, InvalidNodeIdZeroUAFRepro) {
+  // 1. Initialize tree with a valid root.
+  AXTreeUpdate initial_state;
+  initial_state.root_id = 1;
+  initial_state.nodes.resize(1);
+  initial_state.nodes[0].id = 1;
+  initial_state.nodes[0].role = ax::mojom::Role::kRootWebArea;
+  AXTree tree(initial_state);
+
+  // 2. Update 1: Add child ID 0 (invalid) to root, but don't define it.
+  AXTreeUpdate update1;
+  update1.root_id = 1;
+  update1.nodes.resize(1);
+  update1.nodes[0].id = 1;
+  update1.nodes[0].role = ax::mojom::Role::kRootWebArea;
+  update1.nodes[0].child_ids.push_back(0);  // kInvalidAXNodeID
+
+#if AX_FAIL_FAST_BUILD()
+  EXPECT_DEATH_IF_SUPPORTED(tree.Unserialize(update1), "Child ID is invalid.");
+#else
+  // We expect Unserialize to fail.
+  EXPECT_FALSE(tree.Unserialize(update1));
+  EXPECT_EQ("Child ID is invalid.", tree.error());
+
+  // 3. Update 2: Send another update referencing child 0.
+  AXTreeUpdate update2 = update1;
+
+  // We expect Unserialize to fail.
+  EXPECT_FALSE(tree.Unserialize(update2));
+
+  // If we didn't crash, verify the tree is not corrupted.
+  // Root should have no children because updates failed.
+  AXNode* root = tree.root();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(0u, root->children().size());
+#endif
 }
 
 }  // namespace ui

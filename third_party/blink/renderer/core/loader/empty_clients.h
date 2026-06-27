@@ -130,8 +130,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   bool StartDeferringCommits(LocalFrame& main_frame,
                              base::TimeDelta timeout,
                              cc::PaintHoldingReason reason) override;
-  void StopDeferringCommits(LocalFrame& main_frame,
-                            cc::PaintHoldingCommitTrigger) override {}
+  void StopDeferringCommits(LocalFrame& main_frame) override {}
   void SetShouldThrottleFrameRate(bool flag, LocalFrame& main_frame) override {}
   void RequestMainFrameOnCompositorAnimation(
       LocalFrame&,
@@ -193,6 +192,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
 
   void InvalidateContainer() override {}
   void ScheduleAnimation(const LocalFrameView*,
+                         cc::BeginMainFrameReason reason,
                          base::TimeDelta delay,
                          bool urgent) override {}
   gfx::Rect LocalRootToScreenDIPs(const gfx::Rect& r,

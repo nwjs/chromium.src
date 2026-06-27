@@ -19,7 +19,7 @@ import {MetricsRecorder} from './metrics_recorder.js';
 import {getCss} from './reload_button.css.js';
 import {getHtml} from './reload_button.html.js';
 import {TimerHelper} from './timer_helper.js';
-import {BUTTON_LEFT, BUTTON_RIGHT, getClickDispositionFlags, getContextMenuPosition, PressHandler} from './toolbar_button.js';
+import {BUTTON_LEFT, BUTTON_RIGHT, getContextMenuPosition, getEventDispositionFlags, PressHandler} from './toolbar_button.js';
 
 // go/keep-sorted start
 const RELOAD_BUTTON_ACC_NAME_RELOAD = 'reloadButtonAccNameReload';
@@ -48,6 +48,7 @@ export class ReloadButtonElement extends CrLitElement {
       state: {type: Object},
       tooltip: {type: String, reflect: true},
       showStopIcon: {type: Boolean, reflect: true},
+      isDisabled: {type: Boolean, reflect: true},
     };
   }
 
@@ -72,12 +73,27 @@ export class ReloadButtonElement extends CrLitElement {
   // while one of the "debounce" timers is running.
   protected accessor showStopIcon: boolean = false;
 
+  // Whether the reload button should be disabled. True only while the
+  // `disableStopIconTimer_` is running.
+  protected accessor isDisabled: boolean = false;
+
   // Timer started when the reload button is pressed while showing the reload
   // icon. While running, the reload icon will continue to be displayed instead
   // of the stop icon, and left clicks on the icon will be ignored. Once the
   // timer expires or the load completes, the timer will stop and the updated
   // icon will be displayed, and clicks will be respected again.
   protected doubleClickReloadIconTimer_: TimerHelper = new TimerHelper();
+
+  // This is exposed so tests can modify it.
+  protected modeSwitchIntervalMs_: number = 1350;
+
+  // Timer started when the mouse is over the stop icon, and loading stops for
+  // any reason other than the user clicking the stop icon. During this time,
+  // the stop icon continues to be displayed, but is disabled. Once the timer
+  // expires, the mouse moves off the icon, or loading starts again for any
+  // reason, the timer will be stopped and the button will be enabled, leaving
+  // this state.
+  private disableStopIconTimer_: TimerHelper = new TimerHelper();
 
   private browserProxy_: BrowserProxy;
   private metricsRecorder_: MetricsRecorder;
@@ -87,8 +103,7 @@ export class ReloadButtonElement extends CrLitElement {
     this.browserProxy_ = BrowserProxyImpl.getInstance();
     this.metricsRecorder_ = new MetricsRecorder(this.browserProxy_);
     this.pressHandler_ = new PressHandler(
-        this.onLongPress_.bind(this), this.onShortPress_.bind(this),
-        /*enableMacContextClick=*/ false);
+        this.onLongPress_.bind(this), this.onShortPress_.bind(this));
     ColorChangeUpdater.forDocument().start();
   }
 
@@ -120,7 +135,7 @@ export class ReloadButtonElement extends CrLitElement {
       // bypassed.
       this.browserProxy_.browserControlsHandler.reloadFromClick(
           /*bypass_cache=*/ e.shiftKey || e.ctrlKey,
-          getClickDispositionFlags(
+          getEventDispositionFlags(
               e, {ignoreCtrlKey: true, ignoreShiftKey: true}));
     }
 
@@ -159,19 +174,40 @@ export class ReloadButtonElement extends CrLitElement {
       if (this.state.isNavigationLoading) {
         // If the navigation is loading, and thus we want to be displaying the
         // stop button, and we're still in the double-click period for clicking
-        // the the reload button, which also means the reload button is still
-        // displayed, ignore the message entirely. We'll start showing the stop
-        // button once the timer expires.
+        // the reload button (which means the reload button is still displayed),
+        // ignore the message entirely. We'll start showing the stop button once
+        // the timer expires.
         if (this.doubleClickReloadIconTimer_.isRunning()) {
           return;
         }
 
         // If the click timer isn't running, then we'll immediately update.
+      } else {
+        // If not loading and the timer to show the reload button is still
+        // running, continue waiting on the timer.
+        if (this.disableStopIconTimer_.isRunning()) {
+          return;
+        }
+
+        // If we're showing the stop button, and should now show the reload
+        // button, disable the button and reenable it on a timer, to prevent
+        // accidentally triggering a reload.
+        if (this.showStopIcon) {
+          this.isDisabled = true;
+          this.disableStopIconTimer_.setTimeout(() => {
+            // This will conveniently delete `disableStopIconTimer_`.
+            this.updateState_(/*force=*/ true);
+          }, this.modeSwitchIntervalMs_);
+          return;
+        }
       }
     }
 
-    // Cancel the timer, if running, and update the displayed icon.
+    // Cancel any running timers, enable the button, and update the displayed
+    // icon.
     this.doubleClickReloadIconTimer_.clearTimeout();
+    this.disableStopIconTimer_.clearTimeout();
+    this.isDisabled = false;
     this.showStopIcon = this.state.isNavigationLoading;
   }
 

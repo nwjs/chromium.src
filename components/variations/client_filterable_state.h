@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_VARIATIONS_CLIENT_FILTERABLE_STATE_H_
 #define COMPONENTS_VARIATIONS_CLIENT_FILTERABLE_STATE_H_
 
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -31,6 +33,8 @@ enum class RestrictionPolicy {
 
 using IsEnterpriseFunction = base::OnceCallback<bool()>;
 using GoogleGroupsFunction = base::OnceCallback<base::flat_set<uint64_t>()>;
+using EnterpriseGroupsFunction =
+    base::OnceCallback<base::flat_set<std::string>()>;
 
 // A container for all of the client state which is used for filtering studies.
 struct COMPONENT_EXPORT(VARIATIONS) ClientFilterableState {
@@ -63,6 +67,9 @@ struct COMPONENT_EXPORT(VARIATIONS) ClientFilterableState {
   // identify models of devices.
   std::string hardware_class;
 
+  // The hardware manufacturer of the device.
+  std::string hardware_manufacturer;
+
   // Whether this is a low-end device. Currently only supported on Android.
   // Based on base::SysInfo::IsLowEndDevice().
   bool is_low_end_device = false;
@@ -76,8 +83,20 @@ struct COMPONENT_EXPORT(VARIATIONS) ClientFilterableState {
   // The restriction applied to Chrome through the "ChromeVariations" policy.
   RestrictionPolicy policy_restriction = RestrictionPolicy::NO_RESTRICTIONS;
 
-  explicit ClientFilterableState(IsEnterpriseFunction is_enterprise_function,
-                                 GoogleGroupsFunction google_groups_function);
+  static std::unique_ptr<ClientFilterableState> CreateWithIsEnterprise(
+      IsEnterpriseFunction is_enterprise_function);
+
+  static std::unique_ptr<ClientFilterableState> CreateWithGoogleGroups(
+      GoogleGroupsFunction google_groups_function);
+
+  static std::unique_ptr<ClientFilterableState> CreateWithEnterpriseGroups(
+      EnterpriseGroupsFunction enterprise_groups_function);
+
+  ClientFilterableState();
+
+  ClientFilterableState(IsEnterpriseFunction is_enterprise_function,
+                        GoogleGroupsFunction google_groups_function,
+                        EnterpriseGroupsFunction enterprise_groups_function);
 
   ClientFilterableState(const ClientFilterableState&) = delete;
   ClientFilterableState& operator=(const ClientFilterableState&) = delete;
@@ -93,6 +112,10 @@ struct COMPONENT_EXPORT(VARIATIONS) ClientFilterableState {
   // a member of. Each value is the Gaia ID of the Google group.
   base::flat_set<uint64_t> GoogleGroups() const;
 
+  // The list of enterprise groups that browser or one or more profiles are a
+  // member of.
+  base::flat_set<std::string> EnterpriseGroups() const;
+
   static Study::Platform GetCurrentPlatform();
 
   // base::Version used in {min,max}_os_version filtering.
@@ -100,6 +123,10 @@ struct COMPONENT_EXPORT(VARIATIONS) ClientFilterableState {
 
   // Returns the hardware class string used for hardware_class filtering.
   static std::string GetHardwareClass();
+
+  // Returns the hardware manufacturer string used for hardware_manufacturer
+  // filtering. Currently only implemented on Android.
+  static std::string GetHardwareManufacturer();
 
  private:
   // Evaluating enterprise status negatively affects performance, so we only
@@ -113,6 +140,12 @@ struct COMPONENT_EXPORT(VARIATIONS) ClientFilterableState {
   // inspecting group memberships (and for efficiency we do it only once.)
   mutable GoogleGroupsFunction google_groups_function_;
   mutable std::optional<base::flat_set<uint64_t>> google_groups_;
+
+  // Evaluating enterprise groups memberships involves parsing data received
+  // from DM Server. For safe rollout we do this only for studies that require
+  // inspecting enterprise group memberships.
+  mutable EnterpriseGroupsFunction enterprise_groups_function_;
+  mutable std::optional<base::flat_set<std::string>> enterprise_groups_;
 };
 
 }  // namespace variations

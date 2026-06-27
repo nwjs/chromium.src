@@ -177,9 +177,7 @@ void SurfaceSavedFrame::RequestCopyOfOutput(
   }
 
   // DispatchCopyDoneCallback early if that feature is enabled.
-  if ((features::ShouldAckCOREarlyForViewTransition() &&
-       directive_.delay_layer_tree_view_deletion()) ||
-      copy_request_count_ == 0) {
+  if (directive_.delay_layer_tree_view_deletion() || copy_request_count_ == 0) {
     DispatchCopyDoneCallback();
   }
 
@@ -187,15 +185,13 @@ void SurfaceSavedFrame::RequestCopyOfOutput(
   // captured, as we will never receive a signal back from
   // NotifyCopyOfOutputComplete.
   //
-  // TODO(crbug.com/464502666): Refactor completion signals once
-  // ShouldAckCOREarlyForViewTransition becomes the default.
+  // TODO(crbug.com/464502666): Refactor completion signals.
   //
   // This will remove a benign race between DispatchCopyDoneCallback and
   // DispatchViewTransitionResourcesCaptured, which are sent on separate Mojo
   // pipes.
   //
-  // It will also resolve confusing behavior when
-  // kAckCopyOutputRequestEarlyForViewTransition is enabled, where
+  // It will also resolve confusing behavior, where
   // DispatchCopyDoneCallback is invoked at the start of the request rather than
   // at actual completion.
   if (copy_request_count_ == 0) {
@@ -246,6 +242,11 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
 
   const auto& display_color_spaces = directive_.display_color_spaces();
   bool has_transparent_background = render_pass.has_transparent_background;
+  if (is_software) {
+    // Match LayerTreeHostImpl::GetTargetColorParams(): software compositing
+    // uses sRGB because it does not reliably color-convert resources.
+    content_color_usage = gfx::ContentColorUsage::kSRGB;
+  }
 
   auto image_format = display_color_spaces.GetOutputFormat(
       content_color_usage, has_transparent_background);
@@ -253,6 +254,7 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
       display_color_spaces.GetRasterAndCompositeColorSpace(content_color_usage);
 
   if (is_software) {
+    color_space = gfx::ColorSpace::CreateSRGB();
     gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY;
     shared_image =
         shared_image_interface_->CreateSharedImageForSoftwareCompositor(
@@ -302,9 +304,7 @@ void SurfaceSavedFrame::NotifyCopyOfOutputComplete(
   // Even if we early out, we update the count since we are no longer waiting
   // for this result.
   --copy_request_count_;
-  // Callback is run already when ShouldAckCOREarlyForViewTransition is enabled
-  if (!(features::ShouldAckCOREarlyForViewTransition() &&
-        directive_.delay_layer_tree_view_deletion()) &&
+  if (!directive_.delay_layer_tree_view_deletion() &&
       copy_request_count_ == 0) {
     DispatchCopyDoneCallback();
   }
@@ -362,6 +362,15 @@ void SurfaceSavedFrame::CompleteSavedFrameForTesting() {
   }();
   weak_factory_.InvalidateWeakPtrs();
   DCHECK(IsValid());
+}
+
+std::unique_ptr<CopyOutputRequest>
+SurfaceSavedFrame::CreateCopyRequestForTesting(  // IN-TEST
+    const CompositorRenderPass& render_pass,
+    bool is_software,
+    gfx::ContentColorUsage content_color_usage) {
+  return CreateCopyRequestIfNeeded(render_pass, is_software,
+                                   content_color_usage);
 }
 
 SurfaceSavedFrame::OutputCopyResult::OutputCopyResult() = default;

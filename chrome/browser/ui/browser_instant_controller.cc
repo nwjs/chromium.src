@@ -19,6 +19,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/referrer.h"
 #include "ui/base/page_transition_types.h"
@@ -55,10 +56,13 @@ void BrowserInstantController::OnSearchEngineBaseURLChanged(
       continue;
     }
 
-    GURL site_url =
-        contents->GetPrimaryMainFrame()->GetSiteInstance()->GetSiteURL();
-    bool is_ntp = site_url == chrome::ChromeUINewTabPageURLAsGURL() ||
-                  site_url == GURL(chrome::kChromeUINewTabPageThirdPartyURL);
+    const auto& principal = contents->GetPrimaryMainFrame()
+                                ->GetSiteInstance()
+                                ->GetSecurityPrincipal();
+    bool is_ntp =
+        principal.SchemeIs(content::kChromeUIScheme) &&
+        (principal.GetHost() == chrome::kChromeUINewTabPageHost ||
+         principal.GetHost() == chrome::kChromeUINewTabPageThirdPartyHost);
 
     if (!is_ntp) {
       InstantService* instant_service =

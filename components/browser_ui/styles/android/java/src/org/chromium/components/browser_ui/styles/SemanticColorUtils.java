@@ -5,6 +5,7 @@
 package org.chromium.components.browser_ui.styles;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 
 import androidx.annotation.AttrRes;
 import androidx.annotation.ColorInt;
@@ -183,7 +184,7 @@ public class SemanticColorUtils {
      * Returns the surface color value of the conceptual sheet_bg_color.
      *
      * @deprecated Use bottom_sheet_bg_color instead.
-     * */
+     */
     @Deprecated
     public static @ColorInt int getSheetBgColor(Context context) {
         return resolve(R.attr.colorSurface, context);
@@ -206,6 +207,11 @@ public class SemanticColorUtils {
     }
 
     // LINT.ThenChange(//components/browser_ui/styles/android/java/res/values/semantic_colors_dynamic.xml)
+
+    /** Returns the semantic color value that corresponds to interactable_chip_bg_color. */
+    public static @ColorInt int getInteractableChipBgColor(Context context) {
+        return ContextCompat.getColor(context, R.color.interactable_chip_bg_color);
+    }
 
     /** Returns the semantic color values that corresponds to colorPrimaryContainer. */
     public static @ColorInt int getColorPrimaryContainer(Context context) {
@@ -270,6 +276,11 @@ public class SemanticColorUtils {
     /** Returns the semantic color values that correspond to colorSurfaceContainer. */
     public static @ColorInt int getColorSurfaceContainer(Context context) {
         return resolve(R.attr.colorSurfaceContainer, context);
+    }
+
+    /** Returns a color state list for the surface container color. */
+    public static ColorStateList getColorSurfaceContainerTintList(Context context) {
+        return context.getColorStateList(R.color.color_surface_container_tint_list);
     }
 
     /** Returns the semantic color values that correspond to colorSurfaceContainerHigh. */

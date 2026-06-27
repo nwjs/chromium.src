@@ -16,8 +16,6 @@ const base::FeatureParam<bool>* GetPageActionsMigrationParam(
       return &features::kPageActionsMigrationIntentPicker;
     case PageActionIconType::kZoom:
       return &features::kPageActionsMigrationZoom;
-    case PageActionIconType::kFileSystemAccess:
-      return &features::kPageActionsMigrationFileSystemAccess;
     case PageActionIconType::kCookieControls:
       return &features::kPageActionsMigrationCookieControls;
     case PageActionIconType::kMandatoryReauth:
@@ -67,12 +65,15 @@ bool IsPageActionMigrated(PageActionIconType page_action) {
     case PageActionIconType::kContextualSidePanel:
     case PageActionIconType::kJsOptimizations:
     case PageActionIconType::kIndigo:
+    case PageActionIconType::kMultistepFilter:
     case PageActionIconType::kRecordReplay:
     case PageActionIconType::kPriceInsights:
     case PageActionIconType::kDiscounts:
     case PageActionIconType::kFederation:
     case PageActionIconType::kManagePasswords:
     case PageActionIconType::kWebAuthnAmbientSignin:
+    case PageActionIconType::kFileSystemAccess:
+    case PageActionIconType::kAutofillPayment:
       return true;
     default:
       break;

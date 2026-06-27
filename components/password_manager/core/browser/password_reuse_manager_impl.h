@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/task/sequenced_task_runner.h"
@@ -75,8 +76,10 @@ class PasswordReuseManagerImpl : public PasswordReuseManager,
   void SetPasswordReuseManagerSigninNotifier(
       std::unique_ptr<PasswordReuseManagerSigninNotifier> notifier) override;
   void ScheduleEnterprisePasswordURLUpdate() override;
-  void MaybeSavePasswordHash(const PasswordForm* submitted_form,
-                             PasswordManagerClient* client) override;
+  void MaybeSavePasswordHash(
+      const PasswordForm* submitted_form,
+      PasswordManagerClient* client,
+      std::optional<metrics_util::GaiaPasswordHashChange> event) override;
   HashPasswordManager* GetHashPasswordManager() override;
   void AddObserver(PasswordReuseManager::Observer* observer) override;
   void RemoveObserver(PasswordReuseManager::Observer* observer) override;
@@ -99,7 +102,7 @@ class PasswordReuseManagerImpl : public PasswordReuseManager,
 
   void InitHashPasswordManager(PrefService* local_prefs);
 
-  void OnOsCryptAsyncReady(os_crypt_async::Encryptor encryptor);
+  void OnOsCryptAsyncReady(scoped_refptr<os_crypt_async::Encryptor> encryptor);
 
   // Schedules the update of password hashes used by reuse detector.
   // |sign_in_state_for_metrics|, if not nullopt, is used for metrics only.
@@ -120,10 +123,10 @@ class PasswordReuseManagerImpl : public PasswordReuseManager,
       const password_manager::PasswordStoreChangeList& changes) override;
   void OnLoginsRetained(
       PasswordStoreInterface* store,
-      const std::vector<PasswordForm>& retained_passwords) override;
+      const std::vector<StoredCredential>& retained_credentials) override;
   void OnLoginsRetainedImpl(
       PasswordForm::Store store_type,
-      const std::vector<PasswordForm>& retained_passwords);
+      const std::vector<StoredCredential>& retained_credentials);
 
   // Implements signin::IdentityManager::Observer.
   void OnPrimaryAccountChanged(

@@ -24,27 +24,23 @@ import org.chromium.ui.DropdownDividerDrawable;
 import org.chromium.ui.DropdownItem;
 
 import java.util.List;
-import java.util.Set;
 
 /** Dropdown item adapter for the AutofillPopup. */
 @NullMarked
 public class AutofillDropdownAdapter extends ArrayAdapter<DropdownItem> {
     private final Context mContext;
-    private final Set<Integer> mSeparators;
     private final boolean mAreAllItemsEnabled;
 
     /**
      * Creates an {@code ArrayAdapter} with specified parameters.
+     *
      * @param context Application context.
      * @param items List of labels and icons to display.
-     * @param separators Set of positions that separate {@code items}.
      */
-    public AutofillDropdownAdapter(
-            Context context, List<? extends DropdownItem> items, Set<Integer> separators) {
+    public AutofillDropdownAdapter(Context context, List<? extends DropdownItem> items) {
         super(context, R.layout.autofill_dropdown_item);
         mContext = context;
         addAll(items);
-        mSeparators = separators;
         mAreAllItemsEnabled = checkAreAllItemsEnabled();
     }
 
@@ -83,20 +79,14 @@ public class AutofillDropdownAdapter extends ArrayAdapter<DropdownItem> {
                             .getDimensionPixelSize(R.dimen.autofill_dropdown_item_divider_height);
             height += dividerHeight;
             divider.setHeight(dividerHeight);
-            int dividerColor;
-            if (mSeparators != null && mSeparators.contains(position)) {
-                dividerColor = mContext.getColor(R.color.dropdown_dark_divider_color);
-            } else {
-                dividerColor = mContext.getColor(R.color.dropdown_divider_color);
-            }
-            divider.setDividerColor(dividerColor);
+            divider.setDividerColor(mContext.getColor(R.color.dropdown_divider_color));
         }
 
         // Note: trying to set the height of the root LinearLayout breaks accessibility,
         // so we have to adjust the height of this LinearLayout that wraps the TextViews
         // instead. If you need to modify this layout, don't forget to test it with TalkBack and
         // make sure it doesn't regress. http://crbug.com/429364
-        LinearLayout wrapper = (LinearLayout) layout.findViewById(R.id.dropdown_label_wrapper);
+        LinearLayout wrapper = layout.findViewById(R.id.dropdown_label_wrapper);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         wrapper.setLayoutParams(new LinearLayout.LayoutParams(0, height, 1));
 

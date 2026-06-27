@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_TESTING_MOCK_CLIPBOARD_HOST_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_TESTING_MOCK_CLIPBOARD_HOST_H_
 
+#include "base/functional/callback.h"
+#include "base/gtest_prod_util.h"
 #include "build/build_config.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -52,6 +54,14 @@ class MockClipboardHost : public mojom::blink::ClipboardHost {
   }
 #endif
 
+  // Installs a hook fired during ReadAvailableCustomAndStandardFormats(),
+  // after format enumeration but before the Mojo reply, so tests can simulate
+  // a clipboard change inside the async race window. See crbug.com/498411773.
+  void SetReadAvailableFormatsHookForTesting(
+      base::RepeatingCallback<void(MockClipboardHost*)> hook) {
+    read_available_formats_hook_for_testing_ = std::move(hook);
+  }
+
   // Method call tracking for testing
   int ReadTextCallCount() const { return read_text_call_count_; }
   int ReadHtmlCallCount() const { return read_html_call_count_; }
@@ -59,7 +69,24 @@ class MockClipboardHost : public mojom::blink::ClipboardHost {
     return read_available_formats_call_count_;
   }
 
+  // Test helpers used to simulate a slow OS clipboard read so callers can
+  // verify that renderer-side Async Clipboard read paths are truly
+  // non-blocking. When deferred mode is enabled, the next ReadText() call
+  // stashes its reply callback instead of invoking it immediately. The
+  // stashed callback can be invoked later via RunDeferredReadTextCallback().
+  // See crbug.com/474131935.
+  void SetReadTextCallbackDeferred(bool deferred) {
+    defer_read_text_callback_ = deferred;
+  }
+  bool HasDeferredReadTextCallback() const {
+    return !deferred_read_text_callback_.is_null();
+  }
+  void RunDeferredReadTextCallback();
+
  private:
+  FRIEND_TEST_ALL_PREFIXES(ClipboardTest,
+                           ClipboardChangeDuringReadRejectsGetType);
+
   // mojom::ClipboardHost
   void GetSequenceNumber(mojom::ClipboardBuffer clipboard_buffer,
                          GetSequenceNumberCallback callback) override;
@@ -85,6 +112,7 @@ class MockClipboardHost : public mojom::blink::ClipboardHost {
       const String& type,
       ReadDataTransferCustomDataCallback callback) override;
   void WriteText(const String& text) override;
+  void CommitWrite() override;
   void WriteHtml(const String& markup, const KURL& url) override;
   void WriteSvg(const String& markup) override;
   void WriteSmartPasteMarker() override;
@@ -92,7 +120,6 @@ class MockClipboardHost : public mojom::blink::ClipboardHost {
       const HashMap<String, String>& data) override;
   void WriteBookmark(const String& url, const String& title) override;
   void WriteImage(const SkBitmap& bitmap) override;
-  void CommitWrite() override;
   void ReadAvailableCustomAndStandardFormats(
       ReadAvailableCustomAndStandardFormatsCallback callback) override;
   void ReadUnsanitizedCustomFormat(
@@ -135,6 +162,15 @@ class MockClipboardHost : public mojom::blink::ClipboardHost {
   int read_text_call_count_ = 0;
   int read_html_call_count_ = 0;
   int read_available_formats_call_count_ = 0;
+
+  // Hook fired during ReadAvailableCustomAndStandardFormats() for TOCTOU
+  // race regression tests.
+  base::RepeatingCallback<void(MockClipboardHost*)>
+      read_available_formats_hook_for_testing_;
+
+  // Deferred-callback machinery for the truly-async-read regression test.
+  bool defer_read_text_callback_ = false;
+  ReadTextCallback deferred_read_text_callback_;
 };
 
 }  // namespace blink

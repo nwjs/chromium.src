@@ -75,6 +75,7 @@ source_set("ui_bundled") {
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/ai_prototyping/coordinator",
     "//ios/chrome/browser/app_bar/ui",
+    "//ios/chrome/browser/app_bar/ui:constants",
     "//ios/chrome/browser/app_launcher/model",
     "//ios/chrome/browser/app_store_rating/model:features",
     "//ios/chrome/browser/authentication/signin/non_modal_promo/coordinator",
@@ -93,9 +94,11 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/autofill/autofill_ai/public",
     "//ios/chrome/browser/autofill/form_input_accessory/coordinator",
     "//ios/chrome/browser/autofill/form_input_accessory/ui",
+    "//ios/chrome/browser/autofill/manual_fill/coordinator",
     "//ios/chrome/browser/autofill/model",
     "//ios/chrome/browser/autofill/model:model_internal",
     "//ios/chrome/browser/autofill/model/bottom_sheet",
+    "//ios/chrome/browser/autofill/payments/coordinator",
     "//ios/chrome/browser/autofill/scan_save_and_fill/coordinator",
     "//ios/chrome/browser/autofill/ui_bundled:coordinator",
     "//ios/chrome/browser/autofill/ui_bundled/address_editor:autofill_edit",
@@ -103,7 +106,6 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/autofill/ui_bundled/bottom_sheet:save_card_bottom_sheet_coordinator",
     "//ios/chrome/browser/autofill/ui_bundled/bottom_sheet:virtual_card_enrollment_bottom_sheet_coordinator",
     "//ios/chrome/browser/autofill/ui_bundled/error_dialog",
-    "//ios/chrome/browser/autofill/ui_bundled/manual_fill",
     "//ios/chrome/browser/autofill/ui_bundled/progress_dialog",
     "//ios/chrome/browser/bookmarks/model",
     "//ios/chrome/browser/bookmarks/ui_bundled/home",
@@ -119,6 +121,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/commerce/model/price_notifications",
     "//ios/chrome/browser/commerce/model/push_notification",
     "//ios/chrome/browser/composebox/coordinator",
+    "//ios/chrome/browser/composebox/menu/coordinator",
     "//ios/chrome/browser/composebox/public",
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/content_suggestions/public:ntp_home_constants",
@@ -183,6 +186,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/lens_overlay/coordinator",
     "//ios/chrome/browser/lens_overlay/coordinator:lens_overlay_availability",
     "//ios/chrome/browser/lens_overlay/model",
+    "//ios/chrome/browser/level_up/coordinator",
     "//ios/chrome/browser/link_to_text/model",
     "//ios/chrome/browser/location_bar/ui_bundled",
     "//ios/chrome/browser/main/coordinator",
@@ -221,8 +225,6 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/phone_number/ui_bundled:coordinator",
     "//ios/chrome/browser/picture_in_picture/coordinator",
     "//ios/chrome/browser/picture_in_picture/public",
-    "//ios/chrome/browser/plus_addresses/coordinator",
-    "//ios/chrome/browser/plus_addresses/ui",
     "//ios/chrome/browser/policy/model:policy_util",
     "//ios/chrome/browser/popup_menu/coordinator",
     "//ios/chrome/browser/prefs/model",
@@ -263,6 +265,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/shared/coordinator/default_browser_promo",
     "//ios/chrome/browser/shared/coordinator/layout_guide",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/coordinator/scene/state",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/profile",
@@ -373,15 +376,15 @@ source_set("ui_bundled") {
     deps += [ "//ios/chrome/browser/print/coordinator:swift_coordinator" ]
 
     # TODO(crbug.com/456806155): Find a better solution to suppress errors from
-    # chromium clang on headers that come from the iOS SDK. Ideally, we'd want
-    # a suppression that is inherited implicitly from swift_source_set
+    # chromium clang on headers that come from the iOS SDK. Ideally, we'd want a
+    # suppression that is inherited implicitly from swift_source_set
     # dependencies. Unfortunately, the gn language does not allow child targets
     # to do things like `invoker.configs -= [...]`. Also, we'd ideally want a
     # suppression that is scoped to just the SDK headers rather than the entire
     # target that includes the headers. We can't use the
     # "build/config/compiler:no_chromium_code" config to solve this problem
-    # because we don't have any build targets that have the SDK headers as direct
-    # sources.
+    # because we don't have any build targets that have the SDK headers as
+    # direct sources.
     if (is_clang) {
       configs -= [ "//build/config/clang:find_bad_constructs" ]
     }
@@ -472,6 +475,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/sessions/model:fake",
     "//ios/chrome/browser/settings/model/sync/utils",
     "//ios/chrome/browser/shared/coordinator/layout_guide",
+    "//ios/chrome/browser/shared/coordinator/layout_guide:layout_guide_scene_agent",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/profile/test",

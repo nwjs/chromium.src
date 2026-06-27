@@ -19,6 +19,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/string_compare.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
@@ -41,6 +42,7 @@
 #include "components/bookmarks/common/bookmark_features.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
 #include "components/favicon_base/favicon_types.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -109,8 +111,10 @@ class VisibilityComparator {
                   const std::unique_ptr<BookmarkNode>& n2) {
     DCHECK(n1->is_permanent_node());
     DCHECK(n2->is_permanent_node());
-    bool n1_visible = BookmarkPermanentNode::IsTypeVisibleWhenEmpty(n1->type());
-    bool n2_visible = BookmarkPermanentNode::IsTypeVisibleWhenEmpty(n2->type());
+    bool n1_visible = BookmarkPermanentNode::IsTypeVisibleWhenEmpty(
+        n1->type(), client_->GetBookmarkFormFactor());
+    bool n2_visible = BookmarkPermanentNode::IsTypeVisibleWhenEmpty(
+        n2->type(), client_->GetBookmarkFormFactor());
     return n1_visible != n2_visible && n1_visible;
   }
 
@@ -250,17 +254,13 @@ void BookmarkModel::Load(const base::FilePath& profile_path) {
     client_->GetEncryptor(base::BindOnce(
         [](base::WeakPtr<BookmarkModel> model,
            const base::FilePath& profile_path,
-           os_crypt_async::Encryptor encryptor) {
+           scoped_refptr<os_crypt_async::Encryptor> encryptor) {
           // TODO(crbug.com/435317726): Verify the encryption/decryption is
           // available for the encryptor.
           if (!model) {
             return;
           }
-          model->ContinueLoadWithEncryptor(
-              profile_path,
-              base::MakeRefCounted<
-                  base::RefCountedData<const os_crypt_async::Encryptor>>(
-                  std::in_place, std::move(encryptor)));
+          model->ContinueLoadWithEncryptor(profile_path, encryptor);
         },
         AsWeakPtr(), profile_path));
   } else {
@@ -270,8 +270,7 @@ void BookmarkModel::Load(const base::FilePath& profile_path) {
 
 void BookmarkModel::ContinueLoadWithEncryptor(
     const base::FilePath& profile_path,
-    const scoped_refptr<base::RefCountedData<const os_crypt_async::Encryptor>>
-        encryptor) {
+    scoped_refptr<const os_crypt_async::Encryptor> encryptor) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // If the stores are non-null, it means Load was already invoked. Load should
   // only be invoked once.
@@ -304,7 +303,7 @@ void BookmarkModel::ContinueLoadWithEncryptor(
 
   // Creating ModelLoader schedules the load on a backend task runner.
   model_loader_ = ModelLoader::Create(
-      encryptor, local_or_syncable_file_path,
+      std::move(encryptor), local_or_syncable_file_path,
       encrypted_local_or_syncable_file_path, account_file_path,
       encrypted_account_file_path, client_->GetLoadManagedNodeCallback(),
       base::BindOnce(&BookmarkStorage::SaveSingleFileIfNoPreviousSave,
@@ -354,18 +353,18 @@ bool BookmarkModel::DetermineIfNodeShouldBeVisible(
     return true;
   }
 
-  if (!BookmarkPermanentNode::IsTypeVisibleWhenEmpty(node.type())) {
+  if (!BookmarkPermanentNode::IsTypeVisibleWhenEmpty(
+          node.type(), client()->GetBookmarkFormFactor())) {
     return false;
   }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  if (IsLocalOnlyNode(node) && account_folders_exist &&
+  if (client()->GetBookmarkFormFactor() == BookmarkFormFactor::kDesktop &&
+      IsLocalOnlyNode(node) && account_folders_exist &&
       !local_bookmarks_exist) {
     // Prune this local empty permanent node, since the user has account
     // permanent folders.
     return false;
   }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   return true;
 }

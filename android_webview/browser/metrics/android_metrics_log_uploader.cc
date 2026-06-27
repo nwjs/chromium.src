@@ -4,15 +4,19 @@
 
 #include "android_webview/browser/metrics/android_metrics_log_uploader.h"
 
-#include "android_webview/common/aw_features.h"
 #include "base/android/jni_array.h"
+#include "base/logging.h"
 #include "base/task/thread_pool.h"
 #include "components/metrics/log_decoder.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
+#include "android_webview/browser/metrics/aw_histograms_allowlist.h"
 #include "android_webview/browser_jni_headers/AndroidMetricsLogUploader_jni.h"
+#include "android_webview/common/aw_features.h"
+#include "base/feature_list.h"
+#include "third_party/metrics_proto/chrome_user_metrics_extension.pb.h"
 
 using base::android::ScopedJavaLocalRef;
 using base::android::ToJavaByteArray;
@@ -25,13 +29,50 @@ AndroidMetricsLogUploader::AndroidMetricsLogUploader(
 
 AndroidMetricsLogUploader::~AndroidMetricsLogUploader() = default;
 
-int32_t UploadLogWithUploader(const std::string& log_data,
-                              const bool async_metric_logging_feature) {
+int32_t UploadLogWithUploader(std::string log_data) {
+  if (base::FeatureList::IsEnabled(
+          android_webview::features::kWebViewCppMetricsFiltering)) {
+    AndroidMetricsLogUploader::MaybeFilterLog(log_data);
+  }
   JNIEnv* env = jni_zero::AttachCurrentThread();
   ScopedJavaLocalRef<jbyteArray> java_data = ToJavaByteArray(env, log_data);
 
-  return Java_AndroidMetricsLogUploader_uploadLog(env, java_data,
-                                                  async_metric_logging_feature);
+  return Java_AndroidMetricsLogUploader_uploadLog(env, java_data);
+}
+
+void AndroidMetricsLogUploader::MaybeFilterLog(std::string& log_data) {
+  metrics::ChromeUserMetricsExtension proto;
+  if (!proto.ParseFromString(log_data)) {
+    LOG(WARNING) << "Failed to parse ChromeUserMetricsExtension proto in C++";
+    return;
+  }
+
+  if (!(proto.has_system_profile() &&
+        proto.system_profile().has_metrics_filtering_status() &&
+        proto.system_profile().metrics_filtering_status() ==
+            metrics::SystemProfileProto::METRICS_ONLY_CRITICAL)) {
+    return;
+  }
+
+  proto.clear_user_action_event();
+
+  auto* mutable_histograms = proto.mutable_histogram_event();
+  auto* allowlist = android_webview::AwHistogramsAllowlist::GetInstance();
+  int write_index = 0;
+  for (int read_index = 0; read_index < mutable_histograms->size();
+       ++read_index) {
+    auto* event = mutable_histograms->Mutable(read_index);
+    if (allowlist->Contains(event->name_hash())) {
+      if (write_index != read_index) {
+        mutable_histograms->SwapElements(write_index, read_index);
+      }
+      write_index++;
+    }
+  }
+  mutable_histograms->DeleteSubrange(write_index,
+                                     mutable_histograms->size() - write_index);
+
+  proto.SerializeToString(&log_data);
 }
 
 void AndroidMetricsLogUploader::UploadLog(
@@ -50,19 +91,11 @@ void AndroidMetricsLogUploader::UploadLog(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(
-          android_webview::features::kAndroidMetricsAsyncMetricLogging)) {
-    base::ThreadPool::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-        base::BindOnce(&UploadLogWithUploader, log_data, true),
-        base::BindOnce(&AndroidMetricsLogUploader::OnUploadComplete,
-                       weak_factory_.GetWeakPtr()));
-  } else {
-    UploadLogWithUploader(log_data, false);
-
-    // Just pass 200 (HTTP OK) and pretend everything is peachy.
-    OnUploadComplete(200);
-  }
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(&UploadLogWithUploader, log_data),
+      base::BindOnce(&AndroidMetricsLogUploader::OnUploadComplete,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void AndroidMetricsLogUploader::OnUploadComplete(const int32_t status) {

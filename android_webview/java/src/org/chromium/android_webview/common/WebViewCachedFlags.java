@@ -133,6 +133,9 @@ public class WebViewCachedFlags {
                             // Add new CachedFlags here along with their default state.
                             Map.ofEntries(
                                     Map.entry(
+                                            AwFeatures.WEBVIEW_BACKGROUND_CLASS_PRELOADING,
+                                            DefaultState.DISABLED),
+                                    Map.entry(
                                             AwFeatures.WEBVIEW_MOVE_WORK_TO_PROVIDER_INIT,
                                             DefaultState.DISABLED),
                                     Map.entry(
@@ -170,9 +173,6 @@ public class WebViewCachedFlags {
                                                     .WEBVIEW_OPT_IN_TO_GMS_BIND_SERVICE_OPTIMIZATION,
                                             DefaultState.DISABLED),
                                     Map.entry(
-                                            AwFeatures.WEBVIEW_DEFER_STARTUP_GMS_CALLS,
-                                            DefaultState.ENABLED),
-                                    Map.entry(
                                             AwFeatures.WEBVIEW_ENABLE_API_CALL_USER_ACTIONS,
                                             DefaultState.DISABLED),
                                     Map.entry(
@@ -193,6 +193,12 @@ public class WebViewCachedFlags {
                                             DefaultState.DISABLED),
                                     Map.entry(
                                             AwFeatures.WEBVIEW_STATIC_METHODS_NOT_TRIGGER_STARTUP,
+                                            DefaultState.DISABLED),
+                                    Map.entry(
+                                            AwFeatures.WEBVIEW_REMOVE_INSTANT_APP_SUPPORT,
+                                            DefaultState.DISABLED),
+                                    Map.entry(
+                                            AwFeatures.WEBVIEW_PROFILE_STORE_NOT_TRIGGER_STARTUP,
                                             DefaultState.DISABLED)));
         }
     }

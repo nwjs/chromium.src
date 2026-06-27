@@ -6,6 +6,7 @@
 #define IOS_CHROME_BROWSER_COBROWSE_MODEL_COBROWSE_TAB_HELPER_H_
 
 #import "base/memory/raw_ptr.h"
+#import "base/memory/weak_ptr.h"
 #import "base/scoped_observation.h"
 #import "ios/web/public/web_state_observer.h"
 #import "ios/web/public/web_state_user_data.h"
@@ -30,6 +31,9 @@ class CobrowseTabHelper : public web::WebStateObserver,
 
     // Sets whether a cobrowse session is currently active.
     virtual void SetSessionActive(bool active) = 0;
+
+    // Returns whether the tab grid is currently visible.
+    virtual bool IsTabGridVisible() = 0;
   };
 
   CobrowseTabHelper(const CobrowseTabHelper&) = delete;
@@ -55,8 +59,14 @@ class CobrowseTabHelper : public web::WebStateObserver,
   explicit CobrowseTabHelper(web::WebState* web_state,
                              TemplateURLService* template_url_service);
 
+  // Returns whether the assistant should be closed for `url`.
+  bool ShouldCloseAssistant(const GURL& url);
+
   // Returns whether the assistant should be hidden for `url`.
-  bool ShouldHideAssistantForURL(const GURL& url);
+  bool ShouldHideAssistant(const GURL& url);
+
+  // Triggers the showing of the assistant.
+  void ShowAssistant();
 
   // The delegate for this tab helper.
   raw_ptr<Delegate> delegate_ = nullptr;
@@ -70,6 +80,8 @@ class CobrowseTabHelper : public web::WebStateObserver,
   // Scoped observation for the WebState.
   base::ScopedObservation<web::WebState, web::WebStateObserver> observation_{
       this};
+
+  base::WeakPtrFactory<CobrowseTabHelper> weak_ptr_factory_{this};
 };
 
 #endif  // IOS_CHROME_BROWSER_COBROWSE_MODEL_COBROWSE_TAB_HELPER_H_

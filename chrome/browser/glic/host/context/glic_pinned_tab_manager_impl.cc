@@ -179,7 +179,13 @@ class GlicPinnedTabManagerImpl::PinnedTabObserver
 
  private:
   void CheckOriginChangeAndMaybeDeleteSelf(const url::Origin& new_origin) {
-    if (last_origin_ == new_origin) {
+    // If the origin has not changed, or if both the old and new origins are
+    // opaque, we update `last_origin_` and return early without unpinning.
+    // Opaque origins always have different unique nonces, but transitioning
+    // between them (e.g., initial blank page loads) is safe to ignore.
+    if (last_origin_ == new_origin ||
+        (last_origin_.opaque() && new_origin.opaque())) {
+      last_origin_ = new_origin;
       return;
     }
     last_origin_ = new_origin;
@@ -355,8 +361,8 @@ bool GlicPinnedTabManagerImpl::PinTabs(
       if (tab->GetContents()->WasDiscarded()) {
         tab->GetContents()->GetController().SetNeedsReload();
       }
-      tab->GetContents()->GetController().LoadIfNecessary();
     }
+    tab->LoadIfNeeded();
 
     GlicInstanceHelper* helper = GlicInstanceHelper::From(tab);
     if (!helper) {
@@ -378,6 +384,14 @@ bool GlicPinnedTabManagerImpl::PinTabs(
   }
   NotifyPinnedTabsChanged();
   return pinning_fully_succeeded;
+}
+
+void GlicPinnedTabManagerImpl::SetPinTrigger(tabs::TabHandle tab_handle,
+                                             GlicPinTrigger trigger) {
+  if (auto* usage = GetPinnedTabUsageInternal(tab_handle)) {
+    usage->pin_event.trigger = trigger;
+    usage->pin_event.timestamp = base::TimeTicks::Now();
+  }
 }
 
 bool GlicPinnedTabManagerImpl::UnpinTabs(
@@ -460,13 +474,15 @@ bool GlicPinnedTabManagerImpl::IsTabPinned(tabs::TabHandle tab_handle) const {
   return !!GetPinnedTabEntry(tab_handle);
 }
 
-std::vector<content::WebContents*> GlicPinnedTabManagerImpl::GetPinnedTabs()
+std::vector<tabs::TabInterface*> GlicPinnedTabManagerImpl::GetPinnedTabs()
     const {
-  std::vector<content::WebContents*> pinned_contents;
+  std::vector<tabs::TabInterface*> pinned_tabs;
   for (auto& entry : pinned_tabs_) {
-    pinned_contents.push_back(entry.tab_observer->web_contents());
+    if (auto* tab = entry.tab_handle.Get()) {
+      pinned_tabs.push_back(tab);
+    }
   }
-  return pinned_contents;
+  return pinned_tabs;
 }
 
 std::optional<GlicPinnedTabUsage> GlicPinnedTabManagerImpl::GetPinnedTabUsage(
@@ -525,7 +541,7 @@ void GlicPinnedTabManagerImpl::SendPinCandidatesUpdate() {
     return;
   }
 
-  std::vector<content::WebContents*> candidates = GetUnsortedPinCandidates();
+  std::vector<tabs::TabInterface*> candidates = GetUnsortedPinCandidates();
   GlicPinCandidateComparator comparator(pin_candidates_options_->query);
   size_t limit =
       std::min(static_cast<size_t>(pin_candidates_options_->max_candidates),
@@ -534,15 +550,14 @@ void GlicPinnedTabManagerImpl::SendPinCandidatesUpdate() {
                     candidates.end(), std::ref(comparator));
   std::vector<mojom::PinCandidatePtr> results;
   for (size_t i = 0; i < limit; ++i) {
-    results.push_back(mojom::PinCandidate::New(
-        CreateTabData(tabs::TabInterface::GetFromContents(candidates[i]))));
+    results.push_back(mojom::PinCandidate::New(CreateTabData(candidates[i])));
   }
   pin_candidates_observer_->OnPinCandidatesChanged(std::move(results));
 }
 
-std::vector<content::WebContents*>
+std::vector<tabs::TabInterface*>
 GlicPinnedTabManagerImpl::GetUnsortedPinCandidates() {
-  std::vector<content::WebContents*> candidates;
+  std::vector<tabs::TabInterface*> candidates;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [this, &candidates](BrowserWindowInterface* browser_window_interface) {
         if (browser_window_interface->GetProfile() != profile_ ||
@@ -559,16 +574,10 @@ GlicPinnedTabManagerImpl::GetUnsortedPinCandidates() {
           if (!IsTabValidForPinningInProfile(tab, profile_)) {
             continue;
           }
-          auto* web_contents = tab->GetContents();
-          // WebContents may be nullptr on Android.
-          if (!web_contents ||
-              !web_contents->GetController().GetLastCommittedEntry()) {
+          if (!IsValidForSharing(tab)) {
             continue;
           }
-          if (!IsValidForSharing(web_contents)) {
-            continue;
-          }
-          candidates.push_back(web_contents);
+          candidates.push_back(tab);
         }
         return true;
       });
@@ -631,9 +640,8 @@ bool GlicPinnedTabManagerImpl::IsTabValidForPinning(tabs::TabInterface* tab) {
   return IsTabValidForPinningInProfile(tab, profile_);
 }
 
-bool GlicPinnedTabManagerImpl::IsValidForSharing(
-    content::WebContents* web_contents) {
-  return glic::IsTabValidForSharing(web_contents);
+bool GlicPinnedTabManagerImpl::IsValidForSharing(tabs::TabInterface* tab) {
+  return glic::IsTabValidForSharing(tab);
 }
 
 bool GlicPinnedTabManagerImpl::IsGlicWindowShowing() {

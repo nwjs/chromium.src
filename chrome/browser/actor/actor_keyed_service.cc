@@ -20,9 +20,9 @@
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_task_metadata.h"
-#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/execution_engine.h"
+#include "chrome/browser/actor/tab_observation_strategy.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
@@ -35,10 +35,11 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
-#include "chrome/common/actor/journal_details_builder.h"
-#include "chrome/common/actor/task_id.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/journal_details_builder.h"
+#include "components/actor/core/task_id.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/download_item_utils.h"
@@ -493,7 +494,8 @@ void ActorKeyedService::RequestTabObservation(
 
               if (tab) {
                 actor::ActorTabData::From(tab.get())->DidObserveContent(
-                    fetch_result.annotated_page_content_result->proto);
+                    fetch_result.annotated_page_content_result->proto,
+                    actor::ApcSource::kActor);
               }
             }
 
@@ -547,9 +549,10 @@ void ActorKeyedService::PerformActions(
                          .Add("task_id", task_id)
                          .AddError("Invalid Task")
                          .Build());
-    RunLater(base::BindOnce(
-        std::move(callback),
-        MakeResultVector(mojom::ActionResultCode::kTaskWentAway)));
+    RunLater(
+        base::BindOnce(std::move(callback),
+                       MakeResultVector(mojom::ActionResultCode::kTaskWentAway),
+                       TabObservationStrategy()));
     return;
   }
 
@@ -559,14 +562,15 @@ void ActorKeyedService::PerformActions(
         JournalDetailsBuilder().AddError("Empty Actions List").Build());
     RunLater(base::BindOnce(
         std::move(callback),
-        MakeResultVector(mojom::ActionResultCode::kEmptyActionSequence)));
+        MakeResultVector(mojom::ActionResultCode::kEmptyActionSequence),
+        TabObservationStrategy()));
     return;
   }
 
   task->GetExecutionEngine().AddWritableMainframeOrigins(
       task_metadata.added_writable_mainframe_origins());
   task->GetExecutionEngine().actor_container_config().Assign(
-      task_metadata.actor_container_config());
+      task_metadata.agent_container_config());
 
   task->Act(
       std::move(actions),
@@ -576,16 +580,19 @@ void ActorKeyedService::PerformActions(
 
 void ActorKeyedService::OnActionsFinished(
     PerformActionsCallback callback,
-    std::vector<ActionResultWithLatencyInfo> action_results) {
+    std::vector<ActionResultWithLatencyInfo> action_results,
+    TabObservationStrategy observation_strategy) {
   TRACE_EVENT0("actor", "ActorKeyedService::OnActionsFinished");
 
   if (base::FeatureList::IsEnabled(
           actor::kGlicPerformActionsReturnsBeforeStateChange)) {
-    std::move(callback).Run(std::move(action_results));
+    std::move(callback).Run(std::move(action_results),
+                            std::move(observation_strategy));
   } else {
     // RunLater is load bearing. See:
     // https://chromium-review.googlesource.com/c/chromium/src/+/7552225/comment/b0b7f011_71da3233/
-    RunLater(base::BindOnce(std::move(callback), std::move(action_results)));
+    RunLater(base::BindOnce(std::move(callback), std::move(action_results),
+                            std::move(observation_strategy)));
   }
 }
 

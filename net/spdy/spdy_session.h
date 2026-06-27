@@ -62,6 +62,7 @@
 namespace net {
 
 namespace test {
+class SpdyHttpStreamTest;
 class SpdyStreamTest;
 }
 
@@ -101,6 +102,13 @@ const spdy::SpdyStreamId kLastStreamId = 0x7fffffff;
 // virtually never be hit in practice, while still preventing an
 // attacker from growing this queue unboundedly.
 const int kSpdySessionMaxQueuedCappedFrames = 10000;
+
+// Default minimum time the connection must be idle before a "Preface Ping"
+// is sent upon subsequent write activity.
+// A "Preface Ping" is a PING frame proactively sent by the SPDY session
+// prior to enqueuing a DATA or HEADERS frame when the connection has been
+// idle, to verify that the network path is still alive.
+const int kSpdyDefaultConnectionAtRiskOfLossSeconds = 10;
 
 // Default time to delay sending small receive window updates (can be
 // configured through SetTimeToBufferSmallWindowUpdates()). Usually window
@@ -583,6 +591,10 @@ class NET_EXPORT SpdySession
     return !active_streams_.empty() || !created_streams_.empty();
   }
 
+  bool WasEverUsedToCreateStreams() const {
+    return streams_initiated_count_ > 0;
+  }
+
   // True if the server supports WebSocket protocol.
   bool support_websocket() const { return support_websocket_; }
 
@@ -627,16 +639,16 @@ class NET_EXPORT SpdySession
   }
 
  private:
-  friend class test::SpdyStreamTest;
   friend class base::RefCounted<SpdySession>;
   friend class HttpNetworkTransactionTest;
   friend class HttpProxyClientSocketPoolTest;
-  friend class SpdyHttpStreamTest;
   friend class SpdyNetworkTransactionTest;
   friend class SpdyProxyClientSocketTest;
   friend class SpdySessionPoolTest;
   friend class SpdySessionTest;
   friend class SpdyStreamRequest;
+  friend class test::SpdyHttpStreamTest;
+  friend class test::SpdyStreamTest;
 
   // Represents a pending stream request.
   struct PendingStreamRequest {

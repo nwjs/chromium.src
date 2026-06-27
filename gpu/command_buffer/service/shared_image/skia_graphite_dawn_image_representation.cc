@@ -97,7 +97,7 @@ SkiaGraphiteDawnImageRepresentation::CreateBackendTextureHolders(
       SupportsMultiplanarRendering(context_state_.get());
   const bool supports_multiplanar_copy =
       SupportsMultiplanarCopy(context_state_.get());
-  if (format().is_multi_plane()) {
+  if (format().is_multi_plane() && !format().PrefersExternalSampler()) {
     CHECK(format() == viz::MultiPlaneFormat::kP010 ||
           format() == viz::MultiPlaneFormat::kP210 ||
           format() == viz::MultiPlaneFormat::kP410 ||
@@ -119,8 +119,25 @@ SkiaGraphiteDawnImageRepresentation::CreateBackendTextureHolders(
           plane_size, plane_info, texture.Get()));
     }
   } else {
+#if BUILDFLAG(IS_ANDROID)
+    auto ycbcr_info = backing()->GetVkCbCrInfo(context_state_.get());
+    if (ycbcr_info) {
+      skgpu::graphite::DawnTextureInfo dawn_info = DawnBackendTextureInfo(
+          format(), readonly, /*is_yuv_plane=*/false, /*plane_index=*/0,
+          array_slice_, /*mipmapped=*/false, /*scanout_dcomp_surface=*/false,
+          supports_multiplanar_rendering, supports_multiplanar_copy);
+      dawn_info.fYcbcrVkDescriptor =
+          ToDawnYCbCrVkDescriptor(ycbcr_info.value());
+      backend_textures = {skgpu::graphite::BackendTextures::MakeDawn(
+          gfx::SizeToSkISize(size()), dawn_info, texture.Get())};
+    } else {
+      backend_textures = {
+          skgpu::graphite::BackendTextures::MakeDawn(texture.Get())};
+    }
+#else
     backend_textures = {
         skgpu::graphite::BackendTextures::MakeDawn(texture.Get())};
+#endif
   }
 
   return WrapBackendTextures(std::move(texture), std::move(backend_textures));
@@ -148,6 +165,11 @@ SkiaGraphiteDawnImageRepresentation::BeginWriteAccess(
     const gfx::Rect& update_rect) {
   CHECK_EQ(mode_, RepresentationAccessMode::kNone);
   CHECK(!dawn_scoped_access_);
+
+  if (format().PrefersExternalSampler()) {
+    return {};
+  }
+
   dawn_scoped_access_ = dawn_representation_->BeginScopedAccess(
       supported_tex_usages_, AllowUnclearedAccess::kYes, update_rect);
   if (!dawn_scoped_access_) {
@@ -195,6 +217,10 @@ std::vector<scoped_refptr<GraphiteTextureHolder>>
 SkiaGraphiteDawnImageRepresentation::BeginWriteAccess() {
   CHECK_EQ(mode_, RepresentationAccessMode::kNone);
   CHECK(!dawn_scoped_access_);
+
+  if (format().PrefersExternalSampler()) {
+    return {};
+  }
 
   dawn_scoped_access_ = dawn_representation_->BeginScopedAccess(
       supported_tex_usages_, AllowUnclearedAccess::kYes);

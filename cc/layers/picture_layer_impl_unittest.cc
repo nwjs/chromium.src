@@ -24,6 +24,7 @@
 #include "cc/layers/append_quads_context.h"
 #include "cc/layers/append_quads_data.h"
 #include "cc/layers/picture_layer.h"
+#include "cc/paint/draw_image.h"
 #include "cc/test/fake_content_layer_client.h"
 #include "cc/test/fake_impl_task_runner_provider.h"
 #include "cc/test/fake_layer_tree_frame_sink.h"
@@ -1419,8 +1420,13 @@ TEST_F(LegacySWPictureLayerImplTest, FarScrolledQuadsShifted) {
 
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_HARDWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   EXPECT_EQ(20u, render_pass->quad_list.size());
@@ -1496,8 +1502,13 @@ TEST_F(LegacySWPictureLayerImplTest, FarScrolledSolidColorQuadsShifted) {
 
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_HARDWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   EXPECT_EQ(20u, render_pass->quad_list.size());
@@ -1566,8 +1577,13 @@ TEST_F(LegacySWPictureLayerImplTest, SolidColorLayerHasVisibleFullCoverage) {
 
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   Region remaining = visible_rect;
@@ -1759,8 +1775,13 @@ TEST_F(LegacySWPictureLayerImplTest,
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   // All tiles in activation rect is ready to draw.
@@ -1789,8 +1810,13 @@ TEST_F(LegacySWPictureLayerImplTest, HighResTileIsComplete) {
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   // All high res tiles drew, nothing was incomplete.
@@ -1814,8 +1840,13 @@ TEST_F(LegacySWPictureLayerImplTest, HighResTileIsIncomplete) {
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   EXPECT_EQ(1u, render_pass->quad_list.size());
@@ -1867,8 +1898,13 @@ TEST_F(LegacySWPictureLayerImplTest,
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   // All high res tiles drew, and the one ideal res tile drew.
@@ -1913,8 +1949,13 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   EXPECT_EQ(recorded_bounds, active_layer()->HighResTiling()->tiling_rect());
@@ -1931,8 +1972,13 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   render_pass = viz::CompositorRenderPass::Create();
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
   data = AppendQuadsData();
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   // Tiling rect origin is snapped.
@@ -1952,8 +1998,13 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   render_pass = viz::CompositorRenderPass::Create();
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
   data = AppendQuadsData();
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
   EXPECT_EQ(4u, render_pass->quad_list.size());
   EXPECT_EQ(0, data.num_missing_tiles);
@@ -1973,8 +2024,13 @@ TEST_F(LegacySWPictureLayerImplTest, AppendQuadsDataForCheckerboard) {
   render_pass = viz::CompositorRenderPass::Create();
   active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
   data = AppendQuadsData();
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
   EXPECT_EQ(4u, render_pass->quad_list.size());
   EXPECT_EQ(0, data.num_missing_tiles);
@@ -2030,9 +2086,13 @@ TEST_F(LegacySWPictureLayerImplTest, RasterInducingScrollPaintCheckerboarding) {
     auto render_pass = viz::CompositorRenderPass::Create();
     AppendQuadsData data;
     active_layer()->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-    active_layer()->AppendQuads(
-        AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
-        &data);
+    {
+      bool has_missing_tiles = active_layer()->HasMissingTiles();
+      active_layer()->AppendQuads(
+          AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false}, render_pass.get(),
+          &data);
+      EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+    }
     active_layer()->DidDraw(nullptr);
     EXPECT_EQ(1u, render_pass->quad_list.size());
     EXPECT_EQ(expected, active_layer()->ComputeCheckerboardedNeedsRecord());
@@ -2414,6 +2474,41 @@ TEST_F(LegacySWPictureLayerImplTest,
   high_res = active_layer()->tilings()->FindTilingWithScaleKey(1.0f);
   ASSERT_TRUE(high_res);
   EXPECT_EQ(HIGH_RESOLUTION, high_res->resolution());
+}
+
+TEST_F(PictureLayerImplTest, InvalidateRegionForImagesSetsNeedsPushProperties) {
+  gfx::Size layer_bounds(1000, 1000);
+  SetupDefaultTrees(layer_bounds);
+
+  // Use a raster source with images.
+  scoped_refptr<FakeRasterSource> raster_source =
+      FakeRasterSource::CreateFilledWithImages(layer_bounds);
+  pending_layer()->SetRasterSource(raster_source, Region());
+
+  // SetRasterSource sets needs_push_properties. Clear it.
+  pending_layer()->ResetChangeTracking();
+  EXPECT_FALSE(pending_layer()->needs_push_properties());
+  EXPECT_FALSE(pending_layer()->has_non_animated_image_update_rect());
+
+  // Find an image to invalidate from the discardable image map.
+  std::vector<const DrawImage*> images =
+      pending_layer()->discardable_image_map()->GetDiscardableImagesInRect(
+          gfx::Rect(layer_bounds));
+  ASSERT_FALSE(images.empty());
+  PaintImageIdFlatSet images_to_invalidate;
+  images_to_invalidate.insert(images[0]->paint_image().stable_id());
+
+  pending_layer()->InvalidateRegionForImages(images_to_invalidate);
+
+  // Verify that the layer now needs to push properties.
+  EXPECT_TRUE(pending_layer()->needs_push_properties());
+  EXPECT_TRUE(
+      pending_layer()->GetChangeFlag(LayerImpl::kChangedGeneralProperty));
+  EXPECT_TRUE(pending_layer()->has_non_animated_image_update_rect());
+
+  // Activate and verify that the flag is pushed to the active layer.
+  ActivateTree();
+  EXPECT_TRUE(active_layer()->has_non_animated_image_update_rect());
 }
 
 TEST_F(PictureLayerImplTest, OnlyHighResTilingWithGpuRasterization) {
@@ -3984,8 +4079,13 @@ TEST_F(PictureLayerImplTestWithDelegatingRenderer,
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_HARDWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   // Even when OOM, quads should be produced, and should be different material
@@ -5397,8 +5497,12 @@ TEST_F(LegacySWPictureLayerImplTest, CompositedImageIgnoreIdealContentsScale) {
   auto render_pass = viz::CompositorRenderPass::Create();
   AppendQuadsData data;
   active_layer->WillDraw(DRAW_MODE_SOFTWARE, nullptr);
-  active_layer->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
-                            render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer->HasMissingTiles();
+    active_layer->AppendQuads(AppendQuadsContext{DRAW_MODE_SOFTWARE, {}, false},
+                              render_pass.get(), &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer->DidDraw(nullptr);
 
   ASSERT_FALSE(render_pass->quad_list.empty());
@@ -5944,8 +6048,13 @@ TEST_F(LegacySWPictureLayerImplTest, NoTilingsUsesScaleOne) {
 
   AppendQuadsData data;
   active_layer()->WillDraw(DRAW_MODE_HARDWARE, nullptr);
-  active_layer()->AppendQuads(AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false},
-                              render_pass.get(), &data);
+  {
+    bool has_missing_tiles = active_layer()->HasMissingTiles();
+    active_layer()->AppendQuads(
+        AppendQuadsContext{DRAW_MODE_HARDWARE, {}, false}, render_pass.get(),
+        &data);
+    EXPECT_EQ(has_missing_tiles, data.num_missing_tiles > 0);
+  }
   active_layer()->DidDraw(nullptr);
 
   // No checkerboard quads.
@@ -6097,14 +6206,14 @@ TEST_F(LegacySWPictureLayerImplTest, InvalidateRasterInducingScrolls) {
           gfx::Point())
           .id;
   ASSERT_TRUE(scroll_tree.CanRealizeScrollsOnPendingTree(
-      *scroll_tree.Node(scroll_node_id1)));
+      scroll_tree.Node(scroll_node_id1)));
   int scroll_node_id2 =
       CreateScrollNodeForNonCompositedScroller(
           property_trees, scroll_node_id1, scroll_element_id2,
           gfx::Size(200, 200), gfx::Size(1000, 1000), gfx::Point(100, 300))
           .id;
   ASSERT_TRUE(scroll_tree.CanRealizeScrollsOnPendingTree(
-      *scroll_tree.Node(scroll_node_id2)));
+      scroll_tree.Node(scroll_node_id2)));
 
   FakeContentLayerClient client;
   client.set_display_item_list(display_list);
@@ -6131,7 +6240,7 @@ TEST_F(LegacySWPictureLayerImplTest, InvalidateRasterInducingScrolls) {
   EXPECT_TRUE(host_impl()->HasPendingRasterInvalidationScrollForTesting(
       scroll_element_id1));
   property_trees->transform_tree_mutable().UpdateTransforms(
-      scroll_tree.Node(scroll_node_id1)->transform_id);
+      scroll_tree.Node(scroll_node_id1).transform_id);
 
   // Invalidating scroll_element_id1 will invalidate scroll visual rect.
   pending_layer()->InvalidateRasterInducingScrolls({scroll_element_id1});

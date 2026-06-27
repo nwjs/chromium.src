@@ -106,7 +106,6 @@ suite('PeoplePageIndex', function() {
     assertFalse(result.wasClearSearch);
   });
 
-  // <if expr="not is_chromeos">
   test('RoutingWithReplaceSyncPromosWithSignInPromos', async function() {
     loadTimeData.overrideValues({
       replaceSyncPromosWithSignInPromos: true,
@@ -179,5 +178,4 @@ suite('PeoplePageIndex', function() {
         assertFalse(result.canceled);
         assertFalse(result.wasClearSearch);
       });
-  // </if>
 });

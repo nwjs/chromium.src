@@ -896,24 +896,8 @@ HostCache* MockHostResolverBase::GetHostCache() {
   return cache_.get();
 }
 
-void MockHostResolverBase::SetDohFallbackUpgradeAllowed(bool allowed) {
-  if (resolve_context_) {
-    resolve_context_->set_doh_fallback_upgrade_allowed(allowed);
-  }
-}
-
 bool MockHostResolverBase::IsHappyEyeballsV3Enabled() const {
   return base::FeatureList::IsEnabled(features::kHappyEyeballsV3);
-}
-
-std::unique_ptr<CanaryDomainService>
-MockHostResolverBase::CreateCanaryDomainService() {
-  if (!resolve_context_) {
-    return nullptr;
-  }
-
-  return std::make_unique<CanaryDomainService>(resolve_context_->AsSafeRef(),
-                                               weak_ptr_factory_.GetSafeRef());
 }
 
 int MockHostResolverBase::LoadIntoCache(
@@ -1713,8 +1697,6 @@ HangingHostResolver::CreateDohProbeRequest() {
 
 void HangingHostResolver::SetRequestContext(
     URLRequestContext* url_request_context) {}
-
-void HangingHostResolver::SetDohFallbackUpgradeAllowed(bool allowed) {}
 
 bool HangingHostResolver::IsHappyEyeballsV3Enabled() const {
   return base::FeatureList::IsEnabled(features::kHappyEyeballsV3);

@@ -28,6 +28,7 @@
 #include "chrome/browser/ui/views/frame/multi_contents_view_drop_target_controller.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view_mini_toolbar.h"
 #include "chrome/browser/ui/views/frame/scrim_view.h"
+#include "chrome/browser/ui/views/page_info/page_info_main_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/test/split_view_interactive_test_mixin.h"
 #include "chrome/browser/ui/views/test/tab_strip_interactive_test_mixin.h"
@@ -50,7 +51,12 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_modifiers.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/test/views_test_utils.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
 
 namespace {
 class ViewBoundsChangedObserver : public views::ViewObserver,
@@ -88,7 +94,8 @@ DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFourthTab);
 
 class MultiContentsViewUiTest
     : public SplitViewInteractiveTestMixin<
-          TabStripInteractiveTestMixin<InteractiveBrowserTest>> {
+          TabStripInteractiveTestMixin<InteractiveBrowserTest>>,
+      public ::testing::WithParamInterface<split_tabs::SplitTabLayout> {
  public:
   MultiContentsViewUiTest() = default;
 
@@ -108,6 +115,13 @@ class MultiContentsViewUiTest
 
  protected:
   GURL GetTestUrl() { return embedded_test_server()->GetURL("/title1.html"); }
+
+  auto EnterSplitView(int active_tab,
+                      std::optional<int> other_tab = std::nullopt,
+                      double ratio = 0.5) {
+    return SplitViewInteractiveTestMixin::EnterSplitView(active_tab, other_tab,
+                                                         GetParam(), ratio);
+  }
 
   auto CreateTabsAndEnterSplitView() {
     auto result = Steps(
@@ -130,17 +144,22 @@ class MultiContentsViewUiTest
     auto result = Steps(
         PollView(observer_id, kMultiContentsViewElementId,
                  [check](const MultiContentsView* multi_contents_view) -> bool {
-                   double start_width =
+                   const gfx::Size& start_size =
                        multi_contents_view->start_contents_view_for_testing()
                            ->parent()
-                           ->size()
-                           .width();
-                   double end_width =
+                           ->size();
+                   const gfx::Size& end_size =
                        multi_contents_view->end_contents_view_for_testing()
                            ->parent()
-                           ->size()
-                           .width();
-                   return check.Run(start_width, end_width);
+                           ->size();
+                   switch (multi_contents_view->GetSplitLayout()) {
+                     case split_tabs::SplitTabLayout::kSideBySide:
+                       return check.Run(start_size.width(), end_size.width());
+                     case split_tabs::SplitTabLayout::kStacked:
+                       return check.Run(start_size.height(), end_size.height());
+                     default:
+                       NOTREACHED();
+                   }
                  }),
         WaitForState(observer_id, true));
     AddDescriptionPrefix(result, "CheckResizeValues()");
@@ -175,48 +194,69 @@ class MultiContentsViewUiTest
 
   // Perform a check on the contents view sizes following a keyboard-triggered
   // resize
-  auto CheckResizeKey(ui::KeyboardCode key_code,
-                      base::RepeatingCallback<bool(double, double)> check) {
-    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
-                                        kMultiContentsViewLayoutObserver);
+  auto CheckResizeKey(
+      ui::KeyboardCode key_code,
+      base::RepeatingCallback<bool(double, double)> check,
+      ui::test::StateIdentifier<MultiContentsViewLayoutObserver> observer_id) {
     auto result = Steps(
-        FocusElement(
-            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
         SendKeyPress(
             MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
             key_code),
-        CheckResizeValues(check, kMultiContentsViewLayoutObserver));
+        CheckResizeValues(check, observer_id));
     AddDescriptionPrefix(result, "CheckResizeKey()");
     return result;
   }
 
-  auto ResizeWindow(int width) {
-    auto result = Steps(Do([width, this]() {
+  // Resize the window along the resize axis.
+  auto ResizeWindow(int size) {
+    auto result = Steps(Do([size, this]() {
       auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
       auto bounds = browser_view->bounds();
-      bounds.set_width(width);
-      bounds.set_height(1000);
+      if (GetParam() == split_tabs::SplitTabLayout::kSideBySide) {
+        bounds.set_width(size);
+        bounds.set_height(1000);
+      } else {
+        bounds.set_width(1000);
+        bounds.set_height(size);
+      }
       browser_view->SetBounds(bounds);
     }));
     AddDescriptionPrefix(result, "ResizeWindow()");
     return result;
   }
 
-  auto ResizeContents(int width) {
-    auto result = Steps(Do([width, this]() {
+  // Resize the contents along the resize axis.
+  auto ResizeContents(int size) {
+    auto result = Steps(Do([size, this]() {
       BrowserView::GetBrowserViewForBrowser(browser())->SetContentsSize(
-          gfx::Size(width, 1000));
+          GetParam() == split_tabs::SplitTabLayout::kSideBySide
+              ? gfx::Size(size, 1000)
+              : gfx::Size(1000, size));
     }));
     AddDescriptionPrefix(result, "ResizeContents()");
     return result;
   }
 
-  auto SetMinWidth(int width) {
-    auto result = Steps(Do([width, this]() {
-      multi_contents_view()->set_min_contents_width_for_testing(width);
+  auto SetMinSize(int size) {
+    auto result = Steps(Do([size, this]() {
+      multi_contents_view()->set_min_contents_size_for_testing(size);
     }));
-    AddDescriptionPrefix(result, "SetMinWidth()");
+    AddDescriptionPrefix(result, "SetMinSize()");
     return result;
+  }
+
+  // Gets the size of a gfx::Rect along the resize axis.
+  auto GetSize(gfx::Rect rect) {
+    return GetParam() == split_tabs::SplitTabLayout::kSideBySide
+               ? rect.width()
+               : rect.height();
+  }
+
+  // Gets the size of a gfx::Size along the resize axis.
+  auto GetSize(gfx::Size size) {
+    return GetParam() == split_tabs::SplitTabLayout::kSideBySide
+               ? size.width()
+               : size.height();
   }
 
   auto CheckActiveContentsHasFocus() {
@@ -246,6 +286,12 @@ class MultiContentsViewUiTest
   }
 };
 
+INSTANTIATE_TEST_SUITE_P(
+    SplitTabLayout,
+    MultiContentsViewUiTest,
+    testing::Values(split_tabs::SplitTabLayout::kSideBySide,
+                    split_tabs::SplitTabLayout::kStacked));
+
 // Check that MultiContentsView exists when the side by side flag is enabled
 IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ExistsWithFlag) {
   RunTestSequence(EnsurePresent(kMultiContentsViewElementId));
@@ -253,37 +299,39 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ExistsWithFlag) {
 
 // Check that resizing the browser window in split view correctly resizes
 // both content panes.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesInSplitView) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ResizesInSplitView) {
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
                                       kLayoutObserver);
 
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUISettingsURL), 0),
       CheckResult([=, this]() { return tab_strip_model()->count(); }, 2u),
-      EnterSplitView(/*active_tab=*/0, /*other_tab=*/1, /*ratio=*/0.75),
+      EnterSplitView(/*active_tab=*/0,
+                     /*other_tab=*/1,
+                     /*ratio=*/0.75),
       ResizeContents(500),
 
-      // Set the contents size to 600.
-      ResizeContents(600),
-      // Check that the active contents width is 600.
+      // Set the contents size to 450. This value is chosen to be small enough
+      // that the window bounds will not get clamped due to screen size
+      // constraint on test bots, and large enough for each contents view to be
+      // above the minimum contents size.
+      ResizeContents(450),
+      // Check that the active contents size is 450. The inactive contents
+      // should be 150, in line with the 0.75 split ratio.
       CheckResizeValues(
-          base::BindRepeating([](double start_width, double end_width) {
-            return base::IsApproximatelyEqual(start_width, 600.0, 2.0);
-          }),
-          kLayoutObserver),
-      // The inactive tab loses some sizing, so activate it before validating
-      // width. It should be size to 200, in line with the 0.75 split ratio.
-      Do([this]() { browser()->tab_strip_model()->ActivateTabAt(1); }),
-      CheckResizeValues(
-          base::BindRepeating([](double start_width, double end_width) {
-            return base::IsApproximatelyEqual(end_width, 200.0, 2.0);
+          base::BindRepeating([](double start_size, double end_size) {
+            // ResizeContents takes in the size of the active contents view, but
+            // but must resize the entire browser window while preserving the
+            // split ratio, so there may be a small rounding error.
+            return base::IsApproximatelyEqual(start_size, 450.0, 1.0) &&
+                   base::IsApproximatelyEqual(end_size, 150.0, 1.0);
           }),
           kLayoutObserver));
 }
 
 // Create a new split and exit the split view and ensure only 1 contents view is
 // visible
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, EnterAndExitSplitViews) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, EnterAndExitSplitViews) {
   RunTestSequence(
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
       ExitSplitView(0), WaitForActiveTabChange(0),
@@ -292,7 +340,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, EnterAndExitSplitViews) {
 
 // Tests switching tabs with split views. This also adds coverage to ensuring
 // that there isn't any unnecessary re-layout during tab switching.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, TabSwitchWithSplitView) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, TabSwitchWithSplitView) {
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ViewBoundsChangedObserver,
                                       kActiveContentsViewBoundsChangedObserver);
   RunTestSequence(
@@ -313,7 +361,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, TabSwitchWithSplitView) {
 
 // Tests switching tabs with side panel. This also adds coverage to ensuring
 // that there isn't any unnecessary re-layout during tab switching.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, TabSwitchWithSidePanel) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, TabSwitchWithSidePanel) {
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ViewBoundsChangedObserver,
                                       kActiveContentsViewBoundsChangedObserver);
 
@@ -335,7 +383,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, TabSwitchWithSidePanel) {
 
 // Check that MultiContentsView changes its active view when inactive view is
 // focused using mouse click.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ActivatesInactiveViewUsingMouseClick) {
   RunTestSequence(CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
                   FocusInactiveTabInSplit(), WaitForActiveTabChange(1),
@@ -343,8 +391,22 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
 }
 
 // Check that MultiContentsView changes its active view when inactive view is
+// focused using mouse click while a PageInfo bubble is open in the active view.
+// This prevents UI origin confusion issues (e.g. b/488762971).
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
+                       ActivatesInactiveViewUsingMouseClickWithPageInfoOpen) {
+  RunTestSequence(CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
+                  // Open PageInfo bubble on the active tab (0).
+                  PressButton(kLocationIconElementId),
+                  // Click the inactive tab (1).
+                  FocusInactiveTabInSplit(),
+                  // Active tab should change to 1.
+                  WaitForActiveTabChange(1), CheckActiveContentsHasFocus());
+}
+
+// Check that MultiContentsView changes its active view when inactive view is
 // focused using keyboard.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ActivatesInactiveViewUsingKeyboard) {
   RunTestSequence(
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
@@ -360,7 +422,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
 
 // Check that MultiContentsView changes its active view when the tab shortcut
 // is used and the active view has focus.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ActivatesInactiveViewUsingAccelerator) {
   const int kControlCommandModifier =
 #if BUILDFLAG(IS_MAC)
@@ -378,7 +440,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
 }
 
 // Check focus for the MultiContentView when in split view
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ActiveContentsViewHasFocus) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ActiveContentsViewHasFocus) {
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUISettingsURL), 1),
       FocusWebContents(kNewTab),
@@ -400,7 +462,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ActiveContentsViewHasFocus) {
 #define MAYBE_TabChangeInSplitViewWithInactiveBrowserWindow \
   TabChangeInSplitViewWithInactiveBrowserWindow
 #endif
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        MAYBE_TabChangeInSplitViewWithInactiveBrowserWindow) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
@@ -434,7 +496,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
 #define MAYBE_SwitchToSplitViewWithInactiveBrowserWindow \
   SwitchToSplitViewWithInactiveBrowserWindow
 #endif
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        MAYBE_SwitchToSplitViewWithInactiveBrowserWindow) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
@@ -472,20 +534,20 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       CheckActiveContentsHasFocus());
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesToMinWidth) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ResizesToMinSize) {
   RunTestSequence(
       CreateTabsAndEnterSplitView(), ResizeWindow(1000),
-      // Artificially lower min width so that testing on smaller devices does
+      // Artificially lower min size so that testing on smaller devices does
       // not affect results.
-      SetMinWidth(60),
+      SetMinSize(60),
       CheckResize(
-          10000, base::BindRepeating([](double start_width, double end_width) {
-            // On large window, uses flat min width.
-            return end_width == 60 - MultiContentsView::kSplitViewContentInset;
+          10000, base::BindRepeating([](double start_size, double end_size) {
+            // On large window, uses flat min size.
+            return end_size == 60;
           })));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesToSnapPointWidth) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, ResizesToSnapPointSize) {
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(
       MultiContentsViewLayoutObserver,
       kMultiContentsViewLayoutInitialResizeObserver);
@@ -497,98 +559,121 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesToSnapPointWidth) {
       CreateTabsAndEnterSplitView(), ResizeWindow(1000),
       // Resize outside of the snap point width
       CheckResizeWithId(
-          100, base::BindRepeating([](double start_width, double end_width) {
-            // Rounding differences mean this width is only changed by 199
-            // instead of 200.
-            return start_width == end_width + 199;
+          100, base::BindRepeating([](double start_size, double end_size) {
+            return base::IsApproximatelyEqual(start_size, end_size + 200, 1.0);
           }),
           kMultiContentsViewLayoutInitialResizeObserver),
-      // Resize back to within the snap point margin and snap back to 50% width
+      // Resize back to within the snap point margin and snap back to 50% size
       CheckResizeWithId(
-          -96, base::BindRepeating([](double start_width, double end_width) {
-            // On large window, uses snap point width.
-            return end_width == start_width;
+          -96, base::BindRepeating([](double start_size, double end_size) {
+            // On large window, uses snap point size.
+            return base::IsApproximatelyEqual(start_size, end_size, 1.0);
           }),
           kMultiContentsViewLayoutSnapResizeObserver));
 }
 
-
 // TODO(crbug.com/399212996): Flaky on all platforms.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
-                       DISABLED_ResizesToMinWidthPercentage) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
+                       DISABLED_ResizesToMinSizePercentage) {
   RunTestSequence(
-      CreateTabsAndEnterSplitView(), ResizeWindow(500), SetMinWidth(60),
+      CreateTabsAndEnterSplitView(), ResizeWindow(500), SetMinSize(60),
       CheckResize(
-          10000, base::BindRepeating([](double start_width, double end_width) {
-            // On small window, uses percentage of window size vs. flat width
+          10000, base::BindRepeating([](double start_size, double end_size) {
+            // On small window, uses percentage of window size vs. flat size
             // for min. Don't check exact number to avoid rounding issues.
-            return end_width <
+            return end_size <
                        (60 - MultiContentsView::kSplitViewContentInset) &&
-                   end_width > 0;
+                   end_size > 0;
           })));
 }
 
-// TODO(crbug.com/399212996): Flaky on Linux, ChromeOS and Win-ASAN.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
-    (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER))
+// TODO(crbug.com/399212996): Flaky on Linux, ChromeOS and Windows.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #define MAYBE_ResizesViaKeyboard DISABLED_ResizesViaKeyboard
 #else
 #define MAYBE_ResizesViaKeyboard ResizesViaKeyboard
 #endif
 // Check that the MultiContentsView resize area correctly resizes the start and
-// end contents views via left and right key events.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, MAYBE_ResizesViaKeyboard) {
+// end contents views via key events.
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, MAYBE_ResizesViaKeyboard) {
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
+                                      kMultiContentsViewLayoutObserver1);
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
+                                      kMultiContentsViewLayoutObserver2);
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
+                                      kMultiContentsViewLayoutObserver3);
+  auto increase_start_size_key =
+      GetParam() == split_tabs::SplitTabLayout::kSideBySide ? ui::VKEY_RIGHT
+                                                            : ui::VKEY_DOWN;
+  auto decrease_start_size_key =
+      GetParam() == split_tabs::SplitTabLayout::kSideBySide ? ui::VKEY_LEFT
+                                                            : ui::VKEY_UP;
   RunTestSequence(
       CreateTabsAndEnterSplitView(), Check([&]() {
-        double start_width = multi_contents_view()
-                                 ->start_contents_view_for_testing()
-                                 ->size()
-                                 .width();
-        double end_width = multi_contents_view()
-                               ->end_contents_view_for_testing()
-                               ->size()
-                               .width();
-        return start_width == end_width;
+        gfx::Size start_size =
+            multi_contents_view()->start_contents_view_for_testing()->size();
+        gfx::Size end_size =
+            multi_contents_view()->end_contents_view_for_testing()->size();
+        return base::IsApproximatelyEqual(GetSize(start_size),
+                                          GetSize(end_size), 1);
       }),
-      CheckResizeKey(ui::VKEY_RIGHT, base::BindRepeating([](double start_width,
-                                                            double end_width) {
-                       return start_width > end_width;
-                     })),
-      CheckResizeKey(ui::VKEY_LEFT, base::BindRepeating([](double start_width,
-                                                           double end_width) {
-                       return start_width == end_width;
-                     })),
-      CheckResizeKey(ui::VKEY_LEFT, base::BindRepeating([](double start_width,
-                                                           double end_width) {
-                       return start_width > end_width;
-                     })));
+      FocusElement(
+          MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
+      CheckResizeKey(
+          increase_start_size_key,
+          base::BindRepeating([](double start_size, double end_size) {
+            return !base::IsApproximatelyEqual(start_size, end_size, 1.0) &&
+                   (start_size > end_size);
+          }),
+          kMultiContentsViewLayoutObserver1),
+      CheckResizeKey(
+          decrease_start_size_key,
+          base::BindRepeating([](double start_size, double end_size) {
+            return base::IsApproximatelyEqual(start_size, end_size, 1.0);
+          }),
+          kMultiContentsViewLayoutObserver2),
+      CheckResizeKey(
+          decrease_start_size_key,
+          base::BindRepeating([](double start_size, double end_size) {
+            return !base::IsApproximatelyEqual(start_size, end_size, 1.0) &&
+                   (start_size < end_size);
+          }),
+          kMultiContentsViewLayoutObserver3));
 }
 
 // Check that MultiContentsView only has insets on the contents views when in a
 // split, verify this by checking that the sum of the contents views and resize
-// area is less than the total width.
+// area is less than the total size.
 // TODO(crbug.com/397777917): Once this bug is resolved, if MultiContentsView is
 // update to use interior margins then we should check whether those are set
-// here instead of checking widths.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, InsetsOnlyInSplit) {
+// here instead of checking sizes.
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, InsetsOnlyInSplit) {
+  // When not in a split, also take into account the top separator when
+  // comparing the height of the multi contents view to the contents views.
+  const int kTopSeparatorHeight =
+      (GetParam() == split_tabs::SplitTabLayout::kStacked
+           ? views::Separator::kThickness
+           : 0);
   RunTestSequence(
       Check([&]() {
-        return multi_contents_view()
-                   ->GetActiveContentsView()
-                   ->bounds()
-                   .width() == multi_contents_view()->bounds().width();
+        gfx::Rect active_contents_bounds =
+            multi_contents_view()->GetActiveContentsView()->bounds();
+        gfx::Rect multi_contents_view_bounds = multi_contents_view()->bounds();
+        return GetSize(active_contents_bounds) ==
+               GetSize(multi_contents_view_bounds) - kTopSeparatorHeight;
       }),
       CreateTabsAndEnterSplitView(), Check([&]() {
-        int contents_and_resize_width =
-            multi_contents_view()->GetActiveContentsView()->bounds().width() +
-            multi_contents_view()->GetInactiveContentsView()->bounds().width() +
-            multi_contents_view()->resize_area_for_testing()->bounds().width();
-        return contents_and_resize_width <
-               multi_contents_view()->bounds().width();
+        int contents_and_resize_size =
+            GetSize(multi_contents_view()->GetActiveContentsView()->bounds()) +
+            GetSize(
+                multi_contents_view()->GetInactiveContentsView()->bounds()) +
+            GetSize(multi_contents_view()->resize_area_for_testing()->bounds());
+        return contents_and_resize_size <
+               GetSize(multi_contents_view()->bounds());
       }));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ActivatesMostRecentlyActiveTabInSplit) {
   RunTestSequence(
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
@@ -605,7 +690,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       WaitForActiveTabChange(0));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ResizeMouseDoubleClickSwapsSplitViews) {
   using MultiContentsViewSwapObserver =
       views::test::PollingViewObserver<bool, MultiContentsView>;
@@ -666,7 +751,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       WaitForActiveTabChange(1), CheckActiveContentsHasFocus());
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ResizeGestureDoubleTapSwapsSplitViews) {
   using MultiContentsViewSwapObserver =
       views::test::PollingViewObserver<bool, MultiContentsView>;
@@ -721,7 +806,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       WaitForActiveTabChange(1), CheckActiveContentsHasFocus());
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        ContentsDividersHiddenInSplitView) {
   RunTestSequence(
       // Open the bookmarks side panel.
@@ -746,7 +831,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, RoundedCornersForSplitView) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, RoundedCornersForSplitView) {
   RunTestSequence(
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
       // Ensure the contents web views have rounded corners.
@@ -772,7 +857,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, RoundedCornersForSplitView) {
 }
 #endif
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, BackgroundVisibility) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, BackgroundVisibility) {
   RunTestSequence(
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
       // Ensure the background is visible when in sidebyside view
@@ -791,7 +876,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, BackgroundVisibility) {
                 }));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        MiniToolbarVisibilityForContents) {
   RunTestSequence(
       // Open split view.
@@ -816,7 +901,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       }));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest,
                        MiniToolbarHidesNewTabPageDomain) {
   RunTestSequence(
       // Open split view and navigate the first tab to the NTP.
@@ -839,7 +924,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
           u""));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, KeyboardShortcutCreatesSplit) {
+IN_PROC_BROWSER_TEST_P(MultiContentsViewUiTest, KeyboardShortcutCreatesSplit) {
   ui::Accelerator accelerator;
   ASSERT_TRUE(BrowserView::GetBrowserViewForBrowser(browser())->GetAccelerator(
       IDC_NEW_SPLIT_TAB, &accelerator));
@@ -911,7 +996,13 @@ class MultiContentsViewOutlineHighlightUiTest : public MultiContentsViewUiTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
+INSTANTIATE_TEST_SUITE_P(
+    SplitTabLayout,
+    MultiContentsViewOutlineHighlightUiTest,
+    testing::Values(split_tabs::SplitTabLayout::kSideBySide,
+                    split_tabs::SplitTabLayout::kStacked));
+
+IN_PROC_BROWSER_TEST_P(MultiContentsViewOutlineHighlightUiTest,
                        ShowHighlightOnOmniboxDropDownOpen) {
   RunTestSequence(
       // Create a split view
@@ -930,7 +1021,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
       CheckOutlineHighlightState(1, true));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewOutlineHighlightUiTest,
                        HighlightUpdatesForMultipleSplitTabs) {
   RunTestSequence(
       CheckOutlineHighlightState(0, false),
@@ -953,7 +1044,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
       CheckOutlineHighlightState(1, false));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewOutlineHighlightUiTest,
                        HighlightShowsForPermissionPrompt) {
   RunTestSequence(
       CheckOutlineHighlightState(0, false),
@@ -971,7 +1062,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
       CheckOutlineHighlightState(1, false));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewOutlineHighlightUiTest,
                        CoordinateHighlightShowReasons) {
   RunTestSequence(
       CheckOutlineHighlightState(0, false),
@@ -995,7 +1086,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
       CheckOutlineHighlightState(1, false));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewOutlineHighlightUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewOutlineHighlightUiTest,
                        HighlightShowsForPageInfoBubble) {
   RunTestSequence(
       CheckOutlineHighlightState(0, false),
@@ -1118,9 +1209,15 @@ class MultiContentsViewDragEntrypointsUiTest : public MultiContentsViewUiTest {
   net::EmbeddedTestServer http_server_;
 };
 
+INSTANTIATE_TEST_SUITE_P(
+    SplitTabLayout,
+    MultiContentsViewDragEntrypointsUiTest,
+    testing::Values(split_tabs::SplitTabLayout::kSideBySide,
+                    split_tabs::SplitTabLayout::kStacked));
+
 // TODO(crbug.com/414590951): This test has been flaky on some MacOS versions,
 // and DnD testing isn't well-supported for other platforms.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewDragEntrypointsUiTest,
                        DISABLED_ShowsDropTargetOnLinkDragged) {
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GetURL("/links.html"), 0),
@@ -1132,7 +1229,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
       WaitForDropTargetVisible());
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewDragEntrypointsUiTest,
                        DISABLED_BackgroundVisibleWhenDropTargetShown) {
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GetURL("/links.html"), 0),
@@ -1154,7 +1251,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
                 }));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewDragEntrypointsUiTest,
                        DoesNotShowDropTargetOnNonURLDragged) {
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GetURL("/button.html"), 0),
@@ -1167,8 +1264,14 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
           MultiContentsDropTargetView::kMultiContentsDropTargetElementId));
 }
 
-IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewDragEntrypointsUiTest,
                        DoesNotShowDropTargetOnChromePageLinkDragged) {
+#if BUILDFLAG(IS_MAC)
+  // TODO(crbug.com/510801992): Re-enable on macOS 26 once test is deflaked
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
+#endif
   RunTestSequence(
       AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUIChromeURLsURL), 0),
       WaitForActiveTabChange(0),
@@ -1211,9 +1314,15 @@ class MultiContentsViewBookmarkDragEntrypointsUiTest
   }
 };
 
+INSTANTIATE_TEST_SUITE_P(
+    SplitTabLayout,
+    MultiContentsViewBookmarkDragEntrypointsUiTest,
+    testing::Values(split_tabs::SplitTabLayout::kSideBySide,
+                    split_tabs::SplitTabLayout::kStacked));
+
 // TODO(crbug.com/414590951): This test has been flaky on some MacOS versions,
 // and DnD testing isn't well-supported for other platforms.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewBookmarkDragEntrypointsUiTest,
+IN_PROC_BROWSER_TEST_P(MultiContentsViewBookmarkDragEntrypointsUiTest,
                        DISABLED_ShowsDropTargetOnBookmarkedLinkDragged) {
   bookmarks::BookmarkModel* const model =
       BookmarkModelFactory::GetForBrowserContext(browser()->profile());

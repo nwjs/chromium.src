@@ -4,8 +4,15 @@
 
 #include "components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h"
 
+#include <string_view>
+
+#include "base/check.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
+#include "base/time/time.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 
 namespace autofill::autofill_metrics {
 
@@ -46,10 +53,8 @@ void LogSaveAndFillFormEvent(SaveAndFillFormEvent event) {
                                 event);
 }
 
-void LogSaveAndFillSuggestionNotShownReason(
-    SaveAndFillSuggestionNotShownReason reason) {
-  base::UmaHistogramEnumeration("Autofill.SaveAndFill.SuggestionNotShownReason",
-                                reason);
+void LogSaveAndFillSuggestionEvent(SaveAndFillSuggestionEvent event) {
+  base::UmaHistogramEnumeration("Autofill.SaveAndFill.SuggestionEvent", event);
 }
 
 void LogSaveAndFillGetDetailsForCreateCardResultAndLatency(
@@ -115,6 +120,27 @@ void LogSaveAndFillFunnelSucceeded(SaveAndFillFlowScenario scenario,
   base::UmaHistogramEnumeration("Autofill.SaveAndFill.Funnel.Succeeded", stage);
   base::UmaHistogramEnumeration(
       base::StrCat({"Autofill.SaveAndFill.Funnel.Succeeded.",
+                    GetFlowScenarioString(scenario)}),
+      stage);
+}
+
+void LogSaveAndFillFunnelCanceled(SaveAndFillFlowScenario scenario,
+                                  SaveAndFillFunnelCanceledStage stage) {
+  if (scenario == SaveAndFillFlowScenario::kUnknown) {
+    return;
+  }
+  if (stage == SaveAndFillFunnelCanceledStage::kSuggestionIgnored) {
+    CHECK(scenario == SaveAndFillFlowScenario::kLocalSaveUploadSaveInfeasible ||
+          scenario == SaveAndFillFlowScenario::kUploadSave);
+  } else if (stage == SaveAndFillFunnelCanceledStage::kDialogCanceled) {
+    CHECK(scenario != SaveAndFillFlowScenario::kLocalSaveUploadSaveFailed &&
+          scenario != SaveAndFillFlowScenario::kLocalSaveBinRangeNotSupported);
+  }
+
+  // Aggregate parent histogram.
+  base::UmaHistogramEnumeration("Autofill.SaveAndFill.Funnel.Canceled", stage);
+  base::UmaHistogramEnumeration(
+      base::StrCat({"Autofill.SaveAndFill.Funnel.Canceled.",
                     GetFlowScenarioString(scenario)}),
       stage);
 }

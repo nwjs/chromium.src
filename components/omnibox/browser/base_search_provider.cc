@@ -210,6 +210,8 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
   match.search_terms_args->request_source = input.request_source();
   match.search_terms_args->original_query = original_query;
   match.search_terms_args->accepted_suggestion = accepted_suggestion;
+  match.search_terms_args->page_classification =
+      input.current_page_classification();
   if (suggest_template_info) {
     match.search_terms_args->additional_query_params =
         CreateQueryParamStringFromMap(
@@ -237,8 +239,11 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
         suggest_template_info->action_suggestions_size() > 0) {
       for (const omnibox::SuggestTemplateInfo_TemplateAction& action :
            suggest_template_info->action_suggestions()) {
-        match.actions.emplace_back(CreateActionInSuggest(
-            action, search_url, *match.search_terms_args, search_terms_data));
+        auto suggest_action = CreateActionInSuggest(
+            action, search_url, *match.search_terms_args, search_terms_data);
+        if (suggest_action) {
+          match.actions.emplace_back(std::move(suggest_action));
+        }
       }
     } else {
       // TODO(crbug.com/417745802): Remove once actions are migrated from
@@ -253,9 +258,12 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
                 action_info.action_type()));
         *template_action.mutable_search_parameters() =
             action_info.search_parameters();
-        match.actions.emplace_back(
+        auto suggest_action =
             CreateActionInSuggest(template_action, search_url,
-                                  *match.search_terms_args, search_terms_data));
+                                  *match.search_terms_args, search_terms_data);
+        if (suggest_action) {
+          match.actions.emplace_back(std::move(suggest_action));
+        }
       }
     }
   }
@@ -281,8 +289,8 @@ scoped_refptr<OmniboxAction> BaseSearchProvider::CreateActionInSuggest(
         CreateQueryParamStringFromMap(template_action.search_parameters());
   }
 
-  return base::MakeRefCounted<OmniboxActionInSuggest>(
-      std::move(template_action), std::move(action_search_terms_args));
+  return OmniboxActionInSuggest::Create(std::move(template_action),
+                                        std::move(action_search_terms_args));
 }
 
 // static

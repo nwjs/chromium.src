@@ -117,6 +117,9 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kOpenGemini:
+    case SuggestionType::kAtMemoryNoConnection:
+    case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kPersonalContextNotice:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kOneTimePasswordEntry:
@@ -275,7 +278,8 @@ void PasswordAutofillManager::DidSelectSuggestion(
       return;
     }
     password_manager_driver_->PreviewSuggestion(
-        payload.username, payload.backup_password.value());
+        payload.username,
+        std::u16string(payload.backup_password.value().length(), '*'));
     return;
   }
   PreviewSuggestion(GetUsernameFromSuggestion(suggestion.main_text.value),
@@ -433,8 +437,9 @@ void PasswordAutofillManager::DidAcceptSuggestion(
           ->HasPendingPasskeySelection() ||
       suggestion.type == autofill::SuggestionType::kIdentityCredential;
   if (!enter_loading_state) {
-    autofill_client_->HideAutofillSuggestions(
-        autofill::SuggestionHidingReason::kAcceptSuggestion);
+    autofill_client_->HideSuggestions(
+        autofill::SuggestionHidingReason::kAcceptSuggestion,
+        GetMainFillingProduct());
   }
 }
 
@@ -507,8 +512,8 @@ void PasswordAutofillManager::OnAddPasswordFillData(
 void PasswordAutofillManager::DeleteFillData() {
   fill_data_.reset();
   if (autofill_client_) {
-    autofill_client_->HideAutofillSuggestions(
-        autofill::SuggestionHidingReason::kStaleData);
+    autofill_client_->HideSuggestions(
+        autofill::SuggestionHidingReason::kStaleData, GetMainFillingProduct());
   }
   CancelBiometricReauthIfOngoing();
 }
@@ -689,8 +694,9 @@ bool PasswordAutofillManager::ShowPopup(
     return false;
   }
   if (!ContainsOtherThanManagePasswords(suggestions)) {
-    autofill_client_->HideAutofillSuggestions(
-        autofill::SuggestionHidingReason::kNoSuggestions);
+    autofill_client_->HideSuggestions(
+        autofill::SuggestionHidingReason::kNoSuggestions,
+        GetMainFillingProduct());
     return false;
   }
 
@@ -724,8 +730,9 @@ void PasswordAutofillManager::UpdatePopup(std::vector<Suggestion> suggestions) {
     return;
   }
   if (!ContainsOtherThanManagePasswords(suggestions)) {
-    autofill_client_->HideAutofillSuggestions(
-        autofill::SuggestionHidingReason::kNoSuggestions);
+    autofill_client_->HideSuggestions(
+        autofill::SuggestionHidingReason::kNoSuggestions,
+        GetMainFillingProduct());
     return;
   }
   autofill_client_->UpdateAutofillSuggestions(
@@ -785,7 +792,8 @@ bool PasswordAutofillManager::PreviewSuggestion(const std::u16string& username,
   if (const autofill::PasswordAndMetadata* password_and_metadata =
           GetPasswordAndMetadataForUsername(username, type)) {
     password_manager_driver_->PreviewSuggestion(
-        username, password_and_metadata->password_value);
+        username,
+        std::u16string(password_and_metadata->password_value.length(), '*'));
     return true;
   }
   return false;
@@ -897,8 +905,9 @@ void PasswordAutofillManager::CancelBiometricReauthIfOngoing() {
 }
 
 void PasswordAutofillManager::HidePopup() {
-  autofill_client_->HideAutofillSuggestions(
-      autofill::SuggestionHidingReason::kAcceptSuggestion);
+  autofill_client_->HideSuggestions(
+      autofill::SuggestionHidingReason::kAcceptSuggestion,
+      GetMainFillingProduct());
 }
 
 void PasswordAutofillManager::FocusedInputChanged() {

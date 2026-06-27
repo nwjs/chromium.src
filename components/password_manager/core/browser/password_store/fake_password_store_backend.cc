@@ -70,20 +70,29 @@ FakePasswordStoreBackend::GetTaskRunner() const {
 }
 
 void FakePasswordStoreBackend::TriggerOnLoginsRetainedForAndroid(
-    const std::vector<PasswordForm>& password_forms) {
+    const std::vector<StoredCredential>& credentials) {
   stored_passwords_.clear();
-  for (const auto& password_form : password_forms) {
-    PasswordForm stored_form = password_form;
-    stored_form.in_store = is_account_store()
+  for (const auto& cred : credentials) {
+    StoredCredential stored_cred = CloneStoredCredential(cred);
+    stored_cred.in_store = is_account_store()
                                ? PasswordForm::Store::kAccountStore
                                : PasswordForm::Store::kProfileStore;
-    stored_passwords_[password_form.signon_realm].push_back(
-        FromPasswordForm(std::move(stored_form)));
+    stored_passwords_[cred.signon_realm].push_back(std::move(stored_cred));
   }
 
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(remote_form_changes_received_, std::nullopt));
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void FakePasswordStoreBackend::SetAffiliatedAndGroupedRealms(
+    const std::string& realm,
+    const std::vector<std::string>& affiliated_realms,
+    const std::vector<std::string>& grouped_realms) {
+  affiliated_realms_[realm] = affiliated_realms;
+  grouped_realms_[realm] = grouped_realms;
+}
+#endif
 
 void FakePasswordStoreBackend::ReturnErrorOnRequest(
     PasswordStoreBackendError password_store_backend_error) {
@@ -129,12 +138,15 @@ void FakePasswordStoreBackend::NotifyAboutError() {
   remote_form_changes_received_.Run(PasswordStoreBackendError(error_type));
 }
 
+void FakePasswordStoreBackend::SetAffiliatedMatchHelper(
+    AffiliatedMatchHelper* match_helper) {
+  match_helper_ = match_helper;
+}
+
 void FakePasswordStoreBackend::InitBackend(
-    AffiliatedMatchHelper* affiliated_match_helper,
     RemoteChangesReceived remote_form_changes_received,
     base::RepeatingClosure sync_enabled_or_disabled_cb,
     base::OnceCallback<void(bool)> completion) {
-  match_helper_ = affiliated_match_helper;
   remote_form_changes_received_ = std::move(remote_form_changes_received);
   GetTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(std::move(completion), /*success=*/true));
@@ -197,8 +209,17 @@ void FakePasswordStoreBackend::FillMatchingLoginsAsync(
 void FakePasswordStoreBackend::GetGroupedMatchingLoginsAsync(
     const PasswordFormDigest& form_digest,
     BackendLoginsOrErrorReply callback) {
+#if BUILDFLAG(IS_ANDROID)
+  GetTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(
+          &FakePasswordStoreBackend::GetGroupedMatchingLoginsInternal,
+          base::Unretained(this), form_digest),
+      std::move(callback));
+#else
   GetLoginsWithAffiliationsRequestHandler(form_digest, this, match_helper_,
                                           std::move(callback));
+#endif
 }
 
 void FakePasswordStoreBackend::AddLoginAsync(
@@ -323,11 +344,12 @@ BackendLoginsResult FakePasswordStoreBackend::FillMatchingLoginsHelper(
         (form.scheme == PasswordForm::Scheme::kHtml &&
          password_manager::IsFederatedRealm(elements.first, form.url))) {
       for (const auto& stored_cred : elements.second) {
+        PasswordForm stored_form = ToPasswordForm(stored_cred);
         if (realm_matches || realm_psl_matches ||
             (form.scheme == PasswordForm::Scheme::kHtml &&
-             stored_cred.url.DeprecatedGetOriginAsURL() ==
+             stored_form.url.DeprecatedGetOriginAsURL() ==
                  form.url.DeprecatedGetOriginAsURL() &&
-             password_manager::IsFederatedRealm(stored_cred.signon_realm,
+             password_manager::IsFederatedRealm(stored_form.signon_realm,
                                                 form.url))) {
           matched_creds.push_back(CloneStoredCredential(stored_cred));
         }
@@ -337,14 +359,66 @@ BackendLoginsResult FakePasswordStoreBackend::FillMatchingLoginsHelper(
   return matched_creds;
 }
 
+#if BUILDFLAG(IS_ANDROID)
+BackendLoginsResult FakePasswordStoreBackend::GetGroupedMatchingLoginsInternal(
+    const PasswordFormDigest& form_digest) {
+  BackendLoginsResult base_results =
+      FillMatchingLoginsHelper(form_digest, /*include_psl=*/true);
+  BackendLoginsResult final_results;
+
+  for (const StoredCredential& cred : base_results) {
+    PasswordForm form = ToPasswordForm(cred);
+    if (form.signon_realm == form_digest.signon_realm ||
+        (form_digest.scheme == PasswordForm::Scheme::kHtml &&
+         password_manager::IsFederatedRealm(form.signon_realm,
+                                            form_digest.url))) {
+      form.match_type = PasswordForm::MatchType::kExact;
+    } else if (IsPublicSuffixDomainMatch(form.signon_realm,
+                                         form_digest.signon_realm)) {
+      form.match_type = PasswordForm::MatchType::kPSL;
+    }
+    final_results.push_back(FromPasswordForm(form));
+  }
+
+  if (auto it = affiliated_realms_.find(form_digest.signon_realm);
+      it != affiliated_realms_.end()) {
+    AddLoginsWithMatchType(it->second, PasswordForm::MatchType::kAffiliated,
+                           final_results);
+  }
+
+  if (auto group_it = grouped_realms_.find(form_digest.signon_realm);
+      group_it != grouped_realms_.end()) {
+    AddLoginsWithMatchType(group_it->second, PasswordForm::MatchType::kGrouped,
+                           final_results);
+  }
+
+  return final_results;
+}
+
+void FakePasswordStoreBackend::AddLoginsWithMatchType(
+    const std::vector<std::string>& realms,
+    PasswordForm::MatchType match_type,
+    BackendLoginsResult& results) {
+  for (const std::string& realm : realms) {
+    auto creds_it = stored_passwords_.find(realm);
+    if (creds_it != stored_passwords_.end()) {
+      for (const StoredCredential& cred : creds_it->second) {
+        PasswordForm form = ToPasswordForm(cred);
+        form.match_type = match_type;
+        results.push_back(FromPasswordForm(form));
+      }
+    }
+  }
+}
+#endif
+
 PasswordStoreChangeList FakePasswordStoreBackend::AddLoginInternal(
     const StoredCredential& cred) {
   PasswordStoreChangeList changes;
   auto& passwords_for_signon_realm = stored_passwords_[cred.signon_realm];
   auto iter = std::ranges::find_if(
       passwords_for_signon_realm, [&cred](const auto& password) {
-        return ArePasswordFormUniqueKeysEqual(ToPasswordForm(cred),
-                                              ToPasswordForm(password));
+        return AreStoredCredentialUniqueKeysEqual(cred, password);
       });
 
   if (iter != passwords_for_signon_realm.end()) {
@@ -373,8 +447,7 @@ PasswordStoreChangeList FakePasswordStoreBackend::UpdateLoginInternal(
   PasswordStoreChangeList changes;
   std::vector<StoredCredential>& creds = stored_passwords_[cred.signon_realm];
   for (auto& stored_cred : creds) {
-    if (ArePasswordFormUniqueKeysEqual(ToPasswordForm(cred),
-                                       ToPasswordForm(stored_cred))) {
+    if (AreStoredCredentialUniqueKeysEqual(cred, stored_cred)) {
       bool password_changed = cred.password_value != stored_cred.password_value;
       bool insecure_credentials_changed = false;
 
@@ -420,8 +493,7 @@ PasswordStoreChangeList FakePasswordStoreBackend::RemoveLoginInternal(
   std::vector<StoredCredential>& creds = stored_passwords_[cred.signon_realm];
   auto it = creds.begin();
   while (it != creds.end()) {
-    if (ArePasswordFormUniqueKeysEqual(ToPasswordForm(cred),
-                                       ToPasswordForm(*it))) {
+    if (AreStoredCredentialUniqueKeysEqual(cred, *it)) {
       it = creds.erase(it);
       changes.emplace_back(PasswordStoreChange::REMOVE,
                            CloneStoredCredential(cred),

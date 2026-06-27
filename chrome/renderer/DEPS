@@ -27,7 +27,6 @@ include_rules = [
   "+components/dom_distiller/content/renderer",
   "+components/dom_distiller/core",
   "+components/embedder_support/android/common",
-  "+components/feed/content/renderer",
   "+components/feed/feed_feature_list.h",
   "+components/grit",
   "+components/guest_view/buildflags",
@@ -127,6 +126,9 @@ include_rules = [
 ]
 
 specific_include_rules = {
+  "chrome_render_frame_observer\.h": [
+    "+components/actor/core/task_id.h",
+  ],
   "chrome_content_renderer_client_browsertest\.cc": [
     "+chrome/browser/profiles/profile_io_data.h",
     "+chrome/browser/ui",

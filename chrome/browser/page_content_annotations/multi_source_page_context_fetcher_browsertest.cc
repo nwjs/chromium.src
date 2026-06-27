@@ -5,6 +5,7 @@
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 
 #include <optional>
+#include <vector>
 
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
@@ -37,6 +38,8 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 namespace page_content_annotations {
 
@@ -162,6 +165,7 @@ INSTANTIATE_TEST_SUITE_P(
 IN_PROC_BROWSER_TEST_P(
     ScreenshotBackendMultiSourcePageContextFetcherBrowserTest,
     TakesScreenshot) {
+  base::HistogramTester histograms;
   GURL url = embedded_https_test_server().GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
@@ -211,6 +215,8 @@ IN_PROC_BROWSER_TEST_P(
                           // TODO(b/438825957): add test coverage for the output
                           // of the CopyFromSurface screenshot.
                           _));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 class ScreenshotTimeoutMultiSourcePageContextFetcherBrowserTest
@@ -221,6 +227,7 @@ class ScreenshotTimeoutMultiSourcePageContextFetcherBrowserTest
         {kGlicTabScreenshotExperiment,
          {
              {"screenshot_timeout_ms", "1us"},
+             {"screenshot_timeout_allowance_ms", "10s"},
          }},
     };
     std::vector<base::test::FeatureRef> disabled_features;
@@ -233,15 +240,9 @@ class ScreenshotTimeoutMultiSourcePageContextFetcherBrowserTest
   base::test::ScopedFeatureList features_;
 };
 
-// TODO(https://crbug.com/478727457): flaky timeouts
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
-#define MAYBE_TakesScreenshot DISABLED_TakesScreenshot
-#else
-#define MAYBE_TakesScreenshot TakesScreenshot
-#endif
 IN_PROC_BROWSER_TEST_F(
     ScreenshotTimeoutMultiSourcePageContextFetcherBrowserTest,
-    MAYBE_TakesScreenshot) {
+    TakesScreenshot) {
   GURL url = embedded_https_test_server().GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
@@ -264,12 +265,16 @@ IN_PROC_BROWSER_TEST_F(
     if (result->screenshot_result.has_value()) {
       continue;
     }
+    if (histograms.GetBucketCount("Glic.PageContextFetcher.GetScreenshotError",
+                                  content::CopyFromSurfaceError::kTimeout) ==
+        0) {
+      continue;
+    }
     histograms.ExpectUniqueSample("Glic.PageContextFetcher.GetScreenshotError",
                                   content::CopyFromSurfaceError::kTimeout, 1);
     break;
   }
 }
-#undef MAYBE_TakesScreenshot
 
 class RedactingMultiSourcePageContextFetcherBrowserTest
     : public MultiSourcePageContextFetcherBrowserTest {
@@ -302,6 +307,7 @@ class RedactingMultiSourcePageContextFetcherBrowserTest
 
 IN_PROC_BROWSER_TEST_F(RedactingMultiSourcePageContextFetcherBrowserTest,
                        TakesScreenshot_SameOriginIframeNoRedaction) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GetURL(kHostA, "/iframe.html")));
 
@@ -338,10 +344,13 @@ IN_PROC_BROWSER_TEST_F(RedactingMultiSourcePageContextFetcherBrowserTest,
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(10, 10),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(RedactingMultiSourcePageContextFetcherBrowserTest,
                        TakesScreenshot_CrossOriginSameSiteIframeNoRedaction) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GetURL(kHostA, "/iframe.html")));
 
@@ -378,10 +387,13 @@ IN_PROC_BROWSER_TEST_F(RedactingMultiSourcePageContextFetcherBrowserTest,
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(10, 10),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(RedactingMultiSourcePageContextFetcherBrowserTest,
                        TakesScreenshot_CrossSiteIframeRedacted) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GetURL(kHostA, "/iframe.html")));
 
@@ -418,6 +430,8 @@ IN_PROC_BROWSER_TEST_F(RedactingMultiSourcePageContextFetcherBrowserTest,
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(10, 10),
               IsColorWithinTolerance(SK_ColorBLACK, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 // Test class that sets png params and validates pngs are returned.
@@ -444,6 +458,7 @@ class PngMultiSourcePageContextFetcherBrowserTest
 // Tests that the mimetype returned is png and image decodes correctly.
 IN_PROC_BROWSER_TEST_F(PngMultiSourcePageContextFetcherBrowserTest,
                        TakesScreenshot_Png) {
+  base::HistogramTester histograms;
   GURL url = embedded_https_test_server().GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
@@ -474,6 +489,8 @@ IN_PROC_BROWSER_TEST_F(PngMultiSourcePageContextFetcherBrowserTest,
 
   EXPECT_FALSE(bitmap.isNull());
   EXPECT_FALSE(bitmap.empty());
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 // Test class that sets webp params and validates webps are returned.
@@ -500,6 +517,7 @@ class WebpMultiSourcePageContextFetcherBrowserTest
 // Tests that the mimetype returned is webp and image decodes correctly.
 IN_PROC_BROWSER_TEST_F(WebpMultiSourcePageContextFetcherBrowserTest,
                        TakesScreenshot_Webp) {
+  base::HistogramTester histograms;
   GURL url = embedded_https_test_server().GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
@@ -525,10 +543,13 @@ IN_PROC_BROWSER_TEST_F(WebpMultiSourcePageContextFetcherBrowserTest,
   EXPECT_FALSE(screenshot.dimensions.IsZero());
   ASSERT_GT(screenshot.screenshot_data.size(), 0);
   ASSERT_EQ(screenshot.mime_type, "image/webp");
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 class PasswordRedactionMultiSourcePageContextFetcherBrowserTest
-    : public MultiSourcePageContextFetcherBrowserTest {
+    : public MultiSourcePageContextFetcherBrowserTest,
+      public testing::WithParamInterface<bool> {
  public:
   PasswordRedactionMultiSourcePageContextFetcherBrowserTest() {
     std::vector<base::test::FeatureRefAndParams> enabled_features{
@@ -539,11 +560,19 @@ class PasswordRedactionMultiSourcePageContextFetcherBrowserTest
              {"screenshot_timeout_ms", "30s"},
          }},
         {optimization_guide::features::kGetAIPageContentMainFrameTimeoutEnabled,
-         {{"timeout", "30s"}}
+         {{"timeout", "30s"}}}};
+    std::vector<base::test::FeatureRef> disabled_features;
 
-        }};
+    if (use_tracked_elements()) {
+      enabled_features.push_back(
+          {blink::features::kAIPageContentTrackedElementsPassword, {}});
+    } else {
+      disabled_features.push_back(
+          blink::features::kAIPageContentTrackedElementsPassword);
+    }
+
     features_.InitWithFeaturesAndParameters(enabled_features,
-                                            /*disabled_features=*/{});
+                                            disabled_features);
   }
 
   ~PasswordRedactionMultiSourcePageContextFetcherBrowserTest() override =
@@ -554,13 +583,25 @@ class PasswordRedactionMultiSourcePageContextFetcherBrowserTest
     MultiSourcePageContextFetcherBrowserTest::SetUp();
   }
 
+  bool use_tracked_elements() const { return GetParam(); }
+
  private:
   base::test::ScopedFeatureList features_;
 };
 
-IN_PROC_BROWSER_TEST_F(
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    PasswordRedactionMultiSourcePageContextFetcherBrowserTest,
+    testing::Bool(),
+    [](const testing::TestParamInfo<bool>& info) {
+      return info.param ? "PasswordTrackedElementsEnabled"
+                        : "PasswordTrackedElementsDisabled";
+    });
+
+IN_PROC_BROWSER_TEST_P(
     PasswordRedactionMultiSourcePageContextFetcherBrowserTest,
     BasicRedaction) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
                                            GetURL(kHostA, "/password.html")));
 
@@ -592,11 +633,14 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(10, 10),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     PasswordRedactionMultiSourcePageContextFetcherBrowserTest,
     DISABLED_BasicRedactionInIframe) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(),
       GetURL(kHostA, "/password_in_iframe.html?domain=/cross-site/b.test/")));
@@ -647,11 +691,22 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(120, 120),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
-IN_PROC_BROWSER_TEST_F(
+#if BUILDFLAG(IS_LINUX) || defined(ADDRESS_SANITIZER) || \
+    defined(MEMORY_SANITIZER)
+// TODO(crbug.com/515405394): Fix ASAN/MSAN/Linux failures.
+#define MAYBE_RedactionWhenScreenshotReceivedFirst \
+  DISABLED_RedactionWhenScreenshotReceivedFirst
+#else
+#define MAYBE_RedactionWhenScreenshotReceivedFirst \
+  RedactionWhenScreenshotReceivedFirst
+#endif
+IN_PROC_BROWSER_TEST_P(
     PasswordRedactionMultiSourcePageContextFetcherBrowserTest,
-    RedactionWhenScreenshotReceivedFirst) {
+    MAYBE_RedactionWhenScreenshotReceivedFirst) {
   base::HistogramTester histograms;
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
@@ -696,10 +751,13 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(10, 10),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
 class SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest
-    : public MultiSourcePageContextFetcherBrowserTest {
+    : public MultiSourcePageContextFetcherBrowserTest,
+      public testing::WithParamInterface<bool> {
  public:
   SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest() {
     std::vector<base::test::FeatureRefAndParams> enabled_features{
@@ -713,11 +771,19 @@ class SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest
              {"screenshot_timeout_ms", "30s"},
          }},
         {optimization_guide::features::kGetAIPageContentMainFrameTimeoutEnabled,
-         {{"timeout", "30s"}}
+         {{"timeout", "30s"}}}};
+    std::vector<base::test::FeatureRef> disabled_features;
 
-        }};
+    if (use_tracked_elements()) {
+      enabled_features.push_back(
+          {blink::features::kAIPageContentTrackedElementsPassword, {}});
+    } else {
+      disabled_features.push_back(
+          blink::features::kAIPageContentTrackedElementsPassword);
+    }
+
     features_.InitWithFeaturesAndParameters(enabled_features,
-                                            /*disabled_features=*/{});
+                                            disabled_features);
   }
 
   ~SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest()
@@ -728,13 +794,25 @@ class SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest
     MultiSourcePageContextFetcherBrowserTest::SetUp();
   }
 
+  bool use_tracked_elements() const { return GetParam(); }
+
  private:
   base::test::ScopedFeatureList features_;
 };
 
-IN_PROC_BROWSER_TEST_F(
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest,
+    testing::Bool(),
+    [](const testing::TestParamInfo<bool>& info) {
+      return info.param ? "PasswordTrackedElementsEnabled"
+                        : "PasswordTrackedElementsDisabled";
+    });
+
+IN_PROC_BROWSER_TEST_P(
     SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest,
     BasicRedaction) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), GetURL(kHostA, "/optimization_guide/credit_card.html")));
 
@@ -770,11 +848,14 @@ IN_PROC_BROWSER_TEST_F(
   // cc-exp at (0, 110) size 100x100.
   EXPECT_THAT(bitmap.getColor(10, 120),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest,
     BasicRedactionInIframe) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(),
       GetURL(kHostA,
@@ -831,11 +912,22 @@ IN_PROC_BROWSER_TEST_F(
   // cc-exp
   EXPECT_THAT(bitmap.getColor(120, 240),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
-IN_PROC_BROWSER_TEST_F(
+#if BUILDFLAG(IS_LINUX) || defined(ADDRESS_SANITIZER) || \
+    defined(MEMORY_SANITIZER)
+// TODO(crbug.com/515405394): Fix ASAN/MSAN/Linux failures.
+#define MAYBE_RedactionWhenScreenshotReceivedFirst \
+  DISABLED_RedactionWhenScreenshotReceivedFirst
+#else
+#define MAYBE_RedactionWhenScreenshotReceivedFirst \
+  RedactionWhenScreenshotReceivedFirst
+#endif
+IN_PROC_BROWSER_TEST_P(
     SensitivePaymentRedactionMultiSourcePageContextFetcherBrowserTest,
-    RedactionWhenScreenshotReceivedFirst) {
+    MAYBE_RedactionWhenScreenshotReceivedFirst) {
   base::HistogramTester histograms;
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -884,10 +976,13 @@ IN_PROC_BROWSER_TEST_F(
   // cc-exp at (0, 110) size 100x100.
   EXPECT_THAT(bitmap.getColor(10, 120),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(MultiSourcePageContextFetcherBrowserTest,
                        TakesScreenshot_PngWithDimensions) {
+  base::HistogramTester histograms;
   GURL url = embedded_https_test_server().GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
@@ -923,10 +1018,13 @@ IN_PROC_BROWSER_TEST_F(MultiSourcePageContextFetcherBrowserTest,
   SkBitmap bitmap = gfx::PNGCodec::Decode(screenshot.screenshot_data);
   EXPECT_FALSE(bitmap.isNull());
   EXPECT_FALSE(bitmap.empty());
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                false, 1);
 }
 
 class ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest
-    : public MultiSourcePageContextFetcherBrowserTest {
+    : public MultiSourcePageContextFetcherBrowserTest,
+      public testing::WithParamInterface<bool> {
  public:
   ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest() {
     std::vector<base::test::FeatureRefAndParams> enabled_features{
@@ -939,8 +1037,18 @@ class ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest
         {optimization_guide::features::kGetAIPageContentMainFrameTimeoutEnabled,
          {{"timeout", "30s"}}},
         {blink::features::kAIPageContentElementCSSRedaction, {}}};
+    std::vector<base::test::FeatureRef> disabled_features;
+
+    if (use_tracked_elements()) {
+      enabled_features.push_back(
+          {blink::features::kAIPageContentTrackedElementsPassword, {}});
+    } else {
+      disabled_features.push_back(
+          blink::features::kAIPageContentTrackedElementsPassword);
+    }
+
     features_.InitWithFeaturesAndParameters(enabled_features,
-                                            /*disabled_features=*/{});
+                                            disabled_features);
   }
 
   ~ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest() override =
@@ -951,13 +1059,25 @@ class ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest
     MultiSourcePageContextFetcherBrowserTest::SetUp();
   }
 
+  bool use_tracked_elements() const { return GetParam(); }
+
  private:
   base::test::ScopedFeatureList features_;
 };
 
-IN_PROC_BROWSER_TEST_F(
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest,
+    testing::Bool(),
+    [](const testing::TestParamInfo<bool>& info) {
+      return info.param ? "PasswordTrackedElementsEnabled"
+                        : "PasswordTrackedElementsDisabled";
+    });
+
+IN_PROC_BROWSER_TEST_P(
     ElementCSSRedactionMultiSourcePageContextFetcherBrowserTest,
     BasicRedaction) {
+  base::HistogramTester histograms;
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(),
       GetURL(kHostA,
@@ -987,6 +1107,180 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(bitmap.empty());
   EXPECT_THAT(bitmap.getColor(10, 10),
               IsColorWithinTolerance(SK_ColorRED, 0x20));
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
+}
+
+class IframeInfoMultiSourcePageContextFetcherBrowserTest
+    : public MultiSourcePageContextFetcherBrowserTest {
+ public:
+  IframeInfoMultiSourcePageContextFetcherBrowserTest() {
+    std::vector<base::test::FeatureRefAndParams> enabled_features{
+        // Effectively disables timeouts.
+        {kGlicTabScreenshotExperiment,
+         {
+             {"screenshot_timeout_ms", "30s"},
+         }},
+        {optimization_guide::features::kGetAIPageContentMainFrameTimeoutEnabled,
+         {{"timeout", "30s"}}},
+        // Enable blink element tracking and APC iframe info.
+        {blink::features::kAIPageContentTrackedElementsIframe, {}}};
+    features_.InitWithFeaturesAndParameters(enabled_features,
+                                            /*disabled_features=*/{});
+  }
+
+  ~IframeInfoMultiSourcePageContextFetcherBrowserTest() override = default;
+
+  void SetUp() override {
+    EnablePixelOutput();
+    MultiSourcePageContextFetcherBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(IframeInfoMultiSourcePageContextFetcherBrowserTest,
+                       TakesScreenshot_AddsIframeInfoToAPC) {
+  GURL top_frame_url = GetURL(kHostA, "/iframe.html");
+  GURL iframe_url = GetURL(kHostB);
+  url::Origin iframe_origin = url::Origin::Create(iframe_url);
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), top_frame_url));
+  ASSERT_TRUE(content::NavigateIframeToURL(web_contents(), "test", iframe_url));
+
+  // Set the iframe's size and position.
+  ASSERT_TRUE(content::ExecJs(web_contents(),
+                              "const iframe = document.getElementById('test');"
+                              "iframe.style.position = 'absolute';"
+                              "iframe.style.left = '20px';"
+                              "iframe.style.top = '10px';"
+                              "iframe.style.width = '300px';"
+                              "iframe.style.height = '200px';"));
+
+  // Wait for main frame layout/render.
+  {
+    base::test::TestFuture<bool> future;
+    web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetRenderWidgetHost()
+        ->InsertVisualStateCallback(future.GetCallback());
+    ASSERT_TRUE(future.Wait()) << "Timeout waiting for syncing with renderer";
+  }
+
+  // Wait for cross-site subframe layout/render.
+  {
+    base::test::TestFuture<bool> sub_future;
+    GetSubframe()->GetRenderWidgetHost()->InsertVisualStateCallback(
+        sub_future.GetCallback());
+    ASSERT_TRUE(sub_future.Wait());
+  }
+
+  FetchPageContextOptions options;
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt,
+      /*screenshot_collection_options=*/std::nullopt);
+  options.annotated_page_content_options =
+      optimization_guide::ActionableAIPageContentOptions(true);
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->annotated_page_content_result.has_value());
+
+  const auto& iframe_info = result->annotated_page_content_result->proto
+                                .gemini_in_chrome_page_metadata()
+                                .screenshot_info()
+                                .iframe_info();
+
+  // Verify that the iframe info has url, origin, and bounding box data.
+  ASSERT_EQ(iframe_info.size(), 1);
+  EXPECT_EQ(iframe_info[0].url(), iframe_url.spec());
+  EXPECT_EQ(iframe_info[0].security_origin().value(),
+            iframe_origin.Serialize());
+  EXPECT_EQ(iframe_info[0].bounding_box().x(), 20);
+  EXPECT_EQ(iframe_info[0].bounding_box().y(), 10);
+  // The iframe is 300x200, but the bounding box is 304x204 due to the border.
+  EXPECT_EQ(iframe_info[0].bounding_box().width(), 304);
+  EXPECT_EQ(iframe_info[0].bounding_box().height(), 204);
+}
+
+class OtpRedactionMultiSourcePageContextFetcherBrowserTest
+    : public MultiSourcePageContextFetcherBrowserTest {
+ public:
+  OtpRedactionMultiSourcePageContextFetcherBrowserTest() {
+    std::vector<base::test::FeatureRefAndParams> enabled_features{
+        {optimization_guide::features::
+             kAnnotatedPageContentWithAutofillAnnotations,
+         {}},
+        {optimization_guide::features::
+             kAnnotatedPageContentAutofillOtpRedactions,
+         {}},
+        {kGlicTabScreenshotExperiment,
+         {
+             {"screenshot_timeout_ms", "30s"},
+         }},
+        {optimization_guide::features::kGetAIPageContentMainFrameTimeoutEnabled,
+         {{"timeout", "30s"}}}};
+    features_.InitWithFeaturesAndParameters(enabled_features,
+                                            /*disabled_features=*/{});
+  }
+
+  ~OtpRedactionMultiSourcePageContextFetcherBrowserTest() override = default;
+
+  void SetUp() override {
+    EnablePixelOutput();
+    MultiSourcePageContextFetcherBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(OtpRedactionMultiSourcePageContextFetcherBrowserTest,
+                       BasicRedaction) {
+  base::HistogramTester histograms;
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GetURL(kHostA, "/optimization_guide/otp_redaction.html")));
+
+  base::test::TestFuture<FetchPageContextResultCallbackArg> future;
+
+  FetchPageContextOptions options;
+  options.annotated_page_content_options =
+      optimization_guide::DefaultAIPageContentOptions(true);
+  options.screenshot_options = ScreenshotOptions::ViewportOnly(
+      /*paint_preview_options=*/std::nullopt,
+      /*screenshot_collection_options=*/std::nullopt);
+  options.screenshot_options->set_redaction_color_for_testing(SkColors::kRed);
+  FetchPageContext(*web_contents(), options, nullptr, future.GetCallback());
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FetchPageContextResult> result,
+                       future.Take());
+
+  ASSERT_TRUE(result);
+  ASSERT_TRUE(result->screenshot_result.has_value());
+
+  ScreenshotResult& screenshot = result->screenshot_result.value();
+  EXPECT_FALSE(screenshot.dimensions.IsZero());
+  ASSERT_GT(screenshot.screenshot_data.size(), 0);
+  ASSERT_EQ(screenshot.mime_type, "image/jpeg");
+
+  SkBitmap bitmap = gfx::JPEGCodec::Decode(screenshot.screenshot_data);
+  EXPECT_FALSE(bitmap.isNull());
+  EXPECT_FALSE(bitmap.empty());
+
+  // The OTP input field is styled absolute at left: 40px, top: 40px, width:
+  // 220px, height: 48px. So (150, 64) is well inside the redaction region.
+  EXPECT_THAT(bitmap.getColor(150, 64),
+              IsColorWithinTolerance(SK_ColorRED, 0x20));
+
+  histograms.ExpectUniqueSample("Glic.PageContextFetcher.ScreenshotRedacted",
+                                true, 1);
 }
 
 }  // namespace page_content_annotations

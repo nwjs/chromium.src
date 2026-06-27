@@ -45,7 +45,7 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.ThenChange(//chrome/browser/contextual_cueing/contextual_cueing_helper.cc:OptType) -->
 
 <histogram name="ContextualCueing.GlicAutoOpen.Result"
-    enum="GlicAutoOpenResult" expires_after="2026-09-13">
+    enum="GlicAutoOpenResult" expires_after="2026-11-15">
   <owner>sanaakbani@google.com</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -56,7 +56,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualCueing.GlicSuggestions.FocusedTabEligibleForSuggestions"
-    enum="Boolean" expires_after="2026-09-13">
+    enum="Boolean" expires_after="2026-11-15">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -174,18 +174,39 @@ chromium-metrics-reviews@google.com.
   <token key="CueType" variants="ContextualCueingCueType"/>
 </histogram>
 
-<histogram name="ContextualCueing.ShownCueCUJ" units="hash"
-    expires_after="2026-09-13">
+<histogram name="ContextualCueing.V2.ChipClicked.CollapsedDuration" units="ms"
+    expires_after="2026-11-22">
   <owner>sophiechang@chromium.org</owner>
-  <owner>pulkitaga@google.com</owner>
+  <owner>iwells@chromium.org</owner>
   <summary>
-    The hashed string of the CUJ for the contextual cue that was shown to the
-    user. Recorded once every time a contextual cue is shown to the user.
+    The duration from when the contextual cueing anchored message collapsed into
+    the omnibox chip/icon until the user clicked the chip to expand it. Recorded
+    when the user clicks the omnibox chip.
+  </summary>
+</histogram>
+
+<histogram name="ContextualCueing.V2.CueFormFactor.Hidden" enum="CueFormFactor"
+    expires_after="2026-11-15">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>iwells@chromium.org</owner>
+  <summary>
+    The form factor of a contextual cue that was hidden. Recorded when a cue's
+    icon, chip, or anchored message is hidden.
+  </summary>
+</histogram>
+
+<histogram name="ContextualCueing.V2.CueFormFactor.Shown" enum="CueFormFactor"
+    expires_after="2026-11-15">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>iwells@chromium.org</owner>
+  <summary>
+    The form factor of a contextual cue that was shown. Recorded when a cue's
+    icon, chip, or anchored message is shown.
   </summary>
 </histogram>
 
 <histogram name="ContextualCueing.V2.CueInteraction"
-    enum="ContextualCueingInteraction" expires_after="2026-09-13">
+    enum="ContextualCueingInteraction" expires_after="2026-11-22">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>
@@ -194,8 +215,37 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="ContextualCueing.V2.Decision" enum="ContextualCueingDecision"
+<histogram name="ContextualCueing.V2.CueInteraction.{InteractionType}"
+    units="hash" expires_after="2026-09-13">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>pulkitaga@google.com</owner>
+  <summary>
+    The hashed string of the CUJ for a contextual cue. Recorded when the
+    contextual cue is {InteractionType}.
+  </summary>
+  <token key="InteractionType">
+    <variant name="Clicked" summary="clicked"/>
+    <variant name="Dismissed"
+        summary="user opened 3 dot menu and clicked dismiss"/>
+    <variant name="EditPrompt"
+        summary="user opened 3 dot menu and clicked to edit the prompt"/>
+    <variant name="Settings"
+        summary="user opened 3 dot menu and clicked to go to settings"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualCueing.V2.CueShown" units="hash"
     expires_after="2026-09-13">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>pulkitaga@google.com</owner>
+  <summary>
+    The hashed string of the CUJ for a contextual cue. Recorded when the
+    contextual cue is shown to the user.
+  </summary>
+</histogram>
+
+<histogram name="ContextualCueing.V2.Decision" enum="ContextualCueingDecision"
+    expires_after="2026-11-15">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>

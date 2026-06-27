@@ -32,6 +32,8 @@ struct FilterAttributeUiLabel {
   friend bool operator==(const FilterAttributeUiLabel&,
                          const FilterAttributeUiLabel&) = default;
 
+  // The key of the filter attribute.
+  std::string key;
   // The UI label of the filter attribute.
   std::u16string attribute_label;
   // The value of the filter attribute.
@@ -40,10 +42,18 @@ struct FilterAttributeUiLabel {
 
 // A struct to hold the data for a URL based filter suggestion.
 struct UrlFilterSuggestion {
-  UrlFilterSuggestion(GURL navigation_url,
-                      std::u16string source_domain,
-                      base::Time extraction_timestamp,
-                      std::vector<FilterAttributeUiLabel> attribute_ui_labels);
+  struct Params {
+    GURL navigation_url;
+    std::u16string source_domain;
+    base::Time extraction_timestamp;
+    std::vector<FilterAttributeUiLabel> attribute_ui_labels;
+    int64_t triggering_navigation_id;
+    std::string triggering_domain;
+    std::string task_type;
+    std::u16string suggestion_message;
+  };
+
+  explicit UrlFilterSuggestion(Params params);
 
   UrlFilterSuggestion(const UrlFilterSuggestion&);
   UrlFilterSuggestion(UrlFilterSuggestion&&);
@@ -67,6 +77,15 @@ struct UrlFilterSuggestion {
   // List of filter attribute UI labels and values for the suggestion. The
   // order follows that of the filter suggestion candidate's attributes.
   std::vector<FilterAttributeUiLabel> attribute_ui_labels;
+  // The ID of the navigation that triggered this suggestion.
+  int64_t triggering_navigation_id;
+  // The eTLD+1 domain of the original triggering navigation. Used only for
+  // logging.
+  std::string triggering_domain;
+  // The identifier classifying the purpose of the annotation.
+  std::string task_type;
+  // The localized message string to be shown to the user.
+  std::u16string suggestion_message;
 };
 
 }  // namespace multistep_filter

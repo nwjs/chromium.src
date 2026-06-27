@@ -240,12 +240,36 @@ bool MimeHandlerStreamManager::IsExtensionHost(
                                     render_frame_host->GetFrameTreeNodeId());
 }
 
+std::optional<ExtensionId>
+MimeHandlerStreamManager::GetTopLevelHandlerExtensionId() const {
+  content::RenderFrameHost* main_rfh = web_contents()->GetPrimaryMainFrame();
+  CHECK(main_rfh);
+  const extensions::StreamInfo* info = GetClaimedStreamInfo(main_rfh);
+  if (!info || !info->stream()) {
+    return std::nullopt;
+  }
+  if (info->stream()->embedded()) {
+    return std::nullopt;
+  }
+  // It's possible to have multiple `extensions::StreamContainer`s under the
+  // same frame tree node ID. Verify the original URL in the stream container
+  // to avoid a potential URL spoof -- the same guard `GetStreamContainer()`
+  // applies.
+  if (main_rfh->GetLastCommittedURL() != info->stream()->original_url()) {
+    return std::nullopt;
+  }
+  return info->stream()->extension_id();
+}
+
 bool MimeHandlerStreamManager::IsExtensionFrameTreeNodeId(
     const content::RenderFrameHost* embedder_host,
     content::FrameTreeNodeId frame_tree_node_id) const {
   const auto* stream_info = GetClaimedStreamInfo(embedder_host);
   return stream_info &&
-         frame_tree_node_id == stream_info->extension_host_frame_tree_node_id();
+         frame_tree_node_id ==
+             stream_info->extension_host_frame_tree_node_id() &&
+         embedder_host->GetLastCommittedURL().EqualsIgnoringRef(
+             stream_info->stream()->original_url());
 }
 
 bool MimeHandlerStreamManager::DidExtensionFrameFinishNavigation(
@@ -279,13 +303,70 @@ bool MimeHandlerStreamManager::IsContentFrameTreeNodeId(
     content::FrameTreeNodeId frame_tree_node_id) const {
   const auto* stream_info = GetClaimedStreamInfo(embedder_host);
   return stream_info &&
-         frame_tree_node_id == stream_info->content_host_frame_tree_node_id();
+         frame_tree_node_id == stream_info->content_host_frame_tree_node_id() &&
+         embedder_host->GetLastCommittedURL().EqualsIgnoringRef(
+             stream_info->stream()->original_url());
 }
 
 bool MimeHandlerStreamManager::DidContentFrameFinishNavigation(
     const content::RenderFrameHost* embedder_host) const {
   const auto* stream_info = GetClaimedStreamInfo(embedder_host);
   return stream_info && stream_info->DidContentFrameFinishNavigation();
+}
+
+void MimeHandlerStreamManager::AbortAndFallbackToNativeHandler(
+    content::RenderFrameHost* embedder_host) {
+  auto* stream_info = GetClaimedStreamInfo(embedder_host);
+  CHECK(stream_info);
+  CHECK(stream_info->did_extension_finish_navigation());
+  CHECK(!stream_info->DidContentFrameFinishNavigation());
+  const GURL original_url = stream_info->stream()->original_url();
+  CHECK(original_url.is_valid());
+
+  const content::FrameTreeNodeId embedder_ftn =
+      embedder_host->GetFrameTreeNodeId();
+
+  // Capture the buffered body (if any) before tearing the stream down.
+  // An invalid handle -- no cache attached or the source still draining
+  // -- falls through to a network refetch on reload. Capture the
+  // decoded byte count alongside the pipe so the throttle can populate
+  // `URLLoaderCompletionStatus::decoded_body_length` correctly when it
+  // replays the body (the cache stores post-decoding bytes, so the
+  // wire `Content-Length` is wrong here whenever the original was
+  // content-encoded).
+  mojo::ScopedDataPipeConsumerHandle body =
+      stream_info->stream()->GetFallbackDataPipe();
+  const size_t decoded_body_size =
+      body.is_valid() ? stream_info->stream()->GetCachedBodySize() : 0u;
+  pending_native_fallback_frames_[embedder_ftn] =
+      CachedFallbackBody{std::move(body), decoded_body_size};
+
+  // Re-navigate just the embedder frame -- not the whole WebContents --
+  // so iframe-hosted MIME handlers fall back without blowing away the
+  // main frame. For a primary-main-frame embedder this is equivalent to
+  // a main-frame reload. FTN is stable across the scoped navigation, so
+  // the throttle's FTN-keyed peek matches the mark set here.
+  content::NavigationController::LoadURLParams params(original_url);
+  params.frame_tree_node_id = embedder_ftn;
+  params.should_replace_current_entry = true;
+  params.transition_type = ui::PAGE_TRANSITION_CLIENT_REDIRECT;
+  web_contents()->GetController().LoadURLWithParams(params);
+}
+
+bool MimeHandlerStreamManager::IsPendingNativeFallback(
+    content::FrameTreeNodeId frame_tree_node_id) const {
+  return pending_native_fallback_frames_.contains(frame_tree_node_id);
+}
+
+std::optional<MimeHandlerStreamManager::CachedFallbackBody>
+MimeHandlerStreamManager::TakeCachedFallbackBody(
+    content::FrameTreeNodeId frame_tree_node_id) {
+  auto it = pending_native_fallback_frames_.find(frame_tree_node_id);
+  if (it == pending_native_fallback_frames_.end() ||
+      !it->second.pipe.is_valid()) {
+    return std::nullopt;
+  }
+  return std::move(it->second);
 }
 
 bool MimeHandlerStreamManager::PluginCanSave(
@@ -382,6 +463,9 @@ void MimeHandlerStreamManager::RenderFrameHostChanged(
 
 void MimeHandlerStreamManager::FrameDeleted(
     content::FrameTreeNodeId frame_tree_node_id) {
+  // Drop any pending native-fallback mark keyed by the deleted frame.
+  pending_native_fallback_frames_.erase(frame_tree_node_id);
+
   // If a MIME handler host is deleted, delete the associated `StreamInfo`.
   for (auto iter = stream_infos_.begin(); iter != stream_infos_.end();) {
     extensions::StreamInfo* stream_info = iter->second.get();
@@ -477,6 +561,15 @@ void MimeHandlerStreamManager::ReadyToCommitNavigation(
 
 void MimeHandlerStreamManager::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
+  // Drop any native-fallback mark for the navigating frame. The mark
+  // must survive the full redirect chain (so the throttle's peek hits
+  // on each hop and the PDF extension_id is selected regardless of
+  // redirects), but by the time the navigation has committed or
+  // errored the re-fetch is over and the mark is spent. For a canceled
+  // navigation this still fires, so the entry is never leaked.
+  pending_native_fallback_frames_.erase(
+      navigation_handle->GetFrameTreeNodeId());
+
   if (IsContentFrameNavigation(navigation_handle)) {
     --g_debug_ongoing_content_navigations;
     SetManagerCrashKeys(stream_infos_.size());

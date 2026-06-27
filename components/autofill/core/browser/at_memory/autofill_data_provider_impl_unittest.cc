@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/from_accessibility_annotator.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/filling/field_filling_util.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
@@ -88,7 +89,6 @@ class AutofillDataProviderImplTest : public testing::Test {
         webdata_helper_.autofill_webdata_service(),
         /*history_service=*/nullptr,
         /*strike_database=*/nullptr,
-        /*accessibility_annotator_service=*/nullptr,
         /*variation_country_code=*/GeoIpCountryCode("US"));
     entity_data_manager_ = entity_data_manager.get();
     client_.set_entity_data_manager(std::move(entity_data_manager));
@@ -354,83 +354,52 @@ TEST_F(AutofillDataProviderImplTest, RetrieveAll_AutofillAiEntityData) {
       retriever(), accessibility_annotator::EntryType::kVehicle);
   EXPECT_THAT(
       results,
-      ElementsAre(
-          IsMemorySearchResult(
-              u"BMW Series 2 2025 Knecht Ruprecht 123456 California 12312345",
-              u"Vehicle",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"BMW", u"Make",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"Series 2", u"Model",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"2025", u"Year",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"Knecht Ruprecht", u"Owner",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"123456", u"License plate",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"California", u"Plate state",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehicleVin, u"12312345"))),
-          IsMemorySearchResult(
-              u"12312345", u"VIN (Vehicle Identification Number)",
-              ElementsAre(
-                  IsMetadata(EntryType::kVehicleMake, u"BMW"),
-                  IsMetadata(EntryType::kVehicleModel, u"Series 2"),
-                  IsMetadata(EntryType::kVehicleYear, u"2025"),
-                  IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
-                  IsMetadata(EntryType::kVehiclePlateNumber, u"123456"),
-                  IsMetadata(EntryType::kVehiclePlateState, u"California")))));
+      ElementsAre(IsMemorySearchResult(
+          u"123456", u"Vehicle",
+          ElementsAre(IsMetadata(EntryType::kVehicleMake, u"BMW"),
+                      IsMetadata(EntryType::kVehicleModel, u"Series 2"),
+                      IsMetadata(EntryType::kVehicleYear, u"2025"),
+                      IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
+                      IsMetadata(EntryType::kVehiclePlateState, u"California"),
+                      IsMetadata(EntryType::kVehicleVin, u"12312345")))));
+}
 
-  // Asking specifically for Entity Attribute
+// Tests that RetrieveAll correctly formats Passport entity data.
+TEST_F(AutofillDataProviderImplTest, RetrieveAll_PassportData) {
+  EntityInstance passport =
+      test::GetPassportEntityInstance({.number = u"XYZ123", .use_count = 1});
+  entity_data_manager().AddOrUpdateEntityInstance(passport);
+  WaitForDatabase();
+
+  std::vector<MemorySearchResult> results = RetrieveAllHelper(
+      retriever(), accessibility_annotator::EntryType::kPassportFull);
+  ASSERT_FALSE(results.empty());
+
+  auto it = std::find_if(
+      results.begin(), results.end(), [](const MemorySearchResult& r) {
+        return r.type == accessibility_annotator::EntryType::kPassportFull;
+      });
+  ASSERT_NE(it, results.end());
+
+  std::u16string expected_obfuscated_value =
+      GetObfuscatedValue(u"XYZ123", /*visible_suffix_length=*/4);
+  EXPECT_EQ(it->value, expected_obfuscated_value);
+  EXPECT_TRUE(it->is_obfuscated);
+  ASSERT_TRUE(std::holds_alternative<std::string>(it->identifier));
+  EXPECT_EQ(std::get<std::string>(it->identifier), passport.guid().value());
+  ASSERT_FALSE(it->metadata_list.empty());
+  EXPECT_THAT(it->metadata_list,
+              testing::Not(Contains(IsMetadata(
+                  accessibility_annotator::EntryType::kPassportNumber,
+                  expected_obfuscated_value))));
+}
+
+// Tests that RetrieveAll correctly fetches data for a specific attribute.
+TEST_F(AutofillDataProviderImplTest, RetrieveAll_AutofillAiAttributeData) {
+  EntityInstance vehicle = test::GetVehicleEntityInstance({.use_count = 1});
+  entity_data_manager().AddOrUpdateEntityInstance(vehicle);
+  WaitForDatabase();
+
   EXPECT_THAT(
       RetrieveAllHelper(
           retriever(), accessibility_annotator::EntryType::kVehiclePlateNumber),
@@ -440,6 +409,26 @@ TEST_F(AutofillDataProviderImplTest, RetrieveAll_AutofillAiEntityData) {
                       IsMetadata(EntryType::kVehicleModel, u"Series 2"),
                       IsMetadata(EntryType::kVehicleYear, u"2025"),
                       IsMetadata(EntryType::kVehicleOwner, u"Knecht Ruprecht"),
+                      IsMetadata(EntryType::kVehiclePlateState, u"California"),
+                      IsMetadata(EntryType::kVehicleVin, u"12312345")))));
+}
+
+// Tests that RetrieveAll falls back to the first non-empty attribute for
+// Vehicle when plate number is missing.
+TEST_F(AutofillDataProviderImplTest,
+       RetrieveAll_VehicleFallbackToFirstNonEmpty) {
+  EntityInstance vehicle = test::GetVehicleEntityInstance(
+      {.name = u"", .plate = u"", .make = u"BMW", .year = u"", .use_count = 1});
+  entity_data_manager().AddOrUpdateEntityInstance(vehicle);
+  WaitForDatabase();
+
+  std::vector<MemorySearchResult> results = RetrieveAllHelper(
+      retriever(), accessibility_annotator::EntryType::kVehicle);
+  EXPECT_THAT(
+      results,
+      ElementsAre(IsMemorySearchResult(
+          u"BMW", u"Vehicle",
+          ElementsAre(IsMetadata(EntryType::kVehicleModel, u"Series 2"),
                       IsMetadata(EntryType::kVehiclePlateState, u"California"),
                       IsMetadata(EntryType::kVehicleVin, u"12312345")))));
 }

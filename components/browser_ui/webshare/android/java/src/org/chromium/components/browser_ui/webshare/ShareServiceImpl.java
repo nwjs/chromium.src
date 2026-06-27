@@ -24,8 +24,10 @@ import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.share.ShareImageFileUtils;
 import org.chromium.components.browser_ui.share.ShareParams;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.mojo.system.MojoException;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 import org.chromium.url.mojom.Url;
 import org.chromium.webshare.mojom.ShareError;
 import org.chromium.webshare.mojom.ShareService;
@@ -129,6 +131,13 @@ public class ShareServiceImpl implements ShareService {
          * @return The current {@link WindowAndroid} used to perform sharing.
          */
         WindowAndroid getWindowAndroid();
+
+        /**
+         * Kills the renderer process when it is detected to have made a bad request.
+         *
+         * @param reason The BadMessageReason code from content::bad_message::BadMessageReason.
+         */
+        void terminateRendererDueToBadMessage(int reason);
     }
 
     public ShareServiceImpl(WebShareDelegate delegate) {
@@ -158,6 +167,18 @@ public class ShareServiceImpl implements ShareService {
                     WEBSHARE_OUTCOME_COUNT);
             callback.call(ShareError.INTERNAL_ERROR);
             return;
+        }
+
+        if (!android.text.TextUtils.isEmpty(url.url)) {
+            GURL shareUrl = new GURL(url.url);
+            boolean hasAllowedSchemes =
+                    UrlConstants.HTTPS_SCHEME.equals(shareUrl.getScheme())
+                            || UrlConstants.HTTP_SCHEME.equals(shareUrl.getScheme());
+            if (GURL.isEmptyOrInvalid(shareUrl) || !hasAllowedSchemes) {
+                callback.call(ShareError.PERMISSION_DENIED);
+                mDelegate.terminateRendererDueToBadMessage(11 /* RFH_INVALID_WEB_FRAME_URL */);
+                return;
+            }
         }
 
         ShareParams.TargetChosenCallback innerCallback =
@@ -308,10 +329,42 @@ public class ShareServiceImpl implements ShareService {
         }.executeOnTaskRunner(TASK_RUNNER);
     }
 
+    // This function mimics the checks created by `SafeBaseName::Create()` as much as possible.
     static boolean isDangerousFilename(String name) {
-        // Reject filenames without a permitted extension.
-        return name.indexOf('.') <= 0
-                || !PERMITTED_EXTENSIONS.contains(FileUtils.getExtension(name));
+        // Empty name, invalid.
+        if (name == null || name.isEmpty()) {
+            return true;
+        }
+
+        // 1. Check for directory traversal components ".."
+        if (name.contains("..") || name.equals(".")) {
+            return true;
+        }
+
+        // 2. Check for directory separators '/' or '\\', as a `SafeBaseName` shouldn't have those.
+        if (name.contains("/") || name.contains("\\")) {
+            return true;
+        }
+
+        // 3. Check for leading/trailing spaces or dots that can be problematic.
+        String trimmedName = name.trim();
+        if (!name.equals(trimmedName) || trimmedName.endsWith(".")) {
+            return true;
+        }
+
+        // 4. Original extension check: Reject filenames without a permitted extension.
+        int dotIndex = trimmedName.lastIndexOf('.');
+        if (dotIndex <= 0) {
+            return true;
+        }
+
+        String extension = FileUtils.getExtension(trimmedName);
+        if (!PERMITTED_EXTENSIONS.contains(extension)) {
+            return true;
+        }
+
+        // If the above validation passed, the file is safe to be shared.
+        return false;
     }
 
     static boolean isDangerousMimeType(String contentType) {

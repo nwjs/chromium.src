@@ -51,6 +51,7 @@ using EventListenerConstructor =
 class EmptyDelegate : public EventListenerMap::Delegate {
   void OnListenerAdded(const EventListener* listener) override {}
   void OnListenerRemoved(const EventListener* listener) override {}
+  void OnListenerUpdated(const EventListener* listener) override {}
 };
 
 class EventListenerMapTest : public ExtensionsTest {
@@ -620,6 +621,7 @@ class MultipleRemovalDelegate : public EventListenerMap::Delegate {
       final_removal_count_++;
     }
   }
+  void OnListenerUpdated(const EventListener* listener) override {}
   int final_removal_count() const { return final_removal_count_; }
 
  private:
@@ -653,6 +655,7 @@ class StateCheckingDelegate : public EventListenerMap::Delegate {
       is_stale_ = true;
     }
   }
+  void OnListenerUpdated(const EventListener* listener) override {}
   bool is_stale() const { return is_stale_; }
 
  private:
@@ -761,6 +764,24 @@ TEST_F(EventListenerMapTest,
   EXPECT_EQ(1, delegate.final_removal_count());
 
   delegate.SetListeners(nullptr);  // Avoid dangling raw_ptr.
+}
+
+// Tests that adding a listener with a malformed filter fails and does not
+// poison the map. Regression test for crbug.com/501631475.
+TEST_F(EventListenerMapTest, AddListenerWithMalformedFilter) {
+  base::DictValue filter_dict;
+  base::ListValue url_list;
+  base::DictValue url_dict;
+  url_dict.Set("invalid_key", "x");
+  url_list.Append(std::move(url_dict));
+  filter_dict.Set("url", std::move(url_list));
+
+  std::unique_ptr<EventListener> listener = EventListener::ForExtension(
+      kEvent1Name, kExt1Id, process_.get(), std::move(filter_dict));
+
+  bool added = listeners_->AddListener(std::move(listener));
+  EXPECT_FALSE(added);
+  EXPECT_FALSE(listeners_->HasListenerForEvent(kEvent1Name));
 }
 
 }  // namespace

@@ -246,19 +246,15 @@ class BLINK_PLATFORM_EXPORT WebURLRequest {
   // Returns true when the request is for revalidation.
   bool IsRevalidating() const;
 
-  // Returns the DevTools ID to throttle the network request.
-  const std::optional<base::UnguessableToken>& GetDevToolsToken() const;
+  // Returns the DevTools token used to throttle the network request.
+  const std::optional<base::UnguessableToken>& GetDevToolsThrottlingToken()
+      const;
 
   // Remembers 'X-Requested-With' header value. Blink should not set this header
   // value until CORS checks are done to avoid running checks even against
   // headers that are internally set.
   const WebString GetRequestedWithHeader() const;
   void SetRequestedWithHeader(const WebString&);
-
-  // Remembers 'Purpose' header value. Blink should not set this header value
-  // until CORS checks are done to avoid running checks even against headers
-  // that are internally set.
-  const WebString GetPurposeHeader() const;
 
   // https://fetch.spec.whatwg.org/#concept-request-window
   // See network::ResourceRequest::fetch_window_id for details.

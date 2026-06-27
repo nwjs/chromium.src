@@ -3,27 +3,47 @@
 # found in the LICENSE file.
 
 import("//components/signin/features.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
 
 assert(enable_dice_support)
 
+mojom("mojo_bindings") {
+  sources = [
+    "feature_showcase.mojom",
+    "password_manager.mojom",
+  ]
+  webui_module_path = "/"
+}
+
 source_set("feature_showcase") {
   sources = [
+    "feature_showcase_handler.cc",
+    "feature_showcase_handler.h",
     "feature_showcase_ui.cc",
     "feature_showcase_ui.h",
+    "password_manager_handler.cc",
+    "password_manager_handler.h",
   ]
 
   public_deps = [
+    ":mojo_bindings",
     "//chrome/common",
     "//content/public/browser",
   ]
 
   deps = [
     "//base",
+    "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/regional_capabilities",
     "//chrome/browser/resources/feature_showcase:resources",
+    "//chrome/browser/resources/intro:resources",
+    "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/toolbar/pinned_toolbar",
+    "//chrome/common:constants",
     "//components/regional_capabilities",
     "//components/signin/public/base:signin_switches",
+    "//content/public/browser",
     "//ui/webui",
   ]
 }

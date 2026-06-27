@@ -46,7 +46,7 @@ enum class TabGridSetupMode {
 
 // Feature flag to control Tab Grid setup mode.
 BASE_DECLARE_FEATURE(kTabGridSetupMode);
-extern const base::FeatureParam<int> kTabGridSetupModeParam;
+extern const base::FeatureParam<std::string> kTabGridSetupModeParam;
 extern const char kTabGridSetupModeParamName[];
 TabGridSetupMode GetTabGridSetupMode();
 
@@ -72,8 +72,14 @@ extern const char kIOSDockingPromoV2VariationHeader3[];
 // Feature flag to enable the Docking Promo V2.
 BASE_DECLARE_FEATURE(kIOSDockingPromoV2);
 
+// Feature flag to enable the "Level Up" feature.
+BASE_DECLARE_FEATURE(kIOSLevelUp);
+
 // Helper function to check if `kIOSDockingPromoV2` is enabled.
 bool IsDockingPromoV2Enabled();
+
+// Helper function to check if `kIOSLevelUp` is enabled.
+bool IsLevelUpEnabled();
 
 // Feature flag to use direct upload for Lens searches.
 BASE_DECLARE_FEATURE(kIOSLensUseDirectUpload);
@@ -105,8 +111,6 @@ BASE_DECLARE_FEATURE(kLensOverlayCustomBottomSheet);
 // Feature flag to check headers for lens searches.
 BASE_DECLARE_FEATURE(kLensSearchHeadersCheckEnabled);
 
-// Used to gate the immersive SRP in the Composebox.
-BASE_DECLARE_FEATURE(kComposeboxImmersiveSRP);
 
 // Variations of Composebox.
 extern const char kComposeboxParam[];
@@ -131,9 +135,6 @@ BASE_DECLARE_FEATURE(kTabGridNewTransitions);
 
 // Whether the new tab grid tabs transitions should be enabled.
 bool IsNewTabGridTransitionsEnabled();
-
-// When enabled, a Tab Group button will appear in the overflow menu.
-BASE_DECLARE_FEATURE(kTabGroupInOverflowMenu);
 
 // When enabled, an overflow menu will replace the edit menu on the GTS.
 BASE_DECLARE_FEATURE(kTabSwitcherOverflowMenu);
@@ -593,6 +594,9 @@ BASE_DECLARE_FEATURE(kIOSMiniMapUniversalLink);
 // experiment.
 BASE_DECLARE_FEATURE(kIOSMiniMapUniversalLinkCounterfactual);
 
+// Feature flag to open linkified address in Maps native preview.
+BASE_DECLARE_FEATURE(kIOSMiniMapLinkifiedAddress);
+
 // Returns whether notification collision management is enabled.
 bool IsNotificationCollisionManagementEnabled();
 
@@ -933,11 +937,27 @@ BASE_DECLARE_FEATURE(kAimCobrowse);
 // Returns true if the AimCobrowse feature is enabled.
 bool IsAimCobrowseEnabled();
 
-// Enables the DisableU18FeedbackIos feature.
-BASE_DECLARE_FEATURE(kDisableU18FeedbackIos);
+// Removes or disables feedback entry points from Chrome UI for signed in users
+// who do not have the `can_submit_feedback` Account Capability.
+BASE_DECLARE_FEATURE(kFeedbackEntryPointsRequireCanSubmitFeedbackCapability);
 
-// Returns true if the DisableU18FeedbackIos feature is enabled.
-bool IsDisableU18FeedbackIosEnabled();
+// Returns true if the kFeedbackEntryPointsRequireCanSubmitFeedbackCapability
+// feature is enabled.
+bool IsFeedbackEntryPointsRequireCanSubmitFeedbackCapabilityEnabled();
+
+// When enabled, the feedback is disabled for ineligible users based on
+// can_submit_feedback capability.
+// Provides the primary identity of the user to FeedbackKit and enables the
+// check for `can_submit_feedback` capability for the account.
+// The identity is not included in feedback reports.
+// This should only be enabled with the newer version of FeedbackKit, which
+// enables this functionality.
+// This feature is irrelevant if
+// kFeedbackEntryPointsRequireCanSubmitFeedbackCapability feature is enabled.
+BASE_DECLARE_FEATURE(kDisableFeedbackForIneligibleUsers);
+
+// Returns true if the DisableFeedbackForIneligibleUsers feature is enabled.
+bool IsDisableFeedbackForIneligibleUsersEnabled();
 
 // Enables the FullscreenRefactoring feature.
 BASE_DECLARE_FEATURE(kFullscreenRefactoring);
@@ -997,11 +1017,8 @@ BASE_DECLARE_FEATURE(kOpenEditGroupViewByTappingTitle);
 // Returns true if the OpenEditGroupViewByTappingTitle feature is enabled.
 bool IsOpenEditGroupViewByTappingTitleEnabled();
 
-// Enables the SyncedGroupColor feature.
-BASE_DECLARE_FEATURE(kSyncedGroupColor);
-
-// Returns true if the SyncedGroupColor feature is enabled.
-bool IsSyncedGroupColorEnabled();
+// Returns true if the UpdateTabGroupColors feature is enabled.
+bool IsUpdateTabGroupColorsEnabled();
 
 // Enables the plus button in NTP fakebox.
 BASE_DECLARE_FEATURE(kPlusButtonInFakebox);
@@ -1021,6 +1038,12 @@ BASE_DECLARE_FEATURE(kAssistantAimMinimizedState);
 // Returns true if the `AssistantAimMinimizedState` feature is enabled.
 bool IsAssistantAimMinimizedStateEnabled();
 
+// Feature flag to enable Backend Promo Service integration.
+BASE_DECLARE_FEATURE(kIOSBackendPromoServiceIntegration);
+
+// Returns true if kIOSBackendPromoServiceIntegration is enabled.
+bool IsIOSBackendPromoServiceIntegrationEnabled();
+
 // Feature flag to enable the use of UIGraphicsImageRenderer for fallback icons.
 BASE_DECLARE_FEATURE(kUseUIGraphicsImageRendererForFallbackIcons);
 
@@ -1029,5 +1052,11 @@ BASE_DECLARE_FEATURE(kIOSDarkModeDetection);
 
 // Returns true if the Native Dark Mode Detection feature is enabled.
 bool IsIOSDarkModeDetectionEnabled();
+
+// Enables sign-in/account menu button in the overflow menu.
+BASE_DECLARE_FEATURE(kIdentityAwareness);
+
+// Returns true if the IdentityAwareness feature is enabled.
+bool IsIdentityAwarenessEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

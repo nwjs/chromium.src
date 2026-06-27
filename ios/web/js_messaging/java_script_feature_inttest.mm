@@ -132,6 +132,37 @@ TEST_F(JavaScriptFeaturePageContentWorldTest,
   EXPECT_STREQ(kReplyString, reply->c_str());
 }
 
+// Tests that a JavaScriptFeature correctly calls async JavaScript functions.
+TEST_F(JavaScriptFeaturePageContentWorldTest, CallAsyncJavaScriptFunction) {
+  LoadHtml(kPageHTML);
+  ASSERT_TRUE(test::WaitForWebViewContainingText(web_state(), "contents1"));
+
+  __block bool completion_block_called = false;
+  __block std::optional<base::Value> result_value;
+  __block NSError* result_error = nil;
+
+  auto completion_block = ^(const base::Value* value, NSError* error) {
+    completion_block_called = true;
+    if (value) {
+      result_value = value->Clone();
+    }
+    result_error = error;
+  };
+
+  EXPECT_TRUE(feature()->CallAsyncSum(GetMainFrame(), /*addend1=*/2,
+                                      /*addend2=*/3,
+                                      base::BindOnce(completion_block)));
+
+  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
+    return completion_block_called;
+  }));
+
+  ASSERT_FALSE(result_error);
+  ASSERT_TRUE(result_value.has_value());
+  ASSERT_TRUE(result_value->is_double());
+  EXPECT_EQ(result_value->GetDouble(), 5.0);
+}
+
 // Tests that a page which overrides the window.webkit object does not break the
 // JavaScriptFeature JS->native messaging system when the feature script is
 // using `sendWebKitMessage` from ios/web/public/js_messaging/resources/utils.ts
@@ -455,6 +486,32 @@ TEST_F(JavaScriptFeaturePrivateTest, JavaScriptFeatureDoNotInjectJavaScript) {
   LoadHtml(kPageHTML, GURL("http://invalid.test"));
   ASSERT_TRUE(test::WaitForWebViewContainingText(web_state(), "contents1"));
   // Shorter timeout on this as it is expected to fail.
+  EXPECT_FALSE(test::WaitForWebViewContainingText(
+      web_state(), kFakeJavaScriptFeatureLoadedText, base::Seconds(1)));
+}
+
+// Tests that a malicious page cannot bypass the private origin check of a
+// JavaScriptFeature by poisoning Array.prototype.includes and calling
+// document.open().
+TEST_F(JavaScriptFeaturePrivateTest,
+       OriginGateBypassViaPrototypePoisoningAndDocumentOpen) {
+  LoadHtml(kPageHTML, GURL("http://invalid.test"));
+  ASSERT_TRUE(test::WaitForWebViewContainingText(web_state(), "contents1"));
+
+  // Confirm the private script did not run initially.
+  EXPECT_FALSE(test::WaitForWebViewContainingText(
+      web_state(), kFakeJavaScriptFeatureLoadedText, base::Seconds(1)));
+
+  // Poison Array.prototype.includes and force script re-injection via
+  // document.open()
+  ExecuteJavaScript(@"Array.prototype.includes = function() { return true; };"
+                     "document.open();"
+                     "document.write('<html><body><div "
+                     "id=\"div\">contents1</div></body></html>');"
+                     "document.close();");
+
+  // Verify that the private script still was NOT injected/executed after
+  // re-injection on the unauthorized origin.
   EXPECT_FALSE(test::WaitForWebViewContainingText(
       web_state(), kFakeJavaScriptFeatureLoadedText, base::Seconds(1)));
 }

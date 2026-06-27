@@ -66,7 +66,13 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   // Boolean pref that enables or disables experimental triggering.
   registry->RegisterBooleanPref(prefs::kGlicExperimentalTriggeringEnabled,
-                                true);
+                                false);
+
+  // Integer pref that determines if Glic Spark is enabled.
+  // Controlled by enterprise policy.
+  registry->RegisterIntegerPref(
+      prefs::kGlicSparkPolicySettings,
+      std::to_underlying(GlicSparkPolicyState::kDisabled));
 
   registry->RegisterIntegerPref(
       prefs::kGlicActuationOnWeb,
@@ -78,6 +84,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kGlicUserEnabledActuationOnWeb, false);
 
   registry->RegisterBooleanPref(prefs::kGlicPartitionNeedsCookieSync, true);
+
+  registry->RegisterDictionaryPref(prefs::kGlicGeminiEnterpriseSettings);
 }
 
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
@@ -94,13 +102,16 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
       prefs::kGlicFocusToggleHotkey,
       ui::Command::AcceleratorToString(
           LocalHotkeyManager::GetDefaultAccelerator(
-              LocalHotkeyManager::Hotkey::kFocusToggle)));
+              LocalHotkeyManager::Command::kFocusToggle)));
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetAutopush, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetStaging, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetPreprod, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetProd, "");
   registry->RegisterStringPref(
       prefs::kGlicWebContinuityOriginatingHostUrlPreset, "");
+#if BUILDFLAG(IS_MAC)
+  registry->RegisterBooleanPref(prefs::kGlicUseAltOSIcon, false);
+#endif
 }
 
 }  // namespace glic::prefs

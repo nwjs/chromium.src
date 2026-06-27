@@ -47,6 +47,7 @@
 #include "components/page_load_metrics/browser/protocol_util.h"
 #include "components/page_load_metrics/common/page_visit_final_status.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "content/public/browser/navigation_controller.h"
@@ -194,23 +195,6 @@ std::optional<base::TimeDelta> CalculateActualNavigationOffset(
   }
   return std::nullopt;
 }
-
-// These are the high bounds of each bucket, in enum order. The index into this
-// array is cast to an enum value when recording UKM. These should correspond to
-// the upper bounds of the BitsPerPixelExponential enum in
-// //tools/metrics/histograms/enums.xml.
-static const double kLCPEntropyBucketThresholds[] = {
-    0.0,  0.00001, 0.0001, 0.001, 0.01, 0.02, 0.03, 0.04,  0.05,   0.06,   0.07,
-    0.08, 0.09,    0.1,    0.2,   0.3,  0.4,  0.5,  0.6,   0.7,    0.8,    0.9,
-    1.0,  2.0,     3.0,    4.0,   5.0,  6.0,  7.0,  8.0,   9.0,    10.0,   20.0,
-    30.0, 40.0,    50.0,   60.0,  70.0, 80.0, 90.0, 100.0, 1000.0, 10000.0};
-
-int64_t CalculateLCPEntropyBucket(double bpp) {
-  return std::lower_bound(std::begin(kLCPEntropyBucketThresholds),
-                          std::end(kLCPEntropyBucketThresholds), bpp) -
-         std::begin(kLCPEntropyBucketThresholds);
-}
-
 }  // namespace
 
 // static
@@ -339,7 +323,7 @@ void UkmPageLoadMetricsObserver::UpdateMainFrameRequestHadCookie(
 
   partition->GetCookieManagerForBrowserProcess()->GetCookieList(
       url, net::CookieOptions::MakeAllInclusive(),
-      net::CookiePartitionKeyCollection::Todo(),
+      net::CookiePartitionKeyCollection(),
       base::BindOnce(
           &UkmPageLoadMetricsObserver::OnMainFrameRequestHadCookieResult,
           weak_factory_.GetWeakPtr(), base::Time::Now()));
@@ -404,6 +388,7 @@ UkmPageLoadMetricsObserver::ObservePolicy UkmPageLoadMetricsObserver::OnCommit(
                                             no_state_prefetch_manager);
   }
   RecordGeneratedNavigationUKM(source_id, navigation_handle->GetURL());
+  RecordTypedAndDefaultUKM(source_id, navigation_handle->GetURL());
   navigation_is_cross_process_ = !navigation_handle->IsSameProcess();
   navigation_entry_offset_ = navigation_handle->GetNavigationEntryOffset();
   main_document_sequence_number_ = web_contents->GetController()
@@ -445,7 +430,7 @@ UkmPageLoadMetricsObserver::FlushMetricsOnAppEnterBackground(
   }
   if (GetDelegate().StartedInForeground())
     RecordTimingMetrics(timing);
-  RecordLastSoftNavigation();
+  RecordSoftNavigationCount();
   ReportLayoutStability();
   RecordResponsivenessMetrics();
   // Assume that page ends on this method, as the app could be evicted right
@@ -524,7 +509,7 @@ void UkmPageLoadMetricsObserver::OnComplete(
   }
   if (GetDelegate().StartedInForeground())
     RecordTimingMetrics(timing);
-  RecordLastSoftNavigation();
+  RecordSoftNavigationCount();
   ReportLayoutStability();
   RecordResponsivenessMetrics();
   RecordPageEndMetrics(&timing, current_time,
@@ -674,136 +659,6 @@ void UkmPageLoadMetricsObserver::RecordSiteEngagement() const {
   builder.Record(ukm::UkmRecorder::Get());
 }
 
-void UkmPageLoadMetricsObserver::RecordSoftNavigationMetrics() {
-  const auto& soft_navigation_metrics =
-      GetDelegate().GetSoftNavigationMetrics();
-  ukm::SourceId ukm_source_id =
-      GetDelegate().GetUkmSourceIdForSameDocumentNavigation(
-          soft_navigation_metrics.same_document_metrics_token);
-  if (ukm_source_id == ukm::kInvalidSourceId) {
-    return;
-  }
-  ukm::builders::SoftNavigation builder(ukm_source_id);
-
-  builder.SetStartTime(soft_navigation_metrics.start_time.InMillisecondsF());
-  PAGE_LOAD_HISTOGRAM("PageLoad.SoftNavigation.StartTime",
-                      soft_navigation_metrics.start_time);
-  builder.SetNavigationType(
-      static_cast<int>(soft_navigation_metrics.navigation_type));
-
-  // All loading performance timings within the soft LCP object are relative to
-  // the (hard) navigation start. Therefore, when we record the metric values
-  // for the soft navigation's LCP below, we need to subtract the soft
-  // navigation's start time (which is also relative to the (hard) navigation
-  // start) from these values.
-  auto largest_contentful_paint = GetSoftNavigationLargestContentfulPaint();
-
-  if (largest_contentful_paint.ContainsValidTime() &&
-      WasStartedInForegroundOptionalEventInForeground(
-          largest_contentful_paint.Time(), GetDelegate())) {
-    base::TimeDelta soft_lcp = (largest_contentful_paint.Time().value() -
-                                soft_navigation_metrics.start_time);
-    builder.SetPaintTiming_LargestContentfulPaint(soft_lcp.InMilliseconds());
-    PAGE_LOAD_HISTOGRAM("PageLoad.SoftNavigation.LargestContentfulPaint",
-                        soft_lcp);
-
-    builder.SetPaintTiming_LargestContentfulPaintType(
-        LargestContentfulPaintTypeToUKMFlags(largest_contentful_paint.Type()));
-
-    if (largest_contentful_paint.TextOrImage() ==
-        page_load_metrics::ContentfulPaintTimingInfo::
-            LargestContentTextOrImage::kImage) {
-      builder.SetPaintTiming_LargestContentfulPaintBPP(
-          CalculateLCPEntropyBucket(largest_contentful_paint.ImageBPP()));
-
-      auto priority = largest_contentful_paint.ImageRequestPriority();
-
-      if (priority) {
-        builder.SetPaintTiming_LargestContentfulPaintRequestPriority(*priority);
-      }
-
-      if (largest_contentful_paint.ImageDiscoveryTime().has_value()) {
-        builder.SetPaintTiming_LargestContentfulPaintImageDiscoveryTime(
-            (largest_contentful_paint.ImageDiscoveryTime().value() -
-             soft_navigation_metrics.start_time)
-                .InMilliseconds());
-      }
-
-      if (largest_contentful_paint.ImageLoadStart().has_value()) {
-        builder.SetPaintTiming_LargestContentfulPaintImageLoadStart(
-            (largest_contentful_paint.ImageLoadStart().value() -
-             soft_navigation_metrics.start_time)
-                .InMilliseconds());
-      }
-
-      if (largest_contentful_paint.ImageLoadEnd().has_value()) {
-        builder.SetPaintTiming_LargestContentfulPaintImageLoadEnd(
-            (largest_contentful_paint.ImageLoadEnd().value() -
-             soft_navigation_metrics.start_time)
-                .InMilliseconds());
-      }
-    }
-  }
-
-  const page_load_metrics::InteractionToNextPaintCalculator&
-      soft_nav_interaction_to_next_paint_calculator =
-          GetDelegate()
-              .GetSoftNavigationIntervalInteractionToNextPaintCalculator();
-
-  std::optional<
-      page_load_metrics::InteractionToNextPaintCalculator::InteractionData>
-      inp_data = soft_nav_interaction_to_next_paint_calculator
-                     .ApproximateHighPercentile();
-  if (inp_data.has_value()) {
-    const page_load_metrics::mojom::EventTiming& inp = inp_data->max_event;
-    builder
-        .SetInteractiveTiming_UserInteractionLatency_HighPercentile2_MaxEventDuration(
-            inp.duration.InMilliseconds());
-
-    UmaHistogramCustomTimes("PageLoad.SoftNavigation.InteractionToNextPaint",
-                            inp.duration, base::Milliseconds(1),
-                            base::Seconds(60), 50);
-
-    // For soft navigations, the interaction offset is the offset _after_ the
-    // soft navigation occurred.
-    builder.SetInteractiveTiming_INPOffset(inp_data->interaction_offset);
-    // For soft navigations, the interaction time should be reported as the
-    // TimeDelta between the interaction and the soft navigation start. Since
-    // the interaction time is a TimeTicks and the soft navigation start_time is
-    // a TimeDelta from navigation_start, we need to add the navigation start
-    // TimeTicks to the soft_navigation start_time TimeDeltat and then subtract
-    // that from the interaction_time TimeTicks.
-    base::TimeDelta interaction_time =
-        inp.start_time - (GetDelegate().GetNavigationStart() +
-                          soft_navigation_metrics.start_time);
-    builder.SetInteractiveTiming_INPTime(interaction_time.InMilliseconds());
-    builder.SetInteractiveTiming_NumInteractions(
-        ukm::GetExponentialBucketMinForCounts1000(
-            soft_nav_interaction_to_next_paint_calculator
-                .num_user_interactions()));
-  }
-
-  // Don't report CLS if we were never in the foreground.
-  if (!last_time_shown_.is_null()) {
-    const std::optional<float> cwv_cls_value =
-        GetCoreWebVitalsSoftNavigationIntervalCLS();
-    if (cwv_cls_value.has_value()) {
-      builder
-          .SetLayoutInstability_MaxCumulativeShiftScore_SessionWindow_Gap1000ms_Max5000ms(
-              page_load_metrics::LayoutShiftUkmValue(*cwv_cls_value));
-      // Report UMA using same binning as all WebVitals.CumulativeLayoutShift
-      // histograms; the binning ensures changes close to zero can accurately
-      // be measured.
-      base::UmaHistogramCustomCounts(
-          "PageLoad.SoftNavigation.CumulativeLayoutShift",
-          page_load_metrics::LayoutShiftUmaValue10000(*cwv_cls_value), 1, 24000,
-          50);
-    }
-  }
-
-  builder.Record(ukm::UkmRecorder::Get());
-}
-
 void UkmPageLoadMetricsObserver::
     RecordLargestContentfulPaintBeforeSoftNavigation() {
   ukm::builders::PageLoad builder(GetDelegate().GetPageUkmSourceId());
@@ -882,22 +737,12 @@ void UkmPageLoadMetricsObserver::
 void UkmPageLoadMetricsObserver::OnSoftNavigation() {
   CHECK_GE(soft_navigation_count_, 0);
   soft_navigation_count_++;
-  // When the 1st soft navigation comes in, we record the
-  // soft_navigation_interval_responsiveness_metrics_normalization_ as INP
-  // before soft nav.
+  // When the 1st soft navigation comes in, we record the CWVs before then;
+  // these may (eventually) be used for blending.
   if (soft_navigation_count_ == 1) {
     RecordLargestContentfulPaintBeforeSoftNavigation();
     RecordResponsivenessMetricsBeforeSoftNavigationForMainFrame();
     RecordLayoutShiftBeforeSoftNavigationForMainFrame();
-  } else {
-    // We only want to record metrics once for each soft navigation. So we flush
-    // the current soft navigation metrics when the next soft navigation starts.
-    // So the first soft navigation metrics are recorded when the second soft
-    // navigation starts, and the second soft navigation metrics are recorded
-    // when the third soft navigation starts, etc. The final soft navigation
-    // metrics are recorded in `RecordTimingMetrics` at the end of the page
-    // load.
-    RecordSoftNavigationMetrics();
   }
 }
 
@@ -1109,7 +954,8 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
         page_load_metrics::ContentfulPaintTimingInfo::
             LargestContentTextOrImage::kImage) {
       builder.SetPaintTiming_LargestContentfulPaintBPP(
-          CalculateLCPEntropyBucket(cwv_lcp_timing_info.ImageBPP()));
+          page_load_metrics::CalculateLCPEntropyBucket(
+              cwv_lcp_timing_info.ImageBPP()));
       auto priority = cwv_lcp_timing_info.ImageRequestPriority();
       if (priority)
         builder.SetPaintTiming_LargestContentfulPaintRequestPriority(*priority);
@@ -1226,14 +1072,8 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   builder.Record(ukm::UkmRecorder::Get());
 }
 
-void UkmPageLoadMetricsObserver::RecordLastSoftNavigation() {
+void UkmPageLoadMetricsObserver::RecordSoftNavigationCount() {
   CHECK_GE(soft_navigation_count_, 0);
-
-  // Record last soft navigation metrics. The smallest count that would be set
-  // for an actual soft navigation metric is 1.
-  if (soft_navigation_count_) {
-    RecordSoftNavigationMetrics();
-  }
 
   ukm::builders::PageLoad builder(GetDelegate().GetPageUkmSourceId());
   builder.SetSoftNavigationCount(soft_navigation_count_);
@@ -1966,6 +1806,47 @@ void UkmPageLoadMetricsObserver::RecordGeneratedNavigationUKM(
   builder.SetFirstURLIsHomePage(start_url_is_home_page_);
   builder.SetFirstURLIsDefaultSearchEngine(start_url_is_default_search_);
   builder.Record(ukm::UkmRecorder::Get());
+}
+
+void UkmPageLoadMetricsObserver::RecordTypedAndDefaultUKM(
+    ukm::SourceId source_id,
+    const GURL& committed_url) {
+  // Check if navigation was initiated via the address bar and explicitly typed.
+  if ((page_transition_ & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) == 0 ||
+      !ui::PageTransitionCoreTypeIs(page_transition_,
+                                    ui::PAGE_TRANSITION_TYPED)) {
+    return;
+  }
+
+  if (!browser_context_) {
+    return;
+  }
+
+  auto* template_service = TemplateURLServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(browser_context_));
+  if (!template_service) {
+    return;
+  }
+
+  // Verify the typed URL belongs to some search engine.
+  if (!template_service->GetTemplateURLForHost(
+          std::string(committed_url.host()))) {
+    return;
+  }
+
+  const TemplateURL* default_engine =
+      template_service->GetDefaultSearchProvider();
+  if (!default_engine) {
+    return;
+  }
+
+  bool is_same_as_default =
+      default_engine->GenerateSearchURL(template_service->search_terms_data())
+          .host() == committed_url.host();
+
+  ukm::builders::Navigation_TypedAndDefault(source_id)
+      .SetIsSameAsDefault(static_cast<int>(is_same_as_default))
+      .Record(ukm::UkmRecorder::Get());
 }
 
 void UkmPageLoadMetricsObserver::EmitUserTimingEvent(base::TimeDelta duration,

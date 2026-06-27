@@ -83,7 +83,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/android/features/dev_ui/buildflags.h"
-#include "chrome/browser/download/android/intercept_oma_download_navigation_throttle.h"
+#include "chrome/browser/signin/android/cross_device_signin_flow_navigation_throttle.h"
 #include "components/navigation_interception/intercept_navigation_delegate.h"
 
 #if BUILDFLAG(DFMIFY_DEV_UI)
@@ -122,7 +122,6 @@
 #endif  // BUILDFLAG(ENABLE_PLATFORM_APPS)
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -133,6 +132,8 @@
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#else  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "components/guest_view/browser/slim_web_view/slim_web_view_navigation_throttle.h"  // nogncheck
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
@@ -298,6 +299,10 @@ void CreateAndAddChromeThrottlesForNavigation(
             GeolocationNavigationThrottle::MaybeCreateThrottleFor(registry)) {
       registry.AddThrottle(std::move(throttle));
     }
+
+#if BUILDFLAG(IS_ANDROID)
+    CrossDeviceSigninFlowNavigationThrottle::MaybeCreateAndAdd(registry);
+#endif  // BUILDFLAG(IS_ANDROID)
   }
 
   DSEPrewarmNavigationThrottle::MaybeCreateAndAdd(registry);
@@ -312,7 +317,6 @@ void CreateAndAddChromeThrottlesForNavigation(
     navigation_interception::InterceptNavigationDelegate::MaybeCreateAndAdd(
         registry, navigation_interception::SynchronyMode::kAsync);
   }
-  InterceptOMADownloadNavigationThrottle::CreateAndAdd(registry);
 
 #if BUILDFLAG(DFMIFY_DEV_UI)
   // If the DevUI DFM is already installed, then this is a no-op, except for the
@@ -397,6 +401,12 @@ void CreateAndAddChromeThrottlesForNavigation(
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
   extensions::WebViewGuest::MaybeCreateAndAddNavigationThrottle(registry);
+#endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
+
+#else  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
+  guest_view::MaybeCreateAndAddSlimWebViewNavigationThrottle(registry);
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)

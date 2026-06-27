@@ -13,6 +13,7 @@ import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewStub;
 
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.cc.input.BrowserControlsState;
@@ -54,7 +55,7 @@ public class ChromeTabModalPresenter extends TabModalPresenter
     private final Activity mActivity;
 
     private final Supplier<TabObscuringHandler> mTabObscuringHandlerSupplier;
-    private final Supplier<@Nullable ToolbarManager> mToolbarManagerSupplier;
+    private final OneshotSupplier<ToolbarManager> mToolbarManagerSupplier;
     private final Runnable mHideContextualSearch;
     private final FullscreenManager mFullscreenManager;
     private final BrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
@@ -113,7 +114,7 @@ public class ChromeTabModalPresenter extends TabModalPresenter
     public ChromeTabModalPresenter(
             Activity activity,
             Supplier<TabObscuringHandler> tabObscuringHandlerSupplier,
-            Supplier<@Nullable ToolbarManager> toolbarManagerSupplier,
+            OneshotSupplier<ToolbarManager> toolbarManagerSupplier,
             Runnable hideContextualSearch,
             FullscreenManager fullscreenManager,
             BrowserControlsVisibilityManager browserControlsVisibilityManager,
@@ -282,14 +283,7 @@ public class ChromeTabModalPresenter extends TabModalPresenter
 
     /** Returns the {@link ToolbarManager} or null if it has been destroyed. */
     private @Nullable ToolbarManager getToolbarManager() {
-        try {
-            return mToolbarManagerSupplier.get();
-        } catch (AssertionError e) {
-            // mToolbarManagerSupplier.get() may throw an AssertionError if the toolbar has
-            // been destroyed during Activity destruction. See RootUiCoordinator#getToolbarManager.
-            e.printStackTrace();
-            return null;
-        }
+        return mToolbarManagerSupplier.get();
     }
 
     void setActiveTabForTesting(Tab tab) {
@@ -393,6 +387,15 @@ public class ChromeTabModalPresenter extends TabModalPresenter
 
     private void onTabModalDialogStateChanged(boolean isShowing) {
         assumeNonNull(mActiveTab);
+
+        if (mActiveTab.isDestroyed()) {
+            // If the tab is destroyed, we still need to update the visibility delegate
+            // to avoid locking browser controls.
+            mVisibilityDelegate.set(
+                    isShowing ? BrowserControlsState.SHOWN : BrowserControlsState.BOTH);
+            return;
+        }
+
         TabAttributes.from(mActiveTab).set(TabAttributeKeys.MODAL_DIALOG_SHOWING, isShowing);
         mVisibilityDelegate.set(
                 isDialogShowing(mActiveTab)

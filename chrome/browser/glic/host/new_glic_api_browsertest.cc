@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/functional/callback.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_logging_settings.h"
 #include "base/test/test_future.h"
@@ -20,9 +21,12 @@
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
+#include "chrome/browser/glic/suggestions/contextual_cueing_service_factory.h"
+#include "chrome/browser/glic/test_support/fake_contextual_cueing_service.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/glic/test_support/new_glic_api_test.h"
+#include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -61,13 +65,14 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "url/origin.h"
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
+#endif
+
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_tab_controller.h"
 #include "chrome/test/base/ui_test_utils.h"
-#endif
-
-#if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
 #endif
 
@@ -79,6 +84,11 @@
 // These are newly failing in test setup on desktop android.
 #if BUILDFLAG(IS_DESKTOP_ANDROID)
 #define DISABLE_ALL_TESTS
+#endif
+
+#if defined(ADDRESS_SANITIZER) || defined(THREAD_SANITIZER) || \
+    defined(MEMORY_SANITIZER)
+#define SLOW_BINARY
 #endif
 
 // MIGRATION IN PROGRESS:
@@ -127,10 +137,18 @@ namespace {
 std::vector<std::string> GetTestSuiteNames() {
   std::vector<std::string> names = {
       "NewGlicApiTest",
+      "NewGlicApiTestForNoWebUiLoader",
+      "NewGlicApiTestWithFastTimeout",
       "NewGlicApiTestWithWebContentsWarming",
       "NewGlicApiTestWithPixelOutput",
+      "NewGlicApiTestWithContextualCueing",
       "NewGlicApiTestWithGeminiActOnWebPolicy",
       "NewGlicApiMultiProfileTest",
+      "NewGlicApiTestWithDefaultTabContextDisabled",
+      "NewGlicApiTestWithDefaultTabContextEnabled",
+      "NewGlicApiTestWithWebActuationSettingDisabled",
+      "NewGlicApiTestWithWebActuationSettingEnabled",
+      "NewGlicApiTestWithProcessCounterAbuseVerdictDisabled",
 #if !BUILDFLAG(IS_ANDROID)
       "NewGlicApiTestWithSkills",
 #endif
@@ -152,6 +170,7 @@ struct TestParams {
   bool trust_first_onboarding_arm1 = false;
   bool trust_first_onboarding_arm2 = false;
   bool auto_open_pdf = false;
+  bool enable_no_web_ui_loader = false;
 };
 
 class WithTestParams : public testing::WithParamInterface<TestParams> {
@@ -173,6 +192,9 @@ class WithTestParams : public testing::WithParamInterface<TestParams> {
     if (info.param.auto_open_pdf) {
       result.push_back("AutoOpenPdf");
     }
+    if (info.param.enable_no_web_ui_loader) {
+      result.push_back("EnableNoWebUiLoader");
+    }
     if (result.empty()) {
       return "Default";
     }
@@ -190,15 +212,31 @@ class GlicApiTestPasskeys {
   }
 };
 
+std::unique_ptr<net::test_server::HttpResponse> SorryPageRequestHandler(
+    const net::test_server::HttpRequest& request) {
+  if (request.method != net::test_server::METHOD_GET ||
+      !base::StartsWith(request.relative_url, "/sorry/index.html")) {
+    return nullptr;
+  }
+  auto result = std::make_unique<net::test_server::BasicHttpResponse>();
+  result->set_code(net::HttpStatusCode::HTTP_OK);
+  result->set_content_type("text/html");
+  result->set_content("Sorry!");
+  return result;
+}
+
 class NewGlicApiTest : public GlicApiBrowserTest,
                        public WithTestParams,
                        public GlicApiTestPasskeys {
  public:
   NewGlicApiTest() : GlicApiBrowserTest("./new_glic_api_browsertest.js") {
+    embedded_test_server()->RegisterRequestHandler(
+        base::BindRepeating(&SorryPageRequestHandler));
     scoped_vmodule_switches_.InitWithSwitches("*glic*=1");
     features_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {{features::kGlic, {}},
+         {features::kGlicProcessCounterAbuseVerdict, {}},
          {features::kGlicWebContentsWarming,
           {// Effectively disable warming in this test, as it can make
            // understanding logs difficult. Note that disabling this feature
@@ -224,7 +262,6 @@ class NewGlicApiTest : public GlicApiBrowserTest,
         /*disabled_features=*/
         {
             features::kGlicWarming,
-            kGlicZeroStateSuggestions,
             features::kGlicDaisyChainNewTabs,
             features::kGlicCountryFiltering,
             features::kGlicLocaleFiltering,
@@ -241,14 +278,37 @@ class NewGlicApiTest : public GlicApiBrowserTest,
 
 #if !BUILDFLAG(IS_ANDROID)
   void CloseMainBrowserWithIncognitoKeepAlive() {
-    CreateIncognitoBrowser();
-    CloseBrowserAsynchronously(browser());
+    PlatformBrowserTest::CreateIncognitoBrowser();
+    CloseBrowserAsynchronously(GetBrowserWindowInterface());
   }
 #endif
 
  private:
   logging::ScopedVmoduleSwitches scoped_vmodule_switches_;
   base::test::ScopedFeatureList features_;
+};
+
+class NewGlicApiTestWithFastTimeout : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithFastTimeout() {
+    features_fast_timeout_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{
+            features::kGlicWebClientLoadTimes,
+            {
+#if defined(SLOW_BINARY)
+                {features::kGlicMaxLoadingTimeMs.name, "6000"},
+#else
+                {features::kGlicMaxLoadingTimeMs.name, "2000"},
+#endif
+            },
+        }},
+        /*disabled_features=*/
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList features_fast_timeout_;
 };
 
 class NewGlicApiMultiProfileTest : public NewGlicApiTest {
@@ -260,7 +320,7 @@ class NewGlicApiMultiProfileTest : public NewGlicApiTest {
         profile_manager->GenerateNextProfileDirectoryPath();
     Profile& new_profile =
         profiles::testing::CreateProfileSync(profile_manager, new_path);
-    return CreateBrowser(&new_profile);
+    return PlatformBrowserTest::CreateBrowser(&new_profile);
 #else
     NOTREACHED();
 #endif
@@ -283,7 +343,7 @@ class NewGlicApiTestWithWebContentsWarming : public NewGlicApiTest {
 
   void SetUpOnMainThread() override {
     NewGlicApiTest::SetUpOnMainThread();
-    coordinator().GetWebContentsWarmingPoolForTesting().Clear();
+    coordinator().GetWebContentsWarmingPoolForTesting().Clear(std::nullopt);
   }
 
  private:
@@ -298,6 +358,245 @@ class NewGlicApiTestWithPixelOutput : public NewGlicApiTest {
     EnablePixelOutput(2.0f);
   }
 };
+
+class NewGlicApiTestWithDefaultTabContextDisabled : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithDefaultTabContextDisabled() {
+    feature_list_.InitWithFeatures({},
+                                   {features::kGlicDefaultTabContextSetting});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithDefaultTabContextDisabled,
+                       testDefaultTabContextApiIsUndefinedWhenFeatureDisabled) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+class NewGlicApiTestForNoWebUiLoader : public NewGlicApiTest {
+ public:
+  NewGlicApiTestForNoWebUiLoader() {
+    if (GetParam().enable_no_web_ui_loader) {
+      feature_list_.InitWithFeatures({features::kGlicNoWebUiLoader}, {});
+    } else {
+      feature_list_.InitWithFeatures({}, {features::kGlicNoWebUiLoader});
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestForNoWebUiLoader, testNoWebUiLoader) {
+  ToggleGlicForActiveTab(/*prevent_close=*/true);
+  auto* instance = GetOnlyGlicInstance();
+  ASSERT_TRUE(instance);
+
+  WebUIStateListener listener(&instance->host());
+
+  ASSERT_OK(WaitForGlicOpen());
+
+  auto* web_contents = instance->host().webui_contents();
+  ASSERT_TRUE(web_contents);
+  ASSERT_TRUE(content::WaitForLoadStop(web_contents));
+
+  // Wait for kReady state to ensure loading is complete.
+  ASSERT_TRUE(WaitForWebUiState(mojom::WebUiState::kReady).has_value());
+
+  bool expect_loading = !GetParam().enable_no_web_ui_loader;
+  EXPECT_EQ(expect_loading, listener.SawState(mojom::WebUiState::kShowLoading));
+
+  ExecuteJsTest();
+}
+
+class NewGlicApiTestWithDefaultTabContextEnabled : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithDefaultTabContextEnabled() {
+    feature_list_.InitWithFeatures({features::kGlicDefaultTabContextSetting},
+                                   {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithDefaultTabContextEnabled,
+                       testGetDefaultTabContextPermissionState) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+  GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicDefaultTabContextEnabled,
+                                       false);
+  ContinueJsTest();
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithDefaultTabContextEnabled,
+                       testPinOnBind) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithDefaultTabContextEnabled,
+                       testNoPinOnBindWhenSettingOff) {
+  GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicDefaultTabContextEnabled,
+                                       false);
+
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+class NewGlicApiTestWithWebActuationSettingEnabled : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithWebActuationSettingEnabled() {
+    feature_list_.InitWithFeatures({features::kGlicWebActuationSetting}, {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithWebActuationSettingEnabled,
+                       testGetWebActuationSetting) {
+  service()->enabling().SetUserEnabledActuationOnWeb(false);
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+
+  service()->enabling().SetUserEnabledActuationOnWeb(true);
+  ContinueJsTest();
+}
+
+class NewGlicApiTestWithWebActuationSettingDisabled : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithWebActuationSettingDisabled() {
+    feature_list_.InitWithFeatures({}, {features::kGlicWebActuationSetting});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithWebActuationSettingDisabled,
+                       testWebActuationSettingIsUndefinedWhenFeatureDisabled) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+class NewGlicApiTestWithProcessCounterAbuseVerdictDisabled
+    : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithProcessCounterAbuseVerdictDisabled() {
+    feature_list_.InitAndDisableFeature(
+        features::kGlicProcessCounterAbuseVerdict);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(
+    NewGlicApiTestWithProcessCounterAbuseVerdictDisabled,
+    testProcessCounterAbuseVerdictIsUndefinedWhenFeatureDisabled) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+class NewGlicApiTestWithContextualCueing : public NewGlicApiTest {
+ public:
+  NewGlicApiTestWithContextualCueing() {
+    contextual_cueing_features_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{features::kGlicWebClientLoadTimes,
+          {
+              // Shorten load timeouts.
+              {features::kGlicPreLoadingTimeMs.name, "20"},
+              {features::kGlicMinLoadingTimeMs.name, "40"},
+          }},
+         {kGlicZeroStateSuggestions, {}},
+         {kContextualCueing, {}},
+         {mojom::features::kZeroStateSuggestionsV2, {}}},
+        /*disabled_features=*/
+        {});
+  }
+
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* browser_context) override {
+#if BUILDFLAG(IS_CHROMEOS)
+    if (!ash::IsUserBrowserContext(browser_context)) {
+      return;
+    }
+#endif
+    fake_cueing_service_ = static_cast<FakeContextualCueingService*>(
+        ContextualCueingServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+            browser_context,
+            base::BindRepeating([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+              return std::make_unique<FakeContextualCueingService>();
+            })));
+
+    NewGlicApiTest::SetUpBrowserContextKeyedServices(browser_context);
+  }
+
+  void TearDownOnMainThread() override {
+    fake_cueing_service_ = nullptr;
+    NewGlicApiTest::TearDownOnMainThread();
+  }
+
+  FakeContextualCueingService* fake_cueing_service() {
+    return fake_cueing_service_;
+  }
+
+ private:
+  raw_ptr<FakeContextualCueingService> fake_cueing_service_;
+  base::test::ScopedFeatureList contextual_cueing_features_;
+};
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithContextualCueing,
+                       testGetZeroStateSuggestionsForFocusedTabApi) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+  EXPECT_GE(fake_cueing_service()->focused_tab_call_count(), 1);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    NewGlicApiTestWithContextualCueing,
+    testGetZeroStateSuggestionsForFocusedTabFailsWhenHidden) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  PreventDeletionOnClose();
+  ExecuteJsTest();
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithContextualCueing,
+                       testGetZeroStateSuggestionsApi) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+  EXPECT_EQ(fake_cueing_service()->pinned_tabs_call_count(), 1);
+}
+
+// This test doesn't work for multi-instance.
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithContextualCueing,
+                       testGetZeroStateSuggestionsMultipleNavigations) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+}
+
+// This test doesn't work for multi-instance.
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithContextualCueing,
+                       testGetZeroStateSuggestionsFailsWhenHidden) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  PreventDeletionOnClose(nullptr);
+  ExecuteJsTest();
+
+  int initial_calls = fake_cueing_service()->focused_tab_call_count();
+
+  ASSERT_TRUE(content::NavigateToURL(
+      GetTabListInterface()->GetActiveTab()->GetContents(),
+      GetTestUrl("page.html?new")));
+
+  ContinueJsTest();
+  EXPECT_EQ(fake_cueing_service()->focused_tab_call_count(), initial_calls);
+}
 
 IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithWebContentsWarming,
                        testWebClientReadyOnPreload) {
@@ -360,6 +659,24 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testShowClientErrorDialog) {
       [&]() { return service()->GetAuthController().NeedsSyncForTesting(); }));
 }
 
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testReportClientTransientError) {
+  glic::GlicHistogramTester histogram_tester;
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+
+  // Wait for the histogram to be recorded.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester.GetAllSamples("Glic.Api.Client.TransientError")
+               .size() > 0;
+  }));
+  histogram_tester.ExpectUniqueSample("Glic.Api.Client.TransientError",
+                                      /*kUnauthenticated*/ 16, 1);
+
+  // Verify that the pref was set to true.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return service()->GetAuthController().NeedsSyncForTesting(); }));
+}
+
 IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testLoadWhileWindowClosed) {
   // Open Glic
   ToggleGlicForActiveTab();
@@ -384,7 +701,7 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testInitializeFailsWindowClosed) {
   ExecuteJsTest();
 }
 
-// TODO(crbug.com/503936424): Re-enable the test.
+// TODO(https://crbug.com/503936424): Flaky on Android.
 #if (defined(MEMORY_SANITIZER) && BUILDFLAG(IS_CHROMEOS)) || BUILDFLAG(IS_MAC)
 #define MAYBE_testInitializeFailsWindowOpen \
   DISABLED_testInitializeFailsWindowOpen
@@ -410,20 +727,184 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, MAYBE_testInitializeFailsWindowOpen) {
   ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kReady));
 }
 
-IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testReloadWebUi) {
+// TODO(crbug.com/409042450): This is a flaky on MSAN.
+#if defined(SLOW_BINARY)
+#define MAYBE_testReload DISABLED_testReload
+#else
+#define MAYBE_testReload testReload
+#endif
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, MAYBE_testReload) {
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  GlicClientConnectionObserver connection_observer(instance);
+  ExecuteJsTest({
+      .params = base::Value(
+          base::DictValue().Set("failWith", "reloadAfterInitialize")),
+  });
+  ASSERT_OK(connection_observer.WaitForConnected());
+  ASSERT_OK(connection_observer.WaitForDisconnected());
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set("failWith", "none")),
+  });
+}
+
+#define MAYBE_testSorryPageBeforeInitialize testSorryPageBeforeInitialize
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, MAYBE_testSorryPageBeforeInitialize) {
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set(
+          "failWith", "navigateToSorryPageBeforeInitialize")),
+  });
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kGuestError));
+  ASSERT_TRUE(instance->IsShowing());
+
+  // Simulate completing a captcha, navigating back.
+  ASSERT_EQ(true,
+            content::EvalJs(FindGlicGuestMainFrame(),
+                            std::string("(()=>{window.location = '") +
+                                GetGuestURL().spec() + "'; return true;})()"));
+
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kFinishLoading));
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set("failWith", "none")),
+  });
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testSorryPageAfterInitialize) {
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set(
+          "failWith", "navigateToSorryPageAfterInitialize")),
+  });
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kGuestError));
+  ASSERT_TRUE(instance->IsShowing());
+
+  // Simulate completing a captcha, navigating back.
+  ASSERT_EQ(true,
+            content::EvalJs(FindGlicGuestMainFrame(),
+                            std::string("(()=>{window.location = '") +
+                                GetGuestURL().spec() + "'; return true;})()"));
+
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kFinishLoading));
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set("failWith", "none")),
+  });
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testInitializeFailsAfterReload) {
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  GlicClientConnectionObserver connection_observer(instance);
+  ExecuteJsTest({
+      .params = base::Value(
+          base::DictValue().Set("failWith", "reloadAfterInitialize")),
+  });
+  ASSERT_OK(connection_observer.WaitForDisconnected());
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set("failWith", "error")),
+  });
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
+}
+
+// TODO(https://crbug.com/516659596): Re-enable on Linux debug builds.
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || !defined(NDEBUG)
+#define MAYBE_testNoClientCreated DISABLED_testNoClientCreated
+#else
+#define MAYBE_testNoClientCreated testNoClientCreated
+#endif
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithFastTimeout,
+                       MAYBE_testNoClientCreated) {
+#if defined(SLOW_BINARY)
+  GTEST_SKIP() << "skip timeout test for slow binary";
+#else
+  glic::GlicHistogramTester histogram_tester;
   ASSERT_OK(OpenGlicForActiveTab());
   ExecuteJsTest();
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester.GetBucketCount("Glic.Host.WebClientState.OnDestroy",
+                                           0 /*BOOTSTRAP_PENDING*/) > 0;
+  }));
+#endif
+}
 
-  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kReady));
-  GetOnlyGlicInstance()->host().Reload();
-  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kUninitialized));
+#if BUILDFLAG(IS_ANDROID) || defined(SLOW_BINARY)
+#define MAYBE_testNoBootstrap DISABLED_testNoBootstrap
+#else
+#define MAYBE_testNoBootstrap testNoBootstrap
+#endif
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithFastTimeout, MAYBE_testNoBootstrap) {
+  glic::GlicHistogramTester histogram_tester;
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester.GetBucketCount("Glic.Host.WebClientState.OnDestroy",
+                                           0 /*BOOTSTRAP_PENDING*/) > 0;
+  }));
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithFastTimeout,
+                       DISABLED_testInitializeTimesOut) {
+#if defined(SLOW_BINARY) || !BUILDFLAG(IS_LINUX)
+  GTEST_SKIP() << "skip timeout test is flaky on most bots";
+#else
+  glic::GlicHistogramTester histogram_tester;
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set("failWith", "timeout")),
+  });
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester.GetBucketCount("Glic.Host.WebClientState.OnDestroy",
+                                           3 /*WEB_CLIENT_NOT_INITIALIZED*/) >
+           0;
+  }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester.GetBucketCount("Glic.PanelWebUiState.Error",
+                                           5 /*TIMEOUT_WARMED*/) > 0;
+  }));
+  histogram_tester.ExpectTotalCount("Glic.PanelWebUiState.Error", 1);
+#endif
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testInitializeFails) {
+  glic::GlicHistogramTester histogram_tester;
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest({
+      .params = base::Value(base::DictValue().Set("failWith", "error")),
+  });
+  ASSERT_OK(WaitForWebUiState(mojom::WebUiState::kError));
+  EXPECT_GT(histogram_tester.GetBucketCount("Glic.PanelWebUiState.Error",
+                                            6 /*CLIENT_ERROR*/),
+            0);
+}
+
+// Flaky on slower bots / builds.
+// Also flaky on Android.
+#if defined(SLOW_BINARY) || BUILDFLAG(IS_ANDROID)
+#define MAYBE_testCloseAndOpenWhileOpening DISABLED_testCloseAndOpenWhileOpening
+#else
+#define MAYBE_testCloseAndOpenWhileOpening testCloseAndOpenWhileOpening
+#endif
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, MAYBE_testCloseAndOpenWhileOpening) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+  ASSERT_OK(OpenGlicForActiveTab());
+  ContinueJsTest();
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testReloadWebUi) {
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  GlicClientConnectionObserver connection_observer(instance);
+  ExecuteJsTest();
+  ASSERT_OK(connection_observer.WaitForConnected());
+  instance->host().Reload();
+  ASSERT_OK(connection_observer.WaitForDisconnected());
   ExecuteJsTest();
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return GetOnlyGlicInstance()->host().GetPageHandlersForTesting().size() ==
-           1;
+    return instance->host().GetPageHandlersForTesting().size() == 1;
   }));
-  ASSERT_TRUE(GetOnlyGlicInstance()->host().GetPrimaryPageHandlerForTesting());
+  ASSERT_TRUE(instance->host().GetPrimaryPageHandlerForTesting());
 }
 
 // Checks that all tests in new_glic_api_browsertest.ts have a corresponding
@@ -445,6 +926,19 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testDoNothing) {
             GetTestUrl("page.html"));
   ASSERT_OK(OpenGlicForActiveTab());
   ExecuteJsTest();
+}
+
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testProcessCounterAbuseVerdict) {
+  ASSERT_OK(OpenGlicForActiveTab());
+  ExecuteJsTest();
+
+  content::WebContents* active_contents =
+      GetTabListInterface()->GetActiveTab()->GetContents();
+
+  // Wait for the Safe Browsing interstitial to appear.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return chrome_browser_interstitials::IsShowingInterstitial(active_contents);
+  }));
 }
 
 // TODO(harringtond): Flaky on windows.
@@ -470,9 +964,7 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, MAYBE_testInvocationSource) {
 
     // Toggle Glic from source.
     coordinator().Toggle(GetBrowser(), /*prevent_close=*/false,
-                         /*source=*/source,
-                         /*deprecated_prompt_suggestion=*/std::nullopt,
-                         /*deprecated_conversation_id=*/std::nullopt);
+                         /*source=*/source);
 
     ASSERT_OK(WaitForGlicOpen());
 
@@ -517,25 +1009,12 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithPixelOutput, testFaviconIsUpdated) {
   ASSERT_OK(OpenGlicForActiveTab());
 
   ExecuteJsTest();
-
-  ASSERT_TRUE(
-      content::ExecJs(GetTabListInterface()->GetTab(0)->GetContents(), R"js(
-    var link = document.querySelector("link[rel~='icon']");
-    link.href = "./red.ico";
-  )js"));
-
-  ContinueJsTest();
 }
 
 IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithPixelOutput, testFaviconIsRemoved) {
   ASSERT_OK(OpenGlicForActiveTab());
 
   ExecuteJsTest();
-
-  ASSERT_TRUE(content::NavigateToURL(
-      GetTabListInterface()->GetActiveTab()->GetContents(),
-      GetTestUrl("page_no_favicon.html")));
-  ContinueJsTest();
 }
 
 IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithPixelOutput,
@@ -546,7 +1025,16 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithPixelOutput,
   ExecuteJsTest();
 }
 
-IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testInvokeWaitsForNotifyPanelWillOpen) {
+// TODO(crbug.com/512876414): Re-enable on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_testInvokeWaitsForNotifyPanelWillOpen \
+  DISABLED_testInvokeWaitsForNotifyPanelWillOpen
+#else
+#define MAYBE_testInvokeWaitsForNotifyPanelWillOpen \
+  testInvokeWaitsForNotifyPanelWillOpen
+#endif
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest,
+                       MAYBE_testInvokeWaitsForNotifyPanelWillOpen) {
   ASSERT_OK(OpenGlicForActiveTab());
   GlicInvokeOptions options(mojom::InvocationSource::kOsButton);
   options.target.surface = DefaultSurface{
@@ -742,20 +1230,6 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testGetPageMetadataUpdates) {
       embedded_test_server()->GetURL("/glic/browser_tests/test.html")));
   ASSERT_OK(OpenGlicForActiveTab());
   ExecuteJsTest();
-
-  // The JS test is now paused. We can now modify the page.
-  content::WebContents* web_contents =
-      GetTabListInterface()->GetActiveTab()->GetContents();
-  ASSERT_TRUE(web_contents);
-
-  // Change the content of the 'author' meta tag from "George" to "Ruth".
-  const char* script =
-      "document.querySelector('meta[name=\"author\"]').setAttribute('content', "
-      "'Ruth')";
-  ASSERT_TRUE(content::ExecJs(web_contents, script));
-
-  // Continue the JS test to verify the metadata update.
-  ContinueJsTest();
 }
 
 // TODO(harringtond): Times out on Android.
@@ -779,16 +1253,13 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, MAYBE_testGetPageMetadataTabDestroyed) {
        GetTabListInterface()->GetTab(1)->GetHandle()});
 
   ExecuteJsTest();
-  GetTabListInterface()->CloseTab(
-      GetTabListInterface()->GetTab(1)->GetHandle());
-  ContinueJsTest();
 }
 
 IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testAdditionalContext) {
   ASSERT_TRUE(content::NavigateToURL(
       GetTabListInterface()->GetActiveTab()->GetContents(),
       embedded_test_server()->GetURL("/glic/browser_tests/test.html")));
-  ASSERT_OK(OpenGlicForActiveTab());
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
   ExecuteJsTest();
 
   // The JS test is now paused.
@@ -802,7 +1273,7 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testAdditionalContext) {
   std::vector<uint8_t> data = {'t', 'e', 's', 't'};
   additional_context->parts.push_back(
       glic::mojom::AdditionalContextPart::NewData(glic::mojom::ContextData::New(
-          "text/plain", mojo_base::BigBuffer(data))));
+          "text/plain", mojo_base::BigBuffer(data), std::nullopt)));
 
   // Add a part with a screenshot.
   std::vector<uint8_t> screenshot_data = {1, 2, 3, 4};
@@ -846,20 +1317,41 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testAdditionalContext) {
       glic::mojom::AdditionalContextPart::NewRegion(
           glic::mojom::CapturedRegion::NewRect(gfx::Rect(10, 20, 30, 40))));
 
-  service()->SendAdditionalContext(
-      GetTabListInterface()->GetActiveTab()->GetHandle(),
-      std::move(additional_context));
+  instance->SendAdditionalContext(std::move(additional_context));
 
   ContinueJsTest();
 }
 
+IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testAdditionalContextQueued) {
+  ASSERT_TRUE(content::NavigateToURL(
+      GetTabListInterface()->GetActiveTab()->GetContents(),
+      embedded_test_server()->GetURL("/glic/browser_tests/test.html")));
+
+  ToggleGlicForActiveTab(/*prevent_close=*/true);
+  auto* instance = GetOnlyGlicInstance();
+  ASSERT_TRUE(instance);
+
+  glic::mojom::AdditionalContextPtr additional_context =
+      glic::mojom::AdditionalContext::New();
+  additional_context->name = "queued part";
+  additional_context->tab_id = 1;
+  additional_context->frameUrl = GURL("http://example.com");
+
+  std::vector<uint8_t> data = {'q', 'u', 'e', 'u', 'e', 'd'};
+  additional_context->parts.push_back(
+      glic::mojom::AdditionalContextPart::NewData(glic::mojom::ContextData::New(
+          "text/plain", mojo_base::BigBuffer(data), std::nullopt)));
+
+  instance->SendAdditionalContext(std::move(additional_context));
+
+  ASSERT_OK(WaitForGlicOpen());
+
+  ExecuteJsTest();
+}
+
 IN_PROC_BROWSER_TEST_P(NewGlicApiTest, testCancelActions) {
   ASSERT_OK(OpenGlicForActiveTab());
-  // Task with id 12345 does not exist.
-  ExecuteJsTest({.params = base::Value(12345)});
-  EXPECT_EQ(std::to_underlying(glic::mojom::CancelActionsResult::kTaskNotFound),
-            step_data()->GetInt());
-  ContinueJsTest();
+  ExecuteJsTest();
 }
 
 class NewGlicApiTestWithGeminiActOnWebPolicy : public NewGlicApiTest {
@@ -1109,7 +1601,7 @@ IN_PROC_BROWSER_TEST_P(NewGlicApiTestWithSkills,
 #if !BUILDFLAG(IS_ANDROID)  // TODO(harringtond): Enable skills on Android.
   ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTabAndDetach());
   BrowserWindowInterface* browser_to_close = GetBrowserWindowInterface();
-  CreateIncognitoBrowser();
+  PlatformBrowserTest::CreateIncognitoBrowser();
   CloseBrowserAsynchronously(browser_to_close);
 
   ui_test_utils::WaitForBrowserToClose(browser_to_close);
@@ -1143,12 +1635,22 @@ INSTANTIATE_TEST_SUITE_P(,
                          &WithTestParams::PrintTestVariant);
 
 INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithFastTimeout,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(,
                          NewGlicApiTestWithWebContentsWarming,
                          DefaultTestParamSet(),
                          &WithTestParams::PrintTestVariant);
 
 INSTANTIATE_TEST_SUITE_P(,
                          NewGlicApiTestWithPixelOutput,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithContextualCueing,
                          DefaultTestParamSet(),
                          &WithTestParams::PrintTestVariant);
 
@@ -1162,6 +1664,38 @@ INSTANTIATE_TEST_SUITE_P(,
                          DefaultTestParamSet(),
                          &WithTestParams::PrintTestVariant);
 
+INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithDefaultTabContextDisabled,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithDefaultTabContextEnabled,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    NewGlicApiTestForNoWebUiLoader,
+    testing::Values(TestParams{.enable_no_web_ui_loader = false},
+                    TestParams{.enable_no_web_ui_loader = true}),
+    &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithWebActuationSettingDisabled,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithWebActuationSettingEnabled,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
+INSTANTIATE_TEST_SUITE_P(,
+                         NewGlicApiTestWithProcessCounterAbuseVerdictDisabled,
+                         DefaultTestParamSet(),
+                         &WithTestParams::PrintTestVariant);
+
 // Skills are not supported yet on Android.
 #if !BUILDFLAG(IS_ANDROID)
 INSTANTIATE_TEST_SUITE_P(,
@@ -1171,12 +1705,26 @@ INSTANTIATE_TEST_SUITE_P(,
 #endif
 #else
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NewGlicApiTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NewGlicApiTestWithFastTimeout);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
     NewGlicApiTestWithWebContentsWarming);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NewGlicApiTestWithPixelOutput);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    NewGlicApiTestWithContextualCueing);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
     NewGlicApiTestWithGeminiActOnWebPolicy);
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NewGlicApiMultiProfileTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    NewGlicApiTestWithDefaultTabContextDisabled);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    NewGlicApiTestWithDefaultTabContextEnabled);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    NewGlicApiTestWithWebActuationSettingDisabled);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    NewGlicApiTestWithWebActuationSettingEnabled);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    NewGlicApiTestWithProcessCounterAbuseVerdictDisabled);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NewGlicApiTestForNoWebUiLoader);
 #if !BUILDFLAG(IS_ANDROID)
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NewGlicApiTestWithSkills);
 #endif

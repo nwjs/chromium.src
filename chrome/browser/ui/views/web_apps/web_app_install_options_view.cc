@@ -14,20 +14,20 @@
 #include "chrome/browser/web_applications/icons/icon_masker.h"
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
-#include "chrome/grit/theme_resources.h"
 #include "components/url_formatter/elide_url.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
-#include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/shadow_value.h"
-#include "ui/views/background.h"
+#include "ui/gfx/text_elider.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/image_view.h"
@@ -37,13 +37,16 @@
 #include "ui/views/style/typography.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
-#include "ui/views/view_shadow.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace web_app {
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(WebAppInstallOptionsView, kViewId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(WebAppInstallOptionsView,
+                                      kCreateShortcutCheckboxId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(WebAppInstallOptionsView,
+                                      kPinToTaskbarCheckboxId);
 
 namespace {
 
@@ -85,8 +88,7 @@ views::Builder<views::BoxLayoutView> CreateIconWithLabelView(
     const ui::ImageModel& image_model,
     const std::u16string& label_text,
     const gfx::Size& image_size,
-    int corner_radius = 0,
-    raw_ptr<views::ImageView>* icon_view_out = nullptr) {
+    int corner_radius = 0) {
   auto image_builder = views::Builder<views::ImageView>()
                            .SetImage(image_model)
                            .SetImageSize(image_size)
@@ -94,51 +96,80 @@ views::Builder<views::BoxLayoutView> CreateIconWithLabelView(
   if (corner_radius > 0) {
     image_builder.SetCornerRadius(corner_radius);
   }
-  if (icon_view_out) {
-    image_builder.CopyAddressTo(icon_view_out);
-  }
+
+  auto label_builder = views::Builder<views::Label>()
+                           .SetText(label_text)
+                           .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
+                           .SetTextStyle(views::style::STYLE_SECONDARY);
 
   return views::Builder<views::BoxLayoutView>()
       .SetOrientation(views::BoxLayout::Orientation::kVertical)
       .SetMainAxisAlignment(views::BoxLayout::MainAxisAlignment::kCenter)
-      .AddChildren(std::move(image_builder),
-                   views::Builder<views::Label>()
-                       .SetText(label_text)
-                       .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
-                       .SetTextStyle(views::style::STYLE_SECONDARY));
+      .AddChildren(std::move(image_builder), std::move(label_builder));
+}
+
+// Creates an Icon View for the PWA app with a label displaying the app's
+// start URL formatted for security display.
+views::Builder<views::BoxLayoutView> CreateIconWithUrlView(
+    const ui::ImageModel& image_model,
+    const GURL& start_url,
+    const gfx::Size& image_size,
+    raw_ptr<views::ImageView>* icon_view_out) {
+  auto image_builder = views::Builder<views::ImageView>()
+                           .SetImage(image_model)
+                           .SetImageSize(image_size)
+                           .SetPreferredSize(image_size);
+  if (icon_view_out) {
+    image_builder.CopyAddressTo(icon_view_out);
+  }
+
+  const gfx::FontList& font_list = views::TypographyProvider::Get().GetFont(
+      CONTEXT_DIALOG_BODY_TEXT_SMALL, views::style::STYLE_SECONDARY);
+  std::u16string display_text =
+      url_formatter::ElideHost(start_url, font_list, image_size.width());
+
+  auto label_builder = views::Builder<views::Label>()
+                           .SetText(display_text)
+                           .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
+                           .SetTextStyle(views::style::STYLE_SECONDARY);
+
+  return views::Builder<views::BoxLayoutView>()
+      .SetOrientation(views::BoxLayout::Orientation::kVertical)
+      .SetMainAxisAlignment(views::BoxLayout::MainAxisAlignment::kCenter)
+      .AddChildren(std::move(image_builder), std::move(label_builder));
 }
 
 }  // namespace
 
+WebAppInstallOptionsView::OptionsData::OptionsData() = default;
+WebAppInstallOptionsView::OptionsData::OptionsData(OptionsData&&) noexcept =
+    default;
+WebAppInstallOptionsView::OptionsData::~OptionsData() = default;
+
 // static
 std::unique_ptr<WebAppInstallOptionsView> WebAppInstallOptionsView::Create(
-    InstallOsType os_type,
-    const std::u16string& title,
-    const gfx::ImageSkia& icon_image,
-    const gfx::ImageSkia& large_icon_image,
-    bool is_maskable,
-    const GURL& start_url) {
-  return base::WrapUnique(new WebAppInstallOptionsView(
-      os_type, title, icon_image, large_icon_image, is_maskable, start_url));
+    OptionsData options_data) {
+  return base::WrapUnique(
+      new WebAppInstallOptionsView(std::move(options_data)));
 }
 
-WebAppInstallOptionsView::WebAppInstallOptionsView(
-
-    InstallOsType os_type,
-    const std::u16string& title,
-    const gfx::ImageSkia& icon_image,
-    const gfx::ImageSkia& large_icon_image,
-    bool is_maskable,
-    const GURL& start_url) {
+WebAppInstallOptionsView::WebAppInstallOptionsView(OptionsData options_data) {
+  if (options_data.os_type == InstallOsType::kMac) {
+    CHECK(options_data.folder_image_model.has_value());
+    CHECK(options_data.folder_label.has_value());
+  } else {
+    CHECK(!options_data.folder_image_model.has_value());
+    CHECK(!options_data.folder_label.has_value());
+  }
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical, gfx::Insets(10), 10));
   SetProperty(views::kElementIdentifierKey, kViewId);
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
 
-  switch (os_type) {
+  switch (options_data.os_type) {
     case InstallOsType::kCros: {
-      gfx::ImageSkia displayed_image =
-          ApplyShadowToIcon(GetStandardizedIcon(large_icon_image, is_maskable));
+      gfx::ImageSkia displayed_image = ApplyShadowToIcon(GetStandardizedIcon(
+          options_data.large_icon_image, options_data.is_maskable));
 
       AddChildView(
           views::Builder<views::BoxLayoutView>()
@@ -149,16 +180,16 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                   views::LayoutProvider::Get()->GetDistanceMetric(
                       views::DISTANCE_RELATED_CONTROL_HORIZONTAL))
               .AddChildren(
-                  CreateIconWithLabelView(
+                  CreateIconWithUrlView(
                       ui::ImageModel::FromImageSkia(displayed_image),
-                      url_formatter::FormatOriginForSecurityDisplay(
-                          url::Origin::Create(start_url),
-                          url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS),
-                      displayed_image.size(),
-                      /*corner_radius=*/0, &icon_view_),
+                      options_data.start_url, displayed_image.size(),
+                      &icon_view_),
                   views::Builder<views::ImageView>()
                       .SetImage(ui::ImageModel::FromVectorIcon(
-                          kArrowForwardIcon, ui::kColorIcon))
+                          features::IsRoundedIconsEnabled()
+                              ? kArrowForwardIcon
+                              : kArrowForwardOldIcon,
+                          ui::kColorIcon))
                       .SetPreferredSize(
                           gfx::Size(kIconArrowSize, kIconArrowSize)),
                   CreateIconWithLabelView(
@@ -176,7 +207,8 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                        .CopyAddressTo(&pin_to_shelf_checkbox_)
                        .Build());
 
-      MaybeApplyOsIconMasking(large_icon_image, is_maskable);
+      MaybeApplyOsIconMasking(options_data.large_icon_image,
+                              options_data.is_maskable);
 
       break;
     }
@@ -192,7 +224,8 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                       .SetBetweenChildSpacing(10)
                       .AddChildren(
                           views::Builder<views::ImageView>().SetImage(
-                              ui::ImageModel::FromImageSkia(icon_image)),
+                              ui::ImageModel::FromImageSkia(
+                                  options_data.icon_image)),
                           views::Builder<views::BoxLayoutView>()
                               .SetOrientation(
                                   views::BoxLayout::Orientation::kVertical)
@@ -208,7 +241,7 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                                   views::Builder<views::Label>()
                                       .SetText(l10n_util::GetStringFUTF16(
                                           IDS_WEB_APP_INSTALL_CHROME_APPS_LOCATION,
-                                          title))
+                                          options_data.title))
                                       .SetTextContext(
                                           views::style::CONTEXT_LABEL)
                                       .SetTextStyle(
@@ -217,17 +250,22 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                       .SetText(l10n_util::GetStringUTF16(
                           IDS_WEB_APP_INSTALL_CREATE_DESKTOP_SHORTCUT))
                       .SetChecked(true)
-                      .CopyAddressTo(&add_desktop_shortcut_checkbox_),
+                      .CopyAddressTo(&add_desktop_shortcut_checkbox_)
+                      .SetProperty(views::kElementIdentifierKey,
+                                   kCreateShortcutCheckboxId),
                   views::Builder<views::Checkbox>()
                       .SetText(l10n_util::GetStringUTF16(
                           IDS_WEB_APP_INSTALL_PIN_TO_TASKBAR))
                       .SetChecked(true)
-                      .CopyAddressTo(&pin_to_task_bar_checkbox_))
+                      .CopyAddressTo(&pin_to_task_bar_checkbox_)
+                      .SetProperty(views::kElementIdentifierKey,
+                                   kPinToTaskbarCheckboxId))
               .Build());
       break;
     }
     case InstallOsType::kMac: {
-      gfx::ImageSkia displayed_image = ApplyShadowToIcon(large_icon_image);
+      gfx::ImageSkia displayed_image =
+          ApplyShadowToIcon(options_data.large_icon_image);
 
       AddChildView(
           views::Builder<views::BoxLayoutView>()
@@ -240,13 +278,10 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                   views::LayoutProvider::Get()->GetDistanceMetric(
                       views::DISTANCE_RELATED_CONTROL_HORIZONTAL))
               .AddChildren(
-                  CreateIconWithLabelView(
+                  CreateIconWithUrlView(
                       ui::ImageModel::FromImageSkia(displayed_image),
-                      url_formatter::FormatOriginForSecurityDisplay(
-                          url::Origin::Create(start_url),
-                          url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS),
-                      displayed_image.size(),
-                      /*corner_radius=*/0, &icon_view_),
+                      options_data.start_url, displayed_image.size(),
+                      &icon_view_),
                   views::Builder<views::ImageView>()
                       .SetImage(ui::ImageModel::FromVectorIcon(
                           kPwaInstallArrowCustomIcon, ui::kColorIcon,
@@ -255,24 +290,18 @@ WebAppInstallOptionsView::WebAppInstallOptionsView(
                           gfx::Size(kMacArrowWidth, kMacArrowHeight))
                       .SetBorder(views::CreateEmptyBorder(
                           gfx::Insets::TLBR(0, 0, kMacArrowBottomPadding, 0))),
-                  views::Builder<views::Label>()
-                      // TODO(crbug.com/507108235): Replace with
-                      // Mac Apps Folder.
-                      .SetText(u"[Apps Folder]")
-                      .SetTooltipText(u"Apps Folder Placeholder"))
+                  CreateIconWithLabelView(
+                      options_data.folder_image_model.value(),
+                      options_data.folder_label.value(),
+                      gfx::Size(kLargeImageSize, kLargeImageSize)))
               .Build());
 
-      MaybeApplyOsIconMasking(large_icon_image, is_maskable);
+      MaybeApplyOsIconMasking(options_data.large_icon_image,
+                              options_data.is_maskable);
       break;
     }
     case InstallOsType::kOther:
-    default:
-      // TODO(b/492663415): Implement kOther installation options.
-      AddChildView(views::Builder<views::Label>()
-                       // TODO(crbug.com/503767931): Localize this string.
-                       .SetText(u"Installer options Other view.")
-                       .Build());
-      break;
+      NOTREACHED();
   }
 }
 
@@ -336,5 +365,8 @@ void WebAppInstallOptionsView::SetPinToTaskBarCheckedForTesting(bool checked) {
 base::WeakPtr<WebAppInstallOptionsView> WebAppInstallOptionsView::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
+
+BEGIN_METADATA(WebAppInstallOptionsView)
+END_METADATA
 
 }  // namespace web_app

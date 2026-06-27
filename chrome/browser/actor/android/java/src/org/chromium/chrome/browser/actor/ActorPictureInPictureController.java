@@ -13,6 +13,7 @@ import android.content.res.Configuration;
 import android.graphics.drawable.Icon;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Rational;
 import android.util.Size;
 import android.view.ViewGroup;
@@ -22,6 +23,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
 import androidx.core.pip.BasicPictureInPicture;
 import androidx.core.pip.PictureInPictureDelegate;
+import androidx.lifecycle.Lifecycle;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
@@ -71,7 +73,10 @@ public class ActorPictureInPictureController
     private boolean mInActorPiP;
     private @Nullable ActorPictureInPictureOverlayCoordinator mPipOverlayCoordinator;
     private @Nullable Runnable mExitPipRunnable;
+    private @Nullable Runnable mTabSelectRunnable;
     private @Nullable Tab mActingTab;
+    private boolean mReceivedNewIntent;
+    private long mPipStartTime;
 
     /**
      * @param activity The ComponentActivity.
@@ -106,6 +111,26 @@ public class ActorPictureInPictureController
         mPipDelegate.addOnPictureInPictureEventListener(
                 ContextCompat.getMainExecutor(activity), this);
         updatePipState();
+    }
+
+    /**
+     * Called when the Activity receives a new intent.
+     *
+     * <p>ActorPictureInPictureController will automatically perform a tab routing attempt when PiP
+     * exits. In cases where PiP exits due to non-actor initiated intent (e.g. VIEW intent), we
+     * should not perform the tab routing.
+     *
+     * @param intent The new intent.
+     */
+    public void onNewIntent(Intent intent) {
+        boolean isActorIntent =
+                intent.getBooleanExtra(ActorNotificationFactory.EXTRA_SHOW_ACTOR_CONTROL, false);
+
+        // We only record mReceivedNewIntent when actor is in pip and we get intent from somewhere
+        // that is not for actor, so in this case we shouldn't open tab.
+        if (mInActorPiP && !isActorIntent) {
+            mReceivedNewIntent = true;
+        }
     }
 
     /** Checks if there are active Actor tasks. */
@@ -187,7 +212,7 @@ public class ActorPictureInPictureController
         ActorKeyedService service = maybeGetActorService();
         ActorTask task = (service != null) ? service.getTask(taskId) : null;
 
-        if (task != null && task.isCompleted()) {
+        if (ActorUtils.isCompletedState(newState) || (task != null && task.isCompleted())) {
             stopOffscreenRendering();
             checkAndExitPipIfFinished();
         } else if (shouldEnterPip()) {
@@ -209,16 +234,19 @@ public class ActorPictureInPictureController
 
         if (mExitPipRunnable != null) return;
 
-        Log.i(TAG, "No active tasks remaining. Scheduling PiP exit in 1 hour.");
+        Log.i(TAG, "No active tasks remaining. Scheduling PiP exit in 1 min.");
         mExitPipRunnable =
                 () -> {
                     mExitPipRunnable = null;
                     if (mInActorPiP && !shouldEnterPip()) {
-                        Log.i(TAG, "Exiting PiP after 1 hour delay.");
+                        Log.i(TAG, "Exiting PiP after 1 min delay.");
                         mInActorPiP = false;
                         hideOverlay();
                         mActivity.moveTaskToBack(true);
                         ActorMetrics.recordPipStatus(ActorMetrics.ActorPipStatus.EXITED);
+                        ActorMetrics.recordPipExitReason(ActorMetrics.ActorPipExitReason.COMPLETED);
+                        long duration = SystemClock.elapsedRealtime() - mPipStartTime;
+                        ActorMetrics.recordPipDuration(duration);
                     }
                 };
         mHandler.postDelayed(mExitPipRunnable, PIP_EXIT_DELAY_MS);
@@ -269,15 +297,8 @@ public class ActorPictureInPictureController
 
     private @Nullable RemoteAction createPauseResumeActionForState(
             @ActorTaskId int taskId, @ActorTaskState int state) {
-        boolean isWorking =
-                (state == ActorTaskState.CREATED
-                        || state == ActorTaskState.ACTING
-                        || state == ActorTaskState.REFLECTING);
-
-        boolean isPaused =
-                (state == ActorTaskState.PAUSED_BY_ACTOR
-                        || state == ActorTaskState.PAUSED_BY_USER
-                        || state == ActorTaskState.WAITING_ON_USER);
+        boolean isWorking = ActorUtils.isRunningState(state);
+        boolean isPaused = ActorUtils.isPausedState(state);
 
         if (!isWorking && !isPaused) return null;
 
@@ -325,7 +346,13 @@ public class ActorPictureInPictureController
     }
 
     private void enterPictureInPicture() {
+        if (mTabSelectRunnable != null) {
+            mHandler.removeCallbacks(mTabSelectRunnable);
+            mTabSelectRunnable = null;
+        }
         mInActorPiP = true;
+        mPipStartTime = SystemClock.elapsedRealtime();
+        mReceivedNewIntent = false;
         mActingTab = getCurrentActingTab();
         ActorMetrics.recordPipStatus(ActorMetrics.ActorPipStatus.ENTERED);
         startOffscreenRendering();
@@ -338,14 +365,44 @@ public class ActorPictureInPictureController
 
         mInActorPiP = false;
         ActorMetrics.recordPipStatus(ActorMetrics.ActorPipStatus.EXITED);
+
+        long duration = SystemClock.elapsedRealtime() - mPipStartTime;
+        ActorMetrics.recordPipDuration(duration);
+
+        // Delay the tab selection to ensure it runs after onNewIntent has been processed.
+        // This allows us to detect if the expansion was caused by a new intent (e.g. launcher icon
+        // or external link) vs a manual expand button click.
+        mTabSelectRunnable =
+                () -> {
+                    mTabSelectRunnable = null;
+                    if (mActivity
+                            .getLifecycle()
+                            .getCurrentState()
+                            .isAtLeast(Lifecycle.State.STARTED)) {
+                        maybeSelectActingTabOnExpand();
+                    } else {
+                        ActorMetrics.recordPipExitReason(ActorMetrics.ActorPipExitReason.CLOSE);
+                    }
+                };
+        mHandler.post(mTabSelectRunnable);
+
         stopOffscreenRendering();
-        maybeSelectActingTabOnExpand();
         hideOverlay();
         updatePipState();
         cancelPendingExit();
     }
 
     private void maybeSelectActingTabOnExpand() {
+        // If the activity was resumed with a new intent that is not an Actor intent (e.g. launcher
+        // icon, external link), we should not select the acting tab. This allows the normal
+        // Chrome intent handling to take over.
+        if (mReceivedNewIntent) {
+            mReceivedNewIntent = false;
+            ActorMetrics.recordPipExitReason(ActorMetrics.ActorPipExitReason.CLOSE);
+            return;
+        }
+
+        ActorMetrics.recordPipExitReason(ActorMetrics.ActorPipExitReason.EXPAND);
         ActorMetrics.recordPipUserInteraction(ActorMetrics.ActorPipUserInteraction.EXPAND);
         TabModelSelector selector = mTabModelSelectorSupplier.get();
         if (selector == null) return;
@@ -385,6 +442,10 @@ public class ActorPictureInPictureController
     /** Called when the Activity is destroyed. */
     public void destroy() {
         cancelPendingExit();
+        if (mTabSelectRunnable != null) {
+            mHandler.removeCallbacks(mTabSelectRunnable);
+            mTabSelectRunnable = null;
+        }
         if (mPipOverlayCoordinator != null) {
             mPipOverlayCoordinator.destroy();
             mPipOverlayCoordinator = null;
@@ -392,12 +453,16 @@ public class ActorPictureInPictureController
 
         if (mActorService != null) {
             for (ActorTask task : mActorService.getActiveTasks()) {
-                mActorService.stopTask(task.getId(), StoppedReason.STOPPED_BY_USER);
+                mActorService.stopTask(task.getId(), StoppedReason.SHUTDOWN);
             }
             mActorService.removeObserver(this);
             mActorService = null;
         }
-        mPipDelegate.setEnabled(false);
+        // If the activity is finishing/destroyed, the OS will sweep up PiP parameters
+        // automatically.
+        if (!mActivity.isFinishing() && !mActivity.isDestroyed()) {
+            mPipDelegate.setEnabled(false);
+        }
         OffscreenRenderingManager.getInstance().destroy();
     }
 

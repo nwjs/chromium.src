@@ -656,6 +656,7 @@ mojom("url_loader_base") {
     "cross_origin_embedder_policy.mojom",
     "cross_origin_opener_policy.mojom",
     "data_pipe_getter.mojom",
+    "declarative_performance_observer.mojom",
     "device_bound_sessions.mojom",
     "devtools_observer.mojom",
     "document_isolation_policy.mojom",
@@ -890,6 +891,19 @@ mojom("url_loader_base") {
         {
           mojom = "network.mojom.HttpRequestHeaders"
           cpp = "::net::HttpRequestHeaders"
+        },
+      ]
+      traits_headers = [
+        "//services/network/public/cpp/http_request_headers_mojom_traits.h",
+      ]
+      traits_public_deps = [ "//net" ]
+    },
+    {
+      types = [
+        {
+          mojom = "network.mojom.HttpRequestHeadersUpdateParams"
+          cpp = "::network::HttpRequestHeadersUpdateParams"
+          move_only = true
         },
       ]
       traits_headers = [
@@ -1213,6 +1227,12 @@ mojom("mojom_network_param") {
     "//mojo/public/mojom/base",
     "//url/mojom:url_mojom_scheme_host_port",
   ]
+
+  enabled_features = []
+
+  if (chrome_root_store_supported) {
+    enabled_features += [ "is_chrome_root_store_supported" ]
+  }
 
   if (!is_ios) {
     export_class_attribute_blink = "BLINK_PLATFORM_EXPORT"

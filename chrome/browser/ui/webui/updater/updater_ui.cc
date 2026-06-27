@@ -130,6 +130,7 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
       {"filterChipEventType", IDS_UPDATER_FILTER_CHIP_EVENT_TYPE},
       {"filterChipUpdateOutcome", IDS_UPDATER_FILTER_CHIP_UPDATE_OUTCOME},
       {"filterChipUpdaterScope", IDS_UPDATER_FILTER_CHIP_UPDATER_SCOPE},
+      {"helpCenterTooltip", IDS_UPDATER_HELP_CENTER_TOOLTIP},
       {"inactiveVersions", IDS_UPDATER_INACTIVE_VERSIONS_LABEL},
       {"installPath", IDS_UPDATER_INSTALL_PATH_LABEL},
       {"installSummary", IDS_UPDATER_INSTALL_SUMMARY},
@@ -137,6 +138,7 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
       {"internal", IDS_UPDATER_INTERNAL},
       {"lastChecked", IDS_UPDATER_LAST_CHECKED_LABEL},
       {"lastStarted", IDS_UPDATER_LAST_STARTED_LABEL},
+      {"learnMore", IDS_UPDATER_LEARN_MORE},
       {"loadHistoryFile", IDS_UPDATER_LOAD_HISTORY_FILE},
       {"loadHistoryFileError", IDS_UPDATER_LOAD_HISTORY_FILE_ERROR},
       {"never", IDS_UPDATER_NEVER},
@@ -182,6 +184,7 @@ UpdaterUI::UpdaterUI(content::WebUI* web_ui)
       {"updaterVersion", IDS_UPDATER_UPDATER_VERSION},
       {"versionColumn", IDS_UPDATER_VERSION_COLUMN},
       {"versionLabel", IDS_UPDATER_VERSION_LABEL},
+      {"viewAllChromePolicies", IDS_UPDATER_VIEW_ALL_CHROME_POLICIES},
       {"viewRawDetails", IDS_UPDATER_VIEW_RAW_DETAILS},
   });
 

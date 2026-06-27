@@ -99,6 +99,17 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(/components/send_tab_to_self/metrics_util.h:AutoOpenOutcome) -->
 
+<!-- LINT.IfChange(SendTabToSelfFormFieldMatchOutcome) -->
+
+<enum name="SendTabToSelfFormFieldMatchOutcome">
+  <int value="0" label="Strict Match (ID, Name, Type)"/>
+  <int value="1" label="Signature Match"/>
+  <int value="2" label="Exact Type Set Match"/>
+  <int value="3" label="No Match (includes origin mismatches)"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/send_tab_to_self/metrics_util.h:FormFieldMatchOutcome) -->
+
 <!-- LINT.IfChange(SendTabToSelfScrollPositionGenerationOutcome) -->
 
 <enum name="SendTabToSelfScrollPositionGenerationOutcome">
@@ -129,6 +140,16 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="REMOVE_PAGE_INFO"/>
   <int value="12" label="SHARE_AS_TAB_GROUP"/>
 </enum>
+
+<!-- LINT.IfChange(SharingShareSheetLongScreenshotsBitmapGenerationStatus) -->
+
+<enum name="SharingShareSheetLongScreenshotsBitmapGenerationStatus">
+  <int value="0" label="Capture Completed"/>
+  <int value="1" label="Insufficient Memory"/>
+  <int value="2" label="General Generation Error"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/share/android/java/src/org/chromium/chrome/browser/share/long_screenshots/LongScreenshotsUtils.java:BitmapGeneratorStatus) -->
 
 </enums>
 

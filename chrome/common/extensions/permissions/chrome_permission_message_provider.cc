@@ -146,8 +146,9 @@ void ChromePermissionMessageProvider::AddHostPermissions(
   // access user data on other domains, so there's no need to prompt.
   // Note: this must remain consistent with IsHostPrivilegeIncrease.
   // See crbug.com/40323545.
-  if (extension_type == Manifest::TYPE_PLATFORM_APP)
+  if (extension_type == Manifest::Type::kPlatformApp) {
     return;
+  }
 
   if (permissions.ShouldWarnAllHosts()) {
     permission_ids->insert(APIPermissionID::kHostsAll);
@@ -186,13 +187,6 @@ bool ChromePermissionMessageProvider::IsAPIOrManifestPrivilegeIncrease(
   if (requested_permissions.ShouldWarnAllHosts())
     potential_total_ids.insert(APIPermissionID::kHostsAll);
 
-  // For M62, we added a new permission ID for new tab page overrides. Consider
-  // the addition of this permission to not result in a privilege increase for
-  // the time being.
-  // TODO(robertshield): Remove this once most of the population is on M62+
-  granted_ids.erase(APIPermissionID::kNewTabPageOverride);
-  potential_total_ids.erase(APIPermissionID::kNewTabPageOverride);
-
   // If all the IDs were already there, it's not a privilege increase.
   if (granted_ids.Includes(potential_total_ids))
     return false;
@@ -225,8 +219,9 @@ bool ChromePermissionMessageProvider::IsHostPrivilegeIncrease(
     Manifest::Type extension_type) const {
   // Platform apps host permission changes do not count as privilege increases.
   // Note: this must remain consistent with AddHostPermissions.
-  if (extension_type == Manifest::TYPE_PLATFORM_APP)
+  if (extension_type == Manifest::Type::kPlatformApp) {
     return false;
+  }
 
   // If the granted permission set can access any host, then it can't be
   // elevated.

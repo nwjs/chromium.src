@@ -412,8 +412,48 @@ static void RepostEventImpl(const ui::LocatedEvent* event,
     WPARAM target = client_area ? event->native_event().wParam
                                 : static_cast<WPARAM>(nc_hit_result);
     LPARAM window_coords = MAKELPARAM(window_x, window_y);
-    PostMessage(target_window, event->native_event().message, target,
-                window_coords);
+    UINT message_type = event->native_event().message;
+    if (!client_area) {
+      switch (message_type) {
+        case WM_LBUTTONDOWN:
+          message_type = WM_NCLBUTTONDOWN;
+          break;
+        case WM_RBUTTONDOWN:
+          message_type = WM_NCRBUTTONDOWN;
+          break;
+        case WM_MBUTTONDOWN:
+          message_type = WM_NCMBUTTONDOWN;
+          break;
+        case WM_XBUTTONDOWN:
+          message_type = WM_NCXBUTTONDOWN;
+          break;
+        case WM_LBUTTONUP:
+          message_type = WM_NCLBUTTONUP;
+          break;
+        case WM_RBUTTONUP:
+          message_type = WM_NCRBUTTONUP;
+          break;
+        case WM_MBUTTONUP:
+          message_type = WM_NCMBUTTONUP;
+          break;
+        case WM_XBUTTONUP:
+          message_type = WM_NCXBUTTONUP;
+          break;
+        case WM_LBUTTONDBLCLK:
+          message_type = WM_NCLBUTTONDBLCLK;
+          break;
+        case WM_RBUTTONDBLCLK:
+          message_type = WM_NCRBUTTONDBLCLK;
+          break;
+        case WM_MBUTTONDBLCLK:
+          message_type = WM_NCMBUTTONDBLCLK;
+          break;
+        case WM_XBUTTONDBLCLK:
+          message_type = WM_NCXBUTTONDBLCLK;
+          break;
+      }
+    }
+    PostMessage(target_window, message_type, target, window_coords);
     return;
   }
 
@@ -867,13 +907,17 @@ bool MenuController::OnMousePressed(SubmenuView* source,
     View* view =
         forward_to_root->GetEventHandlerForPoint(event_for_root.location());
     Button* button = Button::AsButton(view);
+    auto this_ref = AsWeakPtr();
     if (hot_button_ != button) {
       SetHotTrackedButton(button);
     }
 
+    if (!this_ref) {
+      return true;
+    }
+
     // Empty menu items are always handled by the menu controller.
     if (!IsViewClass<EmptyMenuMenuItem>(view)) {
-      base::WeakPtr<MenuController> this_ref = AsWeakPtr();
       bool processed = forward_to_root->ProcessMousePressed(event_for_root);
       // This object may be destroyed as a result of a mouse press event (some
       // item may close the menu).
@@ -956,6 +1000,8 @@ void MenuController::OnMouseReleased(SubmenuView* source,
                                      const ui::MouseEvent& event) {
   current_mouse_pressed_state_ &= ~event.changed_button_flags();
 
+  auto this_ref = AsWeakPtr();
+
   if (current_mouse_event_target_) {
     // If this was the final mouse button, then remove the forwarding target.
     // We need to do this *before* dispatching the event to the root view
@@ -1031,6 +1077,12 @@ void MenuController::OnMouseReleased(SubmenuView* source,
     // User either clicked on empty space, or a menu that has children.
     SetSelection(part.menu ? part.menu.get() : state_.item.get(),
                  SELECTION_OPEN_SUBMENU | SELECTION_UPDATE_IMMEDIATELY);
+    // On the rare, off chance that an accessibility event is fired as a result
+    // of the selection changing *and* the Accessibility tool causes the menu to
+    // be closed, `this` will be otherwise dangling. Guard against that.
+    if (!this_ref) {
+      return;
+    }
   }
   SendMouseCaptureLostToActiveView();
   MaybeForwardToAnnotation(source, event);
@@ -2527,7 +2579,14 @@ void MenuController::OpenMenuImpl(MenuItemView* item, bool show) {
     } else {
       params.context = owner_;
     }
+    auto weak_this = AsWeakPtr();
     item->GetSubmenu()->ShowAt(params);
+    // It is possible that the ShowAt() above can synchronously re-enter and
+    // destroy `this` and the entire MenuItemView tree. We do a CHECK() here
+    // instead of a early return. There are still other things up the stack that
+    // would require additional guarding. It is also unknown what state things
+    // would be left in should it be allowed to continue.
+    CHECK(weak_this);
 
     // Figure out if the mouse is under the menu; if so, remember the mouse
     // location so we can ignore the first mouse move event(s) with that
@@ -3548,17 +3607,23 @@ void MenuController::ExitMenu() {
   // ExitTopMostMenu unwinds nested delegates
   internal::MenuControllerDelegate* delegate = delegate_;
   int accept_event_flags = accept_event_flags_;
+  // Since |delegate| may delete this, get a weak pointer first, and ensure
+  // |result| is safe from deletion (it can be freed but will be quarantined).
   base::WeakPtr<MenuController> this_ref = AsWeakPtr();
-  MenuItemView* result = ExitTopMostMenu();
+  // Dangling since a lot of tests in `views_unittests` and
+  // `interactive_ui_tests` detect this (likely correctly) as a dangling
+  // pointer.
+  raw_ptr<MenuItemView, DanglingUntriaged> result =
+      ExitTopMostMenu().ExtractAsDangling();
   delegate->OnMenuClosed(internal::MenuControllerDelegate::NOTIFY_DELEGATE,
-                         result, accept_event_flags);
+                         result.get(), accept_event_flags);
   // |delegate| may have deleted this.
   if (this_ref && nested && exit_type_ == ExitType::kAll) {
     ExitMenu();
   }
 }
 
-MenuItemView* MenuController::ExitTopMostMenu() {
+raw_ptr<MenuItemView> MenuController::ExitTopMostMenu() {
   // Release the lock which prevents Chrome from shutting down while the menu is
   // showing.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -3614,8 +3679,9 @@ MenuItemView* MenuController::ExitTopMostMenu() {
     did_capture_ = false;
   }
 
-  MenuItemView* result = result_;
-  // In case we're nested, reset |result_|.
+  // In case we're nested, reset |result_|, but use a raw_ptr to ensure we keep
+  // UaF protection.
+  raw_ptr<MenuItemView> result = result_;
   result_ = nullptr;
 
   if (exit_type_ == ExitType::kOutermost) {

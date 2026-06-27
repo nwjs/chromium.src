@@ -43,6 +43,7 @@ import com.android.webview.chromium.WebViewChromiumAwInit.CallSite;
 
 import org.chromium.android_webview.AwBrowserMainParts;
 import org.chromium.android_webview.AwBrowserProcess;
+import org.chromium.android_webview.AwClassPreloader;
 import org.chromium.android_webview.AwContentsStatics;
 import org.chromium.android_webview.AwCookieManager;
 import org.chromium.android_webview.AwSettings;
@@ -683,6 +684,11 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 }
             }
 
+            if (WebViewCachedFlags.get()
+                    .isCachedFeatureEnabled(AwFeatures.WEBVIEW_BACKGROUND_CLASS_PRELOADING)) {
+                AwClassPreloader.preloadClasses();
+            }
+
             // This must happen after pref value has been read and SafeMode setup has completed.
             setupStartupTaskExperiments(androidXConfig);
 
@@ -738,6 +744,15 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
             RecordHistogram.recordTimesHistogram(
                     "Android.WebView.Startup.CreationTime.TotalFactoryInitTime",
                     mInitInfo.mTotalFactoryInitDuration);
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                RecordHistogram.recordTimesHistogram(
+                        "Android.WebView.Startup.CreationTime.TotalFactoryInitTime.MainLooper",
+                        mInitInfo.mTotalFactoryInitDuration);
+            } else {
+                RecordHistogram.recordTimesHistogram(
+                        "Android.WebView.Startup.CreationTime.TotalFactoryInitTime.NotMainLooper",
+                        mInitInfo.mTotalFactoryInitDuration);
+            }
             RecordHistogram.recordTimesHistogram(
                     "Android.WebView.Startup.CreationTime.CreateContextTime",
                     startupTimestamps.getCreateContextEnd()

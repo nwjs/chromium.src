@@ -20,6 +20,7 @@ source_set("sessions") {
 
   public_deps = [
     "//base",
+    "//chrome/browser:defaults",
     "//chrome/browser/profiles:profile",
     "//components/sessions",
     "//ui/base:types",
@@ -51,6 +52,7 @@ source_set("sessions") {
     public_deps += [
       "//chrome/browser/ui/browser_window",
       "//components/keyed_service/core",
+      "//components/paint_preview/buildflags",
       "//components/split_tabs",
       "//components/tab_groups",
       "//content/public/browser",
@@ -144,6 +146,10 @@ source_set("impl") {
       "//components/pref_registry",
       "//components/tab_groups",
     ]
+
+    if (is_mac) {
+      deps += [ "//chrome/browser:app_controller_mac" ]
+    }
 
     if (use_ozone) {
       deps += [ "//ui/ozone" ]

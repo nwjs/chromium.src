@@ -26,6 +26,9 @@ bool IsIdPRegistrationEnabled();
 // Whether the well-known enforcement is bypassed.
 bool IsWithoutWellKnownEnforcementEnabled();
 
+// Whether subdomain-first discovery for well-known file is enabled.
+bool IsWebIdentitySubdomainEnabled();
+
 // Whether the Web Identity Digital Credentials API is enabled.
 bool IsDigitalCredentialsEnabled();
 
@@ -56,9 +59,6 @@ bool IsPreservePortsForTestingEnabled();
 
 // Whether accessing error attribute is enabled.
 bool IsErrorAttributeEnabled();
-
-// Whether the check for an embedder disabling auto sign-in is enabled.
-bool IsFedCmEmbedderCheckEnabled();
 
 // Whether navigation interception is enabled.
 bool IsNavigationInterceptionEnabled();

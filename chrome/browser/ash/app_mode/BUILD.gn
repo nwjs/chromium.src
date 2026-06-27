@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//pdf/features.gni")
 
 assert(is_chromeos)
@@ -103,6 +102,7 @@ static_library("app_mode") {
     "//ash",
     "//ash/strings:strings_grit",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/app_mode",
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/ash/app_mode/arcvm_app",
@@ -272,6 +272,7 @@ source_set("browser_tests") {
     ":test_support",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/app_mode/test:test_support",
     "//chrome/browser/ash/app_mode/test:test_support",
     "//chrome/browser/ash/app_mode/web_app",

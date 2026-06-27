@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.FrameLayout;
 
@@ -37,6 +38,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
@@ -48,6 +50,9 @@ import org.chromium.components.security_state.ConnectionMaliciousContentStatus;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.security_state.SecurityStateModelJni;
+import org.chromium.components.url_formatter.SchemeDisplay;
+import org.chromium.components.url_formatter.UrlFormatter;
+import org.chromium.components.url_formatter.UrlFormatterJni;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.display.DisplayAndroid;
@@ -68,6 +73,7 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
     @Mock private DocumentPictureInPictureHeaderDelegate mDelegate;
     @Mock private SecurityStateModel.Natives mSecurityStateModelNatives;
     @Mock private DisplayAndroid mDisplayAndroid;
+    @Mock private UrlFormatter.Natives mUrlFormatterJniMock;
 
     private WebContents mOpenerWebContents;
     private WebContents mWebContents;
@@ -78,6 +84,7 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
             BrandedColorScheme.LIGHT_BRANDED_THEME;
     private static final GURL HTTPS_URL = JUnitTestGURLs.EXAMPLE_URL;
     private static final GURL LOCAL_FILE_URL = new GURL("file:///android_asset/index.html");
+    private static final GURL CONTENT_URL = new GURL("content://media/external/images/media/1");
 
     private Context mContext;
     private PropertyModel mModel;
@@ -95,6 +102,18 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         when(mThemeColorProvider.getActivityFocusTint()).thenReturn(DEFAULT_FOCUS_TINT);
         when(mThemeColorProvider.getBrandedColorScheme()).thenReturn(DEFAULT_BRANDED_COLOR_SCHEME);
         SecurityStateModelJni.setInstanceForTesting(mSecurityStateModelNatives);
+        UrlFormatterJni.setInstanceForTesting(mUrlFormatterJniMock);
+        Mockito.lenient()
+                .when(mUrlFormatterJniMock.formatUrlForSecurityDisplay(any(), anyInt()))
+                .thenAnswer(
+                        invocation -> {
+                            GURL url = invocation.getArgument(0);
+                            String scheme = url.getScheme();
+                            if (scheme.equals("http") || scheme.equals("https")) {
+                                return url.getHost();
+                            }
+                            return url.getSpec();
+                        });
         mOpenerWebContents =
                 Mockito.mock(
                         WebContents.class,
@@ -158,6 +177,20 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         assertEquals(
                 HTTPS_URL.getHost(),
                 mModel.get(DocumentPictureInPictureHeaderProperties.URL_STRING));
+        assertEquals(
+                TextUtils.TruncateAt.START,
+                mModel.get(DocumentPictureInPictureHeaderProperties.URL_ELLIPSIZE_BEHAVIOR));
+        int expectedComponentSize =
+                mContext.getResources()
+                        .getDimensionPixelSize(
+                                DeviceInfo.isDesktop()
+                                        ? R.dimen
+                                                .document_picture_in_picture_header_component_size_desktop
+                                        : R.dimen
+                                                .document_picture_in_picture_header_component_size);
+        assertEquals(
+                expectedComponentSize,
+                (int) mModel.get(DocumentPictureInPictureHeaderProperties.COMPONENT_SIZE));
     }
 
     @Test
@@ -258,7 +291,11 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         int minWidthPx =
                 mContext.getResources()
                         .getDimensionPixelSize(
-                                R.dimen.document_picture_in_picture_header_min_unoccluded_width);
+                                DeviceInfo.isDesktop()
+                                        ? R.dimen
+                                                .document_picture_in_picture_header_min_unoccluded_width_desktop
+                                        : R.dimen
+                                                .document_picture_in_picture_header_min_unoccluded_width);
 
         int unoccludedWidthPx = minWidthPx - 20;
         when(mAppHeaderState.getUnoccludedRectWidth()).thenReturn(unoccludedWidthPx);
@@ -279,7 +316,11 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         int minWidthPx =
                 mContext.getResources()
                         .getDimensionPixelSize(
-                                R.dimen.document_picture_in_picture_header_min_unoccluded_width);
+                                DeviceInfo.isDesktop()
+                                        ? R.dimen
+                                                .document_picture_in_picture_header_min_unoccluded_width_desktop
+                                        : R.dimen
+                                                .document_picture_in_picture_header_min_unoccluded_width);
 
         int unoccludedWidthPx = minWidthPx + 20;
         when(mAppHeaderState.getUnoccludedRectWidth()).thenReturn(unoccludedWidthPx);
@@ -299,7 +340,11 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         int minWidthPx =
                 mContext.getResources()
                         .getDimensionPixelSize(
-                                R.dimen.document_picture_in_picture_header_min_unoccluded_width);
+                                DeviceInfo.isDesktop()
+                                        ? R.dimen
+                                                .document_picture_in_picture_header_min_unoccluded_width_desktop
+                                        : R.dimen
+                                                .document_picture_in_picture_header_min_unoccluded_width);
 
         int unoccludedWidthPx = minWidthPx - 20;
         when(mAppHeaderState.getUnoccludedRectWidth()).thenReturn(unoccludedWidthPx);
@@ -354,11 +399,18 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         var minHeaderHeight =
                 mContext.getResources()
                         .getDimensionPixelSize(
-                                R.dimen.document_picture_in_picture_header_min_height);
+                                DeviceInfo.isDesktop()
+                                        ? R.dimen
+                                                .document_picture_in_picture_header_min_height_desktop
+                                        : R.dimen.document_picture_in_picture_header_min_height);
         var componentSize =
                 mContext.getResources()
                         .getDimensionPixelSize(
-                                R.dimen.document_picture_in_picture_header_component_size);
+                                DeviceInfo.isDesktop()
+                                        ? R.dimen
+                                                .document_picture_in_picture_header_component_size_desktop
+                                        : R.dimen
+                                                .document_picture_in_picture_header_component_size);
         var headerHeight = minHeaderHeight - 10;
         var expectedPaddingBottom = minHeaderHeight - componentSize;
 
@@ -454,6 +506,22 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         assertEquals(
                 LOCAL_FILE_URL.getPath(),
                 mModel.get(DocumentPictureInPictureHeaderProperties.URL_STRING));
+        assertEquals(
+                TextUtils.TruncateAt.END,
+                mModel.get(DocumentPictureInPictureHeaderProperties.URL_ELLIPSIZE_BEHAVIOR));
+    }
+
+    @Test
+    @SmallTest
+    public void testContentUrl() {
+        createMediator(/* isBackToTabShown= */ true, CONTENT_URL);
+
+        assertEquals(
+                CONTENT_URL.getSpec(),
+                mModel.get(DocumentPictureInPictureHeaderProperties.URL_STRING));
+        assertEquals(
+                TextUtils.TruncateAt.END,
+                mModel.get(DocumentPictureInPictureHeaderProperties.URL_ELLIPSIZE_BEHAVIOR));
     }
 
     @Test
@@ -489,5 +557,18 @@ public class DocumentPictureInPictureHeaderMediatorUnitTest {
         assertEquals(
                 expectedIcon,
                 (int) mModel.get(DocumentPictureInPictureHeaderProperties.SECURITY_ICON));
+    }
+
+    @Test
+    @SmallTest
+    public void testUrlFormattedForSecurityDisplay() {
+        GURL url = new GURL("https://accounts.google.com.attacker.com");
+        when(mUrlFormatterJniMock.formatUrlForSecurityDisplay(
+                        url, SchemeDisplay.OMIT_HTTP_AND_HTTPS))
+                .thenReturn("accounts.google.com.attacker.com");
+        createMediator(/* isBackToTabShown= */ true, url);
+        assertEquals(
+                "accounts.google.com.attacker.com",
+                mModel.get(DocumentPictureInPictureHeaderProperties.URL_STRING));
     }
 }

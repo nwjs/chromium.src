@@ -2300,8 +2300,7 @@ TEST_F(AutocompleteControllerTest, ShouldRunProvider_StarterPack) {
   }
 
   // Enter keyword mode.
-  controller_.input_.set_keyword_mode_entry_method(
-      metrics::OmniboxEventProto_KeywordModeEntryMethod_TAB);
+  controller_.input_.set_in_keyword_mode(true);
 
   // In @tabs, run search, keyword, and open tab provider only.
   controller_.input_.UpdateText(u"@tabs", 0, {});
@@ -2375,8 +2374,7 @@ TEST_F(AutocompleteControllerTest,
   // In keyword mode, all limit provider params on by default, limit document
   // and history cluster suggestions as well.
   controller_.input_.UpdateText(u"keyword", 0, {});
-  controller_.input_.set_keyword_mode_entry_method(
-      metrics::OmniboxEventProto_KeywordModeEntryMethod_TAB);
+  controller_.input_.set_in_keyword_mode(true);
   excluded_provider_types = {
       AutocompleteProvider::TYPE_OPEN_TAB,
       AutocompleteProvider::TYPE_HISTORY_CLUSTER_PROVIDER,
@@ -2523,8 +2521,7 @@ TEST_F(AutocompleteControllerTest,
   EXPECT_TRUE(controller_.ShouldRunProvider(document_provider.get()));
 
   // Enter keyword mode.
-  controller_.input_.set_keyword_mode_entry_method(
-      metrics::OmniboxEventProto_KeywordModeEntryMethod_TAB);
+  controller_.input_.set_in_keyword_mode(true);
 
   // Aggregator not ran when in site search mode, regardless of
   // `enterprise_search_aggregator_settings.require_shortcut` pref value.
@@ -2713,8 +2710,7 @@ TEST_F(AutocompleteControllerTest,
   controller_.input_ =
       AutocompleteInput(u"@page Summar", metrics::OmniboxEventProto::OTHER,
                         TestSchemeClassifier());
-  controller_.input_.set_keyword_mode_entry_method(
-      metrics::OmniboxEventProto::SPACE_AT_END);
+  controller_.input_.set_in_keyword_mode(true);
 
   SetAutocompleteMatches({CreateContextualSearchMatch(u"Summary"),
                           CreateContextualSearchMatch(u"Summarize this page")});
@@ -3247,8 +3243,7 @@ TEST_F(AutocompleteControllerTest,
   controller_.input_ =
       AutocompleteInput(u"@page Summar", metrics::OmniboxEventProto::OTHER,
                         TestSchemeClassifier());
-  controller_.input_.set_keyword_mode_entry_method(
-      metrics::OmniboxEventProto::SPACE_AT_END);
+  controller_.input_.set_in_keyword_mode(true);
 
   AutocompleteMatch match1 = CreateContextualSearchMatch(u"Summary");
   match1.suggest_template = omnibox::SuggestTemplateInfo();
@@ -3306,97 +3301,6 @@ TEST_F(AutocompleteControllerTest, SmartComposeClearedWithNewResults) {
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
-TEST_F(AutocompleteControllerTest,
-       UpdateMatchDestinationURLWithInvocationSource) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      omnibox::kOmniboxAppendInvocationSource);
-
-  controller_.input_ =
-      AutocompleteInput(u"a", 1u, metrics::OmniboxEventProto::NTP_REALBOX,
-                        TestSchemeClassifier());
-
-  // Setup default search provider keyword.
-  std::u16string default_keyword =
-      controller_.template_url_service_->GetDefaultSearchProvider()->keyword();
-
-  AutocompleteMatch search_match = CreateSearchMatch(u"search term");
-  search_match.destination_url =
-      GURL("https://google.com/search?q=search+term");
-  search_match.search_terms_args =
-      std::make_unique<TemplateURLRef::SearchTermsArgs>(u"search term");
-  search_match.keyword = default_keyword;
-
-  AutocompleteMatch url_match = CreateHistoryURLMatch("https://example.com/");
-  url_match.destination_url = GURL("https://example.com/");
-
-  controller_.UpdateMatchDestinationURLWithInvocationSource(&search_match);
-  controller_.UpdateMatchDestinationURLWithInvocationSource(&url_match);
-
-  EXPECT_EQ(search_match.destination_url.spec(),
-            "https://google.com/search?q=search+term&source=chrome.rb");
-
-  // URL match shouldn't be affected because it's not a search match.
-  EXPECT_EQ(url_match.destination_url.spec(), "https://example.com/");
-
-  // Now test Omnibox
-  controller_.input_ = AutocompleteInput(
-      u"a", 1u, metrics::OmniboxEventProto::NTP, TestSchemeClassifier());
-
-  AutocompleteMatch search_match2 = CreateSearchMatch(u"search term");
-  search_match2.destination_url =
-      GURL("https://google.com/search?q=search+term");
-  search_match2.search_terms_args =
-      std::make_unique<TemplateURLRef::SearchTermsArgs>(u"search term");
-  search_match2.keyword = default_keyword;
-  controller_.UpdateMatchDestinationURLWithInvocationSource(&search_match2);
-
-  EXPECT_EQ(search_match2.destination_url.spec(),
-            "https://google.com/search?q=search+term&source=chrome.ob");
-
-  // Keyword match to a NON-DSE site shouldn't be affected.
-  AutocompleteMatch keyword_match = CreateSearchMatch(u"search term");
-  keyword_match.destination_url =
-      GURL("https://wikipedia.org/search?q=search+term");
-  keyword_match.search_terms_args =
-      std::make_unique<TemplateURLRef::SearchTermsArgs>(u"search term");
-  keyword_match.keyword = u"wikipedia";
-
-  TemplateURLData wiki_data;
-  wiki_data.SetShortName(u"Wikipedia");
-  wiki_data.SetKeyword(u"wikipedia");
-  wiki_data.SetURL("https://wikipedia.org/search?q={searchTerms}");
-  controller_.template_url_service_->Add(
-      std::make_unique<TemplateURL>(wiki_data));
-
-  controller_.UpdateMatchDestinationURLWithInvocationSource(&keyword_match);
-
-  EXPECT_EQ(keyword_match.destination_url.spec(),
-            "https://wikipedia.org/search?q=search+term");
-}
-
-TEST_F(AutocompleteControllerTest,
-       UpdateMatchDestinationURLWithInvocationSource_DoesNotAttachToWebsites) {
-  // Check across both Omnibox and Realbox contexts to ensure site navigations
-  // are safe.
-  std::vector<metrics::OmniboxEventProto::PageClassification> classifications =
-      {metrics::OmniboxEventProto::NTP_REALBOX,
-       metrics::OmniboxEventProto::NTP};
-
-  for (auto classification : classifications) {
-    controller_.input_ =
-        AutocompleteInput(u"a", 1u, classification, TestSchemeClassifier());
-
-    // Use a NON-search match type (e.g. history URL navigation).
-    AutocompleteMatch url_match = CreateHistoryURLMatch("https://example.com/");
-    url_match.destination_url = GURL("https://example.com/");
-
-    controller_.UpdateMatchDestinationURLWithInvocationSource(&url_match);
-
-    // The destination URL must remain unmodified.
-    EXPECT_EQ(url_match.destination_url.spec(), "https://example.com/");
-  }
-}
 
 TEST_F(AutocompleteControllerTest, IncludesSmartComposeStatsInAdditionalStats) {
   omnibox::metrics::SmartComposeStats stats;

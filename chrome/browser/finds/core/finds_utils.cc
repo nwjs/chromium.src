@@ -12,6 +12,10 @@
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/sync/base/user_selectable_type.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
+#include "components/unified_consent/pref_names.h"
 
 namespace finds {
 
@@ -81,6 +85,41 @@ bool IsAllowedByEnterprisePolicy(PrefService* pref_service) {
              optimization_guide::prefs::kFindsEnterprisePolicyAllowed) !=
          static_cast<int>(optimization_guide::model_execution::prefs::
                               ModelExecutionEnterprisePolicyValue::kDisable);
+}
+
+bool IsHistorySyncAndMsbbEnabled(syncer::SyncService* sync_service,
+                                 PrefService* pref_service) {
+  if (!sync_service || !pref_service) {
+    return false;
+  }
+  const syncer::SyncUserSettings* user_settings =
+      sync_service->GetUserSettings();
+  return user_settings &&
+         user_settings->GetSelectedTypes().Has(
+             syncer::UserSelectableType::kHistory) &&
+         pref_service->GetBoolean(
+             unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled);
+}
+
+bool IsFindsOptInPromoAlreadyInteracted(const PrefService* pref_service) {
+  return pref_service->GetBoolean(prefs::kFindsOptInPromoUserInteracted);
+}
+
+bool IsFindsOptInPromoMaxCountExceeded(const PrefService* pref_service) {
+  return pref_service->GetInteger(prefs::kFindsOptInPromoShownCount) >=
+         features::kFindsOptInPromoMaxInteractedCount.Get();
+}
+
+bool IsFindsOptInPromoCooldownPassed(const PrefService* pref_service) {
+  const int64_t last_timestamp_value =
+      pref_service->GetInt64(prefs::kFindsOptInPromoLastShownTimestamp);
+  if (last_timestamp_value == 0) {
+    return true;
+  }
+  const base::Time last_interacted_time =
+      base::Time::FromMillisecondsSinceUnixEpoch(last_timestamp_value);
+  return (base::Time::Now() - last_interacted_time) >=
+         base::Days(features::kFindsOptInPromoCooldownInDays.Get());
 }
 
 }  // namespace finds

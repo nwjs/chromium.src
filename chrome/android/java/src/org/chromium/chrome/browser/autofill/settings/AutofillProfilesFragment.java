@@ -28,18 +28,15 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.AutofillAddress;
 import org.chromium.chrome.browser.autofill.AutofillEditorBase;
-import org.chromium.chrome.browser.autofill.GoogleWalletLauncher;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.autofill.SaveUpdateAddressProfilePromptMode;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
-import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory;
 import org.chromium.chrome.browser.autofill.editors.address.AddressEditorCoordinator;
 import org.chromium.chrome.browser.autofill.editors.address.AddressEditorCoordinator.Delegate;
 import org.chromium.chrome.browser.autofill.editors.address.EditorDialogView;
 import org.chromium.chrome.browser.autofill.editors.common.EditorObserverForTest;
 import org.chromium.chrome.browser.autofill.editors.common.EditorViewBase;
-import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -47,17 +44,14 @@ import org.chromium.chrome.browser.payments.SettingsAutofillAndPaymentsObserver;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
 import org.chromium.chrome.browser.settings.ChromeManagedPreferenceDelegate;
-import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.settings.search.ChromeBaseSearchIndexProvider;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.FieldType;
 import org.chromium.components.autofill.RecordType;
-import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
-import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -127,13 +121,12 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                 }
             };
 
-    private final AutofillAiDelegate mAutofillAiDelegate = new AutofillAiDelegate(this);
+    private final AutofillAiDelegate mAutofillAiDelegate =
+            new AutofillAiDelegate(this, this, /* toggleConfig= */ null);
 
     private static @Nullable EditorObserverForTest sObserverForTest;
     static final String PREF_NEW_PROFILE = "new_profile";
     static final String SAVE_AND_FILL_ADDRESSES = "save_and_fill_addresses";
-    static final String DISABLED_SETTINGS_INFO = "disabled_settings_info";
-    static final String DISABLED_WALLET_DATA_SHARING = "disabled_wallet_data_sharing";
 
     public static final String GOOGLE_ACCOUNT_HOME_ADDRESS_EDIT_URL =
             "https://myaccount.google.com/address/home?utm_source=chrome&utm_campaign=manage_addresses";
@@ -176,7 +169,9 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         if (mAddressEditor != null) {
             mAddressEditor.onConfigurationChanged();
         }
-        mAutofillAiDelegate.onConfigurationChanged();
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+            mAutofillAiDelegate.onConfigurationChanged();
+        }
     }
 
     @Override
@@ -194,16 +189,11 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         screen.removeAll();
         screen.setOrderingAsAdded(true);
         // LINT.IfChange(RebuildProfileList)
-        if (disabledSettingsInThirdPartyMode(getProfile())) {
-            addDisabledSettingsInfoCard(screen);
-        }
-        EntityDataManager entityDataManager = EntityDataManagerFactory.getForProfile(getProfile());
-        if (!disabledSettingsInThirdPartyMode(getProfile())
-                && entityDataManager != null
-                && !entityDataManager.isWalletPublicPassStorageEnabled()
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.AUTOFILL_AI_SHOW_WALLET_DISABLED_BANNER)) {
-            addDisabledWalletDataSharingDataCard(screen);
+        mAutofillAiDelegate.maybeAddDisabledSettingsInfoCard(
+                screen, AutofillOptionsReferrer.AUTOFILL_PROFILES_FRAGMENT);
+
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+            mAutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(screen);
         }
 
         addAutofillSwitch(screen);
@@ -212,64 +202,10 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
             addAddAddressButton(screen);
         }
         // LINT.ThenChange(:DynamicPreferences)
-        mAutofillAiDelegate.addAutofillAiEntities(screen, /* typeFilter= */ null);
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+            mAutofillAiDelegate.addAutofillAiEntities(screen, /* typeFilter= */ null);
+        }
         updateDynamicPreferences(getProfile());
-    }
-
-    /** Adds an information card if settings are disabled in third-party mode. */
-    private void addDisabledSettingsInfoCard(PreferenceScreen screen) {
-        boolean isAutofillAiOn =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA);
-        // LINT.IfChange(AddDisabledSettingsInfoCard)
-        CardWithButtonPreference disabledSettingsInfoPref =
-                new CardWithButtonPreference(getStyledContext(), null);
-        disabledSettingsInfoPref.setKey(DISABLED_SETTINGS_INFO);
-        disabledSettingsInfoPref.setTitle(R.string.autofill_disable_settings_explanation_title);
-        disabledSettingsInfoPref.setSummary(
-                isAutofillAiOn
-                        ? R.string.autofill_disable_settings_explanation_v2
-                        : R.string.autofill_disable_settings_explanation);
-        // LINT.ThenChange(:DynamicDisabledSettingsInfoCard)
-        disabledSettingsInfoPref.setButtonText(
-                getResources().getString(R.string.autofill_disable_settings_button_label));
-        disabledSettingsInfoPref.setIconResource(R.drawable.ic_google_services_24dp);
-        disabledSettingsInfoPref.setOnButtonClick(
-                () -> {
-                    SettingsNavigation settingsNavigation =
-                            SettingsNavigationFactory.createSettingsNavigation();
-                    settingsNavigation.startSettings(
-                            getPreferenceManager().getContext(),
-                            AutofillOptionsFragment.class,
-                            AutofillOptionsFragment.createRequiredArgs(
-                                    AutofillOptionsReferrer.AUTOFILL_PROFILES_FRAGMENT),
-                            /* addToBackStack= */ true);
-                });
-
-        screen.addPreference(disabledSettingsInfoPref);
-    }
-
-    /** Adds an information card if sharing data from Wallet is disabled. */
-    private void addDisabledWalletDataSharingDataCard(PreferenceScreen screen) {
-        // LINT.IfChange(AddDisabledWalletDataSharingDataCard)
-        CardWithButtonPreference disabledSharingWalletDataPref =
-                new CardWithButtonPreference(getStyledContext(), null);
-        disabledSharingWalletDataPref.setKey(DISABLED_WALLET_DATA_SHARING);
-        disabledSharingWalletDataPref.setTitle(R.string.autofill_wallet_data_sharing_promo_title);
-        disabledSharingWalletDataPref.setSummary(
-                R.string.autofill_wallet_data_sharing_promo_subtitle);
-        // LINT.ThenChange(:DynamicDisabledWalletDataSharingDataCard)
-        disabledSharingWalletDataPref.setButtonText(
-                getResources().getString(R.string.autofill_wallet_data_sharing_promo_button_label));
-        disabledSharingWalletDataPref.setOnButtonClick(
-                () -> {
-                    Context context = getContext();
-                    if (context != null) {
-                        GoogleWalletLauncher.openGoogleWalletPassesSettings(
-                                context, context.getPackageManager());
-                    }
-                });
-
-        screen.addPreference(disabledSharingWalletDataPref);
     }
 
     /** Adds the "Save and fill addresses" toggle. */
@@ -388,20 +324,17 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         PersonalDataManagerFactory.getForProfile(getProfile()).registerDataObserver(this);
-        EntityDataManager entityDataManager = EntityDataManagerFactory.getForProfile(getProfile());
-        if (entityDataManager != null) {
-            entityDataManager.registerDataObserver(this);
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+            mAutofillAiDelegate.onActivityCreated();
         }
     }
 
     @Override
     public void onDestroyView() {
         PersonalDataManagerFactory.getForProfile(getProfile()).unregisterDataObserver(this);
-        EntityDataManager entityDataManager = EntityDataManagerFactory.getForProfile(getProfile());
-        if (entityDataManager != null) {
-            entityDataManager.unregisterDataObserver(this);
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+            mAutofillAiDelegate.onDestroyView();
         }
-        mAutofillAiDelegate.onDestroyView();
         super.onDestroyView();
     }
 
@@ -502,22 +435,16 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                 public void updateDynamicPreferences(
                         Context context, SettingsIndexData indexData, Profile profile) {
                     // LINT.IfChange(DynamicPreferences)
-                    boolean disabledSettingsInThirdPartyMode =
-                            disabledSettingsInThirdPartyMode(profile);
-
-                    if (disabledSettingsInThirdPartyMode) {
-                        addDisabledSettingsInfoCard(indexData, getPrefFragmentName());
-                    } else {
+                    AutofillAiDelegate.maybeAddDisabledSettingsInfoCard(
+                            indexData, profile, getPrefFragmentName());
+                    if (!disabledSettingsInThirdPartyMode(profile)) {
                         addAddAddressButton(indexData, profile, getPrefFragmentName());
                     }
-                    EntityDataManager entityDataManager =
-                            EntityDataManagerFactory.getForProfile(profile);
-                    if (!disabledSettingsInThirdPartyMode
-                            && entityDataManager != null
-                            && !entityDataManager.isWalletPublicPassStorageEnabled()
-                            && ChromeFeatureList.isEnabled(
-                                    ChromeFeatureList.AUTOFILL_AI_SHOW_WALLET_DISABLED_BANNER)) {
-                        addDisabledWalletDataSharingDataCard(indexData, getPrefFragmentName());
+
+                    if (!ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+                        AutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(
+                                indexData, profile, getPrefFragmentName());
                     }
                     addAutofillSwitch(indexData);
                     // LINT.ThenChange(:RebuildProfileList)
@@ -540,59 +467,21 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
 
         String prefFragmentName = AutofillProfilesFragment.class.getName();
 
-        boolean disabledSettingsInThirdPartyMode = disabledSettingsInThirdPartyMode(profile);
+        AutofillAiDelegate.maybeAddDisabledSettingsInfoCard(indexData, profile, prefFragmentName);
 
-        if (disabledSettingsInThirdPartyMode) {
-            if (indexData.getEntryForKey(prefFragmentName, DISABLED_SETTINGS_INFO) == null) {
-                addDisabledSettingsInfoCard(indexData, prefFragmentName);
-            }
+        if (disabledSettingsInThirdPartyMode(profile)) {
             indexData.removeEntryForKey(prefFragmentName, PREF_NEW_PROFILE);
         } else {
             if (indexData.getEntryForKey(prefFragmentName, PREF_NEW_PROFILE) == null) {
                 addAddAddressButton(indexData, profile, prefFragmentName);
             }
-            indexData.removeEntryForKey(prefFragmentName, DISABLED_SETTINGS_INFO);
         }
 
-        EntityDataManager entityDataManager = EntityDataManagerFactory.getForProfile(profile);
-        if (!disabledSettingsInThirdPartyMode
-                && entityDataManager != null
-                && !entityDataManager.isWalletPublicPassStorageEnabled()
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.AUTOFILL_AI_SHOW_WALLET_DISABLED_BANNER)) {
-            if (indexData.getEntryForKey(prefFragmentName, DISABLED_WALLET_DATA_SHARING) == null) {
-                addDisabledWalletDataSharingDataCard(indexData, prefFragmentName);
-            }
-        } else {
-            indexData.removeEntryForKey(prefFragmentName, DISABLED_WALLET_DATA_SHARING);
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
+            AutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(
+                    indexData, profile, prefFragmentName);
         }
         indexData.resolveIndex();
-    }
-
-    private static void addDisabledSettingsInfoCard(
-            SettingsIndexData indexData, String prefFragmentName) {
-        boolean isAutofillAiOn =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA);
-        // LINT.IfChange(DynamicDisabledSettingsInfoCard)
-        indexData.addEntryForKey(
-                prefFragmentName,
-                DISABLED_SETTINGS_INFO,
-                R.string.autofill_disable_settings_explanation_title,
-                isAutofillAiOn
-                        ? R.string.autofill_disable_settings_explanation_v2
-                        : R.string.autofill_disable_settings_explanation);
-        // LINT.ThenChange(:AddDisabledSettingsInfoCard)
-    }
-
-    private static void addDisabledWalletDataSharingDataCard(
-            SettingsIndexData indexData, String prefFragmentName) {
-        // LINT.IfChange(DynamicDisabledWalletDataSharingDataCard)
-        indexData.addEntryForKey(
-                prefFragmentName,
-                DISABLED_WALLET_DATA_SHARING,
-                R.string.autofill_wallet_data_sharing_promo_title,
-                R.string.autofill_wallet_data_sharing_promo_subtitle);
-        // LINT.ThenChange(:addDisabledWalletDataSharingDataCard)
     }
 
     private static void addAddAddressButton(

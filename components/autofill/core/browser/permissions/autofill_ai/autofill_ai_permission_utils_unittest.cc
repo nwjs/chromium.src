@@ -87,8 +87,8 @@ std::string GetTestSuffix(
 DenseSet<EntityType> GetPrivatePasses() {
   DenseSet<EntityType> private_passes;
   for (const EntityType type : DenseSet<EntityType>::all()) {
-    if (IsMaskedStorageSupported(type,
-                                 EntityInstance::RecordType::kServerWallet)) {
+    if (GetWalletPassType(type, EntityInstance::RecordType::kServerWallet) ==
+        EntityInstance::WalletPassType::kPrivate) {
       private_passes.insert(type);
     }
   }
@@ -120,7 +120,6 @@ class AutofillAiPermissionUtilsTest : public ::testing::Test {
         client().GetSyncService(), webdata_helper_.autofill_webdata_service(),
         /*history_service=*/nullptr,
         /*strike_database=*/nullptr,
-        /*accessibility_annotator_service=*/nullptr,
         /*variation_country_code=*/GeoIpCountryCode("US")));
     client().SetUpPrefsAndIdentityForAutofillAi();
     client().set_sync_service(&sync_service_);
@@ -324,8 +323,8 @@ TEST_P(AutofillAiMayPerformActionTest, SignInPending) {
       .identity_test_environment()
       .UpdatePersistentErrorOfRefreshTokenForAccount(
           account.account_id,
-          GoogleServiceAuthError(
-              GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+          GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+              GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   std::string debug_message;
   const bool is_allowed =

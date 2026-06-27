@@ -185,6 +185,10 @@ bool RegistryHashStoreContentsWin::RemoveEntry(const std::string& path) {
          ClearSplitMac(preference_key_name_, path);
 }
 
+bool RegistryHashStoreContentsWin::SupportsSuperMac() const {
+  return false;
+}
+
 void RegistryHashStoreContentsWin::ImportEntry(const std::string& path,
                                                const base::Value* in_value) {
   NOTREACHED()
@@ -204,4 +208,15 @@ std::string RegistryHashStoreContentsWin::GetSuperMac() const {
 void RegistryHashStoreContentsWin::SetSuperMac(const std::string& super_mac) {
   NOTREACHED()
       << "RegistryHashStoreContents does not support the SetSuperMac operation";
+}
+
+std::string RegistryHashStoreContentsWin::GetSuperEncryptedHash() const {
+  NOTREACHED() << "RegistryHashStoreContents does not support the "
+                  "GetSuperEncryptedHash operation";
+}
+
+void RegistryHashStoreContentsWin::SetSuperEncryptedHash(
+    const std::string& super_encrypted_hash) {
+  NOTREACHED() << "RegistryHashStoreContents does not support the "
+                  "SetSuperEncryptedHash operation";
 }

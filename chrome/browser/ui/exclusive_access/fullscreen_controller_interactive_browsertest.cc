@@ -14,7 +14,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -39,6 +38,7 @@
 #include "components/permissions/fake_usb_chooser_controller.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/test/mock_permission_request.h"
+#include "components/permissions/test/permission_request_observer.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -65,6 +65,7 @@
 #endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(IS_OZONE)
 
 #if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
 #include "ui/base/cocoa/nswindow_test_util.h"
 #endif  // BUILDFLAG(IS_MAC)
 
@@ -107,17 +108,21 @@ class FullscreenControllerInteractiveTest : public ExclusiveAccessTest {
   // browser has focus. Thus, this can only be used in interactive ui tests
   // and not on sharded tests.
   bool IsPointerLocked() {
+    const bool controller_locked = GetExclusiveAccessManager()
+                                       ->pointer_lock_controller()
+                                       ->IsPointerLocked();
     // Verify that IsPointerLocked is consistent between the
     // Fullscreen Controller and the Render View Host View.
-    EXPECT_TRUE(browser()->IsPointerLocked() == browser()
-                                                    ->tab_strip_model()
-                                                    ->GetActiveWebContents()
-                                                    ->GetPrimaryMainFrame()
-                                                    ->GetRenderViewHost()
-                                                    ->GetWidget()
-                                                    ->GetView()
-                                                    ->IsPointerLocked());
-    return browser()->IsPointerLocked();
+    const bool view_locked = browser()
+                                 ->tab_strip_model()
+                                 ->GetActiveWebContents()
+                                 ->GetPrimaryMainFrame()
+                                 ->GetRenderViewHost()
+                                 ->GetWidget()
+                                 ->GetView()
+                                 ->IsPointerLocked();
+    EXPECT_EQ(controller_locked, view_locked);
+    return controller_locked;
   }
 
   void PressKeyAndWaitForPointerLockRequest(ui::KeyboardCode key_code) {
@@ -806,6 +811,45 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   ASSERT_TRUE(fullscreen_controller->IsTabFullscreen());
 }
 
+// Tests that fullscreen cannot be entered while a permission prompt bubble
+// exits.
+IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
+                       PermissionPromptPreventsTabFullscreen) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  FullscreenController* fullscreen_controller = browser()
+                                                    ->GetFeatures()
+                                                    .exclusive_access_manager()
+                                                    ->fullscreen_controller();
+
+  permissions::PermissionRequestObserver observer(web_contents);
+
+  // Request a permission to show the bubble.
+  permissions::PermissionRequestManager* permission_request_manager =
+      permissions::PermissionRequestManager::FromWebContents(web_contents);
+  permission_request_manager->AddRequest(
+      web_contents->GetPrimaryMainFrame(),
+      std::make_unique<permissions::MockPermissionRequest>(
+          permissions::RequestType::kGeolocation));
+
+  observer.Wait();
+  ASSERT_TRUE(observer.request_shown());
+
+  // While bubble is showing, tab fullscreen cannot be entered.
+  EXPECT_FALSE(content::ExecJs(web_contents,
+                               "document.documentElement.requestFullscreen()"));
+  ASSERT_FALSE(fullscreen_controller->IsTabFullscreen());
+
+  // Accept the permission request to close the bubble.
+  permission_request_manager->Accept(/*prompt_options=*/std::monostate());
+
+  // Now we should be able to enter tab fullscreen again.
+  EXPECT_TRUE(content::ExecJs(web_contents,
+                              "document.documentElement.requestFullscreen()"));
+  ASSERT_TRUE(fullscreen_controller->IsTabFullscreen());
+}
+
 // Tests that showing a chooser bubble exits tab fullscreen.
 // TODO(http://crbug.com/493319451): Re-enable when the flakiness is fixed.
 IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
@@ -1034,7 +1078,8 @@ class AutomaticFullscreenTest : public FullscreenControllerInteractiveTest,
                            : content::EXECUTE_SCRIPT_NO_USER_GESTURE;
     rfh = rfh ? rfh : web_contents_->GetPrimaryMainFrame();
     content::WebContents* tab = content::WebContents::FromRenderFrameHost(rfh);
-    Browser* browser = chrome::FindBrowserWithTab(tab);
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(tab);
     if (!gesture) {
       // Ensure nothing inadvertently triggered user activation beforehand.
       EXPECT_EQ(false, EvalJs(rfh, "navigator.userActivation.isActive",
@@ -1045,12 +1090,14 @@ class AutomaticFullscreenTest : public FullscreenControllerInteractiveTest,
     if (result.is_ok() && result.ExtractBool()) {
       waiter.Wait();
     }
-    return browser->window()->IsFullscreen();
+    return browser->GetWindow()->IsFullscreen();
   }
 
   bool ExitFullscreen(WebContents* web_contents = nullptr) {
     web_contents = web_contents ? web_contents : web_contents_.get();
-    Browser* browser = chrome::FindBrowserWithTab(web_contents);
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents);
     ui_test_utils::FullscreenWaiter waiter(browser, {.tab_fullscreen = false});
     const std::string script = R"((() => {
       window.lastExit = Date.now();
@@ -1060,7 +1107,7 @@ class AutomaticFullscreenTest : public FullscreenControllerInteractiveTest,
     auto result =
         EvalJs(web_contents, script, content::EXECUTE_SCRIPT_NO_USER_GESTURE);
     waiter.Wait();
-    return result.is_ok() && !browser->window()->IsFullscreen();
+    return result.is_ok() && !browser->GetWindow()->IsFullscreen();
   }
 
   std::pair<bool, Browser*> OpenPopupAndRequestFullscreenOnLoad() {
@@ -1075,7 +1122,9 @@ class AutomaticFullscreenTest : public FullscreenControllerInteractiveTest,
       });
     })())";
 
-    Browser* browser = chrome::FindBrowserWithTab(web_contents_);
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents_);
     auto result = EvalJs(web_contents_, script);
     Browser* popup = browser_created_observer.Wait();
     if (!popup) {
@@ -1129,7 +1178,8 @@ IN_PROC_BROWSER_TEST_P(AutomaticFullscreenTest, RequestFullscreenNoGesture) {
   EXPECT_TRUE(RequestFullscreen());
 
   // Navigate away in order to flush use counters.
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_);
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
   EXPECT_TRUE(ui_test_utils::NavigateToURL(browser, GURL(url::kAboutBlankURL)));
   metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
   if (!GetParam()) {  // TODO(crbug.com/41497058): Test use counter in IWA too.
@@ -1257,7 +1307,8 @@ IN_PROC_BROWSER_TEST_P(AutomaticFullscreenTest, BlockingContentsDoesNotExit) {
   EXPECT_TRUE(web_contents_->IsFullscreen());
   // Blocking the tab for a modal dialog does not exit fullscreen if the origin
   // has been granted the automatic fullscreen content setting.
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_);
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
   BrowserWindowModalDialogDelegate::From(browser)->SetWebContentsBlocked(
       web_contents_, true);
   EXPECT_TRUE(web_contents_->IsFullscreen());
@@ -1538,6 +1589,11 @@ IN_PROC_BROWSER_TEST_F(MAYBE_MultiScreenFullscreenControllerInteractiveTest,
   SetUpWindowManagementTab();
 #if !BUILDFLAG(IS_MAC)
   const gfx::Rect original_bounds = browser()->window()->GetBounds();
+#else
+  // TODO(crbug.com/510801992): Re-enable on macOS 26 once test is deflaked
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
 #endif
   const display::Display original_display = GetCurrentDisplay(browser());
 
@@ -1623,6 +1679,11 @@ IN_PROC_BROWSER_TEST_F(MAYBE_MultiScreenFullscreenControllerInteractiveTest,
   SetUpWindowManagementTab();
 #if !BUILDFLAG(IS_MAC)
   const gfx::Rect original_bounds = browser()->window()->GetBounds();
+#else
+  // TODO(crbug.com/510801992): Re-enable on macOS 26 once test is deflaked
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
 #endif
   const display::Display original_display = GetCurrentDisplay(browser());
 
@@ -1965,4 +2026,29 @@ IN_PROC_BROWSER_TEST_F(MAYBE_MultiScreenFullscreenControllerInteractiveTest,
   ToggleTabFullscreen(/*enter_fullscreen=*/false);
   ui_test_utils::BrowserActivationWaiter(popup).WaitForActivation();
   EXPECT_TRUE(ui_test_utils::IsBrowserActive(popup));
+}
+
+IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
+                       ClosingTabExitsFullscreenSafely) {
+  // Add a new tab so the browser doesn't close when we close the active tab.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  WebContents* active_tab =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  browser()
+      ->GetFeatures()
+      .exclusive_access_manager()
+      ->fullscreen_controller()
+      ->EnterFullscreenModeForTab(active_tab->GetPrimaryMainFrame(), {});
+
+  content::WebContentsDestroyedWatcher watcher(active_tab);
+
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&chrome::CloseTab, base::Unretained(browser())));
+
+  watcher.Wait();
 }

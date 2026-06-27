@@ -39,18 +39,18 @@ constexpr bool is_android = !!BUILDFLAG(IS_ANDROID);
 #if BUILDFLAG(IS_ANDROID)
 constexpr char kChromeUINewTabHost[] = "newtab";
 // Returns true if the given `tab` is a chrome newtab page.
-bool IsNewTabPage(const TabMatcher::TabWrapper tab) {
-  if (tab.url.GetScheme() != content::kChromeUIScheme &&
-      tab.url.GetScheme() != content::kChromeNativeScheme) {
+bool IsNewTabPage(const TabMatcher::TabWrapper& tab) {
+  if (tab.url.scheme() != content::kChromeUIScheme &&
+      tab.url.scheme() != content::kChromeNativeScheme) {
     return false;
   }
-  return tab.url.GetHost() == kChromeUINewTabHost;
+  return tab.url.host() == kChromeUINewTabHost;
 }
 #endif
 
 int Score(const AutocompleteInput& input,
           const query_parser::QueryNodeVector& input_query_nodes,
-          const TabMatcher::TabWrapper tab) {
+          const TabMatcher::TabWrapper& tab) {
 #if BUILDFLAG(IS_ANDROID)
   // For Hub Search, remove both ZPS and search suggestions that involve open
   // chrome new tab pages. This is done by returning a score of 0 for all such
@@ -67,10 +67,10 @@ int Score(const AutocompleteInput& input,
            tab.last_shown_time.InSecondsFSinceUnixEpoch();
   }
   // TODO(crbug.com/40211187): The bookmark provider also uses on `query_parser`
-  // and `ScoringFunctor` to compute its scores. However, it uses normalized match
-  //  titles (see `Normalize()` in
+  //  and `ScoringFunctor` to compute its scores. However, it uses normalized
+  //  match titles (see `Normalize()` in
   //  components/bookmarks/browser/titled_url_index.cc). IDK its purpose, but we
-  //  should either verify it's unnecessary here, or do likewise here.
+  //  should either verify it's unnecessary there, or do likewise here.
 
   // Extract query words from the title.
   const std::u16string lower_title = base::i18n::ToLower(tab.title);
@@ -118,8 +118,7 @@ int Score(const AutocompleteInput& input,
 }
 
 bool ShouldRunProvider(AutocompleteProviderClient* client,
-                       const AutocompleteInput& input,
-                       const AutocompleteInput& adjusted_input) {
+                       const AutocompleteInput& input) {
   bool zps_or_empty = input.IsZeroSuggest() || input.text().empty();
   if (is_android) {
     return !zps_or_empty || !client->IsIncognitoProfile();
@@ -145,7 +144,7 @@ void OpenTabProvider::Start(const AutocompleteInput& input,
   const auto [adjusted_input, template_url] =
       AdjustInputForStarterPackKeyword(input, client_->GetTemplateURLService());
 
-  if (!ShouldRunProvider(client_, input, adjusted_input)) {
+  if (!ShouldRunProvider(client_, input)) {
     return;
   }
 
@@ -175,7 +174,7 @@ void OpenTabProvider::Start(const AutocompleteInput& input,
   // If there were no open tab results found, and we're in keyword mode,
   // generate a NULL_RESULT_MESSAGE suggestion to keep the user in keyword mode
   // and display a no results message.
-  if (adjusted_input.InKeywordMode() && matches_.empty() && template_url) {
+  if (adjusted_input.in_keyword_mode() && matches_.empty() && template_url) {
     matches_.push_back(
         CreateNullResultMessageMatch(adjusted_input, template_url));
   }
@@ -229,7 +228,7 @@ AutocompleteMatch OpenTabProvider::CreateOpenTabMatch(
       description_terms, match.description.size(), ACMatchClassification::MATCH,
       ACMatchClassification::NONE);
 
-  if (input.InKeywordMode()) {
+  if (input.in_keyword_mode()) {
     match.from_keyword = true;
   }
 

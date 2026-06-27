@@ -191,8 +191,13 @@ FlexLayoutAlgorithm::FlexLayoutAlgorithm(
       cross_size_adjustments_(cross_size_adjustments) {
   // TODO(layout-dev): Devtools support when there are multiple fragments.
   if (Node().GetLayoutBox()->NeedsDevtoolsInfo() &&
-      !InvolvedInBlockFragmentation(container_builder_))
+      !InvolvedInBlockFragmentation(container_builder_)) {
     layout_info_for_devtools_ = MakeGarbageCollected<DevtoolsFlexInfo>();
+  }
+  if (balance_min_line_count_) {
+    Node().GetDocument().CountWebDXFeature(
+        mojom::blink::WebDXFeature::kFlexWrapBalance);
+  }
 }
 
 void FlexLayoutAlgorithm::SetupRelayoutData(const FlexLayoutAlgorithm& previous,
@@ -2310,6 +2315,7 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
           offset_in_stitched_container -
           (original_offset.block_offset + flex_line.item_offset_adjustment) -
           item_break_token->ConsumedBlockSize();
+      line_cross_size = line_cross_size.ClampNegativeToZero();
     }
 
     const bool min_block_size_should_encompass_intrinsic_size =
@@ -3029,7 +3035,7 @@ BreakStatus FlexLayoutAlgorithm::BreakBeforeRowIfNeeded(
 
   if (has_container_separation) {
     if (IsForcedBreakValue(GetConstraintSpace(), row_break_between)) {
-      BreakBeforeChild(GetConstraintSpace(), child, /*layout_result=*/nullptr,
+      BreakBeforeChild(child, /*layout_result=*/nullptr,
                        fragmentainer_block_offset, fragmentainer_block_size,
                        kBreakAppealPerfect, /*is_forced_break=*/true,
                        &container_builder_, row.line_cross_size);
@@ -3053,7 +3059,7 @@ BreakStatus FlexLayoutAlgorithm::BreakBeforeRowIfNeeded(
   // We're out of space. Figure out where to insert a soft break. It will either
   // be before this row, or before an earlier sibling, if there's a more
   // appealing breakpoint there.
-  if (!AttemptSoftBreak(GetConstraintSpace(), child,
+  if (!AttemptSoftBreak(child,
                         /*layout_result=*/nullptr, fragmentainer_block_offset,
                         fragmentainer_block_size, appeal_before,
                         &container_builder_, row.line_cross_size)) {

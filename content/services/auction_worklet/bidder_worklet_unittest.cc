@@ -343,7 +343,6 @@ class BidderWorkletTest : public testing::Test {
     SetDefaultParameters();
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{features::kInterestGroupUpdateIfOlderThan,
-                              features::kFledgeTextConversionHelpers,
                               blink::features::
                                   kFledgeTrustedSignalsKVv1CreativeScanning},
         /*disabled_features=*/{});
@@ -1292,16 +1291,6 @@ class BidderWorkletMultiBidDisabledTest : public BidderWorkletTest {
  public:
   BidderWorkletMultiBidDisabledTest() {
     feature_list_.InitAndDisableFeature(blink::features::kFledgeMultiBid);
-  }
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-class BidderWorkletNoTextConversionsTest : public BidderWorkletTest {
- public:
-  BidderWorkletNoTextConversionsTest() {
-    feature_list_.InitAndDisableFeature(features::kFledgeTextConversionHelpers);
   }
 
  protected:
@@ -5018,23 +5007,6 @@ TEST_F(BidderWorkletNoCreativeScanningTest,
       R"(!('creativeScanningMetadata' in interestGroup.adComponents[0]))");
 }
 
-TEST_F(BidderWorkletNoTextConversionsTest, GenerateBidTextConversions) {
-  RunGenerateBidExpectingExpressionIsTrue(
-      R"(!('protectedAudience' in globalThis))");
-}
-
-TEST_F(BidderWorkletTest, GenerateBidTextConversions) {
-  RunGenerateBidExpectingExpressionIsTrue(
-      R"('encodeUtf8' in protectedAudience)");
-  RunGenerateBidExpectingExpressionIsTrue(
-      R"('decodeUtf8' in protectedAudience)");
-
-  RunGenerateBidExpectingExpressionIsTrue(
-      "protectedAudience.encodeUtf8('A')[0] === 65");
-  RunGenerateBidExpectingExpressionIsTrue(
-      "protectedAudience.decodeUtf8(new Uint8Array([65, 32, 68])) === 'A D'");
-}
-
 // Make sure we don't stomp over an existing user protectedAudience
 TEST_F(BidderWorkletTest, GenerateBidNoGlobalStomp) {
   const char kScript[] = R"(
@@ -8072,21 +8044,6 @@ TEST_F(BidderWorkletTest, ReportWinTopLevelTimeout) {
       /*expected_reporting_latency_timeout=*/true,
       /*expected_errors=*/
       {"https://url.test/ top-level execution timed out."});
-}
-
-TEST_F(BidderWorkletNoTextConversionsTest, ReportWinTextConversions) {
-  RunReportWinWithFunctionBodyExpectingResult(
-      "sendReportTo('https://foo.test?' + ('protectedAudience' in globalThis))",
-      GURL("https://foo.test/?false"));
-}
-
-TEST_F(BidderWorkletTest, ReportWinTextConversions) {
-  RunReportWinWithFunctionBodyExpectingResult(
-      "sendReportTo('https://foo.test?' + ('encodeUtf8' in protectedAudience))",
-      GURL("https://foo.test/?true"));
-  RunReportWinWithFunctionBodyExpectingResult(
-      "sendReportTo('https://foo.test?' + ('decodeUtf8' in protectedAudience))",
-      GURL("https://foo.test/?true"));
 }
 
 // Make sure we don't stomp over an existing user protectedAudience object.
@@ -15132,6 +15089,41 @@ TEST_F(BidderWorkletTest, CrossOrigin) {
   histogram_tester.ExpectUniqueSample(
       "Ads.InterestGroup.Auction.TrustedBidderSignalsOriginRelation",
       BidderWorklet::SignalsOriginRelation::kCrossOriginSignals, 5);
+}
+
+TEST_F(BidderWorkletTest, MicroTaskTiming) {
+  const char kScript[] = R"(
+    function generateBid() {
+      Promise.resolve().then(() => {
+        /* If this runs at wrong time, the error will be top-level timeout,
+         * not generateBid one */
+        while(true) {}
+      });
+
+      while(true) {};
+    }
+  )";
+
+  mojo::Remote<mojom::BidderWorklet> bidder_worklet = CreateWorklet();
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        kScript);
+  GenerateBid(bidder_worklet.get());
+  generate_bid_run_loop_ = std::make_unique<base::RunLoop>();
+  generate_bid_run_loop_->Run();
+  EXPECT_EQ(0u, bids_.size());
+  EXPECT_THAT(bid_errors_,
+              testing::ElementsAre(
+                  "https://url.test/ execution of `generateBid` timed out."));
+
+  // Second run should have the same behavior, not different one due to
+  // wrong timing of utask execution.
+  GenerateBid(bidder_worklet.get());
+  generate_bid_run_loop_ = std::make_unique<base::RunLoop>();
+  generate_bid_run_loop_->Run();
+  EXPECT_EQ(0u, bids_.size());
+  EXPECT_THAT(bid_errors_,
+              testing::ElementsAre(
+                  "https://url.test/ execution of `generateBid` timed out."));
 }
 
 class BidderWorkletRealTimeReportingEnabledTest : public BidderWorkletTest {

@@ -6,11 +6,17 @@
 
 #include <climits>
 
+#include "base/android/jni_android.h"
+#include "base/android/scoped_java_ref.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/rand_util.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/context_sharing/tab_bottom_sheet/android/co_browse_views_bridge.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/tab_bottom_sheet_bridge.h"
+#include "chrome/browser/glic/android/jni_headers/GlicBottomSheetContentProvider_jni.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 
@@ -29,8 +35,12 @@ GlicSidePanelCoordinatorAndroid::GlicSidePanelCoordinatorAndroid(
       base::BindRepeating(&GlicSidePanelCoordinatorAndroid::OnTabWillDetach,
                           base::Unretained(this)));
 
-  bridge_ = std::make_unique<context_sharing::TabBottomSheetBridge>(
-      this, tab, context_sharing::TabBottomSheetClientType::kGlic);
+  views_bridge_ = std::make_unique<context_sharing::CoBrowseViewsBridge>(
+      *tab, context_sharing::TabBottomSheetClientType::kGlic,
+      context_sharing::CoBrowseContainerType::kBottomSheet,
+      CreateBottomSheetContentProvider());
+  tab_bottom_sheet_bridge_ =
+      std::make_unique<context_sharing::TabBottomSheetBridge>(this, tab);
 }
 
 GlicSidePanelCoordinatorAndroid::~GlicSidePanelCoordinatorAndroid() = default;
@@ -45,7 +55,9 @@ void GlicSidePanelCoordinatorAndroid::Show(const ShowOptions& options) {
     return;
   }
 
-  bool shown = bridge_->Show(
+  views_bridge_->SetWebContents(web_contents_.get(), /*request_focus=*/false);
+  bool shown = tab_bottom_sheet_bridge_->Show(
+      views_bridge_->GetCoBrowseViews(),
       /*animate=*/!options.suppress_animations,
       /*starts_expanded=*/options.initial_state ==
           ShowOptions::InitialState::kExpanded);
@@ -72,7 +84,7 @@ void GlicSidePanelCoordinatorAndroid::SetWebContents(
   } else {
     web_contents_.reset();
   }
-  bridge_->SetWebContents(web_contents);
+  views_bridge_->SetWebContents(web_contents, /*request_focus=*/false);
 }
 
 void GlicSidePanelCoordinatorAndroid::Close(const CloseOptions& options) {
@@ -85,7 +97,12 @@ void GlicSidePanelCoordinatorAndroid::Close(const CloseOptions& options) {
     return;
   }
 
-  bridge_->Close(/* animate= */ false);
+  tab_bottom_sheet_bridge_->Close(/* animate= */ !options.suppress_animations);
+}
+
+void GlicSidePanelCoordinatorAndroid::SuppressBottomSheetForTesting(  // IN-TEST
+    bool suppress) {
+  tab_bottom_sheet_bridge_->SuppressBottomSheetForTesting(suppress);  // IN-TEST
 }
 
 bool GlicSidePanelCoordinatorAndroid::IsShowing() const {
@@ -141,7 +158,7 @@ void GlicSidePanelCoordinatorAndroid::OnTabWillDeactivate(
   }
   SetState(State::kBackgrounded);
 
-  bridge_->Close(/* animate= */ false);
+  tab_bottom_sheet_bridge_->Close(/* animate= */ false);
 }
 
 void GlicSidePanelCoordinatorAndroid::OnTabWillDetach(
@@ -154,7 +171,7 @@ void GlicSidePanelCoordinatorAndroid::OnTabWillDetach(
   if (detach_reason == tabs::TabInterface::DetachReason::kDelete) {
     if (state_ != State::kClosed) {
       SetState(State::kBackgrounded);
-      bridge_->Close(/* animate= */ false);
+      tab_bottom_sheet_bridge_->Close(/* animate= */ false);
     }
   }
 }
@@ -170,6 +187,13 @@ void GlicSidePanelCoordinatorAndroid::OnSuppressed() {}
 
 void GlicSidePanelCoordinatorAndroid::OnOpened(bool is_expanded) {
   SetState(is_expanded ? State::kShown : State::kPeek);
+}
+
+base::android::ScopedJavaLocalRef<jobject>
+GlicSidePanelCoordinatorAndroid::CreateBottomSheetContentProvider() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_GlicBottomSheetContentProvider_createProvider(
+      env, tab_->GetProfile()->GetJavaObject());
 }
 
 }  // namespace glic

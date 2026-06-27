@@ -5,6 +5,7 @@
 #include "components/omnibox/browser/geolocation_header_service.h"
 
 #include "base/base64url.h"
+#include "base/logging.h"
 #include "base/strings/strcat.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -109,22 +110,27 @@ void GeolocationHeaderService::PrimeLocation() {
 
   const TemplateURL* default_provider =
       template_url_service_->GetDefaultSearchProvider();
-  if (!default_provider) {
+  if (!default_provider || !default_provider->send_x_geo_header()) {
     return;
   }
 
   GURL requesting_url = default_provider->GenerateSearchURL(
       template_url_service_->search_terms_data());
 
+  bool is_ills_enabled =
+      base::FeatureList::IsEnabled(omnibox::kInlineLocationSignaling);
+
   if (!requesting_url.is_valid() ||
       !requesting_url.SchemeIs(url::kHttpsScheme) ||
-      !IsAllowedByPermission(requesting_url)) {
+      (!IsAllowedByPermission(requesting_url) && !is_ills_enabled)) {
     last_position_.reset();
     return;
   }
 
-  // If the location is fresh there is no need to query for a new one.
-  if (HasCachedLocation()) {
+  // If the location is fresh and matches targeted precision requirements, there
+  // is no need to query for a new one.
+  if (HasCachedLocation() &&
+      last_position_->is_precise == HasPrecisePermission(requesting_url)) {
     base::TimeDelta age = location_age_for_testing_.value_or(
         base::Time::Now() - last_position_->timestamp);
     if (age <= kMaxLocationAgeForPriming) {
@@ -132,12 +138,20 @@ void GeolocationHeaderService::PrimeLocation() {
     }
   }
 
-  if (!EnsureGeolocationServiceConnection(requesting_url)) {
+  bool use_cache_only =
+      is_ills_enabled && !IsAllowedByPermission(requesting_url);
+
+  if (!EnsureGeolocationServiceConnection(requesting_url, use_cache_only)) {
     return;
   }
 
-  geolocation_->QueryNextPosition(base::BindOnce(
-      &GeolocationHeaderService::OnLocationUpdate, weak_factory_.GetWeakPtr()));
+  auto callback = base::BindOnce(&GeolocationHeaderService::OnLocationUpdate,
+                                 weak_factory_.GetWeakPtr());
+  if (use_cache_only) {
+    geolocation_->QueryCachedPosition(std::move(callback));
+  } else {
+    geolocation_->QueryNextPosition(std::move(callback));
+  }
 }
 
 bool GeolocationHeaderService::HasCachedLocation() const {
@@ -151,17 +165,39 @@ bool GeolocationHeaderService::HasCachedLocation() const {
          kMaxLocationAgeForHeader;
 }
 
+std::optional<GeolocationAccuracy>
+GeolocationHeaderService::GetCachedLocationAccuracy() const {
+  if (!HasCachedLocation()) {
+    return std::nullopt;
+  }
+  return last_position_->is_precise ? GeolocationAccuracy::kPrecise
+                                    : GeolocationAccuracy::kApproximate;
+}
+
 std::optional<std::string> GeolocationHeaderService::GetLocationHeader(
-    const GURL& url) {
+    const GURL& url,
+    bool for_automatic_sending) {
   if (!url.SchemeIs(url::kHttpsScheme) || !HasCachedLocation() ||
       !IsUrlEligibleForLocationHeader(url)) {
     return std::nullopt;
   }
 
-  if (!IsAllowedByPermission(url) ||
-      (last_position_->is_precise && !HasPrecisePermission(url))) {
-    last_position_.reset();
-    geolocation_.reset();
+  // If this call is for the purpose of sending the header automatically, the
+  // DSE should have permission. If this call is for the purpose of building
+  // omnibox suggestion, then it should only be allowed if the DSE does NOT have
+  // permission.
+  if (for_automatic_sending != IsAllowedByPermission(url)) {
+    return std::nullopt;
+  }
+
+  // For automatic sending, respect permission granularity.
+  // Note: For the interactive flow (for_automatic_sending == false), we bypass
+  // this precision check because the user's click on the signaling row
+  // constitutes explicit consent to send the cached location as-is, and the UI
+  // wording transparently reflects the accuracy being sent ("Use precise
+  // location").
+  if (for_automatic_sending && last_position_->is_precise &&
+      !HasPrecisePermission(url)) {
     return std::nullopt;
   }
 
@@ -218,12 +254,16 @@ bool GeolocationHeaderService::HasDeviceLocationPermission(
 
 bool GeolocationHeaderService::IsUrlEligibleForLocationHeader(
     const GURL& url) const {
+  if (!url.SchemeIs(url::kHttpsScheme)) {
+    return false;
+  }
+
   if (!template_url_service_) {
     return false;
   }
   const TemplateURL* default_provider =
       template_url_service_->GetDefaultSearchProvider();
-  if (!default_provider) {
+  if (!default_provider || !default_provider->send_x_geo_header()) {
     return false;
   }
 
@@ -258,7 +298,8 @@ bool GeolocationHeaderService::IsUrlEligibleForLocationHeader(
 }
 
 bool GeolocationHeaderService::EnsureGeolocationServiceConnection(
-    const GURL& requesting_url) {
+    const GURL& requesting_url,
+    bool use_cache_only) {
   if (geolocation_.is_bound()) {
     return true;
   }
@@ -276,10 +317,13 @@ bool GeolocationHeaderService::EnsureGeolocationServiceConnection(
   // location prompt can attribute the location request to the correct origin.
   bool has_precise = HasPrecisePermission(requesting_url);
   geolocation_context_->BindGeolocation(
-      geolocation_.BindNewPipeAndPassReceiver(), requesting_url,
+      geolocation_.BindNewPipeAndPassReceiver(),
+      url::Origin::Create(requesting_url),
       device::mojom::GeolocationClientId::kOmnibox, has_precise);
 
-  geolocation_->SetHighAccuracyHint(has_precise);
+  if (!use_cache_only) {
+    geolocation_->SetHighAccuracyHint(has_precise);
+  }
 
   geolocation_.set_disconnect_handler(base::BindOnce(
       [](base::WeakPtr<GeolocationHeaderService> service) {

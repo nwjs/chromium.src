@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "base/command_line.h"
+#include "base/functional/callback_helpers.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -28,9 +29,14 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
+#endif
 
 namespace glic {
 
@@ -44,24 +50,23 @@ mojom::ProfileEnablementPtr BuildProfileEnablement(
       GlicEnabling::EnablementForProfile(profile);
 
   auto result = mojom::ProfileEnablement::New();
-  result->feature_disabled = enablement.feature_disabled;
-  result->not_regular_profile = enablement.not_regular_profile;
-  result->not_rolled_out = enablement.not_rolled_out;
-  result->primary_account_not_capable = enablement.primary_account_not_capable;
-  result->primary_account_not_fully_signed_in =
-      enablement.primary_account_not_fully_signed_in;
-  result->disallowed_by_chrome_policy = enablement.disallowed_by_chrome_policy;
-  result->disallowed_by_remote_admin = enablement.disallowed_by_remote_admin;
-  result->disallowed_by_remote_other = enablement.disallowed_by_remote_other;
-  result->not_consented = enablement.not_consented;
-  result->disallowed_by_country_filter =
-      enablement.disallowed_by_country_filter;
-  result->disallowed_by_locale_filter = enablement.disallowed_by_locale_filter;
-  result->live_disallowed = enablement.live_disallowed;
-  result->share_image_disallowed = enablement.share_image_disallowed;
+  result->feature_enabled = enablement.feature_enabled;
+  result->is_regular_profile = enablement.is_regular_profile;
+  result->is_rolled_out = enablement.is_rolled_out;
+  result->primary_account_is_capable = enablement.primary_account_is_capable;
+  result->primary_account_is_fully_signed_in =
+      enablement.primary_account_is_fully_signed_in;
+  result->allowed_by_chrome_policy = enablement.allowed_by_chrome_policy;
+  result->allowed_by_remote_admin = enablement.allowed_by_remote_admin;
+  result->allowed_by_remote_other = enablement.allowed_by_remote_other;
+  result->fre_is_consented = enablement.fre_is_consented;
+  result->allowed_by_country_filter = enablement.allowed_by_country_filter;
+  result->allowed_by_locale_filter = enablement.allowed_by_locale_filter;
+  result->live_allowed = enablement.live_allowed;
+  result->share_image_allowed = enablement.share_image_allowed;
   auto* service = GlicKeyedService::Get(profile);
-  result->actuation_not_consented =
-      !(service && service->enabling().GetUserEnabledActuationOnWeb());
+  result->actuation_is_consented =
+      (service && service->enabling().GetUserEnabledActuationOnWeb());
 
   using CannotActReason = ::glic::CannotActReason;
   if (actor_policy_checker) {
@@ -145,6 +150,9 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
                                     ->GetPrefs()
                                     ->GetBoolean(prefs::kGlicShowErrorAllowed);
 
+  payload->experimental_triggering_enabled =
+      base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering);
+
   payload->config = std::move(config);
 
   std::move(callback).Run(std::move(payload));
@@ -180,11 +188,16 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
     return;
   }
 
-  GlicInvokeOptions options{mojo_options->invocation_source};
+  GlicInvokeOptions options =
+      mojo_options->payload
+          ? GlicInvokeOptions(std::move(mojo_options->payload))
+          : GlicInvokeOptions(mojo_options->invocation_source);
   options.prompts = std::move(mojo_options->prompts);
 
   if (mojo_options->additional_context) {
-    options.additional_context = std::move(mojo_options->additional_context);
+    options.additional_context = AdditionalTabContext(
+        std::move(mojo_options->additional_context),
+        content::GlobalRenderFrameHostId(), PolicyCheck::kClipboard);
   }
 
   if (mojo_options->conversation->is_new_conversation()) {
@@ -207,19 +220,7 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   options.timeout = mojo_options->timeout;
   options.fre_override = mojo_options->fre_override;
   options.wait_for_panel_open = mojo_options->wait_for_panel_open;
-
-  switch (mojo_options->allowed_inflight_navigation) {
-    case mojom::AllowedInflightNavigation::kSameDomain:
-      options.allowed_inflight_navigation =
-          AllowedInflightNavigation::kSameDomain;
-      break;
-    case mojom::AllowedInflightNavigation::kNone:
-      options.allowed_inflight_navigation = AllowedInflightNavigation::kNone;
-      break;
-    case mojom::AllowedInflightNavigation::kAll:
-      options.allowed_inflight_navigation = AllowedInflightNavigation::kAll;
-      break;
-  }
+  options.target.actuation_target = mojo_options->actuation_target;
 
   auto split_callback = base::SplitOnceCallback(std::move(callback));
 
@@ -232,6 +233,7 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   options.on_error = base::BindOnce(
       [](TriggerInvokeFromInternalsActionCallback cb, GlicInvokeError error) {
         std::string error_msg;
+        // LINT.IfChange(GlicInvokeError)
         switch (error) {
           case GlicInvokeError::kTimeout:
             error_msg = "Timeout";
@@ -251,11 +253,35 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
           case GlicInvokeError::kInvokeInProgress:
             error_msg = "Invoke In Progress";
             break;
+          case GlicInvokeError::kInvalidConfiguration:
+            error_msg = "Invalid Configuration";
+            break;
+          case GlicInvokeError::kAdditionalContextSawNavigation:
+            error_msg = "Navigation during context gathering";
+            break;
+          case GlicInvokeError::kAdditionalContextFailedCopyPolicy:
+            error_msg = "Copy policy check failed";
+            break;
+          case GlicInvokeError::kAdditionalContextFailedPastePolicy:
+            error_msg = "Paste policy check failed";
+            break;
+          case GlicInvokeError::kAdditionalContextNoSourceFrame:
+            error_msg = "No source frame for context";
+            break;
+          case GlicInvokeError::kAdditionalContextNoClientFrame:
+            error_msg = "No client frame for context";
+            break;
+          case GlicInvokeError::kAdditionalContextNoClipboardMetadata:
+            error_msg = "No clipboard metadata for context";
+            break;
           case GlicInvokeError::kUnknown:
+            error_msg = "Unknown Error";
+            break;
           default:
             error_msg = "Unknown Error";
             break;
         }
+        // LINT.ThenChange(//chrome/browser/glic/public/glic_invoke_options.h:GlicInvokeError)
         std::move(cb).Run(false, error_msg);
       },
       std::move(split_callback.second));
@@ -271,8 +297,13 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   }
 
   if (mojo_options->auto_submit) {
+    GlicInvokeWithAutoSubmitOptions auto_submit_options;
+    if (mojo_options->show_panel.has_value()) {
+      auto_submit_options.show_panel = mojo_options->show_panel.value();
+    }
     service->InvokeWithAutoSubmit(
-        InvokeWithAutoSubmitPasskeyProvider::GetPassKey(), std::move(options));
+        InvokeWithAutoSubmitPasskeyProvider::GetPassKey(), std::move(options),
+        std::move(auto_submit_options));
   } else {
     static_cast<GlicInstanceCoordinatorImpl&>(service->instance_coordinator())
         .Invoke(std::move(options));
@@ -290,6 +321,17 @@ void GlicInternalsPageHandler::SetShowErrorAllowed(bool allowed) {
   Profile::FromBrowserContext(browser_context_)
       ->GetPrefs()
       ->SetBoolean(prefs::kGlicShowErrorAllowed, allowed);
+}
+
+void GlicInternalsPageHandler::ShowExperimentalOptIn() {
+#if !BUILDFLAG(IS_ANDROID)
+  GlicKeyedService* service = GetGlicService();
+  if (!service) {
+    return;
+  }
+
+  service->opt_in_controller().ShowDialog(webui_contents_, base::DoNothing());
+#endif
 }
 
 }  // namespace glic

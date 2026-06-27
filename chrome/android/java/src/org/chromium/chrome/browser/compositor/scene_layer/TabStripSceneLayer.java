@@ -32,11 +32,12 @@ import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.resources.ResourceManager;
+import org.chromium.ui.util.StyleUtils;
 
 /**
  * The Java component of what is basically a CC Layer that manages drawing the Tab Strip (which is
- * composed of {@link StripLayoutTab}s) to the screen.  This object keeps the layers up to date and
- * removes/creates children as necessary.  This object is built by its native counterpart.
+ * composed of {@link StripLayoutTab}s) to the screen. This object keeps the layers up to date and
+ * removes/creates children as necessary. This object is built by its native counterpart.
  */
 @JNINamespace("android")
 @NullMarked
@@ -208,12 +209,20 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
             TintedCompositorButton dismissNudge = glicButton.getDismissButton();
             boolean glicButtonVisible = glicButton.isVisible();
             boolean dismissVisible = dismissNudge.isVisible() && glicButtonVisible;
+            int glicButtonStartPadding =
+                    Math.round(
+                            StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_START_PADDING_DP
+                                    * mDpToPx);
+            int glicIconTextPadding =
+                    Math.round(
+                            StripLayoutTrailingButtonsCoordinator.GLIC_ICON_TEXT_PADDING_DP
+                                    * mDpToPx);
             float glicCornerRadiusOuter =
-                    StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_CORNER_RADIUS;
+                    StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_CORNER_RADIUS_DP;
             float glicCornerRadiusInner = glicCornerRadiusOuter;
             if (glicActorButton != null && glicActorButton.isVisible()) {
                 glicCornerRadiusInner =
-                        StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_INNER_CORNER_RADIUS;
+                        StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_INNER_CORNER_RADIUS_DP;
             }
 
             TabStripSceneLayerJni.get()
@@ -227,20 +236,15 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             glicButtonVisible,
                             glicButton.getShouldApplyHoverBackground(),
                             glicButton.getTint(),
-                            trailingButtonsCoordinator.isGlicUiVisible(),
+                            /* shouldTint= */ false,
                             glicButton.getBackgroundTint(),
                             glicButton.getOpacity(),
                             glicButton.isKeyboardFocused(),
                             TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
                             glicButton.getKeyboardFocusRingColor(),
                             glicButton.getTextResourceId(),
-                            Math.round(
-                                    StripLayoutTrailingButtonsCoordinator
-                                                    .GLIC_BUTTON_START_PADDING_DP
-                                            * mDpToPx),
-                            Math.round(
-                                    StripLayoutTrailingButtonsCoordinator.GLIC_ICON_TEXT_PADDING_DP
-                                            * mDpToPx),
+                            glicButtonStartPadding,
+                            glicIconTextPadding,
                             Math.round(glicCornerRadiusOuter * mDpToPx),
                             Math.round(glicCornerRadiusInner * mDpToPx),
                             dismissNudge.getResourceId(),
@@ -255,10 +259,19 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
 
         if (glicActorButton != null) {
             boolean glicActorButtonVisible = glicActorButton.isVisible();
+            int glicActorButtonStartPadding =
+                    Math.round(
+                            StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_START_PADDING_DP
+                                    * mDpToPx);
+            int glicActorIconTextPadding =
+                    Math.round(
+                            StripLayoutTrailingButtonsCoordinator.GLIC_ICON_TEXT_PADDING_DP
+                                    * mDpToPx);
             float actorCornerRadiusOuter =
-                    StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_INNER_CORNER_RADIUS * mDpToPx;
+                    StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_INNER_CORNER_RADIUS_DP
+                            * mDpToPx;
             float actorCornerRadiusInner =
-                    StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_CORNER_RADIUS * mDpToPx;
+                    StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_CORNER_RADIUS_DP * mDpToPx;
 
             TabStripSceneLayerJni.get()
                     .updateGlicActorButton(
@@ -277,9 +290,9 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             glicActorButton.isKeyboardFocused(),
                             TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
                             glicActorButton.getKeyboardFocusRingColor(),
-                            /* textTextureId= */ 0,
-                            /* buttonStartPadding= */ 0.f,
-                            /* buttonTextPadding= */ 0.f,
+                            glicActorButton.getTextResourceId(),
+                            glicActorButtonStartPadding,
+                            glicActorIconTextPadding,
                             actorCornerRadiusOuter,
                             actorCornerRadiusInner);
         }
@@ -357,7 +370,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
 
             boolean isPinned = st.getIsPinned();
             float widthToHideTabTitle =
-                    (StripLayoutUtils.shouldApplyMoreDensity() || isPinned)
+                    (StyleUtils.shouldApplyDesktopDensity() || isPinned)
                             ? StripLayoutUtils.MIN_TAB_WIDTH_DP
                             : 0.f;
 

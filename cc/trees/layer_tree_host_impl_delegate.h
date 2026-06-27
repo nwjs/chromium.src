@@ -10,9 +10,11 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/time/time.h"
+#include "cc/metrics/begin_main_frame_metrics.h"
 #include "cc/metrics/frame_sequence_tracker_collection.h"
 #include "cc/scheduler/scheduler.h"
 #include "cc/trees/presentation_time_callback_buffer.h"
+#include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/resources/returned_resource.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
 
@@ -27,7 +29,7 @@ namespace cc {
 enum class AnimationWorkletMutationState;
 enum class ElementListType;
 
-// LayerTreeHost->Proxy callback interface.
+// LayerTreeHostImpl->Proxy callback interface.
 class LayerTreeHostImplDelegate {
  public:
   virtual void DidLoseLayerTreeFrameSinkOnImplThread() = 0;
@@ -41,7 +43,8 @@ class LayerTreeHostImplDelegate {
   // LayerTreeHostImpl's SetNeedsRedraw() and SetNeedsOneBeginImplFrame().
   virtual void SetNeedsRedrawOnImplThread() = 0;
   virtual void SetNeedsOneBeginImplFrameOnImplThread() = 0;
-  virtual void SetNeedsCommitOnImplThread(bool urgent = false) = 0;
+  virtual void SetNeedsCommitOnImplThread(BeginMainFrameReason reason,
+                                          bool urgent = false) = 0;
   virtual void SetNeedsPrepareTilesOnImplThread() = 0;
   virtual void SetVideoNeedsBeginFrames(bool needs_begin_frames) = 0;
   virtual void DidChangeBeginFrameSourcePaused(bool paused) = 0;
@@ -107,6 +110,13 @@ class LayerTreeHostImplDelegate {
   virtual void SetWaitingForScrollEvent(bool waiting_for_scroll_event) = 0;
 
   virtual void ReturnResource(viz::ReturnedResource returned_resource) {}
+
+  // Notifies the client to update the bounds of the dedicated unbounded
+  // surface.
+  virtual void UpdateUnboundedSurfaceBounds(const gfx::Rect& bounds) {}
+
+  // Submits the dedicated CompositorFrame to the browser's unbounded surface.
+  virtual void SubmitUnboundedCompositorFrame(viz::CompositorFrame frame) {}
 
   virtual size_t CommitDurationSampleCountForTesting() const = 0;
 

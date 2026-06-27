@@ -43,6 +43,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
+#include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
@@ -699,12 +700,14 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     // This is an inlined version of the following:
     // `IsStackingContextWithoutContainment() ||
     //  ShouldApplyLayoutContainment() ||
-    //  ShouldApplyPaintContainment()`
+    //  ShouldApplyPaintContainment() ||
+    //  IsOverscrollAreaParent()`
     // The reason it is inlined is that the containment checks share
     // common logic, which is extracted here to avoid repeated computation.
     return style.IsStackingContextWithoutContainment() ||
            ((style.ContainsLayout() || style.ContainsPaint()) &&
-            IsEligibleForPaintOrLayoutContainment());
+            IsEligibleForPaintOrLayoutContainment()) ||
+           IsOverscrollAreaParent();
   }
 
   virtual bool IsReplacedNormalFlowStackingContext(const ComputedStyle&) const {
@@ -718,6 +721,13 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   }
   inline bool IsStacked(const ComputedStyle& style) const {
     NOT_DESTROYED();
+    if (auto* html_element = DynamicTo<HTMLElement>(GetNode());
+        html_element && html_element->IsUnboundedElementActive()) {
+      // For unbounded elements, we treat them as stacked, so they get their own
+      // paint layer by default.
+      DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
+      return true;
+    }
     return style.GetPosition() != EPosition::kStatic ||
            (IsStackingContext(style) &&
             (!RuntimeEnabledFeatures::StackingContextIsNotStackedEnabled() ||
@@ -1279,10 +1289,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   virtual gfx::RectF ObjectBoundingBox() const;
 
   // Returns the smallest rectangle enclosing all of the painted content
-  // respecting clipping, masking, filters, opacity, stroke-width and markers.
-  // The local SVG coordinate space is the space where localSVGTransform
-  // applies. For SVG objects defining viewports (e.g.
-  // LayoutSVGViewportContainer and  LayoutSVGResourceMarker), the local SVG
+  // respecting clipping, masking, opacity, stroke-width, and markers (but not
+  // filters). The local SVG coordinate space is the space where
+  // `LocalSVGTransform` applies. For SVG objects defining viewports (e.g.
+  // `LayoutSVGViewportContainer` and `LayoutSVGResourceMarker`), the local SVG
   // coordinate space is the viewport space.
   virtual gfx::RectF VisualRectInLocalSVGCoordinates() const;
 
@@ -1305,7 +1315,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   // Returns the full transform mapping from local coordinates to parent's local
   // coordinates. For most SVG objects, this is the same as localSVGTransform.
-  // For SVG objects defining viewports (see visualRectInLocalSVGCoordinates),
+  // For SVG objects defining viewports (see VisualRectInLocalSVGCoordinates),
   // this includes any viewport transforms and x/y offsets as well as
   // localSVGTransform.
   virtual AffineTransform LocalToSVGParentTransform() const {
@@ -2535,7 +2545,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   virtual bool MapToVisualRectInAncestorSpaceInternal(
       const LayoutBoxModelObject* ancestor,
       TransformState&,
-      VisualRectFlags = kDefaultVisualRectFlags) const;
+      VisualRectFlags) const;
 
   // Returns the nearest ancestor in the containing block chain that
   // HasLocalBorderBoxProperties. If AncestorSkipInfo* is non-null and the
@@ -3081,6 +3091,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
       layout_object_.UpdateInsideBlockingWheelEventHandler(inside);
     }
 
+    void UpdateIsActiveUnboundedElementOrDescendant(bool inside) {
+      layout_object_.UpdateIsActiveUnboundedElementOrDescendant(inside);
+    }
+
 #if DCHECK_IS_ON()
     void ClearNeedsPaintPropertyUpdateForTesting() {
       layout_object_.bitfields_.SetNeedsPaintPropertyUpdate(false);
@@ -3321,7 +3335,16 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return bitfields_.PreviousVisibilityVisible();
   }
 
-  // See LocalVisualRect().
+  bool IsInclusiveDescendantOfUnboundedElement() const {
+    NOT_DESTROYED();
+    return bitfields_.IsActiveUnboundedElementOrDescendant();
+  }
+
+  void UpdateIsActiveUnboundedElementOrDescendant(bool inside) {
+    NOT_DESTROYED();
+    bitfields_.SetIsActiveUnboundedElementOrDescendant(inside);
+  }
+
   virtual bool VisualRectRespectsVisibility() const {
     NOT_DESTROYED();
     return true;
@@ -3820,7 +3843,8 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
           may_be_non_contiguous_ifc_(false),
           has_svg_text_descendants_(false),
           is_multicol_container_(false),
-          contains_selection_focus_(false) {}
+          contains_selection_focus_(false),
+          is_active_unbounded_element_or_descendant_(false) {}
 
     // Typically indicates that this object has had its style changed, and
     // requires a "full" layout.
@@ -4176,6 +4200,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     // Whether the selection focus is inside this element.
     // Used for text-overflow ellipsis.
     ADD_BOOLEAN_BITFIELD(contains_selection_focus_, ContainsSelectionFocus);
+
+    // Whether this is an (inclusive) descendant of an unbounded element.
+    ADD_BOOLEAN_BITFIELD(is_active_unbounded_element_or_descendant_,
+                         IsActiveUnboundedElementOrDescendant);
   };
 
 #undef ADD_BOOLEAN_BITFIELD

@@ -10,6 +10,7 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -71,6 +72,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/embedded_test_server/expectation_handler.h"
 #include "net/test/embedded_test_server/install_default_websocket_handlers.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -1298,7 +1300,7 @@ class BackForwardCacheBrowserTestForLowMemoryDevices
     // Set the value of memory threshold more than the physical memory and check
     // if back-forward cache is disabled or not.
     std::string memory_threshold = base::NumberToString(
-        base::SysInfo::AmountOfPhysicalMemory().InMiB() + 1);
+        base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() + 1);
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kBackForwardCacheMemoryControls,
           {{"memory_threshold_for_back_forward_cache_in_mb",
@@ -1366,8 +1368,8 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestForLowMemoryDevices,
 // Trigger network reqeuests, then navigate from A to B, then go back.
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestForLowMemoryDevices,
                        DisableBFCacheForLowEndDevices_NetworkRequests) {
-  net::test_server::ControllableHttpResponse image_response(
-      embedded_test_server(), "/image.png");
+  net::test_server::ExpectationHandler handler(embedded_test_server());
+  handler.OnRequest("/image.png").RespondWith("image/png", "image_body");
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
   GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
@@ -1406,10 +1408,6 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTestForLowMemoryDevices,
       image.src = "image.png";
       document.body.appendChild(image);
     )"));
-  image_response.WaitForRequest();
-  image_response.Send(net::HTTP_OK, "image/png");
-  image_response.Send("image_body");
-  image_response.Done();
 
   // 2) Navigate to B.
   EXPECT_TRUE(NavigateToURL(shell(), url_b));
@@ -1443,7 +1441,7 @@ class BackForwardCacheBrowserTestForHighMemoryDevices
     // Set the value of memory threshold less than the physical memory and check
     // if back-forward cache is enabled or not.
     std::string memory_threshold = base::NumberToString(
-        base::SysInfo::AmountOfPhysicalMemory().InMiB() - 1);
+        base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() - 1);
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kBackForwardCacheMemoryControls,
           {{"memory_threshold_for_back_forward_cache_in_mb",
@@ -1567,7 +1565,7 @@ class BackForwardCacheBrowserTestForHighMemoryDevicesWithBFCacheDisabled
     // Set the value of memory threshold less than the physical memory and check
     // if back-forward cache is enabled or not.
     std::string memory_threshold = base::NumberToString(
-        base::SysInfo::AmountOfPhysicalMemory().InMiB() - 1);
+        base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() - 1);
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {{features::kBackForwardCacheMemoryControls,

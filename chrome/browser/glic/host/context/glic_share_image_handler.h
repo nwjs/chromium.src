@@ -8,12 +8,14 @@
 #include <string>
 
 #include "base/callback_list.h"
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/lens/lens_metadata.mojom.h"
@@ -88,9 +90,14 @@ class GlicShareImageHandler : public content::WebContentsObserver {
   // Attempt to display an error toast
   void MaybeShowErrorToast(tabs::TabInterface* tab);
 
-  // Starts a process that will perform a paste policy check once the glic panel
-  // is ready.
-  void PerformPastePolicyCheckWhenReady();
+  // Opens the Glic UI and sets up state. Returns false if it failed.
+  bool OpenUI(tabs::TabInterface* tab);
+
+  // Starts a process that will perform a task once the glic panel is ready.
+  void PerformTaskWhenReady(base::OnceClosure callback);
+
+  // Polling function called by the timer.
+  void PerformTaskWhenReadyPolling();
 
   // Performs the paste policy check. This is called by
   // `PerformPastePolicyCheckWhenReady` once the client is ready.
@@ -104,6 +111,10 @@ class GlicShareImageHandler : public content::WebContentsObserver {
   // unexpectedly. Returns nullopt if the flow has failed due to an invalid
   // instance change.
   std::optional<GlicInstance*> GetAndVerifyInstance(tabs::TabInterface* tab);
+
+  // Called if the invoke API hits a failure. This completes the share process
+  // and causes metrics to be logged.
+  void OnInvokeError(GlicInvokeError error);
 
   // Called when the end result of sharing is known. Sends context on success.
   void ShareComplete(ShareImageResult result);
@@ -163,6 +174,8 @@ class GlicShareImageHandler : public content::WebContentsObserver {
 
   base::OneShotTimer onboarding_timeout_timer_;
   base::CallbackListSubscription onboarding_subscription_;
+
+  base::OnceClosure on_client_ready_callback_;
 
   base::WeakPtrFactory<GlicShareImageHandler> weak_ptr_factory_{this};
 };

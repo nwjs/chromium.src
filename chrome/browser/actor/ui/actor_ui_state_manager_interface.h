@@ -9,8 +9,8 @@
 #include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/actor/ui/ui_event.h"
 #include "chrome/common/actor.mojom-forward.h"
-#include "chrome/common/actor/task_id.h"
 #include "chrome/common/buildflags.h"
+#include "components/actor/core/task_id.h"
 
 namespace actor::ui {
 using UiCompleteCallback =
@@ -24,6 +24,7 @@ struct StoppedTaskInfo {
   std::string title;
   tabs::TabInterface::Handle last_acted_on_tab_handle;
   ActorTask::TaskDuration duration;
+  glic::mojom::FeatureMode feature_mode;
 };
 
 class ActorUiStateManagerInterface {
@@ -63,6 +64,9 @@ class ActorUiStateManagerInterface {
 
   // Gets the duration of a given task.
   virtual ActorTask::TaskDuration GetDuration(TaskId task_id) = 0;
+
+  // Gets the feature mode of a given task.
+  virtual glic::mojom::FeatureMode GetFeatureMode(TaskId task_id) = 0;
 
   // Gets the number of inactive tasks (finished and failed). Cancelled tasks
   // are not included in this count.

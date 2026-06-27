@@ -8,6 +8,7 @@
 
 #include "base/auto_reset.h"
 #include "base/check.h"
+#include "base/check_is_test.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -50,8 +51,6 @@
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/browser/webauthn/passkey_unlock_manager.h"
 #include "chrome/browser/webauthn/passkey_unlock_manager_factory.h"
-#include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/password_manager/content/common/web_ui_constants.h"
@@ -326,6 +325,19 @@ void AvatarToolbarButton::UpdateText() {
   InvalidateLayout();
 }
 
+void AvatarToolbarButton::SetAnnounceCallbackForTesting(
+    base::OnceCallback<void(std::u16string)> callback) {
+  CHECK_IS_TEST();
+  announce_callback_for_testing_ = std::move(callback);
+}
+
+void AvatarToolbarButton::AnnounceInternal(std::u16string text) {
+  if (announce_callback_for_testing_) {
+    std::move(announce_callback_for_testing_).Run(text);
+  }
+  GetViewAccessibility().AnnounceAlert(std::move(text));
+}
+
 void AvatarToolbarButton::UpdateAccessibilityLabel() {
   auto [name, description] = state_manager_->GetAccessibilityLabels(GetText());
 
@@ -342,6 +354,11 @@ gfx::Size AvatarToolbarButton::CalculatePreferredSize(
                                     slide_animation_.GetCurrentValue());
   }
   return size;
+}
+
+gfx::Size AvatarToolbarButton::GetMinimumSize() const {
+  const int size = GetTargetInsets().width() + GetIconSize();
+  return gfx::Size(size, size);
 }
 
 void AvatarToolbarButton::AnimationProgressed(const gfx::Animation* animation) {
@@ -421,8 +438,22 @@ bool AvatarToolbarButton::ShouldBlendHighlightColor() const {
 base::ScopedClosureRunner AvatarToolbarButton::SetExplicitButtonState(
     const std::u16string& text,
     std::optional<std::u16string> accessibility_label,
-    std::optional<base::RepeatingCallback<void(bool)>> explicit_action) {
+    std::optional<base::RepeatingCallback<void(bool)>> explicit_action,
+    bool should_announce) {
   CHECK(state_manager_);
+
+  if (should_announce) {
+    // Announce with a delay: if passwords are being uploaded, the OS may be
+    // showing a keychain dialog. The keychain dialog is closing and focus is
+    // moving back to Chrome. Announcing during this process may result in the
+    // announcement to be dropped.
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&AvatarToolbarButton::AnnounceInternal,
+                       weak_ptr_factory_.GetWeakPtr(), text),
+        AvatarToolbarButtonInterface::kAccessibilityAnnouncementDelay);
+  }
+
   return state_manager_->SetExplicitState(text, std::move(accessibility_label),
                                           std::move(explicit_action));
 }
@@ -503,10 +534,18 @@ SkColor AvatarToolbarButton::GetForegroundColor(ButtonState state) const {
 }
 
 bool AvatarToolbarButton::IsLabelPresentAndVisible() const {
-  if (!label()) {
+  if (!label() || !label()->GetVisible() || label()->GetText().empty()) {
     return false;
   }
-  return label()->GetVisible() && !label()->GetText().empty();
+  if (!base::FeatureList::IsEnabled(features::kToolbarProfileChipResizing)) {
+    return true;
+  }
+  // If the chip is narrow enough that text doesn't fit, return false. The left
+  // padding is wider than the right padding so the label will disappear when
+  // the right padding is equal to the left.
+  const int icon_width =
+      ::GetLayoutInsets(AVATAR_CHIP_PADDING).left() * 2 + GetIconSize();
+  return GetLocalBounds().width() > icon_width;
 }
 
 bool AvatarToolbarButton::IsMouseHovered() const {
@@ -522,8 +561,11 @@ views::DialogDelegate* AvatarToolbarButton::GetDialogDelegate() {
 }
 
 void AvatarToolbarButton::UpdateLayoutInsets() {
-  SetLayoutInsets(::GetLayoutInsets(
-      IsLabelPresentAndVisible() ? AVATAR_CHIP_PADDING : TOOLBAR_BUTTON));
+  const bool is_label_visible = IsLabelPresentAndVisible();
+  SetLayoutInsets(::GetLayoutInsets(is_label_visible ? AVATAR_CHIP_PADDING
+                                                     : TOOLBAR_BUTTON));
+  SetHorizontalAlignment(is_label_visible ? gfx::ALIGN_LEFT
+                                          : gfx::ALIGN_CENTER);
 }
 
 void AvatarToolbarButton::OnInkDropHighlightedChanged() {

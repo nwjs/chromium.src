@@ -83,53 +83,6 @@ TEST_F(SaveAndFillMetricsTest, LogSuggestionAccepted) {
       /*expected_count=*/1);
 }
 
-TEST_F(SaveAndFillMetricsTest,
-       LogSaveAndFillSuggestionNotShownReason_HasSavedCards) {
-  base::HistogramTester histogram_tester;
-
-  LogSaveAndFillSuggestionNotShownReason(
-      SaveAndFillSuggestionNotShownReason::kHasSavedCards);
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SaveAndFill.SuggestionNotShownReason",
-      SaveAndFillSuggestionNotShownReason::kHasSavedCards, 1);
-}
-
-TEST_F(SaveAndFillMetricsTest,
-       LogSaveAndFillSuggestionNotShownReason_BlockedByStrikeDatabase) {
-  base::HistogramTester histogram_tester;
-
-  LogSaveAndFillSuggestionNotShownReason(
-      SaveAndFillSuggestionNotShownReason::kBlockedByStrikeDatabase);
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SaveAndFill.SuggestionNotShownReason",
-      SaveAndFillSuggestionNotShownReason::kBlockedByStrikeDatabase, 1);
-}
-
-TEST_F(SaveAndFillMetricsTest,
-       LogSaveAndFillSuggestionNotShownReason_UserInIncognito) {
-  base::HistogramTester histogram_tester;
-
-  LogSaveAndFillSuggestionNotShownReason(
-      SaveAndFillSuggestionNotShownReason::kUserInIncognito);
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SaveAndFill.SuggestionNotShownReason",
-      SaveAndFillSuggestionNotShownReason::kUserInIncognito, 1);
-}
-
-TEST_F(SaveAndFillMetricsTest,
-       LogSaveAndFillSuggestionNotShownReason_IncompleteCreditCardForm) {
-  base::HistogramTester histogram_tester;
-
-  LogSaveAndFillSuggestionNotShownReason(
-      SaveAndFillSuggestionNotShownReason::kIncompleteCreditCardForm);
-
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SaveAndFill.SuggestionNotShownReason",
-      SaveAndFillSuggestionNotShownReason::kIncompleteCreditCardForm, 1);
-}
 
 TEST_F(SaveAndFillMetricsTest,
        LogGetDetailsForCreateCardRequestLatencyAndResult) {
@@ -298,6 +251,67 @@ TEST_P(SaveAndFillFunnelSucceededMetricsTest, LogSaveAndFillFunnelSucceeded) {
             {"Autofill.SaveAndFill.Funnel.Succeeded.", scenario_string}),
         stage, 1);
   }
+}
+
+TEST_F(SaveAndFillMetricsTest, LogSaveAndFillFunnelCanceled) {
+  const std::tuple<SaveAndFillFunnelCanceledStage, SaveAndFillFlowScenario,
+                   std::string>
+      kTestCases[] = {
+          {SaveAndFillFunnelCanceledStage::kSuggestionIgnored,
+           SaveAndFillFlowScenario::kLocalSaveUploadSaveInfeasible,
+           "LocalSaveUploadSaveInfeasible"},
+          {SaveAndFillFunnelCanceledStage::kSuggestionIgnored,
+           SaveAndFillFlowScenario::kUploadSave, "UploadSave"},
+          {SaveAndFillFunnelCanceledStage::kDialogCanceled,
+           SaveAndFillFlowScenario::kLocalSaveUploadSaveInfeasible,
+           "LocalSaveUploadSaveInfeasible"},
+          {SaveAndFillFunnelCanceledStage::kDialogCanceled,
+           SaveAndFillFlowScenario::kLocalSavePreflightCallFailed,
+           "LocalSavePreflightCallFailed"},
+          {SaveAndFillFunnelCanceledStage::kDialogCanceled,
+           SaveAndFillFlowScenario::kUploadSave, "UploadSave"},
+      };
+
+  for (const auto& [stage, scenario, scenario_string] : kTestCases) {
+    base::HistogramTester histogram_tester;
+
+    LogSaveAndFillFunnelCanceled(scenario, stage);
+
+    histogram_tester.ExpectBucketCount("Autofill.SaveAndFill.Funnel.Canceled",
+                                       stage, 1);
+    histogram_tester.ExpectBucketCount(
+        base::StrCat(
+            {"Autofill.SaveAndFill.Funnel.Canceled.", scenario_string}),
+        stage, 1);
+  }
+}
+
+class SaveAndFillSuggestionEventMetricsTest
+    : public SaveAndFillMetricsTest,
+      public testing::WithParamInterface<SaveAndFillSuggestionEvent> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    SaveAndFillSuggestionEventMetricsTest,
+    testing::Values(
+        SaveAndFillSuggestionEvent::kSuggestionShown,
+        SaveAndFillSuggestionEvent::kSuggestionNotShownIncognitoMode,
+        SaveAndFillSuggestionEvent::kSuggestionNotShownIncompleteForm,
+        SaveAndFillSuggestionEvent::
+            kSuggestionNotShownStrikeDbRequiredDelayNotMet,
+        SaveAndFillSuggestionEvent::
+            kSuggestionNotShownStrikeDbMaxStrikeLimitReached,
+        SaveAndFillSuggestionEvent::kSuggestionNotShownHaveCardsOnFile,
+        SaveAndFillSuggestionEvent::kSuggestionAccepted));
+
+TEST_P(SaveAndFillSuggestionEventMetricsTest, LogSuggestionEvent) {
+  base::HistogramTester histogram_tester;
+
+  LogSaveAndFillSuggestionEvent(GetParam());
+
+  histogram_tester.ExpectUniqueSample("Autofill.SaveAndFill.SuggestionEvent",
+                                      GetParam(),
+                                      /*expected_bucket_count=*/1);
 }
 
 }  // namespace autofill::autofill_metrics

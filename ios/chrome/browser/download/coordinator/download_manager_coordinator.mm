@@ -41,6 +41,7 @@
 #import "ios/chrome/browser/download/ui/unopened_downloads_tracker.h"
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
 #import "ios/chrome/browser/drive/model/upload_task.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -77,6 +78,7 @@
 #import "ios/web/public/download/download_task.h"
 #import "ios/web/public/web_client.h"
 #import "net/base/apple/url_conversions.h"
+#import "net/base/filename_util.h"
 #import "net/base/net_errors.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
@@ -143,9 +145,15 @@
   _viewController.incognito = isIncognito;
 
   if (_shouldObserveFullscreen) {
-    FullscreenController* fullscreenController =
-        FullscreenController::FromBrowser(self.browser);
-    [_viewController setFullscreenController:fullscreenController];
+    if (IsFullscreenRefactoringEnabled()) {
+      FullscreenBrowserAgent* fullscreenBrowserAgent =
+          FullscreenBrowserAgent::FromBrowser(self.browser);
+      [_viewController setFullscreenBrowserAgent:fullscreenBrowserAgent];
+    } else {
+      FullscreenController* fullscreenController =
+          FullscreenController::FromBrowser(self.browser);
+      [_viewController setFullscreenController:fullscreenController];
+    }
   }
 
   _mediator.SetIsIncognito(isIncognito);
@@ -203,7 +211,11 @@
     [self.presenter dismissAnimated:self.animatesPresentation];
     // Prevent delegate callbacks for stopped coordinator.
     _viewController.delegate = nil;
-    [_viewController setFullscreenController:nullptr];
+    if (IsFullscreenRefactoringEnabled()) {
+      [_viewController setFullscreenBrowserAgent:nullptr];
+    } else {
+      [_viewController setFullscreenController:nullptr];
+    }
     _viewController = nil;
   }
 
@@ -320,11 +332,21 @@
                adaptToFullscreen:(bool)adaptToFullscreen {
   _shouldObserveFullscreen = adaptToFullscreen;
   if (adaptToFullscreen) {
-    FullscreenController* fullscreenController =
-        FullscreenController::FromBrowser(self.browser);
-    [_viewController setFullscreenController:fullscreenController];
+    if (IsFullscreenRefactoringEnabled()) {
+      FullscreenBrowserAgent* fullscreenBrowserAgent =
+          FullscreenBrowserAgent::FromBrowser(self.browser);
+      [_viewController setFullscreenBrowserAgent:fullscreenBrowserAgent];
+    } else {
+      FullscreenController* fullscreenController =
+          FullscreenController::FromBrowser(self.browser);
+      [_viewController setFullscreenController:fullscreenController];
+    }
   } else {
-    [_viewController setFullscreenController:nullptr];
+    if (IsFullscreenRefactoringEnabled()) {
+      [_viewController setFullscreenBrowserAgent:nullptr];
+    } else {
+      [_viewController setFullscreenController:nullptr];
+    }
   }
 }
 
@@ -351,6 +373,7 @@
 
 - (void)containedPresenterDidPresent:(id<ContainedPresenter>)presenter {
   CHECK_EQ(presenter, self.presenter, base::NotFatalUntil::M150);
+  [_viewController disableCurrentButtonTemporarily];
 }
 
 - (void)containedPresenterDidDismiss:(id<ContainedPresenter>)presenter {
@@ -504,8 +527,7 @@
     (UIViewController*)controller {
   base::RecordAction(base::UserMetricsAction("IOSDownloadOpen"));
   base::FilePath path = _mediator.GetDownloadPath();
-  GURL filePathURL =
-      GURL(base::StringPrintf("%s://%s", "file", path.value().c_str()));
+  GURL filePathURL = net::FilePathToFileURL(path);
   GURL virtualFilePathURL = GURL(
       base::StringPrintf("%s://%s/%s", kChromeUIScheme, kChromeUIDownloadsHost,
                          filePathURL.ExtractFileName().c_str()));

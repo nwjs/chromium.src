@@ -13,11 +13,11 @@ import android.view.View;
 
 import androidx.annotation.StyleRes;
 import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.content.res.AppCompatResources;
 
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -40,6 +40,15 @@ public class ComposeplateUtils {
         if (sIsEnabledForTesting) return true;
 
         return ComposeplateUtilsJni.get().isAimEntrypointEligible(profile);
+    }
+
+    /**
+     * Returns whether the composeplate button can be shown on NTPs.
+     *
+     * @param profile The current profile.
+     */
+    public static boolean canShowComposeplateButtonOnNtp(Profile profile) {
+        return !DeviceInfo.isDesktop() && isComposeplateEnabled(profile);
     }
 
     /**
@@ -91,7 +100,7 @@ public class ComposeplateUtils {
     public static @Nullable ColorStateList getSearchBoxIconColorTint(
             Context context, boolean shouldApplyWhiteBackgroundOnSearchBox) {
         if (shouldApplyWhiteBackgroundOnSearchBox) {
-            return AppCompatResources.getColorStateList(context, R.color.default_icon_color_dark);
+            return context.getColorStateList(R.color.default_icon_color_dark);
         }
 
         return ThemeUtils.getThemedToolbarIconTint(context, BrandedColorScheme.APP_DEFAULT);

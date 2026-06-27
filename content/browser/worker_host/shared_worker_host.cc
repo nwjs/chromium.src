@@ -42,6 +42,7 @@
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/service_worker_context.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/common/child_process_id_util.h"
 #include "content/public/common/content_client.h"
 #include "net/base/isolation_info.h"
@@ -224,7 +225,7 @@ SharedWorkerHost::~SharedWorkerHost() {
       lock_manager->RemoveLockObserver(token().value());
     }
 
-    GetStoragePartitionImpl()->ClearNoncesInNetworkContextAfterDelay({
+    GetStoragePartitionImpl()->ClearNetworkRestrictionsAfterDelay({
         network_restrictions_id_,
     });
   }
@@ -288,6 +289,16 @@ void SharedWorkerHost::Start(
 
     policy_container_host = std::move(creator_policy_container_host_);
   } else {
+    CHECK(result.main_script_load_params->response_head);
+
+    if (SiteIsolationPolicy::ShouldUrlUseApplicationIsolationLevel(
+            GetProcessHost()->GetBrowserContext(), result.final_response_url)) {
+      GetContentClient()->browser()->EnsureRequiredHeadersForIsolatedApp(
+          GetProcessHost()->GetBrowserContext(), result.final_response_url,
+          result.main_script_load_params->response_head.get(),
+          /*frame_tree_node=*/std::nullopt);
+    }
+
     // https://html.spec.whatwg.org/C/#creating-a-policy-container-from-a-fetch-response
     // This does not parse the referrer policy, which will be
     // updated in `SharedWorkerGlobalScope::Initialize()`.
@@ -603,7 +614,7 @@ void SharedWorkerHost::CreateLockManager(
                                                             this);
 }
 
-void SharedWorkerHost::OnLockContention() {
+bool SharedWorkerHost::OnLockContention() {
   std::vector<RenderFrameHostImpl*> bf_cached_clients;
 
   for (const ClientInfo& info : clients_) {
@@ -612,7 +623,7 @@ void SharedWorkerHost::OnLockContention() {
       continue;
     }
     if (rfh->IsActive()) {
-      return;
+      return false;
     }
     if (rfh->IsInBackForwardCache()) {
       bf_cached_clients.push_back(rfh);
@@ -621,10 +632,12 @@ void SharedWorkerHost::OnLockContention() {
 
   // If we reach here, all the clients are in the back-forward cache. Evict
   // them to avoid deadlock.
+  bool evicted = !bf_cached_clients.empty();
   for (RenderFrameHostImpl* rfh_to_evict : bf_cached_clients) {
     rfh_to_evict->EvictFromBackForwardCacheWithReason(
         BackForwardCacheMetrics::NotRestoredReason::kWebLocksContention);
   }
+  return evicted;
 }
 
 void SharedWorkerHost::GetSandboxedFileSystemForBucket(

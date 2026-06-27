@@ -844,8 +844,9 @@ int HttpStreamFactory::JobController::DoResolveProxy() {
       base::BindOnce(&JobController::OnIOComplete, base::Unretained(this));
   return session_->proxy_resolution_service()->ResolveProxy(
       request_info_.url, request_info_.method,
-      request_info_.network_anonymization_key, &proxy_info_,
-      std::move(io_callback), &proxy_resolve_request_, net_log_, priority_);
+      request_info_.network_anonymization_key, request_info_.target_network,
+      &proxy_info_, std::move(io_callback), &proxy_resolve_request_, net_log_,
+      priority_);
 }
 
 int HttpStreamFactory::JobController::DoResolveProxyComplete(int rv) {
@@ -990,12 +991,17 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
         request_info_.network_anonymization_key,
         request_info_.secure_dns_policy,
         /*require_dns_https_alpn=*/false,
-        disable_cert_verification_network_fetches());
+        disable_cert_verification_network_fetches(),
+        request_info_.target_network);
 
     quic::ParsedQuicVersion ws_quic_version =
         quic::ParsedQuicVersion::Unsupported();
-    if (session_->quic_session_pool()->CanUseExistingSessionForWebSocket(
-            ws_session_key, destination, &ws_quic_version)) {
+    const bool can_reuse_http3_session =
+        session_->quic_session_pool()->CanUseExistingSessionForWebSocket(
+            ws_session_key, destination, &ws_quic_version);
+    base::UmaHistogramBoolean("Net.WebSocket.Http3SessionReuseAvailable",
+                              can_reuse_http3_session);
+    if (can_reuse_http3_session) {
       ws_over_h3_job_ = job_factory_->CreateJob(
           this, WS_OVER_H3, session_, request_info_, priority_, proxy_info_,
           allowed_bad_certs_, destination, is_websocket_,
@@ -1009,8 +1015,6 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
             return base::DictValue().Set("destination",
                                          request_info_.url.spec());
           });
-      // TODO(crbug.com/40210995): Add histogram for WebSocket-over-HTTP/3 reuse
-      // rate.
     } else {
       net_log_.AddEvent(
           NetLogEventType::HTTP_STREAM_JOB_CONTROLLER_WS_OVER_H3_SKIPPED, [&] {
@@ -1474,7 +1478,8 @@ HttpStreamFactory::JobController::GetAdvertisedAltSvcInternal(
         proxy_info_.proxy_chain(), SessionUsage::kDestination,
         request_info.socket_tag, request_info.network_anonymization_key,
         request_info.secure_dns_policy, /*require_dns_https_alpn=*/false,
-        disable_cert_verification_network_fetches());
+        disable_cert_verification_network_fetches(),
+        request_info.target_network);
 
     GURL destination = CreateAltSvcUrl(
         request_info.url, alternative_service_info.GetHostPortPair());

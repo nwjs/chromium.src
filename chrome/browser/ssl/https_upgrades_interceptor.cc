@@ -201,20 +201,14 @@ HttpsUpgradesInterceptor::MaybeCreateInterceptor(
     return nullptr;
   }
 
-  PrefService* prefs = profile->GetPrefs();
-  bool https_first_mode_enabled =
-      prefs && prefs->GetBoolean(prefs::kHttpsOnlyModeEnabled);
-
-  return std::make_unique<HttpsUpgradesInterceptor>(
-      frame_tree_node_id, https_first_mode_enabled, navigation_ui_data);
+  return std::make_unique<HttpsUpgradesInterceptor>(frame_tree_node_id,
+                                                    navigation_ui_data);
 }
 
 HttpsUpgradesInterceptor::HttpsUpgradesInterceptor(
     content::FrameTreeNodeId frame_tree_node_id,
-    bool http_interstitial_enabled_by_pref,
     content::NavigationUIData* navigation_ui_data)
     : frame_tree_node_id_(frame_tree_node_id),
-      http_interstitial_enabled_by_pref_(http_interstitial_enabled_by_pref),
       navigation_ui_data_(navigation_ui_data) {}
 
 HttpsUpgradesInterceptor::~HttpsUpgradesInterceptor() = default;
@@ -296,26 +290,8 @@ void HttpsUpgradesInterceptor::MaybeCreateLoader(
   // Set up the interstitial state before checking any exclusions to upgrades,
   // as some may depend on this being configured.
   interstitial_state_ = std::make_unique<
-      security_interstitials::https_only_mode::HttpInterstitialState>();
-  interstitial_state_->enabled_by_pref = http_interstitial_enabled_by_pref_;
-  auto* prefs = profile->GetPrefs();
-  if (base::FeatureList::IsEnabled(features::kHttpsFirstModeIncognito)) {
-    if (prefs && prefs->GetBoolean(prefs::kHttpsFirstModeIncognito) &&
-        profile->IsIncognitoProfile()) {
-      interstitial_state_->enabled_by_incognito = true;
-    }
-  }
-  // StatefulSSLHostStateDelegate can be null during tests.
-  if (state &&
-      state->IsHttpsEnforcedForUrl(tentative_resource_request.url,
-                                   storage_partition) &&
-      !MustDisableSiteEngagementHeuristic(profile)) {
-    interstitial_state_->enabled_by_engagement_heuristic = true;
-  }
-  if (IsBalancedModeEnabled(prefs) && state &&
-      !state->HttpsFirstBalancedModeSuppressedForTesting()) {
-    interstitial_state_->enabled_in_balanced_mode = true;
-  }
+      security_interstitials::https_only_mode::HttpInterstitialState>(
+      ComputeInterstitialState(web_contents, tentative_resource_request.url));
 
   // Exclude HTTPS URLs.
   if (tentative_resource_request.url.SchemeIs(url::kHttpsScheme)) {
@@ -409,7 +385,8 @@ void HttpsUpgradesInterceptor::MaybeCreateLoader(
       &HttpsUpgradesInterceptor::MaybeCreateLoaderOnHstsQueryCompleted,
       weak_factory_.GetWeakPtr(), tentative_resource_request.url,
       tentative_resource_request.is_outermost_main_frame,
-      tentative_resource_request.method, std::move(callback));
+      tentative_resource_request.method,
+      tentative_resource_request.transition_type, std::move(callback));
   network::mojom::NetworkContext* network_context =
       profile->GetDefaultStoragePartition()->GetNetworkContext();
 
@@ -427,6 +404,7 @@ void HttpsUpgradesInterceptor::MaybeCreateLoaderOnHstsQueryCompleted(
     GURL url,
     bool is_outermost_main_frame,
     std::string method,
+    int transition_type,
     content::URLLoaderRequestInterceptor::LoaderCallback callback,
     bool is_hsts_active_for_host) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -530,7 +508,7 @@ void HttpsUpgradesInterceptor::MaybeCreateLoaderOnHstsQueryCompleted(
   // silent HTTPS Upgrades for the site overall and not show an HTTPS-First Mode
   // interstitial for Engaged Sites. Strict HTTPS-First Mode ignores this
   // setting.
-  if (!interstitial_state_->enabled_by_pref &&
+  if (!IsStrictInterstitialEnabled(*interstitial_state_) &&
       DoesInsecureContentSettingDisableUpgrading(url, profile)) {
     RecordNavigationRequestSecurityLevel(
         NavigationRequestSecurityLevel::kAllowlisted);
@@ -661,7 +639,11 @@ void HttpsUpgradesInterceptor::MaybeCreateLoaderOnHstsQueryCompleted(
 
     tab_helper->set_is_navigation_upgraded(false);
     tab_helper->set_is_navigation_fallback(true);
-    tab_helper->add_failed_upgrade(tab_helper->fallback_url());
+    tab_helper->set_fallback_reason(
+        security_interstitials::https_only_mode::FallbackReason::kRedirectLoop);
+    tab_helper->add_failed_upgrade(
+        tab_helper->fallback_url(),
+        security_interstitials::https_only_mode::FallbackReason::kRedirectLoop);
 
     // Note: If `fallback_url` is the same as the request URL, this
     // could skip doing an additional redirect, but then the NavigationThrottle
@@ -675,11 +657,30 @@ void HttpsUpgradesInterceptor::MaybeCreateLoaderOnHstsQueryCompleted(
   // Not a redirect loop. Add the current request URL to the set of URLs seen.
   urls_seen_.insert(url);
 
-  RecordNavigationRequestSecurityLevel(
-      NavigationRequestSecurityLevel::kUpgraded);
+  ChromeNavigationUIData* chrome_navigation_ui_data =
+      static_cast<ChromeNavigationUIData*>(navigation_ui_data_);
+  bool is_explicit_http = chrome_navigation_ui_data &&
+                          chrome_navigation_ui_data->force_no_https_upgrade();
+  bool is_from_address_bar =
+      (transition_type & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) != 0;
+  bool is_typed_schemeless_upgrade =
+      is_from_address_bar && !is_explicit_http &&
+      base::FeatureList::IsEnabled(
+          features::kHttpsUpgradesTypedSchemelessNavigationNoTimeoutFallback);
+
+  if (is_typed_schemeless_upgrade) {
+    RecordNavigationRequestSecurityLevel(
+        NavigationRequestSecurityLevel::kTypedSchemelessUpgraded);
+  } else {
+    RecordNavigationRequestSecurityLevel(
+        NavigationRequestSecurityLevel::kUpgraded);
+  }
 
   // Mark navigation as upgraded.
   tab_helper->set_is_navigation_upgraded(true);
+  if (is_typed_schemeless_upgrade) {
+    tab_helper->set_is_typed_schemeless_upgrade(true);
+  }
   tab_helper->set_fallback_url(url);
 
   GURL https_url = UpgradeUrlToHttps(url);
@@ -704,6 +705,13 @@ bool HttpsUpgradesInterceptor::MaybeCreateLoaderForResponse(
 
   // Only intercept if the navigation failed.
   if (status.error_code == net::OK) {
+    return false;
+  }
+
+  // If the navigation was blocked by a client-side feature (e.g. Safe Browsing
+  // or an extension), do not attempt to fallback to HTTP. This is a local
+  // block, not a server-side HTTPS support failure.
+  if (status.error_code == net::ERR_BLOCKED_BY_CLIENT) {
     return false;
   }
 
@@ -764,15 +772,30 @@ bool HttpsUpgradesInterceptor::MaybeCreateLoaderForResponse(
 
   // Record failure type metrics for upgraded navigations.
   RecordHttpsFirstModeNavigation(Event::kUpgradeFailed, *interstitial_state_);
+  security_interstitials::https_only_mode::FallbackReason fallback_reason =
+      security_interstitials::https_only_mode::FallbackReason::kNetError;
   if (net::IsCertificateError(status.error_code)) {
     RecordHttpsFirstModeNavigation(Event::kUpgradeCertError,
                                    *interstitial_state_);
+    fallback_reason =
+        security_interstitials::https_only_mode::FallbackReason::kCertError;
   } else if (status.error_code == net::ERR_TIMED_OUT) {
     RecordHttpsFirstModeNavigation(Event::kUpgradeTimedOut,
                                    *interstitial_state_);
+    fallback_reason =
+        security_interstitials::https_only_mode::FallbackReason::kTimerFired;
   } else {
     RecordHttpsFirstModeNavigation(Event::kUpgradeNetError,
                                    *interstitial_state_);
+  }
+
+  if (tab_helper->is_typed_schemeless_upgrade() &&
+      status.error_code == net::ERR_TIMED_OUT) {
+    RecordHttpsFirstModeNavigation(Event::kTypedSchemelessUpgradeTimedOut,
+                                   *interstitial_state_);
+    tab_helper->set_is_navigation_upgraded(false);
+    tab_helper->set_is_typed_schemeless_upgrade(false);
+    return false;
   }
 
   // If no interstitial will be shown, add the fallback hostname to the
@@ -797,8 +820,10 @@ bool HttpsUpgradesInterceptor::MaybeCreateLoaderForResponse(
   }
 
   tab_helper->set_is_navigation_upgraded(false);
+  tab_helper->set_is_typed_schemeless_upgrade(false);
   tab_helper->set_is_navigation_fallback(true);
-  tab_helper->add_failed_upgrade(tab_helper->fallback_url());
+  tab_helper->set_fallback_reason(fallback_reason);
+  tab_helper->add_failed_upgrade(tab_helper->fallback_url(), fallback_reason);
 
   // `client_` may have been previously bound from handling the initial upgrade
   // in MaybeCreateLoader(), so reset it before re-binding it to handle this

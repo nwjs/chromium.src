@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_internal.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
+#include "third_party/blink/renderer/platform/wtf/text/utf16.h"
 #include "third_party/blink/renderer/platform/wtf/text/utf8.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value.h"
@@ -96,10 +97,33 @@ String::size_type String::rfind(const StringView& value,
   return impl_ ? impl_->ReverseFind(value, start) : npos;
 }
 
+UChar32 String::CodePointAt(size_type i) const {
+  if (Is8Bit()) {
+    return Span8()[i];
+  }
+  return blink::CodePointAt(Span16(), i);
+}
+
 UChar32 String::CodePointAtOrZero(size_type i) const {
   if (!impl_ || i >= impl_->length())
     return 0;
   return impl_->CodePointAtOrZero(i);
+}
+
+UChar32 String::CodePointAtAndPrevious(size_type start_offset,
+                                       size_type& i) const {
+  DCHECK_LT(start_offset, i);
+  if (Is8Bit()) {
+    return Span8()[--i];
+  }
+  return blink::CodePointAtAndPrevious(Span16(), start_offset, i);
+}
+
+UChar32 String::CodePointAtAndNext(size_type& i) const {
+  if (Is8Bit()) {
+    return Span8()[i++];
+  }
+  return blink::CodePointAtAndNext(Span16(), i);
 }
 
 CodePointIterator String::begin() const {
@@ -398,8 +422,9 @@ String String::Make16BitFrom8BitSource(base::span<const LChar> source) {
     return g_empty_string16_bit;
   }
 
+  const wtf_size_t length = base::checked_cast<wtf_size_t>(source.size());
   base::span<UChar> destination;
-  String result = String::CreateUninitialized(source.size(), destination);
+  String result = String::CreateUninitialized(length, destination);
 
   StringImpl::CopyChars(destination, source);
   return result;

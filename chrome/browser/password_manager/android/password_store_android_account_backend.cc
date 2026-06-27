@@ -77,7 +77,6 @@ PasswordStoreAndroidAccountBackend::~PasswordStoreAndroidAccountBackend() =
     default;
 
 void PasswordStoreAndroidAccountBackend::InitBackend(
-    AffiliatedMatchHelper* affiliated_match_helper,
     RemoteChangesReceived remote_form_changes_received,
     base::RepeatingClosure sync_enabled_or_disabled_cb,
     base::OnceCallback<void(bool)> completion) {
@@ -179,7 +178,7 @@ void PasswordStoreAndroidAccountBackend::RemoveLoginAsync(
     return;
   }
   RemoveLoginInternal(GetSyncingAccount(sync_service_), std::move(cred),
-                      std::move(callback));
+                      location, std::move(callback));
 }
 
 void PasswordStoreAndroidAccountBackend::RemoveLoginsCreatedBetweenAsync(
@@ -191,7 +190,7 @@ void PasswordStoreAndroidAccountBackend::RemoveLoginsCreatedBetweenAsync(
     ReplyWithEmptyList<PasswordStoreChangeList>(std::move(callback));
     return;
   }
-  RemoveLoginsCreatedBetweenInternal(GetSyncingAccount(sync_service_),
+  RemoveLoginsCreatedBetweenInternal(GetSyncingAccount(sync_service_), location,
                                      delete_begin, delete_end,
                                      std::move(callback));
 }

@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
+#include "build/build_config.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
 #include "components/enterprise/connectors/core/common.h"
@@ -182,7 +183,7 @@ void MaybeReportDeepScanningVerdict(
         GURL(content_analysis_info->url()), content_analysis_info->tab_url(),
         source, destination, file_name, sha256_or_cb, mime_type, trigger,
         response.request_token(), unscanned_reason, content_transfer_method,
-        content_size, event_result);
+        content_size, content_analysis_info->referrer_chain(), event_result);
   }
 
   if (result != ScanRequestUploadResult::kSuccess) {
@@ -202,7 +203,8 @@ void MaybeReportDeepScanningVerdict(
           GURL(content_analysis_info->url()), content_analysis_info->tab_url(),
           source, destination, file_name, sha256_or_cb, mime_type, trigger,
           response.request_token(), std::move(unscanned_reason),
-          content_transfer_method, content_size, event_result);
+          content_transfer_method, content_size,
+          content_analysis_info->referrer_chain(), event_result);
     } else if (response_result.triggered_rules_size() > 0) {
       reporting_event_router->OnAnalysisConnectorResult(
           GURL(content_analysis_info->url()), content_analysis_info->tab_url(),
@@ -339,6 +341,10 @@ void InitializeBinaryUploadRequest(BinaryUploadRequest* request,
   request->set_url(info.url());
   request->set_tab_url(info.tab_url());
 
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  request->set_is_mobile(true);
+#endif
+
   for (const auto& tag : settings.tags) {
     request->add_tag(tag.first);
   }
@@ -349,7 +355,11 @@ void InitializeBinaryUploadRequest(BinaryUploadRequest* request,
 
 EventResult CalculateEventResult(const AnalysisSettings& settings,
                                  bool allowed_by_scan_result,
-                                 bool should_warn) {
+                                 bool should_warn,
+                                 ScanRequestUploadResult result) {
+  if (result == ScanRequestUploadResult::kUserCancelled) {
+    return EventResult::CANCELLED;
+  }
   bool wait_for_verdict =
       settings.block_until_verdict == BlockUntilVerdict::kBlock;
   return (allowed_by_scan_result || !wait_for_verdict)

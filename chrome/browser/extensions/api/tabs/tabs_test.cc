@@ -1397,12 +1397,9 @@ struct ExtensionWindowCreateIwaParam {
   std::string args;
 };
 
-// Test that `windows.create` functions correctly for Isolated Web Apps.
-class ExtensionWindowCreateIwaTest
-    : public InProcessBrowserTest,
-      public testing::WithParamInterface<ExtensionWindowCreateIwaParam> {
+class ExtensionIwaTestBase : public InProcessBrowserTest {
  public:
-  ExtensionWindowCreateIwaTest() {
+  ExtensionIwaTestBase() {
     scoped_feature_list_.InitAndEnableFeature(features::kIsolatedWebApps);
     set_open_about_blank_on_browser_launch(false);
   }
@@ -1450,6 +1447,14 @@ class ExtensionWindowCreateIwaTest
   base::test::ScopedFeatureList scoped_feature_list_;
   web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
   base::ScopedTempDir scoped_temp_dir_;
+};
+
+// Test that `windows.create` functions correctly for Isolated Web Apps.
+class ExtensionWindowCreateIwaTest
+    : public ExtensionIwaTestBase,
+      public testing::WithParamInterface<ExtensionWindowCreateIwaParam> {
+ public:
+  ExtensionWindowCreateIwaTest() = default;
 };
 
 IN_PROC_BROWSER_TEST_P(ExtensionWindowCreateIwaTest, CreateWindowForIwa) {
@@ -1559,6 +1564,80 @@ INSTANTIATE_TEST_SUITE_P(
           }])"}),
     [](const testing::TestParamInfo<ExtensionWindowCreateIwaTest::ParamType>&
            info) { return info.param.test_name; });
+
+class ExtensionApiTabsIwaMoveTest : public ExtensionIwaTestBase {
+ public:
+  ExtensionApiTabsIwaMoveTest() = default;
+
+ protected:
+  BrowserWindowInterface* OpenIwa(
+      const web_app::IsolatedWebAppUrlInfo& url_info) {
+    scoped_refptr<const Extension> extension =
+        ExtensionBuilder("IwaOpenerExtension").Build();
+    auto function = base::MakeRefCounted<WindowsCreateFunction>();
+    function->set_extension(extension);
+
+    std::string args = base::StringPrintf(
+        R"([{"url": "%s"}])", url_info.origin().GetURL().spec().c_str());
+
+    bool result = api_test_utils::RunFunction(
+        function.get(), args, profile(), api_test_utils::FunctionMode::kNone);
+    EXPECT_TRUE(result) << function->GetError();
+
+    BrowserWindowInterface* iwa_browser =
+        GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+    EXPECT_TRUE(iwa_browser);
+    return iwa_browser;
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaMoveTest, CannotMoveIwaTab) {
+  auto url_info = InstallAndTrustBundle();
+  BrowserWindowInterface* iwa_browser = OpenIwa(url_info);
+
+  TabListInterface* iwa_tab_list = TabListInterface::From(iwa_browser);
+  ASSERT_EQ(iwa_tab_list->GetTabCount(), 1);
+  int iwa_tab_id =
+      ExtensionTabUtil::GetTabId(iwa_tab_list->GetTab(0)->GetContents());
+
+  Browser* normal_browser = CreateBrowser(profile());
+  int target_window_id = ExtensionTabUtil::GetWindowId(normal_browser);
+
+  auto function = base::MakeRefCounted<TabsMoveFunction>();
+
+  std::string args = base::StringPrintf(
+      R"([%d, {"windowId": %d, "index": -1}])", iwa_tab_id, target_window_id);
+
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, profile());
+
+  EXPECT_EQ(error, "The tab of an Isolated Web App cannot be moved.");
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaMoveTest,
+                       CannotGroupIwaTabToOtherWindow) {
+  auto url_info = InstallAndTrustBundle();
+  BrowserWindowInterface* iwa_browser = OpenIwa(url_info);
+
+  TabListInterface* iwa_tab_list = TabListInterface::From(iwa_browser);
+  ASSERT_EQ(iwa_tab_list->GetTabCount(), 1);
+  int iwa_tab_id =
+      ExtensionTabUtil::GetTabId(iwa_tab_list->GetTab(0)->GetContents());
+
+  Browser* normal_browser = CreateBrowser(profile());
+  int target_window_id = ExtensionTabUtil::GetWindowId(normal_browser);
+
+  auto function = base::MakeRefCounted<TabsGroupFunction>();
+
+  std::string args = base::StringPrintf(
+      R"([{"tabIds": [%d], "createProperties": {"windowId": %d}}])", iwa_tab_id,
+      target_window_id);
+
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, profile());
+
+  EXPECT_EQ(error, "The tab of an Isolated Web App cannot be moved.");
+}
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DuplicateTab) {
   content::OpenURLParams params(GURL(url::kAboutBlankURL), content::Referrer(),
@@ -2090,38 +2169,45 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardSavedTabGroupTabAllowed) {
   EXPECT_TRUE(tab_list->GetTab(index)->GetContents()->WasDiscarded());
 }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TestGroupDetachedAndReInserted) {
   // Create the `TabsEventRouter`, which is required to get a tab update event.
   TabsWindowsAPI::Get(profile())->InitTabsEventRouter();
 
-  chrome::AddTabAt(browser(), GURL(), -1, true);
-  chrome::AddTabAt(browser(), GURL(), -1, true);
-  chrome::AddTabAt(browser(), GURL(), -1, true);
+  GURL about_blank("about:blank");
+  ASSERT_TRUE(NavigateToURLInNewTab(about_blank));
+  ASSERT_TRUE(NavigateToURLInNewTab(about_blank));
+  ASSERT_TRUE(NavigateToURLInNewTab(about_blank));
 
-  tab_groups::TabGroupId group =
-      browser()->tab_strip_model()->AddToNewGroup({0, 1});
+  TabListInterface* tab_list =
+      TabListInterface::From(browser_window_interface());
+  std::optional<tab_groups::TabGroupId> group = tab_list->CreateTabGroup({
+      tab_list->GetTab(0)->GetHandle(),
+      tab_list->GetTab(1)->GetHandle(),
+  });
+  ASSERT_TRUE(group);
+
+  BrowserWindowInterface* second_browser =
+      CreateBrowserWindowWithType(BrowserWindowInterface::TYPE_NORMAL);
+  ASSERT_TRUE(second_browser);
+  TabListInterface* destination_tab_list =
+      TabListInterface::From(second_browser);
+  ASSERT_TRUE(destination_tab_list);
+  destination_tab_list->OpenTab(about_blank, -1);
 
   TestEventRouterObserver event_observer(EventRouter::Get(profile()));
 
-  std::unique_ptr<DetachedTabCollection> detached_group =
-      browser()->tab_strip_model()->DetachTabGroupForInsertion(group);
+  tab_list->MoveTabGroupToWindow(*group, second_browser->GetSessionID(), 0);
 
-  event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
-  EXPECT_TRUE(
-      event_observer.events().contains(api::tabs::OnUpdated::kEventName));
-
-  event_observer.ClearEvents();
-
-  browser()->tab_strip_model()->InsertDetachedTabGroupAt(
-      std::move(detached_group), 1);
-
-  // Group added as well as the tab's group changed event should be sent.
+  // Verify a tabs.onUpdated event was sent. In practice, more than one is
+  // dispatched (multiple tabs and they are added / removed from a group).
+  // The exact events are tested more thoroughly in a similar test in the
+  // API test `ExtensionApiTabTest.MovingAGroupToANewWindow`.
   event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
   EXPECT_TRUE(
       event_observer.events().contains(api::tabs::OnUpdated::kEventName));
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, Freezing) {
   // Create a background tab.

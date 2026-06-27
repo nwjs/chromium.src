@@ -8,7 +8,6 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_accessibility_test.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/common/content_features.h"
@@ -107,7 +106,13 @@ IN_PROC_BROWSER_TEST_P(ForwardButtonAccessibilityTest,
       }));
 }
 
-IN_PROC_BROWSER_TEST_P(ForwardButtonAccessibilityTest, ContextMenu) {
+// TODO(crbug.com/500598170): Enable the test.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_ContextMenu DISABLED_ContextMenu
+#else
+#define MAYBE_ContextMenu ContextMenu
+#endif
+IN_PROC_BROWSER_TEST_P(ForwardButtonAccessibilityTest, MAYBE_ContextMenu) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url1 = embedded_test_server()->GetURL("/title1.html");
   GURL url2 = embedded_test_server()->GetURL("/title2.html");

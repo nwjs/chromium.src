@@ -10,13 +10,17 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
+import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.widget.TextView;
 
 import androidx.core.content.ContextCompat;
 import androidx.preference.Preference;
 import androidx.preference.Preference.OnPreferenceChangeListener;
+import androidx.preference.TwoStatePreference;
 
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
@@ -24,6 +28,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
@@ -31,6 +36,7 @@ import org.chromium.chrome.browser.settings.search.ChromeBaseSearchIndexProvider
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarPrefs;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
+import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.components.browser_ui.settings.ChromeExpandableSwitchPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
@@ -40,9 +46,9 @@ import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.text.SpanApplier;
+import org.chromium.ui.util.AttrUtils;
 
 /** Fragment for Glic configurations in Chrome. */
 @NullMarked
@@ -53,6 +59,7 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
     private static final String PERMISSION_DEFAULT_TAB_ACCESS =
             "glic_permissions_default_tab_access";
     private static final String PERMISSION_AUTO_BROWSE = "glic_permissions_auto_browse";
+    private static final String PERMISSION_ACTOR_LOGIN = "glic_actor_login_permissions";
     // TODO(b/498717684): Replace answer number urls with a p= identifier instead.
     private static final String LEARN_MORE_AI_URL = "https://support.google.com/a/answer/15706919";
     private static final String LEARN_MORE_MANAGED_AI_URL =
@@ -94,21 +101,30 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                 assertNonNull(findPreference(PREFERENCE_BUTTON_TOGGLE));
 
         var context = getContext();
-        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)) {
+        // TODO(crbug.com/503082430): Change to tab strip visibility check once toolbar Glic
+        // supported on LFF
+        if (AndroidSidePanelEnabledFn.isEnabled()) {
             buttonPref.setVisible(false); // Hide the phone UI.
-            int currentSetting = AdaptiveToolbarPrefs.getCustomizationSetting();
-            buttonTogglePref.setChecked(currentSetting == AdaptiveToolbarButtonVariant.GLIC);
+            boolean isPinned = GlicUtils.isButtonPinnedToTabStrip(getProfile());
+            buttonTogglePref.setChecked(isPinned);
             buttonTogglePref.setOnPreferenceChangeListener(
                     (preference, newValue) -> {
                         boolean enabled = (boolean) newValue;
-                        AdaptiveToolbarPrefs.saveToolbarButtonManualOverride(
-                                enabled
-                                        ? AdaptiveToolbarButtonVariant.GLIC
-                                        : AdaptiveToolbarButtonVariant.AUTO);
+                        GlicUtils.setButtonPinnedToTabStrip(getProfile(), enabled);
                         return true;
                     });
+            if (mPrefChangeRegistrar != null) {
+                mPrefChangeRegistrar.addObserver(
+                        GlicPrefNames.GLIC_PINNED_TO_TABSTRIP,
+                        () -> {
+                            boolean newValue = GlicUtils.isButtonPinnedToTabStrip(getProfile());
+                            if (buttonTogglePref.isChecked() != newValue) {
+                                buttonTogglePref.setChecked(newValue);
+                            }
+                        });
+            }
         } else {
-            buttonTogglePref.setVisible(false); // Hide the LFF toggle.
+            buttonTogglePref.setVisible(false); // Hide the toggle.
 
             // If the bottom bar is enabled there is a permanent entry point elsewhere remove all
             // the settings here.
@@ -154,7 +170,8 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                         R.string
                                 .settings_glic_permissions_default_tab_access_toggle_sublabel_data_protected);
         tabAccessPref.setSummary(
-                SpanApplier.applySpans(summary, getLearnMoreSpanInfo(LEARN_MORE_AI_URL)));
+                SpanApplier.applySpans(
+                        summary, getLearnMoreSpanInfo(LEARN_MORE_AI_URL, tabAccessPref)));
 
         ChromeExpandableSwitchPreference autoBrowsePref =
                 assertNonNull(findPreference(PERMISSION_AUTO_BROWSE));
@@ -186,8 +203,15 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                 getString(R.string.settings_glic_permissions_chrome_web_actuation_toggle_sublabel);
         autoBrowsePref.setSummary(
                 SpanApplier.applySpans(
-                        autoBrowseSummary, getLearnMoreSpanInfo(AUTO_BROWSE_LEARN_MORE_URL)));
+                        autoBrowseSummary,
+                        getLearnMoreSpanInfo(AUTO_BROWSE_LEARN_MORE_URL, autoBrowsePref)));
         autoBrowsePref.setOnBindExpandedAreaListener(this::setupAutoBrowseExpandedArea);
+
+        Preference actorLoginPref = findPreference(PERMISSION_ACTOR_LOGIN);
+        if (actorLoginPref != null) {
+            actorLoginPref.setVisible(
+                    ChromeFeatureList.isEnabled(ChromeFeatureList.ACTOR_LOGIN_PERMISSIONS_UI));
+        }
 
         Preference permissionActivityPref =
                 assertNonNull(findPreference(PREF_KEY_GLIC_PERMISSIONS_ACTIVITY));
@@ -212,19 +236,67 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
 
         GlicExtraInfoPreference aiInfoPref = findPreference("glic_custom_box_preference");
         if (aiInfoPref != null) {
-            aiInfoPref.setOnLearnMoreClicked(
-                    () -> customTabLauncher.openUrlInCct(getActivity(), LEARN_MORE_MANAGED_AI_URL));
+            if (GlicEnabling.isProfileManaged(getProfile())) {
+                aiInfoPref.setLayoutResource(R.layout.glic_settings_extra_info_enterprise);
+                aiInfoPref.setTextResId(
+                        R.string.glic_managed_by_organization, /* applySpan= */ false);
+                aiInfoPref.setOrder(999);
+                aiInfoPref.setOnLearnMoreClicked(
+                        () ->
+                                customTabLauncher.openUrlInCct(
+                                        getActivity(), LEARN_MORE_MANAGED_AI_URL));
+            } else {
+                aiInfoPref.setLayoutResource(R.layout.glic_settings_extra_info);
+                aiInfoPref.setOnLearnMoreClicked(
+                        () -> customTabLauncher.openUrlInCct(getActivity(), LEARN_MORE_AI_URL));
+            }
+        }
+
+        if (GlicEnabling.isDisabledByPolicy(getProfile())) {
+            String[] prefsToDisable = {
+                PREFERENCE_BUTTON,
+                PREFERENCE_BUTTON_TOGGLE,
+                PERMISSION_LOCATION,
+                PREF_KEY_GLIC_PERMISSIONS_ACTIVITY,
+                PREF_KEY_GLIC_EXTENSIONS
+            };
+            for (String key : prefsToDisable) {
+                Preference pref = findPreference(key);
+                if (pref != null) {
+                    pref.setEnabled(false);
+                    if (pref instanceof TwoStatePreference) {
+                        ((TwoStatePreference) pref).setChecked(false);
+                    }
+                }
+            }
+
+            if (tabAccessPref != null) {
+                setupDisabledPreference(
+                        tabAccessPref,
+                        R.string
+                                .settings_glic_permissions_default_tab_access_toggle_sublabel_data_protected,
+                        LEARN_MORE_AI_URL);
+            }
+
+            if (autoBrowsePref != null) {
+                setupDisabledPreference(
+                        autoBrowsePref,
+                        R.string.settings_glic_permissions_chrome_web_actuation_toggle_sublabel,
+                        AUTO_BROWSE_LEARN_MORE_URL);
+            }
         }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext())) {
+        // TODO(crbug.com/503082430): Change to tab strip visibility check once toolbar Glic
+        // supported on LFF
+        if (AndroidSidePanelEnabledFn.isEnabled()) {
             ChromeSwitchPreference buttonTogglePref = findPreference(PREFERENCE_BUTTON_TOGGLE);
             if (buttonTogglePref != null) {
-                int currentSetting = AdaptiveToolbarPrefs.getCustomizationSetting();
-                buttonTogglePref.setChecked(currentSetting == AdaptiveToolbarButtonVariant.GLIC);
+                boolean isPinned = GlicUtils.isButtonPinnedToTabStrip(getProfile());
+                buttonTogglePref.setChecked(isPinned);
             }
         } else {
             Preference buttonPref = findPreference(PREFERENCE_BUTTON);
@@ -249,6 +321,9 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
     @Override
     public void onDestroy() {
         if (mPrefChangeRegistrar != null) {
+            mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP);
+            mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_GEOLOCATION_ENABLED);
+            mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_DEFAULT_TAB_CONTEXT_ENABLED);
             mPrefChangeRegistrar.destroy();
             mPrefChangeRegistrar = null;
         }
@@ -348,41 +423,82 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
         UserPrefs.get(getProfile()).setBoolean(GlicPrefNames.GLIC_GEOLOCATION_ENABLED, false);
     }
 
+    private void setupDisabledPreference(
+            ChromeExpandableSwitchPreference pref, int summaryResId, String url) {
+        pref.setChecked(false);
+        pref.setEnabled(false);
+        pref.setSelectable(false);
+        pref.setExpanded(true);
+
+        String summary = getString(summaryResId);
+        SpannableString spannable =
+                SpanApplier.applySpans(summary, getLearnMoreSpanInfo(url, pref));
+        spannable.setSpan(
+                new ForegroundColorSpan(pref.getDisabledColor()),
+                0,
+                spannable.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        pref.setSummary(spannable);
+    }
+
     private void setupAutoBrowseExpandedArea(View expandedArea) {
         TextView consider2 =
                 expandedArea.findViewById(
                         R.id.glic_auto_browse_consider_user_responsibility_description);
         if (consider2 != null && consider2.getMovementMethod() == null) {
+            ChromeExpandableSwitchPreference autoBrowsePref =
+                    assertNonNull(findPreference(PERMISSION_AUTO_BROWSE));
             String text =
                     getString(R.string.settings_glic_permissions_web_actuation_toggle_consider_2);
             consider2.setText(
                     SpanApplier.applySpans(
                             text,
-                            createLinkSpanInfo("$1", AUTO_BROWSE_CONSIDER_SAFELY_URL),
                             createLinkSpanInfo(
-                                    "$2", AUTO_BROWSE_CONSIDER_UNEXPECTED_RESULTS_URL)));
+                                    "$1", AUTO_BROWSE_CONSIDER_SAFELY_URL, autoBrowsePref),
+                            createLinkSpanInfo(
+                                    "$2",
+                                    AUTO_BROWSE_CONSIDER_UNEXPECTED_RESULTS_URL,
+                                    autoBrowsePref)));
             consider2.setMovementMethod(LinkMovementMethod.getInstance());
+
+            if (GlicEnabling.isDisabledByPolicy(getProfile())) {
+                consider2.setTextColor(autoBrowsePref.getDisabledColor());
+                // Re-enable the view so links remain clickable, even though it looks disabled.
+                consider2.setEnabled(true);
+            }
         }
     }
 
-    private SpanApplier.SpanInfo createSpanInfo(String openTag, String url) {
+    private SpanApplier.SpanInfo createSpanInfo(
+            String openTag, String url, ChromeExpandableSwitchPreference pref) {
         SettingsCustomTabLauncher customTabLauncher = getCustomTabLauncher();
+        int color;
+        if (GlicEnabling.isDisabledByPolicy(getProfile())) {
+            color = pref.getDisabledColor();
+        } else {
+            int defaultColor = getContext().getColor(R.color.default_text_color_link_baseline);
+            color =
+                    AttrUtils.resolveColor(
+                            getContext().getTheme(), R.attr.globalClickableSpanColor, defaultColor);
+        }
         return new SpanApplier.SpanInfo(
                 openTag,
                 "</a>",
                 new ChromeClickableSpan(
-                        getContext(),
+                        color,
                         v -> {
                             customTabLauncher.openUrlInCct(getContext(), url);
                         }));
     }
 
-    private SpanApplier.SpanInfo createLinkSpanInfo(String placeholderIndex, String url) {
-        return createSpanInfo("<a href=\"" + placeholderIndex + "\" target=\"_blank\">", url);
+    private SpanApplier.SpanInfo createLinkSpanInfo(
+            String placeholderIndex, String url, ChromeExpandableSwitchPreference pref) {
+        return createSpanInfo("<a href=\"" + placeholderIndex + "\" target=\"_blank\">", url, pref);
     }
 
-    private SpanApplier.SpanInfo getLearnMoreSpanInfo(String url) {
-        return createSpanInfo("<a href=\"#\">", url);
+    private SpanApplier.SpanInfo getLearnMoreSpanInfo(
+            String url, ChromeExpandableSwitchPreference pref) {
+        return createSpanInfo("<a href=\"#\">", url, pref);
     }
 
     @Override
@@ -400,10 +516,16 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                 @Override
                 public void updateDynamicPreferences(Context context, SettingsIndexData indexData) {
                     String prefFrag = GlicSettings.class.getName();
-                    if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)) {
+                    // TODO(crbug.com/503082430): Change to tab strip visibility check once toolbar
+                    // Glic supported on LFF
+                    if (AndroidSidePanelEnabledFn.isEnabled()) {
                         indexData.removeEntryForKey(prefFrag, PREFERENCE_BUTTON);
                     } else {
                         indexData.removeEntryForKey(prefFrag, PREFERENCE_BUTTON_TOGGLE);
+                    }
+                    if (!ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.ACTOR_LOGIN_PERMISSIONS_UI)) {
+                        indexData.removeEntryForKey(prefFrag, PERMISSION_ACTOR_LOGIN);
                     }
                 }
             };

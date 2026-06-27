@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/android/callback_android.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
@@ -82,6 +83,7 @@
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
+#include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/display/display.h"
@@ -139,7 +141,8 @@ JNI_TabWebContentsDelegateAndroidImpl_CreateJavaPictureInPictureWindowOptions(
 }
 
 void ShowFramebustBlockMessageInternal(content::WebContents* web_contents,
-                                       const GURL& url) {
+                                       const GURL& url,
+                                       const url::Origin& initiator_origin) {
   auto intervention_outcome =
       [](blocked_content::FramebustBlockedMessageDelegate::InterventionOutcome
              outcome) {
@@ -153,7 +156,7 @@ void ShowFramebustBlockMessageInternal(content::WebContents* web_contents,
           blocked_content::FramebustBlockedMessageDelegate::FromWebContents(
               web_contents);
   framebust_blocked_message_delegate->ShowMessage(
-      url,
+      url, initiator_origin,
       HostContentSettingsMapFactory::GetForProfile(
           web_contents->GetBrowserContext()),
       base::BindOnce(intervention_outcome));
@@ -487,6 +490,12 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
   // When handled is |true|, ownership has been passed to java, which in turn
   // creates a new TabAndroid instance to own the WebContents.
   if (handled) {
+    if (disposition == WindowOpenDisposition::NEW_PICTURE_IN_PICTURE) {
+      // For Document PiP, immediately enter PiP mode on the native side so that
+      // we start observing the opener for navigations immediately.
+      PictureInPictureWindowManager::GetInstance()
+          ->EnterDocumentPictureInPicture(source, new_contents.get());
+    }
     return new_contents.release();
   }
 
@@ -496,8 +505,11 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
 void TabWebContentsDelegateAndroid::OnDidBlockNavigation(
     content::WebContents* web_contents,
     const GURL& blocked_url,
+    const GURL& initiator_url,
+    const url::Origin& initiator_origin,
     blink::mojom::NavigationBlockedReason reason) {
-  ShowFramebustBlockMessageInternal(web_contents, blocked_url);
+  ShowFramebustBlockMessageInternal(web_contents, blocked_url,
+                                    initiator_origin);
 }
 
 void TabWebContentsDelegateAndroid::UpdateUserGestureCarryoverInfo(
@@ -832,6 +844,58 @@ void TabWebContentsDelegateAndroid::DraggableRegionsChanged(
 
   Java_TabWebContentsDelegateAndroidImpl_nonDraggableRegionsChanged(env, obj,
                                                                     jregions);
+}
+
+bool TabWebContentsDelegateAndroid::IsImmersivePlaybackEnabled() const {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
+    return false;
+  }
+  return Java_TabWebContentsDelegateAndroidImpl_isImmersivePlaybackEnabled(env,
+                                                                           obj);
+}
+
+void TabWebContentsDelegateAndroid::RequestImmersivePlaybackConfirmation(
+    base::OnceCallback<
+        void(blink::mojom::ImmersivePlaybackConfirmationResultPtr)> callback) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
+    auto result = blink::mojom::ImmersivePlaybackConfirmationResult::New();
+    result->status = blink::mojom::ImmersivePlaybackConfirmationStatus::kFailed;
+    std::move(callback).Run(std::move(result));
+    return;
+  }
+
+  auto wrapped_callback = base::BindOnce(
+      [](base::OnceCallback<void(
+             blink::mojom::ImmersivePlaybackConfirmationResultPtr)> callback,
+         int packed_result) {
+        auto result_ptr =
+            blink::mojom::ImmersivePlaybackConfirmationResult::New();
+
+        result_ptr->status =
+            static_cast<blink::mojom::ImmersivePlaybackConfirmationStatus>(
+                packed_result & 0xF);
+
+        if (result_ptr->status ==
+            blink::mojom::ImmersivePlaybackConfirmationStatus::kConfirmed) {
+          result_ptr->options = blink::mojom::ImmersiveOptions::New();
+          result_ptr->options->stereo_mode =
+              static_cast<blink::mojom::ImmersiveStereoMode>(
+                  (packed_result >> 4) & 0xF);
+          result_ptr->options->projection_type =
+              static_cast<blink::mojom::ImmersiveProjectionType>(
+                  (packed_result >> 8) & 0xF);
+        }
+
+        std::move(callback).Run(std::move(result_ptr));
+      },
+      std::move(callback));
+
+  Java_TabWebContentsDelegateAndroidImpl_requestImmersivePlaybackConfirmation(
+      env, obj, base::android::ToJniCallback(env, std::move(wrapped_callback)));
 }
 
 }  // namespace android

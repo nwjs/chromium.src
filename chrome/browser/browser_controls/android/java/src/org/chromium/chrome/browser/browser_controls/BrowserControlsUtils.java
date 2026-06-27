@@ -19,14 +19,6 @@ public class BrowserControlsUtils {
 
     private static @Nullable Boolean sSyncMinHeightWithTotalHeightForTesting;
 
-    // Disallow top browser controls from scrolling off on large tablets by setting min height
-    // equal to overall height.
-    // TODO(https://crbug.com/450970998): Replace with doSyncMinHeightWithTotalHeightV2.
-    public static boolean doSyncMinHeightWithTotalHeight(Context context) {
-        return ChromeFeatureList.sLockTopControlsOnLargeTablets.isEnabled()
-                && DeviceFormFactor.isNonMultiDisplayContextOnLargeTablet(context);
-    }
-
     /**
      * Disallow top browser controls from scrolling off by setting min height equal to overall
      * height. This method checks the form factors internally.
@@ -38,19 +30,12 @@ public class BrowserControlsUtils {
             return sSyncMinHeightWithTotalHeightForTesting;
         }
 
-        if (!ChromeFeatureList.sLockTopControlsOnLargeTabletsV2.isEnabled()
-                || !ChromeFeatureList.sTopControlsRefactor.isEnabled()) {
+        if (!ChromeFeatureList.sLockTopControlsOnLargeTabletsV2.isEnabled()) {
             return false;
         }
 
         return DeviceInfo.isDesktop()
                 || DeviceFormFactor.isNonMultiDisplayContextOnLargeTablet(context);
-    }
-
-    /** Whether use TopControlsStacker to drive the y offset for top control layers. */
-    public static boolean isTopControlsRefactorOffsetEnabled() {
-        return ChromeFeatureList.sTopControlsRefactor.isEnabled()
-                && ChromeFeatureList.sTopControlsRefactorV2.isEnabled();
     }
 
     /** Whether force adjusting top chrome height is allowed based on feature flags. */
@@ -59,9 +44,15 @@ public class BrowserControlsUtils {
         // feature flag is launched. Once we are ready to cleanup the param
         // sLockTopControlsForceAdjustHeightOnStartup it's safe to assume this method to return
         // true always.
-        return isTopControlsRefactorOffsetEnabled()
-                && doSyncMinHeightWithTotalHeightV2(context)
+        return doSyncMinHeightWithTotalHeightV2(context)
                 && ChromeFeatureList.sLockTopControlsForceAdjustHeightOnStartup.getValue();
+    }
+
+    /** Returns whether the top-controls hairline needs an extra offset to stay hidden. */
+    public static boolean shouldContentOffsetHideTopControlsHairline(
+            int contentOffset, int topControlsMinHeight, int topControlsHairlineHeight) {
+        return contentOffset >= topControlsMinHeight
+                && contentOffset <= topControlsMinHeight + topControlsHairlineHeight;
     }
 
     /**
@@ -80,6 +71,35 @@ public class BrowserControlsUtils {
     }
 
     /**
+     * @return True if the top browser controls are completely off screen.
+     */
+    public static boolean areTopControlsOffScreen(BrowserControlsStateProvider stateProvider) {
+        return stateProvider.getTopControlHiddenRatio() == 1.0f;
+    }
+
+    /**
+     * @return True if the top browser controls are currently completely visible.
+     */
+    public static boolean areTopControlsFullyVisible(BrowserControlsStateProvider stateProvider) {
+        return stateProvider.getTopControlHiddenRatio() == 0.f;
+    }
+
+    /**
+     * @return True if the bottom browser controls are completely off screen.
+     */
+    public static boolean areBottomControlsOffScreen(BrowserControlsStateProvider stateProvider) {
+        return stateProvider.getBottomControlHiddenRatio() == 1.0f;
+    }
+
+    /**
+     * @return True if the bottom browser controls are currently completely visible.
+     */
+    public static boolean areBottomControlsFullyVisible(
+            BrowserControlsStateProvider stateProvider) {
+        return stateProvider.getBottomControlHiddenRatio() == 0.f;
+    }
+
+    /**
      * @return Whether the browser controls should be drawn as a texture.
      */
     public static boolean drawControlsAsTexture(BrowserControlsStateProvider stateProvider) {
@@ -88,9 +108,9 @@ public class BrowserControlsUtils {
 
     /**
      * TODO(jinsukkim): Move this to CompositorViewHolder.
-     * @return {@code true} if browser controls shrink Blink view's size. Note that this
-     *         is valid only when the browser controls are in idle state i.e. not scrolling
-     *         or animating.
+     *
+     * @return {@code true} if browser controls shrink Blink view's size. Note that this is valid
+     *     only when the browser controls are in idle state i.e. not scrolling or animating.
      */
     public static boolean controlsResizeView(BrowserControlsStateProvider stateProvider) {
         return stateProvider.getContentOffset() > stateProvider.getTopControlsMinHeight()
@@ -100,7 +120,7 @@ public class BrowserControlsUtils {
 
     /**
      * @return The content offset from the bottom of the screen, or the visible height of the bottom
-     *         controls, in px.
+     *     controls, in px.
      */
     public static int getBottomContentOffset(BrowserControlsStateProvider stateProvider) {
         return stateProvider.getBottomControlsHeight() - stateProvider.getBottomControlOffset();

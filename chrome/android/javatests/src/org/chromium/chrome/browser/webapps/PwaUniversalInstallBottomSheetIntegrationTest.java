@@ -34,6 +34,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -48,6 +49,7 @@ import org.chromium.components.webapps.AppType;
 import org.chromium.components.webapps.R;
 import org.chromium.components.webapps.pwa_universal_install.PwaUniversalInstallBottomSheetCoordinator;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.ui.base.DeviceFormFactor;
 
 /** Test the showing of the PWA Universal Install Bottom Sheet dialog. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -414,6 +416,7 @@ public class PwaUniversalInstallBottomSheetIntegrationTest {
     @Feature({"PwaUniversalInstall"})
     // This test makes sure that clicking the install arrow (or the install text) does not trigger
     // an install for a site that doesn't support install (but creating a shortcut works).
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287863
     public void testCallbackDisabledIfInstallDisabledAfterTimeout() throws Exception {
         HistogramWatcher watcher =
                 HistogramWatcher.newBuilder()
@@ -585,10 +588,11 @@ public class PwaUniversalInstallBottomSheetIntegrationTest {
     }
 
     private void assertDialogShowing(boolean expectShowing) {
+        String dialogTitle = "Install and create shortcut";
         if (expectShowing) {
-            onViewWaiting(withText("Add to home screen")).check(matches(isDisplayed()));
+            onViewWaiting(withText(dialogTitle)).check(matches(isDisplayed()));
         } else {
-            onView(withText("Add to home screen")).check(doesNotExist());
+            onView(withText(dialogTitle)).check(doesNotExist());
         }
     }
 }

@@ -6,6 +6,7 @@
 
 #include "base/sequence_checker.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/channel_info.h"
 #include "components/prefs/pref_service.h"
 #include "components/private_ai/client.h"
 #include "components/private_ai/common/private_ai_logger.h"
@@ -18,6 +19,7 @@
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
 #include "content/public/browser/storage_partition.h"
+#include "google_apis/google_api_keys.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 
@@ -25,7 +27,16 @@ namespace private_ai {
 
 // static
 bool PrivateAiService::CanPrivateAiBeEnabled() {
-  return base::FeatureList::IsEnabled(kPrivateAi);
+  return base::FeatureList::IsEnabled(kPrivateAi) && !GetApiKey().empty();
+}
+
+// static
+std::string PrivateAiService::GetApiKey() {
+  std::string api_key = kPrivateAiApiKey.Get();
+  if (api_key.empty() && google_apis::IsGoogleChromeAPIKeyUsed()) {
+    return google_apis::GetAPIKey(chrome::GetChannel());
+  }
+  return api_key;
 }
 
 PrivateAiService::PrivateAiService(
@@ -51,11 +62,10 @@ PrivateAiService::PrivateAiService(
       std::move(token_fetcher), &logger_);
 
   client_ = Client::Create(
-      kPrivateAiUrl.Get(), kPrivateAiApiKey.Get(),
-      kPrivateAiProxyServerUrl.Get(),
+      kPrivateAiUrl.Get(), GetApiKey(), kPrivateAiProxyServerUrl.Get(),
       base::FeatureList::IsEnabled(kPrivateAiUseTokenAttestation),
       profile_->GetDefaultStoragePartition()->GetNetworkContext(),
-      token_manager_.get(), &logger_);
+      token_manager_.get(), &logger_, &oak_session_driver_, &network_driver_);
 }
 
 PrivateAiService::~PrivateAiService() {
@@ -148,6 +158,21 @@ void PrivateAiService::OnPrimaryAccountChanged(
     bool account_available =
         event.GetEventTypeFor(signin::ConsentLevel::kSignin) !=
         signin::PrimaryAccountChangeEvent::Type::kCleared;
+    token_fetcher_->OnAccountStatusChanged(account_available);
+    token_manager_->OnAccountStatusChanged(account_available);
+  }
+}
+
+void PrivateAiService::OnErrorStateOfRefreshTokenUpdatedForAccount(
+    const CoreAccountInfo& account_info,
+    const GoogleServiceAuthError& error,
+    signin_metrics::SourceForRefreshTokenOperation token_operation_source) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (token_fetcher_ &&
+      account_info.account_id == identity_manager_->GetPrimaryAccountId(
+                                     signin::ConsentLevel::kSignin)) {
+    bool account_available = (error.state() == GoogleServiceAuthError::NONE);
     token_fetcher_->OnAccountStatusChanged(account_available);
     token_manager_->OnAccountStatusChanged(account_available);
   }

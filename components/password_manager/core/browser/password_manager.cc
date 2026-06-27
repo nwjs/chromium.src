@@ -101,7 +101,7 @@ constexpr char kLogInWithPasswordChangeSubmissionHistogram[] =
     "PasswordManager.LogInWithPasswordChangeSubmission";
 bool DidLoginWithPrimaryChangedPassword(
     const PasswordFormManager& submitted_manager,
-    const PasswordForm& change_password_login) {
+    const StoredCredential& change_password_login) {
   CHECK_EQ(change_password_login.type, PasswordForm::Type::kChangeSubmission);
 
   return submitted_manager.GetPendingCredentials().password_value ==
@@ -110,7 +110,7 @@ bool DidLoginWithPrimaryChangedPassword(
 
 bool DidLoginWithBackupChangedPassword(
     const PasswordFormManager& submitted_manager,
-    const PasswordForm& change_password_login) {
+    const StoredCredential& change_password_login) {
   CHECK_EQ(change_password_login.type, PasswordForm::Type::kChangeSubmission);
 
   return submitted_manager.GetPendingCredentials().password_value ==
@@ -124,7 +124,7 @@ bool DidLoginWithBackupChangedPassword(
 // change form. This diff should be very small since we have a timeout for the
 // flow to finish after we start filling the change password form.
 bool IsLikelyFirstLoginAttempAfterPasswordChange(
-    const PasswordForm& change_password_login) {
+    const StoredCredential& change_password_login) {
   CHECK(change_password_login.GetPasswordBackupDateCreated().has_value());
 
   // Allow way more time than needed to catch potential edge cases. At the same
@@ -148,7 +148,7 @@ void RecordMetricsForLoginWithChangedPassword(
     return;
   }
 
-  const PasswordForm* change_password_login =
+  const StoredCredential* change_password_login =
       password_manager_util::FindChangedPasswordLoginWithBackup(
           submitted_manager);
   if (!change_password_login) {
@@ -317,13 +317,13 @@ bool IsRelevantForPasswordManagerButNotRecognizedByRenderer(
          HasNewPasswordVote(form_predictions);
 }
 
-bool IsMutedInsecureCredential(const PasswordForm& credential,
+bool IsMutedInsecureCredential(const StoredCredential& credential,
                                InsecureType insecure_type) {
   auto it = credential.password_issues.find(insecure_type);
   return it != credential.password_issues.end() && it->second.is_muted;
 }
 
-bool HasMutedCredentials(base::span<const PasswordForm> credentials,
+bool HasMutedCredentials(base::span<const StoredCredential> credentials,
                          const std::u16string& username) {
   return std::ranges::any_of(credentials, [&username](const auto& credential) {
     return credential.username_value == username &&
@@ -768,7 +768,7 @@ void PasswordManager::DidNavigateMainFrame(bool form_may_be_submitted) {
       // May be null in tests.
       if (reuse_manager) {
         reuse_manager->MaybeSavePasswordHash(manager->GetSubmittedForm(),
-                                             client_);
+                                             client_, std::nullopt);
       }
     }
   }
@@ -839,11 +839,12 @@ void PasswordManager::DropFormManagers() {
   owned_submitted_form_manager_.reset();
 }
 
-base::span<const PasswordForm> PasswordManager::GetBestMatches(
+base::span<const StoredCredential> PasswordManager::GetBestMatches(
     PasswordManagerDriver* driver,
     autofill::FormRendererId form_id) {
   PasswordFormManager* manager = GetMatchedManagerForForm(driver, form_id);
-  return manager ? manager->GetBestMatches() : base::span<const PasswordForm>();
+  return manager ? manager->GetBestMatches()
+                 : base::span<const StoredCredential>();
 }
 
 bool PasswordManager::IsPasswordFieldDetectedOnPage() const {
@@ -980,7 +981,7 @@ void PasswordManager::OnUserModifiedNonPasswordField(
     bool autocomplete_attribute_has_username,
     bool is_likely_otp) {
   // |driver| might be empty on iOS or in tests.
-  int driver_id = driver ? driver->GetId() : 0;
+  DriverId driver_id = driver ? driver->GetId() : DriverId();
 
   // Add user modified text field as a username candidate outside of the
   // password form.
@@ -1010,9 +1011,16 @@ void PasswordManager::OnUserModifiedNonPasswordField(
 
 void PasswordManager::OnInformAboutUserInput(PasswordManagerDriver* driver,
                                              const FormData& form_data) {
-  PasswordFormManager* manager = ProvisionallySaveForm(form_data, driver, true);
+  PasswordFormManager* manager =
+      GetMatchedManagerForForm(driver, form_data.renderer_id());
 
-  if (manager) {
+  const bool had_manually_filled_password_before =
+      manager && manager->GetSubmittedForm() &&
+      HasManuallyFilledPassword(*(manager->GetSubmittedForm()));
+
+  manager = ProvisionallySaveForm(form_data, driver, true);
+
+  if (manager && !had_manually_filled_password_before) {
     if (const PasswordForm* form = manager->GetSubmittedForm();
         form && HasManuallyFilledPassword(*form)) {
       manager->OnPasswordFilledManually();
@@ -1642,7 +1650,7 @@ void PasswordManager::OnLoginSuccessful() {
   // May be null in tests.
   if (reuse_manager) {
     reuse_manager->MaybeSavePasswordHash(submitted_manager->GetSubmittedForm(),
-                                         client_);
+                                         client_, std::nullopt);
   }
 
   RecordMetricsForLoginWithChangedPassword(client_, *submitted_manager,
@@ -1783,13 +1791,12 @@ void PasswordManager::ProcessAutofillPredictions(
   }
 
   // `driver` might be null in tests.
-  int driver_id = driver ? driver->GetId() : 0;
+  DriverId driver_id = driver ? driver->GetId() : DriverId();
   // Update the `server_predictions_` stored as a member.
   const FormPredictions& form_predictions =
       server_predictions_
-          .insert_or_assign(
-              CalculateFormSignature(form),
-              ConvertToFormPredictions(driver_id, form, predictions))
+          .insert_or_assign({CalculateFormSignature(form), driver_id},
+                            ConvertToFormPredictions(form, predictions))
           .first->second;
 
   if (PasswordGenerationFrameHelper* password_generation_manager =
@@ -1937,14 +1944,14 @@ PasswordFormManager* PasswordManager::GetMatchedManagerForField(
 
 std::optional<FormPredictions> PasswordManager::FindServerPredictionsForField(
     FieldRendererId field_id,
-    int driver_id) {
-  for (const auto& form : server_predictions_) {
-    if (form.second.driver_id != driver_id) {
+    DriverId driver_id) {
+  for (const auto& [key, predictions] : server_predictions_) {
+    if (key.second != driver_id) {
       continue;
     }
-    for (const PasswordFieldPrediction& field : form.second.fields) {
+    for (const PasswordFieldPrediction& field : predictions.fields) {
       if (field.renderer_id == field_id) {
-        return form.second;
+        return predictions;
       }
     }
   }

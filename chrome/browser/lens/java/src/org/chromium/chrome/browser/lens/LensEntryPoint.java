@@ -17,17 +17,24 @@ import org.chromium.build.annotations.NullMarked;
     LensEntryPoint.TASKS_SURFACE,
     LensEntryPoint.QUICK_ACTION_SEARCH_WIDGET,
     LensEntryPoint.GOOGLE_BOTTOM_BAR,
-    LensEntryPoint.TIPS_NOTIFICATIONS
+    LensEntryPoint.TIPS_NOTIFICATIONS,
+    LensEntryPoint.CHROME_LENS_OVERLAY
 })
 @NullMarked
 public @interface LensEntryPoint {
     int CONTEXT_MENU_SEARCH_MENU_ITEM = 0;
     int CONTEXT_MENU_SHOP_MENU_ITEM = 1;
-    int CONTEXT_MENU_CHIP = 2;
+
+    /**
+     * @deprecated Dead entry point.
+     */
+    @Deprecated int CONTEXT_MENU_CHIP = 2;
+
     int OMNIBOX = 3;
     int NEW_TAB_PAGE = 4;
     int TASKS_SURFACE = 5;
     int QUICK_ACTION_SEARCH_WIDGET = 6;
     int GOOGLE_BOTTOM_BAR = 7;
     int TIPS_NOTIFICATIONS = 8;
+    int CHROME_LENS_OVERLAY = 9;
 }

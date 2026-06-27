@@ -209,10 +209,6 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
-    name = "app_shell_unittests",
-)
-
-targets.tests.gtest_test(
     name = "ash_components_unittests",
 )
 
@@ -685,6 +681,17 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "surface_embed_chrome_wpt_tests",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--flag-specific=surface-embed",
+    ],
+    binary = "chrome_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
     name = "headless_shell_wpt_tests",
     mixins = [
         "has_native_resultdb_integration",
@@ -853,6 +860,10 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "content_shell_crash_test",
+)
+
+targets.tests.isolated_script_test(
+    name = "content_shell_freeze_test",
 )
 
 targets.tests.gtest_test(
@@ -1444,73 +1455,6 @@ targets.tests.gtest_test(
 )
 
 targets.tests.isolated_script_test(
-    # graphite_enabled_blink_web_tests provides coverage for
-    # running Layout Tests with Skia Graphite.
-    name = "graphite_enabled_blink_web_tests",
-    mixins = [
-        "has_native_resultdb_integration",
-        "blink_tests_write_run_histories",
-    ],
-    args = [
-        "--flag-specific=enable-skia-graphite",
-        "--skipped=always",
-        # Since there are random timeouts, we have to increase the timeout
-        # threshold for now.
-        # TODO(crbug.com/41490824): Remove this once we resolve the timeouts.
-        "--timeout-ms=20000",
-        # layout test failures are retried 3 times when '--test-list' is not
-        # passed, but 0 times when '--test-list' is passed. We want to always
-        # retry 3 times, so we explicitly specify it.
-        "--num-retries=3",
-    ],
-    binary = "blink_web_tests",
-)
-
-targets.tests.isolated_script_test(
-    # graphite_enabled_blink_wpt_tests provides coverage for
-    # running Layout Tests with Skia Graphite.
-    name = "graphite_enabled_blink_wpt_tests",
-    mixins = [
-        "has_native_resultdb_integration",
-        "blink_tests_write_run_histories",
-    ],
-    args = [
-        "--flag-specific=enable-skia-graphite",
-        "--skipped=always",
-        # Since there are random timeouts, we have to increase the timeout
-        # threshold for now.
-        # TODO(crbug.com/41490824): Remove this once we resolve the timeouts.
-        "--timeout-ms=20000",
-        # layout test failures are retried 3 times when '--test-list' is not
-        # passed, but 0 times when '--test-list' is passed. We want to always
-        # retry 3 times, so we explicitly specify it.
-        "--num-retries=3",
-    ],
-    binary = "blink_wpt_tests",
-)
-
-targets.tests.isolated_script_test(
-    # graphite_enabled_headless_shell_wpt_tests provides coverage for
-    # running web platform tests with Skia Graphite.
-    name = "graphite_enabled_headless_shell_wpt_tests",
-    mixins = [
-        "has_native_resultdb_integration",
-        "blink_tests_write_run_histories",
-    ],
-    args = [
-        "--flag-specific=enable-skia-graphite",
-        "--skipped=always",
-        # Since there are random timeouts, we have to increase the timeout
-        # threshold for now.
-        # TODO(crbug.com/41490824): Remove this once we resolve the timeouts.
-        "--timeout-multiplier=2",
-        "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/chrome.filter",
-        "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/content_shell.filter",
-    ],
-    binary = "headless_shell_wpt",
-)
-
-targets.tests.isolated_script_test(
     name = "grit_python_unittests",
 )
 
@@ -1995,11 +1939,76 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "litert_lm_advanced_main_legacy_tests_cpu",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--benchmark_binary_dir=./",
+        "--backends=cpu",
+    ],
+    binary = "litert_lm_advanced_main_legacy_tests",
+)
+
+# TODO(b:484388901): Enable GPU backedn testing when the issue is fixed.
+# targets.tests.isolated_script_test(
+#     name = "litert_lm_advanced_main_legacy_tests_gpu",
+#     mixins = [
+#         "has_native_resultdb_integration",
+#     ],
+#     args = [
+#         "--benchmark_binary_dir=./",
+#         "--backends=gpu",
+#     ],
+#     binary = "litert_lm_advanced_main_legacy_tests",
+# )
+
+targets.tests.isolated_script_test(
     name = "opt_target_coverage_test",
 )
 
 targets.tests.isolated_script_test(
-    name = "chrome_ai_wpt_tests",
+    name = "chrome_ai_wpt_tests_gpu",
+    args = [
+        "--framework=llm-inference-engine",
+        "--backend=gpu",
+        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
+        "--expectations-file=AIExpectations_GPU",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_cpu",
+    args = [
+        "--framework=llm-inference-engine",
+        "--backend=cpu",
+        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
+        "--expectations-file=AIExpectations_CPU",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_litert_cpu",
+    args = [
+        "--framework=litert-lm",
+        "--backend=cpu",
+        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
+        "--expectations-file=AIExpectations_LiteRTCPU",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_litert_gpu",
+    args = [
+        "--framework=litert-lm",
+        "--backend=gpu",
+        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
+        "--expectations-file=AIExpectations_LiteRTGPU",
+    ],
+    binary = "chrome_ai_wpt_tests",
 )
 
 targets.tests.gtest_test(
@@ -2248,6 +2257,10 @@ targets.tests.gtest_test(
 
 targets.tests.gtest_test(
     name = "pthreadpool_unittests",
+)
+
+targets.tests.gtest_test(
+    name = "puffin_unittests",
 )
 
 targets.tests.gtest_test(
@@ -2526,11 +2539,6 @@ targets.tests.isolated_script_test(
     name = "system_webview_wpt",
 )
 
-targets.tests.gtest_test(
-    name = "tab_capture_end2end_tests",
-    binary = "browser_tests",
-)
-
 targets.tests.isolated_script_test(
     name = "telemetry_chromium_minidump_unittests",
     args = [
@@ -2658,6 +2666,10 @@ targets.tests.gtest_test(
 
 targets.tests.gtest_test(
     name = "updater_tests",
+)
+
+targets.tests.gtest_test(
+    name = "updater_fuzztests",
 )
 
 targets.tests.gtest_test(

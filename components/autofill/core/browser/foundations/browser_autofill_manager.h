@@ -5,25 +5,26 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_BROWSER_AUTOFILL_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_BROWSER_AUTOFILL_MANAGER_H_
 
+#include <map>
 #include <memory>
-#include <set>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "base/containers/circular_deque.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/span.h"
 #include "base/functional/callback.h"
-#include "base/memory/raw_ptr.h"
-#include "base/memory/scoped_refptr.h"
+#include "base/memory/raw_ref.h"
+#include "base/memory/stack_allocated.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/at_memory/at_memory_manager.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/crowdsourcing/votes_uploader.h"
 #include "components/autofill/core/browser/data_manager/addresses/account_name_email_strike_manager.h"
-#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/filling/form_autofill_history.h"
@@ -37,32 +38,25 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/metrics/otp_form_event_logger.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_manager.h"
-#include "components/autofill/core/browser/integrators/password_form_classification.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/form_events/address_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/form_events/credit_card_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/form_events/loyalty_card_form_event_logger.h"
-#include "components/autofill/core/browser/metrics/log_event.h"
-#include "components/autofill/core/browser/payments/autofill_offer_manager.h"
-#include "components/autofill/core/browser/payments/card_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
-#include "components/autofill/core/browser/single_field_fillers/autocomplete/autocomplete_history_manager.h"
 #include "components/autofill/core/browser/single_field_fillers/single_field_fill_router.h"
-#include "components/autofill/core/browser/studies/autofill_ablation_study.h"
 #include "components/autofill/core/browser/suggestions/suggestion_generator.h"
-#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/suggestions/suggestions_context.h"
 #include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/common/aliases.h"
-#include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
+#include "components/autofill/core/common/password_form_fill_data.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "ui/gfx/image/image.h"
 
 namespace autofill {
 
@@ -70,6 +64,7 @@ class AutofillField;
 class AutofillProfile;
 class CreditCard;
 class CreditCardAccessManager;
+class AutofillAiAccessManager;
 
 class FormData;
 class FormFieldData;
@@ -215,7 +210,9 @@ class BrowserAutofillManager : public AutofillManager {
                           const FormGlobalId& form_id,
                           const FieldGlobalId& field_id,
                           AutofillExternalDelegate::UpdateSuggestionsCallback
-                              update_suggestions_callback);
+                              update_suggestions_callback,
+                          AutofillSuggestionTriggerSource trigger_source =
+                              AutofillSuggestionTriggerSource::kUnspecified);
 
   // Invoked when the user selected the `suggestion` in a suggestions list from
   // single field filling.
@@ -232,6 +229,16 @@ class BrowserAutofillManager : public AutofillManager {
 
   CreditCardAccessManager* GetCreditCardAccessManager() override;
   const CreditCardAccessManager* GetCreditCardAccessManager() const override;
+
+  // Gets the `AtMemoryManager` owned by `this`. This will be used to handle
+  // queries to the `AccessibilityQueryService`.
+  AtMemoryManager& GetAtMemoryManager();
+
+  // Gets the Autofill AI access manager owned by `this`.
+  virtual AutofillAiAccessManager& GetAutofillAiAccessManager();
+
+  // Triggers suggestions for @memory.
+  void TriggerAtMemorySuggestions(const FieldGlobalId& field_id);
 
   // Gets the payments BNPL manager owned by `this`. This will be used to
   // handle BNPL flows. May return nullptr if BNPL is not supported on the
@@ -372,14 +379,20 @@ class BrowserAutofillManager : public AutofillManager {
  private:
   friend class BrowserAutofillManagerTestApi;
 
-  // Fills `form_structure` and `autofill_field` with the cached elements
-  // corresponding to `form_id` and `field_id`.  This might have the side-effect
-  // of updating the cache.  Returns false if the form is not autofillable, or
-  // if either the form or the field cannot be found.
-  [[nodiscard]] bool GetCachedFormAndField(const FormGlobalId& form_id,
-                                           const FieldGlobalId& field_id,
-                                           FormStructure** form_structure,
-                                           AutofillField** autofill_field);
+  struct FormAndField {
+    STACK_ALLOCATED();
+
+   public:
+    FormStructure* form_structure = nullptr;
+    AutofillField* autofill_field = nullptr;
+  };
+
+  // Returns the cached form and field corresponding to `form_id` and
+  // `field_id`. This might have the side-effect of updating the cache. The
+  // returned `FormAndField` may not contain form or field, if the form is not
+  // autofillable, or if either the form or the field cannot be found.
+  FormAndField GetCachedFormAndField(const FormGlobalId& form_id,
+                                     const FieldGlobalId& field_id);
 
   // Emits all metrics that should be recorded at submission time.
   void LogSubmissionMetrics(const FormStructure* submitted_form,
@@ -644,6 +657,11 @@ class BrowserAutofillManager : public AutofillManager {
   // Lazily initialized: access only through GetCreditCardAccessManager().
   std::unique_ptr<CreditCardAccessManager> credit_card_access_manager_;
 
+  // The AutofillAI access manager, used to access local and server
+  // EntityInstance values for filling. It handles all required authentication
+  // and fetching steps needed to get the real values to be filled.
+  std::unique_ptr<AutofillAiAccessManager> autofill_ai_access_manager_;
+
   // Manages Buy Now, Pay Later related autofill flows and logic.
   // Lazily initialized: access only through GetPaymentsBnplManager().
   std::unique_ptr<payments::BnplManager> bnpl_manager_;
@@ -659,6 +677,10 @@ class BrowserAutofillManager : public AutofillManager {
       std::make_unique<FormFiller>(*this);
 
   std::unique_ptr<OtpManager> otp_manager_;
+
+  // The `AtMemoryManager`, used to handle queries to the
+  // `AccessibilityQueryService` and manage session-based metrics.
+  std::unique_ptr<AtMemoryManager> at_memory_manager_;
 
   std::unique_ptr<AccountNameEmailStrikeManager>
       account_name_email_strike_manager_;

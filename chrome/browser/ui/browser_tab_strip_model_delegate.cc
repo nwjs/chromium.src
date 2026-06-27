@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tab_helpers.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
@@ -92,7 +93,7 @@ void BrowserTabStripModelDelegate::OpenGlicWindowFromSharedTab() {
   auto* service =
       glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser_->profile());
 
-  if (!service->IsWindowOrFreShowing()) {
+  if (!service->instance_coordinator().IsAnyPanelShowing()) {
     service->ToggleUI(/*bwi=*/nullptr, /*prevent_close=*/true,
                       glic::mojom::InvocationSource::kSharedTab);
   }
@@ -257,6 +258,20 @@ void BrowserTabStripModelDelegate::CreateHistoricalGroup(
   }
 }
 
+void BrowserTabStripModelDelegate::CreateHistoricalSplit(
+    const split_tabs::SplitTabId& split_id) {
+  if (!BrowserSupportsHistoricalEntries()) {
+    return;
+  }
+
+  sessions::TabRestoreService* service =
+      TabRestoreServiceFactory::GetForProfile(browser_->profile());
+  if (service) {
+    service->CreateHistoricalSplit(browser_->GetFeatures().live_tab_context(),
+                                   split_id);
+  }
+}
+
 void BrowserTabStripModelDelegate::GroupAdded(
     const tab_groups::TabGroupId& group) {}
 
@@ -268,8 +283,9 @@ void BrowserTabStripModelDelegate::WillCloseGroup(
 
 void BrowserTabStripModelDelegate::WillCloseSplit(
     const split_tabs::SplitTabId& split_id) {
-  // TODO(crbug.com/508275923): Implement CreateHistoricalSplit here as part of
-  // the TabRestore process.
+  if (base::FeatureList::IsEnabled(tabs::kSplitViewTabRestore)) {
+    CreateHistoricalSplit(split_id);
+  }
 }
 
 void BrowserTabStripModelDelegate::GroupCloseStopped(
@@ -281,14 +297,50 @@ void BrowserTabStripModelDelegate::GroupCloseStopped(
   }
 }
 
+void BrowserTabStripModelDelegate::SplitClosed(
+    const split_tabs::SplitTabId& split_id) {
+  if (!base::FeatureList::IsEnabled(tabs::kSplitViewTabRestore)) {
+    return;
+  }
+
+  if (!browser_ || !browser_->profile()) {
+    return;
+  }
+
+  sessions::TabRestoreService* service =
+      TabRestoreServiceFactory::GetForProfile(browser_->profile());
+  if (service) {
+    service->SplitClosed(split_id);
+  }
+}
+
+void BrowserTabStripModelDelegate::SplitCloseStopped(
+    const split_tabs::SplitTabId& split_id) {
+  if (!base::FeatureList::IsEnabled(tabs::kSplitViewTabRestore)) {
+    return;
+  }
+
+  if (!browser_ || !browser_->profile()) {
+    return;
+  }
+
+  sessions::TabRestoreService* service =
+      TabRestoreServiceFactory::GetForProfile(browser_->profile());
+  if (service) {
+    service->SplitCloseStopped(split_id);
+  }
+}
+
 bool BrowserTabStripModelDelegate::RunUnloadListenerBeforeClosing(
     content::WebContents* contents) {
-  return browser_->RunUnloadListenerBeforeClosing(contents);
+  return UnloadController::From(browser_)->RunUnloadListenerBeforeClosing(
+      contents);
 }
 
 bool BrowserTabStripModelDelegate::ShouldRunUnloadListenerBeforeClosing(
     content::WebContents* contents) {
-  return browser_->ShouldRunUnloadListenerBeforeClosing(contents);
+  return UnloadController::From(browser_)->ShouldRunUnloadListenerBeforeClosing(
+      contents);
 }
 
 bool BrowserTabStripModelDelegate::CanReload() const {
@@ -338,12 +390,13 @@ BrowserTabStripModelDelegate::GetBrowserWindowInterface() {
 
 void BrowserTabStripModelDelegate::NewSplitTab(
     std::vector<int> indices,
+    split_tabs::SplitTabLayout layout,
     split_tabs::SplitTabCreatedSource source) {
   if (indices.empty()) {
-    chrome::NewSplitTab(browser_, source);
+    chrome::NewSplitTab(browser_, layout, source);
   } else {
     browser_->tab_strip_model()->AddToNewSplit(
-        indices, split_tabs::SplitTabVisualData(), source);
+        indices, split_tabs::SplitTabVisualData(layout), source);
   }
 }
 

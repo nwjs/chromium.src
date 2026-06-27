@@ -267,7 +267,7 @@ AggregatedRenderPassDrawQuad* CreateRenderPassDrawQuadAt(
   AggregatedRenderPassDrawQuad* quad =
       render_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
   quad->SetNew(shared_quad_state, rect, rect, render_pass_id, ResourceId(2),
-               gfx::RectF(), gfx::Size(), gfx::RectF(), false);
+               gfx::RectF(), gfx::Size(), false);
   return quad;
 }
 
@@ -281,10 +281,9 @@ MATCHER(ResourceIdEq, "") {
 
 MATCHER(PlaneZOrdersAreUnique, "") {
   const OverlayCandidateList& candidates = arg;
-  base::flat_set<int> z_orders;
-  for (const auto& candidate : candidates) {
-    z_orders.insert(candidate.plane_z_order);
-  }
+  auto z_orders = base::MakeFlatSet<int>(
+      candidates, /*comp=*/{},
+      [&](const auto& candidate) { return candidate.plane_z_order; });
   return candidates.size() == z_orders.size();
 }
 
@@ -2613,7 +2612,7 @@ class OverlayProcessorWinTest : public OverlayProcessorTestBase {
 
   std::unique_ptr<OverlayProcessorWin> overlay_processor_;
   gfx::Rect damage_rect_;
-  std::vector<gfx::Rect> content_bounds_;
+
 };
 
 enum class SurfaceTestMode {
@@ -2711,7 +2710,6 @@ class OverlayProcessorWinSurfacePlaneTest
             /*mask_resource_id=*/kInvalidResourceId,
             /*mask_uv_rect=*/gfx::RectF(),
             /*mask_texture_size=*/gfx::Size(),
-            /*tex_coord_rect=*/gfx::RectF(pass_list_->back()->output_rect),
             /*force_anti_aliasing_off=*/false);
 
         // Pretend that our old root pass is actually the root pass of a
@@ -2756,7 +2754,7 @@ class OverlayProcessorWinSurfacePlaneTest
         resource_provider_.get(), render_passes, SkM44(),
         std::move(surface_damage_rect_list_in_root_space),
         GetDefaultPrimaryPlane(render_passes->back()->output_rect.size()),
-        candidates, &damage_rect_, &content_bounds_);
+        candidates, &damage_rect_);
   }
 
  private:
@@ -3130,7 +3128,7 @@ class OverlayProcessorWinDelegatedCompositingTest
         resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
         std::move(surface_damage_rect_list),
         GetDefaultPrimaryPlane(pass_list.back()->output_rect.size()),
-        &candidates, &damage_rect_, &content_bounds_);
+        &candidates, &damage_rect_);
 
     const bool delegation_succeeded = std::ranges::none_of(
         candidates,

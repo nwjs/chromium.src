@@ -6,6 +6,7 @@ import("//chrome/browser/buildflags.gni")
 import("//chrome/common/features.gni")
 import("//components/compose/features.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
+import("//components/safe_browsing/buildflags.gni")
 import("//content/browser/devtools/features.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
@@ -55,8 +56,10 @@ group("resources") {
       "data_sharing:resources",
       "downloads:resources",
       "drive_picker_host:resources",
+      "drive_picker_host/untrusted:resources",
       "feedback:resources",
       "gaia_auth_host:resources",
+      "glic/experimental_opt_in:resources",
       "glic/selection_overlay:resources",
       "history:resources",
       "indigo:resources",
@@ -89,6 +92,7 @@ group("resources") {
       "tab_group_home:resources",
       "tab_search:resources",
       "web_app_internals:resources",
+      "webnn_internals:resources",
       "webui_browser:resources",
       "webui_gallery:resources",
       "webui_toolbar:resources",
@@ -96,7 +100,10 @@ group("resources") {
       "//components/browser_apis/tab_strip/resources",
     ]
     if (is_chrome_branded) {
-      public_deps += [ "media_router/cast_feedback:resources" ]
+      public_deps += [
+        ":preinstalled_web_apps_resources",
+        "media_router/cast_feedback:resources",
+      ]
     }
   }
 
@@ -158,14 +165,21 @@ group("resources") {
   }
 
   if (is_win) {
-    public_deps += [ "inline_login:resources" ]
+    public_deps += [
+      "conflicts:resources",
+      "default_browser/visual_guided_setter:resources",
+      "inline_login:resources",
+    ]
+  }
+
+  if (enable_dice_support || is_chromeos) {
+    public_deps += [ "signin/batch_upload:resources" ]
   }
 
   if (enable_dice_support) {
     public_deps += [
       "feature_showcase:resources",
       "intro:resources",
-      "signin/batch_upload:resources",
       "signin/signout_confirmation:resources",
     ]
   }
@@ -197,6 +211,10 @@ group("resources") {
   if (enterprise_watermark) {
     public_deps += [ "watermark:resources" ]
   }
+
+  if (safe_browsing_mode == 1) {
+    public_deps += [ "reset_password:resources" ]
+  }
 }
 
 if (enable_webui_generate_code_cache) {
@@ -216,7 +234,6 @@ if (is_chromeos && enable_js_type_check) {
   group("closure_compile") {
     deps = [
       "chromeos:closure_compile",
-      "chromeos/contact_center_insights:closure_compile",
       "gaia_auth_host:closure_compile",
     ]
   }
@@ -241,7 +258,6 @@ if (enable_extensions_core) {
     if (is_chromeos) {
       deps += [
         "chromeos/accessibility/braille_ime:build_ts",
-        "chromeos/contact_center_insights:generate_ccaas_deps",
         "chromeos/desk_api:generate_desk_api_bundle",
       ]
     }
@@ -302,8 +318,6 @@ if (!is_android) {
 group("dev_ui_resources") {
   public_deps = [
     "accessibility:resources",
-    "accessibility_annotator_internals:resources",
-    "actor_internals:resources",
     "bluetooth_internals:resources",
     "browsing_topics:resources",
     "chrome_finds_internals:resources",
@@ -316,10 +330,12 @@ group("dev_ui_resources") {
     "memory_internals:resources",
     "net_internals:resources",
     "omnibox:resources",
+    "personal_context_internals:resources",
     "predictors:resources",
     "privacy_sandbox/internals:resources",
     "subresource_filter:resources",
     "usb_internals:resources",
+    "//components/actor/core/internals/resources",
     "//components/commerce/core/internals/resources",
     "//components/data_sharing/data_sharing_internals/resources",
     "//components/download/resources/download_internals:resources",
@@ -352,12 +368,13 @@ group("dev_ui_resources") {
     ]
   } else {
     public_deps += [
-      "accessibility_annotator_info:resources",
       "color_pipeline_internals:resources",
       "indigo_internals:resources",
       "infobar_internals:resources",
       "media_router/internals:resources",
+      "multistep_filter_internals:resources",
       "on_device_internals:resources",
+      "personal_context_notice:resources",
       "user_education_internals:resources",
       "webnn_internals:resources",
       "webui_js_error:resources",
@@ -381,9 +398,7 @@ repack("dev_ui_paks") {
   output = "$root_gen_dir/chrome/dev_ui_resources.pak"
 
   sources = [
-    "$root_gen_dir/chrome/accessibility_annotator_internals_resources.pak",
     "$root_gen_dir/chrome/accessibility_resources.pak",
-    "$root_gen_dir/chrome/actor_internals_resources.pak",
     "$root_gen_dir/chrome/bluetooth_internals_resources.pak",
     "$root_gen_dir/chrome/browsing_topics_internals_resources.pak",
     "$root_gen_dir/chrome/chrome_finds_internals_resources.pak",
@@ -396,10 +411,12 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/memory_internals_resources.pak",
     "$root_gen_dir/chrome/net_internals_resources.pak",
     "$root_gen_dir/chrome/omnibox_resources.pak",
+    "$root_gen_dir/chrome/personal_context_internals_resources.pak",
     "$root_gen_dir/chrome/predictors_resources.pak",
     "$root_gen_dir/chrome/privacy_sandbox_internals_resources.pak",
     "$root_gen_dir/chrome/subresource_filter_internals_resources.pak",
     "$root_gen_dir/chrome/usb_internals_resources.pak",
+    "$root_gen_dir/components/actor_internals_resources.pak",
     "$root_gen_dir/components/commerce_internals_resources.pak",
     "$root_gen_dir/components/data_sharing_internals_resources.pak",
     "$root_gen_dir/components/dev_ui_components_resources.pak",
@@ -432,12 +449,13 @@ repack("dev_ui_paks") {
     ]
   } else {
     sources += [
-      "$root_gen_dir/chrome/accessibility_annotator_info_resources.pak",
       "$root_gen_dir/chrome/color_pipeline_internals_resources.pak",
       "$root_gen_dir/chrome/indigo_internals_resources.pak",
       "$root_gen_dir/chrome/infobar_internals_resources.pak",
       "$root_gen_dir/chrome/media_router_internals_resources.pak",
+      "$root_gen_dir/chrome/multistep_filter_internals_resources.pak",
       "$root_gen_dir/chrome/on_device_internals_resources.pak",
+      "$root_gen_dir/chrome/personal_context_notice_resources.pak",
       "$root_gen_dir/chrome/user_education_internals_resources.pak",
       "$root_gen_dir/chrome/webui_js_error_resources.pak",
     ]

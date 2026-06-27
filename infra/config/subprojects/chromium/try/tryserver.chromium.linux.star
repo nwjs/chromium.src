@@ -32,7 +32,7 @@ try_.defaults.set(
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
     siso_keep_going = siso.KEEP_GOING,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
-    siso_remote_linking = True,
+    siso_remote_linking = False,
 )
 
 targets.builder_defaults.set(
@@ -111,13 +111,18 @@ try_.builder(
 
 try_.builder(
     name = "linux-arm64-dbg",
-    mirrors = ["ci/linux-arm64-dbg"],
+    mirrors = [
+        "ci/linux-arm64-dbg",
+        "ci/linux-arm64-dbg-tests",
+    ],
     gn_args = gn_args.config(
         configs = [
             "ci/linux-arm64-dbg",
             "debug_try_builder",
         ],
     ),
+    cores = 16,
+    ssd = True,
     contact_team_email = "chrome-linux-engprod@google.com",
     execution_timeout = 6 * time.hour,
 )
@@ -287,6 +292,18 @@ try_.builder(
         ],
     ),
     contact_team_email = "chrome-browser-infra-team@google.com",
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "linux-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -349,6 +366,18 @@ try_.builder(
     name = "linux-fieldtrial-rel",
     mirrors = ["ci/linux-fieldtrial-rel"],
     gn_args = "ci/linux-fieldtrial-rel",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "linux-surface-embed-rel",
+    description_html = (
+        "Runs web_tests and wpt_tests using surface embed " +
+        "against complete desktop Chrome browser."
+    ),
+    mirrors = ["ci/linux-surface-embed-rel"],
+    gn_args = "ci/linux-surface-embed-rel",
+    contact_team_email = "chrome-webium-product-eng@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -465,6 +494,7 @@ try_.orchestrator_builder(
         experiment_percentage = 10,
         on_default_cq = True,
     ),
+    siso_remote_linking = True,
     use_clang_coverage = True,
 )
 
@@ -666,7 +696,9 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
-    siso_remote_linking = True,
+    # TODO: crbug.com/509602362 - Speculatively disable remote linking as we
+    # observe performance issues on RBE-CAS upload/download.
+    siso_remote_linking = False,
 )
 
 try_.compilator_builder(
@@ -995,19 +1027,20 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-webium-product-rel",
+    name = "linux-no-initial-webui-rel",
+    description_html = "Mirror of Linux No Initial WebUI CI builder",
     mirrors = [
-        "ci/linux-webium-product-rel",
+        "ci/Linux Builder",
+        "ci/linux-no-initial-webui-rel",
     ],
     gn_args = gn_args.config(
         configs = [
             "ci/Linux Builder",
             "release_try_builder",
+            "remoteexec",
         ],
     ),
     contact_team_email = "chrome-webium-product-eng@google.com",
-    execution_timeout = 4 * time.hour,
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -1048,11 +1081,11 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-treesinviz-disabled-rel",
+    name = "linux-treesinviz-enabled-rel",
     mirrors = [
-        "ci/linux-treesinviz-disabled-rel",
+        "ci/linux-treesinviz-enabled-rel",
     ],
-    gn_args = "ci/linux-treesinviz-disabled-rel",
+    gn_args = "ci/linux-treesinviz-enabled-rel",
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
@@ -1165,14 +1198,14 @@ try_.builder(
     name = "linux-code-coverage",
     mirrors = ["ci/linux-code-coverage"],
     gn_args = "ci/linux-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 12 * time.hour,
 )
 
 try_.builder(
     name = "linux-chromeos-code-coverage",
     mirrors = ["ci/linux-chromeos-code-coverage"],
     gn_args = "ci/linux-chromeos-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )
 
 # This builder serves a different purpose than try/linux-js-coverage-rel
@@ -1181,7 +1214,7 @@ try_.builder(
     name = "linux-js-code-coverage",
     mirrors = ["ci/linux-js-code-coverage"],
     gn_args = "ci/linux-js-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
     use_javascript_coverage = True,
 )
 
@@ -1189,7 +1222,7 @@ try_.builder(
     name = "chromeos-js-code-coverage",
     mirrors = ["ci/chromeos-js-code-coverage"],
     gn_args = "ci/chromeos-js-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
     use_javascript_coverage = True,
 )
 ############### Coverage Builders End ##################
@@ -1205,4 +1238,13 @@ try_.builder(
             cq.location_filter(path_regexp = r".*/README\.(chromium|angle|pdfium|crashpad|skia|swarming|v8|webrtc|google|libaom)"),
         ],
     ),
+)
+
+try_.builder(
+    name = "linux-tsgo-rel",
+    mirrors = [
+        "ci/linux-tsgo-rel",
+    ],
+    gn_args = "ci/linux-tsgo-rel",
+    contact_team_email = "chrome-webui@google.com",
 )

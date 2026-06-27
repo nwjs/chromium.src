@@ -13,7 +13,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_style.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/permissions/permission_util.h"
 #include "components/permissions/request_type.h"
@@ -78,7 +77,10 @@ class TestDelegateTwoOrigins : public permissions::PermissionPrompt::Delegate {
   void SetHatsShownCallback(base::OnceCallback<void()> callback) override {}
   void SwitchToLoudPrompt() override {}
 
-  bool ShouldShowLocationPrecisionSelector() const override { return false; }
+  std::optional<permissions::GeolocationPromptType> GetGeolocationPromptType()
+      const override {
+    return std::nullopt;
+  }
 
   bool WasCurrentRequestAlreadyDisplayed() override { return false; }
   bool ShouldDropCurrentRequestIfCannotShowQuietly() const override {

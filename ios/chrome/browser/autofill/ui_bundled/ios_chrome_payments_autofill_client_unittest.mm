@@ -88,8 +88,6 @@
 - (void)showScanCardSaveAndFillBottomSheet:
     (const autofill::FormActivityParams&)params {
 }
-- (void)showPlusAddressesBottomSheet {
-}
 
 - (void)showSaveCardBottomSheetOnOriginWebState:(web::WebState*)originWebState {
   _showSaveCardBottomSheet = YES;
@@ -135,7 +133,8 @@
 
 - (void)showSaveEntityDialog:(autofill::SaveEntityParams)params {
   std::move(params.callback)
-      .Run(autofill::AutofillClient::AutofillAiBubbleResult::kUnknown, {});
+      .Run(autofill::AutofillClient::AutofillAiBubbleResult::kUnknown,
+           std::nullopt, {});
 }
 
 - (void)dismissSaveEntityDialog {

@@ -31,12 +31,14 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> tab dihimpunkan</translation>
 <translation id="1844381456014878100">Selepas tidak aktif selama 7 hari</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> tab}other{<ph name="TABS_COUNT_MANY" /> tab}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Tambahkan tab pada senarai bacaan}other{Tambahkan tab pada senarai bacaan}}</translation>
 <translation id="1909810060368225529">Notis: Perubahan kepada Kumpulan Tab kongsi ini dapat dilihat oleh semua orang. Semua orang boleh membuat perubahan pada kumpulan tab dikongsi anda</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Sematkan tab}other{Sematkan tab}}</translation>
 <translation id="1982637982196732906">Alihkan kepada bahagian tidak aktif</translation>
 <translation id="2050597508048557928">{TABS_COUNT,plural, =1{Tandai halaman <ph name="TABS_COUNT_ONE" /> tab yang dipilih}other{Tandai halaman <ph name="TABS_COUNT_MANY" /> tab yang dipilih}}</translation>
 <translation id="2055057176188061528">Pilih kumpulan tab atau buat kumpulan tab baharu</translation>
 <translation id="2074527029802029717">Buka pin tab</translation>
+<translation id="2111670510994270194">Tab baharu ke kanan</translation>
 <translation id="2118649612461486615">Maklumat kedai</translation>
 <translation id="2123073051266141035">{INCOGNITO_TABS_COUNT,plural, =1{Tab dan kumpulan anda yang ditutup boleh dibuka semula daripada bahagian Tab terbaharu dan bahagian Kumpulan tab. Tab Inkognito anda tidak akan tersedia.}other{Tab dan kumpulan anda yang ditutup boleh dibuka semula daripada bahagian Tab terbaharu dan bahagian Kumpulan tab. # tab Inkognito anda tidak akan tersedia.}}</translation>
 <translation id="2153899164605463849">{TAB_COUNT,plural, =1{Nyahredamkan laman}other{Nyahredamkan laman}}</translation>

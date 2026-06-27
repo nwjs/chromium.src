@@ -1091,6 +1091,11 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, Throttled) {
     expected_event.set_profile_identifier(GetProfileIdentifier());
     expected_event.set_profile_user_name(kUserName);
 
+    if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedFieldsForSecOps)) {
+      auto* referrer = expected_event.add_referrers();
+      referrer->set_url("about:blank");
+    }
+
     std::vector<std::string> expected_file_names =
 #if BUILDFLAG(IS_CHROMEOS)
         {"a.exe", "b.exe", "c.exe"};
@@ -1284,6 +1289,11 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     expected_event.set_profile_identifier(GetProfileIdentifier());
     expected_event.set_profile_user_name(kUserName);
 
+    if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedFieldsForSecOps)) {
+      auto* referrer = expected_event.add_referrers();
+      referrer->set_url("about:blank");
+    }
+
     validator.ExpectUnscannedFileEvent(std::move(expected_event));
 
   // Start test.
@@ -1403,6 +1413,11 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     expected_event.set_profile_identifier(GetProfileIdentifier());
     expected_event.set_profile_user_name(kUserName);
 
+    if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedFieldsForSecOps)) {
+      auto* referrer = expected_event.add_referrers();
+      referrer->set_url("about:blank");
+    }
+
     validator.ExpectUnscannedFileEvent(std::move(expected_event));
 
   bool called = false;
@@ -1507,6 +1522,11 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
 
     expected_event.set_profile_identifier(GetProfileIdentifier());
     expected_event.set_profile_user_name(kUserName);
+
+    if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedFieldsForSecOps)) {
+      auto* referrer = expected_event.add_referrers();
+      referrer->set_url("about:blank");
+    }
 
     validator.ExpectUnscannedFileEvent(std::move(expected_event));
 
@@ -2106,7 +2126,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateUnauthorizedBrowserTest, Files) {
 
   bool called = false;
   base::RunLoop run_loop;
-  std::optional<base::RepeatingClosure> quit_closure = std::nullopt;
+  std::optional<base::RepeatingClosure> quit_closure;
 
   // If the scan is blocking, we can call the quit closure when the dialog
   // closes. If it's not, call it at the end of the result callback.

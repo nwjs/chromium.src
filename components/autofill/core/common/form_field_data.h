@@ -456,9 +456,11 @@ class FormFieldData {
     label_source_ = label_source;
   }
 
-  // The bounds of this field in current frame coordinates at the
-  // form-extraction time. It is valid if not empty, will not be synced to the
-  // server side or be used for field comparison and isn't in serialize methods.
+  // The bounds of the field
+  // - in the browser process: in the outermost main frame's coordinate system;
+  // - in the renderer process: in the field's host frame's coordinate system.
+  // (The conversion happens in AutofillDriver.)
+  // It is not populated on Bling.
   const gfx::RectF& bounds() const { return bounds_; }
   void set_bounds(gfx::RectF bounds) { bounds_ = std::move(bounds); }
 
@@ -524,7 +526,8 @@ class FormFieldData {
   gfx::RectF bounds_;
   std::vector<SelectOption> datalist_options_;
   bool force_override_ = false;
-  // LINT.ThenChange(form_field_data.cc:IdenticalAndEquivalentDomElements)
+  // LINT.ThenChange(form_field_data.cc:IdenticalAndEquivalentDomElements,
+  // autofill_test_utils.cc:FormFieldDataEq)
 };
 
 // Structure containing necessary information to be sent from the browser to the

@@ -55,7 +55,7 @@ namespace {
 
 UCPTrie* CreateTrie() {
   // Create a Trie from the value array.
-  ICUError error;
+  IcuError error;
   UCPTrie* trie = ucptrie_openFromBinary(
       UCPTrieType::UCPTRIE_TYPE_FAST, UCPTrieValueWidth::UCPTRIE_VALUE_BITS_16,
       kSerializedCharacterData, kSerializedCharacterDataSize, nullptr, &error);
@@ -83,7 +83,7 @@ void Character::ApplyPatternAndFreezeIfEmpty(icu::UnicodeSet* unicodeSet,
   if (!unicodeSet->isEmpty()) {
     return;
   }
-  blink::ICUError err;
+  blink::IcuError err;
   // Use ICU's invariant-character initialization method.
   unicodeSet->applyPattern(icu::UnicodeString(pattern, -1, US_INV), err);
   unicodeSet->freeze();
@@ -91,12 +91,14 @@ void Character::ApplyPatternAndFreezeIfEmpty(icu::UnicodeSet* unicodeSet,
 }
 
 bool Character::IsUprightInMixedVertical(UChar32 character) {
+  // https://drafts.csswg.org/css-writing-modes-3/#vertical-orientations
+  // We should assume U, Tu, and Tr as "upright".
   return u_getIntPropertyValue(character,
                                UProperty::UCHAR_VERTICAL_ORIENTATION) !=
          UVerticalOrientation::U_VO_ROTATED;
 }
 
-bool Character::IsCJKIdeographOrSymbolSlow(UChar32 c) {
+bool Character::IsCjkIdeographOrSymbolSlow(UChar32 c) {
   return GetProperty(c).is_cjk_ideograph_or_symbol;
 }
 
@@ -132,19 +134,26 @@ bool Character::MaybeHanKerningCloseSlow(UChar32 ch) {
          type == HanKerningCharType::kCloseQuote;
 }
 
+bool Character::MaybeHanKerningMiddleSlow(UChar32 ch) {
+  // See `HanKerning::GetCharType`.
+  const HanKerningCharType type = Character::GetHanKerningCharType(ch);
+  return type == HanKerningCharType::kMiddle;
+}
+
 bool Character::CanTextDecorationSkipInk(UChar32 codepoint) {
   if (codepoint == uchar::kSolidus || codepoint == uchar::kReverseSolidus ||
       codepoint == uchar::kLowLine) {
     return false;
   }
 
-  if (Character::IsCJKIdeographOrSymbol(codepoint))
+  if (Character::IsCjkIdeographOrSymbol(codepoint)) {
     return false;
+  }
 
   UBlockCode block = ublock_getCode(codepoint);
   switch (block) {
     // These blocks contain CJK characters we don't want to skip ink, but are
-    // not ideograph that IsCJKIdeographOrSymbol() does not cover.
+    // not ideograph that IsCjkIdeographOrSymbol() does not cover.
     case UBLOCK_HANGUL_JAMO:
     case UBLOCK_HANGUL_COMPATIBILITY_JAMO:
     case UBLOCK_HANGUL_SYLLABLES:
@@ -272,7 +281,7 @@ bool Character::MaybeEmojiPresentation(UChar32 c) {
 }
 
 bool Character::IsCommonOrInheritedScript(UChar32 character) {
-  ICUError status;
+  IcuError status;
   UScriptCode script = uscript_getScript(character, &status);
   return U_SUCCESS(status) &&
          (script == USCRIPT_COMMON || script == USCRIPT_INHERITED);
@@ -287,7 +296,7 @@ bool Character::IsNonCharacter(UChar32 character) {
 }
 
 bool Character::HasLikelyScript(UChar32 character) {
-  ICUError err;
+  IcuError err;
   UScriptCode script = uscript_getScript(character, &err);
 
   if (!U_SUCCESS(err))
@@ -342,7 +351,7 @@ UScriptCode Character::GetScriptBasedOnUnicodeBlock(int ucs4) {
 }
 
 bool Character::IsCursiveScript(UChar32 code_point) {
-  ICUError err;
+  IcuError err;
   UScriptCode script = uscript_getScript(code_point, &err);
   if (!U_SUCCESS(err)) {
     return false;

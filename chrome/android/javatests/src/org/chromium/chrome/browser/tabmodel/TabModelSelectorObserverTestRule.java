@@ -133,11 +133,6 @@ public class TabModelSelectorObserverTestRule extends ChromeBrowserTestRule {
                     }
 
                     @Override
-                    public TabGroupModelFilter getFilter(boolean incognito) {
-                        return mSelector.getModel(incognito);
-                    }
-
-                    @Override
                     public TabModel getCurrentModel() {
                         return mSelector.getCurrentModel();
                     }
@@ -152,7 +147,7 @@ public class TabModelSelectorObserverTestRule extends ChromeBrowserTestRule {
         TabRemover normalTabRemover =
                 new PassthroughTabRemover(() -> mSelector.getModel(/* incognito= */ false));
         TabUngrouperFactory tabUngrouperFactory =
-                (isIncognitoBranded, tabGroupModelFilterSupplier) ->
+                (isIncognitoBranded, tabModelSupplier) ->
                         new PassthroughTabUngrouper(
                                 () -> mSelector.getModel(/* incognito= */ isIncognitoBranded));
         Supplier<ScopedStorageBatch> batchFactory = () -> createBatch(regularProfile);
@@ -185,9 +180,7 @@ public class TabModelSelectorObserverTestRule extends ChromeBrowserTestRule {
                         tabUngrouperFactory,
                         batchFactory);
 
-        mSelector.initialize(
-                new TabModelHolder(mNormalTabModel, mNormalTabModel),
-                new IncognitoTabModelHolder(mIncognitoTabModel, mIncognitoTabModel));
+        mSelector.initialize(mNormalTabModel, mIncognitoTabModel);
     }
 
     /** Test TabModel that exposes the needed capabilities for testing. */

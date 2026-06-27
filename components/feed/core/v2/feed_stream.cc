@@ -47,9 +47,7 @@
 #include "components/feed/core/v2/public/reliability_logging_bridge.h"
 #include "components/feed/core/v2/public/stream_type.h"
 #include "components/feed/core/v2/public/types.h"
-#include "components/feed/core/v2/public/unread_content_observer.h"
 #include "components/feed/core/v2/scheduling.h"
-#include "components/feed/core/v2/stream/unread_content_notifier.h"
 #include "components/feed/core/v2/stream_model.h"
 #include "components/feed/core/v2/surface_updater.h"
 #include "components/feed/core/v2/tasks/clear_all_task.h"
@@ -285,14 +283,6 @@ void FeedStream::InitializeComplete(WaitForStoreInitializeTask::Result result) {
       IsFeedEnabledByEnterprisePolicy(), IsArticlesListVisible(), IsSignedIn(),
       IsFeedEnabled(), metadata_);
 
-  for (const feedstore::StreamData& stream_data :
-       result.startup_data.stream_data) {
-    StreamType stream_type =
-        feedstore::StreamTypeFromKey(stream_data.stream_key());
-    if (stream_type.IsValid())
-      MaybeNotifyHasUnreadContent(stream_type);
-  }
-
   if (!IsEnabledAndVisible() && has_stored_data_.GetValue()) {
     ClearAll();
   }
@@ -496,23 +486,6 @@ void FeedStream::DetachSurface(SurfaceId surface_id) {
   ScheduleModelUnloadIfNoSurfacesAttached(stream->type);
 }
 
-void FeedStream::AddUnreadContentObserver(const StreamType& stream_type,
-                                          UnreadContentObserver* observer) {
-  GetStream(stream_type)
-      .unread_content_notifiers.emplace_back(observer->GetWeakPtr());
-  MaybeNotifyHasUnreadContent(stream_type);
-}
-
-void FeedStream::RemoveUnreadContentObserver(const StreamType& stream_type,
-                                             UnreadContentObserver* observer) {
-  Stream& stream = GetStream(stream_type);
-  auto predicate = [&](const UnreadContentNotifier& notifier) {
-    UnreadContentObserver* ptr = notifier.observer().get();
-    return ptr == nullptr || observer == ptr;
-  };
-  std::erase_if(stream.unread_content_notifiers, predicate);
-}
-
 void FeedStream::ScheduleModelUnloadIfNoSurfacesAttached(
     const StreamType& stream_type) {
   Stream& stream = GetStream(stream_type);
@@ -571,11 +544,6 @@ bool FeedStream::IsFeedEnabledByDse() {
   }
 #endif  // BUILDFLAG(IS_ANDROID)
   return true;
-}
-
-bool FeedStream::IsWebFeedEnabled() {
-  return feed::IsWebFeedEnabledForLocale(delegate_->GetCountry()) &&
-         !base::FeatureList::IsEnabled(kWebFeedKillSwitch);
 }
 
 void FeedStream::EnabledPreferencesChanged() {
@@ -865,20 +833,16 @@ std::string FeedStream::DumpStateForDebugging() {
        << stream.model->privacy_notice_fulfilled();
   }
 
-  auto print_refresh_schedule = [&](RefreshTaskId task_id) {
-    RequestSchedule schedule =
-        prefs::GetRequestSchedule(task_id, *profile_prefs_);
-    if (schedule.refresh_offsets.empty()) {
-      ss << "No request schedule\n";
-    } else {
-      ss << "Request schedule reference " << schedule.anchor_time << '\n';
-      for (base::TimeDelta entry : schedule.refresh_offsets) {
-        ss << " fetch at " << entry << '\n';
-      }
-    }
-  };
   ss << "For You: ";
-  print_refresh_schedule(RefreshTaskId::kRefreshForYouFeed);
+  RequestSchedule schedule = prefs::GetRequestSchedule(*profile_prefs_);
+  if (schedule.refresh_offsets.empty()) {
+    ss << "No request schedule\n";
+  } else {
+    ss << "Request schedule reference " << schedule.anchor_time << '\n';
+    for (base::TimeDelta entry : schedule.refresh_offsets) {
+      ss << " fetch at " << entry << '\n';
+    }
+  }
   return ss.str();
 }
 
@@ -1022,11 +986,12 @@ LaunchResult FeedStream::ShouldAttemptLoad(const StreamType& stream_type,
 }
 
 bool FeedStream::MissedLastRefresh(const StreamType& stream_type) {
-  RefreshTaskId task_id;
-  if (!stream_type.GetRefreshTaskId(task_id))
+  // TODO(crbug.com/407797637): Replace stream_type.IsForYou() to
+  // stream_type.isValid() once kFollowing is removed.
+  if (!stream_type.IsForYou()) {
     return false;
-  RequestSchedule schedule =
-      feed::prefs::GetRequestSchedule(task_id, *profile_prefs_);
+  }
+  RequestSchedule schedule = feed::prefs::GetRequestSchedule(*profile_prefs_);
   if (schedule.refresh_offsets.empty())
     return false;
   base::Time scheduled_time =
@@ -1070,11 +1035,6 @@ LaunchResult FeedStream::ShouldMakeFeedQueryRequest(
       request_type = (load_type != LoadType::kLoadMore)
                          ? NetworkRequestType::kFeedQuery
                          : NetworkRequestType::kNextPage;
-      break;
-    case StreamKind::kFollowing:
-      // TODO(crbug.com/407797637): remove kFollowing from
-      // components/feed/core/v2/public/types.h
-      request_type = NetworkRequestType::kFeedQuery;
       break;
   }
 
@@ -1132,8 +1092,6 @@ RequestMetadata FeedStream::GetCommonRequestMetadata(
       result.session_id = session_id;
     }
   }
-  result.followed_from_web_page_menu_count =
-      metadata_.followed_from_web_page_menu_count();
 
   DCHECK(result.session_id.empty() || result.client_instance_id.empty());
   return result;
@@ -1193,8 +1151,6 @@ void FeedStream::OnEulaAccepted() {
 }
 
 void FeedStream::OnAllHistoryDeleted() {
-  // We don't really need to delete StreamType(StreamKind::kFollowing) data
-  // here, but clearing all data because it's easy.
   ClearAll();
 }
 
@@ -1224,14 +1180,14 @@ void FeedStream::OnSignedOut() {
   ClearAll();
 }
 
-void FeedStream::ExecuteRefreshTask(RefreshTaskId task_id) {
-  StreamType stream_type = StreamType::ForTaskId(task_id);
+void FeedStream::ExecuteRefreshTask() {
+  StreamType stream_type(StreamKind::kForYou);
   LoadStreamStatus do_not_attempt_reason =
       ShouldAttemptLoad(stream_type, LoadType::kBackgroundRefresh)
           .load_stream_status;
 
   RequestSchedule request_schedule =
-      feed::prefs::GetRequestSchedule(task_id, *profile_prefs_);
+      feed::prefs::GetRequestSchedule(*profile_prefs_);
   LoadType load_type = RequestScheduleTypeToLoadType(request_schedule.type);
 
   // If `do_not_attempt_reason` indicates the stream shouldn't be loaded, it's
@@ -1240,7 +1196,7 @@ void FeedStream::ExecuteRefreshTask(RefreshTaskId task_id) {
       do_not_attempt_reason == LoadStreamStatus::kModelAlreadyLoaded) {
     // Schedule the next refresh attempt. If a new refresh schedule is returned
     // through this refresh, it will be overwritten.
-    SetRequestSchedule(task_id, std::move(request_schedule));
+    SetRequestSchedule(std::move(request_schedule));
   }
 
   if (do_not_attempt_reason != LoadStreamStatus::kNoStatus) {
@@ -1271,9 +1227,8 @@ void FeedStream::BackgroundRefreshComplete(LoadStreamTask::Result result) {
   if (result.stream_type.IsForYou())
     task_queue_.AddTask(FROM_HERE, std::make_unique<PrefetchImagesTask>(this));
 
-  RefreshTaskId task_id;
-  if (result.stream_type.GetRefreshTaskId(task_id)) {
-    refresh_task_scheduler_->RefreshTaskComplete(task_id);
+  if (result.stream_type.IsForYou()) {
+    refresh_task_scheduler_->RefreshTaskComplete();
   }
 }
 
@@ -1295,8 +1250,6 @@ void FeedStream::LoadTaskComplete(const LoadStreamTask::Result& result) {
       CheckDuplicatedContentsOnRefresh();
     }
   }
-
-  MaybeNotifyHasUnreadContent(result.stream_type);
 }
 
 bool FeedStream::HasUnreadContent(const StreamType& stream_type) {
@@ -1386,29 +1339,28 @@ void FeedStream::LoadModel(const StreamType& stream_type,
   stream.content_ids = stream.model->GetContentIds();
   stream.surface_updater->SetModel(stream.model.get());
   ScheduleModelUnloadIfNoSurfacesAttached(stream_type);
-  MaybeNotifyHasUnreadContent(stream_type);
 }
 
 void FeedStream::SetRequestSchedule(const StreamType& stream_type,
                                     RequestSchedule schedule) {
-  RefreshTaskId task_id;
-  if (!stream_type.GetRefreshTaskId(task_id)) {
+  // TODO(crbug.com/407797637): Replace stream_type.IsForYou() to
+  // stream_type.isValid() once kFollowing is removed.
+  if (!stream_type.IsForYou()) {
     DLOG(ERROR) << "Ignoring request schedule for this stream: " << stream_type;
     return;
   }
-  SetRequestSchedule(task_id, std::move(schedule));
+  SetRequestSchedule(std::move(schedule));
 }
 
-void FeedStream::SetRequestSchedule(RefreshTaskId task_id,
-                                    RequestSchedule schedule) {
+void FeedStream::SetRequestSchedule(RequestSchedule schedule) {
   const base::Time now = base::Time::Now();
   base::Time run_time = NextScheduledRequestTime(now, &schedule);
   if (!run_time.is_null()) {
-    refresh_task_scheduler_->EnsureScheduled(task_id, run_time - now);
+    refresh_task_scheduler_->EnsureScheduled(run_time - now);
   } else {
-    refresh_task_scheduler_->Cancel(task_id);
+    refresh_task_scheduler_->Cancel();
   }
-  feed::prefs::SetRequestSchedule(task_id, schedule, *profile_prefs_);
+  feed::prefs::SetRequestSchedule(schedule, *profile_prefs_);
 }
 
 void FeedStream::UnloadModel(const StreamType& stream_type) {
@@ -1503,22 +1455,6 @@ void FeedStream::ReportSliceViewed(SurfaceId surface_id,
   }
 }
 
-// Notifies observers if 'HasUnreadContent' has changed for `stream_type`.
-// Stream content has been seen if StreamData::content_hash ==
-// Metadata::StreamMetadata::view_content_hash. This should be called:
-// when initial metadata is loaded, when the model is loaded, when a refresh is
-// attempted, and when content is viewed.
-void FeedStream::MaybeNotifyHasUnreadContent(const StreamType& stream_type) {
-  Stream& stream = GetStream(stream_type);
-  if (!metadata_populated_ || stream.model_loading_in_progress)
-    return;
-
-  const bool has_new_content = HasUnreadContent(stream_type);
-  for (auto& o : stream.unread_content_notifiers) {
-    o.NotifyIfValueChanged(has_new_content);
-  }
-}
-
 void FeedStream::ReportFeedViewed(SurfaceId surface_id) {
   metrics_reporter_->FeedViewed(surface_id);
   Stream* stream = FindStream(surface_id);
@@ -1527,7 +1463,6 @@ void FeedStream::ReportFeedViewed(SurfaceId surface_id) {
   }
 
   stream->surfaces.FeedViewed(surface_id);
-  MaybeNotifyHasUnreadContent(stream->type);
 }
 
 void FeedStream::ReportPageLoaded(SurfaceId /*surface_id*/) {

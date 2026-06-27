@@ -10,6 +10,9 @@
 #include "base/notreached.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_ui.h"
+#include "content/public/browser/web_ui_controller.h"
 #include "ui/base/interaction/element_highlighter.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -19,23 +22,63 @@
 namespace ui {
 
 TrackedElementHandler::TrackedElementHandler(
+    content::WebUIController* controller,
+    const std::vector<ui::ElementIdentifier>& identifiers)
+    : TrackedElementHandler(
+          controller->web_ui()->GetWebContents(),
+          ui::ElementContext(controller,
+                             base::PassKey<TrackedElementHandler>()),
+          identifiers) {}
+
+TrackedElementHandler::TrackedElementHandler(
     content::WebContents* web_contents,
-    mojo::PendingReceiver<tracked_element::mojom::TrackedElementHandler>
-        receiver,
     ui::ElementContext context,
     const std::vector<ui::ElementIdentifier>& identifiers)
-    : context_(context),
-      web_contents_(web_contents),
-      receiver_(this, std::move(receiver)) {
+    : context_(context), receiver_(this) {
   ui::ElementHighlighter::GetElementHighlighter()
       ->MaybeRegisterBackend<ElementHighlighterWebUI>();
 
+  if (web_contents) {
+    Observe(web_contents);
+    is_web_contents_visible_ =
+        web_contents->GetVisibility() == content::Visibility::VISIBLE;
+  }
+
   for (const ui::ElementIdentifier& id : identifiers) {
-    elements_[id] = std::make_unique<TrackedElementWebUI>(this, id, context);
+    elements_[id.GetName()] =
+        std::make_unique<TrackedElementWebUI>(this, id, context);
   }
 }
 
 TrackedElementHandler::~TrackedElementHandler() = default;
+
+void TrackedElementHandler::BindInterface(
+    mojo::PendingReceiver<tracked_element::mojom::TrackedElementHandler>
+        receiver) {
+  receiver_.Bind(std::move(receiver));
+}
+
+void TrackedElementHandler::OnVisibilityChanged(
+    content::Visibility new_visibility) {
+  const bool visible = new_visibility == content::Visibility::VISIBLE;
+  if (visible == is_web_contents_visible_) {
+    return;
+  }
+  is_web_contents_visible_ = visible;
+  UpdateAllEffectiveVisibilities();
+}
+
+void TrackedElementHandler::UpdateAllEffectiveVisibilities() {
+  // This is complicated because it is possible that UpdateEffectiveVisibility
+  // could invoke this class's destructor.
+  auto weak_ptr = weak_ptr_factory_.GetWeakPtr();
+  for (auto& [_, element] : elements_) {
+    element->UpdateEffectiveVisibility();
+    if (!weak_ptr) {
+      return;
+    }
+  }
+}
 
 void TrackedElementHandler::SetHighlightState(
     const std::string& identifier_name,
@@ -184,7 +227,7 @@ void TrackedElementHandler::TrackedElementVisibilityChanged(
   if (!element) {
     return;
   }
-  element->SetVisible(visible, rect);
+  element->SetRawVisible(visible, rect);
 }
 
 void TrackedElementHandler::TrackedElementActivated(
@@ -235,18 +278,34 @@ void TrackedElementHandler::TrackedElementCanHighlightChanged(
   element->set_can_highlight(can_highlight);
 }
 
+std::unique_ptr<TrackedElementVisibilityLock>
+TrackedElementHandler::LockVisible(const std::string& identifier_name) {
+  TrackedElementWebUI* const element = GetElement(identifier_name);
+  if (!element) {
+    return nullptr;
+  }
+  return element->LockVisible();
+}
+
+std::vector<std::string> TrackedElementHandler::GetIdentifiers() {
+  std::vector<std::string> identifiers;
+  identifiers.reserve(elements_.size());
+  for (const auto& [identifier, _] : elements_) {
+    identifiers.emplace_back(identifier);
+  }
+  return identifiers;
+}
+
 TrackedElementWebUI* TrackedElementHandler::GetElement(
     const std::string& identifier_name) {
-  for (const auto& [id, element] : elements_) {
-    if (id.GetName() == identifier_name) {
-      return element.get();
-    }
+  auto it = elements_.find(identifier_name);
+  if (it == elements_.end()) {
+    LOG(ERROR) << "TrackedElement message received for element \""
+               << identifier_name
+               << "\" but element was not known to the handler.";
+    return nullptr;
   }
-
-  LOG(ERROR) << "TrackedElement message received for element \""
-             << identifier_name
-             << "\" but element was not known to the handler.";
-  return nullptr;
+  return it->second.get();
 }
 
 }  // namespace ui

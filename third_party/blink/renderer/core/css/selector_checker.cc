@@ -34,10 +34,11 @@
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
+#include "third_party/blink/renderer/core/css/active_navigation_condition.h"
 #include "third_party/blink/renderer/core/css/check_pseudo_has_argument_context.h"
 #include "third_party/blink/renderer/core/css/check_pseudo_has_cache_scope.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
-#include "third_party/blink/renderer/core/css/link_condition.h"
+#include "third_party/blink/renderer/core/css/navigation_query.h"
 #include "third_party/blink/renderer/core/css/part_names.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -86,17 +87,20 @@
 #include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 #include "third_party/blink/renderer/core/html/media/html_audio_element.h"
+#include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html/track/vtt/vtt_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/custom_scrollbar.h"
+#include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/scrolling/fragment_anchor.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
+#include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -516,40 +520,6 @@ bool SelectorChecker::Match(const SelectorCheckingContext& context,
 
 namespace {
 
-PseudoId PseudoIdFromScrollButtonArgument(const AtomicString& argument,
-                                          const ComputedStyle& style) {
-  if (argument == AtomicString("*")) {
-    return kPseudoIdScrollButton;
-  }
-  if (argument == AtomicString("block-start")) {
-    return kPseudoIdScrollButtonBlockStart;
-  }
-  if (argument == AtomicString("inline-start")) {
-    return kPseudoIdScrollButtonInlineStart;
-  }
-  if (argument == AtomicString("inline-end")) {
-    return kPseudoIdScrollButtonInlineEnd;
-  }
-  if (argument == AtomicString("block-end")) {
-    return kPseudoIdScrollButtonBlockEnd;
-  }
-  PhysicalToLogical<bool> mapping(
-      style.GetWritingDirection(), argument == AtomicString("up"),
-      argument == AtomicString("right"), argument == AtomicString("down"),
-      argument == AtomicString("left"));
-  if (mapping.BlockStart()) {
-    return kPseudoIdScrollButtonBlockStart;
-  }
-  if (mapping.InlineStart()) {
-    return kPseudoIdScrollButtonInlineStart;
-  }
-  if (mapping.InlineEnd()) {
-    return kPseudoIdScrollButtonInlineEnd;
-  }
-  CHECK(mapping.BlockEnd());
-  return kPseudoIdScrollButtonBlockEnd;
-}
-
 bool MatchScrollButton(const Element& element,
                        const SelectorChecker::SelectorCheckingContext& context,
                        SelectorChecker::MatchResult& result) {
@@ -566,7 +536,8 @@ bool MatchScrollButton(const Element& element,
   const ComputedStyle* style = element.ParentComputedStyle();
   CHECK(style);
   PseudoId pseudo_id =
-      PseudoIdFromScrollButtonArgument(context.selector->Argument(), *style);
+      ScrollButtonPseudoElement::PseudoIdFromScrollButtonArgument(
+          context.selector->Argument(), *style);
   // Check that pseudo ids match when checking for pseudo-element,
   // but always match if checking for regular element to set the style
   // flag.
@@ -632,6 +603,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchesShadowHostInList(
   sub_context.is_sub_selector = true;
   sub_context.in_nested_complex_selector = true;
   sub_context.pseudo_id = kPseudoIdNone;
+  sub_context.pseudo_element = nullptr;
   FeaturelessMatch match = kFeaturelessUnknown;
   for (sub_context.selector = selector_list; sub_context.selector;
        sub_context.selector = CSSSelectorList::Next(*sub_context.selector)) {
@@ -708,6 +680,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoAutofillSelected:
     case CSSSelector::kPseudoBackdrop:
     case CSSSelector::kPseudoBefore:
+    case CSSSelector::kPseudoBuffering:
     case CSSSelector::kPseudoCheckMark:
     case CSSSelector::kPseudoChecked:
     case CSSSelector::kPseudoCornerPresent:
@@ -750,6 +723,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoLink:
     case CSSSelector::kPseudoMarker:
     case CSSSelector::kPseudoModal:
+    case CSSSelector::kPseudoMuted:
     case CSSSelector::kPseudoNoButton:
     case CSSSelector::kPseudoNthChild:
     case CSSSelector::kPseudoNthLastChild:
@@ -759,6 +733,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoOnlyOfType:
     case CSSSelector::kPseudoOptional:
     case CSSSelector::kPseudoOverscrollTarget:
+    case CSSSelector::kPseudoOverscrollOpen:
     case CSSSelector::kPseudoPart:
     case CSSSelector::kPseudoPermissionGranted:
     case CSSSelector::kPseudoPermissionIcon:
@@ -771,6 +746,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoRightPage:
     case CSSSelector::kPseudoRoot:
     case CSSSelector::kPseudoLinkTo:
+    case CSSSelector::kPseudoActiveNavigation:
     case CSSSelector::kPseudoScrollbar:
     case CSSSelector::kPseudoScrollbarButton:
     case CSSSelector::kPseudoScrollbarCorner:
@@ -825,9 +801,11 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoPopoverInTopLayer:
     case CSSSelector::kPseudoPopoverOpen:
     case CSSSelector::kPseudoRelativeAnchor:
+    case CSSSelector::kPseudoSeeking:
     case CSSSelector::kPseudoSlotted:
     case CSSSelector::kPseudoSpatialNavigationFocus:
     case CSSSelector::kPseudoSpellingError:
+    case CSSSelector::kPseudoStalled:
     case CSSSelector::kPseudoTargetText:
     case CSSSelector::kPseudoVideoPersistent:
     case CSSSelector::kPseudoVideoPersistentAncestor:
@@ -837,12 +815,14 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoTextField:
     case CSSSelector::kPseudoToolFormActive:
     case CSSSelector::kPseudoToolSubmitActive:
+    case CSSSelector::kPseudoUnboundedElementInactive:
     case CSSSelector::kPseudoViewTransition:
     case CSSSelector::kPseudoViewTransitionGroup:
     case CSSSelector::kPseudoViewTransitionGroupChildren:
     case CSSSelector::kPseudoViewTransitionImagePair:
     case CSSSelector::kPseudoViewTransitionNew:
     case CSSSelector::kPseudoViewTransitionOld:
+    case CSSSelector::kPseudoVolumeLocked:
     case CSSSelector::kPseudoScrollMarker:
     case CSSSelector::kPseudoScrollMarkerGroup:
     case CSSSelector::kPseudoScrollButton:
@@ -898,6 +878,47 @@ SelectorChecker::MatchStatus SelectorChecker::MatchSelector(
     result.custom_highlight_name = std::move(sub_result.custom_highlight_name);
   }
 
+  // If we're done matching the subject, we can determine the state of
+  // matching against pseudo-elements (if any). (The outer if will also
+  // trigger for ancestors etc., but neither pseudo_id nor pseudo_element
+  // will exist for them.)
+  //
+  // TODO(sesse): Move pseudo-selectors first, so that we can check this right
+  // away.
+  if (context.selector->IsLastInComplexSelector() ||
+      (context.selector->Relation() != CSSSelector::kSubSelector &&
+       context.selector->Relation() != CSSSelector::kPseudoChild)) {
+    // TODO(sesse): Is there a reason why this cannot simply be in
+    // CheckPseudoElement()?
+    if (!RuntimeEnabledFeatures::CSSLogicalCombinationPseudoEnabled() &&
+        context.pseudo_id != kPseudoIdNone &&
+        context.pseudo_id != result.dynamic_pseudo) {
+      return kSelectorFailsCompletely;
+    }
+
+    // If matching was for a pseudo-element with a vector of ancestors,
+    // check that we really reached the end of it. E.g., when matching
+    // the selector div::column::scroll-marker against a ::column
+    // pseudo-element, the vector would be just {::column}, and the
+    // index would be 1 (meaning that the matcher found the ::column,
+    // but also went further and found the pseudo-element selector
+    // ::scroll-marker; this is fine, as we'd get dynamic_pseudo).
+    //
+    // Likewise, for the selector div::column, the index would be 0
+    // (meaning that the entire selector matched, and nothing more),
+    // which is also a match.
+    //
+    // But for the opposite, namely the selector div::column against
+    // the pseudo-element ::column::scroll-marker (with the vector
+    // {::column, ::scroll-marker}), we'd get index 0, which isn't
+    // a match.
+    if (context.pseudo_element &&
+        (result.pseudo_ancestor_index == kNotFound ||
+         result.pseudo_ancestor_index <
+             context.pseudo_element_ancestors.size() - 1)) {
+      return kSelectorFailsCompletely;
+    }
+  }
   if (context.selector->IsLastInComplexSelector()) {
     return kSelectorMatches;
   }
@@ -906,12 +927,6 @@ SelectorChecker::MatchStatus SelectorChecker::MatchSelector(
     case CSSSelector::kSubSelector:
       return MatchForSubSelector(context, result);
     default: {
-      if (!RuntimeEnabledFeatures::CSSLogicalCombinationPseudoEnabled() &&
-          context.pseudo_id != kPseudoIdNone &&
-          context.pseudo_id != result.dynamic_pseudo) {
-        return kSelectorFailsCompletely;
-      }
-
       base::AutoReset<PseudoId> dynamic_pseudo_scope(&result.dynamic_pseudo,
                                                      kPseudoIdNone);
       return MatchForRelation(context, result);
@@ -1537,6 +1552,7 @@ bool SelectorChecker::MatchesAnyInList(const SelectorCheckingContext& context,
   // won't know that we're matching for a virtual pseudo within nested lists.
   if (!RuntimeEnabledFeatures::CSSLogicalCombinationPseudoEnabled()) {
     sub_context.pseudo_id = kPseudoIdNone;
+    sub_context.pseudo_element = nullptr;
   }
   for (sub_context.selector = selector_list; sub_context.selector;
        sub_context.selector = CSSSelectorList::Next(*sub_context.selector)) {
@@ -2242,9 +2258,19 @@ bool SelectorChecker::CheckPseudoHas(const SelectorCheckingContext& context,
 bool SelectorChecker::CheckPseudoLinkTo(const SelectorCheckingContext& context,
                                         MatchResult& result) const {
   DCHECK(context.selector);
-  DCHECK(context.selector->GetLinkCondition());
+  DCHECK(context.selector->GetRouteLocation());
   Element& element = GetCandidateElement(context, result);
-  return context.selector->GetLinkCondition()->Evaluate(element);
+  return context.selector->GetRouteLocation()->CheckSelectorMatch(element);
+}
+
+bool SelectorChecker::CheckPseudoActiveNavigation(
+    const SelectorCheckingContext& context,
+    MatchResult& result) const {
+  DCHECK(context.selector);
+  DCHECK(context.selector->GetActiveNavigationCondition());
+  Element& element = GetCandidateElement(context, result);
+  return context.selector->GetActiveNavigationCondition()->CheckSelectorMatch(
+      element);
 }
 
 bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
@@ -2870,6 +2896,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoLinkTo:
       DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
       return CheckPseudoLinkTo(context, result);
+    case CSSSelector::kPseudoActiveNavigation:
+      DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
+      return CheckPseudoActiveNavigation(context, result);
     case CSSSelector::kPseudoLang: {
       auto* vtt_element = DynamicTo<VTTElement>(element);
       AtomicString value = vtt_element ? vtt_element->Language()
@@ -2929,6 +2958,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         return html_element->popoverOpen();
       }
       return false;
+    case CSSSelector::kPseudoOverscrollOpen:
+      return element.MatchesOverscrollOpen();
     case CSSSelector::kPseudoOpen:
       probe::ForcePseudoState(&element, CSSSelector::kPseudoOpen,
                               &force_pseudo_state);
@@ -2969,11 +3000,6 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       return Fullscreen::IsFullscreenFlagSetFor(element);
     case CSSSelector::kPseudoFullScreenAncestor:
       return element.ContainsFullScreenElement();
-    case CSSSelector::kPseudoPaused: {
-      DCHECK(RuntimeEnabledFeatures::CSSPseudoPlayingPausedEnabled());
-      auto* media_element = DynamicTo<HTMLMediaElement>(element);
-      return media_element && media_element->paused();
-    }
     case CSSSelector::kPseudoPermissionGranted: {
       CHECK(RuntimeEnabledFeatures::GeolocationElementEnabled(
                 element.GetExecutionContext()) ||
@@ -2987,10 +3013,41 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoPictureInPicture:
       return PictureInPictureController::IsElementInPictureInPicture(&element);
     case CSSSelector::kPseudoPlaying: {
-      DCHECK(RuntimeEnabledFeatures::CSSPseudoPlayingPausedEnabled());
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
       auto* media_element = DynamicTo<HTMLMediaElement>(element);
       return media_element && !media_element->paused();
     }
+    case CSSSelector::kPseudoPaused: {
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      auto* media_element = DynamicTo<HTMLMediaElement>(element);
+      return media_element && media_element->paused();
+    }
+    case CSSSelector::kPseudoSeeking: {
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      auto* media_element = DynamicTo<HTMLMediaElement>(element);
+      return media_element && media_element->seeking();
+    }
+    case CSSSelector::kPseudoBuffering: {
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      auto* media_element = DynamicTo<HTMLMediaElement>(element);
+      return media_element && media_element->MatchesBufferingPseudo();
+    }
+    case CSSSelector::kPseudoStalled: {
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      auto* media_element = DynamicTo<HTMLMediaElement>(element);
+      return media_element && media_element->MatchesStalledPseudo();
+    }
+    case CSSSelector::kPseudoMuted: {
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      auto* media_element = DynamicTo<HTMLMediaElement>(element);
+      return media_element && media_element->muted();
+    }
+    case CSSSelector::kPseudoVolumeLocked:
+      DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      // :volume-locked never matches, but is supported so that it's possible to
+      // write cross-browser styles without guarding use of :volume-locked with
+      // @supports selector(:volume-locked) or other feature detection.
+      return false;
     case CSSSelector::kPseudoVideoPersistent: {
       DCHECK(is_ua_rule_);
       auto* video_element = DynamicTo<HTMLVideoElement>(element);
@@ -3056,6 +3113,14 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoSpatialNavigationFocus:
       DCHECK(is_ua_rule_);
       return MatchesSpatialNavigationFocusPseudoClass(element);
+    case CSSSelector::kPseudoUnboundedElementInactive: {
+      DCHECK(is_ua_rule_);
+      DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
+      auto* html_element = DynamicTo<HTMLElement>(element);
+      return html_element &&
+             html_element->FastHasAttribute(html_names::kUnboundedAttr) &&
+             !html_element->IsUnboundedElementActive();
+    }
     case CSSSelector::kPseudoHasDatalist:
       DCHECK(is_ua_rule_);
       return MatchesHasDatalistPseudoClass(element);
@@ -3262,6 +3327,8 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
       sub_context.is_sub_selector = true;
       sub_context.scope = nullptr;
       sub_context.tree_scope = nullptr;
+      sub_context.pseudo_id = kPseudoIdNone;
+      sub_context.pseudo_element = nullptr;
 
       // ::slotted() only allows one compound selector.
       DCHECK(selector.SelectorList()->First());
@@ -3390,6 +3457,7 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
           case CSSSelector::kPseudoBefore:
           case CSSSelector::kPseudoAfter:
           case CSSSelector::kPseudoMarker:
+          case CSSSelector::kPseudoBackdrop:
             return element.GetPseudoIdForStyling() == pseudo_id;
           default:
             return false;
@@ -3486,6 +3554,8 @@ bool SelectorChecker::CheckPseudoHost(const SelectorCheckingContext& context,
   SelectorCheckingContext sub_context(context);
   sub_context.is_sub_selector = true;
   sub_context.selector = selector.SelectorList()->First();
+  sub_context.pseudo_id = kPseudoIdNone;
+  sub_context.pseudo_element = nullptr;
 
   // "When evaluated in the context of a shadow tree, it matches the shadow
   //  tree’s shadow host if the shadow host, **in its normal context**,
@@ -3670,6 +3740,7 @@ bool SelectorChecker::CheckVirtualPseudo(const SelectorCheckingContext& context,
         case CSSSelector::kPseudoBefore:
         case CSSSelector::kPseudoAfter:
         case CSSSelector::kPseudoMarker:
+        case CSSSelector::kPseudoBackdrop:
           return context.pseudo_id ==
                  selector.GetPseudoId(selector.GetPseudoType());
         default:

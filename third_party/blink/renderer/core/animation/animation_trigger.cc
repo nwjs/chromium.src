@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/animation/animation_trigger.h"
 
+#include "base/time/time.h"
 #include "cc/animation/animation_id_provider.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
@@ -22,16 +23,34 @@ namespace {
 // https://github.com/w3c/csswg-drafts/issues/12611#issue-3326243729
 
 void PerformPlay(Animation& animation,
-                 V8AnimationPlayState::Enum play_state,
+                 std::optional<base::TimeDelta> event_time,
                  ExceptionState& exception_state) {
   animation.PlayInternal(Animation::AutoRewind::kEnabled, exception_state);
+
+  bool notify = event_time && animation.PendingInternal();
+
+  // If the animation is already running, then this is a no-op and we don't
+  // need to update its start time. If it isn't already running, then it should
+  // be pending play due to the above call to Play().
+  DCHECK(animation.PendingInternal() ||
+         animation.CalculateAnimationPlayState() ==
+             V8AnimationPlayState::Enum::kRunning);
+
+  if (notify) {
+    animation.NotifyAnimationStartedAsync(event_time.value());
+  }
 }
 
 void PerformPause(Animation& animation,
                   V8AnimationPlayState::Enum play_state,
+                  std::optional<base::TimeDelta> event_time,
                   ExceptionState& exception_state) {
   if (play_state == V8AnimationPlayState::Enum::kRunning) {
     animation.PauseInternal(ASSERT_NO_EXCEPTION);
+
+    if (event_time) {
+      animation.NotifyAnimationPausedAsync(event_time.value());
+    }
   }
 }
 
@@ -70,11 +89,12 @@ void PerformReset(Animation& animation,
 }
 
 void PerformReplay(Animation& animation,
-                   V8AnimationPlayState::Enum play_state,
+                   std::optional<base::TimeDelta> event_time,
                    ExceptionState& exception_state) {
+  // TODO(crbug.com/451238244): Instead of resetting playback here, add an
+  // AutoRewind::kForced and make the API consistent with cc Animation::Play.
   animation.ResetPlayback();
-
-  animation.PlayInternal(Animation::AutoRewind::kEnabled, exception_state);
+  PerformPlay(animation, event_time, exception_state);
 }
 
 }  // namespace
@@ -92,10 +112,10 @@ void AnimationTrigger::PerformBehavior(
       animation.CalculateAnimationPlayState();
   switch (behavior) {
     case Behavior::kPlay:
-      PerformPlay(animation, play_state, exception_state);
+      PerformPlay(animation, async_event_time, exception_state);
       break;
     case Behavior::kPause:
-      PerformPause(animation, play_state, exception_state);
+      PerformPause(animation, play_state, async_event_time, exception_state);
       break;
     case Behavior::kPlayForwards:
       PerformPlayForwards(animation, play_state, exception_state);
@@ -110,7 +130,7 @@ void AnimationTrigger::PerformBehavior(
       PerformReset(animation, play_state, exception_state);
       break;
     case Behavior::kReplay:
-      PerformReplay(animation, play_state, exception_state);
+      PerformReplay(animation, async_event_time, exception_state);
       break;
     case Behavior::kNone:
       break;
@@ -155,6 +175,22 @@ cc::AnimationTrigger::Behavior AnimationTrigger::ToCcAnimationTriggerBehavior(
     case Behavior::kNone:
       return cc::AnimationTrigger::Behavior::kNone;
   };
+  NOTREACHED();
+}
+
+bool AnimationTrigger::CanCompositeBehavior(Behavior behavior) {
+  switch (behavior) {
+    case Behavior::kPlay:
+    case Behavior::kPause:
+    case Behavior::kNone:
+    case Behavior::kReplay:
+      return true;
+    case Behavior::kPlayOnce:
+    case Behavior::kPlayForwards:
+    case Behavior::kPlayBackwards:
+    case Behavior::kReset:
+      return false;
+  }
   NOTREACHED();
 }
 
@@ -263,12 +299,14 @@ void AnimationTrigger::PerformActivate(
   base::AutoReset<bool> is_activating(&is_activating_or_deactivating_, true);
 
   for (auto [animation, behaviors] : animation_behavior_map_) {
-    if (HasPausedCSSPlayState(animation) ||
-        (compositor_trigger_ && IsTriggeredOnCompositor(animation))) {
+    if (HasPausedCSSPlayState(animation)) {
       continue;
     }
-    PerformBehavior(*animation, behaviors.first, async_activate_time,
-                    ASSERT_NO_EXCEPTION);
+    std::optional<base::TimeDelta> time =
+        IsTriggeredOnCompositor(animation, behaviors) ? async_activate_time
+                                                      : std::nullopt;
+    DCHECK(!IsTriggeredOnCompositor(animation, behaviors) || time.has_value());
+    PerformBehavior(*animation, behaviors.first, time, ASSERT_NO_EXCEPTION);
   }
 }
 
@@ -277,12 +315,15 @@ void AnimationTrigger::PerformDeactivate(
   base::AutoReset<bool> is_deactivating(&is_activating_or_deactivating_, true);
 
   for (auto [animation, behaviors] : animation_behavior_map_) {
-    if (HasPausedCSSPlayState(animation) ||
-        (compositor_trigger_ && IsTriggeredOnCompositor(animation))) {
+    if (HasPausedCSSPlayState(animation)) {
       continue;
     }
-    PerformBehavior(*animation, behaviors.second, async_deactivate_time,
-                    ASSERT_NO_EXCEPTION);
+
+    std::optional<base::TimeDelta> time =
+        IsTriggeredOnCompositor(animation, behaviors) ? async_deactivate_time
+                                                      : std::nullopt;
+    DCHECK(!IsTriggeredOnCompositor(animation, behaviors) || time.has_value());
+    PerformBehavior(*animation, behaviors.second, time, ASSERT_NO_EXCEPTION);
   }
 }
 
@@ -292,10 +333,13 @@ void AnimationTrigger::UpdateCompositorTriggerAnimations(
 
   std::vector<cc::AnimationTrigger::AnimationData> animation_data;
   for (auto& [animation, behaviors] : animation_behavior_map_) {
-    bool pause_keyframe_models = false;
+    if (!CanCompositeBehavior(behaviors.first) ||
+        !CanCompositeBehavior(behaviors.second)) {
+      continue;
+    }
 
     if (!animation->StartTriggeredAnimationOnCompositor(
-            paint_artifact_compositor, pause_keyframe_models)) {
+            paint_artifact_compositor)) {
       // Check that the animation is compositable. If it is, create a
       // cc::Animation for it if necessary.
       continue;
@@ -320,16 +364,6 @@ void AnimationTrigger::UpdateCompositorTriggerAnimations(
     cc::AnimationTrigger::AnimationData data(
         cc_animation->id(), cc_timeline->id(), activate, deactivate);
     animation_data.push_back(data);
-
-    // Ensure that cc animations created because of the trigger remain
-    // paused until triggered. We only do this if we instantiated the cc
-    // animation so as not to interfere with an animation that was already
-    // playing.
-    if (pause_keyframe_models) {
-      cc_animation->Pause(
-          base::Seconds(animation->CurrentTimeInternal()->InSecondsF()),
-          cc::KeyframeModel::RunState::PAUSED_EXCLUSIVE);
-    }
   }
 
   compositor_trigger_->SetAnimationData(animation_data);
@@ -357,17 +391,21 @@ void AnimationTrigger::UpdateCompositorTrigger(
     // We should tie creating a cc trigger to whether there is at least one
     // compositable animation attached, perhaps in addAnimation.
     CreateCompositorTrigger();
-    compositor_trigger_->SetAnimationTriggerDelegate(
-        static_cast<cc::AnimationTriggerDelegate*>(this));
   }
 
   if (compositor_trigger_) {
+    compositor_trigger_->SetAnimationTriggerDelegate(
+        static_cast<cc::AnimationTriggerDelegate*>(this));
     UpdateCompositorTriggerAnimations(paint_artifact_compositor);
   }
 }
 
-bool AnimationTrigger::IsTriggeredOnCompositor(Animation* animation) {
-  DCHECK(compositor_trigger_);
+bool AnimationTrigger::IsTriggeredOnCompositor(
+    Animation* animation,
+    const std::pair<Behavior, Behavior>& behaviors) {
+  if (!compositor_trigger_) {
+    return false;
+  }
 
   CompositorAnimation* compositor_anim = animation->GetCompositorAnimation();
   cc::Animation* cc_animation =
@@ -376,7 +414,8 @@ bool AnimationTrigger::IsTriggeredOnCompositor(Animation* animation) {
     return false;
   }
 
-  return true;
+  return CanCompositeBehavior(behaviors.first) &&
+         CanCompositeBehavior(behaviors.second);
 }
 
 void AnimationTrigger::Trace(Visitor* visitor) const {

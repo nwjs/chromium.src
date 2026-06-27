@@ -45,6 +45,7 @@
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom-blink.h"
 #include "services/viz/public/mojom/hit_test/input_target_client.mojom-blink.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_gesture_device.h"
@@ -231,7 +232,11 @@ class CORE_EXPORT WebFrameWidgetImpl
   cc::AnimationTimeline* ScrollAnimationTimeline() const final;
   void SetOverscrollBehavior(
       const cc::OverscrollBehavior& overscroll_behavior) final;
+  void SendEarlyFinalBeginMainFrame() override;
   void RequestAnimationAfterDelay(const base::TimeDelta&, bool urgent) final;
+  void RequestAnimationAfterDelay(cc::BeginMainFrameReason,
+                                  const base::TimeDelta&,
+                                  bool urgent) final;
   void SetRootLayer(scoped_refptr<cc::Layer>) override;
   void RequestDecode(const cc::DrawImage&,
                      base::OnceCallback<void(bool)>,
@@ -416,8 +421,18 @@ class CORE_EXPORT WebFrameWidgetImpl
   void ResetMeaningfulLayoutStateForMainFrame();
 
   // WebWidget overrides.
-  void InitializeCompositing(const display::ScreenInfos& screen_infos,
-                             const cc::LayerTreeSettings* settings) override;
+  void InitializeCompositing(
+      const display::ScreenInfos& screen_infos,
+      const cc::LayerTreeSettings* settings,
+      CrossVariantMojoRemote<
+          viz::mojom::blink::CompositorFrameSinkInterfaceBase>
+          initial_frame_sink,
+      CrossVariantMojoReceiver<
+          viz::mojom::blink::CompositorFrameSinkClientInterfaceBase>
+          initial_frame_sink_client,
+      CrossVariantMojoReceiver<
+          mojom::blink::RenderInputRouterClientInterfaceBase>
+          initial_viz_rir_client) override;
   void InitializeCompositingFromPreviousWidget(
       const display::ScreenInfos& screen_infos,
       const cc::LayerTreeSettings* settings,
@@ -561,7 +576,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool StartDeferringCommits(base::TimeDelta timeout,
                              cc::PaintHoldingReason reason);
   // Immediately stop deferring commits.
-  void StopDeferringCommits(cc::PaintHoldingCommitTrigger);
+  void StopDeferringCommits();
 
   void SetShouldThrottleFrameRate(bool flag);
 
@@ -786,7 +801,7 @@ class CORE_EXPORT WebFrameWidgetImpl
 
  protected:
   // WidgetBaseClient overrides:
-  void ScheduleAnimation(bool urgent) override;
+  void ScheduleAnimation(cc::BeginMainFrameReason, bool urgent) override;
   void DidBeginMainFrame() override;
   std::unique_ptr<cc::LayerTreeFrameSink> AllocateNewLayerTreeFrameSink()
       override;

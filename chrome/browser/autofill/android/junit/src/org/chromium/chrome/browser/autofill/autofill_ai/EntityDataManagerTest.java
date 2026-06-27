@@ -30,6 +30,7 @@ import org.chromium.components.autofill.autofill_ai.AutofillAiOptInStatus;
 import org.chromium.components.autofill.autofill_ai.EntityInstance;
 import org.chromium.components.autofill.autofill_ai.EntityInstanceWithLabels;
 import org.chromium.components.autofill.autofill_ai.EntityType;
+import org.chromium.components.autofill.autofill_ai.EntityTypeName;
 import org.chromium.components.autofill.autofill_ai.utils.TestUtils;
 
 import java.util.ArrayList;
@@ -165,6 +166,31 @@ public class EntityDataManagerTest {
     }
 
     @Test
+    public void testGetInstancesToList_sorting() {
+        EntityType type = TestUtils.getVehicleEntityType();
+
+        // All same type, different labels and sublabels.
+        EntityInstanceWithLabels bmwX5 = TestUtils.buildEntityInstanceWithLabels(type, "BMW", "X5");
+        EntityInstanceWithLabels bmw3Series =
+                TestUtils.buildEntityInstanceWithLabels(type, "BMW", "3 Series");
+        EntityInstanceWithLabels audiA4 =
+                TestUtils.buildEntityInstanceWithLabels(type, "Audi", "A4");
+        EntityInstanceWithLabels audiQ7 =
+                TestUtils.buildEntityInstanceWithLabels(type, "audi", "Q7");
+
+        when(mEntityDataManagerJniMock.getSortedEntityTypesForListDisplay(NATIVE_PTR))
+                .thenReturn(Arrays.asList(type));
+        when(mEntityDataManagerJniMock.getEntitiesWithLabels(NATIVE_PTR))
+                .thenReturn(Arrays.asList(bmwX5, bmw3Series, audiA4, audiQ7));
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> result =
+                mEntityDataManager.getInstancesToList();
+
+        List<EntityInstanceWithLabels> sortedList = result.get(type);
+        assertEquals(List.of(audiA4, audiQ7, bmw3Series, bmwX5), sortedList);
+    }
+
+    @Test
     public void testGetInstancesToList_NoInstances() {
         EntityType type1 = TestUtils.getVehicleEntityType();
         when(mEntityDataManagerJniMock.getSortedEntityTypesForListDisplay(NATIVE_PTR))
@@ -197,6 +223,13 @@ public class EntityDataManagerTest {
         when(mEntityDataManagerJniMock.canListEntityInstancesInSettings(NATIVE_PTR))
                 .thenReturn(true);
         assertTrue(mEntityDataManager.canListEntityInstancesInSettings());
+    }
+
+    @Test
+    public void testCanShowWalletDataSharingPromotion() {
+        when(mEntityDataManagerJniMock.canShowWalletDataSharingPromotion(NATIVE_PTR))
+                .thenReturn(true);
+        assertTrue(mEntityDataManager.canShowWalletDataSharingPromotion());
     }
 
     @Test
@@ -233,6 +266,22 @@ public class EntityDataManagerTest {
         when(mEntityDataManagerJniMock.isWalletPublicPassStorageEnabled(NATIVE_PTR))
                 .thenReturn(true);
         assertTrue(mEntityDataManager.isWalletPublicPassStorageEnabled());
+    }
+
+    @Test
+    public void testIsEligibleToAutofillAiForType() {
+        when(mEntityDataManagerJniMock.isEligibleToAutofillAiForType(
+                        NATIVE_PTR, EntityTypeName.VEHICLE))
+                .thenReturn(true);
+        assertTrue(mEntityDataManager.isEligibleToAutofillAiForType(EntityTypeName.VEHICLE));
+    }
+
+    @Test
+    public void testCanEnableOrDisableAutofillAiForType() {
+        when(mEntityDataManagerJniMock.canEnableOrDisableAutofillAiForType(
+                        NATIVE_PTR, EntityTypeName.PASSPORT))
+                .thenReturn(true);
+        assertTrue(mEntityDataManager.canEnableOrDisableAutofillAiForType(EntityTypeName.PASSPORT));
     }
 
     @Test

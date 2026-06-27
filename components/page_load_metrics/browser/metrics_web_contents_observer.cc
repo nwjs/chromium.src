@@ -1194,6 +1194,9 @@ void MetricsWebContentsObserver::OnCustomUserTimingUpdated(
   // Buffer timing data before seinding to the tracker as the tracker may not
   // exist in some cases, in that case the buffered timings are sent next time.
   page_load_custom_timings_.push_back(std::move(custom_timing));
+  TRACE_EVENT("loading",
+              "MetricsWebContentsObserver::OnCustomUserTimingUpdated",
+              "buffered_timings_count", page_load_custom_timings_.size());
   if (PageLoadTracker* tracker = GetPageLoadTrackerIfValid(rfh)) {
     tracker->AddCustomUserTimings(std::move(page_load_custom_timings_));
   }
@@ -1230,6 +1233,8 @@ void MetricsWebContentsObserver::UpdateTiming(
     std::vector<mojom::LargestContentfulPaintTimingPtr>
         soft_largest_contentful_paint,
     std::vector<mojom::CustomUserTimingMarkPtr> user_timings) {
+  TRACE_EVENT("loading", "MetricsWebContentsObserver::UpdateTiming",
+              "custom_timings_count", user_timings.size());
   content::RenderFrameHost* render_frame_host =
       page_load_metrics_receivers_.GetCurrentTargetFrame();
   OnTimingUpdated(render_frame_host, std::move(timing), std::move(metadata),
@@ -1242,6 +1247,8 @@ void MetricsWebContentsObserver::UpdateTiming(
 
 void MetricsWebContentsObserver::AddCustomUserTiming(
     mojom::CustomUserTimingMarkPtr custom_timing) {
+  TRACE_EVENT("loading", "MetricsWebContentsObserver::AddCustomUserTiming",
+              "mark_name", custom_timing->mark_name);
   content::RenderFrameHost* render_frame_host =
       page_load_metrics_receivers_.GetCurrentTargetFrame();
   OnCustomUserTimingUpdated(render_frame_host, std::move(custom_timing));
@@ -1377,6 +1384,17 @@ void MetricsWebContentsObserver::OnAdAuctionComplete(
 
 base::TimeTicks MetricsWebContentsObserver::GetCreated() {
   return created_;
+}
+
+base::WeakPtr<PageLoadMetricsObserverInterface>
+MetricsWebContentsObserver::GetMetricsObserver(
+    content::RenderFrameHost* render_frame_host,
+    const char* name) {
+  PageLoadTracker* tracker = GetPageLoadTrackerIfValid(render_frame_host);
+  if (tracker) {
+    return tracker->FindObserver(name);
+  }
+  return nullptr;
 }
 
 // This contains some bugs. RenderFrameHost::IsActive is not relevant to

@@ -210,8 +210,7 @@ void ImageLoader::DispatchDecodeRequestsIfComplete() {
                 image->PaintImageForCurrentFrame(),
                 /*use_dark_mode=*/false,
                 SkIRect::MakeWH(image->width(), image->height()),
-                cc::PaintFlags::FilterQuality::kNone, SkM44(),
-                PaintImage::kDefaultFrameIndex);
+                cc::PaintFlags::FilterQuality::kNone, SkM44());
             // ImageLoader should be kept alive when decode is still
             // pending. JS may invoke 'decode' without capturing the Image
             // object. If GC kicks in, ImageLoader will be destroyed,
@@ -736,8 +735,15 @@ KURL ImageLoader::ImageSourceToKURL(AtomicString image_source_url) const {
   if (!image_source_url.IsNull()) {
     StringView stripped_image_source_url =
         StripLeadingAndTrailingHtmlSpaces(image_source_url);
-    if (!stripped_image_source_url.empty())
-      url = document.CompleteURL(stripped_image_source_url);
+    if (!stripped_image_source_url.empty()) {
+      // Resolve the URL using the originating document, which can be different
+      // if this element was sourced from a (SVG <use>) resource document.
+      const Document& resolver_document =
+          RuntimeEnabledFeatures::SvgUseNestedResourceDocumentsEnabled()
+              ? element_->OriginatingTreeScope().GetDocument()
+              : document;
+      url = resolver_document.CompleteURL(stripped_image_source_url);
+    }
   }
   return url;
 }

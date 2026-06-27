@@ -71,10 +71,8 @@ void SidePanelCoordinatorAndroid::Destroy(JNIEnv* env) {
   delete this;
 }
 
-void SidePanelCoordinatorAndroid::NotifyOpenAnimationFinished(
-    JNIEnv* env,
-    SidePanelType panel_type) {
-  SPLOG("NotifyOpenAnimationFinished - panel_type: " << ToString(panel_type));
+void SidePanelCoordinatorAndroid::NotifyOpenAnimationFinished(JNIEnv* env) {
+  SPLOG("NotifyOpenAnimationFinished");
 
   // We need to make the round trip to Java even when animations are suppressed,
   // which can happen when the panel is already shown and being replaced.
@@ -101,10 +99,8 @@ void SidePanelCoordinatorAndroid::NotifyOpenAnimationFinished(
   state_ = SidePanelState::kShown;
 }
 
-void SidePanelCoordinatorAndroid::NotifyCloseAnimationFinished(
-    JNIEnv* env,
-    SidePanelType panel_type) {
-  SPLOG("NotifyCloseAnimationFinished - panel_type: " << ToString(panel_type));
+void SidePanelCoordinatorAndroid::NotifyCloseAnimationFinished(JNIEnv* env) {
+  SPLOG("NotifyCloseAnimationFinished");
 
   CHECK(IsClosing())
       << "Should only receive close animation finished callback when side "
@@ -208,35 +204,81 @@ void SidePanelCoordinatorAndroid::Close(SidePanelEntryHideReason hide_reason,
       AttachCurrentThread(), java_coordinator(), suppress_animations);
 }
 
-void SidePanelCoordinatorAndroid::OnWindowResized(JNIEnv* env,
-                                                  bool should_show_side_panel) {
-  SPLOG("OnWindowResized - should_show_side_panel: " << should_show_side_panel);
-
-  if (is_window_too_small_ == !should_show_side_panel) {
+void SidePanelCoordinatorAndroid::OnTabReparented(tabs::TabInterface* tab) {
+  SPLOG("OnTabReparented - tab: " << tab);
+  // In multi-tab windows, when the active tab is reparented out, the source
+  // window activates another tab first. This triggers
+  // `SidePanelTabListObserverAndroid::OnActiveTabChanged()`, which already
+  // closes or replaces the side panel before this method runs, making any
+  // additional cleanup here unnecessary.
+  auto* tab_list = TabListInterface::From(browser());
+  if (tab_list && tab_list->GetTabCount() > 0) {
     return;
   }
 
-  is_window_too_small_ = !should_show_side_panel;
+  // Specifically target the "Single-Tab Window Scenario" (e.g., tearing off
+  // the sole tab in a window to create a new window or move it to another
+  // window).
+  //
+  // In this case, because the source window is left with 0 tabs, Android's
+  // `TabListInterface` cannot select a new active tab and never fires
+  // `SidePanelTabListObserverAndroid::OnActiveTabChanged()`. Thus, the source
+  // window's side panel remains open and `current_key()` still matches the
+  // reparented tab here.
+  //
+  // Calling `Close()` here is critical: it synchronously detaches the
+  // underlying cached Java view from the source window's view hierarchy. This
+  // ensures that when the tab is inserted and activated in the destination
+  // window, the Java view has no parent and can be attached safely without
+  // throwing an `IllegalStateException: The specified child already has a
+  // parent`.
+  std::optional<UniqueKey> key = current_key();
+  if (key && key->tab_handle && key->tab_handle.value() == tab->GetHandle()) {
+    SPLOG("OnTabReparented - closing side panel for reparented tab.");
+    Close(SidePanelEntryHideReason::kBackgrounded,
+          /*suppress_animations=*/true);
+  }
+}
 
-  if (should_show_side_panel) {
-    CHECK(!IsSidePanelShowing() || IsClosing())
-        << "Side panel should not be visible when the window changes from "
-           "being too small to being large enough.";
-    if (key_to_restore_after_window_resize_ &&
-        CanShowEntryForKey(*key_to_restore_after_window_resize_)) {
-      // TODO(crbug.com/507911289): Revisit animations.
-      Show(*key_to_restore_after_window_resize_, std::nullopt,
-           /*suppress_animations=*/true);
-      key_to_restore_after_window_resize_.reset();
-    }
-  } else {
+void SidePanelCoordinatorAndroid::OnWindowResized(JNIEnv* env,
+                                                  bool can_show_side_panel) {
+  SPLOG("OnWindowResized - can_show_side_panel: " << can_show_side_panel);
+
+  if (is_window_too_small_ == !can_show_side_panel) {
+    return;
+  }
+
+  is_window_too_small_ = !can_show_side_panel;
+
+  // Case 1: Window became too small. Hide the current side panel.
+  if (!can_show_side_panel) {
     if (IsSidePanelShowing() && !IsClosing()) {
-      std::optional<UniqueKey> current_key = this->current_key();
-      CHECK(current_key);
-      key_to_restore_after_window_resize_ = *current_key;
+      deferred_entry_tracker_.AddActiveEntries();
+
       Close(SidePanelEntryHideReason::kWindowResized,
             /*suppress_animations=*/true);
     }
+    return;
+  }
+
+  // Case 2: Window became large enough. Restore deferred entries.
+  CHECK(!IsSidePanelShowing() || IsClosing())
+      << "Side panel should not be visible when the window changes from "
+         "being too small to being large enough.";
+
+  tabs::TabInterface* active_tab =
+      TabListInterface::From(browser())->GetActiveTab();
+  if (!active_tab) {
+    return;
+  }
+
+  // Check if there's a deferred entry tracked explicitly.
+  std::optional<UniqueKey> key_to_show =
+      deferred_entry_tracker_.GetEntry(active_tab->GetHandle());
+
+  if (key_to_show) {
+    Show(*key_to_show, SidePanelOpenTrigger::kWindowResized,
+         /*suppress_animations=*/true);
   }
 }
 
@@ -268,12 +310,16 @@ void SidePanelCoordinatorAndroid::Toggle(SidePanelEntryKey key,
 content::WebContents*
 SidePanelCoordinatorAndroid::GetWebContentsForTest(  // IN-TEST
     SidePanelEntryId id) {
-  // TODO(crbug.com/494001633): Implement this.
+  // On Android, side panels are built using native Android Views instead of
+  // WebContents.
   return nullptr;
 }
 
-void SidePanelCoordinatorAndroid::DisableAnimationsForTesting() {
-  // TODO(crbug.com/494000532): Implement this.
+void SidePanelCoordinatorAndroid::DisableAnimationsForTesting() {  // IN-TEST
+  if (java_coordinator()) {
+    Java_SidePanelCoordinatorAndroidImpl_disableAnimationsForTesting(  // IN-TEST
+        AttachCurrentThread(), java_coordinator());
+  }
 }
 
 void SidePanelCoordinatorAndroid::SetNoDelaysForTesting(  // IN-TEST
@@ -291,13 +337,19 @@ void SidePanelCoordinatorAndroid::Show(
 
   if (is_window_too_small_) {
     SPLOG("Show - window is too small, skipping.");
+    deferred_entry_tracker_.AddEntry(key);
     return;
   }
+
+  deferred_entry_tracker_.ClearEntry(key);
 
   SidePanelEntry* entry = GetEntryForUniqueKey(key);
   if (!entry) {
     return;
   }
+
+  CHECK(entry->type() == SidePanelType::kToolbar)
+      << "Android Side Panel only supports kToolbar entries.";
 
   if (!IsSidePanelShowing()) {
     SetOpenedTimestamp(base::TimeTicks::Now());
@@ -424,8 +476,6 @@ void SidePanelCoordinatorAndroid::PopulateSidePanel(
   pending_replaced_entry_->OnEntryWillHide(pending_hide_reason_);
 
   // Now same as above, we set key before populate.
-  CHECK(entry->type() == SidePanelType::kToolbar)
-      << "Android Side Panel only supports kToolbar entries.";
   SetCurrentKey(unique_key);
   entry->OnEntryShown();
 
@@ -448,13 +498,6 @@ void SidePanelCoordinatorAndroid::MaybeShowEntryOnTabStripModelChanged(
         << old_contextual_registry
         << ", new_contextual_registry: " << new_contextual_registry);
 
-  if (is_window_too_small_) {
-    SPLOG(
-        "MaybeShowEntryOnTabStripModelChanged - window is too small, "
-        "skipping.");
-    return;
-  }
-
   // If the side panel is showing, check if we should:
   // (1) replace the current UI content by calling `Show()`, or
   // (2) close the side panel by calling `Close()`.
@@ -462,12 +505,6 @@ void SidePanelCoordinatorAndroid::MaybeShowEntryOnTabStripModelChanged(
   // For (1), don't call `Close()` then `Show()`, which will cause janky UI.
   if (IsSidePanelShowing() && state_ != SidePanelState::kClosing) {
     std::optional<UniqueKey> new_active_key = GetNewActiveKeyOnTabChanged();
-
-    if (!new_active_key && key_to_restore_after_window_resize_ &&
-        CanShowEntryForKey(*key_to_restore_after_window_resize_)) {
-      new_active_key = key_to_restore_after_window_resize_;
-      key_to_restore_after_window_resize_.reset();
-    }
 
     if (new_active_key) {
       Show(*new_active_key, SidePanelOpenTrigger::kTabChanged,
@@ -482,6 +519,24 @@ void SidePanelCoordinatorAndroid::MaybeShowEntryOnTabStripModelChanged(
         Close(SidePanelEntryHideReason::kBackgrounded,
               /*suppress_animations=*/true);
       }
+
+      if (new_contextual_registry) {
+        // If there is no active entry in the new tab's registry, check if there
+        // is a deferred entry saved in the tracker for this tab or this window.
+        // This handles cases where a side panel was hidden due to constraints
+        // like a narrow window size.
+        // `Show()` handles `is_window_too_small_ == true`, and adds the entry
+        // to `SidePanelDeferredEntryTracker` if needed.
+        std::optional<UniqueKey> key_to_show = deferred_entry_tracker_.GetEntry(
+            new_contextual_registry->GetTabInterface().GetHandle());
+        if (key_to_show) {
+          // Suppress animations to avoid jarring UX during tab switches, and
+          // use SidePanelOpenTrigger::kWindowResized as the trigger to match
+          // the close reason that originally deferred this entry.
+          Show(*key_to_show, SidePanelOpenTrigger::kWindowResized,
+               /*suppress_animations=*/true);
+        }
+      }
     }
 
     return;
@@ -495,13 +550,28 @@ void SidePanelCoordinatorAndroid::MaybeShowEntryOnTabStripModelChanged(
     UniqueKey key{new_contextual_registry->GetTabInterface().GetHandle(),
                   (*new_active_entry)->key()};
     Show(key, SidePanelOpenTrigger::kTabChanged, /*suppress_animations=*/true);
-  } else if (key_to_restore_after_window_resize_ &&
-             CanShowEntryForKey(*key_to_restore_after_window_resize_)) {
-    Show(*key_to_restore_after_window_resize_,
-         SidePanelOpenTrigger::kTabChanged,
-         /*suppress_animations=*/true);
-    key_to_restore_after_window_resize_.reset();
+  } else if (new_contextual_registry) {
+    // If there is no active entry in the new tab's registry, check if there
+    // is a deferred entry saved in the tracker for this tab or this window.
+    // This handles cases where a side panel was hidden due to constraints
+    // like a narrow window size.
+    // `Show()` handles `is_window_too_small_ == true`, and adds the entry
+    // to `SidePanelDeferredEntryTracker` if needed.
+    std::optional<UniqueKey> key_to_show = deferred_entry_tracker_.GetEntry(
+        new_contextual_registry->GetTabInterface().GetHandle());
+    if (key_to_show) {
+      // Suppress animations to avoid jarring UX during tab switches, and use
+      // SidePanelOpenTrigger::kWindowResized as the trigger to match the close
+      // reason that originally deferred this entry.
+      Show(*key_to_show, SidePanelOpenTrigger::kWindowResized,
+           /*suppress_animations=*/true);
+    }
   }
+}
+
+void SidePanelCoordinatorAndroid::ClearDeferredEntryForTab(
+    const tabs::TabHandle& tab_handle) {
+  deferred_entry_tracker_.ClearEntryForTab(tab_handle);
 }
 
 void SidePanelCoordinatorAndroid::ClearCachedEntryViews() {

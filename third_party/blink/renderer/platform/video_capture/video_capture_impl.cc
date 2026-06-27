@@ -50,7 +50,7 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 #if BUILDFLAG(IS_MAC)
-#include "media/base/mac/video_frame_mac.h"
+#include "ui/gfx/mac/io_surface.h"
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
@@ -308,6 +308,14 @@ bool VideoCaptureImpl::ProcessBuffer(
         base::span<const uint8_t> data = buffer_context->data();
         auto [y_data, uv_data] = data.split_at(y_size);
         auto [u_data, v_data] = uv_data.split_at(u_size);
+        CHECK_GE(v_data.size(),
+                 (media::VideoFrame::Rows(
+                      media::VideoFrame::Plane::kU,
+                      video_frame_init_data.ready_buffer->info->pixel_format,
+                      video_frame_init_data.ready_buffer->info->coded_size
+                          .height()) *
+                  video_frame_init_data.ready_buffer->info->strides
+                      ->stride_by_plane[2]));
         video_frame_init_data.frame = media::VideoFrame::WrapExternalYuvData(
             video_frame_init_data.ready_buffer->info->pixel_format,
             gfx::Size(video_frame_init_data.ready_buffer->info->coded_size),
@@ -436,7 +444,7 @@ bool VideoCaptureImpl::ProcessBuffer(
           gmb_handle.native_pixmap_handle().supports_zero_copy_webgpu_import;
 #elif BUILDFLAG(IS_MAC)
       video_frame_init_data.is_webgpu_compatible =
-          media::IOSurfaceIsWebGPUCompatible(gmb_handle.io_surface().get());
+          gfx::IOSurfaceIsWebGPUCompatible(gmb_handle.io_surface().get());
 #elif BUILDFLAG(IS_WIN)
       video_frame_init_data.is_webgpu_compatible =
           gmb_handle.type == gfx::GpuMemoryBufferType::DXGI_SHARED_HANDLE;

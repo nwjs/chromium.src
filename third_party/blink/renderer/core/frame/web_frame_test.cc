@@ -7953,7 +7953,8 @@ class TestDidNavigateCommitTypeWebFrameClient
       bool is_client_redirect,
       const std::optional<blink::SameDocNavigationScreenshotDestinationToken>&
           screenshot_destination,
-      base::UnguessableToken same_document_metrics_token) override {
+      base::UnguessableToken same_document_metrics_token,
+      bool caused_by_ad) override {
     last_commit_type_ = type;
   }
 
@@ -14049,7 +14050,8 @@ TEST_F(WebFrameTest, RemoteViewportAndMainframeIntersections) {
   static_cast<WebFrameWidgetImpl*>(widget)->ApplyViewportIntersectionForTesting(
       blink::mojom::blink::ViewportIntersectionState::New(
           viewport_intersection, mainframe_intersection, viewport_intersection,
-          occlusion_state, gfx::Size(), gfx::Point(), viewport_transform));
+          occlusion_state, gfx::Size(), gfx::Point(), viewport_transform,
+          /*is_hidden_for_media_playback=*/false));
 
   local_frame->FrameWidgetImpl()->UpdateAllLifecyclePhases(
       DocumentUpdateReason::kTest);

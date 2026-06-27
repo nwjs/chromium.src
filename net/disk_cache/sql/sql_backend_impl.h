@@ -18,6 +18,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/types/expected.h"
 #include "base/types/strong_alias.h"
 #include "net/base/net_errors.h"
@@ -158,6 +159,8 @@ class NET_EXPORT_PRIVATE SqlBackendImpl final : public Backend {
                      EntryWriteBuffer buffer,
                      bool truncate,
                      base::Time last_used,
+                     bool sparse_write,
+                     int64_t header_size,
                      bool copy_buffer_for_optimistic_write,
                      CompletionOnceCallback callback);
 
@@ -279,7 +282,14 @@ class NET_EXPORT_PRIVATE SqlBackendImpl final : public Backend {
   };
 
   void OnInitialized(CompletionOnceCallback callback,
+                     base::ElapsedTimer init_start_time,
                      const std::vector<bool>& results);
+  void OnCheckFakeIndexFileFinished(CompletionOnceCallback callback,
+                                    base::ElapsedTimer init_start_time,
+                                    bool success);
+  void OnStoreInitialized(CompletionOnceCallback callback,
+                          base::ElapsedTimer init_start_time,
+                          SqlPersistentStore::Error error);
   void RunDelayedPostInitializationTasks();
 
   SqlEntryImpl* GetActiveEntry(const CacheEntryKey& key);
@@ -403,6 +413,8 @@ class NET_EXPORT_PRIVATE SqlBackendImpl final : public Backend {
       EntryWriteBuffer buffer,
       bool truncate,
       base::Time last_used,
+      bool sparse_write,
+      int64_t header_size,
       SqlPersistentStore::ResIdOrErrorCallback callback,
       PopInFlightEntryModificationRunner pop_in_flight_entry_modification,
       std::unique_ptr<ExclusiveOperationCoordinator::OperationHandle> handle);
@@ -417,6 +429,8 @@ class NET_EXPORT_PRIVATE SqlBackendImpl final : public Backend {
       EntryWriteBuffer buffer,
       bool truncate,
       base::Time last_used,
+      bool sparse_write,
+      int64_t header_size,
       SqlPersistentStore::ResIdOrErrorCallback callback,
       PopInFlightEntryModificationRunner pop_in_flight_entry_modification,
       std::unique_ptr<ExclusiveOperationCoordinator::OperationHandle> handle);

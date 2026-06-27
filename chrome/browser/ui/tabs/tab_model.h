@@ -126,6 +126,10 @@ class TabModel final : public TabInterface,
   // TabInterface overrides:
   base::WeakPtr<TabInterface> GetWeakPtr() override;
   content::WebContents* GetContents() const override;
+  void LoadIfNeeded() override;
+  std::u16string GetTitle() const override;
+  GURL GetURL() const override;
+  base::Time GetLastActiveTime() const override;
   Profile* GetProfile() const override;
   base::CallbackListSubscription RegisterWillDiscardContents(
       TabInterface::WillDiscardContentsCallback callback) override;
@@ -242,8 +246,8 @@ class TabModel final : public TabInterface,
   bool visible_ = false;
   // TODO(crbug.com/392951786): Remove this property, and instead determine a
   // tab's split status based on whether it is part of a split tab collection.
-  std::optional<split_tabs::SplitTabId> split_ = std::nullopt;
-  std::optional<tab_groups::TabGroupId> group_ = std::nullopt;
+  std::optional<split_tabs::SplitTabId> split_;
+  std::optional<tab_groups::TabGroupId> group_;
   raw_ptr<TabCollection> parent_collection_ = nullptr;
 
   using WillDiscardContentsCallbackList = base::RepeatingCallbackList<

@@ -41,6 +41,28 @@ void PasteIfAllowedByPolicy(
     content::ClipboardPasteData clipboard_paste_data,
     content::ContentBrowserClient::IsClipboardPasteAllowedCallback callback);
 
+// This function checks if a paste originating from Gemini in Chrome is allowed
+// to proceed according to the following policies:
+// - DataControlsRules (specifically the "gemini_in_chrome" source)
+// - OnBulkDataEntryEnterpriseConnector
+//
+// This function will always call `callback` after policies are evaluated. If
+// policies indicate the action should receive a bypassable warning, `callback`
+// will only be called after the user makes the decision.
+void PasteFromGeminiIfAllowedByPolicy(content::RenderFrameHost* destination,
+                                      std::string data,
+                                      base::OnceCallback<void(bool)> callback);
+
+// Returns true if `PasteIfAllowedByPolicy` needs to be called for the provided
+// context. This is not required to be called before `PasteIfAllowedByPolicy` as
+// it includes logic to return early in cases where policies aren't set or no
+// restrictions are applied to the given context, this helper is provided as a
+// convenience for caller code that wants to keep code synchronous when no
+// enterprise restrictions are to be applied.
+bool IsPastePolicyCheckRequired(const content::ClipboardEndpoint& source,
+                                const content::ClipboardEndpoint& destination,
+                                const ui::ClipboardMetadata& metadata);
+
 // This function checks if data copied from a browser tab is allowed to be
 // written to the OS clipboard according to the following policies:
 // - CopyPreventionSettings
@@ -53,6 +75,15 @@ void IsClipboardCopyAllowedByPolicy(
     const ui::ClipboardMetadata& metadata,
     const content::ClipboardPasteData& data,
     content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback);
+
+// Returns true if `IsClipboardCopyAllowedByPolicy` needs to be called for the
+// provided context. This is not required to be called before
+// `IsClipboardCopyAllowedByPolicy` as it includes logic to return early in
+// cases where policies aren't set or no restrictions are applied to the given
+// context, this helper is provided as a convenience for caller code that wants
+// to keep code synchronous when no enterprise restrictions are to be applied.
+bool IsCopyPolicyCheckRequired(const content::ClipboardEndpoint& source,
+                               const ui::ClipboardMetadata& metadata);
 
 // This function checks if data dragged from a browser tab is allowed to be
 // dragged to the OS according to the following policies:

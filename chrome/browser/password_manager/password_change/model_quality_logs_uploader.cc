@@ -3,11 +3,13 @@
 // found in the LICENSE file.
 #include "chrome/browser/password_manager/password_change/model_quality_logs_uploader.h"
 
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
+#include "chrome/browser/password_manager/password_change/features.h"
 #include "chrome/browser/password_manager/password_change/login_state_checker.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
@@ -34,6 +36,7 @@ using FieldData =
     optimization_guide::proto::PasswordChangeQuality_FormData_FieldData;
 using FieldType = optimization_guide::proto::
     PasswordChangeQuality_FormData_FieldData_FieldType;
+using FormDiscardReason = ModelQualityLogsUploader::FormDiscardReason;
 
 namespace {
 int64_t ComputeRequestLatencyMs(base::Time server_request_start_time) {
@@ -92,7 +95,12 @@ ModelQualityLogsUploader::QualityStatus GetVerifySubmissionQualityStatus(
 
   PasswordChangeOutcome outcome =
       response.value().outcome_data().submission_outcome();
-  // TODO(crbug.com/474035152): Extend MQLS for handling user intervention.
+  if (outcome ==
+      PasswordChangeOutcome::
+          PasswordChangeSubmissionData_PasswordChangeOutcome_USER_INTERVENTION_NEEDED) {
+    return ModelQualityLogsUploader::QualityStatus::
+        PasswordChangeQuality_StepQuality_SubmissionStatus_USER_INTERVENTION_NEEDED;
+  }
   if (outcome !=
           PasswordChangeOutcome::
               PasswordChangeSubmissionData_PasswordChangeOutcome_SUCCESSFUL_OUTCOME &&
@@ -242,6 +250,33 @@ void SetFormData(FormData& form_data_proto,
   }
 }
 
+optimization_guide::proto::PasswordChangeQuality_FormData_DiscardReason
+ToProtoDiscardReason(FormDiscardReason reason) {
+  switch (reason) {
+    case FormDiscardReason::kUnknown:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_UNKNOWN_REASON;
+    case FormDiscardReason::kNoNewPasswordField:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_NO_NEW_PASSWORD_FIELD;
+    case FormDiscardReason::kNewPasswordFieldDisabled:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_NEW_PASSWORD_FIELD_DISABLED;
+    case FormDiscardReason::kUsernameFieldEmptyAndFocusable:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_USERNAME_FIELD_EMPTY_AND_FOCUSABLE;
+    case FormDiscardReason::kFieldToIgnore:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_FIELD_TO_IGNORE;
+    case FormDiscardReason::kNoDriver:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_NO_DRIVER;
+    case FormDiscardReason::kFormNotVisible:
+      return optimization_guide::proto::
+          PasswordChangeQuality_FormData_DiscardReason_FORM_NOT_VISIBLE;
+  }
+}
+
 }  // namespace
 
 ModelQualityLogsUploader::ModelQualityLogsUploader(
@@ -317,20 +352,28 @@ void ModelQualityLogsUploader::SetOpenFormQuality(
   if (response.has_value()) {
     open_form_quality->mutable_response()->CopyFrom(*response);
     PageType open_form = response->open_form_data().page_type();
-    if (open_form == PageType::OpenFormResponseData_PageType_SETTINGS_PAGE) {
-      if (response->open_form_data().dom_node_id_to_click()) {
-        // Assume success at this point. If it fails to actuate on it the state
-        // will be changed to ELEMENT_NOT_FOUND if the element does not exist
-        // or FORM_NOT_FOUND if after clicking a form was not seen.
+    switch (open_form) {
+      case PageType::OpenFormResponseData_PageType_SETTINGS_PAGE:
+        if (response->open_form_data().dom_node_id_to_click()) {
+          // Assume success at this point. If it fails to actuate on it the
+          // state will be changed to ELEMENT_NOT_FOUND if the element does not
+          // exist or FORM_NOT_FOUND if after clicking a form was not seen.
+          quality_status = QualityStatus::
+              PasswordChangeQuality_StepQuality_SubmissionStatus_ACTION_SUCCESS;
+        } else {
+          quality_status = QualityStatus::
+              PasswordChangeQuality_StepQuality_SubmissionStatus_ELEMENT_NOT_FOUND;
+        }
+        break;
+      case PageType::
+          OpenFormResponseData_PageType_USER_INTERVENTION_NEEDED_PAGE:
         quality_status = QualityStatus::
-            PasswordChangeQuality_StepQuality_SubmissionStatus_ACTION_SUCCESS;
-      } else {
+            PasswordChangeQuality_StepQuality_SubmissionStatus_USER_INTERVENTION_NEEDED;
+        break;
+      default:
         quality_status = QualityStatus::
-            PasswordChangeQuality_StepQuality_SubmissionStatus_ELEMENT_NOT_FOUND;
-      }
-    } else {
-      quality_status = QualityStatus::
-          PasswordChangeQuality_StepQuality_SubmissionStatus_UNEXPECTED_STATE;
+            PasswordChangeQuality_StepQuality_SubmissionStatus_UNEXPECTED_STATE;
+        break;
     }
   }
 
@@ -362,7 +405,10 @@ void ModelQualityLogsUploader::SetSubmitFormQuality(
       PasswordChangeQuality_StepQuality_SubmissionStatus_UNKNOWN_STATUS;
   if (response.has_value()) {
     submit_form_quality->mutable_response()->CopyFrom(*response);
-    if (response.value().submit_form_data().dom_node_id_to_click()) {
+    if (response.value().submit_form_data().is_user_intervention_needed()) {
+      quality_status = QualityStatus::
+          PasswordChangeQuality_StepQuality_SubmissionStatus_USER_INTERVENTION_NEEDED;
+    } else if (response.value().submit_form_data().dom_node_id_to_click()) {
       quality_status = QualityStatus::
           PasswordChangeQuality_StepQuality_SubmissionStatus_ACTION_SUCCESS;
     } else {
@@ -461,6 +507,38 @@ void ModelQualityLogsUploader::SetChangePasswordFormData(
   optimization_guide::proto::PasswordChangeQuality* quality =
       final_log_data_.mutable_password_change_submission()->mutable_quality();
   SetFormData(*quality->mutable_change_password_form_data(), password_form);
+}
+
+void ModelQualityLogsUploader::RecordDiscardedForm(
+    const password_manager::PasswordForm* password_form,
+    FormDiscardReason discard_reason) {
+  if (!base::FeatureList::IsEnabled(
+          password_change::features::kRecordDiscardedFormsToModelQualityLogs)) {
+    return;
+  }
+
+  if (!password_form) {
+    return;
+  }
+
+  optimization_guide::proto::PasswordChangeQuality* quality =
+      final_log_data_.mutable_password_change_submission()->mutable_quality();
+
+  optimization_guide::proto::PasswordChangeQuality_FormData_DiscardReason
+      proto_discard_reason = ToProtoDiscardReason(discard_reason);
+
+  uint64_t form_signature =
+      autofill::CalculateFormSignature(password_form->form_data).value();
+  for (const auto& discarded_form : quality->discarded_forms_data()) {
+    if (discarded_form.form_signature() == form_signature &&
+        discarded_form.discard_reason() == proto_discard_reason) {
+      return;
+    }
+  }
+
+  FormData* form_data_proto = quality->add_discarded_forms_data();
+  SetFormData(*form_data_proto, *password_form);
+  form_data_proto->set_discard_reason(proto_discard_reason);
 }
 
 void ModelQualityLogsUploader::SetStepDuration(FlowStep step,

@@ -65,6 +65,7 @@
 #include "components/cbor/writer.h"
 #include "components/device_event_log/device_event_log.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -732,20 +733,17 @@ std::unique_ptr<EnclaveLocalState> ParseStateFile(
 
 base::flat_set<GaiaId> GetGaiaIDs(
     const std::vector<gaia::ListedAccount>& listed_accounts) {
-  base::flat_set<GaiaId> result;
-  for (const gaia::ListedAccount& listed_account : listed_accounts) {
-    result.insert(listed_account.gaia_id);
-  }
-  return result;
+  return base::MakeFlatSet<GaiaId>(
+      listed_accounts, /*comp=*/{},
+      [](const gaia::ListedAccount& listed_account) {
+        return listed_account.gaia_id;
+      });
 }
 
 base::flat_set<GaiaId> GetGaiaIDs(
     const google::protobuf::Map<std::string, EnclaveLocalState::User>& users) {
-  base::flat_set<GaiaId> result;
-  for (const auto& it : users) {
-    result.insert(GaiaId(it.first));
-  }
-  return result;
+  return base::MakeFlatSet<GaiaId>(
+      users, /*comp=*/{}, [](const auto& it) { return GaiaId(it.first); });
 }
 
 std::string UserVerifyingLabelToString(crypto::UserVerifyingKeyLabel label) {
@@ -1327,6 +1325,8 @@ class EnclaveManager::StateMachine {
       case ActionOutcome::
           kUploadVaultAndMemberFromResponseFailedToParseResponse:
         return "UploadVaultAndMemberFromResponseFailedToParseResponse";
+      case ActionOutcome::kDoNextActionFailedAccountMismatch:
+        return "DoNextActionFailedAccountMismatch";
     }
   }
 
@@ -1774,7 +1774,13 @@ class EnclaveManager::StateMachine {
     }
 
     if (user_->registered() && action_->store_keys_args) {
-      CHECK_EQ(primary_account_info_->gaia, action_->store_keys_args->gaia_id);
+      if (primary_account_info_->gaia != action_->store_keys_args->gaia_id) {
+        // This happens when we stored keys for a different account, e.g.
+        // because a new account became the primary account between storing keys
+        // and enrollment.
+        Stop(ActionOutcome::kDoNextActionFailedAccountMismatch);
+        return;
+      }
       auto store_keys_args = std::move(action_->store_keys_args);
       action_->store_keys_args.reset();
 
@@ -2658,8 +2664,13 @@ class EnclaveManager::StateMachine {
           Stop(ActionOutcome::kDoRenewingPINFailedCohortNotYetDeprecated);
           return;
         case device::enclave::RequestError::kRecoveryKeyStoreDowngrade:
-          FIDO_LOG(ERROR) << "Not renewing PIN because it would result in "
+          // This is expected when a client moves from a Finch keychain cohort
+          // experiment group to a control group.
+          FIDO_LOG(EVENT) << "Not renewing PIN because it would result in "
                              "downgrading the recovery store";
+          user_->set_last_refreshed_pin_epoch_secs(
+              base::Time::Now().InSecondsFSinceUnixEpoch());
+          manager_->WriteState(&local_state_);
           Stop(ActionOutcome::kDoRenewingPINFailedRecoveryStoreDowngrade);
           return;
         default:
@@ -2798,6 +2809,9 @@ class EnclaveManager::StateMachine {
                 [](base::WeakPtr<StateMachine> machine,
                    GoogleServiceAuthError error,
                    signin::AccessTokenInfo access_token_info) {
+                  base::UmaHistogramEnumeration(
+                      "WebAuthentication.Enclave.GetAccessTokenError",
+                      error.state(), GoogleServiceAuthError::State::NUM_STATES);
                   if (!machine) {
                     return;
                   }
@@ -4000,7 +4014,7 @@ void EnclaveManager::StorePendingKeys(
   store_keys_count_++;
 
   for (Observer& observer : observer_list_) {
-    observer.OnKeysStored();
+    observer.OnKeysStored(gaia_id);
   }
 }
 
@@ -4279,7 +4293,7 @@ void EnclaveManager::Act() {
 
     loading_ = true;
 
-    if (!encryptor_.has_value()) {
+    if (!encryptor_) {
       g_browser_process->os_crypt_async()->GetInstance(base::BindOnce(
           &EnclaveManager::OnOsCryptReady, weak_ptr_factory_.GetWeakPtr()));
       return;
@@ -4581,7 +4595,7 @@ void EnclaveManager::WriteState(EnclaveLocalState* new_state) {
 
 void EnclaveManager::DoWriteState(std::string serialized) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(encryptor_.has_value());
+  CHECK(encryptor_);
 
   currently_writing_ = true;
 
@@ -4758,9 +4772,10 @@ bool EnclaveManager::IsSecurityDomainReset(
               user_->wrapped_security_domain_secrets().end());
 }
 
-void EnclaveManager::OnOsCryptReady(os_crypt_async::Encryptor encryptor) {
-  CHECK(!encryptor_.has_value());
-  encryptor_.emplace(std::move(encryptor));
+void EnclaveManager::OnOsCryptReady(
+    scoped_refptr<os_crypt_async::Encryptor> encryptor) {
+  CHECK(!encryptor_);
+  encryptor_ = std::move(encryptor);
   loading_ = false;
   Act();
 }

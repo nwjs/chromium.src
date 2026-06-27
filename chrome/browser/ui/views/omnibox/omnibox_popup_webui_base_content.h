@@ -14,6 +14,7 @@
 #include "extensions/browser/view_type_utils.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/controls/webview/webview.h"
@@ -79,6 +80,9 @@ class OmniboxPopupWebUIBaseContent : public views::WebView,
   // Notifies the page the widget was hidden and performs cleanup.
   virtual void Clear() = 0;
 
+  // Called when the active tab changes.
+  virtual void OnActiveTabChanged(content::WebContents* new_contents);
+
   // Returns the WebContents from within the wrapper. Don't use
   // GetWebContents() since that may be nullptr if the popup isn't visible.
   content::WebContents* GetWrappedWebContents();
@@ -87,9 +91,17 @@ class OmniboxPopupWebUIBaseContent : public views::WebView,
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
 
+  bool top_rounded_corners() const { return top_rounded_corners_; }
+
+  // Returns the corner radii of this WebUI content view to match the popup
+  // frame.
+  gfx::RoundedCornersF GetRoundedCornerRadii() const;
+
  protected:
   // Callback for cleaning up the `context_menu_` field.
   void OnMenuClosed();
+
+  virtual void OnContextMenuClosed() = 0;
 
   // Set up the WebUI content page and hook up the Omnibox handlers.
   void SetContentURL(std::string_view url);
@@ -99,8 +111,6 @@ class OmniboxPopupWebUIBaseContent : public views::WebView,
   OmniboxController* controller() { return controller_.get(); }
 
   LocationBar* location_bar() { return location_bar_.get(); }
-
-  bool top_rounded_corners() const { return top_rounded_corners_; }
 
   // Detaches the WebContents and cleans up.
   void Detach();
@@ -138,6 +148,21 @@ class OmniboxPopupWebUIBaseContent : public views::WebView,
 
   // Debounces the resize events to avoid flickering.
   base::OneShotTimer debounce_resize_timer_;
+
+  // True if a bounds synchronization task is already posted and pending.
+  // Used to avoid overwriting a user resize task with the lower priority task
+  // of updating popup bounds to match location bar bounds change.
+  bool has_pending_synchronize_ = false;
+
+  // The last known width of the location bar. Used to detect width changes,
+  // and if there are width changes, it implies the browser window has resized.
+  int last_location_bar_width_ = 0;
+
+  // If the browser window is currently being resized. If so, ignore bouncer for
+  // delay.
+  bool is_window_resizing_ = false;
+
+  friend class OmniboxAimPopupBrowserTest;
 
   base::WeakPtrFactory<OmniboxPopupWebUIBaseContent> weak_factory_{this};
 };

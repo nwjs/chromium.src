@@ -120,6 +120,7 @@ class MockNavigationHandle : public NavigationHandle {
     return handle->IsPrerenderedPageActivation() ||
            handle->IsServedFromBackForwardCache();
   }
+  MOCK_CONST_METHOD0(IsNavigatingFromInitialEmptyDocument, bool());
   RenderFrameHost* GetParentFrame() override {
     return render_frame_host_ ? render_frame_host_->GetParent() : nullptr;
   }
@@ -190,6 +191,8 @@ class MockNavigationHandle : public NavigationHandle {
   const net::HttpResponseHeaders* GetResponseHeaders() override {
     return response_headers_.get();
   }
+  MOCK_METHOD0(GetDeclarativePerformanceObserverPolicy,
+               const network::mojom::DeclarativePerformanceObserverPolicy*());
   MOCK_METHOD1(
       SetLCPPNavigationHint,
       void(blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr));

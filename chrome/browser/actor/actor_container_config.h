@@ -12,6 +12,7 @@
 
 #include "base/containers/flat_map.h"
 #include "base/types/expected.h"
+#include "base/types/optional_ref.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "net/base/schemeful_site.h"
 #include "url/origin.h"
@@ -30,17 +31,16 @@ class ActorContainerConfig {
   ActorContainerConfig(ActorContainerConfig&&);
   ActorContainerConfig& operator=(const ActorContainerConfig& other) = delete;
   ActorContainerConfig& operator=(ActorContainerConfig&& other) = delete;
-  explicit ActorContainerConfig(
-      const optimization_guide::proto::AgentContainerConfig& config);
   ~ActorContainerConfig();
 
-  // Assign the ActorContainerConfig's value to `other`'s by copying `other`'s
-  // data. Will only work when `IsActive` returns false, and may
-  // cause `IsActive` to return true after. If `other` does not have a
-  // config set this is a no-op. Only can modify this object the first
-  // time it is called.
-  void Assign(const ActorContainerConfig& other);
+  // Assigns the `config` to this instance, if provided. This method is a no-op
+  // except for the first time it is called.
+  void Assign(
+      base::optional_ref<const optimization_guide::proto::AgentContainerConfig>
+          config);
 
+  // Returns true iff a config proto was provided for this instance via
+  // `Assign`.
   bool IsActive() const { return rules_.has_value(); }
 
   // Indicates whether or not navigation from `source` to `destination` is
@@ -51,21 +51,41 @@ class ActorContainerConfig {
 
   // Indicates whether or not the actor can actuate when the browser is
   // navigated to `location_origin`.
+  // Must not be called when `IsActive` is false.
   bool IsActuationAllowed(const url::Origin& location_origin) const;
 
  private:
-  // Type alias representing different possible location types that we expect to
-  // receive.
+  // Represents a wildcard location, i.e. matches every origin/site.
   using Wildcard = std::monostate;
-  using LocationType = std::variant<Wildcard, net::SchemefulSite, url::Origin>;
 
-  static base::expected<LocationType, std::string_view> ConvertLocation(
-      const optimization_guide::proto::Location& location);
-  static bool MatchesLocationType(
-      const ActorContainerConfig::LocationType& location,
-      const url::Origin& origin);
-  static std::string LocationTypeToString(
-      const ActorContainerConfig::LocationType& location);
+  // Represents a location pattern, for looking up `Rule`s by origin/site/etc.
+  class Location {
+   public:
+    Location() = delete;
+    explicit Location(Wildcard);
+    explicit Location(net::SchemefulSite site);
+    explicit Location(url::Origin origin);
+    Location(const Location&);
+    Location(Location&&);
+    Location& operator=(const Location&);
+    Location& operator=(Location&&);
+    ~Location();
+
+    // Factory to create an instance from a `Location` proto.
+    static base::expected<Location, std::string_view> Create(
+        const optimization_guide::proto::Location& location);
+
+    // Returns true if `this` matches the given origin.
+    bool Matches(const url::Origin& origin) const;
+
+    // Serializes `this` as a string for debugging.
+    std::string ToDebugString() const;
+
+    friend auto operator<=>(const Location&, const Location&) = default;
+
+   private:
+    std::variant<Wildcard, net::SchemefulSite, url::Origin> data_;
+  };
 
   class Rule {
    public:
@@ -74,7 +94,7 @@ class ActorContainerConfig {
     Rule(Rule&&);
     Rule& operator=(const Rule&);
     Rule& operator=(Rule&&);
-    explicit Rule(std::vector<LocationType> navigation_sources,
+    explicit Rule(std::vector<Location> navigation_sources,
                   optimization_guide::proto::RuleMetadata metadata);
     ~Rule();
 
@@ -85,7 +105,7 @@ class ActorContainerConfig {
     bool CanNavigate() const;
 
    private:
-    std::vector<LocationType> navigation_sources_;
+    std::vector<Location> navigation_sources_;
     optimization_guide::proto::RuleMetadata metadata_;
   };
 
@@ -93,7 +113,7 @@ class ActorContainerConfig {
   // If `rules_` is not set, i.e. is `nullopt`, then the ActorContainerConfig is
   // "empty" and it should not gate any type of behavior. When it is set to a
   // non-null value, only actions allowed by the resulting Rules are allowed.
-  std::optional<base::flat_map<LocationType, Rule>> rules_ = std::nullopt;
+  std::optional<base::flat_map<Location, Rule>> rules_;
 };
 
 }  // namespace actor

@@ -15,7 +15,10 @@ source_set("impl") {
   ]
 
   if (is_android) {
-    deps += [ "//chrome/browser:browser_public_dependencies" ]
+    deps += [
+      "//chrome/browser:browser_public_dependencies",
+      "//chrome/browser/android:shortcut_helper",
+    ]
   } else {
     deps += [
       "//chrome/browser/profiles:profile",
@@ -98,6 +101,7 @@ source_set("browser_tests") {
       "//chrome/browser/ui",
       "//chrome/browser/user_education",
       "//chrome/browser/web_applications",
+      "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/common",
       "//chrome/test:test_support_ui",
       "//components/segmentation_platform/public",

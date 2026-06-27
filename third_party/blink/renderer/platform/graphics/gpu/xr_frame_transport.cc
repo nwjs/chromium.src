@@ -92,6 +92,7 @@ bool XRFrameTransport::FrameSubmit(
     device::mojom::blink::XRPresentationProvider* vr_presentation_provider,
     XRFrameTransportDelegate* delegate,
     Vector<XRLayerUpdate> layers,
+    Vector<gpu::SyncToken> camera_sync_tokens,
     int16_t vr_frame_id) {
   DCHECK(transport_options_);
   CHECK(delegate);
@@ -167,20 +168,33 @@ bool XRFrameTransport::FrameSubmit(
              device::mojom::blink::XRPresentationTransportMethod::
                  DRAW_INTO_TEXTURE_MAILBOX) {
     TRACE_EVENT0("gpu", "XRFrameTransport::SubmitFrameDrawnIntoTexture");
-    gpu::SyncToken sync_token = delegate->GenerateSyncToken();
-    if (!sync_token.HasData()) {
+    if (delegate->IsContextLost()) {
       return false;
     }
     if (waiting_for_previous_frame_render_) {
       frame_wait_time_ += WaitForPreviousRenderToFinish();
     }
-    Vector<device::LayerId> layer_ids;
-    layer_ids.reserve(layers.size());
+
+    Vector<device::mojom::blink::XRLayerUpdatePtr> mojom_layer_updates;
+    mojom_layer_updates.reserve(layers.size());
+
     for (auto& layer : layers) {
-      layer_ids.push_back(layer.layer_id);
+      auto mojom_layer_update = device::mojom::blink::XRLayerUpdate::New();
+      mojom_layer_update->layer_id = layer.layer_id;
+      if (layer.current_frame_image) {
+        mojom_layer_update->sync_token = layer.current_frame_image->sync_token;
+        delegate->VerifySyncToken(mojom_layer_update->sync_token);
+      } else {
+        mojom_layer_update->sync_token = gpu::SyncToken();
+      }
+      mojom_layer_updates.push_back(std::move(mojom_layer_update));
+    }
+    for (auto& camera_sync_token : camera_sync_tokens) {
+      delegate->VerifySyncToken(camera_sync_token);
     }
     vr_presentation_provider->SubmitFrameDrawnIntoTexture(
-        vr_frame_id, std::move(layer_ids), sync_token, frame_wait_time_);
+        vr_frame_id, std::move(mojom_layer_updates),
+        std::move(camera_sync_tokens), frame_wait_time_);
   } else {
     NOTREACHED() << "Unimplemented frame transport method";
   }

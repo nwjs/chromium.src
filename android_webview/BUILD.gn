@@ -96,33 +96,6 @@ if (_is_default_toolchain) {
     }
   }
 
-  # This version of the WebView APK doesn't include WebLayer.
-  # It's used to define the allowlist of resources to be pulled out of language
-  # splits. See |shared_resources_allowlist_target|.
-  standalone_system_webview_apk_tmpl("system_webview_no_weblayer_apk") {
-    apk_name = "SystemWebViewNoWebLayer"
-
-    # Don't include any code to speed up compilation. This is used only for the
-    # resources allowlist.
-    is_64_bit_browser = false
-    include_32_bit_webview = false
-    include_64_bit_webview = false
-    omit_dex = true
-
-    # Adding deps on recycler view in the base WebView APK will end up keeping the
-    # Java in the base APK instead of the WebLayer DFM, even though it is not
-    # needed in the base APK.
-    #
-    # If you hit this check and are adding a dep to //ui/android:ui_java, use
-    # //ui/android:ui_no_recycler_view instead. If you hit this check because you
-    # are adding //third_party/android_deps:android_support_*, use the androidx
-    # version of the dep instead.
-    # TODO(b/165810905): Use per-feature -keep rules in R8 once supported, then
-    # this can be removed.
-    assert_no_deps =
-        [ "//third_party/androidx:androidx_recyclerview_recyclerview_java" ]
-  }
-
   if (android_64bit_target_cpu && !defined(android_app_secondary_abi)) {
     group("system_webview_bundle") {
       deps = [ ":system_webview_64_bundle" ]
@@ -435,9 +408,9 @@ if (_is_default_toolchain) {
       ":browser_java",
       "//android_webview/js_sandbox:js_sandbox_service_java",
 
-      # This includes AwResource, which may be called via JNI. We're including it
-      # here because there's currently no good way to enforce that it gets included
-      # when it's depended on via JNI.
+      # This includes AwResource, which may be called via JNI. We're including
+      # it here because there's currently no good way to enforce that it gets
+      # included when it's depended on via JNI.
       ":common_java",
       "//android_webview/glue:glue_java",
       "//android_webview/nonembedded:nonembedded_java",
@@ -645,7 +618,6 @@ if (_is_default_toolchain) {
       "//components/android_autofill/browser:java",
       "//components/autofill/android:autofill_java",
       "//components/background_task_scheduler:background_task_scheduler_task_ids_java",
-      "//components/component_updater/android:embedded_component_loader_java",
       "//components/content_capture/android:java",
       "//components/crash/android:handler_java",
       "//components/crash/android:java",
@@ -662,6 +634,7 @@ if (_is_default_toolchain) {
       "//components/payments/content/android:feature_list_java",
       "//components/payments/content/android:full_java",
       "//components/payments/content/android:minimal_java",
+      "//components/payments/content/android:service_impl_java",
       "//components/payments/content/android:service_java",
       "//components/payments/mojom:mojom_java",
       "//components/policy/android:policy_java",
@@ -730,8 +703,8 @@ if (_is_default_toolchain) {
     ]
   }
 
-  # Separate target to allow for a dependency on GmsCore without pulling in all of
-  # android_webview_java. It compiles the abstract class; implementations are
+  # Separate target to allow for a dependency on GmsCore without pulling in all
+  # of android_webview_java. It compiles the abstract class; implementations are
   # compiled separately.
   android_library("common_platform_services_java") {
     sources = [
@@ -755,8 +728,8 @@ if (_is_default_toolchain) {
     ]
 
     # The appropriate .class file will be loaded via a dependency to a library
-    # like :platform_service_bridge_upstream_implementation_java below. We only include the
-    # .java file because other files in the target depend on it.
+    # like :platform_service_bridge_upstream_implementation_java below. We only
+    # include the .java file because other files in the target depend on it.
   }
 
   android_library("crash_client_java") {
@@ -1066,8 +1039,8 @@ if (_is_default_toolchain) {
       "webui_resources.pak",
     ]
 
-    # webui/resources has way too many resources. The allowlist is trim this down
-    # to a reasonable size
+    # webui/resources has way too many resources. The allowlist is trim this
+    # down to a reasonable size
     _allowlist = "ui/grit_resources_allowlist.txt"
     inputs = [ _allowlist ]
     grit_flags = [
@@ -1405,7 +1378,9 @@ if (_is_default_toolchain && enable_resource_allowlist_generation) {
   }
   generate_resource_allowlist("system_webview_pak_allowlist") {
     deps = [ ":system_webview_pak_allowlist_inputs" ]
-    inputs = [ "$root_out_dir/lib.unstripped/libsystem_webview_pak_allowlist_inputs$shlib_extension" ]
+    inputs = [
+      "$root_out_dir/libsystem_webview_pak_allowlist_inputs$shlib_extension",
+    ]
     output = system_webview_pak_allowlist
   }
 }

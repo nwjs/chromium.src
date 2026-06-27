@@ -52,7 +52,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/signin_error_controller.h"
@@ -377,10 +376,13 @@ void PeopleHandler::RegisterMessages() {
       "SyncSetupStartSignIn",
       base::BindRepeating(&PeopleHandler::HandleStartSignin,
                           base::Unretained(this)));
+#endif
+
   web_ui()->RegisterMessageCallback(
       "SyncShowSyncPassphraseDialog",
       base::BindRepeating(&PeopleHandler::HandleShowSyncPassphraseDialog,
                           base::Unretained(this)));
+
   web_ui()->RegisterMessageCallback(
       "ShowAccountSettingsUI",
       base::BindRepeating(&PeopleHandler::HandleShowAccountSettingsUI,
@@ -389,7 +391,6 @@ void PeopleHandler::RegisterMessages() {
       "SetDatatype", base::BindRepeating(&PeopleHandler::HandleSetDatatype,
                                          base::Unretained(this)));
 
-#endif
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   web_ui()->RegisterMessageCallback(
       "SyncSetupSignout", base::BindRepeating(&PeopleHandler::HandleSignout,
@@ -780,7 +781,8 @@ void PeopleHandler::HandleShowSyncSetupUI(const base::ListValue& args) {
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Mark Sync as requested by the user, in case it was reset via dashboard.
-  if (service) {
+  if (service && (service->HasSyncConsent() ||
+                  !syncer::IsReplaceSyncPromosWithSignInPromosEnabled())) {
     service->GetUserSettings()->ClearSyncFeatureDisabledViaDashboard();
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -956,7 +958,6 @@ void PeopleHandler::HandleSyncShowBookmarkLimitExceededHelp(
       syncer::SyncService::BookmarksLimitExceededHelpClickedSource::kSettings);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS)
 void PeopleHandler::HandleShowSyncPassphraseDialog(
     const base::ListValue& args) {
   BrowserWindowInterface* browser =
@@ -1005,7 +1006,6 @@ void PeopleHandler::HandleSetDatatype(const base::ListValue& args) {
 
   ResolveJavascriptCallback(callback_id, base::Value(kConfigurePageStatus));
 }
-#endif
 
 void PeopleHandler::HandleGetSyncStatus(const base::ListValue& args) {
   AllowJavascript();

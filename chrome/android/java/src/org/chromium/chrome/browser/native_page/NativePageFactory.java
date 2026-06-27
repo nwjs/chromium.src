@@ -47,6 +47,7 @@ import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPageCreationTracker;
 import org.chromium.chrome.browser.ntp.RecentTabsManager;
 import org.chromium.chrome.browser.ntp.RecentTabsPage;
+import org.chromium.chrome.browser.pdf.PdfFragmentViewTrackerImpl;
 import org.chromium.chrome.browser.pdf.PdfInfo;
 import org.chromium.chrome.browser.pdf.PdfPage;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -105,6 +106,7 @@ public class NativePageFactory {
     private static @Nullable NativePage sTestPage;
     private final BackPressManager mBackPressManager;
     private final RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
+    private @Nullable PdfFragmentViewTrackerImpl mPdfFragmentViewTracker;
 
     public NativePageFactory(
             Activity activity,
@@ -296,7 +298,8 @@ public class NativePageFactory {
                     mModuleRegistrySupplier,
                     mEdgeToEdgeControllerSupplier,
                     mTopInsetProvider,
-                    mStartupMetricsTracker);
+                    mStartupMetricsTracker,
+                    mBackPressManager);
         }
 
         protected NativePage buildBookmarksPage(Tab tab) {
@@ -395,9 +398,19 @@ public class NativePageFactory {
                     tab.getProfile());
         }
 
-        protected NativePage buildPdfPage(Tab tab, String url, PdfInfo pdfInfo) {
+        protected NativePage buildPdfPage(
+                Tab tab,
+                String url,
+                PdfInfo pdfInfo,
+                PdfFragmentViewTrackerImpl pdfFragmentViewTracker) {
             return NativePageFactory.buildPdfPage(
-                    url, tab, pdfInfo, mBrowserControlsManager, mTabModelSelector, mActivity);
+                    url,
+                    tab,
+                    pdfInfo,
+                    mBrowserControlsManager,
+                    mTabModelSelector,
+                    mActivity,
+                    pdfFragmentViewTracker);
         }
 
         private @Nullable IncognitoNtpMetrics createIncognitoNtpMetrics() {
@@ -467,7 +480,11 @@ public class NativePageFactory {
                 break;
             case NativePageType.PDF:
                 assumeNonNull(pdfInfo);
-                page = getBuilder().buildPdfPage(tab, url, pdfInfo);
+                if (mPdfFragmentViewTracker == null) {
+                    mPdfFragmentViewTracker =
+                            new PdfFragmentViewTrackerImpl(mTabModelSelector, mActivity);
+                }
+                page = getBuilder().buildPdfPage(tab, url, pdfInfo, mPdfFragmentViewTracker);
                 break;
             default:
                 assert false;
@@ -544,7 +561,8 @@ public class NativePageFactory {
                             assumeNonNull(pdfInfo),
                             browserControlsManager,
                             tabModelSelector,
-                            activity);
+                            activity,
+                            new PdfFragmentViewTrackerImpl(null, null));
         }
         page.updateForUrl(url);
         return page;
@@ -556,18 +574,21 @@ public class NativePageFactory {
             PdfInfo pdfInfo,
             BrowserControlsManager browserControlsManager,
             TabModelSelector tabModelSelector,
-            Activity activity) {
-        if (sTestPage instanceof PdfPage) {
+            Activity activity,
+            PdfFragmentViewTrackerImpl pdfFragmentViewTracker) {
+        if (sTestPage != null) {
             return sTestPage;
         }
         return new PdfPage(
                 new TabShim(tab, browserControlsManager, tabModelSelector, null),
                 tab.getProfile(),
+                tab.getProfile().isOffTheRecord(),
                 activity,
                 url,
                 pdfInfo,
                 activity.getString(R.string.pdf_transient_tab_title),
-                tab.getId());
+                tab.getId(),
+                pdfFragmentViewTracker);
     }
 
     /** Simple implementation of NativePageHost backed by a {@link Tab} */
@@ -641,9 +662,12 @@ public class NativePageFactory {
     /** Destroy and unhook objects at destruction. */
     public void destroy() {
         if (mNewTabPageCreationTracker != null) mNewTabPageCreationTracker.destroy();
+        if (mPdfFragmentViewTracker != null) {
+            mPdfFragmentViewTracker.destroy();
+        }
     }
 
-    public static void setPdfPageForTesting(PdfPage pdfPage) {
+    public static void setPdfPageForTesting(NativePage pdfPage) {
         sTestPage = pdfPage;
     }
 }

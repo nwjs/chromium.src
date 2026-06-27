@@ -5,8 +5,8 @@ option java_package = "org.chromium.components.variations";
 
 package variations;
 
-import "study.proto";
-import "variations_seed.proto";
+import "components/variations/proto/study.proto";
+import "components/variations/proto/variations_seed.proto";
 
 // The VariationsSeed is a protobuf response from the server that contains the
 // list of studies and a serial number to uniquely identify its contents. The
@@ -40,6 +40,7 @@ message CreateTrialsFromSeedTestCase {
     optional string permanent_consistency_country = 12;
     optional RestrictionPolicy policy_restriction = 13;
     repeated int64 google_groups = 14;
+    repeated string enterprise_groups = 15;
   }
   optional ClientFilterableState client_filterable_state = 2;
 

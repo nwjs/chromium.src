@@ -44,18 +44,21 @@ const char kAllowCrossOriginAuthPrompt[] = "allow-cross-origin-auth-prompt";
 // extension API.
 const char kAllowHttpScreenCapture[] = "allow-http-screen-capture";
 
-// Allows DevTools frontend from remote origins to load local file:// resources.
-// This should only be enabled when explicitly needed for remote debugging
-// with local source maps.
-const char kAllowUnsafeDevToolsRemoteFileLoading[] =
-    "allow-unsafe-devtools-remote-file-loading";
-
 // By default, an https page cannot run JavaScript, CSS or plugins from http
 // URLs. This provides an override to get the old insecure behavior.
 const char kAllowRunningInsecureContent[] = "allow-running-insecure-content";
 
 // Allows Web Push notifications that do not show a notification.
 const char kAllowSilentPush[] = "allow-silent-push";
+
+// Allows an unpacked Perfetto UI extension to be trusted.
+const char kAllowUnpackedPerfettoExtension[] = "allow-unpacked-perfetto-extension";
+
+// Allows DevTools frontend from remote origins to load local file:// resources.
+// This should only be enabled when explicitly needed for remote debugging
+// with local source maps.
+const char kAllowUnsafeDevToolsRemoteFileLoading[] =
+    "allow-unsafe-devtools-remote-file-loading";
 
 // Specifies that the associated value should be launched in "application"
 // mode.
@@ -360,6 +363,12 @@ const char kHideCrashRestoreBubble[] = "hide-crash-restore-bubble";
 const char kHomePage[] = "homepage";
 
 #if !BUILDFLAG(IS_ANDROID)
+// Causes the browser to simulate a screen lock event shortly after startup.
+// Optional value specifies the delay in seconds (defaults to 5).
+// Used for manual testing of Smart Restart.
+const char kSimulateLockScreenSmartRestart[] =
+    "simulate-lock-screen-smart-restart";
+
 // Triggers the import of passwords on startup.
 const char kImportPasswords[] = "import-passwords";
 #endif
@@ -932,9 +941,13 @@ const char kGuest[] = "guest";
 
 // Overrides the glic guest URL.
 const char kGlicGuestURL[] = "glic-guest-url";
+// Overrides the Gemini Enterprise settings JSON dictionary for local development.
+const char kGlicGeminiEnterpriseSettingsOverride[] =
+    "glic-gemini-enterprise-settings-override";
 const char kGlicAlwaysOpenFre[] = "glic-always-open-fre";
 const char kGlicAlwaysSkipFre[] = "glic-always-skip-fre";
 const char kGlicFreURL[] = "glic-fre-url";
+const char kGlicExperimentalFreURL[] = "glic-experimental-fre-url";
 const char kGlicShortcutsLearnMoreURL[] = "glic-shortcuts-learn-more-url";
 // Use --glic-open-on-startup=attached or --glic-open-on-startup=detached.
 const char kGlicOpenOnStartup[] = "glic-open-on-startup";

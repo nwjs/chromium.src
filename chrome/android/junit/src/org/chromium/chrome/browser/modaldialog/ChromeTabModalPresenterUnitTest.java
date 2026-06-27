@@ -23,6 +23,7 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -65,7 +66,7 @@ public class ChromeTabModalPresenterUnitTest {
         public TestChromeTabModalPresenter(
                 Activity activity,
                 Supplier<TabObscuringHandler> tabObscuringHandlerSupplier,
-                Supplier<ToolbarManager> toolbarManagerSupplier,
+                OneshotSupplier<ToolbarManager> toolbarManagerSupplier,
                 Runnable hideContextualSearch,
                 FullscreenManager fullscreenManager,
                 BrowserControlsVisibilityManager browserControlsVisibilityManager,
@@ -102,11 +103,17 @@ public class ChromeTabModalPresenterUnitTest {
                 new TestChromeTabModalPresenter(
                         mActivity,
                         () -> mTabObscuringHandler,
-                        () -> {
-                            if (mCurrentToolbarManager == null) {
-                                throw new AssertionError("Simulated RootUiCoordinator assertion");
+                        new OneshotSupplier<ToolbarManager>() {
+                            @Override
+                            public ToolbarManager onAvailable(
+                                    org.chromium.base.Callback<ToolbarManager> callback) {
+                                return get();
                             }
-                            return mCurrentToolbarManager;
+
+                            @Override
+                            public ToolbarManager get() {
+                                return mCurrentToolbarManager;
+                            }
                         },
                         () -> {},
                         mFullscreenManager,
@@ -132,14 +139,29 @@ public class ChromeTabModalPresenterUnitTest {
         mCurrentToolbarManager = null;
 
         // Dismiss the dialog (this calls setBrowserControlsAccess(false)).
-        // This should NOT crash despite the AssertionError in the supplier, and should clear the
+        // This should NOT crash despite the ToolbarManager being destroyed, and should clear the
         // tab state.
         mPresenter.setBrowserControlsAccess(false);
 
         // Verify that the tab state IS cleared.
         assertFalse(
                 "Dialog should NOT be showing on the tab after dismissal even if ToolbarManager"
-                        + " access throws AssertionError",
+                        + " is destroyed",
                 ChromeTabModalPresenter.isDialogShowing(mTab));
+    }
+
+    @Test
+    public void testDismissAfterTabDestroyed() {
+        // Set the active tab in the presenter.
+        mPresenter.setActiveTabForTesting(mTab);
+
+        // Simulate that a dialog is currently showing on the tab.
+        TabAttributes.from(mTab).set(TabAttributeKeys.MODAL_DIALOG_SHOWING, true);
+
+        // Mock the tab being destroyed.
+        when(mTab.isDestroyed()).thenReturn(true);
+
+        // Simulate dismissing the dialog. This should not crash even though the tab is destroyed.
+        mPresenter.setBrowserControlsAccess(false);
     }
 }

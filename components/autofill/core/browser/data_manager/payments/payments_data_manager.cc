@@ -4,27 +4,49 @@
 
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "base/android/device_info.h"
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/containers/extend.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/i18n/timezone.h"
+#include "base/logging.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
+#include "build/buildflag.h"
+#include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
+#include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
+#include "components/autofill/core/browser/data_model/payments/autofill_wallet_usage_data.h"
 #include "components/autofill/core/browser/data_model/payments/bank_account.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card_benefit.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card_cloud_token_data.h"
 #include "components/autofill/core/browser/data_model/payments/ewallet.h"
 #include "components/autofill/core/browser/data_model/payments/payment_instrument.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/browser/integrators/optimization_guide/autofill_optimization_guide_decider.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/bnpl_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
@@ -34,22 +56,29 @@
 #include "components/autofill/core/browser/metrics/payments/wallet_usage_data_metrics.h"
 #include "components/autofill/core/browser/payments/bnpl_manager.h"
 #include "components/autofill/core/browser/payments/constants.h"
+#include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/payments/payments_data_cleaner.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/ui/autofill_image_fetcher_base.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
-#include "components/autofill/core/browser/webdata/autofill_webdata_service_observer.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/credit_card_number_validation.h"
 #include "components/autofill/core/common/dense_set.h"
+#include "components/facilitated_payments/core/features/features.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync/base/data_type.h"
+#include "components/sync/base/user_selectable_type.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/sync/service/sync_user_settings.h"
-#include "components/webdata/common/web_data_service_consumer.h"
+#include "components/webdata/common/web_data_results.h"
+#include "components/webdata/common/web_data_service_base.h"
+#include "url/origin.h"
 
 namespace autofill {
 
@@ -254,20 +283,14 @@ PaymentsDataManager::PaymentsDataManager(
     if (IsAutofillPaymentMethodsEnabled()) {
       autofill_metrics::LogIsAutofillPaymentsCvcStorageEnabledAtStartup(
           IsPaymentCvcStorageEnabled());
-#if !BUILDFLAG(IS_IOS)
-      autofill_metrics::LogIsCreditCardBenefitsEnabledAtStartup(
-          prefs::IsPaymentCardBenefitsEnabled(pref_service_));
-#endif  // !BUILDFLAG(IS_IOS)
+      if (IsCardBenefitsSyncEnabled()) {
+        autofill_metrics::LogIsCreditCardBenefitsEnabledAtStartup(
+            prefs::IsPaymentCardBenefitsEnabled(pref_service_));
+      }
     } else {
       autofill_metrics::LogAutofillPaymentMethodsDisabledReasonAtStartup(
           *pref_service_);
     }
-#if !BUILDFLAG(IS_IOS)
-    // Clean up for crbug.com/411681430.
-    if (!IsPaymentCvcStorageEnabled()) {
-      ClearLocalCvcsUpToMay2025();
-    }
-#endif
   }
   if (sync_service_) {
     sync_observer_.Observe(sync_service_);
@@ -472,6 +495,12 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
   }
 
   NotifyObservers();
+
+  std::vector<base::OnceClosure> callbacks =
+      std::exchange(refresh_complete_callbacks_, {});
+  for (base::OnceClosure& callback : callbacks) {
+    std::move(callback).Run();
+  }
 }
 
 bool PaymentsDataManager::ShouldShowBnplSettings() const {
@@ -863,6 +892,15 @@ base::span<const Ewallet> PaymentsDataManager::GetEwalletAccounts() const {
     return {};
   }
   return ewallet_accounts_;
+}
+
+base::span<const Ewallet> PaymentsDataManager::GetEwalletCreationOptions()
+    const {
+  if (!IsAutofillPaymentMethodsEnabled() ||
+      !AreEwalletCreationOptionsSupported()) {
+    return {};
+  }
+  return ewallet_creation_options_;
 }
 
 PaymentsCustomerData* PaymentsDataManager::GetPaymentsCustomerData() const {
@@ -1569,17 +1607,6 @@ void PaymentsDataManager::ClearLocalCvcs() {
   Refresh();
 }
 
-void PaymentsDataManager::ClearLocalCvcsUpToMay2025() {
-  if (!GetLocalDatabase()) {
-    return;
-  }
-
-  GetLocalDatabase()->ClearLocalCvcsUpToMay2025();
-
-  // Refresh our local cache and send notifications to observers.
-  Refresh();
-}
-
 #if BUILDFLAG(IS_IOS)
 void PaymentsDataManager::CleanupForCrbug445879524() {
   if (!GetLocalDatabase()) {
@@ -1619,71 +1646,24 @@ void PaymentsDataManager::ClearAllServerDataForTesting() {
   ewallet_accounts_.clear();
   linked_bnpl_issuers_.clear();
   unlinked_bnpl_issuers_.clear();
-}
-
-void PaymentsDataManager::SetCreditCards(
-    std::vector<CreditCard>* credit_cards) {
-  // Remove empty credit cards from input.
-  std::erase_if(*credit_cards, [this](const CreditCard& credit_card) {
-    return credit_card.IsEmpty(app_locale_);
-  });
-
-  if (!GetLocalDatabase()) {
-    return;
-  }
-
-  // Any credit cards that are not in the new credit card list should be
-  // removed.
-  for (const auto& card : local_credit_cards_) {
-    if (!FindByGUID(*credit_cards, card->guid())) {
-      GetLocalDatabase()->RemoveCreditCard(card->guid());
-    }
-  }
-
-  // Update the web database with the existing credit cards.
-  for (const CreditCard& card : *credit_cards) {
-    if (FindByGUID(local_credit_cards_, card.guid())) {
-      GetLocalDatabase()->UpdateCreditCard(card);
-    }
-  }
-
-  // Add the new credit cards to the web database.  Don't add a duplicate.
-  for (const CreditCard& card : *credit_cards) {
-    if (!FindByGUID(local_credit_cards_, card.guid()) &&
-        !FindByContents(local_credit_cards_, card)) {
-      GetLocalDatabase()->AddCreditCard(card);
-    }
-  }
-
-  // Copy in the new credit cards.
-  local_credit_cards_.clear();
-  for (const CreditCard& card : *credit_cards) {
-    local_credit_cards_.push_back(std::make_unique<CreditCard>(card));
-  }
-
-  // Refresh our local cache and send notifications to observers.
-  Refresh();
+  ewallet_creation_options_.clear();
 }
 
 bool PaymentsDataManager::SaveCardLocallyIfNew(
     const CreditCard& imported_card) {
   CHECK(!imported_card.number().empty());
 
-  std::vector<CreditCard> credit_cards;
   for (auto& card : local_credit_cards_) {
     if (card->MatchingCardDetails(imported_card)) {
       return false;
     }
-    credit_cards.push_back(*card);
   }
 
-  auto imported_card_copy = imported_card;
+  CreditCard imported_card_copy = imported_card;
   if (!IsPaymentCvcStorageEnabled()) {
     imported_card_copy.clear_cvc();
   }
-  credit_cards.push_back(imported_card_copy);
-
-  SetCreditCards(&credit_cards);
+  AddCreditCard(imported_card_copy);
   return true;
 }
 
@@ -1804,8 +1784,17 @@ bool PaymentsDataManager::ShouldSuggestServerPaymentMethods() const {
   return sync_service_->GetActiveDataTypes().Has(syncer::AUTOFILL_WALLET_DATA);
 }
 
-base::WeakPtr<const PaymentsDataManager> PaymentsDataManager::GetWeakPtr()
-    const {
+void PaymentsDataManager::AddCallbackAfterRefreshCompleted(
+    base::OnceClosure callback) {
+  if (!HasPendingPaymentQueries()) {
+    std::move(callback).Run();
+    return;
+  }
+
+  refresh_complete_callbacks_.push_back(std::move(callback));
+}
+
+base::WeakPtr<PaymentsDataManager> PaymentsDataManager::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
@@ -2103,6 +2092,15 @@ bool PaymentsDataManager::AreEwalletAccountsSupported() const {
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
+bool PaymentsDataManager::AreEwalletCreationOptionsSupported() const {
+#if BUILDFLAG(IS_ANDROID)
+  return base::FeatureList::IsEnabled(
+      ::payments::facilitated::kEnableEwalletNewAccountLinking);
+#else
+  return false;
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
 bool PaymentsDataManager::AreBnplIssuersSupported() const {
   return app_locale_ == "en-US" &&
          (GetCountryCodeForExperimentGroup() == "US" ||
@@ -2119,9 +2117,9 @@ bool PaymentsDataManager::ArePaymentInstrumentsSupported() const {
 }
 
 bool PaymentsDataManager::ArePaymentInstrumentCreationOptionsSupported() const {
-  // Currently only BNPL issuers are using the payment instrument creation
-  // option proto for read from table.
-  return AreBnplIssuersSupported();
+  // Currently only BNPL issuers and eWallet creation options are using the
+  // payment instrument creation option proto for read from table.
+  return AreBnplIssuersSupported() || AreEwalletCreationOptionsSupported();
 }
 
 void PaymentsDataManager::OnAutofillPaymentsCardBenefitsPrefChange() {
@@ -2179,28 +2177,18 @@ size_t PaymentsDataManager::GetServerCardWithArtImageCount() const {
 
 std::string PaymentsDataManager::SaveImportedCreditCard(
     const CreditCard& imported_card) {
-  // Set to true if |imported_card| is merged into the credit card list.
-  bool merged = false;
-  std::string guid = imported_card.guid();
-  std::vector<CreditCard> credit_cards;
-  for (auto& card : local_credit_cards_) {
-    // If |imported_card| has not yet been merged, check whether it should be
-    // with the current |card|.
-    if (!merged && card->UpdateFromImportedCard(imported_card, app_locale_)) {
-      guid = card->guid();
-      merged = true;
+  // Potentially merge the card with an existing card.
+  for (std::unique_ptr<CreditCard>& card : local_credit_cards_) {
+    if (card->UpdateFromImportedCard(imported_card, app_locale_)) {
+      GetLocalDatabase()->UpdateCreditCard(*card);
+      Refresh();
+      return card->guid();
     }
-
-    credit_cards.push_back(*card);
   }
 
-  if (!merged) {
-    credit_cards.push_back(imported_card);
-  }
-
-  SetCreditCards(&credit_cards);
-
-  return guid;
+  // If the card was not merged, insert it as a new card.
+  AddCreditCard(imported_card);
+  return imported_card.guid();
 }
 
 void PaymentsDataManager::OnMaskedBankAccountsRefreshed() {
@@ -2351,6 +2339,7 @@ void PaymentsDataManager::OnPaymentInstrumentCreationOptionsRefreshed(
         payment_instrument_creation_options) {
   // Clear all payment instrument creation options.
   unlinked_bnpl_issuers_.clear();
+  ewallet_creation_options_.clear();
 
   for (const sync_pb::PaymentInstrumentCreationOption&
            payment_instrument_creation_option :
@@ -2358,6 +2347,9 @@ void PaymentsDataManager::OnPaymentInstrumentCreationOptionsRefreshed(
     if (AreBnplIssuersSupported()) {
       CacheIfBnplPaymentInstrumentCreationOption(
           payment_instrument_creation_option);
+    }
+    if (AreEwalletCreationOptionsSupported()) {
+      CacheIfEwalletCreationOption(payment_instrument_creation_option);
     }
   }
 }
@@ -2412,6 +2404,42 @@ void PaymentsDataManager::CacheIfBnplPaymentInstrumentCreationOption(
   unlinked_bnpl_issuers_.emplace_back(
       std::nullopt, ConvertToBnplIssuerIdEnum(bnpl_issuer.issuer_id()),
       std::move(eligible_price_ranges));
+}
+
+// If `payment_instrument_creation_option` contains eWallet options, constructs
+// and caches an Ewallet object representing the unlinked creation option.
+// Fields specific to linked accounts (e.g., instrument ID, nickname) are
+// initialized with placeholder values.
+void PaymentsDataManager::CacheIfEwalletCreationOption(
+    const sync_pb::PaymentInstrumentCreationOption&
+        payment_instrument_creation_option) {
+  if (!payment_instrument_creation_option.has_ewallet_creation_option()) {
+    return;
+  }
+
+  const sync_pb::EwalletCreationOption& ewallet_creation_option =
+      payment_instrument_creation_option.ewallet_creation_option();
+
+  std::u16string ewallet_issuer_display_name =
+      base::UTF8ToUTF16(ewallet_creation_option.issuer_display_name());
+  if (std::ranges::contains(ewallet_creation_options_,
+                            ewallet_issuer_display_name,
+                            &Ewallet::ewallet_name)) {
+    return;
+  }
+
+  std::vector<std::u16string> supported_payment_link_uris = base::ToVector(
+      ewallet_creation_option.supported_payment_link_uris(),
+      [](const std::string& uri) { return base::UTF8ToUTF16(uri); });
+
+  ewallet_creation_options_.emplace_back(0,       // instrument_id = 0
+                                         u"",     // nickname
+                                         GURL(),  // display_icon_url
+                                         ewallet_issuer_display_name,
+                                         u"",  // account_display_name
+                                         supported_payment_link_uris,
+                                         false  // is_fido_enrolled
+  );
 }
 
 bool PaymentsDataManager::HasEligibleCurrencyPriceRangeForBnplIssuer(

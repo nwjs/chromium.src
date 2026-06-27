@@ -174,7 +174,7 @@ class CORE_EXPORT LayoutBoxModelObject : public LayoutObject {
 
   // Returns the visual overflow rect, expanded to the area affected by any
   // filters that paint outside of the box, in physical coordinates.
-  PhysicalRect VisualOverflowRectIncludingFilters() const;
+  virtual PhysicalRect VisualOverflowRectIncludingFilters() const;
 
   // Returns a physical rect that is a result of apply this object's filters to
   // it. If there are no filters, it returns its argument.
@@ -284,21 +284,21 @@ class CORE_EXPORT LayoutBoxModelObject : public LayoutObject {
   void MoveChildTo(LayoutBoxModelObject* to_box_model_object,
                    LayoutObject* child,
                    LayoutObject* before_child,
-                   bool full_remove_insert = false);
+                   bool full_remove_insert);
   void MoveChildTo(LayoutBoxModelObject* to_box_model_object,
                    LayoutObject* child,
-                   bool full_remove_insert = false) {
+                   bool full_remove_insert) {
     NOT_DESTROYED();
     MoveChildTo(to_box_model_object, child, nullptr, full_remove_insert);
   }
   void MoveAllChildrenTo(LayoutBoxModelObject* to_box_model_object,
-                         bool full_remove_insert = false) {
+                         bool full_remove_insert) {
     NOT_DESTROYED();
     MoveAllChildrenTo(to_box_model_object, nullptr, full_remove_insert);
   }
   void MoveAllChildrenTo(LayoutBoxModelObject* to_box_model_object,
                          LayoutObject* before_child,
-                         bool full_remove_insert = false) {
+                         bool full_remove_insert) {
     NOT_DESTROYED();
     MoveChildrenTo(to_box_model_object, SlowFirstChild(), nullptr, before_child,
                    full_remove_insert);
@@ -310,7 +310,7 @@ class CORE_EXPORT LayoutBoxModelObject : public LayoutObject {
   void MoveChildrenTo(LayoutBoxModelObject* to_box_model_object,
                       LayoutObject* start_child,
                       LayoutObject* end_child,
-                      bool full_remove_insert = false) {
+                      bool full_remove_insert) {
     NOT_DESTROYED();
     MoveChildrenTo(to_box_model_object, start_child, end_child, nullptr,
                    full_remove_insert);
@@ -319,7 +319,7 @@ class CORE_EXPORT LayoutBoxModelObject : public LayoutObject {
                               LayoutObject* start_child,
                               LayoutObject* end_child,
                               LayoutObject* before_child,
-                              bool full_remove_insert = false);
+                              bool full_remove_insert);
 
   LayoutObject* SplitAnonymousBoxesAroundChild(LayoutObject* before_child);
   virtual LayoutBox* CreateAnonymousBoxToSplit(

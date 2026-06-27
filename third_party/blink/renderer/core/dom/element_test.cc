@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/test/scoped_feature_list.h"
+#include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_scroll_container.h"
@@ -1575,20 +1576,26 @@ TEST_F(ElementTest, ParseFocusgroupAttrBehaviorFirstRequirement) {
       invalid_empty->GetFocusgroupData(),
       FocusgroupData(FocusgroupBehavior::kNoBehavior, FocusgroupFlags::kNone));
 
-  // Non-behavior token first should be invalid
-  auto* invalid_inline_first =
+  // The parser scans the entire token list for the first recognized behavior
+  // token, so a modifier before the behavior is valid.
+  auto* inline_first =
       document.getElementById(AtomicString("invalid_inline_first"));
-  ASSERT_TRUE(invalid_inline_first);
+  ASSERT_TRUE(inline_first);
+  // "inline toolbar": toolbar found as behavior, explicit inline matches
+  // toolbar's default axis.
   EXPECT_EQ(
-      invalid_inline_first->GetFocusgroupData(),
-      FocusgroupData(FocusgroupBehavior::kNoBehavior, FocusgroupFlags::kNone));
+      inline_first->GetFocusgroupData(),
+      FocusgroupData(FocusgroupBehavior::kToolbar, FocusgroupFlags::kInline));
 
-  auto* invalid_wrap_first =
+  auto* wrap_first =
       document.getElementById(AtomicString("invalid_wrap_first"));
-  ASSERT_TRUE(invalid_wrap_first);
+  ASSERT_TRUE(wrap_first);
+  // "wrap menu": menu found as behavior, explicit wrap applies to menu's
+  // default block axis.
   EXPECT_EQ(
-      invalid_wrap_first->GetFocusgroupData(),
-      FocusgroupData(FocusgroupBehavior::kNoBehavior, FocusgroupFlags::kNone));
+      wrap_first->GetFocusgroupData(),
+      FocusgroupData(FocusgroupBehavior::kMenu,
+                     FocusgroupFlags::kBlock | FocusgroupFlags::kWrapBlock));
 
   // Valid behavior tokens should work
   auto* valid_toolbar = document.getElementById(AtomicString("valid_toolbar"));
@@ -1679,6 +1686,31 @@ TEST_F(ElementTest, ShadowRootAdoptedStyleSheetsUseCounter) {
       GetDocument().IsUseCounted(WebFeature::kShadowRootAdoptedStyleSheets));
 }
 
+TEST_F(ElementTest, AttributeChangedWithInvalidationsIncrementsDOMTreeVersion) {
+  Document& document = GetDocument();
+  SetBodyContent(R"HTML(<div id="target"></div>)HTML");
+  Element* target = document.getElementById(AtomicString("target"));
+  ASSERT_TRUE(target);
+
+  // Adding an attribute should increment DomTreeVersion.
+  uint64_t version_before = document.DomTreeVersion();
+  target->setAttribute(html_names::kClassAttr, AtomicString("foo"));
+  EXPECT_EQ(document.DomTreeVersion(), version_before + 1)
+      << "setAttribute (add) should increment DomTreeVersion.";
+
+  // Modifying an attribute should increment DomTreeVersion.
+  version_before = document.DomTreeVersion();
+  target->setAttribute(html_names::kClassAttr, AtomicString("bar"));
+  EXPECT_EQ(document.DomTreeVersion(), version_before + 1)
+      << "setAttribute (modify) should increment DomTreeVersion.";
+
+  // Removing an attribute should increment DomTreeVersion.
+  version_before = document.DomTreeVersion();
+  target->removeAttribute(html_names::kClassAttr);
+  EXPECT_EQ(document.DomTreeVersion(), version_before + 1)
+      << "removeAttribute should increment DomTreeVersion.";
+}
+
 // Provide assertion-prettify function for gtest.
 namespace focusgroup {
 void PrintTo(FocusgroupFlags flags, std::ostream* os) {
@@ -1688,5 +1720,29 @@ void PrintTo(FocusgroupData data, std::ostream* os) {
   *os << FocusgroupDataToStringForTesting(data).Utf8().c_str();
 }
 }  // namespace focusgroup
+
+TEST_F(ElementTest, TrackPasswordTrackingElementRectCSSHeuristic) {
+  ScopedAIPageContentTrackedElementsPasswordForTest scoped_feature(true);
+
+  viz::TrackedElementFeature tracking_feature =
+      viz::TrackedElementFeature::kPasswordTracking;
+
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<div id=test>abc</div>");
+  auto* div = To<Element>(GetDocument().getElementById(AtomicString("test")));
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(div->GetTrackedElementSubRect(tracking_feature));
+
+  // Applying -webkit-text-security should trigger tracking.
+  div->setAttribute(html_names::kStyleAttr,
+                    AtomicString("-webkit-text-security: disc;"));
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(div->GetTrackedElementSubRect(tracking_feature));
+
+  // Removing the style should not clear the "has ever been" state.
+  div->removeAttribute(html_names::kStyleAttr);
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(div->GetTrackedElementSubRect(tracking_feature));
+}
 
 }  // namespace blink

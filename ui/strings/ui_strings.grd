@@ -740,6 +740,9 @@ need to be translated for each locale.-->
       <message name="IDS_APP_F1_KEY" desc="F1 key">
         F1
       </message>
+      <message name="IDS_APP_F4_KEY" desc="F4 key">
+        F4
+      </message>
       <message name="IDS_APP_F5_KEY" desc="F5 key">
         F5
       </message>
@@ -1015,17 +1018,6 @@ need to be translated for each locale.-->
       </message>
       <message name="IDS_DISPLAY_NAME_INTERNAL" desc="The name used for internal displays, which is shown in the display settings.">
         Built-in display
-      </message>
-
-      <!-- Crostini app context menu item names, dialog message and button strings -->
-      <message name="IDS_CROSTINI_USE_LOW_DENSITY" desc="The Crostini app Shelf item context menu item to use low display density for app windows.">
-        Use low density
-      </message>
-      <message name="IDS_CROSTINI_USE_HIGH_DENSITY" desc="The Crostini app Shelf item context menu item to use high display density for app windows.">
-        Use high density
-      </message>
-      <message name="IDS_CROSTINI_APP_RESTART_BODY" desc="Description for the Crostini app restart dialog.">
-        Your application's display settings will take effect when it is next restarted.
       </message>
 
       <!-- Badging -->

@@ -886,14 +886,25 @@ bool EnableProcessHeapMetadataProtection() {
 }
 
 std::optional<base::ScopedTempDir> CreateSecureTempDir() {
-  // This function uses `base::CreateNewTempDirectory` and then a
-  // `base::ScopedTempDir` as owner, instead of just
-  // `base::ScopedTempDir::CreateUniqueTempDir`, because the former allows
-  // setting a more recognizable prefix of `COMPANY_SHORTNAME_STRING` on the
-  // temp directory.
+  // This function uses `base::CreateTemporaryDirInDir` under a secure parent
+  // (or standard temp if unelevated) and then a `base::ScopedTempDir` as owner,
+  // instead of just `base::ScopedTempDir::CreateUniqueTempDir`, because the
+  // former allows setting a more recognizable prefix of
+  // `COMPANY_SHORTNAME_STRING` on the temp directory.
+  base::FilePath parent_dir;
+  if (::IsUserAnAdmin()) {
+    if (!base::PathService::Get(base::DIR_SYSTEM_TEMP, &parent_dir)) {
+      return std::nullopt;
+    }
+  } else {
+    if (!base::GetTempDir(&parent_dir)) {
+      return std::nullopt;
+    }
+  }
+
   base::FilePath temp_dir;
-  if (!base::CreateNewTempDirectory(FILE_PATH_LITERAL(COMPANY_SHORTNAME_STRING),
-                                    &temp_dir)) {
+  if (!base::CreateTemporaryDirInDir(
+          parent_dir, FILE_PATH_LITERAL(COMPANY_SHORTNAME_STRING), &temp_dir)) {
     return std::nullopt;
   }
 
@@ -1628,11 +1639,8 @@ void LogComCaller(base::cstring_view caller_func) {
 
   VLOG(2) << caller_func
           << ": COM client for this COM server has PID: " << process.Pid()
-          << ", and has command line: " << [&] {
-               const HResultOr<std::wstring> cmd_line =
-                   GetCommandLineForPid(process.Pid());
-               return cmd_line.has_value() ? *cmd_line : std::wstring();
-             }();
+          << ", and has command line: "
+          << GetCommandLineForPid(process.Pid()).value_or(std::wstring());
 }
 
 std::optional<base::win::AccessToken> GetLoggedOnUserToken() {

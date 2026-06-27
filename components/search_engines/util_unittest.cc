@@ -43,8 +43,14 @@ TEST_F(SearchEngineUtilTemplateUrlTest, IsSearchEngineKeywordValidToUse) {
   // Keyword already in use.
   EXPECT_FALSE(IsSearchEngineKeywordValidToUse(u"google", service, nullptr));
 
+  // Keyword already in use (case-insensitive).
+  EXPECT_FALSE(IsSearchEngineKeywordValidToUse(u"Google", service, nullptr));
+
   // Keyword in use, but by the same TemplateURL (editing).
   EXPECT_TRUE(IsSearchEngineKeywordValidToUse(u"google", service, t_url));
+
+  // Keyword in use by the same TemplateURL (editing, case-insensitive).
+  EXPECT_TRUE(IsSearchEngineKeywordValidToUse(u"Google", service, t_url));
 }
 
 TEST_F(SearchEngineUtilTemplateUrlTest, GetFixedUpSearchEngineUrl) {
@@ -85,4 +91,42 @@ TEST_F(SearchEngineUtilTemplateUrlTest, IsSearchEngineURLValidToUse) {
   // A URL that supports replacement should pass.
   EXPECT_TRUE(IsSearchEngineURLValidToUse(
       "http://google.com/search?q={searchTerms}", service, default_provider));
+}
+
+TEST_F(SearchEngineUtilTest, IsAimZeroStateURL) {
+  EXPECT_TRUE(IsAimZeroStateURL(GURL("https://www.google.com/?udm=50")));
+  EXPECT_TRUE(IsAimZeroStateURL(GURL("https://google.com/?udm=50")));
+
+  // Subdomain should be rejected.
+  EXPECT_FALSE(IsAimZeroStateURL(GURL("https://amp.google.com/?udm=50")));
+  EXPECT_FALSE(IsAimZeroStateURL(GURL("https://sub.google.com/?udm=50")));
+
+  // Non-home page path should be rejected.
+  EXPECT_FALSE(IsAimZeroStateURL(
+      GURL("https://www.google.com/amp/s/attacker.com?udm=50")));
+  EXPECT_FALSE(IsAimZeroStateURL(GURL("https://www.google.com/phish?udm=50")));
+
+  // Search URL with a query should be rejected (handled by IsAimURL).
+  EXPECT_FALSE(
+      IsAimZeroStateURL(GURL("https://www.google.com/search?udm=50&q=test")));
+
+  // Search URL without query should be caught as AimZeroStateURL.
+  EXPECT_TRUE(IsAimZeroStateURL(GURL("https://www.google.com/search?udm=50")));
+
+  // Missing udm=50 should be rejected.
+  EXPECT_FALSE(IsAimZeroStateURL(GURL("https://www.google.com/")));
+}
+
+TEST_F(SearchEngineUtilTest, IsAimURL) {
+  EXPECT_TRUE(IsAimURL(GURL("https://www.google.com/search?udm=50&q=test")));
+  EXPECT_TRUE(IsAimURL(GURL("https://google.com/search?udm=50&q=test")));
+
+  // Subdomain should be rejected.
+  EXPECT_FALSE(IsAimURL(GURL("https://amp.google.com/search?udm=50&q=test")));
+
+  // No query parameter q should be rejected (it's a zero state URL).
+  EXPECT_FALSE(IsAimURL(GURL("https://www.google.com/search?udm=50")));
+
+  // Missing udm=50 should be rejected.
+  EXPECT_FALSE(IsAimURL(GURL("https://www.google.com/search?q=test")));
 }

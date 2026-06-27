@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/core/css/resolver/style_builder_converter.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
+#include "third_party/blink/renderer/core/css/style_caret_color.h"
 #include "third_party/blink/renderer/core/css/style_color.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/zoom_adjusted_pixel_value.h"
@@ -1487,7 +1488,12 @@ const CSSValue* BorderImageRepeat::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* BorderImageRepeat::InitialValue() const {
-  return CSSIdentifierValue::Create(CSSValueID::kStretch);
+  DEFINE_STATIC_LOCAL(const Persistent<CSSValuePair>, value,
+                      (MakeGarbageCollected<CSSValuePair>(
+                          CSSIdentifierValue::Create(CSSValueID::kStretch),
+                          CSSIdentifierValue::Create(CSSValueID::kStretch),
+                          CSSValuePair::kDropIdenticalValues)));
+  return value;
 }
 
 const CSSValue* BorderImageSlice::ParseSingleValue(
@@ -1981,7 +1987,7 @@ const CSSValue* BorderShape::CSSValueFromComputedStyleInternal(
   bool is_single_shape = !border_shape.HasSeparateInnerShape();
 
   // Outer shape and coord box
-  CSSValue* outer_shape = ValueForBasicShape(style, &border_shape.OuterShape());
+  CSSValue* outer_shape = ValueForBasicShape(style, border_shape.OuterShape());
   GeometryBox outer_box = border_shape.OuterBox();
   // For single-shape border-shape, half-border-box is the default and should
   // be omitted from serialization
@@ -1999,7 +2005,7 @@ const CSSValue* BorderShape::CSSValueFromComputedStyleInternal(
   // Inner shape and coord box
   if (!is_single_shape) {
     CSSValue* inner_shape =
-        ValueForBasicShape(style, &border_shape.InnerShape());
+        ValueForBasicShape(style, border_shape.InnerShape());
     GeometryBox inner_box = border_shape.InnerBox();
     if (inner_box != GeometryBox::kPaddingBox) {
       CSSValue* inner_box_value = CSSIdentifierValue::Create(inner_box);
@@ -2138,10 +2144,35 @@ const CSSValue* CaretColor::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
+  const CSSValue* first;
   if (stream.Peek().Id() == CSSValueID::kAuto) {
-    return css_parsing_utils::ConsumeIdent(stream);
+    first = css_parsing_utils::ConsumeIdent(stream);
+  } else {
+    first = css_parsing_utils::ConsumeColor(stream, context, local_context);
   }
-  return css_parsing_utils::ConsumeColor(stream, context, local_context);
+  if (!first) {
+    return nullptr;
+  }
+
+  if (!RuntimeEnabledFeatures::CSSCaretColorWithOptionalSecondValueEnabled(
+          context.GetExecutionContext())) {
+    return first;
+  }
+
+  const CSSValue* second;
+  if (stream.Peek().Id() == CSSValueID::kAuto) {
+    second = css_parsing_utils::ConsumeIdent(stream);
+  } else {
+    second = css_parsing_utils::ConsumeColor(stream, context, local_context);
+  }
+  if (!second) {
+    return first;
+  }
+
+  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+  list->Append(*first);
+  list->Append(*second);
+  return list;
 }
 
 const CSSValue* CaretShape::CSSValueFromComputedStyleInternal(
@@ -2157,7 +2188,7 @@ const blink::Color CaretColor::ColorIncludingFallback(
     const ComputedStyle& style,
     bool* is_current_color) const {
   DCHECK(!visited_link);
-  const StyleAutoColor& auto_color = style.CaretColor();
+  const StyleAutoColor& auto_color = style.CaretColor().FillColor();
   // TODO(rego): We may want to adjust the caret color if it's the same as
   // the background to ensure good visibility and contrast.
   const StyleColor result = auto_color.IsAutoColor()
@@ -2179,19 +2210,31 @@ const CSSValue* CaretColor::CSSValueFromComputedStyleInternal(
     return cssvalue::CSSColor::Create(style.VisitedDependentColor(*this));
   }
 
-  const StyleAutoColor& auto_color = style.CaretColor();
+  const StyleCaretColor& caret_color = style.CaretColor();
+  const StyleAutoColor& fill_color = caret_color.FillColor();
   // TODO(rego): We may want to adjust the caret color if it's the same as
   // the background to ensure good visibility and contrast.
-  const StyleColor result = auto_color.IsAutoColor()
+  const StyleColor result = fill_color.IsAutoColor()
                                 ? StyleColor::CurrentColor()
-                                : auto_color.ToStyleColor();
+                                : fill_color.ToStyleColor();
   if (value_phase == CSSValuePhase::kResolvedValue &&
       style.ShouldForceColor(result)) {
     return cssvalue::CSSColor::Create(style.GetInternalForcedCurrentColor());
   }
 
-  return ComputedStyleUtils::ValueForStyleAutoColor(style, style.CaretColor(),
-                                                    value_phase);
+  const CSSValue* first_value = ComputedStyleUtils::ValueForStyleAutoColor(
+      style, fill_color, value_phase);
+
+  // Include the color for text overlapping with block caret when it's non-auto.
+  const StyleAutoColor& text_color = caret_color.TextColor();
+  if (!text_color.IsAutoColor()) {
+    CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+    list->Append(*first_value);
+    list->Append(*ComputedStyleUtils::ValueForStyleAutoColor(style, text_color,
+                                                             value_phase));
+    return list;
+  }
+  return first_value;
 }
 
 bool CaretColor::IsAffectedByCurrentColor(const ComputedStyle& style) const {
@@ -2334,8 +2377,7 @@ const CSSValue* ClipPath::CSSValueFromComputedStyleInternal(
     }
     if (auto* shape = DynamicTo<ShapeClipPathOperation>(operation)) {
       CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-      auto* basic_shape = ValueForBasicShape(style, shape->GetBasicShape());
-      list->Append(*basic_shape);
+      list->Append(*ValueForBasicShape(style, shape->GetBasicShape()));
       GeometryBox geometry_box = shape->GetGeometryBox();
       if (geometry_box != GeometryBox::kBorderBox) {
         list->Append(*CSSIdentifierValue::Create(geometry_box));
@@ -2395,8 +2437,8 @@ void Color::ApplyInitial(StyleResolverState& state) const {
 void Color::ApplyInherit(StyleResolverState& state) const {
   ComputedStyleBuilder& builder = state.StyleBuilder();
   if (builder.ShouldPreserveParentColor()) {
-    builder.SetColor(StyleColor(
-        state.ParentStyle()->VisitedDependentColor(GetCSSPropertyColor())));
+    builder.SetColor(StyleColor(GetCSSPropertyColor().ColorIncludingFallback(
+        /*visited_link=*/false, *state.ParentStyle())));
   } else {
     builder.SetColor(state.ParentStyle()->Color());
   }
@@ -3869,7 +3911,7 @@ const CSSValue* Display::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  if (style.IsDisplayLayoutCustomBox()) {
+  if (style.IsDisplayLayoutCustom()) {
     return MakeGarbageCollected<cssvalue::CSSLayoutFunctionValue>(
         MakeGarbageCollected<CSSCustomIdentValue>(
             style.DisplayLayoutCustomName()),
@@ -5539,7 +5581,8 @@ const blink::Color InternalVisitedCaretColor::ColorIncludingFallback(
     const ComputedStyle& style,
     bool* is_current_color) const {
   DCHECK(visited_link);
-  const StyleAutoColor& auto_color = style.InternalVisitedCaretColor();
+  const StyleAutoColor& auto_color =
+      style.InternalVisitedCaretColor().FillColor();
   const StyleColor result = auto_color.IsAutoColor()
                                 ? StyleColor::CurrentColor()
                                 : auto_color.ToStyleColor();
@@ -6328,12 +6371,34 @@ const CSSValue* MaxLines::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     CSSParserLocalContext& local_context) const {
-  if (stream.Peek().Id() == CSSValueID::kNone) {
-    return css_parsing_utils::ConsumeIdent(stream);
-  } else {
-    return css_parsing_utils::ConsumePositiveInteger(stream, context,
-                                                     local_context);
+  CSSPrimitiveValue* num_lines = nullptr;
+  CSSIdentifierValue* auto_keyword = nullptr;
+
+  do {
+    if (!auto_keyword && stream.Peek().Id() == CSSValueID::kAuto) {
+      auto_keyword = css_parsing_utils::ConsumeIdent(stream);
+      continue;
+    }
+
+    if (!num_lines) {
+      num_lines = css_parsing_utils::ConsumePositiveInteger(stream, context,
+                                                            local_context);
+      if (num_lines) {
+        continue;
+      }
+    }
+
+    break;
+  } while (!stream.AtEnd());
+
+  if (num_lines && auto_keyword) {
+    return MakeGarbageCollected<CSSValuePair>(
+        num_lines, auto_keyword, CSSValuePair::kKeepIdenticalValues);
   }
+  if (num_lines) {
+    return num_lines;
+  }
+  return auto_keyword;
 }
 
 const CSSValue* MaxLines::CSSValueFromComputedStyleInternal(
@@ -6341,12 +6406,20 @@ const CSSValue* MaxLines::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  if (style.MaxLines() == 0) {
-    return CSSIdentifierValue::Create(CSSValueID::kNone);
+  MaxLinesData data = style.MaxLines();
+  if (data.IsAutoValue()) {
+    return CSSIdentifierValue::Create(CSSValueID::kAuto);
   }
-  DCHECK_GE(style.MaxLines(), 1);
-  return CSSNumericLiteralValue::Create(style.MaxLines(),
-                                        CSSPrimitiveValue::UnitType::kNumber);
+
+  DCHECK_GE(data.Lines(), 1u);
+  CSSNumericLiteralValue* num_lines = CSSNumericLiteralValue::Create(
+      data.Lines(), CSSPrimitiveValue::UnitType::kInteger);
+  if (data.HasAutoKeyword()) {
+    return MakeGarbageCollected<CSSValuePair>(
+        num_lines, CSSIdentifierValue::Create(CSSValueID::kAuto),
+        CSSValuePair::kKeepIdenticalValues);
+  }
+  return num_lines;
 }
 
 const CSSValue* BlockEllipsis::CSSValueFromComputedStyleInternal(
@@ -7106,7 +7179,7 @@ const CSSValue* ObjectViewBox::CSSValueFromComputedStyleInternal(
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   if (auto* basic_shape = style.ObjectViewBox()) {
-    return ValueForBasicShape(style, basic_shape);
+    return ValueForBasicShape(style, *basic_shape);
   }
   return CSSIdentifierValue::Create(CSSValueID::kNone);
 }
@@ -7160,7 +7233,7 @@ const CSSValue* OffsetPath::CSSValueFromComputedStyleInternal(
             DynamicTo<ShapeOffsetPathOperation>(operation)) {
       CSSValueList* list = CSSValueList::CreateSpaceSeparated();
       CSSValue* shape =
-          ValueForBasicShape(style, &shape_operation->GetBasicShape());
+          ValueForBasicShape(style, shape_operation->GetBasicShape());
       list->Append(*shape);
       CoordBox coord_box = shape_operation->GetCoordBox();
       if (coord_box != CoordBox::kBorderBox) {
@@ -8756,6 +8829,14 @@ const CSSValue* ScrollbarWidth::CSSValueFromComputedStyleInternal(
   return CSSIdentifierValue::Create(style.UsedScrollbarWidth());
 }
 
+const CSSValue* ScrollAxisLock::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.ScrollAxisLock());
+}
+
 const CSSValue* ScrollBehavior::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
@@ -9760,7 +9841,7 @@ const CSSValue* TextFit::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForFitText(style, style.TextFit());
+  return ComputedStyleUtils::ValueForTextFit(style, style.GetTextFit());
 }
 const CSSValue* TextIndent::ParseSingleValue(
     CSSParserTokenStream& stream,
@@ -9796,8 +9877,7 @@ const CSSValue* TextIndent::ParseSingleValue(
     }
     break;
   }
-  if (!hanging && !each_line &&
-      RuntimeEnabledFeatures::CssTextIndentAsPrimitiveEnabled()) {
+  if (!hanging && !each_line) {
     return length_percentage;
   }
   if (!length_percentage) {
@@ -9822,7 +9902,7 @@ const CSSValue* TextIndent::CSSValueFromComputedStyleInternal(
   const CSSValue* length = ComputedStyleUtils::ZoomAdjustedPixelValueForLength(
       style.TextIndent(), style);
   const TextIndentFlags flags = style.GetTextIndentFlags();
-  if (!flags && RuntimeEnabledFeatures::CssTextIndentAsPrimitiveEnabled()) {
+  if (!flags) {
     return length;
   }
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();

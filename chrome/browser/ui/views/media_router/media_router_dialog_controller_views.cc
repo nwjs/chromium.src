@@ -74,12 +74,16 @@ void MediaRouterDialogControllerViews::CreateMediaRouterDialog(
   // content area, as this would make it susceptible to spoofing attacks.
   if (browser) {
     ExclusiveAccessManager* exclusive_access_manager =
-        browser->GetExclusiveAccessManager();
+        ExclusiveAccessManager::From(browser);
     FullscreenController* fullscreen_controller =
         exclusive_access_manager->fullscreen_controller();
     if (fullscreen_controller->IsTabFullscreen()) {
-      fullscreen_blocker_ =
+      auto blocker =
           initiator()->ForSecurityDropFullscreen(display::kInvalidDisplayId);
+      if (!blocker) {
+        return;
+      }
+      fullscreen_blocker_ = std::move(*blocker);
     }
   }
 

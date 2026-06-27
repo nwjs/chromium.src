@@ -47,6 +47,15 @@ FakeBaseModelAsset::FakeBaseModelAsset(
     : FakeBaseModelAsset(Content{
           .config = ExecutionConfigWithValidation(std::move(validation_config)),
       }) {}
+FakeBaseModelAsset::FakeBaseModelAsset(
+    const std::vector<proto::OnDeviceModelPerformanceHint>& hints,
+    Content content) {
+  CHECK(temp_dir_.CreateUniqueTempDir());
+  for (const auto& hint : hints) {
+    supported_performance_hints_.Append(hint);
+  }
+  Write(std::move(content));
+}
 FakeBaseModelAsset::~FakeBaseModelAsset() = default;
 
 void FakeBaseModelAsset::Write(Content&& content) {
@@ -63,6 +72,10 @@ void FakeBaseModelAsset::Write(Content&& content) {
   if (content.adapter_cache_weight) {
     CHECK(base::WriteFile(temp_dir_.GetPath().Append(kAdapterCacheFile),
                           base::NumberToString(content.adapter_cache_weight)));
+  }
+  if (content.shader_cache_data) {
+    CHECK(base::WriteFile(temp_dir_.GetPath().Append(kProgramCacheFile),
+                          std::string(content.shader_cache_data)));
   }
   CHECK(base::WriteFile(
       temp_dir_.GetPath().Append(kOnDeviceModelExecutionConfigFile),
@@ -159,6 +172,7 @@ FakeSafetyModelAsset::FakeSafetyModelAsset(
   CHECK(base::WriteFile(data_path, on_device_model::FakeTsData()));
   CHECK(base::WriteFile(model_path, on_device_model::FakeTsSpModel()));
   model_info_ = TestModelInfoBuilder()
+                    .SetModelFilePath(data_path)
                     .SetVersion(content.model_info_version)
                     .SetAdditionalFiles({data_path, model_path})
                     .SetModelMetadata(AnyWrapProto(content.metadata))

@@ -6,10 +6,12 @@
 #define COMPONENTS_MULTISTEP_FILTER_CORE_STORAGE_FILTER_STORE_BACKEND_H_
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 #include "base/sequence_checker.h"
+#include "base/time/time.h"
 #include "components/multistep_filter/core/storage/filter_annotation_table.h"
 #include "sql/database.h"
 
@@ -35,11 +37,17 @@ class FilterStoreBackend {
   // Stores a new annotation. Called by the UI thread via SequenceBound.
   bool StoreAnnotation(const FilterAnnotation& annotation);
 
-  // Retrieves annotations for a specific task type. Called by the UI thread
-  // via SequenceBound, returning data via callback.
+  // Retrieves annotations for a specific task type created at or after
+  // `min_creation_time`. Called by the UI thread via SequenceBound, returning
+  // data via callback.
   std::vector<FilterAnnotation> GetAnnotationsForTaskSortedByCreationTimestamp(
       std::string_view task_type,
-      size_t max_count);
+      size_t max_count,
+      base::Time min_creation_time);
+
+  // Deletes all annotations for the given `task_type`.
+  // Returns the number of annotations deleted, or std::nullopt on failure.
+  std::optional<int64_t> DeleteAnnotationsForTask(std::string_view task_type);
 
   // Clears all data from the database.
   void ClearData();

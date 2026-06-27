@@ -15,7 +15,6 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
-#include "components/accessibility_annotator/core/storage/accessibility_annotator_backend.h"
 #include "components/account_settings/account_setting_service.h"
 #include "components/autofill/core/browser/payments/autofill_wallet_data_type_controller.h"
 #include "components/autofill/core/browser/webdata/addresses/autofill_profile_sync_bridge.h"
@@ -241,12 +240,6 @@ CommonControllerBuilder::CommonControllerBuilder() = default;
 
 CommonControllerBuilder::~CommonControllerBuilder() = default;
 
-void CommonControllerBuilder::SetAccessibilityAnnotatorBackend(
-    accessibility_annotator::AccessibilityAnnotatorBackend*
-        accessibility_annotator_backend) {
-  accessibility_annotator_backend_.Set(accessibility_annotator_backend);
-}
-
 void CommonControllerBuilder::SetAccountSettingService(
     account_settings::AccountSettingService* account_setting_service) {
   account_setting_service_.Set(account_setting_service);
@@ -375,6 +368,7 @@ void CommonControllerBuilder::SetPasswordStore(
   account_password_store_.Set(account_password_store);
 }
 
+#if !BUILDFLAG(IS_IOS)
 void CommonControllerBuilder::SetPlusAddressServices(
     plus_addresses::PlusAddressSettingService* plus_address_setting_service,
     const scoped_refptr<plus_addresses::PlusAddressWebDataService>&
@@ -382,6 +376,7 @@ void CommonControllerBuilder::SetPlusAddressServices(
   plus_address_setting_service_.Set(plus_address_setting_service);
   plus_address_webdata_service_.Set(plus_address_webdata_service);
 }
+#endif  // !BUILDFLAG(IS_IOS)
 
 void CommonControllerBuilder::SetPrefService(PrefService* pref_service) {
   pref_service_.Set(pref_service);
@@ -521,6 +516,7 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
         CreateOutgoingPasswordSharingInvitationDataTypeController(sync_service));
   }
 
+#if !BUILDFLAG(IS_IOS)
   if (!disabled_types.Has(syncer::PLUS_ADDRESS)) {
     add_controller(CreatePlusAddressDataTypeController());
   }
@@ -528,6 +524,7 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
   if (!disabled_types.Has(syncer::PLUS_ADDRESS_SETTING)) {
     add_controller(CreatePlusAddressSettingDataTypeController());
   }
+#endif  // !BUILDFLAG(IS_IOS)
 
   if (!disabled_types.Has(syncer::PREFERENCES)) {
     add_controller(CreatePreferencesDataTypeController(channel));
@@ -595,10 +592,6 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
 
   if (!disabled_types.Has(syncer::GEMINI_THREAD)) {
     add_controller(CreateGeminiThreadDataTypeController());
-  }
-
-  if (!disabled_types.Has(syncer::ACCESSIBILITY_ANNOTATION)) {
-    add_controller(CreateAccessibilityAnnotationDataTypeController());
   }
 
   if (!disabled_types.Has(syncer::CONTEXTUAL_TASK)) {
@@ -856,6 +849,7 @@ std::unique_ptr<syncer::DataTypeController> CommonControllerBuilder::
       sync_service, password_sender_service_.value(), pref_service_.value());
 }
 
+#if !BUILDFLAG(IS_IOS)
 std::unique_ptr<syncer::DataTypeController>
 CommonControllerBuilder::CreatePlusAddressDataTypeController() {
   // `plus_address_webdata_service_` is null on iOS WebView.
@@ -887,6 +881,7 @@ CommonControllerBuilder::CreatePlusAddressSettingDataTypeController() {
       plus_address_setting_service_.value()->GetSyncControllerDelegate(),
       google_groups_manager_.value());
 }
+#endif  // !BUILDFLAG(IS_IOS)
 
 std::unique_ptr<syncer::DataTypeController>
 CommonControllerBuilder::CreatePreferencesDataTypeController(
@@ -1191,27 +1186,6 @@ CommonControllerBuilder::CreateGeminiThreadDataTypeController() {
   }
   return std::make_unique<contextual_tasks::GeminiThreadDataTypeController>(
       /*contextual_tasks_service=*/contextual_tasks_service_.value(),
-      /*delegate_for_full_sync_mode= */
-      std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(delegate),
-      /*delegate_for_transport_mode= */
-      std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(delegate));
-}
-
-std::unique_ptr<syncer::DataTypeController>
-CommonControllerBuilder::CreateAccessibilityAnnotationDataTypeController() {
-  if (!base::FeatureList::IsEnabled(syncer::kSyncAccessibilityAnnotation) ||
-      !accessibility_annotator_backend_.value()) {
-    return nullptr;
-  }
-  syncer::DataTypeControllerDelegate* delegate =
-      accessibility_annotator_backend_.value()
-          ->GetAccessibilityAnnotationControllerDelegate()
-          .get();
-  if (!delegate) {
-    return nullptr;
-  }
-  return std::make_unique<DataTypeController>(
-      syncer::ACCESSIBILITY_ANNOTATION,
       /*delegate_for_full_sync_mode= */
       std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(delegate),
       /*delegate_for_transport_mode= */

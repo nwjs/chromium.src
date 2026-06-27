@@ -33,6 +33,7 @@
 #include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/omnibox/autocomplete_controller_emitter_factory.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
@@ -174,6 +175,7 @@ void AutocompleteControllerAndroid::Start(
     ::omnibox::ToolMode tool_mode,
     bool prevent_inline_autocomplete,
     bool prefer_keyword,
+    bool in_keyword_mode,
     bool allow_exact_keyword_match,
     bool want_asynchronous_matches) {
   autocomplete_controller_->result().DestroyJavaObject();
@@ -190,6 +192,7 @@ void AutocompleteControllerAndroid::Start(
   input_.set_current_url(current_url);
   input_.set_prevent_inline_autocomplete(prevent_inline_autocomplete);
   input_.set_prefer_keyword(prefer_keyword);
+  input_.set_in_keyword_mode(prefer_keyword || in_keyword_mode);
   input_.set_allow_exact_keyword_match(allow_exact_keyword_match);
   input_.set_omit_asynchronous_matches(!want_asynchronous_matches);
 
@@ -235,10 +238,12 @@ ScopedJavaLocalRef<jobject> AutocompleteControllerAndroid::Classify(
 
   inside_synchronous_start_ = true;
   Start(env, nullptr, text, -1, "", GURL(), ::metrics::OmniboxEventProto::OTHER,
-        omnibox::TOOL_MODE_UNSPECIFIED, false, false, false, false);
+        omnibox::TOOL_MODE_UNSPECIFIED, false, false, false, false, false);
   inside_synchronous_start_ = false;
   DCHECK(autocomplete_controller_->done());
-  const AutocompleteResult& result = autocomplete_controller_->result();
+  AutocompleteResult& result =
+      const_cast<AutocompleteResult&>(autocomplete_controller_->result());
+  PostProcessResult(result);
   if (result.empty()) {
     return ScopedJavaLocalRef<jobject>();
   }
@@ -328,12 +333,11 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
   autocomplete_controller_->Start(input_);
 }
 
-void AutocompleteControllerAndroid::Stop(JNIEnv* env, bool clear_results) {
-  autocomplete_controller_->Stop(clear_results
-                                     ? AutocompleteStopReason::kClobbered
-                                     : AutocompleteStopReason::kInteraction);
+void AutocompleteControllerAndroid::Stop(JNIEnv* env,
+                                         AutocompleteStopReason reason) {
+  autocomplete_controller_->Stop(reason);
 
-  if (clear_results) {
+  if (reason == AutocompleteStopReason::kClobbered) {
     contextual_tasks_web_contents_.reset();
   }
 }
@@ -631,7 +635,10 @@ void AutocompleteControllerAndroid::OnResultChanged(
     AutocompleteController* controller,
     bool default_match_changed) {
   if (!inside_synchronous_start_) {
-    NotifySuggestionsReceived(autocomplete_controller_->result());
+    AutocompleteResult& result =
+        const_cast<AutocompleteResult&>(controller->result());
+    PostProcessResult(result);
+    NotifySuggestionsReceived(result);
   }
 }
 
@@ -654,6 +661,23 @@ void AutocompleteControllerAndroid::WarmUpRenderProcess() const {
   // It is ok for this to get called multiple times since all the requests
   // will get de-duplicated to the first one.
   content::SpareRenderProcessHostManager::Get().WarmupSpare(profile_);
+}
+
+void AutocompleteControllerAndroid::PostProcessResult(
+    AutocompleteResult& result) {
+  if (auto* web_contents = GetContextualTasksWebContents()) {
+    for (auto& match : result) {
+      if (contextual_tasks::IsContextualTasksUrl(match.destination_url)) {
+        GURL pretty_url =
+            contextual_tasks::GetContextualTasksDisplayURL(web_contents);
+        if (pretty_url.is_valid()) {
+          match.contents = base::UTF8ToUTF16(pretty_url.spec());
+          match.contents_class.clear();
+          match.contents_class.emplace_back(0, ACMatchClassification::URL);
+        }
+      }
+    }
+  }
 }
 
 content::WebContents*

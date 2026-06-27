@@ -4,24 +4,31 @@
 
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 
+#include <stddef.h>
+
 #include <algorithm>
-#include <memory>
 #include <optional>
+#include <set>
+#include <string>
 #include <string_view>
 #include <vector>
 
+#include "base/check.h"
+#include "base/check_op.h"
+#include "base/feature_list.h"
+#include "base/logging.h"
+#include "base/notreached.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/address.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_name.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/contact_info.h"
+#include "components/autofill/core/browser/data_model/addresses/phone_number.h"
 #include "components/autofill/core/browser/data_model/transliterator.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
 #include "components/autofill/core/browser/field_type_utils.h"
@@ -133,6 +140,14 @@ bool AutofillProfileComparator::AreMergeable(const AutofillProfile& p1,
   // Emails go last, since their comparison logic triggers ICU code, which can
   // trigger the loading of locale-specific rules.
   DVLOG(1) << "Comparing profiles:\np1 = " << p1 << "\np2 = " << p2;
+
+  // Do not process `p1` if it is trivially unrelated to `p2` for having
+  // different source country code, for performance reasons.
+  if (!data_util::HaveNonConflictingCountryCodes(p1.GetAddressCountryCode(),
+                                                 p2.GetAddressCountryCode())) {
+    DVLOG(1) << "Different country codes.";
+    return false;
+  }
 
   if (!HaveMergeableCompanyNames(p1, p2)) {
     DVLOG(1) << "Different email company names.";

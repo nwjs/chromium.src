@@ -5,6 +5,8 @@
 package org.chromium.chrome.browser.ui.side_ui;
 
 import android.transition.Transition;
+import android.transition.TransitionListenerAdapter;
+import android.transition.TransitionSet;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -14,9 +16,9 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 @NullMarked
 public interface SideUiObserver {
     /**
-     * Called to notify observers of new side UI specs, and collect Transitions for a synchronized
-     * animation transition. This will be followed up with call to #onSideUiSpecsChanged to make
-     * changes to the layout after the Transition has begun.
+     * Called to notify observers of new side UI specs before any changes have happened, and collect
+     * Transitions for a synchronized animation transition. This will be followed up with calls to
+     * #onTransitionBegun and #onTransitionEnded.
      *
      * @param sideUiSpecs The new {@link SideUiSpecs}.
      * @return The {@link Transition} used to handle the animation for this observer. This
@@ -25,21 +27,44 @@ public interface SideUiObserver {
      *     they're not visible), though they should still statically resize to the new specs via
      *     #onSideUiSpecsChanged.
      */
+    // TODO(crbug.com/505118476): Clean up all classes implementing this interface and make this
+    //  return a non-nullable.
     default @Nullable Transition onPreSideUiSpecsChange(SideUiSpecs sideUiSpecs) {
         return null;
     }
 
     /**
-     * Called after the Side UI has initiated a {@link Transition} its new resting UI state to
-     * handle a resize. This will either be 1) a static resize or 2) when an animated resize
-     * Transition has just begun.
+     * Called immediately after a {@link Transition} has begun. All changes to Java Views that need
+     * to take part in the animated Transition should be triggered here.
      *
-     * <p>The {@link SideUiSpecs} that are passed represent the resting state after the
-     * aforementioned resize will be completed. These specs are also the same as the ones queryable
-     * through {@link SideUiCoordinator#getCurrentSideUiSpecs()}.
+     * <p>Note - this is not tied to {@link TransitionListenerAdapter#onTransitionStart}. This is
+     * triggered earlier, right after the transition is triggered from the {@link TransitionSet}.
      *
-     * <p>This is intended to be used by UI elements that need to resize themselves in response to
-     * the changes in the Side UI.
+     * <p>This will only be triggered when there is an animation.
+     *
+     * @param sideUiSpecs The new {@link SideUiSpecs}.
+     */
+    default void onTransitionBegun(SideUiSpecs sideUiSpecs) {
+        // For observers that just target Java Views, this should be the same as
+        // #onSideUiSpecsChanged(), since the Transition framework will capture all changes made
+        // after the Transition has begun and animate them. #onSideUiSpecsChanged() should not be
+        // called if animating things that aren't Java Views, such as any Animators with custom
+        // logic being synchronized to the Transition (e.g. to update composited views).
+        onSideUiSpecsChanged(sideUiSpecs);
+    }
+
+    /**
+     * Called after the {@link Transition} that triggered {@link #onTransitionBegun} has ended.
+     *
+     * <p>This will only be triggered when there is an animation.
+     *
+     * @param sideUiSpecs The new {@link SideUiSpecs}.
+     */
+    default void onTransitionEnded(SideUiSpecs sideUiSpecs) {}
+
+    /**
+     * Called after {@link SideUiCoordinator} has applied the given {@link SideUiSpecs} to the UI.
+     * This method will only be called for static resizing, not for animated changes.
      *
      * @param sideUiSpecs The new {@link SideUiSpecs}.
      */

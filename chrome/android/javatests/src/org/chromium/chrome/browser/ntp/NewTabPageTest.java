@@ -12,6 +12,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,6 +75,8 @@ import org.chromium.chrome.browser.logo.LogoBridgeJni;
 import org.chromium.chrome.browser.logo.LogoCoordinator;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridgeJni;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -162,6 +165,7 @@ public class NewTabPageTest {
     @Mock FeedActionDelegate.PageLoadObserver mPageLoadObserver;
     @Mock LogoBridge.Natives mLogoBridgeJniMock;
     @Mock private LogoBridge mLogoBridge;
+    @Mock ComposeboxQueryControllerBridge.Natives mComposeboxBridgeJni;
 
     private static final String TEST_PAGE = "/chrome/test/data/android/navigate/simple.html";
     private static final String TEST_FEED =
@@ -184,6 +188,8 @@ public class NewTabPageTest {
     @Before
     public void setUp() throws Exception {
         ComposeplateUtils.setIsEnabledForTesting(true);
+        ComposeboxQueryControllerBridgeJni.setInstanceForTesting(mComposeboxBridgeJni);
+        when(mComposeboxBridgeJni.isFuseboxEligibleForProfile(any())).thenReturn(true);
         OmniboxFeatures.sCompactFusebox.setForTesting(true);
         mActivityTestRule.startOnBlankPage();
         TemplateUrlService originalService =
@@ -222,11 +228,7 @@ public class NewTabPageTest {
     // Disable sign-in to suppress sync promo, as it's unrelated to this render test.
     @Policies.Add(@Policies.Item(key = "BrowserSignin", string = "0"))
     public void testRender_FocusFakeBox() throws Exception {
-        ThreadUtils.runOnUiThreadBlocking(
-                () ->
-                        mNtp.getNewTabPageCoordinator()
-                                .getNtpSearchBoxForTesting()
-                                .setIsFuseboxEligible(false));
+        ComposeplateUtils.setIsEnabledForTesting(false);
         ScrimManager scrimManager =
                 mActivityTestRule.getActivity().getRootUiCoordinatorForTesting().getScrimManager();
         scrimManager.disableAnimationForTesting(true);
@@ -244,11 +246,7 @@ public class NewTabPageTest {
     @Policies.Add(@Policies.Item(key = "BrowserSignin", string = "0"))
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT + ":show_ntp_plus_button/true")
     public void testRender_FocusFakeBox_withPlusButton() throws Exception {
-        ThreadUtils.runOnUiThreadBlocking(
-                () ->
-                        mNtp.getNewTabPageCoordinator()
-                                .getNtpSearchBoxForTesting()
-                                .setIsFuseboxEligible(true));
+        ComposeplateUtils.setIsEnabledForTesting(true);
         ScrimManager scrimManager =
                 mActivityTestRule.getActivity().getRootUiCoordinatorForTesting().getScrimManager();
         scrimManager.disableAnimationForTesting(true);
@@ -949,6 +947,7 @@ public class NewTabPageTest {
     @SmallTest
     @Feature({"NewTabPage"})
     @DisableFeatures({OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
     public void testAiModeButton() {
         View ntpLayout = mNtp.getLayout();
         TouchCommon.singleClickView(
@@ -962,6 +961,7 @@ public class NewTabPageTest {
     @SmallTest
     @Feature({"NewTabPage"})
     @EnableFeatures({OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
     public void testAiModeButton_fusebox() {
         if (mActivityTestRule.getActivity().isTablet()) return;
 
@@ -979,6 +979,7 @@ public class NewTabPageTest {
     @SmallTest
     @Feature({"NewTabPage"})
     @EnableFeatures({OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP)
     public void testAiModeButton_fuseboxWithoutRedirect() {
         if (mActivityTestRule.getActivity().isTablet()) return;
 

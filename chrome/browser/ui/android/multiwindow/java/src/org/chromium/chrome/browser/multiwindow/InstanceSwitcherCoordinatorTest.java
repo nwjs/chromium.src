@@ -63,6 +63,8 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -83,6 +85,7 @@ import java.util.concurrent.TimeoutException;
 /** Unit tests for {@link InstanceSwitcherCoordinator}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@DisableLeakChecks("crbug.com/512492435 (InstanceSwitcherCoordinator)")
 public class InstanceSwitcherCoordinatorTest {
     private static final int MAX_INSTANCE_COUNT = 5;
 
@@ -325,6 +328,55 @@ public class InstanceSwitcherCoordinatorTest {
                 .perform(actionOnItemAtPosition(1, click()));
 
         // Verify "Open" button is now enabled and open the selected instance.
+        onView(allOf(withId(R.id.positive_button), withText(R.string.open)))
+                .inRoot(isDialog())
+                .check(matches(isEnabled()))
+                .perform(click());
+        itemClickCallbackHelper.waitForCallback(itemClickCount);
+        verify(mDelegate).openInstance(instances[1].instanceId);
+    }
+
+    @Test
+    @SmallTest
+    public void testOpenWindowAtInstanceLimit() throws Exception {
+        // Initialize instance list with MAX_INSTANCE_COUNT active instances.
+        InstanceInfo[] instances =
+                createPersistedInstances(
+                        /* numActiveInstances= */ MAX_INSTANCE_COUNT,
+                        /* numInactiveInstances= */ 0);
+        final CallbackHelper itemClickCallbackHelper = new CallbackHelper();
+        final int itemClickCount = itemClickCallbackHelper.getCallCount();
+        doAnswer(
+                        invocation -> {
+                            itemClickCallbackHelper.notifyCalled();
+                            return null;
+                        })
+                .when(mDelegate)
+                .openInstance(anyInt());
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    InstanceSwitcherCoordinator.showDialog(
+                            mActivityTestRule.getActivity(),
+                            mModalDialogManager,
+                            mIconBridge,
+                            mDelegate,
+                            MAX_INSTANCE_COUNT,
+                            Arrays.asList(instances),
+                            /* isIncognitoWindow= */ false);
+                });
+
+        // Verify "Open" button is disabled before a selection is made.
+        onView(allOf(withId(R.id.positive_button), withText(R.string.open)))
+                .inRoot(isDialog())
+                .check(matches(not(isEnabled())));
+
+        // Select the second item.
+        onView(withId(R.id.active_instance_list))
+                .inRoot(isDialog())
+                .perform(actionOnItemAtPosition(1, click()));
+
+        // Verify "Open" button is now enabled even though we are at the instance limit.
         onView(allOf(withId(R.id.positive_button), withText(R.string.open)))
                 .inRoot(isDialog())
                 .check(matches(isEnabled()))
@@ -1336,6 +1388,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288346
     public void testCancelRenameWindow() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1778,6 +1831,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288346
     public void testMoreButtonHiddenWhenListIsEmpty() throws Exception {
         // 1 active, 1 inactive instance.
         InstanceInfo[] instances =

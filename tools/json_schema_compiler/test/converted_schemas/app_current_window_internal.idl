@@ -47,7 +47,6 @@ namespace app.currentWindowInternal {
     static void setBounds(DOMString boundsType, Bounds bounds);
     static void setSizeConstraints(DOMString boundsType,
                                    SizeConstraints constraints);
-    static void setResizable(boolean flag);
     static void setIcon(DOMString icon_url);
     static void setShape(Region region);
     static void setAlwaysOnTop(boolean always_on_top);

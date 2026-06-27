@@ -10,14 +10,15 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "content/browser/bluetooth/bluetooth_adapter_factory_wrapper.h"
 #include "content/browser/bluetooth/bluetooth_allowed_devices.h"
+#include "content/browser/bluetooth/bluetooth_blocklist.h"
 #include "content/browser/bluetooth/web_bluetooth_pairing_manager.h"
 #include "content/public/browser/bluetooth_delegate.h"
 #include "content/public/common/content_client.h"
@@ -31,6 +32,7 @@
 #include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "device/bluetooth/test/mock_bluetooth_device.h"
 #include "device/bluetooth/test/mock_bluetooth_gatt_characteristic.h"
+#include "device/bluetooth/test/mock_bluetooth_gatt_descriptor.h"
 #include "device/bluetooth/test/mock_bluetooth_gatt_notify_session.h"
 #include "device/bluetooth/test/mock_bluetooth_gatt_service.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
@@ -95,6 +97,8 @@ constexpr char kBatteryLevelCharacteristicId[] = "battery_level_id";
 const device::BluetoothUUID kBatteryServiceUUID(kBatteryServiceUUIDString);
 const device::BluetoothUUID kBatteryLevelCharacteristicUUID(
     "00002a19-0000-1000-8000-00805f9b34fb");
+const device::BluetoothUUID kCharacteristicUserDescriptionDescriptorUUID(
+    "00002901-0000-1000-8000-00805f9b34fb");
 const BluetoothDeviceBundleData battery_device_bundle_data = {
     kBatteryServiceId, kBatteryLevelCharacteristicId, kBatteryServiceUUID,
     kBatteryLevelCharacteristicUUID, kTestCharacteristicProperties};
@@ -558,6 +562,7 @@ class WebBluetoothServiceImplTest : public RenderViewHostImplTestHarness,
     heart_rate_device_bundle_.reset();
     service_ptr_ = nullptr;
     SetBrowserClientForTesting(old_browser_client_);
+    BluetoothBlocklist::Get().ResetToDefaultValuesForTest();
     RenderViewHostImplTestHarness::TearDown();
   }
 
@@ -1032,6 +1037,24 @@ TEST_F(WebBluetoothServiceImplTest, DeferredStartNotifySession) {
   }
 }
 
+TEST_F(WebBluetoothServiceImplTest, StartNotificationsBlocklisted) {
+  RegisterTestCharacteristic();
+  FakeBluetoothCharacteristic& test_characteristic =
+      battery_device_bundle().characteristic();
+
+  BluetoothBlocklist::Get().Add(test_characteristic.GetUUID(),
+                                BluetoothBlocklist::Value::EXCLUDE_READS);
+
+  base::test::TestFuture<WebBluetoothResult> future;
+  service_ptr_->RemoteCharacteristicStartNotifications(
+      test_characteristic.GetIdentifier(),
+      BindCharacteristicClientAndPassRemote(), future.GetCallback());
+
+  EXPECT_EQ(future.Get(), WebBluetoothResult::BLOCKLISTED_READ);
+
+  BluetoothBlocklist::Get().ResetToDefaultValuesForTest();
+}
+
 TEST_F(WebBluetoothServiceImplTest, DeviceGattServicesDiscoveryTimeout) {
   const auto battery_device_id = AddTestDevice(battery_device_bundle());
 
@@ -1158,6 +1181,30 @@ TEST_F(WebBluetoothServiceImplTest, TwoWatchAdvertisementsReqFail) {
 
   EXPECT_EQ(future1.Get(), WebBluetoothResult::NO_BLUETOOTH_ADAPTER);
   EXPECT_EQ(future2.Get(), WebBluetoothResult::NO_BLUETOOTH_ADAPTER);
+}
+
+TEST_F(WebBluetoothServiceImplTest,
+       WatchAdvertisementsReqAbortedWhenTabHidden) {
+  TestFuture<WebBluetoothResult> future;
+
+  const auto battery_device_id = AddTestDevice(battery_device_bundle());
+
+  mojo::PendingAssociatedRemote<blink::mojom::WebBluetoothAdvertisementClient>
+      client_remote;
+
+  battery_device_bundle().advertisement_client().BindReceiver(
+      client_remote.InitWithNewEndpointAndPassReceiver());
+
+  // Install SUCCESS result for StartScanWithFilter
+  adapter_->SetStartScanWithFilterResult(
+      device::UMABluetoothDiscoverySessionOutcome::SUCCESS);
+
+  service_ptr_->WatchAdvertisementsForDevice(
+      battery_device_id, std::move(client_remote), future.GetCallback());
+
+  contents()->SetVisibilityAndNotifyObservers(Visibility::HIDDEN);
+
+  EXPECT_EQ(future.Get(), WebBluetoothResult::WATCH_ADVERTISEMENTS_ABORTED);
 }
 
 TEST_F(WebBluetoothServiceImplTest,
@@ -1397,6 +1444,97 @@ TEST_F(WebBluetoothServiceImplTestNewPermissionsBackend,
             WebBluetoothResult::NOT_ALLOWED_TO_ACCESS_ANY_SERVICE);
 
   EXPECT_CALL(*adapter_, StopScan).Times(1);
+}
+
+TEST_F(WebBluetoothServiceImplTest,
+       RemoteDescriptorReadValue_ParentCharacteristicBlocklisted) {
+  RegisterTestCharacteristic();
+
+  FakeBluetoothCharacteristic& test_characteristic =
+      battery_device_bundle().characteristic();
+
+  auto mock_descriptor =
+      std::make_unique<testing::NiceMock<device::MockBluetoothGattDescriptor>>(
+          &test_characteristic, "test_descriptor_id",
+          kCharacteristicUserDescriptionDescriptorUUID,
+          device::BluetoothRemoteGattCharacteristic::PERMISSION_NONE);
+
+  test_characteristic.AddMockDescriptor(std::move(mock_descriptor));
+
+  base::test::TestFuture<
+      WebBluetoothResult,
+      std::optional<
+          std::vector<blink::mojom::WebBluetoothRemoteGATTDescriptorPtr>>>
+      get_descriptors_future;
+  service_ptr_->RemoteCharacteristicGetDescriptors(
+      test_characteristic.GetIdentifier(),
+      WebBluetoothGATTQueryQuantity::SINGLE, std::nullopt,
+      get_descriptors_future.GetCallback());
+
+  EXPECT_EQ(get_descriptors_future.Get<0>(), WebBluetoothResult::SUCCESS);
+
+  const auto& descriptors = get_descriptors_future.Get<1>();
+  ASSERT_TRUE(descriptors.has_value());
+  ASSERT_FALSE(descriptors->empty());
+  std::string descriptor_instance_id = descriptors->at(0)->instance_id;
+
+  BluetoothBlocklist::Get().Add(test_characteristic.GetUUID(),
+                                BluetoothBlocklist::Value::EXCLUDE_READS);
+
+  base::test::TestFuture<WebBluetoothResult, std::vector<uint8_t>> read_future;
+  service_ptr_->RemoteDescriptorReadValue(
+      descriptor_instance_id,
+      base::BindLambdaForTesting(
+          [&read_future](WebBluetoothResult result,
+                         base::span<const uint8_t> value) {
+            read_future.SetValue(
+                result, std::vector<uint8_t>(value.begin(), value.end()));
+          }));
+
+  EXPECT_EQ(read_future.Get<0>(), WebBluetoothResult::BLOCKLISTED_READ);
+}
+
+TEST_F(WebBluetoothServiceImplTest,
+       RemoteDescriptorWriteValue_ParentCharacteristicBlocklisted) {
+  RegisterTestCharacteristic();
+
+  FakeBluetoothCharacteristic& test_characteristic =
+      battery_device_bundle().characteristic();
+
+  auto mock_descriptor =
+      std::make_unique<testing::NiceMock<device::MockBluetoothGattDescriptor>>(
+          &test_characteristic, "test_descriptor_id",
+          kCharacteristicUserDescriptionDescriptorUUID,
+          device::BluetoothRemoteGattCharacteristic::PERMISSION_NONE);
+
+  test_characteristic.AddMockDescriptor(std::move(mock_descriptor));
+
+  base::test::TestFuture<
+      WebBluetoothResult,
+      std::optional<
+          std::vector<blink::mojom::WebBluetoothRemoteGATTDescriptorPtr>>>
+      get_descriptors_future;
+  service_ptr_->RemoteCharacteristicGetDescriptors(
+      test_characteristic.GetIdentifier(),
+      WebBluetoothGATTQueryQuantity::SINGLE, std::nullopt,
+      get_descriptors_future.GetCallback());
+
+  EXPECT_EQ(get_descriptors_future.Get<0>(), WebBluetoothResult::SUCCESS);
+
+  const auto& descriptors = get_descriptors_future.Get<1>();
+  ASSERT_TRUE(descriptors.has_value());
+  ASSERT_FALSE(descriptors->empty());
+  std::string descriptor_instance_id = descriptors->at(0)->instance_id;
+
+  BluetoothBlocklist::Get().Add(test_characteristic.GetUUID(),
+                                BluetoothBlocklist::Value::EXCLUDE_WRITES);
+
+  std::vector<uint8_t> value = {1, 2, 3};
+  base::test::TestFuture<WebBluetoothResult> write_future;
+  service_ptr_->RemoteDescriptorWriteValue(descriptor_instance_id, value,
+                                           write_future.GetCallback());
+
+  EXPECT_EQ(write_future.Get(), WebBluetoothResult::BLOCKLISTED_WRITE);
 }
 
 }  // namespace content

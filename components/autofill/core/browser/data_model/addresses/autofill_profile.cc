@@ -4,63 +4,61 @@
 
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
-#include <functional>
+#include <list>
 #include <map>
 #include <memory>
+#include <optional>
 #include <ostream>
-#include <ranges>
-#include <set>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
+#include "base/check.h"
+#include "base/check_op.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
-#include "base/hash/sha1.h"
-#include "base/i18n/case_conversion.h"
-#include "base/i18n/char_iterator.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
-#include "base/strings/utf_string_conversion_utils.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/address.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/contact_info.h"
 #include "components/autofill/core/browser/data_model/addresses/phone_number.h"
+#include "components/autofill/core/browser/data_model/form_group.h"
 #include "components/autofill/core/browser/data_model/usage_history_information.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
 #include "components/autofill/core/browser/data_quality/validation.h"
-#include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/geo/address_i18n.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
-#include "components/autofill/core/browser/geo/country_names.h"
 #include "components/autofill/core/browser/geo/phone_number_i18n.h"
-#include "components/autofill/core/browser/geo/state_names.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/ui/addresses/autofill_address_util.h"
 #include "components/autofill/core/common/autofill_clock.h"
-#include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/autofill_l10n_util.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
+#include "components/signin/public/identity_manager/account_info.h"
 #include "components/strings/grit/components_strings.h"
 #include "third_party/libaddressinput/chromium/addressinput_util.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_data.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_field.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_formatter.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -479,8 +477,6 @@ int AutofillProfile::Compare(const AutofillProfile& profile) const {
                                 NAME_FIRST,
                                 NAME_MIDDLE,
                                 NAME_LAST,
-                                NAME_LAST_PREFIX,
-                                NAME_LAST_CORE,
                                 NAME_LAST_FIRST,
                                 NAME_LAST_SECOND,
                                 NAME_LAST_CONJUNCTION,
@@ -584,6 +580,15 @@ bool AutofillProfile::IsSubsetOfForFieldSet(
     const AutofillProfile& profile,
     const FieldTypeSet& types) const {
   SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.IsSubsetOfForFieldSet");
+
+  // Do not process `profile` if it is trivially unrelated to `this` for having
+  // different source country code, for performance reasons.
+  if (types.contains(ADDRESS_HOME_COUNTRY) &&
+      !data_util::HaveNonConflictingCountryCodes(
+          GetAddressCountryCode(), profile.GetAddressCountryCode())) {
+    return false;
+  }
+
   const std::string& app_locale = comparator.app_locale();
   const AddressComponent& address = GetAddress().GetRoot();
   const AddressComponent& other_address = profile.GetAddress().GetRoot();
@@ -596,7 +601,7 @@ bool AutofillProfile::IsSubsetOfForFieldSet(
     // however, GetRawInfo returns an empty string.
     const std::u16string value = GetInfo(type, app_locale);
     const std::u16string other_value = profile.GetInfo(type, app_locale);
-    if (value.empty() || value == other_value) {
+    if (value.empty() || value == other_value || type == ADDRESS_HOME_COUNTRY) {
       continue;
     }
     // TODO(crbug.com/40257475): Use rewriter rules for all kAddressHome types.

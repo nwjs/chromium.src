@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/file_system_access_permission_context.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -45,7 +46,10 @@ std::unique_ptr<views::ScrollView> FileSystemAccessScrollPanel::Create(
 
     auto* icon = line_container->AddChildView(
         std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-            vector_icons::kFolderOpenIcon, ui::kColorIcon, kFolderIconSize)));
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kFolderOpenIcon
+                : vector_icons::kFolderOpenOldIcon,
+            ui::kColorIcon, kFolderIconSize)));
     icon->SetVerticalAlignment(views::ImageView::Alignment::kCenter);
 
     auto* label = line_container->AddChildView(std::make_unique<views::Label>(

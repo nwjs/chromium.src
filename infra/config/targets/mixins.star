@@ -209,6 +209,13 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "skylab-tauto-chromium-graphics",
+    skylab = targets.skylab(
+        autotest_name = "chromium_Graphics",
+    ),
+)
+
+targets.mixin(
     name = "skylab-50-tests-per-shard",
     skylab = targets.skylab(
         cros_test_max_in_shard = 50,
@@ -253,6 +260,7 @@ targets.mixin(
 targets.mixin(
     name = "tfc-cq-tast",
     skylab = targets.skylab(
+        timeout_sec = 5400,
         cros_test_names_from_file = ["chromeos/tast_control_cq_tests.txt"],
         cros_test_max_in_shard = 20,
     ),
@@ -712,7 +720,7 @@ targets.mixin(
         dimensions = {
             "os": "Android",
             "device_type": "frankel",
-            "device_os": "BD3A.250721.001",
+            "device_os": "CP1A.260405.005",
             "device_os_type": "userdebug",
             "pool": "chromium.tests.gpu",
         },
@@ -815,6 +823,31 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "gpu_amd_rx_9070_xt_linux_experimental",
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "display_server": "x11",
+            "gpu": "1002:7550-25.2.8",
+            "os": "Ubuntu-24.04",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_amd_rx_9070_xt_win_experimental",
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "gpu": "1002:7550-32.0.31007.5012",
+            "os": "Windows-11",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
     name = "gpu_amd_9900x_linux_experimental",
     # We always need this entry to be generated since it is used by
     # //content/test/gpu/find_bad_machines.py.
@@ -825,6 +858,31 @@ targets.mixin(
             "display_server": "x11",
             "gpu": "1002:13c0",
             "os": "Ubuntu",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_nvidia_rtx_5080_linux_experimental",
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "display_server": "x11",
+            "gpu": "10de:2c02-595.58.03",
+            "os": "Ubuntu-24.04",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_nvidia_rtx_5080_win_experimental",
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "gpu": "10de:2c02-32.0.15.9597",
+            "os": "Windows-11",
             "pool": "chromium.tests.gpu.experimental",
         },
     ),
@@ -1199,8 +1257,8 @@ targets.mixin(
     name = "linux_amd_rx_5500_xt",
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "1002:7340-23.2.1|1002:7340-25.2.8",
-            "os": "Ubuntu-22.04|Ubuntu-24.04",
+            "gpu": "1002:7340-25.2.8",
+            "os": "Ubuntu-24.04",
             "display_attached": "1",
             "display_server": "x11",
             "pool": "chromium.tests.gpu",
@@ -1563,7 +1621,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "cpu": "arm64",
-            "os": "Mac-15",
+            "os": "Mac-15|Mac-26",
         },
     ),
 )
@@ -1576,7 +1634,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
-            "os": "Mac-15",
+            "os": "Mac-15|Mac-26",
         },
     ),
 )
@@ -1667,7 +1725,7 @@ targets.mixin(
             targets.cipd_package(
                 package = "infra/tools/mac_toolchain/${platform}",
                 location = ".",
-                revision = "git_revision:4c7290150d1c360cecc6a93c0214dc531585c3ab",
+                revision = "git_revision:07e67ff89ff11ed0e3071867ed6bb49319a91b05",
             ),
         ],
     ),
@@ -2229,12 +2287,12 @@ targets.mixin(
     name = "xcode_26_beta",
     args = [
         "--xcode-build-version",
-        "17f5032f",
+        "17f42",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_17f5032f",
+                name = "xcode_ios_17f42",
                 path = "Xcode.app",
             ),
         ],

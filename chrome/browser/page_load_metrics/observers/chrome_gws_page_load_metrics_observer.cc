@@ -13,6 +13,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 
@@ -25,10 +26,11 @@ bool ChromeGWSPageLoadMetricsObserver::IsFromNewTabPage(
     return false;
   }
 
-  auto origin = start_instance->GetSiteURL();
-
+  auto& principal = start_instance->GetSecurityPrincipal();
   const GURL& ntp_url = chrome::ChromeUINewTabPageURLAsGURL();
-  return ntp_url.scheme() == origin.scheme() && ntp_url.host() == origin.host();
+
+  return principal.SchemeIs(ntp_url.scheme()) &&
+         principal.GetHost() == ntp_url.host();
 }
 
 bool ChromeGWSPageLoadMetricsObserver::IsBrowserStartupComplete() {

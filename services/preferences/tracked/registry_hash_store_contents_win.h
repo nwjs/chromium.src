@@ -47,6 +47,7 @@ class RegistryHashStoreContentsWin : public HashStoreContents {
                    const std::string& split_path,
                    const std::string& value) override;
   bool RemoveEntry(const std::string& path) override;
+  bool SupportsSuperMac() const override;
 
   // Unsupported HashStoreContents overrides:
   void ImportEntry(const std::string& path,
@@ -54,6 +55,8 @@ class RegistryHashStoreContentsWin : public HashStoreContents {
   const base::DictValue* GetContents() const override;
   std::string GetSuperMac() const override;
   void SetSuperMac(const std::string& super_mac) override;
+  std::string GetSuperEncryptedHash() const override;
+  void SetSuperEncryptedHash(const std::string& super_encrypted_hash) override;
 
  private:
   // Helper constructor for |MakeCopy|.

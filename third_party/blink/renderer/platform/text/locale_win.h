@@ -47,7 +47,7 @@ class PLATFORM_EXPORT LocaleWin : public Locale {
   ~LocaleWin() override;
   const Vector<String>& WeekDayShortLabels() override;
   unsigned FirstDayOfWeek() override;
-  bool IsRTL() override;
+  bool IsRtl() override;
   String DateFormat() override;
   String MonthFormat() override;
   String ShortMonthFormat() override;
@@ -59,7 +59,7 @@ class PLATFORM_EXPORT LocaleWin : public Locale {
   const Vector<String>& ShortMonthLabels() override;
   const Vector<String>& StandAloneMonthLabels() override;
   const Vector<String>& ShortStandAloneMonthLabels() override;
-  const Vector<String>& TimeAMPMLabels() override;
+  const Vector<String>& TimeAmPmLabels() override;
 
   static String DateFormatForTesting(const String&);
   static std::unique_ptr<LocaleWin> CreateForTesting(LCID,

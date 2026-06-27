@@ -21,6 +21,7 @@
 #include "ash/system/holding_space/holding_space_view_delegate.h"
 #include "components/vector_icons/vector_icons.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/view_utils.h"
@@ -132,7 +133,9 @@ TEST_P(HoldingSpaceItemScreenCaptureViewTest, OverlayIcon) {
       *ui::ImageModel::FromVectorIcon(
            item()->type() == HoldingSpaceItem::Type::kScreenRecordingGif
                ? kGifIcon
-               : vector_icons::kPlayArrowIcon,
+           : ::features::IsRoundedIconsEnabled()
+               ? vector_icons::kPlayArrowFilledIcon
+               : vector_icons::kPlayArrowOldIcon,
            kColorAshButtonIconColor, kHoldingSpaceIconSize)
            .Rasterize(color_provider)
            .bitmap()));

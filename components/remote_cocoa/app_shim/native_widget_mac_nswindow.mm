@@ -9,7 +9,6 @@
 #include "base/apple/foundation_util.h"
 #include "base/auto_reset.h"
 #include "base/check.h"
-#include "base/containers/adapters.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/mac/mac_util.h"
@@ -442,13 +441,6 @@ struct NSEdgeAndCornerThicknesses {
   return [super constrainFrameRect:frameRect toScreen:screen];
 }
 
-- (BOOL)_isTitleHidden {
-  bool shouldShowWindowTitle = YES;
-  if (_bridge)
-    _bridge->host()->GetShouldShowWindowTitle(&shouldShowWindowTitle);
-  return !shouldShowWindowTitle;
-}
-
 - (NSWindow*)topmostVisibleChildModalWindow {
   if (!_bridge) {
     return nil;
@@ -466,6 +458,13 @@ struct NSEdgeAndCornerThicknesses {
   }
 
   return nil;
+}
+
+- (BOOL)_isTitleHidden {
+  bool shouldShowWindowTitle = YES;
+  if (_bridge)
+    _bridge->host()->GetShouldShowWindowTitle(&shouldShowWindowTitle);
+  return !shouldShowWindowTitle;
 }
 
 // The base implementation returns YES if the window's frame view is a custom
@@ -614,8 +613,8 @@ struct NSEdgeAndCornerThicknesses {
       return;
     }
   } else if (type == NSEventTypeLeftMouseDown) {
-    // Check whether the click was in the web contents via a hit test.
-    bool was_web_contents_hit = false;
+    // Check whether the click was in a blocked area via a hit test.
+    bool is_blocked_by_modal = false;
     if (_bridge) {
       NSView* content_view = [self contentView];
       NSPoint point_in_view = [content_view convertPoint:event.locationInWindow
@@ -625,15 +624,15 @@ struct NSEdgeAndCornerThicknesses {
       remote_cocoa::mojom::HitTestResult hit_test_result =
           remote_cocoa::mojom::HitTestResult::kOther;
       _bridge->host()->GetHitTestResult(flipped_point, &hit_test_result);
-      was_web_contents_hit =
-          hit_test_result == remote_cocoa::mojom::HitTestResult::kSubView;
+      is_blocked_by_modal = hit_test_result ==
+                            remote_cocoa::mojom::HitTestResult::kBlockedSubView;
     }
 
     NSWindow* child_modal_window = [self topmostVisibleChildModalWindow];
-    // If the click was in the web contents and we're displaying a child modal
+    // If the click was in a blocked area and we're displaying a child modal
     // window, swallow the event to prevent the web contents from processing it
     // (and potentially triggering new dialogs).
-    if (was_web_contents_hit && child_modal_window) {
+    if (is_blocked_by_modal && child_modal_window) {
       if (![child_modal_window isKeyWindow]) {
         [child_modal_window makeKeyWindow];
       }

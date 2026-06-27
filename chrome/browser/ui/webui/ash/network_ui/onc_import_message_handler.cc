@@ -12,11 +12,12 @@
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/values.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/net/nss_service.h"
 #include "chrome/browser/net/nss_service_factory.h"
 #include "chrome/browser/net/server_certificate_database_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/certificate_manager/certificate_manager_utils.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/network/onc/network_onc_utils.h"
 #include "chromeos/ash/components/network/onc/onc_certificate_importer_impl.h"
 #include "chromeos/components/onc/onc_parsed_certificates.h"
@@ -93,7 +94,8 @@ void OncImportMessageHandler::ImportONCToNSSDB(const std::string& callback_id,
                                                const std::string& onc_blob,
                                                net::NSSCertDatabase* nssdb) {
   const user_manager::User* user =
-      ProfileHelper::Get()->GetUserByProfile(Profile::FromWebUI(web_ui()));
+      BrowserContextHelper::Get()->GetUserByBrowserContext(
+          Profile::FromWebUI(web_ui()));
   if (!user) {
     Respond(callback_id, "User not found.", /*is_error=*/true);
     return;
@@ -200,15 +202,24 @@ void OncImportMessageHandler::ImportServerCertificates(
     std::vector<net::ServerCertificateDatabase::CertInformation>
         current_certs) {
   std::string result = previous_result;
+  Profile* profile = Profile::FromWebUI(web_ui());
+  if (!IsCACertificateManagementAllowed(*profile->GetPrefs())) {
+    has_error = true;
+    result += "Importing certificates is not allowed for this profile.\n";
+    Respond(callback_id, result, has_error);
+    return;
+  }
+
   net::ServerCertificateDatabaseService* server_cert_service =
       net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
-          Profile::FromWebUI(web_ui()));
+          profile);
   if (!server_cert_service) {
     has_error = true;
     result += "Server certificates could not be imported.\n";
     Respond(callback_id, result, has_error);
     return;
   }
+
   std::vector<net::ServerCertificateDatabase::CertInformation> cert_infos;
   for (const auto& cert : certs->server_or_authority_certificates()) {
     scoped_refptr<net::X509Certificate> cert_to_import = cert.certificate();

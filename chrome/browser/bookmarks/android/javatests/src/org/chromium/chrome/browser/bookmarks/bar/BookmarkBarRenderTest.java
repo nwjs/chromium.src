@@ -27,6 +27,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterAnnotations.ClassParameter;
@@ -34,18 +35,17 @@ import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkOpener;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.browser_ui.widget.CoordinatorLayoutForPointer;
@@ -98,6 +98,9 @@ public class BookmarkBarRenderTest {
     @Mock private TopControlsStacker mTopControlsStacker;
     @Mock private TopUiThemeColorProvider mTopUiThemeColorProvider;
 
+    // TODO(crbug.com/496407828): Add render tests for side panel logic
+    @Mock private OneshotSupplierImpl<SideUiStateProvider> mSideUiStateProviderSupplier;
+
     private BookmarkBar mView;
 
     public BookmarkBarRenderTest(boolean nightModeEnabled) {
@@ -138,7 +141,8 @@ public class BookmarkBarRenderTest {
                                     mBookmarkManagerOpener),
                             mTopControlsStacker,
                             ObservableSuppliers.alwaysNull(),
-                            mTopUiThemeColorProvider);
+                            mTopUiThemeColorProvider,
+                            mSideUiStateProviderSupplier);
 
                     assertNotNull(mView);
                     ChromeRenderTestRule.sanitize(mView);
@@ -149,7 +153,6 @@ public class BookmarkBarRenderTest {
     @MediumTest
     @UiThreadTest
     @Feature({"RenderTest"})
-    @DisableFeatures({ChromeFeatureList.ANDROID_BOOKMARK_BAR_FAST_FOLLOW})
     public void testEmptyState() throws IOException {
         mRenderTestRule.render(mView, "EmptyState");
     }

@@ -30,7 +30,6 @@
 #include <array>
 #include <iterator>
 
-#include "base/metrics/histogram_functions.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
@@ -1940,8 +1939,8 @@ static const EditorInternalCommand* InternalCommand(
        Supported, EnabledInRichlyEditableText,
        StyleCommands::StateStrikethrough, ValueStateOrNull, kNotTextInsertion,
        CanNotExecuteWhenDisabled},
-      {EditingCommandType::kStyleWithCSS, StyleCommands::ExecuteStyleWithCSS,
-       Supported, Enabled, StyleCommands::StateStyleWithCSS, ValueEmpty,
+      {EditingCommandType::kStyleWithCss, StyleCommands::ExecuteStyleWithCss,
+       Supported, Enabled, StyleCommands::StateStyleWithCss, ValueEmpty,
        kNotTextInsertion, CanNotExecuteWhenDisabled},
       {EditingCommandType::kSubscript, StyleCommands::ExecuteSubscript,
        Supported, EnabledInRichlyEditableText, StyleCommands::StateSubscript,
@@ -1982,7 +1981,7 @@ static const EditorInternalCommand* InternalCommand(
       {EditingCommandType::kUnselect, ExecuteUnselect, Supported,
        EnabledUnselect, StateNone, ValueStateOrNull, kNotTextInsertion,
        CanNotExecuteWhenDisabled},
-      {EditingCommandType::kUseCSS, StyleCommands::ExecuteUseCSS, Supported,
+      {EditingCommandType::kUseCss, StyleCommands::ExecuteUseCss, Supported,
        Enabled, StateNone, ValueStateOrNull, kNotTextInsertion,
        CanNotExecuteWhenDisabled},
       {EditingCommandType::kYank, ExecuteYank, SupportedFromMenuOrKeyBinding,
@@ -2213,8 +2212,6 @@ bool EditorCommand::Execute(const String& parameter,
 
   GetFrame().GetDocument()->UpdateStyleAndLayout(
       DocumentUpdateReason::kEditing);
-  base::UmaHistogramSparse("WebCore.Editing.Commands",
-                           static_cast<int>(command_->command_type));
   return command_->execute(*frame_, triggering_event, source_, parameter);
 }
 

@@ -27,6 +27,9 @@
   #content {
     height: 600px;
   }
+  #menu::backdrop, #refresh::backdrop {
+    display: none;
+  }
 </style>
 <div id="container" overscrollcontainer="overlay">
   <div id="refresh"></div>
@@ -37,9 +40,6 @@
 <button id=button command="toggle-overscroll" commandfor="menu">Menu</button>
 <script>
 
-function hitIds(x, y) {
-  return Array.prototype.slice.apply(document.elementsFromPoint(x, y)).map(el => el.id).filter(id => !!id);
-}
 function hitIds(x, y) {
   return Array.prototype.slice.apply(document.elementsFromPoint(x, y)).map(el => el.id).filter(id => !!id);
 }

@@ -19,6 +19,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.contextual_search.ContextUploadErrorType;
 import org.chromium.components.contextual_search.ContextUploadStatus;
 import org.chromium.components.contextual_search.InputState;
 import org.chromium.components.omnibox.OmniboxFeatures;
@@ -46,8 +47,12 @@ public class ComposeboxQueryControllerBridge {
         /**
          * @param token Unique string identifier for the context.
          * @param status The status of the context's upload.
+         * @param errorType The error type if the upload failed.
          */
-        void onContextUploadStatusChanged(String token, @ContextUploadStatus int status);
+        void onContextUploadStatusChanged(
+                String token,
+                @ContextUploadStatus int status,
+                @ContextUploadErrorType int errorType);
     }
 
     private long mNativeInstance;
@@ -62,17 +67,18 @@ public class ComposeboxQueryControllerBridge {
     /**
      * Create a new ComposeboxQueryControllerBridge using the given profile and WebUI WebContents.
      *
-     * @param contextualTasksWebContents The WebContents hosting the WebUI that needs to be
-     *     communicated with.
+     * @param profile The profile for the session.
+     * @param webContents The WebContents hosting the WebUI that needs to be communicated with.
+     * @param isTaskScoped Whether the session is scoped to a specific AI task.
      */
     public static @Nullable ComposeboxQueryControllerBridge create(
-            Profile profile, @Nullable WebContents contextualTasksWebContents) {
+            Profile profile, @Nullable WebContents webContents, boolean isTaskScoped) {
         if (sInstanceForTesting != null) return sInstanceForTesting.orElse(null);
 
         ComposeboxQueryControllerBridge javaInstance = new ComposeboxQueryControllerBridge();
         long nativeInstance =
                 ComposeboxQueryControllerBridgeJni.get()
-                        .init(javaInstance, profile, contextualTasksWebContents);
+                        .init(javaInstance, profile, webContents, isTaskScoped);
         if (nativeInstance == 0L) return null;
         javaInstance.mNativeInstance = nativeInstance;
         return javaInstance;
@@ -106,9 +112,13 @@ public class ComposeboxQueryControllerBridge {
     }
 
     @CalledByNative
-    void onContextUploadStatusChanged(String token, @ContextUploadStatus int contextUploadStatus) {
+    void onContextUploadStatusChanged(
+            String token,
+            @ContextUploadStatus int contextUploadStatus,
+            @ContextUploadErrorType int errorType) {
         if (mContextUploadObserver != null) {
-            mContextUploadObserver.onContextUploadStatusChanged(token, contextUploadStatus);
+            mContextUploadObserver.onContextUploadStatusChanged(
+                    token, contextUploadStatus, errorType);
         }
     }
 
@@ -179,6 +189,17 @@ public class ComposeboxQueryControllerBridge {
     /** Returns whether client is Fusebox eligible. */
     boolean isFuseboxEligible() {
         return ComposeboxQueryControllerBridgeJni.get().isFuseboxEligible(mNativeInstance);
+    }
+
+    /**
+     * Returns whether the client is eligible for Fusebox for the given profile.
+     *
+     * <p>This is a static stateless helper to allow components in unfocused contexts (like the NTP
+     * fakebox or the unfocused omnibox status view) to check eligibility without having to
+     * instantiate a heavyweight native controller and session.
+     */
+    public static boolean isFuseboxEligibleForProfile(Profile profile) {
+        return ComposeboxQueryControllerBridgeJni.get().isFuseboxEligibleForProfile(profile);
     }
 
     /** Returns whether the user is eligible for PDF uploads. */
@@ -256,7 +277,8 @@ public class ComposeboxQueryControllerBridge {
         long init(
                 ComposeboxQueryControllerBridge javaInstance,
                 @JniType("Profile*") Profile profile,
-                @JniType("content::WebContents*") @Nullable WebContents contextualTasksWebContents);
+                @JniType("content::WebContents*") @Nullable WebContents webContents,
+                boolean isTaskScoped);
 
         void destroy(long nativeComposeboxQueryControllerBridge);
 
@@ -302,6 +324,8 @@ public class ComposeboxQueryControllerBridge {
                 long nativeComposeboxQueryControllerBridge, @JniType("std::string") String token);
 
         boolean isFuseboxEligible(long nativeComposeboxQueryControllerBridge);
+
+        boolean isFuseboxEligibleForProfile(@JniType("Profile*") Profile profile);
 
         boolean isPdfUploadEligible(long nativeComposeboxQueryControllerBridge);
 

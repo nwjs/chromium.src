@@ -111,9 +111,6 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // RenderWidgetHostView implementation.
   RenderWidgetHost* GetRenderWidgetHost() final;
   ui::TextInputClient* GetTextInputClient() override;
-  void Show() final;
-  void WasUnOccluded() override {}
-  void WasOccluded() override {}
   std::u16string GetSelectedText() override;
   bool GetIsPointerLockedUnadjustedMovementForTesting() override;
   bool CanBePointerLocked() override;
@@ -141,6 +138,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   display::ScreenInfo GetScreenInfo() const override;
   display::ScreenInfos GetScreenInfos() const override;
   virtual void ResetGestureDetection();
+  void SetShouldUseDefaultDeadlineOnResize(bool enable) override;
 
   // RenderWidgetHostViewInput implementation
   base::WeakPtr<input::RenderWidgetHostViewInput> GetInputWeakPtr() override;
@@ -155,6 +153,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
                            const ui::LatencyInfo& latency) override;
   RenderWidgetHostViewBase* GetRootView() override;
   void OnAutoscrollStart() override;
+  void OnAutoscrollTargetResolved(bool success) override;
   const viz::DisplayHitTestQueryMap& GetDisplayHitTestQuery() const override;
 
   float GetDeviceScaleFactor() const final;
@@ -237,6 +236,15 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
 
   virtual void UpdateIntrinsicSizingInfo(
       blink::mojom::IntrinsicSizingInfoPtr sizing_info);
+
+  // Transforms point and/or rect from view's coordinate space to
+  // root_view's coordinate space. Returns false if no transform was found
+  // between the view and root_view.
+  static bool TransformPointAndRectToRootView(
+      RenderWidgetHostViewBase* view,
+      RenderWidgetHostViewBase* root_view,
+      gfx::Point* transformed_point,
+      gfx::Rect* transformed_rect);
 
   static void CopyMainAndPopupFromSurface(
       base::WeakPtr<RenderWidgetHostImpl> main_host,
@@ -397,6 +405,14 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // screen captured.
   virtual void ShowWithVisibility(PageVisibilityState page_visibility) = 0;
 
+  // Hides the view.
+  virtual void Hide() = 0;
+
+  // Indicates that the view is currently occluded (e.g, not visible because
+  // it's covered up by other windows), and as a result the view's renderer may
+  // be suspended. Calling Show()/Hide() overrides the state set by this method.
+  virtual void WasOccluded() {}
+
   // Tells the View to destroy itself.
   virtual void Destroy();
 
@@ -550,6 +566,17 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   }
 
   virtual viz::SurfaceId GetFallbackSurfaceIdForTesting() const;
+
+#if BUILDFLAG(IS_WIN)
+  // Called by child frame views before delegating OnStartStylusWriting to the
+  // root view, so the root view uses the provided callback for the TSF
+  // FocusHandwritingTarget response instead of its own.
+  using OnFocusHandwritingTargetCallback =
+      base::RepeatingCallback<void(const gfx::Rect& /*rect_in_screen*/,
+                                   const gfx::Size& /*distance_threshold*/)>;
+  virtual void SetStylusHandwritingFocusCallback(
+      OnFocusHandwritingTargetCallback callback) {}
+#endif  // BUILDFLAG(IS_WIN)
 
  protected:
   explicit RenderWidgetHostViewBase(RenderWidgetHost* host);

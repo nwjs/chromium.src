@@ -6,6 +6,7 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/logging.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/webid/delegation/email_verification_request.h"
 #include "content/public/browser/render_frame_host.h"
@@ -30,16 +31,32 @@ EmailVerifierImpl::EmailVerifierImpl(RequestBuilder builder)
 EmailVerifierImpl::~EmailVerifierImpl() = default;
 
 void EmailVerifierImpl::Verify(
-    const std::string& email,
+    const EmailVerifier::Result& result,
     const std::string& nonce,
     EmailVerifier::OnEmailVerifiedCallback callback) {
   auto request = request_builder_.Run();
   auto* request_ptr = request.get();
 
-  request_ptr->Send(email, nonce,
-                    base::BindOnce(&EmailVerifierImpl::OnRequestComplete,
-                                   weak_ptr_factory_.GetWeakPtr(),
-                                   std::move(request), std::move(callback)));
+  request_ptr->Verify(result, nonce,
+                      base::BindOnce(&EmailVerifierImpl::OnRequestComplete,
+                                     weak_ptr_factory_.GetWeakPtr(),
+                                     std::move(request), std::move(callback)));
+}
+
+void EmailVerifierImpl::CheckIfVerifiable(
+    const std::string& email,
+    EmailVerifier::IsVerifiableCallback callback) {
+  auto request = request_builder_.Run();
+  auto* request_ptr = request.get();
+
+  request_ptr->CheckIfVerifiable(
+      email, base::BindOnce(
+                 [](EmailVerifier::IsVerifiableCallback cb,
+                    std::unique_ptr<EmailVerificationRequest> req,
+                    std::optional<EmailVerifier::Result> result) {
+                   std::move(cb).Run(std::move(result));
+                 },
+                 std::move(callback), std::move(request)));
 }
 
 void EmailVerifierImpl::OnRequestComplete(
@@ -58,6 +75,14 @@ EmailVerifier* EmailVerifier::GetOrCreateForFrame(
                      std::make_unique<EmailVerifierImpl>(rfh));
   }
   return static_cast<EmailVerifier*>(rfh->GetUserData(kEmailVerifierKey));
+}
+
+// static
+void EmailVerifier::SetForFrameForTest(  // IN-TEST
+    content::RenderFrameHost* render_frame_host,
+    std::unique_ptr<EmailVerifier> verifier) {
+  auto* rfh = static_cast<RenderFrameHostImpl*>(render_frame_host);
+  rfh->SetUserData(kEmailVerifierKey, std::move(verifier));
 }
 
 }  // namespace content::webid

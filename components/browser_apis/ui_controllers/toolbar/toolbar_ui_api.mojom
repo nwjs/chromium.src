@@ -6,6 +6,7 @@ module toolbar_ui_api.mojom;
 
 import "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom";
 import "components/content_settings/core/common/content_settings_types.mojom";
+import "ui/base/dragdrop/mojom/drag_drop_types.mojom";
 import "ui/base/mojom/menu_source_type.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "mojo/public/mojom/base/empty.mojom";
@@ -17,10 +18,13 @@ interface ToolbarUIObserver {
   // Observes events for navigation controls (e.g. back, forward, reload
   // buttons). |state| contains the state for all navigation controls
   // so that they can update together to avoid visual flicker.
-  OnNavigationControlsStateChanged(NavigationControlsState state);
+  OnNavigationControlsStateChanged(
+    array<IconUpdate> icons,
+    NavigationControlsState state);
 };
 
 struct InitialState {
+    array<IconUpdate> icons;
     NavigationControlsState state;
     pending_receiver<ToolbarUIObserver> update_stream;
 };
@@ -43,9 +47,9 @@ interface ToolbarUIService {
                   gfx.mojom.RectF bounds_in_css_pixels,
                   ui.mojom.MenuSourceType source);
 
-  // Handles user interaction with the readonly omnibox, delegating to the
-  // popup as appropriate.
-  OnOmniboxAction(OmniboxAction action);
+  // Handles user interaction with the omnibox
+  OnOmniboxAction(OmniboxAction action)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 
   // Called when the page finishes initialization.
   OnPageInitialized();
@@ -83,12 +87,21 @@ interface ToolbarUIService {
 
   // Called when a collapse animation finishes.
   OnLhsChipCollapseAnimationEnded(LhsChipIdentifier identifier);
-  // Sets the home page to the currently dragged url, if any, and displays the
 
+  // Called when a drag gesture is detected on an LHS chip.
+  OnLhsChipDrag(LhsChipIdentifier identifier, ui.mojom.DragEventSource source);
+
+  // Sets the home page to the currently dragged url, if any, and displays the
   // home page undo bubble.
   OnHomeButtonDropUrl(url.mojom.Url url);
 
   // Sets the home page to the currently dragged file, if any, and displays the
   // home page undo bubble.
   OnHomeButtonDropFile(gfx.mojom.PointF drop_position);
+
+  // Navigates the current tab to the currently dragged file at `drop_position`.
+  OnToolbarDropFile(gfx.mojom.PointF drop_position);
+
+  // Shows the avatar menu bubble.
+  ShowAvatarMenu() => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 };

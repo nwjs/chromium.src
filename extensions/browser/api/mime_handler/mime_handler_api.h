@@ -28,6 +28,61 @@ class MimeHandlerGetStreamInfoFunction : public ExtensionFunction {
   ResponseAction Run() override;
 };
 
+class MimeHandlerAbortAndFallbackToNativeHandlerFunction
+    : public ExtensionFunction {
+ public:
+  MimeHandlerAbortAndFallbackToNativeHandlerFunction();
+  MimeHandlerAbortAndFallbackToNativeHandlerFunction(
+      const MimeHandlerAbortAndFallbackToNativeHandlerFunction&) = delete;
+  MimeHandlerAbortAndFallbackToNativeHandlerFunction& operator=(
+      const MimeHandlerAbortAndFallbackToNativeHandlerFunction&) = delete;
+
+  DECLARE_EXTENSION_FUNCTION("mimeHandler.abortAndFallbackToNativeHandler",
+                             MIMEHANDLER_ABORTANDFALLBACKTONATIVEHANDLER)
+
+ protected:
+  ~MimeHandlerAbortAndFallbackToNativeHandlerFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+};
+
+class MimeHandlerSetMimeHandlerOptionsFunction : public ExtensionFunction {
+ public:
+  MimeHandlerSetMimeHandlerOptionsFunction();
+  MimeHandlerSetMimeHandlerOptionsFunction(
+      const MimeHandlerSetMimeHandlerOptionsFunction&) = delete;
+  MimeHandlerSetMimeHandlerOptionsFunction& operator=(
+      const MimeHandlerSetMimeHandlerOptionsFunction&) = delete;
+
+  DECLARE_EXTENSION_FUNCTION("mimeHandler.setMimeHandlerOptions",
+                             MIMEHANDLER_SETMIMEHANDLEROPTIONS)
+
+ protected:
+  ~MimeHandlerSetMimeHandlerOptionsFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+};
+
+class MimeHandlerGetMimeHandlerOptionsFunction : public ExtensionFunction {
+ public:
+  MimeHandlerGetMimeHandlerOptionsFunction();
+  MimeHandlerGetMimeHandlerOptionsFunction(
+      const MimeHandlerGetMimeHandlerOptionsFunction&) = delete;
+  MimeHandlerGetMimeHandlerOptionsFunction& operator=(
+      const MimeHandlerGetMimeHandlerOptionsFunction&) = delete;
+
+  DECLARE_EXTENSION_FUNCTION("mimeHandler.getMimeHandlerOptions",
+                             MIMEHANDLER_GETMIMEHANDLEROPTIONS)
+
+ protected:
+  ~MimeHandlerGetMimeHandlerOptionsFunction() override;
+
+  // ExtensionFunction:
+  ResponseAction Run() override;
+};
+
 }  // namespace extensions
 
 #endif  // EXTENSIONS_BROWSER_API_MIME_HANDLER_MIME_HANDLER_API_H_

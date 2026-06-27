@@ -11,6 +11,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/synchronization/lock.h"
@@ -49,7 +50,7 @@ struct DisplayLinkGlobals {
   base::Lock lock;
 
   // Indicate whether the display creation has been logged within the
-  // 'Viz.ExternalBeginFrameSourceMac.DisplayLink.Create' histogram.
+  // 'Viz.ExternalBeginFrameSourceMac.DisplayLink.Create2 histogram.
   absl::flat_hash_set<CGDirectDisplayID> recorded_displays;
 
   static DisplayLinkGlobals& Get() {
@@ -153,13 +154,22 @@ void CVDisplayLinkMac::TryRecordDisplayLinkCreation(
 
   auto [it, inserted] = globals.recorded_displays.insert(display_id);
   if (inserted) {
-    RecordDisplayLinkCreation(success);
+    UMA_HISTOGRAM_BOOLEAN("Viz.DisplayLink.Create.GPU.CVDisplayLink", success);
+
+    if (!SupportsDisplayLinkMacInBrowser()) {
+      // Avoid duplicate recording in
+      // 'Viz.ExternalBeginFrameSourceMac.DisplayLink.Create2' when
+      // CADisplayLink in the Browser process is supported and recorded there
+      // instead. This is the fallback path for DisplayLinkMacInBrowser.
+      RecordDisplayLinkCreation(success);
+    }
   }
 }
 
 // static
 scoped_refptr<CVDisplayLinkMac> CVDisplayLinkMac::GetForDisplay(
     CGDirectDisplayID display_id) {
+  TRACE_EVENT("gpu", "CVDisplayLinkMac::GetForDisplay");
   const auto thread_id = base::PlatformThread::CurrentId();
 
   // If there already exists an object for this display on this thread, return
@@ -216,7 +226,6 @@ scoped_refptr<CVDisplayLinkMac> CVDisplayLinkMac::GetForDisplay(
     return nullptr;
   }
 
-  TRACE_EVENT("gpu", "CVDisplayLinkMac::GetForDisplay succeeded");
   TryRecordDisplayLinkCreation(display_id, true);
   return result;
 }
@@ -243,14 +252,7 @@ bool CVDisplayLinkMac::EnsureDisplayLinkRunning() {
 // Called on the system CVDisplayLink thread.
 void CVDisplayLinkMac::StopDisplayLinkIfNeeded() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   if (!callbacks_.empty()) {
-    consecutive_vsyncs_with_no_callbacks_ = 0;
-    return;
-  }
-  consecutive_vsyncs_with_no_callbacks_ += 1;
-  if (consecutive_vsyncs_with_no_callbacks_ <
-      VSyncCallbackMac::kMaxExtraVSyncs) {
     return;
   }
 
@@ -265,7 +267,6 @@ void CVDisplayLinkMac::StopDisplayLinkIfNeeded() {
   }
 
   display_link_is_running_ = false;
-  consecutive_vsyncs_with_no_callbacks_ = 0;
 }
 
 base::TimeDelta CVDisplayLinkMac::GetRefreshInterval() const {
@@ -308,11 +309,12 @@ base::TimeTicks CVDisplayLinkMac::GetCurrentTime() const {
 void CVDisplayLinkMac::RunCallbacks(const VSyncParamsMac& params) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  for (auto* callback : callbacks_) {
+  // Make a local copy first because DisplayLink can be destroyed during the
+  // callback.
+  auto local_callbacks = callbacks_;
+  for (auto* callback : local_callbacks) {
     callback->callback_for_displaylink_thread_.Run(params);
   }
-
-  StopDisplayLinkIfNeeded();
 }
 
 CVDisplayLinkMac::CVDisplayLinkMac(
@@ -368,13 +370,16 @@ std::unique_ptr<VSyncCallbackMac> CVDisplayLinkMac::RegisterCallback(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT("gpu", "CVDisplayLinkMac::RegisterCallback");
 
+  // Check if this is in the fallback path for CADisplayLink
+  bool post_callback_to_ctor_thread =
+      !DisplayLinkMac::SupportsDisplayLinkMacInBrowser();
+
   // Make add the new callback. Register first before calling
   // EnsureDisplayLinkRunning() to ensure the callback function is available.
-
   std::unique_ptr<VSyncCallbackMac> new_callback =
       base::WrapUnique(new VSyncCallbackMac(
           base::BindOnce(&CVDisplayLinkMac::UnregisterCallback, this),
-          std::move(callback), /*post_callback_to_ctor_thread=*/true));
+          std::move(callback), post_callback_to_ctor_thread));
 
   // Ensure that the DisplayLink is running. If something goes wrong, return
   // nullptr.
@@ -391,6 +396,9 @@ void CVDisplayLinkMac::UnregisterCallback(VSyncCallbackMac* callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT("gpu", "CVDisplayLinkMac::UnregisterCallback");
   callbacks_.erase(callback);
+
+  // Stop the display link if there are no more registered callbacks.
+  StopDisplayLinkIfNeeded();
 }
 
 }  // namespace ui

@@ -12,10 +12,12 @@
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/aggregated_journal_render_frame_binder.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_constants.h"
-#include "chrome/common/actor/journal_details_builder.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/journal_details_builder.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "content/public/browser/page.h"
@@ -128,7 +130,7 @@ void ScriptToolHost::Invoke(ToolCallback callback) {
   auto* frame = target_document_.AsRenderFrameHostIfValid();
   CHECK(frame);
 
-  journal().EnsureJournalBound(*frame);
+  AggregatedJournalRenderFrameBinder::EnsureBound(journal(), *frame);
 
   tool_done_callback_ = std::move(callback);
 
@@ -243,6 +245,8 @@ void ScriptToolHost::OnToolInvokedInOldDocument(mojom::ActionResultPtr result) {
   if (result && result->code == mojom::ActionResultCode::kOk) {
     result->requires_page_stabilization =
         base::FeatureList::IsEnabled(kActorScriptToolDelayObservation);
+    result->screenshot_policy = pending_result_->screenshot_policy;
+    result->page_content_policy = pending_result_->page_content_policy;
   }
 
   const bool has_tool_response = result && result->script_tool_response;
@@ -358,6 +362,7 @@ void ScriptToolHost::DidFinishNavigation(
   new_host->GetRemoteAssociatedInterfaces()->GetInterface(
       &new_document_render_frame_);
   new_document_render_frame_->GetCrossDocumentScriptToolResult(
+      execution_id_,
       base::BindOnce(&ScriptToolHost::OnResultReceivedFromNewDocument,
                      weak_ptr_factory_.GetWeakPtr()));
 
@@ -457,6 +462,15 @@ void ScriptToolHost::InitializePendingResult() {
   pending_result_->script_tool_response->tool = blink::mojom::ScriptTool::New();
   pending_result_->script_tool_response->tool->name =
       action_->get_script_tool()->name;
+
+  pending_result_->screenshot_policy =
+      base::FeatureList::IsEnabled(kActorScriptToolSkipScreenshot)
+          ? mojom::ScreenshotPolicy::kSkipped
+          : mojom::ScreenshotPolicy::kRequested;
+  pending_result_->page_content_policy =
+      base::FeatureList::IsEnabled(kActorScriptToolSkipPageContent)
+          ? mojom::PageContentExtractionPolicy::kSkipped
+          : mojom::PageContentExtractionPolicy::kRequired;
 }
 
 void ScriptToolHost::SetScriptToolOutput(const std::string& output) {

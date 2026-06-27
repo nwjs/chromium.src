@@ -64,7 +64,7 @@ public class SuggestionListViewBinderUnitTest {
         mContainer =
                 (OmniboxSuggestionsContainer)
                         LayoutInflater.from(mActivity)
-                                .inflate(R.layout.omnibox_results_container, /* root= */ null);
+                                .inflate(R.layout.suggestions_result_container, /* root= */ null);
         mDropdown = spy(mContainer.findViewById(R.id.omnibox_suggestions_dropdown));
         PropertyModelChangeProcessor.create(
                 mListModel,
@@ -164,5 +164,14 @@ public class SuggestionListViewBinderUnitTest {
         suggestionsList.add(mDropdownItem);
         mSuggestionModels.set(suggestionsList);
         verify(mDropdown).resetSelection();
+    }
+
+    @Test
+    public void allowParkingAtSentinel() {
+        mListModel.set(SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL, true);
+        verify(mDropdown).setAllowParkingAtSentinel(true);
+
+        mListModel.set(SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL, false);
+        verify(mDropdown).setAllowParkingAtSentinel(false);
     }
 }

@@ -171,7 +171,8 @@ component("modules") {
   # from) for the case of generating the v8 context snapshot for android. When
   # generating the snapshot for android, blink is compiled with
   # current_os="linux" and target_os="android". Using target_os is necessary as
-  # we need to compile in the same way as would happen when current_os="android".
+  # we need to compile in the same way as would happen when
+  # current_os="android".
   if (target_os_is_android) {
     sub_modules += [ "//third_party/blink/renderer/modules/remote_objects" ]
   } else {
@@ -406,6 +407,7 @@ source_set("unit_tests") {
     "accessibility/ax_position_test.cc",
     "accessibility/ax_range_test.cc",
     "accessibility/ax_selection_test.cc",
+    "accessibility/blink_ax_tree_source_test.cc",
     "accessibility/testing/accessibility_dom_fuzztest.cc",
     "accessibility/testing/accessibility_selection_test.cc",
     "accessibility/testing/accessibility_selection_test.h",
@@ -623,6 +625,7 @@ source_set("unit_tests") {
     "shared_storage/shared_storage_worklet_test.cc",
     "shared_storage/shared_storage_worklet_unittest.cc",
     "speech/speech_recognition_controller_unittest.cc",
+    "speech/speech_recognition_test.cc",
     "video_rvfc/video_frame_callback_requester_impl_test.cc",
     "video_rvfc/video_frame_request_callback_collection_test.cc",
     "wake_lock/wake_lock_manager_test.cc",
@@ -683,6 +686,8 @@ source_set("unit_tests") {
 
   if (!is_android && !is_ios) {
     sources += [
+      "awc/additional_windowing_controls_unittest.cc",
+
       # CaptureController is not Web-exposed on Android and iOS,
       # so most of the logic is compile-guarded away on Android and iOS,
       # preventing meaningful testing.
@@ -771,7 +776,8 @@ source_set("unit_tests") {
   # from) for the case of generating the v8 context snapshot for android. When
   # generating the snapshot for android, blink is compiled with
   # current_os="linux" and target_os="android". Using target_os is necessary as
-  # we need to compile in the same way as would happen when current_os="android".
+  # we need to compile in the same way as would happen when
+  # current_os="android".
   if (!target_os_is_android) {
     deps += [
       "//third_party/blink/renderer/modules/direct_sockets:unit_tests",

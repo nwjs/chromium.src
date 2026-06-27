@@ -40,10 +40,14 @@
 #include "chrome/browser/offline_pages/offline_page_bookmark_observer.h"
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#else
+#include "base/memory/scoped_refptr.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service_factory.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
+#include "components/os_crypt/async/common/encryptor.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace {
 
@@ -213,6 +217,16 @@ bool ChromeBookmarkClient::IsNodeManaged(const bookmarks::BookmarkNode* node) {
          managed_bookmark_service_->IsNodeManaged(node);
 }
 
+bookmarks::BookmarkFormFactor ChromeBookmarkClient::GetBookmarkFormFactor() {
+#if BUILDFLAG(IS_ANDROID)
+  return base::android::device_info::is_desktop()
+             ? bookmarks::BookmarkFormFactor::kDesktop
+             : bookmarks::BookmarkFormFactor::kMobile;
+#else
+  return bookmarks::BookmarkFormFactor::kDesktop;
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
 std::string ChromeBookmarkClient::EncodeLocalOrSyncableBookmarkSyncMetadata() {
   return local_or_syncable_bookmark_sync_service_->EncodeBookmarkSyncMetadata();
 }
@@ -274,7 +288,8 @@ void ChromeBookmarkClient::SchedulePersistentTimerForDailyMetrics(
 }
 
 void ChromeBookmarkClient::GetEncryptor(
-    base::OnceCallback<void(os_crypt_async::Encryptor encryptor)> callback) {
+    base::OnceCallback<void(scoped_refptr<os_crypt_async::Encryptor> encryptor)>
+        callback) {
   CHECK(g_browser_process);
   CHECK(g_browser_process->os_crypt_async());
   g_browser_process->os_crypt_async()->GetInstance(std::move(callback));

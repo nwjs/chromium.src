@@ -7,8 +7,8 @@ import 'chrome://webui-toolbar.top-chrome/app.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {hasStyle, microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {BrowserProxyImpl, LhsChipIdentifier, SecurityChipIcon} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {LocationIconElement} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {BrowserProxyImpl, LhsChipIdentifier, PointerProxyImpl} from 'chrome://webui-toolbar.top-chrome/app.js';
+import type {IconFromTableElement, LocationIconElement, PointerProxy} from 'chrome://webui-toolbar.top-chrome/app.js';
 
 class TestToolbarUiHandler extends TestBrowserProxy {
   constructor() {
@@ -24,14 +24,32 @@ class TestToolbarUiHandler extends TestBrowserProxy {
   }
 }
 
+class TestPointerProxy extends TestBrowserProxy implements PointerProxy {
+  constructor() {
+    super(['setPointerCapture', 'releasePointerCapture']);
+  }
+
+  setPointerCapture(el: Element, pointerId: number) {
+    this.methodCalled('setPointerCapture', [el, pointerId]);
+  }
+
+  releasePointerCapture(el: Element, pointerId: number) {
+    this.methodCalled('releasePointerCapture', [el, pointerId]);
+  }
+}
+
 suite('LocationIconTest', function() {
   let locationIcon: LocationIconElement;
   let toolbarUiHandler: TestToolbarUiHandler;
+  let pointerProxy: TestPointerProxy;
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     toolbarUiHandler = new TestToolbarUiHandler();
     BrowserProxyImpl.setInstance({toolbarUIHandler: toolbarUiHandler} as any);
+
+    pointerProxy = new TestPointerProxy();
+    PointerProxyImpl.setInstance(pointerProxy);
 
     locationIcon = document.createElement('location-icon');
     document.body.appendChild(locationIcon);
@@ -39,12 +57,16 @@ suite('LocationIconTest', function() {
 
   test('Render text', async function() {
     locationIcon.state = {
-      icon: SecurityChipIcon.kHttp,
+      icon: {handleId: 10n},
       securityLevel: 0,
       text: 'Not secure',
       isClickable: true,
       isTextDangerous: false,
       isVisible: true,
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
     };
     await microtasksFinished();
 
@@ -55,10 +77,10 @@ suite('LocationIconTest', function() {
     assertFalse(locationIcon.hasAttribute('is-text-dangerous'));
 
     const iconContainer =
-        locationIcon.shadowRoot.querySelector<HTMLElement>('#iconContainer');
+        locationIcon.shadowRoot.querySelector<IconFromTableElement>(
+            'icon-from-table');
     assertTrue(!!iconContainer);
-    assertTrue(
-        iconContainer.style.maskImage.includes('http_chrome_refresh.svg'));
+    assertEquals(10n, iconContainer.iconHandle.handleId);
   });
 
   test('Dangerous text', async function() {
@@ -68,21 +90,23 @@ suite('LocationIconTest', function() {
         '--color-omnibox-security-chip-text', 'rgb(0, 255, 0)');
 
     locationIcon.state = {
-      icon: SecurityChipIcon.kDangerous,
+      icon: {handleId: 0n},
       securityLevel: 3,  // DANGEROUS
       text: 'Dangerous',
       isClickable: true,
       isTextDangerous: true,
       isVisible: true,
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
     };
     await microtasksFinished();
 
     assertTrue(locationIcon.hasAttribute('is-text-dangerous'));
     assertTrue(locationIcon.hasAttribute('is-dangerous'));
 
-    const container =
-        locationIcon.shadowRoot.querySelector<HTMLElement>('#container');
-    assertTrue(!!container);
+    const container = locationIcon.$.container;
     assertTrue(hasStyle(container, 'background-color', 'rgb(0, 0, 255)'));
     assertTrue(hasStyle(container, 'color', 'rgb(0, 255, 0)'));
   });
@@ -92,32 +116,38 @@ suite('LocationIconTest', function() {
         '--color-omnibox-security-chip-dangerous', 'rgb(255, 0, 0)');
 
     locationIcon.state = {
-      icon: SecurityChipIcon.kDangerous,
+      icon: {handleId: 0n},
       securityLevel: 3,  // DANGEROUS
       text: 'Not secure',
       isClickable: true,
       isTextDangerous: false,
       isVisible: true,
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
     };
     await microtasksFinished();
 
     assertFalse(locationIcon.hasAttribute('is-text-dangerous'));
     assertTrue(locationIcon.hasAttribute('is-dangerous'));
 
-    const container =
-        locationIcon.shadowRoot.querySelector<HTMLElement>('#container');
-    assertTrue(!!container);
+    const container = locationIcon.$.container;
     assertTrue(hasStyle(container, 'color', 'rgb(255, 0, 0)'));
   });
 
   test('Warning text', async function() {
     locationIcon.state = {
-      icon: SecurityChipIcon.kNotSecureWarning,
+      icon: {handleId: 0n},
       securityLevel: 4,  // WARNING
       text: 'Not secure',
       isClickable: true,
       isTextDangerous: false,
       isVisible: true,
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
     };
     await microtasksFinished();
 
@@ -127,21 +157,22 @@ suite('LocationIconTest', function() {
 
   test('Unclickable state', async function() {
     locationIcon.state = {
-      icon: SecurityChipIcon.kHttp,
+      icon: {handleId: 0n},
       securityLevel: 0,
       text: '',
       isClickable: false,
       isTextDangerous: false,
       isVisible: true,
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
     };
     await microtasksFinished();
 
     assertFalse(locationIcon.hasAttribute('clickable'));
 
-    const container =
-        locationIcon.shadowRoot.querySelector<HTMLElement>('#container');
-    assertTrue(!!container);
-
+    const container = locationIcon.$.container;
     container.dispatchEvent(new PointerEvent('pointerdown'));
     assertEquals(0, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
 
@@ -151,28 +182,31 @@ suite('LocationIconTest', function() {
 
   test('Click events', async function() {
     locationIcon.state = {
-      icon: SecurityChipIcon.kHttp,
+      icon: {handleId: 0n},
       securityLevel: 0,
       text: '',
       isClickable: true,
       isTextDangerous: false,
       isVisible: true,
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
     };
     await microtasksFinished();
 
-    const container =
-        locationIcon.shadowRoot.querySelector<HTMLElement>('#container');
-    assertTrue(!!container);
-
+    const container = locationIcon.$.container;
     container.dispatchEvent(new PointerEvent('pointerdown'));
     assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
     assertEquals(
         LhsChipIdentifier.kLocationIcon,
         toolbarUiHandler.getArgs('onLhsChipMousePressed')[0]);
+    container.dispatchEvent(new PointerEvent('pointerup'));
 
     // Simulate right click pointerdown
     container.dispatchEvent(new PointerEvent('pointerdown', {button: 2}));
     assertEquals(2, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
+    container.dispatchEvent(new PointerEvent('pointerup'));
 
     container.click();
     assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipClicked'));
@@ -189,5 +223,42 @@ suite('LocationIconTest', function() {
         LhsChipIdentifier.kLocationIcon,
         toolbarUiHandler.getArgs('onLhsChipClicked')[1][0]);
     assertTrue(toolbarUiHandler.getArgs('onLhsChipClicked')[1][1]);
+  });
+
+  test('Multi-touch scenario', async function() {
+    locationIcon.state = {
+      icon: {handleId: 0n},
+      securityLevel: 0,
+      text: '',
+      accessibilityState: {
+        label: '',
+        description: '',
+      },
+      isClickable: true,
+      isTextDangerous: false,
+      isVisible: true,
+    };
+    await microtasksFinished();
+
+    const container = locationIcon.$.container;
+
+    // Initial touch
+    container.dispatchEvent(
+        new PointerEvent('pointerdown', {pointerId: 1, button: 0}));
+    assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
+
+    // Second touch while first is still active
+    container.dispatchEvent(
+        new PointerEvent('pointerdown', {pointerId: 2, button: 0}));
+    // Should NOT trigger another mouse pressed event
+    assertEquals(1, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
+
+    // Release first touch
+    container.dispatchEvent(new PointerEvent('pointerup', {pointerId: 1}));
+
+    // Now a new touch should work
+    container.dispatchEvent(
+        new PointerEvent('pointerdown', {pointerId: 3, button: 0}));
+    assertEquals(2, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
   });
 });

@@ -192,13 +192,6 @@ public class AwContentsStatics {
         sDefaultTrafficStatsUid = uid;
     }
 
-    public static void setRendererLibraryPrefetchMode(int mode) {
-        AwContentsStaticsJni.get().setRendererLibraryPrefetchMode(mode);
-    }
-
-    public static int getRendererLibraryPrefetchMode() {
-        return AwContentsStaticsJni.get().getRendererLibraryPrefetchMode();
-    }
 
     public static void setSelectionActionMenuClient(
             @Nullable SelectionActionMenuClientWrapper client) {
@@ -219,7 +212,7 @@ public class AwContentsStatics {
         return sDefaultTrafficStatsUid;
     }
 
-    public static void forceVariationIdsForTesting( // IN-TEST
+    public static void forceVariationIdsForTesting(
             List<String> variationIds, String commandLineVariationIds) {
         AwContentsStaticsJni.get()
                 .forceVariationIdsForTesting(variationIds, commandLineVariationIds); // IN-TEST
@@ -250,9 +243,6 @@ public class AwContentsStatics {
         @JniType("std::string")
         String getVariationsHeader();
 
-        void setRendererLibraryPrefetchMode(int mode);
-
-        int getRendererLibraryPrefetchMode();
 
         void forceVariationIdsForTesting( // IN-TEST
                 @JniType("std::vector<std::string>") List<String> variationIds,

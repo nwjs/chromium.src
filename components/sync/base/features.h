@@ -56,9 +56,6 @@ BASE_DECLARE_FEATURE(kNewTabPageCustomizationThemeSync);
 // Enables syncing of usage metadata for loyalty cards.
 BASE_DECLARE_FEATURE(kSyncLoyaltyCardMetadata);
 
-// Enables syncing of accessibility annotations to devices.
-BASE_DECLARE_FEATURE(kSyncAccessibilityAnnotation);
-
 #if !BUILDFLAG(IS_CHROMEOS)
 // Flag that controls Uno fast-follow features which are:
 // On Android:
@@ -238,12 +235,21 @@ BASE_DECLARE_FEATURE(kSyncInvalidationsBypassScheduler);
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, search engines and site search will be synced on Android LFF.
 BASE_DECLARE_FEATURE(kSyncSearchEnginesAndroidLFF);
+
+// If enabled, ignores the value set in sessions_invalidations_enabled_ and
+// always registers for sessions invalidations.
+BASE_DECLARE_FEATURE(kAlwaysRegisterSessionsInvalidationsAndroid);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Feature flag for ChromeOS only to estimate new sign-in users population.
 BASE_DECLARE_FEATURE(kEstimateNewSignInUsersWithFinchAvailablePopulation);
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+// If enabled, computes the web sign-in status based on account in cookies
+// values even if they are stale. This ensures that we log the last known cookie
+// sign-in status for short-lived sessions instead of the default OFF value.
+BASE_DECLARE_FEATURE(kSyncFixWebSigninSessionDurationForShortLivedSessions);
 
 }  // namespace syncer
 

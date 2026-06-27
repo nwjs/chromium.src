@@ -798,12 +798,45 @@ TEST_F(DiscardableImageMapTest, GathersAnimatedImages) {
       image_map->GetDiscardableImagesInRect(visible_rect);
   ASSERT_EQ(images.size(), 3u);
   EXPECT_TRUE(images[0]->paint_image().IsSameForTesting(static_image));
-  EXPECT_DCHECK_DEATH(images[0]->frame_index());
+  EXPECT_EQ(images[0]->frame_index(), PaintImage::kDefaultFrameIndex);
   EXPECT_TRUE(images[1]->paint_image().IsSameForTesting(animated_loop_none));
-  EXPECT_DCHECK_DEATH(images[1]->frame_index());
+  EXPECT_EQ(images[1]->frame_index(), PaintImage::kDefaultFrameIndex);
   EXPECT_TRUE(
       images[2]->paint_image().IsSameForTesting(animation_loop_infinite));
-  EXPECT_DCHECK_DEATH(images[2]->frame_index());
+  EXPECT_EQ(images[2]->frame_index(), PaintImage::kDefaultFrameIndex);
+}
+
+TEST_F(DiscardableImageMapTest, AnimatedImageMetadataReflectsCurrentState) {
+  gfx::Rect visible_rect(1000, 1000);
+  std::vector<FrameMetadata> frames = {
+      FrameMetadata(true, base::Milliseconds(2)),
+      FrameMetadata(true, base::Milliseconds(3))};
+  gfx::Size image_size(100, 100);
+
+  PaintImage initial =
+      PaintImageBuilder::WithCopy(CreateAnimatedImage(image_size, frames, 1u))
+          .set_id(1)
+          .set_reset_animation_sequence_id(0)
+          .TakePaintImage();
+  PaintImage current =
+      PaintImageBuilder::WithCopy(CreateAnimatedImage(image_size, frames, 1u))
+          .set_id(1)
+          .set_reset_animation_sequence_id(8)
+          .TakePaintImage();
+
+  FakeContentLayerClient content_layer_client;
+  content_layer_client.set_bounds(visible_rect.size());
+  content_layer_client.add_draw_image(initial, gfx::Point(0, 0));
+  content_layer_client.add_draw_image(current, gfx::Point(100, 100));
+
+  scoped_refptr<DisplayItemList> display_list =
+      content_layer_client.PaintContentsToDisplayList();
+  scoped_refptr<DiscardableImageMap> image_map =
+      display_list->GenerateDiscardableImageMap(ScrollOffsetMap());
+
+  const auto& metadata = image_map->animated_images_metadata();
+  ASSERT_TRUE(metadata.contains(1u));
+  EXPECT_EQ(metadata.at(1u).reset_animation_sequence_id, 8u);
 }
 
 TEST_F(DiscardableImageMapTest, GathersPaintWorklets) {

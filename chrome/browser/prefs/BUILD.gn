@@ -61,6 +61,9 @@ source_set("impl") {
     ":prefs",
     ":util",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_impl",
+    "//chrome/browser:chrome_content_browser_client",
+    "//chrome/browser:defaults",
     "//chrome/browser:flags",
     "//chrome/browser/accessibility",
     "//chrome/browser/autocomplete:aim_eligibility_service",
@@ -119,6 +122,8 @@ source_set("impl") {
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/toolbar/chrome_labs",
     "//chrome/browser/ui/webui/accessibility",
+    "//chrome/browser/ui/webui/flags",
+    "//chrome/browser/ui/webui/policy",
     "//chrome/browser/updates/announcement_notification",
     "//chrome/browser/webauthn",
     "//components/blocked_content",
@@ -131,12 +136,14 @@ source_set("impl") {
     "//components/commerce/core:prefs",
     "//components/content_settings/core/browser",
     "//components/contextual_search:public",
+    "//components/contextual_tasks/public",
     "//components/custom_handlers",
     "//components/domain_reliability:prefs",
     "//components/enterprise/browser/groups:prefs",
     "//components/enterprise/browser/identifiers",
     "//components/enterprise/browser/promotion:prefs",
     "//components/enterprise/connectors/core",
+    "//components/enterprise/network_header_injection/core",
     "//components/feature_engagement/public:prefs",
     "//components/history_clusters/core",
     "//components/image_fetcher/core/cache",
@@ -170,6 +177,7 @@ source_set("impl") {
     "//components/segmentation_platform/embedder/default_model",
     "//components/signin/core/browser",
     "//components/site_engagement/content",
+    "//components/skills/public",
     "//components/subresource_filter/content/browser",
     "//components/subresource_filter/core/common",
     "//components/supervised_user/core/browser",
@@ -196,7 +204,10 @@ source_set("impl") {
   }
 
   if (enable_extensions_core) {
-    deps += [ "//extensions/common" ]
+    deps += [
+      "//chrome/browser/ui/webui/extensions",
+      "//extensions/common",
+    ]
   }
 
   if (enable_background_mode) {
@@ -295,6 +306,7 @@ source_set("impl") {
       "//chrome/browser/ui/webui/signin/ash",
       "//chromeos/ash/components/audio",
       "//chromeos/ash/components/boca/babelorca",
+      "//chromeos/ash/components/boca/gemini",
       "//chromeos/ash/components/boca/on_task",
       "//chromeos/ash/components/carrier_lock",
       "//chromeos/ash/components/demo_mode",
@@ -328,6 +340,7 @@ source_set("impl") {
 
   if (is_win) {
     deps += [
+      "//chrome/browser:font_prewarmer_tab_helper",
       "//chrome/browser/os_crypt",
       "//chrome/browser/webnn",
       "//chrome/browser/win",
@@ -353,6 +366,7 @@ source_set("impl") {
     }
   } else {
     deps += [
+      "//chrome/browser:intranet_redirect_detector",
       "//chrome/browser/actor/ui",
       "//chrome/browser/desktop_to_mobile_promos:utils",
       "//chrome/browser/device_identity",

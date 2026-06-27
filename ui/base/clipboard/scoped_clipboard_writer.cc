@@ -87,6 +87,7 @@ void ScopedClipboardWriter::SetDataSourceURL(const GURL& main_frame,
 
 void ScopedClipboardWriter::WriteText(std::u16string_view text) {
   RecordWrite(ClipboardFormatMetric::kText);
+  RecordWriteTextSizeMetrics(text);
 
   Clipboard::Data data = Clipboard::TextData{.data = base::UTF16ToUTF8(text)};
   const size_t index = data.index();
@@ -133,6 +134,14 @@ void ScopedClipboardWriter::WriteFilenames(std::string uri_list) {
 }
 
 void ScopedClipboardWriter::WriteURL(const ClipboardUrlInfo& url_info) {
+  // GURL::spec() CHECKs on URLs that failed to canonicalize but have a
+  // non-empty spec_, so reject invalid URLs here before they reach any
+  // spec() call on this path (crbug.com/495504337). This also subsumes the
+  // empty-URL case from ShouldSkipBookmark below, since GURL::is_valid() is
+  // false for the empty URL.
+  if (!url_info.url.is_valid()) {
+    return;
+  }
   const std::string url = url_info.url.spec();
   if (ui::clipboard_util::ShouldSkipBookmark(url_info.title, url)) {
     return;

@@ -51,6 +51,10 @@ inline constexpr char kEnterpriseMDMManagementWindows[] =
 // Integer pref that stores the Mac enterprise MDM management authority.
 inline constexpr char kEnterpriseMDMManagementMac[] =
     "management.platform.enterprise_mdm_mac";
+#elif BUILDFLAG(IS_ANDROID)
+// Integer pref that stores the Android enterprise MDM/ownership management authority.
+inline constexpr char kEnterpriseMDMManagementAndroid[] =
+    "management.platform.enterprise_mdm_android";
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
@@ -83,12 +87,6 @@ inline constexpr char kSystemFeaturesDisableList[] =
 // See the SystemFeaturesDisableMode policy for details.
 inline constexpr char kSystemFeaturesDisableMode[] =
     "policy.system_features_disable_mode";
-
-// Blocks access to the listed host patterns.
-inline constexpr char kUrlBlocklist[] = "policy.url_blocklist";
-
-// Allows access to the listed host patterns, as exceptions to the blacklist.
-inline constexpr char kUrlAllowlist[] = "policy.url_allowlist";
 
 // Integer that specifies the policy refresh rate for user-policy in
 // milliseconds. Not all values are meaningful, so it is clamped to a sane range
@@ -208,6 +206,11 @@ inline constexpr char kXSLTEnabled[] = "policy.xslt_enabled";
 inline constexpr char kCSSCustomStateDeprecatedSyntaxEnabled[] =
     "policy.css_custom_state_deprecated_syntax_enabled";
 
+// A boolean pref indicating whether the background fetch restriction is enabled
+// when called from a service worker context.
+inline constexpr char kRestrictBackgroundFetchFromServiceWorkerEnabled[] =
+    "policy.restrict_background_fetch_from_service_worker_enabled";
+
 // A boolean pref indicating whether the new HTML parser for the <select>
 // element is enabled. When enabled, the HTML parser allows more tags to be used
 // inside <select> instead of removing them.
@@ -243,14 +246,6 @@ inline constexpr char kFloatingWorkspaceEnabled[] =
 // A boolean value indicating whether the built-in AI APIs are enabled.
 inline constexpr char kBuiltInAIAPIsEnabled[] =
     "policy.built_in_ai_apis_enabled";
-
-// Blocks access to the listed host patterns for incognito mode.
-inline constexpr char kIncognitoModeUrlBlocklist[] =
-    "policy.incognito_mode_url_blocklist";
-
-// Allows access to the listed host patterns for incognito mode.
-inline constexpr char kIncognitoModeUrlAllowlist[] =
-    "policy.incognito_mode_url_allowlist";
 
 // A boolean pref indicating whether to default allow Local Network
 // Access permissions policy features.

@@ -34,7 +34,7 @@ try_.defaults.set(
     siso_output_local_strategy = "greedy",
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
-    siso_remote_linking = True,
+    siso_remote_linking = False,
 )
 
 consoles.list_view(
@@ -64,6 +64,9 @@ try_.builder(
         ],
     ),
     main_list_view = "try",
+    # TODO: crbug.com/509602362 - Temporarily enable remote linking builder by builder.
+    # Will enable it for all CQ builds again after resolving RBE-CAS issue.
+    siso_remote_linking = True,
 )
 
 try_.builder(
@@ -246,5 +249,5 @@ try_.builder(
     name = "fuchsia-code-coverage",
     mirrors = ["ci/fuchsia-code-coverage"],
     gn_args = "ci/fuchsia-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )

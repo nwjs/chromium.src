@@ -13,6 +13,7 @@
 #include "chrome/browser/ash/scanning/lorgnette_scanner_manager_factory.h"
 #include "chrome/browser/ash/scanning/scan_service.h"
 #include "chrome/browser/ash/scanning/scan_service_factory.h"
+#include "chrome/browser/ash/scanning/scan_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/chromeos/crosier/ash_integration_test.h"
@@ -60,9 +61,11 @@ lorgnette::ScannerCapabilities CreateLorgnetteScannerCapabilities() {
 std::unique_ptr<KeyedService> BuildLorgnetteScannerManager(
     content::BrowserContext* context) {
   auto manager = std::make_unique<FakeLorgnetteScannerManager>();
-  manager->SetGetScannerNamesResponse({kFirstTestScannerName});
-  manager->SetGetScannerCapabilitiesResponse(
-      CreateLorgnetteScannerCapabilities());
+  lorgnette::ScannerInfo info;
+  info.set_name(kFirstTestScannerName);
+  manager->AddScanner(std::move(info), lorgnette::ScannerConfig(),
+                      CreateLorgnetteScannerCapabilities());
+  manager->SetDataForFutureScanJobs(kFirstTestScannerName, {CreateJpeg()});
   return manager;
 }
 

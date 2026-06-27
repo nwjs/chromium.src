@@ -9,46 +9,77 @@ import './split_tabs_button.js';
 import './home_button.js';
 import './pinned_toolbar_actions.js';
 import './avatar_button.js';
+import './icon_table.js';
+import './icon_from_table.js';
+import './icons.html.js';
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
-import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
+import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
-import {BrowserProxyImpl, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE} from './browser_proxy.js';
-import type {BrowserProxy, NavigationControlsState, NavigationControlsStateListenerHandle} from './browser_proxy.js';
+import {BrowserProxyImpl, EventDispositionFlag, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE} from './browser_proxy.js';
+import type {BrowserProxy, IconUpdate, NavigationControlsState, NavigationControlsStateListenerHandle} from './browser_proxy.js';
+import {IconTable} from './icon_table.js';
 import {MetricsRecorder} from './metrics_recorder.js';
-import {SplitTabActiveLocation} from './toolbar_ui_api_data_model.mojom-webui.js';
 // clang-format off
 // Helper so tests can find what they needed when optimization is on.
 // This should probably be a separate file, but rollup support only
 // handles 2 at most now.
 import {
+  ContentSettingImageType,
+  IconType,
   LhsChipIdentifier,
   OmniboxTextColor,
-  SecurityChipIcon,
+  PermissionAction,
+  PermissionChipTheme,
+  PermissionPromptStyle,
+  SplitTabActiveLocation,
 } from './toolbar_ui_api_data_model.mojom-webui.js';
-import type {OmniboxAction, LocationBarState} from './toolbar_ui_api_data_model.mojom-webui.js';
-import {ReadonlyOmniboxElement} from './readonly_omnibox.js';
+import type {OmniboxAction, LocationBarState, PermissionChipState} from './toolbar_ui_api_data_model.mojom-webui.js';
+import {ContentSettingIconElement} from './content_setting_icon.js';
+import {ContentSettingsIconsElement} from './content_settings_icons.js';
+import type {IconFromTableElement} from './icon_from_table.js';
 import {LocationBarElement} from './location_bar.js';
 import {LocationIconElement} from './location_icon.js';
+import {PointerProxyImpl} from './pointer_proxy.js';
+import type {PointerProxy} from './pointer_proxy.js';
+import {PermissionChipElement} from './permission_chip.js';
+import {ReadonlyOmniboxElement} from './readonly_omnibox.js';
+import {getClickSourceType, getContextMenuSourceType} from './toolbar_button.js';
 
 export {
   BrowserProxyImpl,
+  ContentSettingIconElement,
+  ContentSettingImageType,
+  ContentSettingsIconsElement,
+  EventDispositionFlag,
+  getClickSourceType,
+  getContextMenuSourceType,
+  IconTable,
+  IconType,
   LhsChipIdentifier,
   LocationBarElement,
   LocationIconElement,
   OmniboxTextColor,
+  PermissionAction,
+  PermissionChipElement,
+  PermissionChipTheme,
+  PermissionPromptStyle,
+  PointerProxyImpl,
   ReadonlyOmniboxElement,
-  SecurityChipIcon,
   TrackedElementManager,
 };
 export type {
+  IconFromTableElement,
   LocationBarState,
   OmniboxAction,
+  PermissionChipState,
+  PointerProxy,
 };
 // clang-format on
 
@@ -62,7 +93,9 @@ const TRACKED_ELEMENTS: Array<{selector: string, id: string}> = [
   {selector: '#avatar', id: 'kToolbarAvatarButtonElementId'},
 ];
 
-export class ToolbarAppElement extends CrLitElement {
+const AppElementBase = HelpBubbleMixinLit(CrLitElement);
+
+export class ToolbarAppElement extends AppElementBase {
   static get is() {
     return 'toolbar-app';
   }
@@ -71,7 +104,15 @@ export class ToolbarAppElement extends CrLitElement {
     return getCss();
   }
 
+  /**
+   * Returns the Lit element template. To prevent premature paint holding
+   * resolution (FCP) during startup, we return `nothing` until the initial
+   * navigation controls state has been received from the browser.
+   */
   override render() {
+    if (!this.isInitialized_) {
+      return nothing;
+    }
     return getHtml.bind(this)();
   }
 
@@ -85,6 +126,7 @@ export class ToolbarAppElement extends CrLitElement {
       isBackForwardButtonEnabled_: {type: Boolean},
       isPinnedToolbarActionsEnabled_: {type: Boolean},
       isAvatarButtonEnabled_: {type: Boolean},
+      isInitialized_: {type: Boolean},
     };
   }
 
@@ -102,6 +144,12 @@ export class ToolbarAppElement extends CrLitElement {
       loadTimeData.getBoolean('enablePinnedToolbarActions');
   protected accessor isAvatarButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableAvatarButton');
+  /**
+   * Tracks whether the element has received its first navigation state
+   * update from the browser and completed its initial visual render.
+   */
+  protected accessor isInitialized_: boolean =
+      !loadTimeData.getBoolean('initialWebUISurfaceSyncEnabled');
   protected accessor navigationControlsState_: NavigationControlsState = {
     reloadControlState: {
       // While this will be overwritten anyways, this matches the default value
@@ -132,6 +180,8 @@ export class ToolbarAppElement extends CrLitElement {
     },
     locationBarState: {
       omniboxViewState: {
+        browserVersion: 0,
+        uiVersion: 0,
         textPieces: [],
         inlineAutocompletion: '',
         selection: null,
@@ -141,12 +191,17 @@ export class ToolbarAppElement extends CrLitElement {
         userInputInProgress: false,
         popupOpen: false,
       },
+      selectedKeyword: null,
       contentSettingImageStates: [],
       lhsChipsState: {
         securityChip: {
-          icon: 0,
+          icon: {handleId: 0n},
           securityLevel: 0,
           text: '',
+          accessibilityState: {
+            label: '',
+            description: '',
+          },
           isClickable: false,
           isTextDangerous: false,
           isVisible: true,
@@ -154,6 +209,13 @@ export class ToolbarAppElement extends CrLitElement {
         activityIndicators: [],
         permissionDashboard: null,
       },
+    },
+    avatarControlState: {
+      iconUrl: '',
+      text: '',
+      tooltip: '',
+      accessibilityName: '',
+      accessibilityDescription: '',
     },
     layoutConstantsVersion: 0,
     pinnedToolbarActionsState: [],
@@ -165,6 +227,11 @@ export class ToolbarAppElement extends CrLitElement {
   private navigationStateListenerHandle_:
       NavigationControlsStateListenerHandle =
           INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE;
+  private iconTable_: IconTable;
+  private isPageInitialized_: boolean = false;
+  private initializeSessionId_: number = 0;
+  private dragOverListener_ = (e: DragEvent) => this.onDragOver_(e);
+  private dropListener_ = (e: DragEvent) => this.onDrop_(e);
 
   constructor() {
     super();
@@ -177,6 +244,7 @@ export class ToolbarAppElement extends CrLitElement {
     this.browserProxy_ = BrowserProxyImpl.getInstance();
     this.metricsRecorder_ = new MetricsRecorder(this.browserProxy_);
     this.trackedElementManager_ = TrackedElementManager.getInstance();
+    this.iconTable_ = IconTable.getInstance();
     ColorChangeUpdater.forDocument().start();
   }
 
@@ -186,6 +254,11 @@ export class ToolbarAppElement extends CrLitElement {
    */
   override connectedCallback() {
     super.connectedCallback();
+
+    const sessionId = ++this.initializeSessionId_;
+
+    this.addEventListener('dragover', this.dragOverListener_);
+    this.addEventListener('drop', this.dropListener_);
 
     // Initial setup of CSS variables
     this.style.setProperty(
@@ -200,11 +273,37 @@ export class ToolbarAppElement extends CrLitElement {
 
     this.navigationStateListenerHandle_ =
         this.browserProxy_.addNavigationStateListener(
-            (state: NavigationControlsState) => {
+            (iconUpdates: IconUpdate[], state: NavigationControlsState) => {
+              // This must be called before updating navigationControlsState_
+              // so the new icons are available for rendering of child widgets.
+              this.iconTable_.applyUpdates(iconUpdates);
               this.navigationControlsState_ = state;
+
+              // Defer notifying the browser that the page is ready until after
+              // the first Mojo-populated update has completed its render cycle.
+              if (!this.isInitialized_) {
+                this.isInitialized_ = true;
+                this.updateComplete.then(() => {
+                  this.initializePage_(sessionId);
+                });
+              }
             });
 
     this.metricsRecorder_.startObserving();
+    if (this.isInitialized_) {
+      this.updateComplete.then(() => {
+        this.initializePage_(sessionId);
+      });
+    }
+  }
+
+  private initializePage_(sessionId: number) {
+    if (sessionId !== this.initializeSessionId_ || !this.isConnected ||
+        this.isPageInitialized_) {
+      return;
+    }
+    this.isPageInitialized_ = true;
+
     for (const {selector, id} of TRACKED_ELEMENTS) {
       const el = this.shadowRoot.querySelector<HTMLElement>(selector);
       if (el) {
@@ -213,8 +312,22 @@ export class ToolbarAppElement extends CrLitElement {
             el.classList.toggle('anchor-highlight', highlighted);
           },
         });
+        this.registerHelpBubble(id, el);
       }
     }
+
+    const waitSelectors =
+        ['#back', '#forward', '#reload', '#split-tabs', '#home', '#avatar'];
+    const promises =
+        waitSelectors.map(s => this.shadowRoot.querySelector<CrLitElement>(s))
+            .filter(el => !!el)
+            .map(el => el.updateComplete);
+    Promise.all(promises).then(() => {
+      if (sessionId !== this.initializeSessionId_ || !this.isConnected) {
+        return;
+      }
+      this.browserProxy_.toolbarUIHandler.onPageInitialized();
+    });
   }
 
   /**
@@ -224,21 +337,31 @@ export class ToolbarAppElement extends CrLitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
 
+    this.removeEventListener('dragover', this.dragOverListener_);
+    this.removeEventListener('drop', this.dropListener_);
+
     this.browserProxy_.removeNavigationStateListener(
         this.navigationStateListenerHandle_);
 
+    this.isInitialized_ =
+        !loadTimeData.getBoolean('initialWebUISurfaceSyncEnabled');
+    this.initializeSessionId_++;
+
     this.metricsRecorder_.stopObserving();
-    for (const {selector} of TRACKED_ELEMENTS) {
-      const el = this.shadowRoot.querySelector<HTMLElement>(selector);
-      if (el) {
-        this.trackedElementManager_.stopTracking(el);
+    if (this.isPageInitialized_) {
+      for (const {selector, id} of TRACKED_ELEMENTS) {
+        const el = this.shadowRoot.querySelector<HTMLElement>(selector);
+        if (el) {
+          this.trackedElementManager_.stopTracking(el);
+          this.unregisterHelpBubble(id);
+        }
       }
+      this.isPageInitialized_ = false;
     }
   }
 
   override firstUpdated(changedProperties: PropertyValues<this>) {
     super.firstUpdated(changedProperties);
-
     const entry = performance.getEntriesByType('navigation')[0] as
         PerformanceNavigationTiming;
     if (entry) {
@@ -246,17 +369,35 @@ export class ToolbarAppElement extends CrLitElement {
           'InitialWebUI.Toolbar.ParseFinishedToFirstUpdate',
           Math.round(performance.now() - entry.domInteractive));
     }
+  }
 
-    const waitSelectors =
-        ['#back', '#forward', '#reload', '#split-tabs', '#home', '#avatar'];
-    const promises =
-        waitSelectors.map(s => this.shadowRoot.querySelector<CrLitElement>(s))
-            .filter(el => !!el)
-            .map(el => el.updateComplete);
+  protected onDragOver_(e: DragEvent) {
+    if (e.dataTransfer &&
+        (e.dataTransfer.types.includes('text/uri-list') ||
+         e.dataTransfer.types.includes('Files'))) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }
 
-    Promise.all(promises).then(() => {
-      this.browserProxy_.toolbarUIHandler.onPageInitialized();
-    });
+  protected onDrop_(e: DragEvent) {
+    if (e.defaultPrevented) {
+      return;
+    }
+
+    e.preventDefault();
+    if (!e.dataTransfer) {
+      return;
+    }
+
+    const url = e.dataTransfer.getData('text/uri-list');
+    if (url) {
+      this.browserProxy_.browserControlsHandler.navigate(
+          url.split('\n')[0]!);
+    } else if (e.dataTransfer.types.includes('Files')) {
+      this.browserProxy_.toolbarUIHandler.onToolbarDropFile(
+          {x: e.clientX, y: e.clientY});
+    }
   }
 }
 

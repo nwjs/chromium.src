@@ -159,6 +159,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // options.
 - (void)sceneOpenURL:(const GURL&)URL;
 
+// Continues `userActivity` using some connected scene with a specific URL.
+- (void)sceneContinueUserActivityWithType:(NSString*)activityType
+                                      url:(NSString*)urlString;
+
 // Loads `URL` in the current WebState with transition type
 // ui::PAGE_TRANSITION_TYPED, and waits for the loading to complete within a
 // specified `timeout`. This timeout is used for both webView appearance and
@@ -340,6 +344,25 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 - (void)addFakeSyncServerDeviceInfo:(NSString*)deviceName
                lastUpdatedTimestamp:(base::Time)lastUpdatedTimestamp;
 
+// Injects a send tab to self entry to sync FakeServer.
+- (void)addFakeSyncServerSendTabToSelfEntryWithURL:(NSString*)URL
+                                             title:(NSString*)title
+                                        deviceName:(NSString*)deviceName
+                                  targetDeviceGUID:(NSString*)targetDeviceGUID;
+
+// Adds a fake Send Tab To Self entry to the local model and returns its GUID.
+// `formFieldData` is a dictionary where keys are form control names and
+// values are the values to fill.
+- (NSString*)addFakeSendTabToSelfEntryWithURL:(NSString*)url
+                                        title:(NSString*)title
+                                formFieldData:
+                                    (NSDictionary<NSString*, NSString*>*)
+                                        formFieldData;
+
+// Waits for the local Send Tab To Self model to contain an entry with the
+// given GUID.
+- (void)waitForSendTabToSelfEntryWithGUID:(NSString*)guid;
+
 // Returns the generated text fragment for the given URL, or nil if no entry
 // exists or no fragment is set.
 - (NSString*)textFragmentForSendTabToSelfEntryWithURL:(NSString*)URL;
@@ -347,6 +370,12 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Opens a new tab with the given URL and attaches the text fragment to its
 // internal NavigationItem to trigger scroll restoration upon page load.
 - (void)openNewTabWithURL:(NSString*)url textFragment:(NSString*)textFragment;
+
+// Opens a new tab with the given URL, text fragment, and marks it as
+// originating from Send Tab To Self with the given entry GUID.
+- (void)openSendTabToSelfNewTabWithURL:(NSString*)url
+                          textFragment:(NSString*)textFragment
+                             entryGUID:(NSString*)guid;
 
 // Triggers a sync cycle for a `type`.
 - (void)triggerSyncCycleForType:(syncer::DataType)type;
@@ -452,6 +481,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns the index of active tab in normal (non-incognito) mode.
 - (NSUInteger)indexOfActiveNormalTab;
 
+// Returns YES if the current active WebState is showing a new tab page.
+- (BOOL)isCurrentTabNTP [[nodiscard]];
+
 // Simulates a backgrounding and raises an EarlGrey exception if simulation not
 // succeeded.
 - (void)simulateTabsBackgrounding;
@@ -490,6 +522,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Shows the tab switcher by tapping the switcher button.  Works on both phone
 // and tablet.
 - (void)showTabSwitcher;
+
+// Hides the tab switcher.
+- (void)hideTabSwitcher;
 
 #pragma mark - Window utilities (EG2)
 
@@ -801,6 +836,17 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns whether the unfocused omnibox is at the bottom.
 - (BOOL)isUnfocusedOmniboxAtBottom;
+
+// Returns whether Chrome Next is enabled.
+- (BOOL)isChromeNextEnabled;
+
+// Returns YES if the view with `accessibilityID` or any of its ancestors is
+// animating.
+- (BOOL)isViewAnimatingWithAccessibilityID:(NSString*)accessibilityID;
+
+// Waits for the view with `accessibilityID` to stop animating within `timeout`.
+- (void)waitForViewToStopAnimatingWithAccessibilityID:(NSString*)accessibilityID
+                                              timeout:(base::TimeDelta)timeout;
 
 #pragma mark - ContentSettings
 

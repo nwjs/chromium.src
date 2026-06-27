@@ -386,7 +386,6 @@ component("platform") {
     "audio/cone_effect.cc",
     "audio/cone_effect.h",
     "audio/cpu/arm/vector_math_neon.h",
-    "audio/cpu/mips/vector_math_msa.h",
     "audio/cpu/x86/vector_math_avx.cc",
     "audio/cpu/x86/vector_math_avx.h",
     "audio/cpu/x86/vector_math_impl.h",
@@ -468,6 +467,7 @@ component("platform") {
     "bindings/callback_interface_base.h",
     "bindings/callback_method_retriever.cc",
     "bindings/callback_method_retriever.h",
+    "bindings/cpp_heap_external_tag.h",
     "bindings/cross_thread_copier.h",
     "bindings/cross_thread_source_location.cc",
     "bindings/cross_thread_source_location.h",
@@ -895,15 +895,13 @@ component("platform") {
     "graphics/canvas_deferred_paint_record.h",
     "graphics/canvas_hibernation_handler.cc",
     "graphics/canvas_hibernation_handler.h",
-    "graphics/canvas_non2d_snapshot_provider_bitmap.cc",
-    "graphics/canvas_non2d_snapshot_provider_bitmap.h",
     "graphics/canvas_resource.cc",
     "graphics/canvas_resource.h",
     "graphics/canvas_resource_dispatcher.cc",
     "graphics/canvas_resource_dispatcher.h",
     "graphics/canvas_resource_provider.cc",
     "graphics/canvas_resource_provider.h",
-    "graphics/canvas_snapshot_provider.h",
+    "graphics/canvas_snapshot_info.h",
     "graphics/color.cc",
     "graphics/color.h",
     "graphics/color_behavior.h",
@@ -1498,7 +1496,6 @@ component("platform") {
     "text/date_components.h",
     "text/date_time_format.cc",
     "text/date_time_format.h",
-    "text/decode_escape_sequences.h",
     "text/east_asian_spacing_type.h",
     "text/emoji_segmentation_category.h",
     "text/emoji_segmentation_category_inline_header.h",
@@ -1809,7 +1806,6 @@ component("platform") {
     "//base/allocator:buildflags",
     "//build:chromecast_buildflags",
     "//cc",
-    "//cc/ipc",
     "//cc/mojo_embedder",
     "//components/input",
     "//components/language_detection/content/common",
@@ -1876,8 +1872,8 @@ component("platform") {
   if (use_dawn) {
     deps += [ "//third_party/dawn/src/dawn/wire" ]
   } else {
-    # If Dawn is not used, use the proc table. This gives the WebGPU implementation
-    # something to link to, though WebGPU won't be supported.
+    # If Dawn is not used, use the proc table. This gives the WebGPU
+    # implementation something to link to, though WebGPU won't be supported.
     deps += [ "//third_party/dawn/src/dawn:proc" ]
   }
 
@@ -2199,8 +2195,12 @@ source_set("blink_platform_unittests_sources") {
     "audio/audio_destination_uma_reporter_test.cc",
     "audio/audio_frame_stats_accumulator_test.cc",
     "audio/denormal_disabler_test.cc",
+    "audio/direct_convolver_test.cc",
+    "audio/down_sampler_test.cc",
+    "audio/fft_frame_test.cc",
     "audio/push_pull_fifo_multithread_test.cc",
     "audio/push_pull_fifo_test.cc",
+    "audio/up_sampler_test.cc",
     "audio/vector_math_test.cc",
     "bindings/parkable_string_test.cc",
     "bindings/runtime_call_stats_test.cc",
@@ -2258,6 +2258,7 @@ source_set("blink_platform_unittests_sources") {
     "fonts/typesetting_features_test.cc",
     "fonts/unicode_range_set_test.cc",
     "fonts/utf16_ragel_iterator_test.cc",
+    "fonts/web_font_decoder_test.cc",
     "fonts/web_font_typeface_factory_test.cc",
     "geometry/calculation_expression_node_test.cc",
     "geometry/contoured_rect_test.cc",
@@ -2643,6 +2644,9 @@ group("blink_platform_unittests_data") {
     "//third_party/blink/web_tests/images/bmp-suite/",
     "//third_party/blink/web_tests/images/jpeg-suite/",
 
+    # Required by dark mode image classifier tests.
+    "//third_party/blink/web_tests/dark-mode/images/resources/",
+
     # Required by some font tests.
     "//third_party/blink/web_tests/external/wpt/fonts/",
     "//third_party/blink/web_tests/external/wpt/css/css-fonts/resources",
@@ -2850,24 +2854,26 @@ fuzzer_test("web_icon_sizes_fuzzer") {
   additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
 }
 
-# Fuzzer for blink::AVIFImageDecoder
-fuzzer_test("blink_avif_decoder_fuzzer") {
-  sources = [ "image-decoders/avif/avif_image_decoder_fuzzer.cc" ]
-  deps = [
-    ":blink_fuzzer_test_support",
-    ":blink_image_decoder_fuzzer_test_support",
-    ":platform",
-  ]
-  seed_corpuses = [ "//third_party/blink/web_tests/images/resources/avif" ]
-  libfuzzer_options = [
-    "rss_limit_mb=8192",
+if (enable_dav1d_decoder) {
+  # Fuzzer for blink::AVIFImageDecoder
+  fuzzer_test("blink_avif_decoder_fuzzer") {
+    sources = [ "image-decoders/avif/avif_image_decoder_fuzzer.cc" ]
+    deps = [
+      ":blink_fuzzer_test_support",
+      ":blink_image_decoder_fuzzer_test_support",
+      ":platform",
+    ]
+    seed_corpuses = [ "//third_party/blink/web_tests/images/resources/avif" ]
+    libfuzzer_options = [
+      "rss_limit_mb=8192",
 
-    # Large AVIF images can take a while to decode under ASAN (especially when
-    # they are fuzzer generated). The default timeout is 25 seconds.
-    "timeout_per_input=50",
-  ]
-  centipede_options = libfuzzer_options
-  additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
+      # Large AVIF images can take a while to decode under ASAN (especially when
+      # they are fuzzer generated). The default timeout is 25 seconds.
+      "timeout_per_input=50",
+    ]
+    centipede_options = libfuzzer_options
+    additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
+  }
 }
 
 if (enable_jxl_decoder) {
@@ -3056,9 +3062,6 @@ fuzzer_test("blink_storage_key_fuzzer") {
     ":blink_fuzzer_test_support",
     "//third_party/blink/public/common",
   ]
-  if (is_android) {
-    deps += [ "//third_party/icu:icu_assets" ]
-  }
   seed_corpus = "//third_party/blink/common/storage_key/storage_key_corpus"
   additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
 }

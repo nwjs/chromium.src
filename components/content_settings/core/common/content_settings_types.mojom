@@ -372,9 +372,9 @@ enum ContentSettingsType {
   // automatically (i.e. without transient activation) should be enabled.
   AUTOMATIC_FULLSCREEN,
 
-  // Obsolete March 2026. Sub apps are IWA-only now, there is no need for
-  // limiting the opening of the installation prompts.
-  DEPRECATED_SUB_APP_INSTALLATION_PROMPTS,
+  // Content settings used to indicate that a web app is allowed to prompt the
+  // user for the installation of sub apps.
+  SUB_APP_INSTALLATION_PROMPTS,
 
   // Whether an application can enumerate audio output device.
   SPEAKER_SELECTION,
@@ -478,5 +478,14 @@ enum ContentSettingsType {
   // when suspicious warning is shown. If the user has selected this, the
   // notification permission will not be revoked based on suspicious verdict.
   SUSPICIOUS_NOTIFICATION_SHOW_ORIGINAL,
+
+  // Setting to control whether an Isolated Web App (IWA) can add Sub
+  // Apps without prompting users.
+  // https://github.com/explainers-by-googlers/sub-apps
+  // Possible values:
+  // - ASK: Prompt the user for confirmation (default).
+  // - ALLOW: Skip the prompt and allow adding sub apps.
+  // - BLOCK: Skip the prompt and block adding sub apps.
+  SUB_APPS_WITHOUT_PROMPTS,
 };
 // LINT.ThenChange(//components/content_settings/core/browser/content_settings_uma_util.cc:kHistogramValue)

@@ -188,6 +188,7 @@ def browser_builder(
         max_concurrent_invocations = 3,
         build_config = None,
         clusterfuzz_archive_name_prefix = None,
+        clusterfuzz_archive_schema_version = None,
         clusterfuzz_archive_subdir = None,
         clusterfuzz_gs_bucket = None,
         console_short_name = None,
@@ -205,6 +206,7 @@ def browser_builder(
         use_component_build = use_component_build,
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
             archive_name_prefix = clusterfuzz_archive_name_prefix,
+            archive_schema_version = clusterfuzz_archive_schema_version,
             archive_subdir = clusterfuzz_archive_subdir,
             gs_acl = "public-read",
             gs_bucket = clusterfuzz_gs_bucket,
@@ -652,10 +654,13 @@ def browser_msan_builder(**kwargs):
         build_config = builder_config.build_config.RELEASE,
         target_bits = 64,
         target_platform = builder_config.target_platform.LINUX,
+        clusterfuzz_archive_schema_version = 1,
         clusterfuzz_gs_bucket = "chromium-browser-msan",
         console_category = "linux msan",
         contact_team_email = "chrome-sanitizer-builder-owners@google.com",
         siso_remote_jobs = 250,
+        # TODO(498605824): Add back to gardener rotation.
+        gardener_rotations = args.ignore_default(None),
         **kwargs
     )
 
@@ -901,7 +906,7 @@ libfuzzer_linux_asan_builder(
     build_config = builder_config.build_config.DEBUG,
     target_bits = 64,
     console_short_name = "linux-dbg",
-    execution_timeout = 4 * time.hour,
+    execution_timeout = 5 * time.hour,
     gn_extra_configs = [
         "disable_seed_corpus",
     ],

@@ -18,6 +18,7 @@
 #include "extensions/browser/permissions/site_permissions_helper.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "url/origin.h"
 
@@ -69,6 +70,10 @@ void ExtensionsToolbarViewModel::RemoveObserver(Observer* observer) {
 
 ToolbarActionViewModel* ExtensionsToolbarViewModel::GetActionModelForId(
     const ToolbarActionsModel::ActionId& action_id) const {
+  if (!actions_model_) {
+    return nullptr;
+  }
+
   auto it = actions_.find(action_id);
   if (it == actions_.end()) {
     return nullptr;
@@ -78,6 +83,10 @@ ToolbarActionViewModel* ExtensionsToolbarViewModel::GetActionModelForId(
 
 bool ExtensionsToolbarViewModel::IsActionDraggable(
     const ToolbarActionsModel::ActionId& action_id) const {
+  if (!actions_model_) {
+    return false;
+  }
+
   Profile* profile = browser_->GetProfile();
 
   // We don't allow dragging if the container isn't in the toolbar, or if
@@ -101,12 +110,20 @@ bool ExtensionsToolbarViewModel::IsActionDraggable(
 void ExtensionsToolbarViewModel::MovePinnedAction(
     const ToolbarActionsModel::ActionId& action_id,
     size_t target_index) {
+  if (!actions_model_) {
+    return;
+  }
+
   actions_model_->MovePinnedAction(action_id, target_index);
 }
 
 void ExtensionsToolbarViewModel::MovePinnedActionBy(
     const std::string& action_id,
     int move_by) {
+  if (!actions_model_) {
+    return;
+  }
+
   // Find the action's current index and verify that it's currently pinned.
   auto iter = std::ranges::find(actions_model_->pinned_action_ids(), action_id);
   CHECK(iter != actions_model_->pinned_action_ids().cend());
@@ -125,15 +142,32 @@ void ExtensionsToolbarViewModel::MovePinnedActionBy(
 
 const base::flat_set<ToolbarActionsModel::ActionId>&
 ExtensionsToolbarViewModel::GetAllActionIds() const {
+  if (!actions_model_) {
+    static const base::NoDestructor<
+        base::flat_set<ToolbarActionsModel::ActionId>>
+        empty_set;
+    return *empty_set;
+  }
+
   return actions_model_->action_ids();
 }
 
 const std::vector<ToolbarActionsModel::ActionId>&
 ExtensionsToolbarViewModel::GetPinnedActionIds() const {
+  if (!actions_model_) {
+    static const base::NoDestructor<std::vector<ToolbarActionsModel::ActionId>>
+        empty_vec;
+    return *empty_vec;
+  }
+
   return actions_model_->pinned_action_ids();
 }
 
 bool ExtensionsToolbarViewModel::AreActionsInitialized() {
+  if (!actions_model_) {
+    return false;
+  }
+
   return actions_model_->actions_initialized();
 }
 
@@ -142,11 +176,17 @@ const gfx::VectorIcon& ExtensionsToolbarViewModel::GetToolbarButtonIcon(
     ExtensionsToolbarButtonState state) {
   switch (state) {
     case ExtensionsToolbarButtonState::kDefault:
-      return vector_icons::kExtensionChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kChromeExtensionIcon
+                 : vector_icons::kExtensionChromeRefreshOldIcon;
     case ExtensionsToolbarButtonState::kAllExtensionsBlocked:
-      return vector_icons::kExtensionOffIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kChromeExtensionOffIcon
+                 : vector_icons::kExtensionOffOldIcon;
     case ExtensionsToolbarButtonState::kAnyExtensionHasAccess:
-      return vector_icons::kExtensionOnIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kChromeExtensionCheckIcon
+                 : vector_icons::kExtensionOnOldIcon;
   }
 }
 
@@ -189,6 +229,10 @@ std::u16string ExtensionsToolbarViewModel::GetToolbarButtonTooltipText(
 ExtensionsToolbarViewModel::ExtensionsToolbarButtonState
 ExtensionsToolbarViewModel::GetButtonState(
     content::WebContents& web_contents) const {
+  if (!actions_model_) {
+    return ExtensionsToolbarButtonState::kDefault;
+  }
+
   Profile* profile = browser_->GetProfile();
   const GURL& url = web_contents.GetLastCommittedURL();
 
@@ -216,12 +260,20 @@ ExtensionsToolbarViewModel::GetButtonState(
 void ExtensionsToolbarViewModel::ExecuteUserAction(
     const ToolbarActionsModel::ActionId& action_id,
     ToolbarActionViewModel::InvocationSource source) {
+  if (!actions_model_) {
+    return;
+  }
+
   GetActionModelForId(action_id)->ExecuteUserAction(source);
 }
 
 void ExtensionsToolbarViewModel::GrantSiteAccess(
     content::WebContents* web_contents,
     const std::vector<extensions::ExtensionId>& extension_ids) {
+  if (!actions_model_) {
+    return;
+  }
+
   Profile* profile = browser_->GetProfile();
   auto* registry = extensions::ExtensionRegistry::Get(profile);
   std::vector<const extensions::Extension*> extensions_to_run;
@@ -235,7 +287,8 @@ void ExtensionsToolbarViewModel::GrantSiteAccess(
 
   extensions::SitePermissionsHelper(profile).UpdateSiteAccess(
       extensions_to_run, web_contents,
-      extensions::PermissionsManager::UserSiteAccess::kOnSite);
+      extensions::PermissionsManager::UserSiteAccess::kOnSite,
+      web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin());
 }
 
 // Extensions are included in the request access button only when:
@@ -246,7 +299,7 @@ ExtensionsToolbarViewModel::RequestAccessButtonParams
 ExtensionsToolbarViewModel::GetRequestAccessButtonParams(
     content::WebContents* web_contents) const {
   RequestAccessButtonParams params;
-  if (!web_contents) {
+  if (!web_contents || !permissions_manager_observation_.IsObserving()) {
     return params;
   }
 
@@ -521,4 +574,14 @@ void ExtensionsToolbarViewModel::OnShowAccessRequestsInToolbarChanged(
   for (Observer& obs : observers_) {
     obs.OnRequestAccessButtonParamsChanged(web_contents);
   }
+}
+
+void ExtensionsToolbarViewModel::OnToolbarActionsModelShutdown() {
+  actions_model_observation_.Reset();
+  actions_model_ = nullptr;
+  actions_.clear();
+}
+
+void ExtensionsToolbarViewModel::OnPermissionsManagerShutdown() {
+  permissions_manager_observation_.Reset();
 }

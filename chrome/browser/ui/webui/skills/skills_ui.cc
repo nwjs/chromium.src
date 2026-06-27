@@ -13,6 +13,8 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/skills/skills_service_factory.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_handler.h"
 #include "chrome/browser/ui/webui/skills/skills_page_handler.h"
@@ -43,11 +45,14 @@ SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
   source->AddResourcePath("dialog", IDR_SKILLS_SKILLS_DIALOG_HTML);
   source->AddBoolean("isGlicEnabled",
                      glic::GlicEnabling::IsReadyForProfile(profile));
+  source->AddBoolean("isSkillsEnabled",
+                     SkillsServiceFactory::IsSkillsEnabledForProfile(profile));
   source->AddInteger("MAX_NAME_CHAR_COUNT", kMaxNameCharCount);
   source->AddInteger("MAX_PROMPT_CHAR_COUNT", kMaxPromptCharCount);
-  source->AddBoolean(
-      "isRefinementEnabled",
-      base::FeatureList::IsEnabled(features::kSkillsRefinementEnabled));
+  source->AddBoolean("isRefinementEnabled",
+                     // Disable refinement whenever browseSkillsPage is disabled
+                     // (non-en locales).
+                     !ShouldDisableBrowseSkillsPage());
   source->AddBoolean(
       "isSubheadersEnabled",
       base::FeatureList::IsEnabled(features::kSkillsSubheadersEnabled));
@@ -81,6 +86,9 @@ SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
       {"mainMenu", IDS_SKILL_PAGE_MAIN_MENU},
       {"errorPageTitle", IDS_SKILLS_ERROR_PAGE_TITLE},
       {"errorPageDescription", IDS_SKILLS_ERROR_PAGE_DESCRIPTION},
+      {"disabledErrorPageDescription",
+       IDS_SKILLS_DISABLED_ERROR_PAGE_DESCRIPTION},
+      {"goToSettings", IDS_SKILLS_GO_TO_SETTINGS},
       {"footerText", IDS_SKILLS_SIDEBAR_FOOTER_TEXT},
       {"footerBranding", IDS_SKILLS_SIDEBAR_FOOTER_BRANDING},
       {"addSkillHeader", IDS_SKILLS_DIALOG_ADD_SKILL_HEADER},
@@ -115,6 +123,10 @@ SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
       "charLimitError",
       l10n_util::GetStringFUTF16(IDS_SKILLS_DIALOG_CHAR_LIMIT_ERROR,
                                  base::FormatNumber(kMaxPromptCharCount)));
+
+  source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
+                                            ? "webui-refresh-2026"
+                                            : "");
 }
 
 void SkillsUI::InitializeDialog(base::WeakPtr<SkillsDialogDelegate> delegate,

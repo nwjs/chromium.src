@@ -69,6 +69,47 @@ TEST_F(WaitToolTest, Create_SpecifiedDuration) {
   EXPECT_TRUE(future.Get().IsOk());
 }
 
+TEST_F(WaitToolTest, GetToolType) {
+  // Test non-zero duration (default duration).
+  {
+    optimization_guide::proto::WaitAction action;
+    base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
+        WaitTool::Create(action, profile_.get());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value()->GetToolType(), ToolType::kWait);
+  }
+
+  // Test non-zero duration (explicitly specified).
+  {
+    optimization_guide::proto::WaitAction action;
+    action.set_wait_time_ms(5000);
+    base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
+        WaitTool::Create(action, profile_.get());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value()->GetToolType(), ToolType::kWait);
+  }
+
+  // Test zero duration.
+  {
+    optimization_guide::proto::WaitAction action;
+    action.set_wait_time_ms(0);
+    base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
+        WaitTool::Create(action, profile_.get());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value()->GetToolType(), ToolType::kWaitZeroDuration);
+  }
+
+  // Test negative duration.
+  {
+    optimization_guide::proto::WaitAction action;
+    action.set_wait_time_ms(-1000);
+    base::expected<std::unique_ptr<WaitTool>, ToolExecutionResult> result =
+        WaitTool::Create(action, profile_.get());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value()->GetToolType(), ToolType::kWaitZeroDuration);
+  }
+}
+
 }  // namespace
 
 }  // namespace actor

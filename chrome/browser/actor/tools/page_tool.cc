@@ -12,7 +12,7 @@
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
-#include "chrome/browser/actor/aggregated_journal.h"
+#include "chrome/browser/actor/aggregated_journal_render_frame_binder.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/page_target_util.h"
@@ -20,10 +20,11 @@
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
-#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/journal_details_builder.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
@@ -481,13 +482,20 @@ mojom::ActionResultPtr PageTool::ComputeObservedTargetAndValidateFrame(
   }
 
   // Perform validation for coordinate based target only.
-  // TODO(bokan): We can't perform a TOCTOU check If there's no last
-  // observation. Consider what to do in this case.
-  if (std::holds_alternative<gfx::Point>(request_->GetTarget()) &&
-      last_observation) {
-    if (!ValidateTargetFrameCandidate(request_->GetTarget(), frame,
-                                      *tab->GetContents(),
-                                      observed_target_node_info)) {
+  if (std::holds_alternative<gfx::Point>(request_->GetTarget())) {
+    // TODO(b/445210509): To enforce TOCTOU for coordinate actuation we must
+    // ensure every action has a prior observation.  This is not always the case
+    // for the first action.
+    if (base::FeatureList::IsEnabled(features::kGlicActorToctouValidation) &&
+        !last_observation) {
+      return MakeResult(
+          mojom::ActionResultCode::kFrameLocationChangedSinceObservation,
+          /*requires_page_stabilization=*/false,
+          "No prior observation available for TOCTOU validation");
+    } else if (last_observation &&
+               !ValidateTargetFrameCandidate(request_->GetTarget(), frame,
+                                             *tab->GetContents(),
+                                             observed_target_node_info)) {
       return MakeResult(
           mojom::ActionResultCode::kFrameLocationChangedSinceObservation);
     }
@@ -535,7 +543,7 @@ void PageTool::Invoke(ToolCallback callback) {
   RenderFrameHost& frame = *GetFrame();
   invoke_callback_ = std::move(callback);
 
-  journal().EnsureJournalBound(frame);
+  AggregatedJournalRenderFrameBinder::EnsureBound(journal(), frame);
 
   if (base::FeatureList::IsEnabled(
           features::kGlicActorSplitValidateAndExecute) &&
@@ -566,13 +574,12 @@ void PageTool::Invoke(ToolCallback callback) {
   // taken).
   // The observer also listens to the process exit signal from the renderer
   // (i.e., crashed). The invoke is finished with an error in this case.
-  // `this` Unretained because the observer is owned by this class and thus
-  // removed on destruction.
   frame_change_observer_ = std::make_unique<RenderFrameChangeObserver>(
       frame,
       base::BindOnce(&PageTool::OnRenderFrameHostChanged,
-                     base::Unretained(this)),
-      base::BindOnce(&PageTool::OnRenderFrameGone, base::Unretained(this)));
+                     weak_ptr_factory_.GetWeakPtr()),
+      base::BindOnce(&PageTool::OnRenderFrameGone,
+                     weak_ptr_factory_.GetWeakPtr()));
 
   timeout_timer_.Start(
       FROM_HERE, features::kGlicActorPageToolTimeout.Get(),

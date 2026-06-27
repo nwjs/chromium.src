@@ -23,6 +23,7 @@ include_rules = [
     "+components/pdf/common",
     "+components/services/paint_preview_compositor",
     "+components/viz/common/frame_sinks",
+    "+components/viz/common/surfaces",
     "+content/public/browser",
     "+content/public/test",
     "+mojo/public/cpp/base",
@@ -33,6 +34,7 @@ include_rules = [
     "+services/metrics/public/cpp",
     "+services/network/public/mojom",
     "+services/passage_embeddings/public/mojom",
+    "+third_party/blink/public/common",
     "+third_party/blink/public/mojom/content_extraction",
     "+third_party/blink/public/mojom/opengraph",
     "+third_party/skia",
@@ -40,6 +42,9 @@ include_rules = [
 ]
 
 specific_include_rules = {
+  "annotate_page_content_request_unittest.cc": [
+    "+components/ukm/test_ukm_recorder.h",
+  ],
   "mock_page_content_services\\.(cc|h)": [
     "+testing/gmock",
     "+testing/gtest",

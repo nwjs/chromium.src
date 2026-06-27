@@ -23,7 +23,6 @@
 #include "ash/system/video_conference/fake_video_conference_tray_controller.h"
 #include "ash/system/video_conference/video_conference_tray_controller.h"
 #include "ash/webui/annotator/annotator_client_impl.h"
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/check_op.h"
@@ -115,6 +114,7 @@
 #include "chromeos/ash/components/heatmap/heatmap_palm_detector_impl.h"
 #include "chromeos/ash/components/login/readahead/login_readahead_performer.h"
 #include "chromeos/ash/components/network/network_connect.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/ash/experiences/arc/arc_features.h"
 #include "chromeos/ash/experiences/arc/window/arc_window_watcher.h"
 #include "chromeos/ash/services/bluetooth_config/fast_pair_delegate.h"
@@ -389,10 +389,6 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
         std::make_unique<ExoAppTypeResolver>());
   }
 
-  // Result is unused, but `TimezoneResolverManager` must be created here for
-  // its internal initialization to succeed.
-  g_browser_process->platform_part()->GetTimezoneResolverManager();
-
   annotator_client_ = std::make_unique<AnnotatorClientImpl>();
 
   boca_client_ = std::make_unique<ash::boca::BocaAppClientImpl>();
@@ -466,7 +462,8 @@ void ChromeBrowserMainExtraPartsAsh::PostProfileInit(Profile* profile,
     return;
   }
 
-  login_screen_client_ = std::make_unique<LoginScreenClientImpl>();
+  login_screen_client_ =
+      std::make_unique<LoginScreenClientImpl>(g_browser_process->local_state());
 
   management_disclosure_client_ =
       std::make_unique<ManagementDisclosureClientImpl>(

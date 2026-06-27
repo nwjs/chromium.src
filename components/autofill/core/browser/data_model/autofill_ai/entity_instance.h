@@ -5,12 +5,17 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_AUTOFILL_AI_ENTITY_INSTANCE_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_AUTOFILL_AI_ENTITY_INSTANCE_H_
 
+#include <stdint.h>
+
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
@@ -25,9 +30,8 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/country_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/date_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/common/dense_set.h"
-#include "components/autofill/core/common/is_required.h"
 
 namespace sync_pb {
 class AutofillValuableSpecifics;
@@ -271,9 +275,33 @@ class EntityInstance final {
     // copy. Changes happening locally or on the Wallet server are synced among
     // all local storages sharing this entity.
     kServerWallet = 1,
-    // The entity provided by Accessibility Annotator.
-    kAccessibilityAnnotator = 2,
-    kMaxValue = kAccessibilityAnnotator,
+    // The entity provided by Personal Context.
+    kPersonalContext = 2,
+    kMaxValue = kPersonalContext,
+  };
+
+  // Categorizes different types of Google Wallet passes.
+  enum class WalletPassType {
+    // The entity is not supported as a Wallet pass (e.g., local entities, or
+    // server types that are not supported by the Wallet integration).
+    kUnsupported,
+    // A private pass containing sensitive information (e.g. passport).
+    kPrivate,
+    // A public pass without sensitive information (e.g. flight reservation).
+    kPublic,
+  };
+
+  // Categorizes different types of personal context entities.
+  enum class PersonalContextSpiiType {
+    // The entity is not supported as a personal context type (e.g., local
+    // entities, or record types other than kPersonalContext).
+    kUnsupported,
+    // A personal context entity which might contain sensitive information
+    // (e.g. passport, drivers license, national ID).
+    kSpii,
+    // A personal context entity which cannot contain sensitive information
+    // (e.g. flight reservation, vehicle, order, shipment).
+    kNoSpii,
   };
 
   // `attributes` must be non-empty and their type must be identical to `type`.
@@ -425,20 +453,19 @@ class EntityInstance final {
   // are compared.
   bool IsSubsetOf(const EntityInstance& other) const;
 
-  // Returns whether any of the attributes are masked. This can only happen
-  // if `record_type()` is `kServerWallet`.
+  // Returns whether any of the attributes is masked.
   //
-  // Note that there can be entities with `record_type()` `kServerWallet` for
-  // which `IsMaskedServerEntity() == IsUnmaskedServerEntity() == false`.
-  // Examples include vehicle information, flight reservation entities,
-  // passport entities without a saved number, etc.
-  bool IsMaskedServerEntity() const;
+  // Note that there can be entities for which
+  // `IsMaskedEntity() == IsUnmaskedEntity() == false`.
+  // These entities do not contain obfuscated attributes and can be safely
+  // persisted to disk. Examples include: vehicle information, flight
+  // reservation entities, passport entities without a saved number, etc.
+  bool IsMaskedEntity() const;
 
-  // Returns whether `this` has `record_type() == kServerWallet` and any of
-  // its obfuscated attributes is not `masked()`.
-  // That is, `this` is an `EntityInstance` returned unmasked from a Wallet
-  // server; it is strictly transient and must never be persisted to disk.
-  bool IsUnmaskedServerEntity() const;
+  // Returns true if `this` has a maskable record type and contains at least
+  // one unmasked obfuscated attribute. Unmasked entities are transient and
+  // must never be persisted to disk.
+  bool IsUnmaskedEntity() const;
 
   // Returns a copy of `this` with a new `id`.
   EntityInstance CopyWithNewEntityId(EntityId id) const;
@@ -468,6 +495,8 @@ class EntityInstance final {
   std::string frecency_override_;
 };
 
+std::ostream& operator<<(std::ostream& os,
+                         const EntityInstance::EntityMetadata& m);
 std::ostream& operator<<(std::ostream& os, const AttributeInstance& a);
 std::ostream& operator<<(std::ostream& os, const EntityInstance::RecordType& t);
 std::ostream& operator<<(std::ostream& os, const EntityInstance& e);
@@ -488,18 +517,59 @@ struct EntityInstance::CompareByGuid {
   }
 };
 
-// Returns whether this (entity type, record type) combination supports
-// restricting local storage of obfuscated attributes to "masks" (e.g., the last
-// x digits/characters).
-//
-// If this is `true`, the full entity information can be stored on a server and
-// can be retrieved by the client only on demand. It is not persisted locally on
-// disk. However, note that even if this is `true` users may not be eligible for
-// creating masked server entities depending on their sync settings or their
-// locale. See `MayPerformAutofillAiAction`
-//   for the relevant permission checks.
-bool IsMaskedStorageSupported(EntityType type,
-                              EntityInstance::RecordType record_type);
+// Returns the EntityInstance::WalletPassType of an entity with the given
+// (`type`, `record_type`) combination.
+constexpr EntityInstance::WalletPassType GetWalletPassType(
+    EntityType type,
+    EntityInstance::RecordType record_type) {
+  if (record_type != EntityInstance::RecordType::kServerWallet) {
+    return EntityInstance::WalletPassType::kUnsupported;
+  }
+
+  switch (type.name()) {
+    case EntityTypeName::kDriversLicense:
+    case EntityTypeName::kKnownTravelerNumber:
+    case EntityTypeName::kNationalIdCard:
+    case EntityTypeName::kPassport:
+    case EntityTypeName::kRedressNumber:
+      return EntityInstance::WalletPassType::kPrivate;
+    case EntityTypeName::kFlightReservation:
+    case EntityTypeName::kVehicle:
+      return EntityInstance::WalletPassType::kPublic;
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+      return EntityInstance::WalletPassType::kUnsupported;
+  }
+
+  return EntityInstance::WalletPassType::kUnsupported;
+}
+
+// Returns the EntityInstance::PersonalContextSpiiType of an entity with the
+// given (`type`, `record_type`) combination.
+constexpr EntityInstance::PersonalContextSpiiType GetPersonalContextSpiiType(
+    EntityType type,
+    EntityInstance::RecordType record_type) {
+  if (record_type != EntityInstance::RecordType::kPersonalContext) {
+    return EntityInstance::PersonalContextSpiiType::kUnsupported;
+  }
+
+  switch (type.name()) {
+    case EntityTypeName::kDriversLicense:
+    case EntityTypeName::kNationalIdCard:
+    case EntityTypeName::kPassport:
+      return EntityInstance::PersonalContextSpiiType::kSpii;
+    case EntityTypeName::kFlightReservation:
+    case EntityTypeName::kVehicle:
+    case EntityTypeName::kOrder:
+    case EntityTypeName::kShipment:
+      return EntityInstance::PersonalContextSpiiType::kNoSpii;
+    case EntityTypeName::kKnownTravelerNumber:
+    case EntityTypeName::kRedressNumber:
+      return EntityInstance::PersonalContextSpiiType::kUnsupported;
+  }
+
+  return EntityInstance::PersonalContextSpiiType::kUnsupported;
+}
 
 }  // namespace autofill
 

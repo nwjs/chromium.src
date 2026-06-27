@@ -10,6 +10,8 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/constants/notifier_catalogs.h"
 #include "ash/public/cpp/notification_utils.h"
+#include "base/check_deref.h"
+#include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -17,6 +19,7 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/escape.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -31,6 +34,7 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_state.h"
@@ -39,6 +43,7 @@
 #include "components/language/core/browser/pref_names.h"
 #include "components/language/core/common/locale_util.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_manager/user.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -164,6 +169,13 @@ bool IsTestingEnabled(const HatsConfig& hats_config) {
   return false;
 }
 
+std::string MakeHatsMessageCenterNotificationId(
+    const user_manager::User& user) {
+  return base::StringPrintf("hats-notification#%s#%s",
+                            user.username_hash().c_str(),
+                            HatsNotificationController::kNotificationId);
+}
+
 }  // namespace
 
 // static
@@ -218,9 +230,6 @@ HatsNotificationController::~HatsNotificationController() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   base::UmaHistogramEnumeration("Browser.ChromeOS.HatsStatus", state_);
-
-  if (NetworkHandler::IsInitialized())
-    NetworkHandler::Get()->network_state_handler()->RemoveObserver(this);
 }
 
 void HatsNotificationController::Initialize(bool is_new_device) {
@@ -240,7 +249,8 @@ void HatsNotificationController::Initialize(bool is_new_device) {
     // is available.
     NetworkStateHandler* handler =
         NetworkHandler::Get()->network_state_handler();
-    handler->AddObserver(this);
+    CHECK(!network_state_observation_.IsObserving());
+    network_state_observation_.Observe(handler);
     // Create an immediate update for the current default network.
     const NetworkState* default_network = handler->DefaultNetwork();
     NetworkState::PortalState portal_state =
@@ -330,6 +340,13 @@ bool HatsNotificationController::ShouldShowSurveyToProfile(
   return true;
 }
 
+// static
+std::string HatsNotificationController::
+    GetMessageCenterNotificationIdForTesting(  // IN-TEST
+        const user_manager::User& user) {
+  return MakeHatsMessageCenterNotificationId(user);
+}
+
 void HatsNotificationController::Click(
     const std::optional<int>& button_index,
     const std::optional<std::u16string>& reply) {
@@ -354,7 +371,7 @@ void HatsNotificationController::Click(
   state_ = HatsState::kNotificationClicked;
 
   // Remove the notification.
-  NetworkHandler::Get()->network_state_handler()->RemoveObserver(this);
+  network_state_observation_.Reset();
   message_center::MessageCenter::Get()->RemoveNotification(notification_id_,
                                                            false /* by_user */);
   notification_id_.clear();
@@ -377,7 +394,7 @@ void HatsNotificationController::Close(bool by_user) {
 
   if (by_user) {
     UpdateLastInteractionTime();
-    NetworkHandler::Get()->network_state_handler()->RemoveObserver(this);
+    network_state_observation_.Reset();
     message_center::MessageCenter::Get()->RemoveNotification(notification_id_,
                                                              by_user);
     notification_id_.clear();
@@ -397,7 +414,8 @@ void HatsNotificationController::PortalStateChanged(
   if (portal_state == NetworkState::PortalState::kOnline) {
     // Create and display the notification for the user if it doesn't exist.
     if (notification_id_.empty()) {
-      notification_id_ = kNotificationId;
+      notification_id_ = MakeHatsMessageCenterNotificationId(CHECK_DEREF(
+          BrowserContextHelper::Get()->GetUserByBrowserContext(profile_)));
       message_center::NotifierId notifier_id(
           message_center::NotifierType::SYSTEM_COMPONENT, kNotifierHats,
           NotificationCatalogName::kHats);
@@ -427,11 +445,31 @@ void HatsNotificationController::PortalStateChanged(
 }
 
 void HatsNotificationController::OnShuttingDown() {
-  NetworkHandler::Get()->network_state_handler()->RemoveObserver(this);
+  network_state_observation_.Reset();
 }
 
 void HatsNotificationController::OnProfileWillBeDestroyed(Profile* profile) {
   CHECK_EQ(profile_, profile);
+
+  if (!notification_id_.empty()) {
+    // TODO(crbug.com/422687291): Fix
+    // MediaAppIntegrationTest.MaybeTriggerPhotosHats by dismissing its HaTS
+    // notification before browser shutdown so the null check and
+    // CHECK_IS_TEST() branch below can be removed.
+    //
+    // MessageCenter can be gone during browser-test shutdown ordering, while
+    // production code should always expect a non-null MessageCenter here.
+    message_center::MessageCenter* message_center =
+        message_center::MessageCenter::Get();
+    if (message_center) {
+      message_center->RemoveNotification(notification_id_, /*by_user=*/false);
+    } else {
+      CHECK_IS_TEST();
+    }
+    notification_id_.clear();
+  }
+
+  network_state_observation_.Reset();
   profile_ = nullptr;
   profile_observation_.Reset();
 }

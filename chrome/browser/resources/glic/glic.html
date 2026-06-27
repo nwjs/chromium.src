@@ -3,7 +3,9 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+  <link rel="stylesheet" href="chrome://resources/cr_elements/cr_shared_vars.css">
+  <link rel="stylesheet" href="chrome://theme/colors.css?sets=chrome">
   <link rel="stylesheet" href="glic.css">
   <script type="module" src="glic.js"></script>
 </head>
@@ -14,7 +16,7 @@
       <section hidden class="dialog panel" id="offlinePanel">
         <div class="container">
           <div class="header">
-            <img class="logo" src="glic_logo.svg">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
             <cr-icon-button class="close-button"
               iron-icon="cr:close"
               aria-label="$i18n{closeButtonLabel}">
@@ -66,7 +68,7 @@
       <section hidden class="dialog panel" id="errorPanel">
         <div class="container">
           <div class="header">
-            <img class="logo" src="glic_logo.svg">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
             <cr-icon-button class="close-button"
               iron-icon="cr:close"
               aria-label="$i18n{closeButtonLabel}">
@@ -88,7 +90,7 @@
       <section hidden class="dialog panel" id="unavailablePanel">
         <div class="container">
           <div class="header">
-            <img class="logo" src="glic_logo.svg">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
             <cr-icon-button class="close-button"
               iron-icon="cr:close"
               aria-label="$i18n{closeButtonLabel}">
@@ -105,10 +107,25 @@
           </div>
         </div>
       </section>
+      <section hidden class="dialog panel" id="ineligibleAccountPanel">
+        <div class="container">
+          <div class="header">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
+            <cr-icon-button class="close-button" iron-icon="cr:close" aria-label="$i18n{closeButtonLabel}">
+            </cr-icon-button>
+          </div>
+          <div class="notice">
+            <div class="icon"><cr-icon icon="glic:ineligible-account"></cr-icon></div>
+            <p class="headline">$i18n{ineligibleAccountNoticeHeader}</p>
+            <p class="notice-message">$i18n{ineligibleAccountNotice}</p>
+            <cr-button class="tonal-button" id="ineligibleAccountHelpButton" role="button">$i18n{getHelp}</cr-button>
+          </div>
+        </div>
+      </section>
       <section hidden class="dialog panel" id="disabledByAdminPanel">
         <div class="container">
           <div class="header">
-            <img class="logo" src="glic_logo.svg">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
             <cr-icon-button class="close-button"
               iron-icon="cr:close"
               aria-label="$i18n{closeButtonLabel}">
@@ -132,7 +149,7 @@
       <section hidden class="dialog panel" id="signInPanel">
         <div class="container">
           <div class="header">
-            <img class="logo" src="glic_logo.svg">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
             <cr-icon-button class="close-button"
               iron-icon="cr:close"
               aria-label="$i18n{closeButtonLabel}">
@@ -148,6 +165,21 @@
           </div>
         </div>
       </section>
+      <section hidden class="dialog panel" id="locationMismatchPanel">
+        <div class="container">
+          <div class="header">
+            <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
+            <cr-icon-button class="close-button" iron-icon="cr:close" aria-label="$i18n{closeButtonLabel}">
+            </cr-icon-button>
+          </div>
+          <div class="notice">
+            <div class="icon"><cr-icon icon="glic:location-mismatch"></cr-icon></div>
+            <p class="headline">$i18n{locationMismatchNoticeHeader}</p>
+            <p class="notice-message">$i18n{locationMismatchNotice}</p>
+            <cr-button class="tonal-button" id="locationMismatchHelpButton" role="button">$i18n{getHelp}</cr-button>
+          </div>
+        </div>
+      </section>
       <section class="hidden overlay" id="unresponsiveOverlay">
         <div class="container">
           <div class="message">
@@ -160,7 +192,7 @@
       <div id="webviewContainer"></div>
       <div class="outerheader" id="webviewHeader">
         <div class="header">
-          <img class="logo" src="glic_logo.svg">
+          <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
           <cr-icon-button class="close-button"
             iron-icon="cr:close"
             aria-label="$i18n{closeButtonLabel}">
@@ -229,7 +261,7 @@
       </section>
       <section hidden class="dialog panel" id="freDisabledByAdminPanel">
         <div class="header">
-          <img class="logo" src="glic_logo.svg">
+          <img class="logo" src="glic_logo.svg" alt="" aria-hidden="true">
           <cr-icon-button class="close-button"
             iron-icon="cr:close"
             aria-label="$i18n{closeButtonLabel}">

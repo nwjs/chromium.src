@@ -11,6 +11,7 @@ import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoor
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME_COLLECTIONS;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME_TIP;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties.LAYOUT_TO_DISPLAY;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties.LIST_CONTAINER_KEYS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties.VIEW_FLIPPER_KEYS;
@@ -31,8 +32,12 @@ import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.ntp_customization.feed.FeedSettingsCoordinator;
 import org.chromium.chrome.browser.ntp_customization.most_visited_tiles.MvtSettingsCoordinator;
 import org.chromium.chrome.browser.ntp_customization.ntp_cards.NtpCardsCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme.NtpCustomizationPromoManager;
+import org.chromium.chrome.browser.ntp_customization.theme.NtpCustomizationPromoManager.SnackBarState;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpThemeCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme.tip.NtpThemeTipCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -62,7 +67,9 @@ public class NtpCustomizationCoordinator {
     private @MonotonicNonNull NtpCardsCoordinator mNtpCardsCoordinator;
     private @Nullable FeedSettingsCoordinator mFeedSettingsCoordinator;
     private @Nullable NtpThemeCoordinator mNtpThemeCoordinator;
+    private @Nullable NtpThemeTipCoordinator mNtpThemeTipCoordinator;
     private ViewFlipper mViewFlipperView;
+    private boolean mIsDestroyed;
 
     /**
      * New Tab Page Customization bottom sheet type.
@@ -80,7 +87,8 @@ public class NtpCustomizationCoordinator {
         BottomSheetType.THEME_COLLECTIONS,
         BottomSheetType.SINGLE_THEME_COLLECTION,
         BottomSheetType.UPLOAD_IMAGE,
-        BottomSheetType.CHROME_DEFAULT
+        BottomSheetType.CHROME_DEFAULT,
+        BottomSheetType.THEME_TIP
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface BottomSheetType {
@@ -94,7 +102,8 @@ public class NtpCustomizationCoordinator {
         int CHROME_COLORS = 7;
         int UPLOAD_IMAGE = 8; // No dedicated bottom sheet for upload image.
         int CHROME_DEFAULT = 9; // No bottom sheet is shown.
-        int NUM_ENTRIES = 10;
+        int THEME_TIP = 10;
+        int NUM_ENTRIES = 11;
     }
 
     /**
@@ -122,6 +131,7 @@ public class NtpCustomizationCoordinator {
      *     main bottom sheet will be shown instead, enabling its full navigation flow, otherwise the
      *     bottom sheet of the bottomSheetType will show by itself.
      * @param moduleRegistry The instance of {@link ModuleRegistry}.
+     * @param snackbarManager The instance of {@link SnackbarManager}.
      */
     NtpCustomizationCoordinator(
             Context context,
@@ -129,7 +139,8 @@ public class NtpCustomizationCoordinator {
             Supplier<@Nullable Profile> profileSupplier,
             @BottomSheetType int bottomSheetType,
             WindowAndroid windowAndroid,
-            @Nullable ModuleRegistry moduleRegistry) {
+            @Nullable ModuleRegistry moduleRegistry,
+            SnackbarManager snackbarManager) {
         mContext = context;
         mBottomSheetController = bottomSheetController;
         mProfileSupplier = profileSupplier;
@@ -177,7 +188,8 @@ public class NtpCustomizationCoordinator {
                         viewFlipperPropertyModel,
                         containerPropertyModel,
                         mProfileSupplier,
-                        windowAndroid);
+                        windowAndroid,
+                        snackbarManager);
         mMediator.registerBottomSheetLayout(MAIN);
 
         mDelegate = createBottomSheetDelegate();
@@ -202,7 +214,7 @@ public class NtpCustomizationCoordinator {
                 contentView,
                 () -> mBottomSheetController.getContainerHeight(),
                 () -> mBottomSheetController.getMaxSheetWidth(),
-                mBottomSheetType == MAIN
+                mBottomSheetType == MAIN || mBottomSheetType == THEME_TIP
                         ? () -> mMediator.backPressOnCurrentBottomSheet()
                         : () -> mMediator.dismissBottomSheet(/* animate= */ true),
                 this::destroy,
@@ -222,6 +234,7 @@ public class NtpCustomizationCoordinator {
             case NTP_CARDS -> showNtpCardsBottomSheet();
             case FEED -> showFeedBottomSheet();
             case THEME -> showThemeBottomSheet();
+            case THEME_TIP -> showThemeTipBottomSheet();
             default -> {
                 assert false : "Bottom sheet type not supported!";
             }
@@ -263,6 +276,25 @@ public class NtpCustomizationCoordinator {
                             () -> mMediator.dismissBottomSheet(/* animate= */ false));
         }
         mMediator.showBottomSheet(THEME);
+    }
+
+    private void showThemeTipBottomSheet() {
+        if (mNtpThemeTipCoordinator == null) {
+            mNtpThemeTipCoordinator =
+                    new NtpThemeTipCoordinator(
+                            mContext,
+                            mDelegate,
+                            this::onCustomizeButtonClicked,
+                            () -> mMediator.dismissBottomSheet(/* animate= */ false));
+        }
+        mMediator.setParentForBackOperations(THEME, THEME_TIP);
+        mMediator.showBottomSheet(THEME_TIP);
+    }
+
+    private void onCustomizeButtonClicked(View view) {
+        NtpCustomizationPromoManager.maybeUpdateShowThemeTipSnackbarState(
+                SnackBarState.PROMO_OPEN, /* taskId= */ 0);
+        showThemeBottomSheet();
     }
 
     void dismissBottomSheet() {
@@ -363,6 +395,9 @@ public class NtpCustomizationCoordinator {
      * Clears all views inside the view flipper as well as destroys the mediator and coordinators.
      */
     public void destroy() {
+        if (mIsDestroyed) return;
+
+        mIsDestroyed = true;
         mViewFlipperView.removeAllViews();
         mMediator.destroy();
         NtpCustomizationCoordinatorFactory.getInstance()
@@ -379,6 +414,9 @@ public class NtpCustomizationCoordinator {
         }
         if (mNtpThemeCoordinator != null) {
             mNtpThemeCoordinator.destroy();
+        }
+        if (mNtpThemeTipCoordinator != null) {
+            mNtpThemeTipCoordinator.destroy();
         }
     }
 
@@ -404,5 +442,9 @@ public class NtpCustomizationCoordinator {
 
     void setNtpThemeCoordinatorForTesting(NtpThemeCoordinator coordinator) {
         mNtpThemeCoordinator = coordinator;
+    }
+
+    void setNtpThemeTipCoordinatorForTesting(NtpThemeTipCoordinator coordinator) {
+        mNtpThemeTipCoordinator = coordinator;
     }
 }

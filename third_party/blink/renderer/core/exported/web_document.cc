@@ -406,8 +406,6 @@ WebString WebDocument::OutgoingReferrer() const {
   return WebString(ConstUnwrap<Document>()->domWindow()->OutgoingReferrer());
 }
 
-void WebDocument::InitiatePreview(const WebURL& url) {}
-
 void WebDocument::SnapshotAccessibilityTree(
     size_t max_nodes,
     base::TimeDelta timeout,
@@ -478,15 +476,18 @@ void WebDocument::CancelScriptTool(
 }
 
 void WebDocument::GetCrossDocumentScriptToolResult(
+    const base::UnguessableToken& invocation_id,
     CrossDocumentScriptToolResultCallback result_callback) {
   if (auto* model_context = ModelContextSupplement::modelContext(
           *Unwrap<Document>()->domWindow()->navigator())) {
-    model_context->GetCrossDocumentScriptToolResult(blink::BindOnce(
-        [](CrossDocumentScriptToolResultCallback original_callback,
-           String result) {
-          std::move(original_callback).Run(WebString(result));
-        },
-        std::move(result_callback)));
+    model_context->GetCrossDocumentScriptToolResult(
+        invocation_id,
+        blink::BindOnce(
+            [](CrossDocumentScriptToolResultCallback original_callback,
+               String result) {
+              std::move(original_callback).Run(WebString(result));
+            },
+            std::move(result_callback)));
   }
 }
 

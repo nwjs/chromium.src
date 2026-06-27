@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/common/features.gni")
 import("//third_party/closure_compiler/compile_js.gni")
 import("//tools/grit/grit_rule.gni")
@@ -18,9 +17,9 @@ group("resources") {
     "add_supervision:resources",
     "app_install:resources",
     "bluetooth_pairing_dialog:resources",
-    "borealis_installer:resources",
     "cloud_upload:resources",
     "crostini_installer:resources",
+    "cryptohome:resources",
     "desk_api:resources",
     "drive_internals:resources",
     "edu_coexistence:resources",
@@ -51,6 +50,7 @@ group("resources") {
     "set_time_dialog:resources",
     "skyvault:resources",
     "slow:resources",
+    "smb_shares:resources",
     "supervision:resources",
     "sys_internals:resources",
     "vm:resources",
@@ -88,8 +88,5 @@ grit("multidevice_setup_resources") {
 }
 
 group("closure_compile") {
-  deps = [
-    "multidevice_internals:closure_compile",
-    "smb_shares:closure_compile",
-  ]
+  deps = [ "multidevice_internals:closure_compile" ]
 }

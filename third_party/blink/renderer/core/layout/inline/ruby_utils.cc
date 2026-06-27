@@ -17,11 +17,19 @@
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/platform/fonts/font_height.h"
+#include "third_party/blink/renderer/platform/fonts/shaping/han_kerning.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/clear_collection_scope.h"
 
 namespace blink {
 
 namespace {
+
+constexpr float kHanKerningHalf = 0.5f;
+constexpr float kHanKerningQuarter = 0.25f;
+
+inline bool IsSpaceForRubyOverhang(UChar32 ch) {
+  return unicode::Category(ch) == unicode::CharCategory::kSeparator_Space;
+}
 
 std::tuple<LayoutUnit, LayoutUnit> AdjustTextOverUnderOffsetsForEmHeight(
     LayoutUnit over,
@@ -117,6 +125,100 @@ FontHeight ComputeEmHeight(const LogicalLineItem& line_item) {
   return FontHeight();
 }
 
+bool IsFullWidthGlyph(const ShapeResult& text_shape_result,
+                      const SimpleFontData& font,
+                      const String& text_content,
+                      wtf_size_t text_offset) {
+  UChar32 character = text_content.CodePointAtOrZero(text_offset);
+  wtf_size_t code_unit_length = U16_LENGTH(character);
+  const float end_position = text_shape_result.PositionForOffset(
+      text_offset + code_unit_length - text_shape_result.StartIndex());
+  const float start_position = text_shape_result.PositionForOffset(
+      text_offset - text_shape_result.StartIndex());
+  const float glyph_width = std::abs(end_position - start_position);
+  const float advance_min = font.PlatformData().size() * .9;
+  return glyph_width > advance_min;
+}
+
+bool CanTrimHanKerningOpen(const ShapeResult& shape_result,
+                           const ComputedStyle& style,
+                           const String& text_content,
+                           wtf_size_t text_offset) {
+  UChar32 character = text_content.CodePointAtOrZero(text_offset);
+  if (!Character::MaybeHanKerningOpen(character)) {
+    return false;
+  }
+  const SimpleFontData* primary_font = style.GetFont()->PrimaryFont();
+  if (!primary_font || !IsFullWidthGlyph(shape_result, *primary_font,
+                                         text_content, text_offset)) {
+    return false;
+  }
+  const FontDescription& font_description = style.GetFontDescription();
+  HanKerning::FontData font_data = primary_font->HanKerningData(
+      font_description.LocaleOrDefault(), style.IsHorizontalTypographicMode());
+  if (text_offset == 0 ||
+      font_description.GetTextSpacingTrim() == TextSpacingTrim::kSpaceAll) {
+    return true;
+  }
+
+  HanKerningCharType type = HanKerning::GetCharType(character, font_data);
+  UChar32 previous_character =
+      text_content.CodePointAtAndPrevious(0u, text_offset);
+  HanKerningCharType previous_type =
+      HanKerning::GetCharType(previous_character, font_data);
+  return !HanKerning::ShouldKern(type, previous_type);
+}
+
+bool CanTrimHanKerningClose(const ShapeResult& shape_result,
+                            const ComputedStyle& style,
+                            const String& text_content,
+                            wtf_size_t text_offset) {
+  wtf_size_t next_index = text_offset;
+  UChar32 character = text_content.CodePointAtAndNext(next_index);
+  if (!Character::MaybeHanKerningClose(character)) {
+    return false;
+  }
+  const SimpleFontData* primary_font = style.GetFont()->PrimaryFont();
+  if (!primary_font || !IsFullWidthGlyph(shape_result, *primary_font,
+                                         text_content, text_offset)) {
+    return false;
+  }
+  const FontDescription& font_description = style.GetFontDescription();
+  HanKerning::FontData font_data = primary_font->HanKerningData(
+      font_description.LocaleOrDefault(), style.IsHorizontalTypographicMode());
+  if (next_index >= text_content.length() ||
+      font_description.GetTextSpacingTrim() == TextSpacingTrim::kSpaceAll) {
+    return true;
+  }
+
+  HanKerningCharType type = HanKerning::GetCharType(character, font_data);
+  UChar32 next_character = text_content.CodePointAtOrZero(next_index);
+  HanKerningCharType next_type =
+      HanKerning::GetCharType(next_character, font_data);
+  return !HanKerning::ShouldKernLast(/*type=*/next_type, /*last_type=*/type);
+}
+
+wtf_size_t FindPreviousRubyIndex(const InlineItemResults& items,
+                                 wtf_size_t index) {
+  DCHECK_LT(0u, index);
+  wtf_size_t previous_ruby_index = index - 1;
+  while (!items[previous_ruby_index].IsRubyColumn()) {
+    const auto type = items[previous_ruby_index].item->Type();
+    if (type != InlineItem::kOpenTag && type != InlineItem::kCloseTag &&
+        type != InlineItem::kCloseRubyColumn &&
+        type != InlineItem::kOpenRubyColumn &&
+        type != InlineItem::kRubyLinePlaceholder &&
+        // For consecutive spaces
+        type != InlineItem::kText && type != InlineItem::kControl) {
+      return kNotFound;
+    }
+    if (previous_ruby_index-- == 0) {
+      return kNotFound;
+    }
+  }
+  return previous_ruby_index;
+}
+
 }  // anonymous namespace
 
 RubyItemIndexes ParseRubyInInlineItems(const InlineItems& items,
@@ -153,14 +255,11 @@ RubyItemIndexes ParseRubyInInlineItems(const InlineItems& items,
 AnnotationOverhang GetOverhang(
     LayoutUnit ruby_size,
     const LineInfo& base_line,
-    const HeapVector<LineInfo, 1> annotation_line_list) {
+    const HeapVector<LineInfo, 1> annotation_line_list,
+    const LineInfo& line_info,
+    wtf_size_t ruby_index) {
   AnnotationOverhang overhang;
   const ComputedStyle& base_line_style = base_line.LineStyle();
-
-  if (base_line_style.RubyOverhang() == ERubyOverhang::kSpaces) {
-    // TODO(crbug.com/499042741): Support for 'ruby-overhang: spaces'
-    return overhang;
-  }
 
   ERubyAlign ruby_align = base_line_style.RubyAlign();
   switch (ruby_align) {
@@ -186,24 +285,147 @@ AnnotationOverhang GetOverhang(
   if (space <= LayoutUnit()) {
     return overhang;
   }
+
+  std::optional<LayoutUnit> ruby_base_inset =
+      ComputeRubyBaseInset(space, base_line);
+  if (base_line_style.RubyOverhang() != ERubyOverhang::kSpaces) {
+    if (ruby_align == ERubyAlign::kStart) {
+      overhang.end = std::min(space, half_width_of_annotation_font);
+      return overhang;
+    }
+    if (!ruby_base_inset.has_value()) {
+      return overhang;
+    }
+    overhang.start =
+        std::min(ruby_base_inset.value(), half_width_of_annotation_font);
+    overhang.end = overhang.start;
+
+    return overhang;
+  }
+
+  // Handle 'ruby-overhang: spaces'
+  const InlineItemResults& items = line_info.Results();
+  // Find a previous item other than kOpenTag/kCloseTag.
+  // Searching items in the logical order doesn't work well with bidi
+  // reordering. However, it's difficult to compute overhang after bidi
+  // reordering because it affects line breaking.
+  DCHECK_LT(0u, ruby_index) << "kOpenTag should be before this ruby.";
+  wtf_size_t previous_index = ruby_index - 1;
+  while ((items[previous_index].item->Type() == InlineItem::kOpenTag ||
+          items[previous_index].item->Type() == InlineItem::kCloseTag) &&
+         previous_index > 0) {
+    --previous_index;
+  }
+
+  // Find a previous ruby column to avoid overlapping annotations.
+  LayoutUnit previous_ruby_overhang_end;
+  wtf_size_t previous_ruby_index = FindPreviousRubyIndex(items, ruby_index);
+  if (previous_ruby_index != kNotFound) {
+    previous_ruby_overhang_end =
+        items[previous_ruby_index].ruby_column->end_overhang;
+  }
+
+  LayoutUnit space_overhang;
+  LayoutUnit previous_item_inline_size_sum;
+  wtf_size_t space_start_offset;
+  const String& text_content = line_info.ItemsData().text_content;
+  while (true) {
+    const InlineItemResult& previous_item = items[previous_index];
+    previous_item_inline_size_sum += previous_item.inline_size;
+    // Handled space separators and control items.
+    // - Preserved white space
+    // - No-break space (U+00A0)
+    // - Other space separators
+    const TextOffsetRange& previous_item_text_offset =
+        previous_item.TextOffset();
+    if (previous_item.item->Type() == InlineItem::kControl) {
+      space_overhang += previous_item.inline_size;
+      space_start_offset = previous_item_text_offset.start;
+    } else if (previous_item.item->Type() == InlineItem::kText) {
+      space_start_offset = previous_item_text_offset.end;
+      while (space_start_offset > previous_item_text_offset.start) {
+        wtf_size_t previous_space_start_offset = space_start_offset;
+        UChar32 previous_character = text_content.CodePointAtAndPrevious(
+            /*start_offset=*/previous_item_text_offset.start,
+            /*i=*/previous_space_start_offset);
+        if (!IsSpaceForRubyOverhang(previous_character)) {
+          break;
+        }
+        space_start_offset = previous_space_start_offset;
+      }
+
+      if (space_start_offset == previous_item_text_offset.end) {
+        // There are no space characters.
+        break;
+      }
+      if (space_start_offset == previous_item_text_offset.start) {
+        // All characters are spaces.
+        space_overhang += previous_item.inline_size;
+      } else if (const ShapeResult* shape_result =
+                     previous_item.item->TextShapeResult()) {
+        // Some characters are spaces.
+        ShapeResultView* space_shape_result = ShapeResultView::Create(
+            shape_result, space_start_offset, previous_item_text_offset.end);
+        space_overhang += LayoutUnit(space_shape_result->Width());
+        break;
+      } else {
+        // Some characters are spaces and it doesn't have |TextShapeResult|.
+        break;
+      }
+    } else {
+      // There are no control and text.
+      break;
+    }
+
+    if (previous_index-- == 0) {
+      previous_index = kNotFound;
+      break;
+    }
+  }
+
+  LayoutUnit kerning_overhang;
+  if (previous_index != kNotFound) {
+    const InlineItemResult& previous_item = items[previous_index];
+    if (previous_item.item->Type() == InlineItem::kText &&
+        space_start_offset > previous_item.TextOffset().start) {
+      const ComputedStyle* previous_item_style = previous_item.item->Style();
+      wtf_size_t last_non_space_index = space_start_offset;
+      UChar32 last_non_space_character = text_content.CodePointAtAndPrevious(
+          /*start_offset=*/0u, last_non_space_index);
+      LayoutUnit font_size(previous_item_style->FontSize());
+      if (CanTrimHanKerningClose(*previous_item.item->TextShapeResult(),
+                                 *previous_item_style, text_content,
+                                 last_non_space_index)) {
+        kerning_overhang = LayoutUnit(font_size * kHanKerningHalf);
+      } else if (Character::MaybeHanKerningMiddle(last_non_space_character)) {
+        kerning_overhang = LayoutUnit(font_size * kHanKerningQuarter);
+      }
+    }
+  }
+
+  if (!ruby_base_inset.has_value()) {
+    return overhang;
+  }
   if (ruby_align == ERubyAlign::kStart) {
-    overhang.end = std::min(space, half_width_of_annotation_font);
+    overhang.end = std::min(space, ruby_base_inset.value() * 2);
     return overhang;
   }
-  std::optional<LayoutUnit> inset = ComputeRubyBaseInset(space, base_line);
-  if (!inset) {
-    return overhang;
-  }
-  overhang.start = std::min(*inset, half_width_of_annotation_font);
-  overhang.end = overhang.start;
+  overhang.start =
+      std::min(ruby_base_inset.value(), space_overhang + kerning_overhang);
+  overhang.start =
+      std::min(previous_item_inline_size_sum - previous_ruby_overhang_end,
+               overhang.start);
+  overhang.end = ruby_base_inset.value();
   return overhang;
 }
 
-AnnotationOverhang GetOverhang(const InlineItemResult& item) {
+AnnotationOverhang GetOverhang(const InlineItemResult& item,
+                               const LineInfo& line_info,
+                               wtf_size_t ruby_index) {
   DCHECK(item.IsRubyColumn());
   const InlineItemResultRubyColumn& column = *item.ruby_column;
   return GetOverhang(item.inline_size, column.base_line,
-                     column.annotation_line_list);
+                     column.annotation_line_list, line_info, ruby_index);
 }
 
 bool CanApplyStartOverhang(const LineInfo& line_info,
@@ -228,6 +450,10 @@ bool CanApplyStartOverhang(const LineInfo& line_info,
     --previous_index;
   }
   const InlineItemResult& previous_item = items[previous_index];
+  if (ruby_style.RubyOverhang() == ERubyOverhang::kSpaces &&
+      previous_item.item->Type() == InlineItem::kControl) {
+    return true;
+  }
   if (previous_item.item->Type() != InlineItem::kText) {
     return false;
   }
@@ -241,29 +467,49 @@ bool CanApplyStartOverhang(const LineInfo& line_info,
           previous_item_style.GetTextEmphasisLineLogicalSide()) {
     return false;
   }
+  if (ruby_style.RubyOverhang() == ERubyOverhang::kSpaces) {
+    const String& text_content = line_info.ItemsData().text_content;
+    wtf_size_t previous_character_index = previous_item.TextOffset().end;
+    UChar32 previous_character = text_content.CodePointAtAndPrevious(
+        /*start_offset=*/previous_item.TextOffset().start,
+        /*i=*/previous_character_index);
+    if (!IsSpaceForRubyOverhang(previous_character) &&
+        !CanTrimHanKerningClose(*previous_item.item->TextShapeResult(),
+                                previous_item_style, text_content,
+                                previous_character_index) &&
+        !Character::MaybeHanKerningMiddle(previous_character)) {
+      return false;
+    }
+    return true;
+  }
   start_overhang = std::min(start_overhang, previous_item.inline_size / 2);
   return true;
 }
 
 LayoutUnit CommitPendingEndOverhang(const InlineItem& text_item,
+                                    const ShapeResult& shape_result,
                                     LineInfo* line_info) {
   DCHECK(line_info);
   InlineItemResults* items = line_info->MutableResults();
   if (items->size() < 1U) {
     return LayoutUnit();
   }
-  if (text_item.Type() == InlineItem::kControl) {
-    return LayoutUnit();
-  }
-  DCHECK_EQ(text_item.Type(), InlineItem::kText);
+  DCHECK(text_item.Type() == InlineItem::kText ||
+         text_item.Type() == InlineItem::kControl);
   wtf_size_t i = items->size() - 1;
+  bool has_previous_text_or_control = false;
   while (!(*items)[i].IsRubyColumn()) {
     const auto type = (*items)[i].item->Type();
     if (type != InlineItem::kOpenTag && type != InlineItem::kCloseTag &&
         type != InlineItem::kCloseRubyColumn &&
         type != InlineItem::kOpenRubyColumn &&
-        type != InlineItem::kRubyLinePlaceholder) {
+        type != InlineItem::kRubyLinePlaceholder &&
+        // For consecutive spaces
+        type != InlineItem::kText && type != InlineItem::kControl) {
       return LayoutUnit();
+    }
+    if (type == InlineItem::kText || type == InlineItem::kControl) {
+      has_previous_text_or_control = true;
     }
     if (i-- == 0) {
       return LayoutUnit();
@@ -275,6 +521,11 @@ LayoutUnit CommitPendingEndOverhang(const InlineItem& text_item,
   }
   const ComputedStyle& column_base_line_style =
       column_item.ruby_column->base_line.LineStyle();
+  if (column_base_line_style.RubyOverhang() != ERubyOverhang::kSpaces &&
+      (has_previous_text_or_control ||
+       text_item.Type() == InlineItem::kControl)) {
+    return LayoutUnit();
+  }
   if (column_base_line_style.FontSize() < text_item.Style()->FontSize()) {
     return LayoutUnit();
   }
@@ -284,18 +535,79 @@ LayoutUnit CommitPendingEndOverhang(const InlineItem& text_item,
           text_item.Style()->GetTextEmphasisLineLogicalSide()) {
     return LayoutUnit();
   }
-  // Ideally we should refer to inline_size of |text_item| instead of the
-  // width of the InlineItem's ShapeResult. However it's impossible to compute
-  // inline_size of |text_item| before calling BreakText(), and BreakText()
-  // requires precise |position_| which takes |end_overhang| into account.
-  LayoutUnit text_inline_size =
-      LayoutUnit(text_item.TextShapeResult()->Width());
-  LayoutUnit end_overhang =
-      std::min(column_item.pending_end_overhang, text_inline_size / 2);
+
   InlineItemResult& end_item =
       column_item.ruby_column->base_line.MutableResults()->back();
+
+  if (column_base_line_style.RubyOverhang() != ERubyOverhang::kSpaces) {
+    // Ideally we should refer to inline_size of |text_item| instead of the
+    // width of the InlineItem's ShapeResult. However it's impossible to compute
+    // inline_size of |text_item| before calling BreakText(), and BreakText()
+    // requires precise |position_| which takes |end_overhang| into account.
+    LayoutUnit text_inline_size = LayoutUnit(shape_result.Width());
+    LayoutUnit end_overhang =
+        std::min(column_item.pending_end_overhang, text_inline_size / 2);
+    end_item.margins.inline_end -= end_overhang;
+    column_item.pending_end_overhang = LayoutUnit();
+    return end_overhang;
+  }
+
+  // Handle 'ruby-overhang: spaces'
+  const LayoutUnit item_inline_size(shape_result.Width());
+  LayoutUnit end_overhang;
+  bool is_exhausted = false;
+  if (text_item.Type() == InlineItem::kControl) {
+    end_overhang = std::min(item_inline_size, column_item.pending_end_overhang);
+    column_item.pending_end_overhang -= end_overhang;
+  } else {
+    DCHECK_EQ(text_item.Type(), InlineItem::kText);
+    const String& text_content = line_info->ItemsData().text_content;
+    wtf_size_t space_end = text_item.StartOffset();
+    while (space_end < text_item.EndOffset()) {
+      wtf_size_t next_space_end = space_end;
+      UChar32 character = text_content.CodePointAtAndNext(next_space_end);
+      if (!IsSpaceForRubyOverhang(character)) {
+        break;
+      }
+      space_end = next_space_end;
+    }
+
+    LayoutUnit space_overhang;
+    if (space_end == text_item.EndOffset()) {
+      space_overhang = item_inline_size;
+    } else {
+      ShapeResultView* space_view = ShapeResultView::Create(
+          &shape_result, text_item.StartOffset(), space_end);
+      space_overhang = LayoutUnit(space_view->Width());
+    }
+
+    LayoutUnit kerning_overhang;
+    if (space_end < text_item.EndOffset()) {
+      LayoutUnit font_size(text_item.Style()->FontSize());
+      if (CanTrimHanKerningOpen(shape_result, *text_item.Style(), text_content,
+                                space_end)) {
+        kerning_overhang = LayoutUnit(font_size * kHanKerningHalf);
+      } else if (Character::MaybeHanKerningMiddle(
+                     text_content.CodePointAtOrZero(space_end))) {
+        kerning_overhang = LayoutUnit(font_size * kHanKerningQuarter);
+      }
+    }
+
+    end_overhang = std::min(column_item.pending_end_overhang,
+                            space_overhang + kerning_overhang);
+
+    if (space_end < text_item.EndOffset()) {
+      is_exhausted = true;
+    } else {
+      column_item.pending_end_overhang -= end_overhang;
+    }
+  }
+
+  column_item.ruby_column->end_overhang += end_overhang;
+  if (is_exhausted) {
+    column_item.pending_end_overhang = LayoutUnit();
+  }
   end_item.margins.inline_end -= end_overhang;
-  column_item.pending_end_overhang = LayoutUnit();
   return end_overhang;
 }
 
@@ -435,9 +747,10 @@ AnnotationMetrics ComputeAnnotationOverflow(
     if (const auto* style = item.Style()) {
       if (style->GetTextEmphasisMark() != TextEmphasisMark::kNone) {
         if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled()) {
+          float scale = item.text_fit_scale ? item.text_fit_scale->scale : 1.0f;
           const auto& emphasis_mark_outsets =
-              InlineBoxState::ComputeEmphasisMarkOutsets(*style,
-                                                         *style->GetFont());
+              InlineBoxState::ComputeEmphasisMarkOutsets(
+                  *style, *style->GetFont(), scale);
           if (style->GetTextEmphasisLineLogicalSide() ==
               LineLogicalSide::kOver) {
             over_emphasis =

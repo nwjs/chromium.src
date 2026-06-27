@@ -50,6 +50,7 @@ mojo_ts_files = [
   "ui/base/mojom/menu_source_type.mojom-webui.ts",
   "ui/base/mojom/themes.mojom-webui.ts",
   "ui/base/mojom/window_open_disposition.mojom-webui.ts",
+  "ui/base/dragdrop/mojom/drag_drop_types.mojom-webui.ts",
   "ui/gfx/geometry/mojom/geometry.mojom-webui.ts",
   "ui/gfx/image/mojom/image.mojom-webui.ts",
   "ui/gfx/range/mojom/range.mojom-webui.ts",
@@ -64,7 +65,7 @@ if (is_ios) {
   mojo_ts_files += [ "ui/base/mojom/ui_base_types.mojom-webui.ts" ]
 }
 
-if ((!is_ios && !is_android) || enable_webui_ntp) {
+if (!is_ios) {
   mojo_ts_files += [
     "components/omnibox/browser/searchbox.mojom-webui.ts",
     "components/omnibox/composebox/composebox_query.mojom-webui.ts",
@@ -117,6 +118,7 @@ preprocess_if_expr("copy_mojo_ts") {
     "//mojo/public/mojom/base:base_ts__generator",
     "//mojo/public/mojom/base:protobuf_support_ts__generator",
     "//skia/public/mojom:mojom_ts__generator",
+    "//ui/base/dragdrop/mojom:mojom_ts__generator",
     "//ui/base/mojom:mojom_ts__generator",
     "//ui/base/mojom:ui_base_types_ts__generator",
     "//ui/gfx/geometry/mojom:mojom_ts__generator",
@@ -157,13 +159,14 @@ ts_library("build_ts") {
   out_dir = tsc_folder
   composite = true
 
-  in_files = mojo_ts_files
+  in_files = mojo_ts_files + [ "mojo_browser_proxy.ts" ]
 
   definitions = [ "$tsc_folder/mojo/public/js/bindings.d.ts" ]
 
   extra_deps = [
     ":copy_bindings_dts",
     ":copy_mojo_ts",
+    ":preprocess_src",
   ]
 
   path_mappings = [ "//resources/mojo/*|" +
@@ -191,6 +194,13 @@ if (optimize_webui) {
 copy("copy_bindings_dts") {
   sources = [ "bindings.d.ts" ]
   outputs = [ "$tsc_folder/mojo/public/js/{{source_file_part}}" ]
+}
+
+preprocess_if_expr("preprocess_src") {
+  visibility = [ ":build_ts" ]
+  in_folder = "."
+  out_folder = "$target_gen_dir/preprocessed"
+  in_files = [ "mojo_browser_proxy.ts" ]
 }
 
 generate_grd("build_grdp") {

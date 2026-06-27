@@ -84,37 +84,53 @@ class CC_EXPORT PropertyTree {
   // Removes the last `n` nodes from the tree.
   void RemoveNodes(size_t n);
 
-  T* Node(int i) {
+  const T& Node(int i) const {
     CHECK_LT(i, static_cast<int>(nodes_.size()));
-    return i > kInvalidPropertyNodeId ? &nodes_[i] : nullptr;
-  }
-  const T* Node(int i) const {
-    CHECK_LT(i, static_cast<int>(nodes_.size()));
-    return i > kInvalidPropertyNodeId ? &nodes_[i] : nullptr;
+    CHECK_GT(i, kInvalidPropertyNodeId);
+    return nodes_[i];
   }
 
-  T* parent(const T* t) { return Node(t->parent_id); }
-  const T* parent(const T* t) const { return Node(t->parent_id); }
+  T& MutableNode(int i) {
+    CHECK_LT(i, static_cast<int>(nodes_.size()));
+    CHECK_GT(i, kInvalidPropertyNodeId);
+    return nodes_[i];
+  }
 
-  T* back() { return size() ? &nodes_.back() : nullptr; }
+  const T* parent(const T* t) const {
+    if (t->parent_id == kInvalidPropertyNodeId) {
+      return nullptr;
+    }
+    return &Node(t->parent_id);
+  }
+
+  T* MutableParent(const T* t) {
+    if (t->parent_id == kInvalidPropertyNodeId) {
+      return nullptr;
+    }
+    return &MutableNode(t->parent_id);
+  }
+
+  T* MutableBack() { return size() ? &nodes_.back() : nullptr; }
   const T* back() const { return size() ? &nodes_.back() : nullptr; }
 
   void SetElementIdForNodeId(int node_id, ElementId element_id) {
     element_id_to_node_index_[element_id] = node_id;
   }
-  T* FindNodeFromElementId(ElementId id) {
+  T* MutableFindNodeFromElementId(ElementId id) {
     auto iterator = element_id_to_node_index_.find(id);
-    if (iterator == element_id_to_node_index_.end()) {
+    if (iterator == element_id_to_node_index_.end() ||
+        iterator->second == kInvalidPropertyNodeId) {
       return nullptr;
     }
-    return Node(iterator->second);
+    return &MutableNode(iterator->second);
   }
   const T* FindNodeFromElementId(ElementId id) const {
     auto iterator = element_id_to_node_index_.find(id);
-    if (iterator == element_id_to_node_index_.end()) {
+    if (iterator == element_id_to_node_index_.end() ||
+        iterator->second == kInvalidPropertyNodeId) {
       return nullptr;
     }
-    return Node(iterator->second);
+    return &Node(iterator->second);
   }
 
   void clear();
@@ -841,20 +857,10 @@ struct PropertyTreesCachedData {
   ~PropertyTreesCachedData();
 };
 
-struct CC_EXPORT PropertyTreesChangeState {
-  PropertyTreesChangeState();
-  ~PropertyTreesChangeState();
-  PropertyTreesChangeState(PropertyTreesChangeState&&);
-  PropertyTreesChangeState& operator=(PropertyTreesChangeState&&);
-  bool changed = false;
-  bool needs_rebuild = false;
-  bool full_tree_damaged = false;
-  EffectTree::CopyRequestMap effect_tree_copy_requests;
-  std::vector<int> changed_effect_nodes;
-  std::vector<int> changed_transform_nodes;
-  std::vector<RenderSurfacePropertyChangedFlags> surface_property_changed_flags;
-};
-
+// PropertyTrees is a container for the property trees (transform, effect, clip,
+// and scroll). It also optionally stores transient change tracking state that
+// is used during the commit process to synchronize changes between the main
+// thread and the compositor thread.
 class CC_EXPORT PropertyTrees final {
  public:
   PropertyTrees();
@@ -899,6 +905,17 @@ class CC_EXPORT PropertyTrees final {
   void increment_sequence_number() { sequence_number_++; }
   int sequence_number() const { return sequence_number_; }
 
+  const std::vector<int>& changed_effect_nodes() const {
+    return changed_effect_nodes_;
+  }
+  const std::vector<int>& changed_transform_nodes() const {
+    return changed_transform_nodes_;
+  }
+  const std::vector<RenderSurfacePropertyChangedFlags>&
+  surface_property_changed_flags() const {
+    return surface_property_changed_flags_;
+  }
+
   void clear();
 
   // Applies an animation state change for a particular element in
@@ -917,9 +934,19 @@ class CC_EXPORT PropertyTrees final {
                        std::vector<int>& transform_nodes) const;
   void ApplyChangedNodes(const std::vector<int>& effect_nodes,
                          const std::vector<int>& transform_nodes);
-  // Note that GetChangeState mutates the state of effect_tree_.
-  void GetChangeState(PropertyTreesChangeState& change_state);
-  void ApplyChangeState(PropertyTreesChangeState& change_state);
+
+  // Collects the changed nodes and surface property changed flags from the
+  // current trees and stores them in the internal change tracking vectors.
+  void CollectChangeState();
+
+  // Takes the change tracking state from the |source| property trees.
+  // Note that this mutates the state of |source| by taking its copy requests.
+  void TakeChangeStateFrom(PropertyTrees& source);
+
+  // Applies the change tracking state from |source| to this.
+  // Note that this mutates the state of |source| by taking its copy requests.
+  void ApplyChangeStateFrom(PropertyTrees& source);
+
   void ResetAllChangeTracking();
 
   gfx::Vector2dF inner_viewport_container_bounds_delta() const {
@@ -990,6 +1017,11 @@ class CC_EXPORT PropertyTrees final {
   bool is_active_ = false;
 
   int sequence_number_ = 0;
+
+  std::vector<int> changed_effect_nodes_;
+  std::vector<int> changed_transform_nodes_;
+  std::vector<RenderSurfacePropertyChangedFlags>
+      surface_property_changed_flags_;
 
   gfx::Vector2dF inner_viewport_container_bounds_delta_;
   gfx::Vector2dF outer_viewport_container_bounds_delta_;

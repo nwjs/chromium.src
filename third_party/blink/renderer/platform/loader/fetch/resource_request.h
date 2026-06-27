@@ -475,12 +475,13 @@ class PLATFORM_EXPORT ResourceRequestHead {
   void SetAllowStaleResponse(bool value) { allow_stale_response_ = value; }
   bool AllowsStaleResponse() const { return allow_stale_response_; }
 
-  const std::optional<base::UnguessableToken>& GetDevToolsToken() const {
-    return devtools_token_;
+  const std::optional<base::UnguessableToken>& GetDevToolsThrottlingToken()
+      const {
+    return devtools_throttling_token_;
   }
-  void SetDevToolsToken(
+  void SetDevToolsThrottlingToken(
       const std::optional<base::UnguessableToken>& devtools_token) {
-    devtools_token_ = devtools_token;
+    devtools_throttling_token_ = devtools_token;
   }
 
   const scoped_refptr<
@@ -506,9 +507,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
 
   void SetClientDataHeader(const String& value) { client_data_header_ = value; }
   const String& GetClientDataHeader() const { return client_data_header_; }
-
-  void SetPurposeHeader(const String& value) { purpose_header_ = value; }
-  const String& GetPurposeHeader() const { return purpose_header_; }
 
   void SetEventSourceLastEventId(const String& value) {
     event_source_last_event_id_ = value;
@@ -797,11 +795,10 @@ class PLATFORM_EXPORT ResourceRequestHead {
 
   static const base::TimeDelta default_timeout_interval_;
 
-  std::optional<base::UnguessableToken> devtools_token_;
+  std::optional<base::UnguessableToken> devtools_throttling_token_;
   String devtools_id_;
   String requested_with_header_;
   String client_data_header_;
-  String purpose_header_;
   String event_source_last_event_id_;
 
   std::optional<String> devtools_stack_id_;

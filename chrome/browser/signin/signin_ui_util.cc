@@ -56,10 +56,11 @@
 #include "ui/gfx/text_elider.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "base/check_deref.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/signin/signin_ui_chromeos_util.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
-#include "components/account_manager_core/account_manager_facade.h"
+#include "components/account_manager_core/chromeos/account_manager_mojo_service.h"
 #include "components/user_manager/user.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -194,11 +195,16 @@ void ShowReauthForAccount(Profile* profile,
                           const std::string& email,
                           signin_metrics::AccessPoint access_point) {
 #if BUILDFLAG(IS_CHROMEOS)
-  ash::AccountManagerFactory::Get()
-      ->GetAccountManagerFacade(profile->GetPath().value())
-      ->ShowReauthAccountDialog(
-          GetAccountReauthSourceFromAccessPoint(access_point), email,
-          base::DoNothing());
+  crosapi::AccountManagerMojoService& account_manager_mojo_service =
+      CHECK_DEREF(
+          ash::AccountManagerFactory::Get()->GetAccountManagerMojoService(
+              profile->GetPath().value()));
+
+  // TODO(b/365741912, b/365902693): Route signin reauth through the
+  // future Ash-owned Account Manager dialog coordinator once it exists.
+  account_manager_mojo_service.ShowReauthAccountDialog(
+      GetAccountReauthSourceFromAccessPoint(access_point), email,
+      base::DoNothing());
 #elif BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Pass `false` for `enable_sync`, as this function is not expected to start a
   // sync setup flow after the reauth.
@@ -244,27 +250,6 @@ void ShowExtensionSigninPrompt(Profile* profile,
       profile, email_hint, enable_sync,
       signin_metrics::AccessPoint::kExtensions,
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-}
-
-void ShowSigninPromptFromPromo(Profile* profile,
-                               signin_metrics::AccessPoint access_point) {
-#if BUILDFLAG(IS_CHROMEOS)
-  NOTREACHED();
-#elif BUILDFLAG(ENABLE_DICE_SUPPORT)
-  CHECK(!profile->IsOffTheRecord());
-
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
-  if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
-    DVLOG(1) << "The user is already signed in.";
-    return;
-  }
-
-  GetSigninUiDelegate()->ShowSigninUI(
-      profile, /*enable_sync=*/false, access_point,
-      signin_metrics::PromoAction::
-          PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -546,37 +531,6 @@ std::u16string GetShortProfileIdentityToDisplay(
   }
 
   return base::UTF8ToUTF16(*given_name);
-}
-
-std::string GetAllowedDomain(std::string signin_pattern) {
-  std::vector<std::string> splitted_signin_pattern = base::SplitString(
-      signin_pattern, "@", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-
-  // There are more than one '@'s in the pattern.
-  if (splitted_signin_pattern.size() != 2) {
-    return std::string();
-  }
-
-  std::string domain = splitted_signin_pattern[1];
-
-  // Trims tailing '$' if existed.
-  if (!domain.empty() && domain.back() == '$') {
-    domain.pop_back();
-  }
-
-  // Trims tailing '\E' if existed.
-  if (domain.size() > 1 &&
-      base::EndsWith(domain, "\\E", base::CompareCase::SENSITIVE)) {
-    domain.erase(domain.size() - 2);
-  }
-
-  // Check if there is any special character in the domain. Note that
-  // jsmith@[192.168.2.1] is not supported.
-  if (!re2::RE2::FullMatch(domain, "[a-zA-Z0-9\\-.]+")) {
-    return std::string();
-  }
-
-  return domain;
 }
 
 bool ShouldShowAnimatedIdentityOnOpeningWindow(Profile& profile) {

@@ -17,12 +17,16 @@
 #include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
 #include "chrome/browser/actor/ui/states/actor_task_nudge_state.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_actor_nudge_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager.h"
+#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager_factory.h"
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
 #include "chrome/browser/glic/fre/glic_fre.mojom.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
@@ -33,9 +37,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
-#include "chrome/browser/ui/tabs/glic_actor_nudge_controller.h"
-#include "chrome/browser/ui/tabs/glic_actor_task_icon_manager.h"
-#include "chrome/browser/ui/tabs/glic_actor_task_icon_manager_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/controls/rich_hover_button.h"
@@ -271,7 +272,7 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
       glic::GlicKeyedServiceFactory::GetGlicKeyedService(
           browser()->GetProfile());
 
-  EXPECT_TRUE(glic_keyed_service->IsWindowShowing());
+  EXPECT_TRUE(glic_keyed_service->instance_coordinator().IsAnyPanelShowing());
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
@@ -430,7 +431,7 @@ IN_PROC_BROWSER_TEST_F(
 
   actor_service()->GetTask(task_id2)->Pause(/*from_actor=*/true);
 
-  auto* manager = tabs::GlicActorTaskIconManagerFactory::GetForProfile(
+  auto* manager = glic::GlicActorTaskIconManagerFactory::GetForProfile(
       browser()->GetProfile());
   EXPECT_TRUE(RunUntil(
       [&]() { return manager->actor_task_list_bubble_rows().size() == 2; }));
@@ -477,7 +478,7 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
 
   actor::TaskId task_id = CreateTask();
 
-  auto* manager = tabs::GlicActorTaskIconManagerFactory::GetForProfile(
+  auto* manager = glic::GlicActorTaskIconManagerFactory::GetForProfile(
       browser()->GetProfile());
 
   actor_service()->GetTask(task_id)->SetState(actor::ActorTask::State::kActing);
@@ -507,39 +508,3 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
   EXPECT_EQ(0, user_action_tester.GetActionCount(
                    "Actor.Ui.TaskNudge.NeedsAttention.Click"));
 }
-
-#if !BUILDFLAG(IS_ANDROID)
-class TabStripActionContainerPrivateAiBrowserTest
-    : public TabStripActionContainerBrowserTest {
- public:
-  TabStripActionContainerPrivateAiBrowserTest() {
-    private_ai_feature_list_.InitWithFeaturesAndParameters(
-        {{private_ai::kPrivateAi,
-          {{private_ai::kPrivateAiApiKey.name, "test-api-key"}}},
-         {glic::kZeroStateSuggestionsUsePrivateAi, {}}},
-        {});
-  }
-
- private:
-  base::test::ScopedFeatureList private_ai_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(TabStripActionContainerPrivateAiBrowserTest,
-                       EstablishesPrivateAiConnectionOnGlicButtonHover) {
-  auto* private_ai_service = private_ai::PrivateAiServiceFactory::GetForProfile(
-      browser()->GetProfile());
-  ASSERT_TRUE(private_ai_service);
-  auto mock_client =
-      std::make_unique<testing::StrictMock<private_ai::MockPrivateAiClient>>();
-  auto* mock_client_ptr = mock_client.get();
-  private_ai_service->SetClientForTesting(std::move(mock_client));
-
-  EXPECT_CALL(*mock_client_ptr, EstablishConnection());
-
-  // Hover over the glic button.
-  ui::MouseEvent mouse_enter(ui::EventType::kMouseEntered, gfx::Point(),
-                             gfx::Point(), ui::EventTimeForNow(), 0, 0);
-  GlicNudgeButton()->OnMouseEntered(mouse_enter);
-}
-
-#endif  // !BUILDFLAG(IS_ANDROID)

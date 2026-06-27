@@ -28,6 +28,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/mock_manual_filling_view.h"
 #include "chrome/browser/keyboard_accessory/test_utils/android/mock_address_accessory_controller.h"
+#include "chrome/browser/keyboard_accessory/test_utils/android/mock_at_memory_accessory_controller.h"
 #include "chrome/browser/password_manager/chrome_password_change_service.h"
 #include "chrome/browser/password_manager/factories/password_manager_settings_service_factory.h"
 #include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
@@ -67,6 +68,7 @@
 #include "components/password_manager/core/browser/password_manager.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -782,10 +784,15 @@ TEST_F(ChromePasswordManagerClientTest,
       Observer::FieldTypeSource::kAutofillServer,
       /*small_forms_were_parsed=*/false);
 
+  ContentPasswordManagerDriver* password_driver =
+      ContentPasswordManagerDriver::GetForRenderFrameHost(main_rfh());
+  password_manager::DriverId driver_id = password_driver->GetId();
+
   EXPECT_THAT(static_cast<const password_manager::PasswordManager*>(
                   GetClient()->GetPasswordManager())
                   ->GetServerPredictionsForTesting(),
-              UnorderedElementsAre(Key(CalculateFormSignature(form))));
+              UnorderedElementsAre(
+                  Key(testing::Pair(CalculateFormSignature(form), driver_id))));
 }
 
 TEST_F(ChromePasswordManagerClientTest,
@@ -896,11 +903,21 @@ TEST_F(ChromePasswordManagerClientTest,
   // Even though `OnFieldTypesDetermined` was only called for a single form (the
   // browser form that is the result of merging both forms), password manager
   // receives predictions for both the main and the child form.
-  EXPECT_THAT(static_cast<const password_manager::PasswordManager*>(
-                  GetClient()->GetPasswordManager())
-                  ->GetServerPredictionsForTesting(),
-              UnorderedElementsAre(Key(CalculateFormSignature(main_form)),
-                                   Key(CalculateFormSignature(child_form))));
+  ContentPasswordManagerDriver* main_password_driver =
+      ContentPasswordManagerDriver::GetForRenderFrameHost(main_rfh());
+  ContentPasswordManagerDriver* child_password_driver =
+      ContentPasswordManagerDriver::GetForRenderFrameHost(child_rfh);
+  password_manager::DriverId main_driver_id = main_password_driver->GetId();
+  password_manager::DriverId child_driver_id = child_password_driver->GetId();
+
+  EXPECT_THAT(
+      static_cast<const password_manager::PasswordManager*>(
+          GetClient()->GetPasswordManager())
+          ->GetServerPredictionsForTesting(),
+      UnorderedElementsAre(
+          Key(testing::Pair(CalculateFormSignature(main_form), main_driver_id)),
+          Key(testing::Pair(CalculateFormSignature(child_form),
+                            child_driver_id))));
 }
 
 TEST_F(ChromePasswordManagerClientTest,
@@ -1525,6 +1542,7 @@ class ChromePasswordManagerClientAndroidTest
   NiceMock<MockAddressAccessoryController> mock_address_controller_;
   NiceMock<MockPaymentMethodAccessoryController>
       mock_payment_method_controller_;
+  NiceMock<MockAtMemoryAccessoryController> mock_at_memory_controller_;
   std::unique_ptr<
       password_manager::MockKeyboardReplacingSurfaceVisibilityController>
       visibility_controller_;
@@ -1557,6 +1575,7 @@ void ChromePasswordManagerClientAndroidTest::CreateManualFillingController(
       web_contents, mock_pwd_controller_.AsWeakPtr(),
       mock_address_controller_.AsWeakPtr(),
       mock_payment_method_controller_.AsWeakPtr(),
+      mock_at_memory_controller_.AsWeakPtr(),
       std::make_unique<NiceMock<MockManualFillingView>>());
 }
 
@@ -1973,8 +1992,12 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
 
   shared_not_notified_profile.sharing_notification_displayed = true;
   shared_not_notified_account.sharing_notification_displayed = true;
-  EXPECT_CALL(*profile_store, UpdateLogin(shared_not_notified_profile, _));
-  EXPECT_CALL(*account_store, UpdateLogin(shared_not_notified_account, _));
+  EXPECT_CALL(*profile_store, UpdateLogin(password_manager::EqStoredCredential(
+                                              shared_not_notified_profile),
+                                          _));
+  EXPECT_CALL(*account_store, UpdateLogin(password_manager::EqStoredCredential(
+                                              shared_not_notified_account),
+                                          _));
   GetClient()->MarkSharedCredentialsAsNotified(kURL);
 }
 

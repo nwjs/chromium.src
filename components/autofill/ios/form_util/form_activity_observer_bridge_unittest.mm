@@ -4,11 +4,17 @@
 
 #import "components/autofill/ios/form_util/form_activity_observer_bridge.h"
 
+#import "components/autofill/core/common/autofill_test_utils.h"
 #import "components/autofill/core/common/form_data.h"
+#import "components/autofill/ios/form_util/form_activity_tab_helper.h"
 #import "components/autofill/ios/form_util/test_form_activity_observer.h"
 #import "ios/web/public/test/fakes/fake_web_frame.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
+#import "testing/gmock/include/gmock/gmock.h"
 #import "testing/platform_test.h"
+
+using ::autofill::test::FormDataEq;
+using ::autofill::test::WithoutUnserializedData;
 
 @interface FakeFormActivityObserver : NSObject<FormActivityObserver>
 // Arguments passed to
@@ -103,7 +109,9 @@ TEST_F(FormActivityObserverBridgeTest, DocumentSubmitted) {
   ASSERT_TRUE([observer_ submitDocumentInfo]);
   EXPECT_EQ(&fake_web_state_, [observer_ submitDocumentInfo]->web_state);
   EXPECT_EQ(sender_frame.get(), [observer_ submitDocumentInfo]->sender_frame);
-  EXPECT_EQ(kTestFormData, [observer_ submitDocumentInfo]->form_data);
+  EXPECT_THAT(
+      WithoutUnserializedData([observer_ submitDocumentInfo]->form_data),
+      FormDataEq(WithoutUnserializedData(kTestFormData)));
   EXPECT_EQ(has_user_gesture, [observer_ submitDocumentInfo]->has_user_gesture);
 }
 
@@ -145,4 +153,20 @@ TEST_F(FormActivityObserverBridgeTest, FormRemovalRegistered) {
   EXPECT_EQ(sender_frame.get(), [observer_ formRemovalInfo]->sender_frame);
   EXPECT_EQ(params.removed_forms,
             [observer_ formRemovalInfo]->form_removal_params.removed_forms);
+}
+
+// Tests that the bridge can be safely destroyed after the TabHelper.
+TEST_F(FormActivityObserverBridgeTest, DestructionOrder) {
+  // Ensure the helper exists.
+  autofill::FormActivityTabHelper* helper =
+      autofill::FormActivityTabHelper::GetOrCreateForWebState(&fake_web_state_);
+  ASSERT_TRUE(helper);
+
+  // Destroy the helper.
+  fake_web_state_.RemoveUserData(
+      autofill::FormActivityTabHelper::UserDataKey());
+
+  // Verify that the bridge handles the notification (this is implicit, if it
+  // crashes it fails). The observer_bridge_ destructor will be called at end of
+  // scope.
 }

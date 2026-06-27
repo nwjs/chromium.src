@@ -45,6 +45,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_bnpl_footnote_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_loading_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_no_suggestions_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_personal_context_notice_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_factory_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
@@ -757,8 +758,7 @@ bool PopupViewViews::AcceptSelectedContentOrCreditCardCell(
     return false;
   }
 
-  controller_->AcceptSuggestion(index->first, accept_method);
-  return true;
+  return GetPopupRowViewAt(index->first).Accept(accept_method);
 }
 
 bool PopupViewViews::RemoveSelectedCell() {
@@ -911,7 +911,11 @@ void PopupViewViews::SetSelectedCell(
   }
 
   if (old_index) {
-    GetPopupRowViewAt(old_index->first).SetSelectedCell(std::nullopt);
+    if (!TrackAndRun(this, [this, old_index]() {
+          GetPopupRowViewAt(old_index->first).SetSelectedCell(std::nullopt);
+        })) {
+      return;
+    }
   }
 
   // New selected cell invalidates this scheduling (if it's running), cancel it.
@@ -922,7 +926,10 @@ void PopupViewViews::SetSelectedCell(
       // Since cell selection is based on virtual focus and not real focus,
       // we need to manually unfocus the settings link when updating virtual
       // focus.
-      footnote->UnfocusSettingsLink();
+      if (!TrackAndRun(this,
+                       [footnote]() { footnote->UnfocusSettingsLink(); })) {
+        return;
+      }
     }
     has_keyboard_focus_ = true;
     // The sub-popup hiding is canceled because the newly selected cell will
@@ -931,7 +938,11 @@ void PopupViewViews::SetSelectedCell(
 
     row_with_selected_cell_ = cell_index->first;
     PopupRowView& new_selected_row = GetPopupRowViewAt(cell_index->first);
-    new_selected_row.SetSelectedCell(cell_index->second);
+    if (!TrackAndRun(&new_selected_row, [&new_selected_row, cell_index]() {
+          new_selected_row.SetSelectedCell(cell_index->second);
+        })) {
+      return;
+    }
     new_selected_row.ScrollViewToVisible();
 
     if (!controller_) {
@@ -1336,6 +1347,10 @@ void PopupViewViews::CreateSuggestionViews() {
           std::make_unique<PopupBnplFootnoteView>(
               controller(), /*a11y_selection_delegate=*/*this,
               base::BindRepeating(&DefaultA11yAnnouncer))));
+    } else if (suggestions[current_line_number].type ==
+               SuggestionType::kPersonalContextNotice) {
+      rows_.push_back(footer_container_->AddChildView(
+          std::make_unique<PopupPersonalContextNoticeView>()));
     } else {
       rows_.push_back(footer_container_->AddChildView(CreatePopupRowView(
           controller(), /*a11y_selection_delegate=*/*this,
@@ -1518,27 +1533,9 @@ bool PopupViewViews::DoUpdateBoundsAndRedrawPopup(bool prefer_prev_arrow_side) {
       element_bounds, visible_content_area_bounds, preferred_size,
       preferred_popup_sides);
 
-  if (BoundsOverlapWithAnyOpenPrompt(popup_bounds,
-                                     controller_->GetWebContents())) {
+  if (OverlapsWithAnotherPrompt(popup_bounds)) {
     controller_->Hide(SuggestionHidingReason::kOverlappingWithAnotherPrompt);
     return false;
-  }
-  // On Windows, due to platform-specific implementation details, the previous
-  // check isn't reliable, and fails to detect open prompts. Since the most
-  // critical bubble is the permission bubble, we check for that specifically.
-  if (BoundsOverlapWithOpenPermissionsPrompt(popup_bounds,
-                                             controller_->GetWebContents())) {
-    controller_->Hide(SuggestionHidingReason::kOverlappingWithAnotherPrompt);
-    return false;
-  }
-
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillPopupCheckHtmlFormPopupOverlap)) {
-    if (BoundsOverlapWithHtmlFormPopup(popup_bounds,
-                                       controller_->GetWebContents())) {
-      controller_->Hide(SuggestionHidingReason::kOverlappingWithAnotherPrompt);
-      return false;
-    }
   }
 
   // The pip surface is given the most preference while rendering. So, the
@@ -1682,9 +1679,13 @@ void PopupViewViews::MaybeA11yFocusInformationalSuggestion() {
 
   if (auto* warning_view = std::get_if<PopupWarningView*>(&rows_[0]);
       warning_view && *warning_view) {
-    NotifyAXSelection(**warning_view);
-    (*warning_view)
-        ->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kFocus, true);
+    PopupWarningView* view_ptr = *warning_view;
+    TrackAndRun(
+        view_ptr, [this, view_ptr]() { NotifyAXSelection(*view_ptr); },
+        [view_ptr]() {
+          view_ptr->NotifyAccessibilityEventDeprecated(ax::mojom::Event::kFocus,
+                                                       true);
+        });
   }
 }
 

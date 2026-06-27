@@ -120,6 +120,7 @@ public class FacilitatedPaymentsPaymentMethodsViewBridgeTest {
         ProfileManager.setLastUsedProfileForTesting(mProfile);
         AutofillImageFetcherFactory.setInstanceForTesting(mAutofillImageFetcher);
         mApplicationContext = ApplicationProvider.getApplicationContext();
+        mApplicationContext.setTheme(R.style.Theme_BrowserUI_DayNight);
         mWindow = new WindowAndroid(mApplicationContext, /* occlusionTrackingAllowed= */ false);
         BottomSheetControllerFactory.attach(mWindow, mBottomSheetController);
         mViewBridge =
@@ -258,7 +259,7 @@ public class FacilitatedPaymentsPaymentMethodsViewBridgeTest {
     @SmallTest
     public void showPixAccountLinkingPrompt_callsControllerRequestShowContent() {
 
-        mViewBridge.showPixAccountLinkingPrompt();
+        mViewBridge.showPixAccountLinkingPrompt(/* strikeCount= */ 0);
 
         verify(mBottomSheetController)
                 .requestShowContent(

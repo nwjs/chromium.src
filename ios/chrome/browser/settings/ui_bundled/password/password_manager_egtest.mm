@@ -39,6 +39,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/password/reauthentication/local_reauthentication_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/widget_promo_instructions/widget_promo_instructions_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_constants.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_event.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
@@ -745,11 +746,6 @@ void OpenPasswordManagerWidgetPromoInstructions() {
           (testOpeningPasswordManagerWidgetPromoInstructionsWithFailedAuth)] ||
       [self isRunningTest:@selector(testDeletingLastAffiliatedGroup)]) {
     config.iph_feature_enabled = "IPH_iOSPromoPasswordManagerWidget";
-  }
-
-  if ([self isRunningTest:@selector
-            (MAYBE_testTappingInfoButtonForHiddenPasskey)]) {
-    config.features_enabled.push_back(kCredentialProviderSignalAPI);
   }
 
   return config;
@@ -1889,13 +1885,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
 // Test export flow
 - (void)testExportFlow {
-#if BUILDFLAG(IOS_CREDENTIAL_EXCHANGE_ENABLED)
   if (@available(iOS 26, *)) {
-    // TODO(crbug.com/463313017): Move this test to credential_export_egtest.mm.
-    EARL_GREY_TEST_SKIPPED(
-        @"This feature is moved elsewhere with credential exchange enabled");
+    EARL_GREY_TEST_SKIPPED(@"This is a part of credential exchange on iOS 26.");
   }
-#endif
 
   // Saving a form is needed for exporting passwords.
   SavePasswordFormToProfileStore();
@@ -1924,7 +1916,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
           exportButtonAccessibilityId)) performAction:grey_tap()];
 
   // Wait until the alerts are dismissed.
-  [ChromeEarlGreyUI waitForAppToIdle];
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
+                      chrome_test_util::AlertItemWithAccessibilityLabelId(
+                          exportButtonAccessibilityId)];
 
   id<GREYMatcher> exportButtonStatusMatcher =
       grey_accessibilityTrait(UIAccessibilityTraitNotEnabled);
@@ -1937,7 +1931,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   [ChromeEarlGrey closeActivitySheet];
 
   // Wait until the activity view is dismissed.
-  [ChromeEarlGreyUI waitForAppToIdle];
+  [ChromeEarlGrey verifyActivitySheetNotVisible];
 
   // Check that export button is re-enabled.
   [[EarlGrey selectElementWithMatcher:
@@ -2501,7 +2495,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 }
 
 // TODO(crbug.com/477806564): Test is flaky.
-- (void)DISABLED_testRemovingMultiplePasswords {
+- (void)testRemovingMultiplePasswords {
   constexpr int kPasswordsCount = 4;
 
   // Send the passwords to the queue to be added to the ProfilePasswordStore.
@@ -2533,13 +2527,18 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   [ChromeEarlGreyUI waitForAppToIdle];
 
   // Check that saved forms header is removed.
-  [[EarlGrey selectElementWithMatcher:SavedPasswordsPasskeysHeaderMatcher()]
-      assertWithMatcher:grey_nil()];
+  [ChromeEarlGrey waitForNotSufficientlyVisibleElementWithMatcher:
+                      SavedPasswordsPasskeysHeaderMatcher()];
 
   // Verify that the deletion was propagated to the ProfilePasswordStore.
-  GREYAssertEqual(
-      0, [PasswordSettingsAppInterface passwordProfileStoreResultsCount],
-      @"Stored password was not removed from ProfilePasswordStore.");
+  bool success =
+      base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(5), ^bool {
+        return
+            [PasswordSettingsAppInterface passwordProfileStoreResultsCount] ==
+            0;
+      });
+  GREYAssertTrue(success,
+                 @"Stored password was not removed from ProfilePasswordStore.");
 
   // Finally, verify that the Add button is visible and enabled, because there
   // are no other password entries left for deletion via the "Edit" mode.
@@ -2693,8 +2692,12 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 // Tests that when a new credential is saved or an existing one is updated via
 // the add credential flow, the VC auto scrolls to the newly created or the
 // updated entry.
-// TODO(crbug.com/460743577): Test is flaky.
-- (void)FLAKY_testAutoScroll {
+- (void)testAutoScroll {
+  // TODO(crbug.com/460743577): Flaky on iPad on iOS below 26.
+  if ([ChromeEarlGrey isIPadIdiom] && !base::ios::IsRunningOnIOS26OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Flaky on iPad on iOS below 26.");
+  }
+
   for (int i = 0; i < 20; i++) {
     NSString* username = [NSString stringWithFormat:@"username %d", i];
     NSString* password = [NSString stringWithFormat:@"password %d", i];
@@ -2705,7 +2708,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   OpenPasswordManager();
 
   // Press "Add".
-  [[EarlGrey selectElementWithMatcher:AddPasswordButton()]
+  [GetInteractionForListItem(AddPasswordButton(), kGREYDirectionDown)
       performAction:grey_tap()];
 
   NSString* const kAddedDomain = @"zexample.com";
@@ -2732,9 +2735,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
                     error:&error];
     return error == nil;
   };
-  GREYAssert(
-      base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(2), condition),
-      @"Didn't scroll to the added credential item");
+  GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
+                 base::test::ios::kWaitForUIElementTimeout, condition),
+             @"Didn't scroll to the added credential item");
 }
 
 // Tests that adding new password credential where the username and website
@@ -3104,14 +3107,8 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   id<GREYMatcher> onMatcher = grey_allOf(
       grey_accessibilityLabel(l10n_util::GetNSString(IDS_IOS_SETTING_ON)),
       grey_sufficientlyVisible(), nil);
-
-  id<GREYMatcher> offMatcher = grey_allOf(
-      grey_accessibilityLabel(l10n_util::GetNSString(IDS_IOS_SETTING_OFF)),
-      grey_sufficientlyVisible(), nil);
-  if (@available(iOS 18, *)) {
-    offMatcher = grey_allOf(TurnOnPasswordsInOtherAppsButton(),
-                            grey_sufficientlyVisible(), nil);
-  }
+  id<GREYMatcher> offMatcher = grey_allOf(TurnOnPasswordsInOtherAppsButton(),
+                                          grey_sufficientlyVisible(), nil);
 
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:offMatcher];
   [[EarlGrey selectElementWithMatcher:onMatcher] assertWithMatcher:grey_nil()];
@@ -3130,67 +3127,47 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   OpenSettingsSubmenu();
 
   // Check initial visibility. AutoFill is off by default.
-  id<GREYMatcher> initialVisibilityMatcher = grey_nil();
-  if (@available(iOS 18, *)) {
-    initialVisibilityMatcher = grey_sufficientlyVisible();
-  }
   [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton()]
-      assertWithMatcher:initialVisibilityMatcher];
+      assertWithMatcher:grey_sufficientlyVisible()];
 
   // Turn on AutoFill. The button should not be visible afterwards.
   [PasswordsInOtherAppsAppInterface startFakeManagerWithAutoFillStatus:YES];
-  if (@available(iOS 18, *)) {
-    id<GREYMatcher> turnOnButtonNotVisibleMatcher =
-        grey_allOf(TurnOnPasswordsInOtherAppsButton(), grey_notVisible(), nil);
-    [ChromeEarlGrey waitForMatcher:turnOnButtonNotVisibleMatcher];
-  } else {
-    [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton()]
-        assertWithMatcher:grey_nil()];
-  }
+  [ChromeEarlGrey waitForMatcher:grey_allOf(TurnOnPasswordsInOtherAppsButton(),
+                                            grey_notVisible(), nil)];
 
   // Turn off AutoFill. The button should only become visible on iOS 18+.
   [PasswordsInOtherAppsAppInterface setAutoFillStatus:NO];
-  if (@available(iOS 18, *)) {
-    [ChromeEarlGrey
-        waitForUIElementToAppearWithMatcher:TurnOnPasswordsInOtherAppsButton()];
-  } else {
-    [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton()]
-        assertWithMatcher:grey_nil()];
-  }
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:TurnOnPasswordsInOtherAppsButton()];
 }
 
 // Tests that the "Turn on AutoFill…" button becomes enabled when tapped, and
 // gets re-enabled after a 10 seconds delay.
 - (void)testTapsOnTurnOnPasswordsInOtherAppsItem {
-  if (@available(iOS 18, *)) {
-    OpenPasswordManager();
-    OpenSettingsSubmenu();
+  OpenPasswordManager();
+  OpenSettingsSubmenu();
 
-    [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton()]
-        performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton()]
+      performAction:grey_tap()];
 
-    // After being pressed, the button should become disabled.
+  // After being pressed, the button should become disabled.
+  [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton(
+                                          /*enabled=*/NO)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // The button should become enabled again after a delay (10 seconds in
+  // normal time, 2 seconds in the context of EG tests).
+  ConditionBlock condition = ^{
+    NSError* error = nil;
     [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton(
-                                            /*enabled=*/NO)]
-        assertWithMatcher:grey_sufficientlyVisible()];
-
-    // The button should become enabled again after a delay (10 seconds in
-    // normal time, 2 seconds in the context of EG tests).
-    ConditionBlock condition = ^{
-      NSError* error = nil;
-      [[EarlGrey selectElementWithMatcher:TurnOnPasswordsInOtherAppsButton(
-                                              /*enabled=*/YES)]
-          assertWithMatcher:grey_sufficientlyVisible()
-                      error:&error];
-      return error == nil;
-    };
-    GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
-                   kReEnableTurnOnPasswordsInOtherAppsButtonTimeout, condition),
-               @"Waiting for the 'Turn on AutoFill' button to become enabled.");
-  } else {
-    EARL_GREY_TEST_SKIPPED(
-        @"The 'Turn on AutoFill…' button is only available on iOS 18+.");
-  }
+                                            /*enabled=*/YES)]
+        assertWithMatcher:grey_sufficientlyVisible()
+                    error:&error];
+    return error == nil;
+  };
+  GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
+                 kReEnableTurnOnPasswordsInOtherAppsButtonTimeout, condition),
+             @"Waiting for the 'Turn on AutoFill' button to become enabled.");
 }
 
 // Tests that the detail view is dismissed when the last password is deleted,
@@ -3669,9 +3646,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
 // Checks opening the password manager with a failed reauthentication does not
 // show passwords and closes the Password Manager.
-//
-// TODO(crbug.com/468305089): This test is flaky.
-- (void)FLAKY_testOpenPasswordManagerWithFailedAuth {
+- (void)testOpenPasswordManagerWithFailedAuth {
   [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
   // Delay the auth result to be able to validate that the passwords are not
@@ -3687,8 +3662,8 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   // Failed auth should dismiss the Password Manager, the Settings menu is
   // displayed.
   [ReauthenticationAppInterface mockReauthenticationModuleReturnMockedResult];
-  CheckVisibilityOfElement(/*matcher=*/SettingsCollectionView(),
-                           /*is_visible=*/true);
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:SettingsCollectionView()];
 
   // Check password manager visit metric.
   CheckPasswordManagerVisitMetricCount(0);
@@ -4049,7 +4024,15 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
 // Checks password details page offers move to account option if the password is
 // saved in the local store.
-- (void)testMovePasswordToAccountStoreIfSignedIn {
+// TODO(crbug.com/512447836): Test is flaky.
+#if !TARGET_OS_SIMULATOR
+#define MAYBE_testMovePasswordToAccountStoreIfSignedIn \
+  FLAKY_testMovePasswordToAccountStoreIfSignedIn
+#else
+#define MAYBE_testMovePasswordToAccountStoreIfSignedIn \
+  testMovePasswordToAccountStoreIfSignedIn
+#endif
+- (void)MAYBE_testMovePasswordToAccountStoreIfSignedIn {
   // Save form to be moved to account later.
   SavePasswordFormToProfileStore();
 

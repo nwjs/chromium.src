@@ -91,7 +91,9 @@ class MockModelContextHost : public mojom::blink::ModelContextHost {
     }
   }
 
-  void GetScriptTools(GetScriptToolsCallback callback) override {
+  void GetScriptTools(
+      const Vector<scoped_refptr<const SecurityOrigin>>& from_origins,
+      GetScriptToolsCallback callback) override {
     std::move(callback).Run({});
   }
 
@@ -220,6 +222,27 @@ TEST_F(ModelContextTest, ExecuteTool) {
   run_loop.Run();
 
   EXPECT_EQ(result, "hello");
+}
+
+TEST_F(ModelContextTest, GetTools_InsecureOrigin) {
+  SimRequest main_resource("https://example.com/", "text/html");
+  LoadURL("https://example.com/");
+  v8::HandleScope handle_scope(Window().GetIsolate());
+  ScriptState::Scope script_scope(
+      ToScriptStateForMainWorld(Window().GetFrame()));
+
+  main_resource.Complete(R"(
+    <body>
+    <script>
+      window.test_error = "";
+      navigator.modelContext.getTools({ fromOrigins: ["http://insecure.com"] })
+        .then(() => { window.test_error = "Success"; })
+        .catch(err => { window.test_error = err.name; });
+    </script>
+  )");
+  test::RunPendingTasks();
+
+  EXPECT_EQ(EvalJsString("window.test_error"), "SecurityError");
 }
 
 TEST_F(ModelContextTest, ExecuteToolReturnsObject) {
@@ -1375,6 +1398,9 @@ class MockDeclarativeTool : public GarbageCollected<MockDeclarativeTool>,
       base::OnceCallback<void(base::expected<String, ScriptToolError>)>
           done_callback) override {}
 
+  String ToolName() const override { return "test_tool"; }
+  String ToolDescription() const override { return "description"; }
+  String ToolTitle() const override { return "title"; }
   String ComputeInputSchema() override { return "{}"; }
   Element* FormElement() const override { return nullptr; }
   void Trace(Visitor* visitor) const override {}
@@ -1391,8 +1417,7 @@ TEST_F(ModelContextTest, ForEachScriptToolGC) {
 
   {
     auto* mock_tool = MakeGarbageCollected<MockDeclarativeTool>();
-    model_context->RegisterDeclarativeTool("test_tool", "description",
-                                           mock_tool);
+    model_context->RegisterDeclarativeTool(mock_tool);
   }
 
   // Trigger GC, which should not reclaim mock_tool.

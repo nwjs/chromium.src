@@ -5,14 +5,20 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_AUTOFILL_CLIENT_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_AUTOFILL_CLIENT_H_
 
+#include <stdint.h>
+
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "base/compiler_specific.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
 #include "base/i18n/rtl.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/types/id_type.h"
 #include "base/types/optional_ref.h"
@@ -20,12 +26,19 @@
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/security_state/core/security_state.h"
+#include "net/base/schemeful_site.h"
 #include "ui/gfx/geometry/rect_f.h"
+
+namespace net {
+class SchemefulSite;
+}
 
 class GoogleGroupsManager;
 class GURL;
@@ -88,7 +101,10 @@ enum class Channel;
 
 namespace accessibility_annotator {
 class AccessibilityQueryService;
-enum class RemoteAnnotatorEnablementState;
+}
+
+namespace personal_context {
+enum class PersonalContextEnablementState;
 }
 
 namespace metrics {
@@ -199,9 +215,9 @@ class AutofillClient {
   enum class AutofillAiBubbleResult {
     // Bubble result not specified.
     kUnknown = 0,
-    // The user explicitly accepted the bubble.
+    // The user explicitly accepted the bubble without edits.
     kAccepted = 1,
-    // The user explicitly cancelled the bubble.
+    // The user explicitly cancelled the bubble without edits.
     kCancelled = 2,
     // The user explicitly closed the bubble (via the close button or the ESC).
     kClosed = 3,
@@ -209,7 +225,18 @@ class AutofillClient {
     kNotInteracted = 4,
     // The bubble lost focus and was closed.
     kLostFocus = 5,
-    kMaxValue = kLostFocus
+    // The user opened an editor from the bubble, altered the information and
+    // accepted the edits.
+    kEditAccepted = 6,
+    kMaxValue = kEditAccepted
+  };
+
+  // Represents the user's decision or outcome in response to the email
+  // verification prompt.
+  enum class EmailVerificationPermissionUiResult {
+    kAccepted = 0,
+    kDeclined = 1,
+    kIgnored = 2,
   };
 
   // Describes the types of Iph shown by Autofill and anchored to a field.
@@ -260,8 +287,13 @@ class AutofillClient {
     // accepted the bubble.
     std::optional<int> accept_button_string_id;
   };
+  // Callback to run when the user makes a decision on whether to save the
+  // entity. If the user edits the entity and then accepts edits, the edited
+  // version of the entity should be passed as the second parameter. No entity
+  // is passed otherwise.
   using EntityImportPromptResultCallback =
       base::OnceCallback<void(AutofillAiBubbleResult result,
+                              std::optional<EntityInstance> edited_entity,
                               const EntityImportUIContext& ui_context)>;
 
   // The types of prompts that AutofillAi can show to the user after a form
@@ -384,6 +416,7 @@ class AutofillClient {
 
   // Returns the `AutofillComposeDelegate` instance for the tab of this client.
   virtual AutofillComposeDelegate* GetComposeDelegate();
+  const AutofillComposeDelegate* GetComposeDelegate() const;
 
   // Attempts to the annotated page content for the current tab and calls
   // `callback` with the results.
@@ -425,13 +458,15 @@ class AutofillClient {
   GetAccessibilityQueryService();
 
   // Returns the enablement state of the Accessibility Annotator.
-  virtual accessibility_annotator::RemoteAnnotatorEnablementState
-  GetAccessibilityAnnotatorEnablementState() const;
+  virtual personal_context::PersonalContextEnablementState
+  GetPersonalContextEnablementState() const;
 
   // Returns the `PasswordManagerDelegate` responsible to provide
   // password suggestions for the given `field_id`.
   virtual PasswordManagerDelegate* GetPasswordManagerDelegate(
       const FieldGlobalId& field_id);
+  const PasswordManagerDelegate* GetPasswordManagerDelegate(
+      const FieldGlobalId& field_id) const;
 
   // Gets the preferences associated with the client.
   virtual PrefService* GetPrefs() = 0;
@@ -561,8 +596,11 @@ class AutofillClient {
       AutofillSuggestionTriggerSource trigger_source,
       AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss);
 
-  // Hides the Autofill suggestions UI if it is currently showing.
-  virtual void HideAutofillSuggestions(SuggestionHidingReason reason) = 0;
+  // Hides the suggestions UI if it is currently showing.
+  // If `product` is specified, only hides suggestions if they belong to that
+  // specific `FillingProduct`.
+  virtual void HideSuggestions(SuggestionHidingReason reason,
+                               std::optional<FillingProduct> product) = 0;
 
   // Maybe triggers a hats survey that measures the user's perception of
   // Autofill. When triggering happens, the survey dialog will be displayed with
@@ -647,8 +685,9 @@ class AutofillClient {
   virtual const AutofillAblationStudy& GetAblationStudy() const;
 
 #if BUILDFLAG(IS_ANDROID)
-  // Shows the @memory bottom sheet on Android.
-  virtual void ShowAtMemoryBottomSheet();
+  // Shows the @memory bottom sheet. Triggered by keyboard accessory controller.
+  virtual void ShowAtMemoryBottomSheet(
+      base::span<const Suggestion> suggestions);
 
   // The AutofillSnackbarController is used to show a snackbar notification
   // on Android.
@@ -664,6 +703,11 @@ class AutofillClient {
   // Whether we can add more information to the contents of suggestions text due
   // to the use of a large keyboard accessory view. See b/40942168.
   virtual bool ShouldFormatForLargeKeyboardAccessory() const;
+
+  // Returns true if the device is considered a large form factor for the
+  // purposes of the keyboard accessory. On Android, this considers screen
+  // dimensions and physical keyboard status.
+  virtual bool IsAndroidLargeFormFactor() const;
 
   // Returns a pointer to a DeviceAuthenticator. Might be nullptr if the given
   // platform is not supported.
@@ -743,7 +787,17 @@ class AutofillClient {
   // Notifies the user that operation to fetch data from Wallet failed.
   virtual void ShowAutofillAiFetchFromWalletFailureNotification();
 
-  virtual void ShowEmailVerifiedToast();
+  virtual void ShowEmailVerifiedToast(const GURL& issuer);
+
+  // Shows a yes/no prompt asking the user to confirm that they want to verify
+  // their email. The prompt is anchored on the field at `element_bounds`.
+  // `issuer_site` is the site that issued the assertion.
+  // `callback` is called with the user's decision (accept, decline, or ignore).
+  virtual void ShowEmailVerificationPopup(
+      const gfx::RectF& element_bounds,
+      const net::SchemefulSite& issuer_site,
+      const std::u16string& email,
+      base::OnceCallback<void(EmailVerificationPermissionUiResult)> callback);
 
   // May return null on platforms where OTPs are not supported.
   virtual OtpFieldDetector* GetOtpFieldDetector();

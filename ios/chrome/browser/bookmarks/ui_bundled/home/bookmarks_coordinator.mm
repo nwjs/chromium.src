@@ -319,7 +319,7 @@ enum class PresentedState {
   for (UIViewController* controller in self.bookmarkNavigationController
            .viewControllers) {
     BookmarksHomeViewController* bookmarksHomeViewController =
-        base::apple::ObjCCastStrict<BookmarksHomeViewController>(controller);
+        base::apple::ObjCCast<BookmarksHomeViewController>(controller);
     [bookmarksHomeViewController willDismiss];
   }
 
@@ -333,18 +333,28 @@ enum class PresentedState {
             _currentBrowserState.get()));
   }
 
+  GURL urlBeforeDismissal;
+  if (self.browser && self.browser->GetWebStateList()) {
+    web::WebState* activeWebState =
+        self.browser->GetWebStateList()->GetActiveWebState();
+    if (activeWebState) {
+      urlBeforeDismissal = activeWebState->GetLastCommittedURL();
+    }
+  }
+
   // First the bookmark view should be dismissed to have the animation, and
   // the URLs should be opened.
   // Otherwise, opening directly the URLs would automatically dismiss the
   // bookmark view without animation.
   ProceduralBlock dismissCompletion = base::CallbackToBlock(base::BindOnce(
       [](__weak __typeof(self) weakSelf, std::vector<GURL> urls_to_open,
-         BOOL in_incognito, BOOL new_tab) {
+         BOOL in_incognito, BOOL new_tab, GURL url_before_dismissal) {
         [weakSelf openUrls:urls_to_open
-               inIncognito:in_incognito
-                    newTab:new_tab];
+                   inIncognito:in_incognito
+                        newTab:new_tab
+            urlBeforeDismissal:url_before_dismissal];
       },
-      self, urlsToOpen, inIncognito, newTab));
+      self, urlsToOpen, inIncognito, newTab, urlBeforeDismissal));
 
   if (self.baseViewController.presentedViewController) {
     [self.baseViewController dismissViewControllerAnimated:animated
@@ -366,7 +376,7 @@ enum class PresentedState {
   for (UIViewController* controller in self.bookmarkNavigationController
            .viewControllers) {
     BookmarksHomeViewController* bookmarksHomeViewController =
-        base::apple::ObjCCastStrict<BookmarksHomeViewController>(controller);
+        base::apple::ObjCCast<BookmarksHomeViewController>(controller);
     [bookmarksHomeViewController shutdown];
   }
   // TODO(crbug.com/40617797): Make sure navigaton
@@ -482,9 +492,18 @@ enum class PresentedState {
                                 newTab:newTab];
 }
 
+// Opens `urls` using the specified tab settings.
+// `urls`: The list of URLs to open. Only the first URL is opened in the
+//   foreground, others are opened in background tabs.
+// `inIncognito`: Whether the URLs should be opened in an incognito tab.
+// `newTab`: Whether the URLs should be forced to open in a new tab.
+// `urlBeforeDismissal`: The GURL of the active web state before the bookmarks
+//   UI dismissal animation started. Used to prevent Universal Cross-Site
+//   Scripting (UXSS).
 - (void)openUrls:(const std::vector<GURL>&)urls
-     inIncognito:(BOOL)inIncognito
-          newTab:(BOOL)newTab {
+           inIncognito:(BOOL)inIncognito
+                newTab:(BOOL)newTab
+    urlBeforeDismissal:(const GURL&)urlBeforeDismissal {
   BOOL openInForegroundTab = YES;
   WebStateList* webStateList = self.browser->GetWebStateList();
   for (const GURL& url : urls) {
@@ -516,7 +535,7 @@ enum class PresentedState {
         [self openURLInNewTab:url inIncognito:inIncognito inBackground:NO];
       } else {
         // Open in current tab otherwise.
-        [self openURLInCurrentTab:url];
+        [self openURLInCurrentTab:url urlBeforeDismissal:urlBeforeDismissal];
       }
     } else {
       // Open other URLs (if any) in background tabs.
@@ -681,11 +700,21 @@ enum class PresentedState {
                                       completion:nil];
 }
 
-- (void)openURLInCurrentTab:(const GURL&)url {
+- (void)openURLInCurrentTab:(const GURL&)url
+         urlBeforeDismissal:(const GURL&)urlBeforeDismissal {
   Browser* browser = self.browser;
   WebStateList* webStateList = browser->GetWebStateList();
   if (url.SchemeIs(url::kJavaScriptScheme) && webStateList) {  // bookmarklet
-    LoadJavaScriptURL(url, browser, webStateList->GetActiveWebState());
+    web::WebState* activeWebState = webStateList->GetActiveWebState();
+    // Both the last committed URL and visible URL of the active WebState must
+    // be equal to the URL before dismissal in order to avoid UXSS (Universal
+    // Cross-Site Scripting) caused by background/pending navigations during
+    // Bookmarks UI dismissal animation.
+    if (activeWebState &&
+        activeWebState->GetLastCommittedURL() == urlBeforeDismissal &&
+        activeWebState->GetVisibleURL() == urlBeforeDismissal) {
+      LoadJavaScriptURL(url, browser, activeWebState);
+    }
     return;
   }
   UrlLoadParams params = UrlLoadParams::InCurrentTab(url);
@@ -760,7 +789,7 @@ enum class PresentedState {
   for (UIViewController* controller in self.bookmarkNavigationController
            .viewControllers) {
     BookmarksHomeViewController* bookmarksHomeViewController =
-        base::apple::ObjCCastStrict<BookmarksHomeViewController>(controller);
+        base::apple::ObjCCast<BookmarksHomeViewController>(controller);
     [bookmarksHomeViewController willDismissBySwipeDown];
   }
 }
@@ -787,7 +816,7 @@ enum class PresentedState {
                    toViewController:(UIViewController*)toVC {
   if (operation == UINavigationControllerOperationPop) {
     BookmarksHomeViewController* poppedHome =
-        base::apple::ObjCCastStrict<BookmarksHomeViewController>(fromVC);
+        base::apple::ObjCCast<BookmarksHomeViewController>(fromVC);
     // `shutdown` must wait for the next run of the main loop, so that
     // methods such as `textFieldDidEndEditing` have time to be run.
     dispatch_async(dispatch_get_main_queue(), ^{

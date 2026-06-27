@@ -94,10 +94,25 @@ PopupBlockType ShouldBlockPopup(content::WebContents* web_contents,
 }  // namespace
 
 bool ConsiderForPopupBlocking(WindowOpenDisposition disposition) {
-  return disposition == WindowOpenDisposition::NEW_POPUP ||
-         disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-         disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
-         disposition == WindowOpenDisposition::NEW_WINDOW;
+  switch (disposition) {
+    case WindowOpenDisposition::UNKNOWN:
+    case WindowOpenDisposition::CURRENT_TAB:
+    case WindowOpenDisposition::SINGLETON_TAB:
+    // OTR popups would be considered, but they cannot be triggered by any
+    // renderer message so we can ignore them.
+    case WindowOpenDisposition::OFF_THE_RECORD:
+    case WindowOpenDisposition::SAVE_TO_DISK:
+    case WindowOpenDisposition::IGNORE_ACTION:
+    case WindowOpenDisposition::SWITCH_TO_TAB:
+      return false;
+    case WindowOpenDisposition::NEW_POPUP:
+    case WindowOpenDisposition::NEW_FOREGROUND_TAB:
+    case WindowOpenDisposition::NEW_BACKGROUND_TAB:
+    case WindowOpenDisposition::NEW_WINDOW:
+    case WindowOpenDisposition::NEW_PICTURE_IN_PICTURE:
+    case WindowOpenDisposition::NEW_SPLIT_VIEW:
+      return true;
+  }
 }
 
 std::unique_ptr<PopupNavigationDelegate> MaybeBlockPopup(

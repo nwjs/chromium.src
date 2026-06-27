@@ -67,6 +67,7 @@
 #include "third_party/blink/renderer/core/layout/svg/transform_helper.h"
 #include "third_party/blink/renderer/core/page/scrolling/sticky_position_scrolling_constraints.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
+#include "third_party/blink/renderer/core/style/counter_directives.h"
 #include "third_party/blink/renderer/core/style/position_area.h"
 #include "third_party/blink/renderer/core/style/style_intrinsic_length.h"
 #include "third_party/blink/renderer/core/style/style_svg_resource.h"
@@ -2096,7 +2097,7 @@ ValueForGridTrackList(GridTrackSizingDirection direction,
   const bool is_for_columns = direction == kForColumns;
   const ComputedGridTrackList& computed_grid_track_list =
       is_for_columns ? style.GridTemplateColumns() : style.GridTemplateRows();
-  const bool is_grid_lanes = style.IsDisplayGridLanesBox();
+  const bool is_grid_lanes = style.IsDisplayGridLanes();
   auto* container = DynamicTo<T>(layout_object);
 
   // Handle the 'none' case.
@@ -2123,12 +2124,19 @@ ValueForGridTrackList(GridTrackSizingDirection direction,
   // https://www.w3.org/TR/css-grid-2/#subgrid-listing
   //
   // Interestingly, specifying `subgrid` on a non-grid *will* compute to
-  // `subgrid` syntax.
+  // `subgrid` syntax. A `subgrid` specified on a grid container that cannot
+  // validly subgrid in this direction (e.g., the parent is not a grid, or
+  // the parent is a grid-lanes container and this is the standalone axis)
+  // has a used value of `none` per the spec.
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  if (is_subgrid || (is_subgrid_specified && !container)) {
-    list->Append(
-        *MakeGarbageCollected<CSSIdentifierValue>(CSSValueID::kSubgrid));
-  } else if (!is_subgrid_specified && is_track_list_empty) {
+  if (is_subgrid_specified) {
+    if (is_subgrid_valid || !container) {
+      list->Append(
+          *MakeGarbageCollected<CSSIdentifierValue>(CSSValueID::kSubgrid));
+    } else {
+      return CSSIdentifierValue::Create(CSSValueID::kNone);
+    }
+  } else if (is_track_list_empty) {
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
 
@@ -2214,7 +2222,7 @@ CSSValue* ComputedStyleUtils::ValueForGridTrackList(
     const LayoutObject* layout_object,
     const ComputedStyle& style,
     bool force_computed_value) {
-  if (style.IsDisplayGridLanesBox()) {
+  if (style.IsDisplayGridLanes()) {
     return blink::ValueForGridTrackList<LayoutGridLanes>(
         direction, layout_object, style, force_computed_value);
   }
@@ -3529,66 +3537,34 @@ CSSValue* ComputedStyleUtils::ValueForContentData(const ComputedStyle& style,
 CSSValue* ComputedStyleUtils::ValueForCounterDirectives(
     const ComputedStyle& style,
     CountersAttachmentContext::Type type) {
-  const CounterDirectiveMap* map = style.GetCounterDirectives();
-  if (!map) {
+  const CounterPropertyList* list = nullptr;
+  switch (type) {
+    case CountersAttachmentContext::Type::kIncrementType:
+      list = style.CounterIncrementList();
+      break;
+    case CountersAttachmentContext::Type::kResetType:
+      list = style.CounterResetList();
+      break;
+    case CountersAttachmentContext::Type::kSetType:
+      list = style.CounterSetList();
+      break;
+  }
+  if (!list || list->empty()) {
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
-
-  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  for (const auto& item : *map) {
-    bool is_valid_counter_value = false;
-    switch (type) {
-      case CountersAttachmentContext::Type::kIncrementType:
-        is_valid_counter_value = item.value.HasIncrement();
-        break;
-      case CountersAttachmentContext::Type::kResetType:
-        is_valid_counter_value = item.value.IsReset();
-        break;
-      case CountersAttachmentContext::Type::kSetType:
-        is_valid_counter_value = item.value.HasSet();
-        break;
-    }
-
-    if (!is_valid_counter_value) {
-      continue;
-    }
-
-    bool is_reversed = false;
-    std::optional<int32_t> number;
-    switch (type) {
-      case CountersAttachmentContext::Type::kIncrementType:
-        number = item.value.IncrementValue();
-        break;
-      case CountersAttachmentContext::Type::kResetType: {
-        if (item.value.IsResetReversed()) {
-          is_reversed = true;
-        }
-        const std::optional<int> reset_value = item.value.ResetValue();
-        if (reset_value.has_value()) {
-          number = reset_value.value();
-        }
-        break;
-      }
-      case CountersAttachmentContext::Type::kSetType:
-        number = item.value.SetValue();
-        break;
-    }
+  CSSValueList* result = CSSValueList::CreateSpaceSeparated();
+  for (const CounterPropertyEntry& entry : *list) {
     const CSSNumericLiteralValue* counter_value = nullptr;
-    if (number.has_value()) {
+    if (entry.value.has_value()) {
       counter_value =
-          CSSNumericLiteralValue::Create(static_cast<double>(number.value()),
+          CSSNumericLiteralValue::Create(static_cast<double>(*entry.value),
                                          CSSPrimitiveValue::UnitType::kInteger);
     }
-    list->Append(*MakeGarbageCollected<cssvalue::CSSCounterValue>(
-        *MakeGarbageCollected<CSSCustomIdentValue>(item.key), counter_value,
-        is_reversed));
+    result->Append(*MakeGarbageCollected<cssvalue::CSSCounterValue>(
+        *MakeGarbageCollected<CSSCustomIdentValue>(entry.name), counter_value,
+        entry.is_reversed));
   }
-
-  if (!list->length()) {
-    return CSSIdentifierValue::Create(CSSValueID::kNone);
-  }
-
-  return list;
+  return result;
 }
 
 CSSValue* ComputedStyleUtils::ValueForShape(const ComputedStyle& style,
@@ -3613,7 +3589,7 @@ CSSValue* ComputedStyleUtils::ValueForShape(const ComputedStyle& style,
 
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   list->Append(*ValueForBasicShape(style, shape_value->Shape()));
-  if (shape_value->CssBox() != CSSBoxType::kMissing) {
+  if (shape_value->CssBox() != ShapeBox::kMissing) {
     list->Append(*CSSIdentifierValue::Create(shape_value->CssBox()));
   }
   return list;
@@ -5295,18 +5271,18 @@ CSSValue* ComputedStyleUtils::ValueForPositionTryFallbacks(
   return fallback_list;
 }
 
-CSSValue* ComputedStyleUtils::ValueForFitText(const ComputedStyle& style,
-                                              const FitText& fit_text) {
+CSSValue* ComputedStyleUtils::ValueForTextFit(const ComputedStyle& style,
+                                              const TextFit& fit_text) {
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   CSSValueID type_id;
   switch (fit_text.Type()) {
-    case FitTextType::kNone:
+    case TextFitType::kNone:
       type_id = CSSValueID::kNone;
       break;
-    case FitTextType::kGrow:
+    case TextFitType::kGrow:
       type_id = CSSValueID::kGrow;
       break;
-    case FitTextType::kShrink:
+    case TextFitType::kShrink:
       type_id = CSSValueID::kShrink;
       break;
   }
@@ -5316,13 +5292,13 @@ CSSValue* ComputedStyleUtils::ValueForFitText(const ComputedStyle& style,
   }
 
   switch (fit_text.Target()) {
-    case FitTextTarget::kConsistent:
+    case TextFitTarget::kConsistent:
       // It's a default value.
       break;
-    case FitTextTarget::kPerLine:
+    case TextFitTarget::kPerLine:
       list->Append(*CSSIdentifierValue::Create(CSSValueID::kPerLine));
       break;
-    case FitTextTarget::kPerLineAll:
+    case TextFitTarget::kPerLineAll:
       list->Append(*CSSIdentifierValue::Create(CSSValueID::kPerLineAll));
       break;
   }

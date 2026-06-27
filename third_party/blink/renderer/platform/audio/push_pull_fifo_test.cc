@@ -32,7 +32,7 @@ TEST(PushPullFIFOBasicTest, BasicTests) {
   constexpr unsigned kRenderQuantumFrames = 128;
 
   std::unique_ptr<PushPullFIFO> test_fifo =
-      std::make_unique<PushPullFIFO>(2, 1024, kRenderQuantumFrames);
+      PushPullFIFO::TryCreate(2, 1024, kRenderQuantumFrames);
 
   // The input bus length must be |audio_utilities::kRenderQuantumFrames|.
   // i.e.) input_bus->length() == kRenderQuantumFrames
@@ -72,7 +72,7 @@ size_t FillBusWithLinearRamp(AudioBus* target_bus, size_t starting_value) {
 // Inspect the content of AudioBus with a given set of index and value across
 // channels.
 bool VerifyBusValueAtIndex(AudioBus* target_bus,
-                           int index,
+                           size_t index,
                            float expected_value) {
   for (unsigned c = 0; c < target_bus->NumberOfChannels(); ++c) {
     base::span<const float> bus_channel = target_bus->Channel(c)->Span();
@@ -89,7 +89,7 @@ struct FIFOAction {
   // The type of action; "PUSH" or "PULL".
   const char* action;
   // Number of frames for the operation.
-  const size_t number_of_frames;
+  const uint32_t number_of_frames;
 };
 
 struct AudioBusSample {
@@ -101,7 +101,7 @@ struct AudioBusSample {
 
 struct FIFOTestSetup {
   // Length of FIFO to be created for test case.
-  const size_t fifo_length;
+  const uint32_t fifo_length;
   // Channel count of FIFO to be created for test case.
   const unsigned number_of_channels;
   const uint32_t render_quantum_frames;
@@ -143,7 +143,7 @@ TEST_P(PushPullFIFOFeatureTest, FeatureTests) {
   const FIFOTestExpectedState expected_state = GetParam().expected_state;
 
   // Create a FIFO with a specified configuration.
-  std::unique_ptr<PushPullFIFO> fifo = std::make_unique<PushPullFIFO>(
+  std::unique_ptr<PushPullFIFO> fifo = PushPullFIFO::TryCreate(
       setup.number_of_channels, setup.fifo_length, setup.render_quantum_frames);
 
   scoped_refptr<AudioBus> output_bus;
@@ -377,8 +377,8 @@ INSTANTIATE_TEST_SUITE_P(PushPullFIFOFeatureTest,
 
 struct FIFOEarmarkTestParam {
   FIFOTestSetup setup;
-  size_t callback_buffer_size;
-  size_t expected_earmarked_frames;
+  uint32_t callback_buffer_size;
+  uint32_t expected_earmarked_frames;
 };
 
 class PushPullFIFOEarmarkFramesTest
@@ -390,7 +390,7 @@ TEST_P(PushPullFIFOEarmarkFramesTest, FeatureTests) {
   const size_t expected_earmarked_frames = GetParam().expected_earmarked_frames;
 
   // Create a FIFO with a specified configuration.
-  std::unique_ptr<PushPullFIFO> fifo = std::make_unique<PushPullFIFO>(
+  std::unique_ptr<PushPullFIFO> fifo = PushPullFIFO::TryCreate(
       setup.number_of_channels, setup.fifo_length, setup.render_quantum_frames);
   fifo->SetEarmarkedFrames(callback_buffer_size);
 
@@ -479,6 +479,16 @@ FIFOEarmarkTestParam g_earmark_test_params[] = {
 INSTANTIATE_TEST_SUITE_P(PushPullFIFOEarmarkFramesTest,
                          PushPullFIFOEarmarkFramesTest,
                          testing::ValuesIn(g_earmark_test_params));
+
+TEST(PushPullFIFOAllocationTest, FailAllocationWithTooManyChannels) {
+  constexpr unsigned kRenderQuantumFrames = 128;
+  // TryCreate should return nullptr instead of crashing when the channel count
+  // exceeds the Chromium-specific implementation limit (kMaxBusChannels = 32).
+  // Note: The W3C Web Audio API standard allows supporting >32 channels.
+  std::unique_ptr<PushPullFIFO> fifo =
+      PushPullFIFO::TryCreate(33, 1024, kRenderQuantumFrames);
+  EXPECT_EQ(fifo, nullptr);
+}
 
 }  // namespace
 

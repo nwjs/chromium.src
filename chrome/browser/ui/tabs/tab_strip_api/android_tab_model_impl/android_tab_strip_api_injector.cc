@@ -5,11 +5,11 @@
 #include "chrome/browser/ui/tabs/tab_strip_api/android_tab_model_impl/android_tab_strip_api_injector.h"
 
 #include "base/notreached.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/adapters/event_bridge.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/adapters/translation_adapter.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/android_tab_model_impl/android_browser_adapter_impl.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/android_tab_model_impl/android_tab_strip_model_adapter.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/android_tab_model_impl/android_translation_adapter.h"
+#include "components/browser_apis/tab_strip/adapters/event_bridge.h"
+#include "components/browser_apis/tab_strip/adapters/translation_adapter.h"
 
 namespace tabs_api {
 
@@ -19,7 +19,7 @@ AndroidTabStripApiInjector::AndroidTabStripApiInjector(TabModel* model)
       translation_adapter_(
           std::make_unique<AndroidTranslationAdapter>(model,
                                                       *tab_model_adapter_)),
-      event_bridge_(model) {}
+      event_bridge_(model, *tab_model_adapter_, *translation_adapter_) {}
 
 AndroidTabStripApiInjector::~AndroidTabStripApiInjector() = default;
 

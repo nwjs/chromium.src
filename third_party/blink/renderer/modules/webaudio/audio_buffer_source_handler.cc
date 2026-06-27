@@ -132,7 +132,6 @@ void AudioBufferSourceHandler::Process(uint32_t frames_to_process) {
 
 // Returns true if we're finished.
 bool AudioBufferSourceHandler::RenderSilenceAndFinishIfNotLooping(
-    AudioBus*,
     unsigned index,
     uint32_t frames_to_process) {
   if (!Loop()) {
@@ -152,6 +151,150 @@ bool AudioBufferSourceHandler::RenderSilenceAndFinishIfNotLooping(
     return true;
   }
   return false;
+}
+
+bool AudioBufferSourceHandler::HandleLoopWrapping(double virtual_end_frame,
+                                                  double virtual_delta_frames,
+                                                  unsigned write_index,
+                                                  uint32_t frames_remaining,
+                                                  double& virtual_read_index) {
+  if (virtual_read_index >= virtual_end_frame) {
+    virtual_read_index -= virtual_delta_frames;
+    if (RenderSilenceAndFinishIfNotLooping(write_index, frames_remaining)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void AudioBufferSourceHandler::ProcessFastPath(double virtual_delta_frames,
+                                               double virtual_end_frame,
+                                               uint32_t buffer_length,
+                                               size_t destination_length,
+                                               unsigned number_of_channels,
+                                               int& frames_to_process,
+                                               unsigned& write_index,
+                                               double& virtual_read_index) {
+  auto source_channels = source_channels_.as_span();
+  auto destination_channels = destination_channels_.as_span();
+
+  unsigned read_index = static_cast<unsigned>(virtual_read_index);
+  unsigned delta_frames = static_cast<unsigned>(virtual_delta_frames);
+  unsigned end_frame = static_cast<unsigned>(virtual_end_frame);
+
+  while (frames_to_process > 0) {
+    int frames_to_end = end_frame - read_index;
+    int frames_this_time = std::min(frames_to_process, frames_to_end);
+    frames_this_time = std::max(0, frames_this_time);
+    size_t frames_this_time_size = base::checked_cast<size_t>(frames_this_time);
+
+    DCHECK_LE(write_index + frames_this_time, destination_length);
+    DCHECK_LE(read_index + frames_this_time, buffer_length);
+
+    for (unsigned i = 0; i < number_of_channels; ++i) {
+      auto dest =
+          destination_channels[i].subspan(write_index, frames_this_time_size);
+
+      if (!source_channels[i].empty()) {
+        dest.copy_from(
+            source_channels[i].subspan(read_index, frames_this_time_size));
+      } else {
+        std::ranges::fill(dest, 0.0f);
+      }
+    }
+
+    write_index += frames_this_time;
+    read_index += frames_this_time;
+    frames_to_process -= frames_this_time;
+
+    // It can happen that `frames_this_time` is 0. DCHECK that we will
+    // actually exit the loop in this case.  `frames_this_time` is 0 only if
+    // `read_index` >= `end_frame`.
+    DCHECK(frames_this_time ? true : read_index >= end_frame);
+
+    // Wrap-around.
+    double temp_read_index = read_index;
+    if (HandleLoopWrapping(end_frame, delta_frames, write_index,
+                           frames_to_process, temp_read_index)) {
+      break;
+    }
+    read_index = static_cast<unsigned>(temp_read_index);
+  }
+  virtual_read_index = read_index;
+}
+
+void AudioBufferSourceHandler::ProcessInterpolatedPath(
+    double virtual_delta_frames,
+    double virtual_end_frame,
+    uint32_t buffer_length,
+    unsigned number_of_channels,
+    double computed_playback_rate,
+    int& frames_to_process,
+    unsigned& write_index,
+    double& virtual_read_index) {
+  auto source_channels = source_channels_.as_span();
+  auto destination_channels = destination_channels_.as_span();
+
+  while (frames_to_process--) {
+    unsigned read_index = static_cast<unsigned>(virtual_read_index);
+    double interpolation_factor = virtual_read_index - read_index;
+
+    // For linear interpolation we need the next sample-frame too.
+    unsigned read_index2 = read_index + 1;
+    if (read_index2 >= buffer_length) {
+      if (Loop()) {
+        // Make sure to wrap around at the end of the buffer.
+        read_index2 = static_cast<unsigned>(virtual_read_index + 1 -
+                                            virtual_delta_frames);
+      } else {
+        read_index2 = read_index;
+      }
+    }
+
+    // Final sanity check on buffer access.
+    // TODO(crbug.com/436880897): as an optimization, try to get rid of this
+    // inner-loop check and put assertions and guards before the loop.
+    if (read_index >= buffer_length || read_index2 >= buffer_length) {
+      break;
+    }
+
+    // Linear interpolation.
+    for (unsigned i = 0; i < number_of_channels; ++i) {
+      auto destination = destination_channels[i];
+      auto source = source_channels[i];
+
+      // The source channel may have been transferred already, so don't try
+      // to read from it if it was. Just set the destination to 0.
+      if (!source.empty()) {
+        double sample;
+        if (read_index == read_index2 && read_index >= 1) {
+          // We're at the end of the buffer, so just linearly extrapolate
+          // from the last two samples.
+          double sample1 = source[read_index - 1];
+          double sample2 = source[read_index];
+          sample = sample2 + (sample2 - sample1) * interpolation_factor;
+        } else {
+          double sample1 = source[read_index];
+          double sample2 = source[read_index2];
+          sample = (1.0 - interpolation_factor) * sample1 +
+                   interpolation_factor * sample2;
+        }
+        destination[write_index] = ClampTo<float>(sample);
+      } else {
+        destination[write_index] = 0;
+      }
+    }
+    ++write_index;
+
+    virtual_read_index += computed_playback_rate;
+
+    // Wrap-around, retaining sub-sample position since virtualReadIndex is
+    // floating-point.
+    if (HandleLoopWrapping(virtual_end_frame, virtual_delta_frames, write_index,
+                           frames_to_process, virtual_read_index)) {
+      break;
+    }
+  }
 }
 
 bool AudioBufferSourceHandler::RenderFromBuffer(
@@ -195,25 +338,12 @@ bool AudioBufferSourceHandler::RenderFromBuffer(
   uint32_t buffer_length = shared_buffer_->length();
   double buffer_sample_rate = shared_buffer_->sampleRate();
 
-  // Avoid converting from time to sample-frames twice by computing
-  // the grain end time first before computing the sample frame.
-  unsigned end_frame =
-      is_grain_
-          ? base::saturated_cast<uint32_t>(audio_utilities::TimeToSampleFrame(
-                grain_offset_ + grain_duration_, buffer_sample_rate))
-          : buffer_length;
-
-  // Do some sanity checking.
-  if (end_frame > buffer_length) {
-    end_frame = buffer_length;
-  }
-
   // If the .loop attribute is true, then values of
   // m_loopStart == 0 && m_loopEnd == 0 implies that we should use the entire
   // buffer as the loop, otherwise use the loop values in m_loopStart and
   // m_loopEnd.
-  double virtual_end_frame = end_frame;
-  double virtual_delta_frames = end_frame;
+  double virtual_end_frame = buffer_length;
+  double virtual_delta_frames = buffer_length;
 
   if (Loop() && (loop_start_ || loop_end_) && loop_start_ >= 0 &&
       loop_end_ > 0 && loop_start_ < loop_end_) {
@@ -235,9 +365,8 @@ bool AudioBufferSourceHandler::RenderFromBuffer(
         std::min(virtual_read_index_, static_cast<double>(buffer_length - 1));
   }
 
+  // Check that our playback rate isn't larger than the loop size.
   double computed_playback_rate = ComputePlaybackRate();
-
-  // Sanity check that our playback rate isn't larger than the loop size.
   if (computed_playback_rate > virtual_delta_frames) {
     return false;
   }
@@ -250,17 +379,33 @@ bool AudioBufferSourceHandler::RenderFromBuffer(
   // if necessary.
   if (start_time_offset < 0) {
     if (computed_playback_rate != 0) {
-      virtual_read_index +=
+      double skipped_frames =
           std::abs(start_time_offset * computed_playback_rate);
+      virtual_read_index += skipped_frames;
+      buffer_played_frames_ = skipped_frames;
     }
   }
 
   // Render loop - reading from the source buffer to the destination using
   // linear interpolation.
   int frames_to_process = number_of_frames;
+  bool is_stopping_this_quantum = false;
 
-  auto source_channels = source_channels_.as_span();
-  auto destination_channels = destination_channels_.as_span();
+  if (is_duration_given_) {
+    double max_source_frames = grain_duration_ * buffer_sample_rate;
+    double source_frames_left = max_source_frames - buffer_played_frames_;
+    if (source_frames_left <= 0.0) {
+      frames_to_process = 0;
+      is_stopping_this_quantum = true;
+    } else if (computed_playback_rate != 0.0) {
+      double frames_until_limit =
+          std::ceil(source_frames_left / std::abs(computed_playback_rate));
+      if (frames_until_limit < frames_to_process) {
+        frames_to_process = static_cast<int>(frames_until_limit);
+        is_stopping_this_quantum = true;
+      }
+    }
+  }
 
   DCHECK_GE(virtual_read_index, 0);
   DCHECK_GE(virtual_delta_frames, 0);
@@ -272,118 +417,36 @@ bool AudioBufferSourceHandler::RenderFromBuffer(
       virtual_read_index == floor(virtual_read_index) &&
       virtual_delta_frames == floor(virtual_delta_frames) &&
       virtual_end_frame == floor(virtual_end_frame)) {
-    unsigned read_index = static_cast<unsigned>(virtual_read_index);
-    unsigned delta_frames = static_cast<unsigned>(virtual_delta_frames);
-    end_frame = static_cast<unsigned>(virtual_end_frame);
-
-    while (frames_to_process > 0) {
-      int frames_to_end = end_frame - read_index;
-      int frames_this_time = std::min(frames_to_process, frames_to_end);
-      frames_this_time = std::max(0, frames_this_time);
-      size_t frames_this_time_size =
-          base::checked_cast<size_t>(frames_this_time);
-
-      DCHECK_LE(write_index + frames_this_time, destination_length);
-      DCHECK_LE(read_index + frames_this_time, buffer_length);
-
-      for (unsigned i = 0; i < number_of_channels; ++i) {
-        auto dest =
-            destination_channels[i].subspan(write_index, frames_this_time_size);
-
-        if (!source_channels[i].empty()) {
-          dest.copy_from(
-              source_channels[i].subspan(read_index, frames_this_time_size));
-        } else {
-          std::ranges::fill(dest, 0.0f);
-        }
-      }
-
-      write_index += frames_this_time;
-      read_index += frames_this_time;
-      frames_to_process -= frames_this_time;
-
-      // It can happen that `frames_this_time` is 0. DCHECK that we will
-      // actually exit the loop in this case.  `frames_this_time` is 0 only if
-      // `read_index` >= `end_frame`.
-      DCHECK(frames_this_time ? true : read_index >= end_frame);
-
-      // Wrap-around.
-      if (read_index >= end_frame) {
-        read_index -= delta_frames;
-        if (RenderSilenceAndFinishIfNotLooping(bus, write_index,
-                                               frames_to_process)) {
-          break;
-        }
-      }
-    }
-    virtual_read_index = read_index;
+    ProcessFastPath(virtual_delta_frames, virtual_end_frame, buffer_length,
+                    destination_length, number_of_channels, frames_to_process,
+                    write_index, virtual_read_index);
   } else {
-    while (frames_to_process--) {
-      unsigned read_index = static_cast<unsigned>(virtual_read_index);
-      double interpolation_factor = virtual_read_index - read_index;
-
-      // For linear interpolation we need the next sample-frame too.
-      unsigned read_index2 = read_index + 1;
-      if (read_index2 >= buffer_length) {
-        if (Loop()) {
-          // Make sure to wrap around at the end of the buffer.
-          read_index2 = static_cast<unsigned>(virtual_read_index + 1 -
-                                              virtual_delta_frames);
-        } else {
-          read_index2 = read_index;
-        }
-      }
-
-      // Final sanity check on buffer access.
-      // TODO(crbug.com/436880897): as an optimization, try to get rid of this
-      // inner-loop check and put assertions and guards before the loop.
-      if (read_index >= buffer_length || read_index2 >= buffer_length) {
-        break;
-      }
-
-      // Linear interpolation.
-      for (unsigned i = 0; i < number_of_channels; ++i) {
-        auto destination = destination_channels[i];
-        auto source = source_channels[i];
-
-        // The source channel may have been transferred already, so don't try
-        // to read from it if it was. Just set the destination to 0.
-        if (!source.empty()) {
-          double sample;
-          if (read_index == read_index2 && read_index >= 1) {
-            // We're at the end of the buffer, so just linearly extrapolate
-            // from the last two samples.
-            double sample1 = source[read_index - 1];
-            double sample2 = source[read_index];
-            sample = sample2 + (sample2 - sample1) * interpolation_factor;
-          } else {
-            double sample1 = source[read_index];
-            double sample2 = source[read_index2];
-            sample = (1.0 - interpolation_factor) * sample1 +
-                     interpolation_factor * sample2;
-          }
-          destination[write_index] = ClampTo<float>(sample);
-        } else {
-          destination[write_index] = 0;
-        }
-      }
-      ++write_index;
-
-      virtual_read_index += computed_playback_rate;
-
-      // Wrap-around, retaining sub-sample position since virtualReadIndex is
-      // floating-point.
-      if (virtual_read_index >= virtual_end_frame) {
-        virtual_read_index -= virtual_delta_frames;
-        if (RenderSilenceAndFinishIfNotLooping(bus, write_index,
-                                               frames_to_process)) {
-          break;
-        }
-      }
-    }
+    ProcessInterpolatedPath(virtual_delta_frames, virtual_end_frame,
+                            buffer_length, number_of_channels,
+                            computed_playback_rate, frames_to_process,
+                            write_index, virtual_read_index);
   }
 
   bus->ClearSilentFlag();
+
+  // Update tracking exactly once per loop block to save per-sample arithmetic.
+  if (computed_playback_rate != 0) {
+    uint32_t frames_processed = write_index - destination_frame_offset;
+    buffer_played_frames_ +=
+        frames_processed * std::abs(computed_playback_rate);
+  }
+
+  if (is_stopping_this_quantum) {
+    auto destination_channels = destination_channels_.as_span();
+    for (unsigned i = 0; i < number_of_channels; ++i) {
+      std::ranges::fill(
+          destination_channels[i].subspan(
+              write_index,
+              (destination_frame_offset + number_of_frames) - write_index),
+          0.0f);
+    }
+    Finish();
+  }
 
   virtual_read_index_ = virtual_read_index;
 
@@ -404,7 +467,8 @@ void AudioBufferSourceHandler::SetBuffer(AudioBuffer* buffer,
 
   // The context must be locked since changing the buffer can re-configure the
   // number of channels that are output.
-  DeferredTaskHandler::GraphAutoLocker context_locker(Context());
+  DeferredTaskHandler::GraphAutoLocker context_locker(
+      Context()->GetDeferredTaskHandler());
 
   // This synchronizes with process().
   base::AutoLock process_locker(process_lock_);
@@ -441,17 +505,14 @@ void AudioBufferSourceHandler::SetBuffer(AudioBuffer* buffer,
         base::HeapArray<base::raw_span<float>>::WithSize(number_of_channels);
 
     for (unsigned i = 0; i < number_of_channels; ++i) {
-      const auto& channel = shared_buffer_->channels()[i];
-      if (!channel.IsValid()) {
+      const base::span<const float> channel = shared_buffer_->ChannelSpan(i);
+      if (channel.empty()) {
         source_channels_[i] = {};
         continue;
       }
 
-      DCHECK_EQ(channel.DataLength(),
-                static_cast<size_t>(shared_buffer_->length()) * sizeof(float));
-      source_channels_[i] = base::raw_span<const float>(
-          base::subtle::reinterpret_span<const float>(
-              channel.ByteSpanMaybeShared()));
+      DCHECK_EQ(channel.size(), shared_buffer_->length());
+      source_channels_[i] = channel;
     }
 
     // If this is a grain (as set by a previous call to start()), validate the
@@ -463,6 +524,7 @@ void AudioBufferSourceHandler::SetBuffer(AudioBuffer* buffer,
   }
 
   virtual_read_index_ = 0;
+  buffer_played_frames_ = 0;
 }
 
 unsigned AudioBufferSourceHandler::NumberOfChannels() {
@@ -483,20 +545,12 @@ void AudioBufferSourceHandler::ClampGrainParameters(
   // the grain duration. Otherwise, we want to use the user-specified value, of
   // course.
   if (!is_duration_given_) {
-    grain_duration_ = buffer_duration - grain_offset_;
-  }
-
-  if (is_duration_given_ && Loop()) {
-    // We're looping a grain with a grain duration specified. Schedule the loop
-    // to stop after grainDuration seconds after starting, possibly running the
-    // loop multiple times if grainDuration is larger than the buffer duration.
-    // The net effect is as if the user called stop(when + grainDuration).
+    grain_duration_ = std::numeric_limits<double>::infinity();
+  } else {
+    // We want to use the user-specified value. The node will stop after
+    // playing for grain_duration_ seconds.
     grain_duration_ =
         ClampTo(grain_duration_, 0.0, std::numeric_limits<double>::infinity());
-    end_time_ = start_time_ + grain_duration_;
-  } else {
-    grain_duration_ =
-        ClampTo(grain_duration_, 0.0, buffer_duration - grain_offset_);
   }
 
   // We call timeToSampleFrame here since at playbackRate == 1 we don't want to
@@ -701,12 +755,15 @@ void AudioBufferSourceHandler::HandleStoppableSourceNode() {
   // easily determine how long we looped so we don't know the actual duration
   // thus far, so don't try to do anything fancy.
   double min_playback_rate = GetMinPlaybackRate();
-  if (!DidSetLooping() && Buffer() && IsPlayingOrScheduled() &&
+  bool is_finite = !DidSetLooping() || is_duration_given_;
+  if (is_finite && Buffer() && IsPlayingOrScheduled() &&
       min_playback_rate > 0) {
     // Adjust the duration to include the playback rate. Only need to account
     // for rate < 1 which makes the sound last longer.  For rate >= 1, the
     // source stops sooner, but that's ok.
-    double actual_duration = Buffer()->duration() / min_playback_rate;
+    double source_duration =
+        is_duration_given_ ? grain_duration_ : Buffer()->duration();
+    double actual_duration = source_duration / min_playback_rate;
 
     double stop_time = start_time_ + actual_duration;
 

@@ -324,15 +324,6 @@ class BrowserWindow : public ui::BaseWindow {
   // Not used on the Mac, which has a "normal" menu bar.
   virtual void FocusAppMenu() = 0;
 
-  // Focuses a visible but inactive popup for accessibility.
-  virtual void FocusInactivePopupForAccessibility() = 0;
-
-  // Moves keyboard focus to the next pane.
-  virtual void RotatePaneFocus(bool forwards) = 0;
-
-  // Moves keyboard focus directly to the web contents pane.
-  virtual void FocusWebContentsPane() = 0;
-
   // Returns whether the tab strip is editable (for extensions).
   virtual bool IsTabStripEditable() const = 0;
 
@@ -394,10 +385,6 @@ class BrowserWindow : public ui::BaseWindow {
       translate::TranslateErrors error_type,
       bool is_user_gesture) = 0;
 
-  // Shows the Partial Translate bubble.
-  virtual void StartPartialTranslate(const std::string& source_language,
-                                     const std::string& target_language,
-                                     const std::u16string& text_selection) = 0;
 
   // Returns the DownloadBubbleUIController. Returns null if Download Bubble
   // UI is not enabled, or if the download toolbar button does not exist.

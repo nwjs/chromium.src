@@ -28,6 +28,7 @@
 #import "components/enterprise/data_controls/core/browser/data_controls_policy_handler.h"
 #import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/idle/idle_timeout_policy_handler.h"
+#import "components/enterprise/isolated_mode/prefs.h"
 #import "components/history/core/common/pref_names.h"
 #import "components/lens/lens_overlay_permission_utils.h"
 #import "components/metrics/metrics_pref_names.h"
@@ -39,9 +40,10 @@
 #import "components/policy/core/browser/configuration_policy_handler_list.h"
 #import "components/policy/core/browser/configuration_policy_handler_parameters.h"
 #import "components/policy/core/browser/gen_ai_default_settings_policy_handler.h"
-#import "components/policy/core/browser/incognito/incognito_mode_policy_handler.h"
+#import "components/policy/core/browser/url_list/incognito_mode_policy_handler.h"
 #import "components/policy/core/browser/url_list/url_allowlist_policy_handler.h"
 #import "components/policy/core/browser/url_list/url_blocklist_policy_handler.h"
+#import "components/policy/core/browser/url_list/url_list_policy_pref_names.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/policy/policy_constants.h"
 #import "components/safe_browsing/core/common/safe_browsing_policy_handler.h"
@@ -192,6 +194,9 @@ constexpr auto kSimplePolicyMap = std::to_array<PolicyToPreferenceMapEntry>({
   { policy::key::kProvisionManagedClientCertificateForBrowser,
     client_certificates::prefs::kProvisionManagedClientCertificateForBrowserPrefs,
     base::Value::Type::INTEGER },
+  { policy::key::kIsolatedModeSettings,
+    enterprise_isolated_mode::kEnterpriseIsolatedModeSettings,
+    base::Value::Type::INTEGER },
 });
 // clang-format on
 
@@ -317,6 +322,18 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
           policy::key::kTabGroupSharingSettings,
           collaboration::prefs::kSharedTabGroupsManagedAccountSetting,
           base::Value::Type::INTEGER)));
+
+  handlers->AddHandler(std::make_unique<policy::CloudUserOnlyPolicyChecker>(
+      std::make_unique<SimplePolicyHandler>(
+          policy::key::kUserSecurityAuthenticatedReporting,
+          enterprise_reporting::kUserSecurityAuthenticatedReporting,
+          base::Value::Type::BOOLEAN)));
+
+  handlers->AddHandler(std::make_unique<policy::CloudUserOnlyPolicyChecker>(
+      std::make_unique<SimplePolicyHandler>(
+          policy::key::kUserSecuritySignalsReporting,
+          enterprise_reporting::kUserSecuritySignalsReporting,
+          base::Value::Type::BOOLEAN)));
 
   handlers->AddHandler(std::make_unique<ThemeColorPolicyHandler>());
 

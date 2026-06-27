@@ -18,8 +18,14 @@ class ActorOverlayProperties {
     /** Whether the overlay is currently visible. */
     public static final WritableBooleanPropertyKey VISIBLE = new WritableBooleanPropertyKey();
 
+    /** The left margin of the overlay. */
+    public static final WritableIntPropertyKey LEFT_MARGIN = new WritableIntPropertyKey();
+
     /** The top margin of the overlay. */
     public static final WritableIntPropertyKey TOP_MARGIN = new WritableIntPropertyKey();
+
+    /** The right margin of the overlay. */
+    public static final WritableIntPropertyKey RIGHT_MARGIN = new WritableIntPropertyKey();
 
     /** The bottom margin of the overlay. */
     public static final WritableIntPropertyKey BOTTOM_MARGIN = new WritableIntPropertyKey();
@@ -28,8 +34,23 @@ class ActorOverlayProperties {
     public static final ReadableObjectPropertyKey<View.OnClickListener> ON_CLICK_LISTENER =
             new ReadableObjectPropertyKey<>();
 
+    /** Whether the take over task button is visible. */
+    public static final WritableBooleanPropertyKey TAKE_OVER_TASK_BUTTON_VISIBLE =
+            new WritableBooleanPropertyKey();
+
+    /** The click listener for the take over task button. */
+    public static final ReadableObjectPropertyKey<View.OnClickListener>
+            ON_TAKE_OVER_CLICK_LISTENER = new ReadableObjectPropertyKey<>();
+
     /** All keys for the property model. */
     public static final PropertyKey[] ALL_KEYS = {
-        VISIBLE, TOP_MARGIN, BOTTOM_MARGIN, ON_CLICK_LISTENER
+        VISIBLE,
+        TOP_MARGIN,
+        BOTTOM_MARGIN,
+        LEFT_MARGIN,
+        RIGHT_MARGIN,
+        ON_CLICK_LISTENER,
+        TAKE_OVER_TASK_BUTTON_VISIBLE,
+        ON_TAKE_OVER_CLICK_LISTENER
     };
 }

@@ -12,6 +12,7 @@
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -28,7 +29,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
 #include "components/metrics/profile_metrics_service.h"
 #include "components/prefs/pref_service.h"
@@ -42,7 +42,6 @@
 #include "ui/base/base_window.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/ui/browser.h"
@@ -85,9 +84,9 @@ class BaseDelegate : public GlicMetrics::Delegate {
   }
   std::vector<content::WebContents*> GetPinnedAndSharedWebContents() override {
     std::vector<content::WebContents*> pinned_and_shared;
-    for (content::WebContents* web_contents :
-         sharing_manager_->GetPinnedTabs()) {
-      if (IsTabValidForSharing(web_contents)) {
+    for (tabs::TabInterface* tab : sharing_manager_->GetPinnedTabs()) {
+      content::WebContents* web_contents = tab->GetContents();
+      if (web_contents && IsTabValidForSharing(web_contents)) {
         pinned_and_shared.push_back(web_contents);
       }
     }
@@ -263,15 +262,10 @@ GlicMetrics::GlicMetrics(Profile* profile, GlicEnabling* enabling)
   }
 
   is_enabled_ = enabling_->IsEnabledAndConsentForProfile(profile_);
-  is_pinned_ = profile_->GetPrefs()->GetBoolean(prefs::kGlicPinnedToTabstrip);
-  pref_registrar_.Init(profile_->GetPrefs());
   subscriptions_.push_back(
       enabling_->RegisterOnConsentChanged(base::BindRepeating(
           &GlicMetrics::OnMaybeEnabledAndConsentForProfileChanged,
           base::Unretained(this))));
-  pref_registrar_.Add(prefs::kGlicPinnedToTabstrip,
-                      base::BindRepeating(&GlicMetrics::OnPinningPrefChanged,
-                                          base::Unretained(this)));
 }
 
 GlicMetrics::~GlicMetrics() = default;
@@ -304,7 +298,7 @@ void GlicMetrics::RecordGlicProfilePreferences() {
 
 void GlicMetrics::OnTrustFirstOnboardingAccept() {
   OnFreAccepted();
-  base::RecordAction(base::UserMetricsAction("Glic.Fre.Accept"));
+  OnOptInAccepted(OptInFlow::kGlicFre);
   base::RecordAction(base::UserMetricsAction("Glic.Fre.Accept.Onboarding"));
   base::UmaHistogramEnumeration("Glic.Fre.Accept.InvocationSource",
                                 invocation_source_);
@@ -323,7 +317,7 @@ void GlicMetrics::OnInstanceOpened() {
   }
 
   if (!enabling_->HasConsented()) {
-    base::RecordAction(base::UserMetricsAction("Glic.Fre.Shown"));
+    OnOptInShown(OptInFlow::kGlicFre);
     base::RecordAction(base::UserMetricsAction("Glic.Fre.Shown.Onboarding"));
     base::UmaHistogramEnumeration("Glic.Fre.Shown.InvocationSource",
                                   invocation_source_);
@@ -336,6 +330,7 @@ void GlicMetrics::OnInstanceClosed() {
     return;
   }
 
+  OnOptInDismissed(OptInFlow::kGlicFre);
   base::RecordAction(base::UserMetricsAction("Glic.Fre.Dismissed.Onboarding"));
   base::UmaHistogramEnumeration("Glic.Fre.Dismissed.InvocationSource",
                                 invocation_source_);
@@ -348,6 +343,33 @@ void GlicMetrics::OnFreAccepted() {
   // Store the current time in a instance variable.
   fre_accepted_time_ = base::TimeTicks::Now();
   onboarding_invocation_source_ = invocation_source_;
+}
+
+void GlicMetrics::OnOptInShown(OptInFlow flow) {
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Shown"));
+  base::UmaHistogramEnumeration("Glic.Fre.Shown.FlowSource", flow);
+}
+
+void GlicMetrics::OnOptInImpression(OptInFlow flow) {
+  base::RecordAction(
+      base::UserMetricsAction("Glic.Onboarding.OptInImpression"));
+  base::UmaHistogramEnumeration("Glic.Onboarding.OptInImpression.FlowSource",
+                                flow);
+}
+
+void GlicMetrics::OnOptInAccepted(OptInFlow flow) {
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Accept"));
+  base::UmaHistogramEnumeration("Glic.Fre.Accept.FlowSource", flow);
+}
+
+void GlicMetrics::OnOptInDismissed(OptInFlow flow) {
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Dismissed"));
+  base::UmaHistogramEnumeration("Glic.Fre.Dismissed.FlowSource", flow);
+}
+
+void GlicMetrics::OnOptInRejected(OptInFlow flow) {
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.NoThanks"));
+  base::UmaHistogramEnumeration("Glic.Fre.NoThanks.FlowSource", flow);
 }
 
 void GlicMetrics::OnUserInputSubmitted(mojom::WebClientMode mode) {
@@ -492,13 +514,6 @@ void GlicMetrics::OnResponseStopped(mojom::ResponseStopCause cause) {
     base::UmaHistogramEnumeration(
         base::StrCat({"Glic.Metrics.Error", cause_suffix}),
         Error::kResponseStopWithoutInput);
-  } else {
-    base::TimeTicks now = base::TimeTicks::Now();
-    base::UmaHistogramMediumTimes("Glic.Response.StopTime",
-                                  now - turn_.input_submitted_time_);
-    base::UmaHistogramMediumTimes(
-        base::StrCat({"Glic.Response.StopTime", cause_suffix}),
-        now - turn_.input_submitted_time_);
   }
 
   // Reset the turn.
@@ -594,9 +609,6 @@ void GlicMetrics::OnGlicWindowShown(
   base::UmaHistogramEnumeration(
       "Glic.PositionOnChrome.OnOpen",
       GetChromeRelativePositionOfPoint(browser, glic_bounds.CenterPoint()));
-  base::UmaHistogramEnumeration(
-      "Glic.PercentOverlapWithBrowser.OnOpen",
-      GetPercentOverlapWithBrowser(browser, glic_bounds));
 #endif
 }
 
@@ -606,12 +618,6 @@ void GlicMetrics::OnGlicWindowResize() {
 
 void GlicMetrics::OnWidgetUserResizeStarted() {
   base::RecordAction(base::UserMetricsAction("GlicPanelUserResizeStarted"));
-
-  gfx::Size size_on_user_resize_started = delegate_->GetWindowSize();
-  base::UmaHistogramCounts10000("Glic.PanelWebUi.UserResizeStarted.Width",
-                                size_on_user_resize_started.width());
-  base::UmaHistogramCounts10000("Glic.PanelWebUi.UserResizeStarted.Height",
-                                size_on_user_resize_started.height());
 }
 
 void GlicMetrics::OnWidgetUserResizeEnded() {
@@ -636,9 +642,6 @@ void GlicMetrics::OnGlicWindowClose(Browser* last_active_browser,
       "Glic.PositionOnChrome.OnClose",
       GetChromeRelativePositionOfPoint(last_active_browser,
                                        glic_bounds.CenterPoint()));
-  base::UmaHistogramEnumeration(
-      "Glic.PercentOverlapWithBrowser.OnClose",
-      GetPercentOverlapWithBrowser(last_active_browser, glic_bounds));
 #endif
   metrics::ProfileMetricsService* profile_metrics_service =
       ProfileMetricsServiceFactory::GetForProfile(profile_);
@@ -669,10 +672,6 @@ void GlicMetrics::OnGlicWindowClose(Browser* last_active_browser,
   }
   inputs_modes_used_.clear();
   base::UmaHistogramEnumeration("Glic.Session.InputModesUsed", modes_used);
-
-  base::UmaHistogramCounts100("Glic.Session.AttachStateChanges",
-                              attach_change_count_);
-  attach_change_count_ = 0;
 
   OnInstanceClosed();
 
@@ -725,7 +724,6 @@ void GlicMetrics::LogGetContextForActorFromTabError(
 }
 
 void GlicMetrics::OnActivateTabFromInstance(tabs::TabInterface* tab) {
-#if !BUILDFLAG(IS_ANDROID)
   const actor::ActorTask* task =
       actor::ActorKeyedService::Get(profile_)->GetTaskFromTab(*tab);
   // Record user action if the tab is associated with an ActorTask.
@@ -733,7 +731,6 @@ void GlicMetrics::OnActivateTabFromInstance(tabs::TabInterface* tab) {
     base::RecordAction(
         base::UserMetricsAction("Glic.Instance.TaskTabForegrounded"));
   }
-#endif
 }
 
 void GlicMetrics::SetControllersWithInstance(
@@ -793,16 +790,24 @@ void GlicMetrics::OnImpressionTimerFired() {
 
   // Profile eligible and completed FRE
   EntryPointStatus impression;
-  bool is_os_entrypoint_enabled =
-      g_browser_process->local_state()->GetBoolean(prefs::kGlicLauncherEnabled);
-  if (is_pinned_ && is_os_entrypoint_enabled) {
-    impression = EntryPointStatus::kAfterFreBrowserAndOs;
-  } else if (is_pinned_) {
-    impression = EntryPointStatus::kAfterFreBrowserOnly;
-  } else if (is_os_entrypoint_enabled) {
-    impression = EntryPointStatus::kAfterFreOsOnly;
+  auto enablement = GlicEnabling::EnablementForProfile(profile_);
+  if (enablement.anchor_entrypoint_override_active) {
+    impression = EntryPointStatus::kAfterFreAnchoredButIneligible;
   } else {
-    impression = EntryPointStatus::kAfterFreThreeDotOnly;
+    bool is_pinned =
+        profile_->GetPrefs()->GetBoolean(prefs::kGlicPinnedToTabstrip);
+    bool is_os_entrypoint_enabled =
+        g_browser_process->local_state()->GetBoolean(
+            prefs::kGlicLauncherEnabled);
+    if (is_pinned && is_os_entrypoint_enabled) {
+      impression = EntryPointStatus::kAfterFreBrowserAndOs;
+    } else if (is_pinned) {
+      impression = EntryPointStatus::kAfterFreBrowserOnly;
+    } else if (is_os_entrypoint_enabled) {
+      impression = EntryPointStatus::kAfterFreOsOnly;
+    } else {
+      impression = EntryPointStatus::kAfterFreThreeDotOnly;
+    }
   }
   base::UmaHistogramEnumeration("Glic.EntryPoint.Status", impression);
 
@@ -842,21 +847,6 @@ void GlicMetrics::OnMaybeEnabledAndConsentForProfileChanged() {
     base::RecordAction(base::UserMetricsAction("Glic.Enabled"));
   } else {
     base::RecordAction(base::UserMetricsAction("Glic.Disabled"));
-  }
-}
-
-void GlicMetrics::OnPinningPrefChanged() {
-  bool is_pinned =
-      profile_->GetPrefs()->GetBoolean(prefs::kGlicPinnedToTabstrip);
-  if (is_pinned == is_pinned_) {
-    // No change, early exit.
-    return;
-  }
-  is_pinned_ = is_pinned;
-  if (is_pinned_) {
-    base::RecordAction(base::UserMetricsAction("Glic.Pinned"));
-  } else {
-    base::RecordAction(base::UserMetricsAction("Glic.Unpinned"));
   }
 }
 
@@ -959,64 +949,6 @@ ChromeRelativePosition GlicMetrics::GetChromeRelativePositionOfPoint(
   return position_map[x_index][y_index];
 }
 
-PercentOverlap GlicMetrics::GetPercentOverlapWithBrowser(
-    Browser* browser,
-    const gfx::Rect& glic_bounds) {
-  if (!IsBrowserVisible(browser)) {
-    return PercentOverlap::kNoVisibleChromeBrowser;
-  }
-  int glic_area = glic_bounds.width() * glic_bounds.height();
-  if (glic_area == 0) {
-    return PercentOverlap::k0;
-  }
-  gfx::Rect browser_glic_intersect_bounds =
-      browser->GetBrowserView().GetWidget()->GetWindowBoundsInScreen();
-  browser_glic_intersect_bounds.Intersect(glic_bounds);
-  int browser_glic_intersect_area = browser_glic_intersect_bounds.width() *
-                                    browser_glic_intersect_bounds.height();
-  // Calculate overlap percentage and round to the nearest 10.
-  int percentOverlap =
-      round(10.0 * browser_glic_intersect_area / glic_area) * 10;
-  switch (percentOverlap) {
-    case 100:
-      return PercentOverlap::k100;
-    case 90:
-      return PercentOverlap::k90;
-    case 80:
-      return PercentOverlap::k80;
-    case 70:
-      return PercentOverlap::k70;
-    case 60:
-      return PercentOverlap::k60;
-    case 50:
-      return PercentOverlap::k50;
-    case 40:
-      return PercentOverlap::k40;
-    case 30:
-      return PercentOverlap::k30;
-    case 20:
-      return PercentOverlap::k20;
-    case 10:
-      return PercentOverlap::k10;
-    case 0:
-    default:
-      return PercentOverlap::k0;
-  }
-}
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-void GlicMetrics::OnAttachedToBrowser(AttachChangeReason reason) {
-  base::UmaHistogramEnumeration("Glic.AttachedToBrowser", reason);
-  if (reason != AttachChangeReason::kInit) {
-    attach_change_count_++;
-  }
-}
-
-void GlicMetrics::OnDetachedFromBrowser(AttachChangeReason reason) {
-  base::UmaHistogramEnumeration("Glic.DetachedFromBrowser", reason);
-  if (reason != AttachChangeReason::kInit) {
-    attach_change_count_++;
-  }
-}
 
 }  // namespace glic

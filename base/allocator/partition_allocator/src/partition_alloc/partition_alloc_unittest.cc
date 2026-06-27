@@ -25,6 +25,7 @@
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/dangling_raw_ptr_checks.h"
 #include "partition_alloc/in_slot_metadata.h"
+#include "partition_alloc/internal/partition_root_internal.h"
 #include "partition_alloc/memory_reclaimer.h"
 #include "partition_alloc/page_allocator_constants.h"
 #include "partition_alloc/partition_address_space.h"
@@ -46,7 +47,6 @@
 #include "partition_alloc/partition_cookie.h"
 #include "partition_alloc/partition_freelist_entry.h"
 #include "partition_alloc/partition_page.h"
-#include "partition_alloc/partition_root.h"
 #include "partition_alloc/partition_stats.h"
 #include "partition_alloc/reservation_offset_table.h"
 #include "partition_alloc/scheduler_loop_quarantine_support.h"
@@ -341,7 +341,7 @@ GetPartitionAllocWithSizedFreeTestParams() {
   auto params = GetPartitionAllocTestParams();
   auto free_with_size_func = [](PartitionRoot* root, void* ptr, size_t size,
                                 size_t) {
-    root->FreeWithSizeInline(ptr, size);
+    root->Free<FreeFlags::kWithSizeHint>(ptr, {.size = size});
   };
   params.emplace_back(PartitionAllocTestParam{BucketDistribution::kNeutral,
                                               false, free_with_size_func});
@@ -355,7 +355,8 @@ GetPartitionAllocWithFreeWithSizeAndAlignmentTestParams() {
   auto params = GetPartitionAllocTestParams();
   auto free_with_size_and_alignment_func = [](PartitionRoot* root, void* ptr,
                                               size_t size, size_t alignment) {
-    root->FreeWithSizeAndAlignmentInline(ptr, size, alignment);
+    root->Free<FreeFlags::kWithSizeHint | FreeFlags::kWithAlignmentHint>(
+        ptr, {.size = size, .alignment = alignment});
   };
   params.emplace_back(PartitionAllocTestParam{
       BucketDistribution::kNeutral, false, free_with_size_and_alignment_func});
@@ -4093,6 +4094,45 @@ TEST_P(PartitionAllocTest, SchedulerLoopQuarantineDisabled) {
   root->Free(ptr_to_keep_slot_span);
 }
 
+TEST_P(PartitionAllocTest, IntendedLeak) {
+  PartitionOptions opts = GetCommonPartitionOptions();
+  opts.thread_cache = PartitionOptions::kDisabled;
+  opts.backup_ref_ptr = PartitionOptions::kDisabled;
+  std::unique_ptr<PartitionRoot> root = CreateCustomTestRoot(opts, {});
+
+  // This allocation is required to prevent slot span from being empty and
+  // decomitted. Because we want to confirm `ptr` will not be appended to a free
+  // list, but decomitting a page also seems that `ptr` is not in a free list.
+  void* ptr_to_keep_slot_span = root->Alloc(kTestAllocSize, type_name);
+  void* ptr = root->Alloc(kTestAllocSize, type_name);
+
+  // Remember `total_intended_leak_bytes` of the custom root.
+  SimplePartitionStatsDumper dumper;
+  root->DumpStats("CustomTestRoot", true, false, &dumper);
+  uint64_t total_intended_leak_bytes = dumper.stats().total_intended_leak_bytes;
+
+  auto* slot_span =
+      SlotSpan::FromSlotStart(SlotStart::Unchecked(ptr).Untag(), root.get());
+  root->Free<FreeFlags::kIntendedLeak>(ptr);
+
+  // Leaked objects will be never found in the freelist of the `slot_span`.
+  EXPECT_NE(SlotStart::Unchecked(ptr).Untag().value(),
+            UntagPtr(slot_span->get_freelist_head()));
+
+  // Compare `total_intended_leak_bytes` between before and after
+  // `Free<kIntendedLeak>`.
+  root->DumpStats("CustomTestRoot", true, false, &dumper);
+  EXPECT_EQ(dumper.stats().total_intended_leak_bytes,
+            total_intended_leak_bytes + slot_span->bucket->slot_size);
+
+  root->Free(ptr_to_keep_slot_span);
+  // Normal objects will be found in the freelist of the `slot_span`.
+  // Because of leaked objects, `num_allocated` of the `slot_span` will
+  // never be equal to 0, the page will not be decommitted.
+  EXPECT_EQ(SlotStart::Unchecked(ptr_to_keep_slot_span).Untag().value(),
+            UntagPtr(slot_span->get_freelist_head()));
+}
+
 TEST_P(PartitionAllocTest, ZapOnFree) {
   void* ptr = allocator.root()->Alloc(1, type_name);
   EXPECT_TRUE(ptr);
@@ -5452,7 +5492,7 @@ TEST_P(PartitionAllocTest, DanglingPtrReleaseToSchedulerLoopQuarantine) {
 #if PA_USE_DEATH_TESTS()
 // DCHECK message are stripped in official build. It causes death tests with
 // matchers to fail.
-#if !defined(OFFICIAL_BUILD) || PA_BUILDFLAG(IS_DEBUG)
+#if !PA_BUILDFLAG(OFFICIAL) || PA_BUILDFLAG(IS_DEBUG)
 
 // Acquire() once, Release() twice => CRASH
 TEST_P(PartitionAllocDeathTest, ReleaseUnderflowRawPtr) {
@@ -5486,7 +5526,7 @@ TEST_P(PartitionAllocDeathTest, ReleaseUnderflowDanglingPtr) {
   allocator.root()->Free(ptr);
 }
 
-#endif  //! defined(OFFICIAL_BUILD) || PA_BUILDFLAG(IS_DEBUG)
+#endif  //! PA_BUILDFLAG(OFFICIAL) || PA_BUILDFLAG(IS_DEBUG)
 #endif  // PA_USE_DEATH_TESTS()
 #endif  // PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)
 
@@ -5678,12 +5718,11 @@ TEST_P(PartitionAllocTest, CheckReservationType) {
 
   // DCHECKs don't work with EXPECT_DEATH on official builds.
 #if PA_BUILDFLAG(DCHECKS_ARE_ON) && \
-    (!defined(OFFICIAL_BUILD) || PA_BUILDFLAG(IS_DEBUG))
+    (!PA_BUILDFLAG(OFFICIAL) || PA_BUILDFLAG(IS_DEBUG))
   // Expect to DCHECK on unallocated region.
   EXPECT_DEATH_IF_SUPPORTED(table.IsReservationStart(address_to_check), "");
-#endif  //  PA_BUILDFLAG(DCHECKS_ARE_ON) && (!defined(OFFICIAL_BUILD) ||
-        //  PA_BUILDFLAG(IS_DEBUG))
-
+#endif  //  PA_BUILDFLAG(DCHECKS_ARE_ON) && (!PA_BUILDFLAG(OFFICIAL)
+        //  || PA_BUILDFLAG(IS_DEBUG))
 }
 
 // Test for crash http://crbug.com/1169003.
@@ -5747,14 +5786,14 @@ TEST_P(PartitionAllocTest, FastPathOrReturnNull) {
 #if PA_USE_DEATH_TESTS()
 // DCHECK message are stripped in official build. It causes death tests with
 // matchers to fail.
-#if !defined(OFFICIAL_BUILD) || PA_BUILDFLAG(IS_DEBUG)
+#if !PA_BUILDFLAG(OFFICIAL) || PA_BUILDFLAG(IS_DEBUG)
 
 TEST_P(PartitionAllocDeathTest, CheckTriggered) {
   PA_EXPECT_DCHECK_DEATH_WITH(PA_CHECK(5 == 7), "Check failed.*5 == 7");
   EXPECT_DEATH(PA_CHECK(5 == 7), "Check failed.*5 == 7");
 }
 
-#endif  // !defined(OFFICIAL_BUILD) && PA_BUILDFLAG(IS_DEBUG)
+#endif  // !PA_BUILDFLAG(OFFICIAL) && PA_BUILDFLAG(IS_DEBUG)
 #endif  // PA_USE_DEATH_TESTS()
 
 // Not on chromecast, since gtest considers extra output from itself as a test

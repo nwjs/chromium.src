@@ -25,6 +25,7 @@
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_state_tracker.h"
+#include "chrome/browser/glic/service/metrics/glic_instance_helper_metrics.h"
 #include "chrome/browser/glic/service/metrics/glic_metrics_session_manager.h"
 #include "chrome/browser/glic/service/metrics/metrics_types.h"
 #include "chrome/common/chrome_features.h"
@@ -39,9 +40,23 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/selection/selection_overlay_controller.h"
+#endif
+
 namespace glic {
 
 namespace {
+
+SafeEmbedderKey ToSafeKey(const EmbedderKey& key) {
+  return std::visit(absl::Overload{[](tabs::TabInterface* tab) {
+                                     return SafeEmbedderKey(tab->GetHandle());
+                                   },
+                                   [](const FloatingEmbedderKey& fkey) {
+                                     return SafeEmbedderKey(fkey);
+                                   }},
+                    key);
+}
 
 std::string_view GetInputModeString(mojom::WebClientMode input_mode) {
   switch (input_mode) {
@@ -66,6 +81,38 @@ enum class GlicTurnSource {
   kMaxValue = kFloatyAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicTurnSource)
+
+void RecordSelectionOverlayMetrics(
+    const std::vector<tabs::TabInterface*>& pinned_tabs) {
+// Selection Overlays are not currently implemented on Android.
+#if !BUILDFLAG(IS_ANDROID)
+  int selection_areas_count = 0;
+  std::vector<int> polyline_point_counts;
+  for (tabs::TabInterface* tab : pinned_tabs) {
+    if (auto* web_contents = tab->GetContents()) {
+      if (auto* selection_overlay_controller =
+              SelectionOverlayController::FromTabWebContents(web_contents)) {
+        selection_areas_count +=
+            selection_overlay_controller->GetSelectedRegionCount();
+        std::vector<int> counts =
+            selection_overlay_controller->GetPolylineCounts();
+        polyline_point_counts.insert(polyline_point_counts.end(),
+                                     counts.begin(), counts.end());
+      }
+    }
+  }
+  if (base::FeatureList::IsEnabled(features::kGlicCaptureRegion)) {
+    base::UmaHistogramExactLinear("Glic.Instance.InputSubmitted.SelectionCount",
+                                  selection_areas_count, 10);
+  }
+  if (base::FeatureList::IsEnabled(features::kGlicRegionSelectionLine)) {
+    for (int count : polyline_point_counts) {
+      base::UmaHistogramCounts1000(
+          "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", count);
+    }
+  }
+#endif
+}
 
 }  // namespace
 
@@ -136,6 +183,8 @@ void GlicInstanceMetrics::MaybeRecordOptInImpression() {
   }
   base::RecordAction(
       base::UserMetricsAction("Glic.Onboarding.OptInImpression"));
+  base::UmaHistogramEnumeration("Glic.Onboarding.OptInImpression.FlowSource",
+                                OptInFlow::kGlicFre);
   is_opt_in_pending_ = false;
 }
 
@@ -166,18 +215,9 @@ void GlicInstanceMetrics::OnGlicScrollComplete(bool success) {
   }
 }
 
-void GlicInstanceMetrics::OnSelectionAreasChanged(int count) {
-  selection_areas_count_ = count;
-}
-
-void GlicInstanceMetrics::OnPolylinePointsChanged(
-    const std::vector<int>& counts) {
-  polyline_point_counts_ = counts;
-}
-
 void GlicInstanceMetrics::OnPinnedTabsChanged(
-    const std::vector<content::WebContents*>& pinned_contents) {
-  pinned_tab_count_ = pinned_contents.size();
+    const std::vector<tabs::TabInterface*>& pinned_tabs) {
+  pinned_tab_count_ = pinned_tabs.size();
   session_manager_.SetPinnedTabCount(pinned_tab_count_);
 }
 
@@ -605,28 +645,49 @@ void GlicInstanceMetrics::OnClose() {
                                 last_web_ui_state_);
 }
 
+bool GlicInstanceMetrics::MarkShownAndCheckIfFirstTime(EmbedderKey key) {
+  // Returns true if the key was NOT in the set, and inserts it.
+  // Returns false if the key WAS already in the set.
+  return seen_embedders_.insert(ToSafeKey(key)).second;
+}
+
+void GlicInstanceMetrics::ResetShownState(EmbedderKey key) {
+  seen_embedders_.erase(ToSafeKey(key));
+}
+
 void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
                                  const ShowOptions& options) {
   invocation_start_time_ = base::TimeTicks::Now();
   last_invocation_source_ = source;
+
+  // 1. Log Events
+  LogEvent(GlicInstanceEvent::kOpen);
+
+  // 2. Log Initial Invocation Source
   if (!initial_invocation_source_.has_value()) {
     initial_invocation_source_ = source;
     base::UmaHistogramEnumeration("Glic.Instance.InitialInvocationSource",
                                   source);
   }
+
+  // 3. Record Actions
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Open"));
-  LogEvent(GlicInstanceEvent::kOpen);
-  if (std::holds_alternative<FloatingShowOptions>(options.embedder_options)) {
-    base::UmaHistogramEnumeration("Glic.Instance.Floaty.OpenSource", source);
-  } else {
-    base::UmaHistogramEnumeration("Glic.Instance.SidePanel.OpenSource", source);
-  }
 
+  // 4. Log Open Source
+  bool is_floaty =
+      std::holds_alternative<FloatingShowOptions>(options.embedder_options);
+  std::string open_source_base = is_floaty
+                                     ? "Glic.Instance.Floaty.OpenSource"
+                                     : "Glic.Instance.SidePanel.OpenSource";
+  base::UmaHistogramEnumeration(open_source_base, source);
+
+  // 5. Log Zoom Level
   if (pref_service_) {
-    base::UmaHistogramSparse("Glic.ZoomLevel.OnOpen",
-                             pref_service_->GetInteger(prefs::kGlicZoomLevel));
+    int zoom_level = pref_service_->GetInteger(prefs::kGlicZoomLevel);
+    base::UmaHistogramSparse("Glic.ZoomLevel.OnOpen", zoom_level);
   }
 
+  // 6. SaaS Usage
   if (saas_usage_reporting_controller_ && !saas_usage_recorded_) {
     saas_usage_reporting_controller_->RecordGeminiInChromeUsage();
     saas_usage_recorded_ = true;
@@ -738,6 +799,11 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
           "Glic.Instance.WebUiStateChanged.Unavailable"));
       LogEvent(GlicInstanceEvent::kWebUiStateUnavailable);
       break;
+    case mojom::WebUiState::kIneligibleAccount:
+      base::RecordAction(base::UserMetricsAction(
+          "Glic.Instance.WebUiStateChanged.IneligibleAccount"));
+      LogEvent(GlicInstanceEvent::kWebUiStateIneligibleAccount);
+      break;
     case mojom::WebUiState::kReady: {
       base::RecordAction(
           base::UserMetricsAction("Glic.Instance.WebUiStateChanged.Ready"));
@@ -788,6 +854,11 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
       base::RecordAction(
           base::UserMetricsAction("Glic.Instance.WebUiStateChanged.kWarmed"));
       LogEvent(GlicInstanceEvent::kWebUiStateWarmed);
+      break;
+    case mojom::WebUiState::kLocationMismatch:
+      base::RecordAction(base::UserMetricsAction(
+          "Glic.Instance.WebUiStateChanged.LocationMismatch"));
+      LogEvent(GlicInstanceEvent::kWebUiStateLocationMismatch);
       break;
   }
 }
@@ -868,16 +939,11 @@ void GlicInstanceMetrics::OnUserInputSubmitted(mojom::WebClientMode mode) {
   session_manager_.OnUserInputSubmitted(mode);
   LogEvent(GlicInstanceEvent::kUserInputSubmitted);
   base::RecordAction(base::UserMetricsAction("GlicResponseInputSubmit"));
-  if (base::FeatureList::IsEnabled(features::kGlicCaptureRegion)) {
-    base::UmaHistogramExactLinear("Glic.Instance.InputSubmitted.SelectionCount",
-                                  selection_areas_count_, 10);
+
+  if (sharing_manager_) {
+    RecordSelectionOverlayMetrics(sharing_manager_->GetPinnedTabs());
   }
-  if (base::FeatureList::IsEnabled(features::kGlicRegionSelectionLine)) {
-    for (int count : polyline_point_counts_) {
-      base::UmaHistogramCounts1000(
-          "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", count);
-    }
-  }
+
   // Reset turn data and start populating it for the new turn being started.
   turn_ = {};
   turn_.input_submitted_time_ = base::TimeTicks::Now();

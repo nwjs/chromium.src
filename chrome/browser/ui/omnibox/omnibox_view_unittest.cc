@@ -146,9 +146,11 @@ class OmniboxViewPopupTest : public testing::Test {
 // Tests GetIcon returns the default search icon when the match is a search
 // query.
 TEST_F(OmniboxViewTest, DISABLED_GetIcon_Default) {
-  ui::ImageModel expected_icon =
-      ui::ImageModel::FromVectorIcon(vector_icons::kSearchChromeRefreshIcon,
-                                     gfx::kPlaceholderColor, gfx::kFaviconSize);
+  ui::ImageModel expected_icon = ui::ImageModel::FromVectorIcon(
+      features::IsRoundedIconsEnabled()
+          ? vector_icons::kSearchIcon
+          : vector_icons::kSearchChromeRefreshOldIcon,
+      gfx::kPlaceholderColor, gfx::kFaviconSize);
 
   ui::ImageModel icon = view()->GetIcon(
       gfx::kFaviconSize, gfx::kPlaceholderColor, gfx::kPlaceholderColor,
@@ -168,9 +170,11 @@ TEST_F(OmniboxViewTest, DISABLED_GetIcon_BookmarkIcon) {
   bookmark_model()->AddURL(bookmark_model()->bookmark_bar_node(), 0,
                            u"a bookmark", kUrl);
 
-  ui::ImageModel expected_icon =
-      ui::ImageModel::FromVectorIcon(omnibox::kBookmarkChromeRefreshIcon,
-                                     gfx::kPlaceholderColor, gfx::kFaviconSize);
+  ui::ImageModel expected_icon = ui::ImageModel::FromVectorIcon(
+      features::IsRoundedIconsEnabled()
+          ? omnibox::kStarIcon
+          : omnibox::kBookmarkChromeRefreshOldIcon,
+      gfx::kPlaceholderColor, gfx::kFaviconSize);
 
   ui::ImageModel icon = view()->GetIcon(
       gfx::kFaviconSize, gfx::kPlaceholderColor, gfx::kPlaceholderColor,

@@ -196,6 +196,26 @@ const SVGImageViewInfo* SVGImage::CreateViewInfo(const String& fragment) const {
   if (!root_element) {
     return nullptr;
   }
+
+  // TODO(dmangal): Consider supporting media fragments to regular SVG documents
+  // (not just SVG images).
+  if (RuntimeEnabledFeatures::SvgSupportMediaFragmentsEnabled()) {
+    // Resolve the concrete object size against a 0x0 default object size so
+    // that an SVG without a natural width and height (even one that has a
+    // natural aspect ratio) yields an empty size and fails percent resolution.
+    std::optional<NaturalSizingInfo> sizing_info =
+        GetNaturalDimensions(/*override_viewspec=*/nullptr);
+    const gfx::SizeF concrete_size =
+        sizing_info ? blink::ConcreteObjectSize(*sizing_info, gfx::SizeF())
+                    : gfx::SizeF();
+    if (const SVGViewSpec* spatial_view_spec =
+            SVGViewSpec::CreateFromSpatialFragment(fragment, concrete_size)) {
+      return MakeGarbageCollected<SVGImageViewInfo>(spatial_view_spec,
+                                                    /*target=*/nullptr);
+    }
+  }
+
+  // Otherwise, process as a standard SVG fragment (svgView(...) or anchor).
   String decoded_fragment =
       DecodeUrlEscapeSequences(fragment, DecodeUrlMode::kUtf8);
   Element* target = DynamicTo<Element>(
@@ -721,7 +741,7 @@ Image::SizeAvailability SVGImage::DataChanged(bool all_data_received) {
   // SVGImage objects, but we're safe now, because SVGImage can only be
   // loaded by a top-level document.
   document_host_ = MakeGarbageCollected<IsolatedSVGDocumentHost>(
-      *chrome_client_, *agent_group_scheduler_, Data(),
+      *chrome_client_, *agent_group_scheduler_, Data(), NullUrl(),
       blink::BindOnce(&SVGImage::NotifyAsyncLoadCompleted,
                       weak_ptr_factory_.GetWeakPtr()),
       settings_to_use, color_maps,

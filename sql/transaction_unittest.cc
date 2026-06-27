@@ -4,220 +4,269 @@
 
 #include "sql/transaction.h"
 
+#include <stdint.h>
+
 #include <memory>
 
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/test/bind.h"
+#include "base/test/gtest_util.h"
 #include "sql/database.h"
+#include "sql/sqlite_result_code.h"
+#include "sql/sqlite_result_code_values.h"
 #include "sql/statement.h"
+#include "sql/test/drive_error_test_vfs.h"
+#include "sql/test/matchers.h"
 #include "sql/test/test_helpers.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace sql {
 
 namespace {
 
+using ::sql::test::PrimaryErrorIs;
+using ::testing::Bool;
+using ::testing::Contains;
+using ::testing::TestParamInfo;
+using ::testing::WithParamInterface;
+
 class SQLTransactionTest : public testing::Test {
  public:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     db_path_ = temp_dir_.GetPath().AppendASCII("transaction_test.sqlite");
-    ASSERT_TRUE(db_.Open(db_path_));
-
-    ASSERT_TRUE(db_.Execute("CREATE TABLE foo (a, b)"));
-  }
-
-  // Returns the number of rows in table "foo".
-  int CountFoo() {
-    Statement count(db_.GetUniqueStatement("SELECT count(*) FROM foo"));
-    count.Step();
-    return count.ColumnInt(0);
   }
 
  protected:
   base::ScopedTempDir temp_dir_;
-  Database db_{sql::DatabaseOptions().set_exclusive_locking(false),
-               test::kTestTag};
   base::FilePath db_path_;
 };
 
+using SQLTransactionDeathTest = SQLTransactionTest;
+
+class SQLTransactionJournalTypeTest : public SQLTransactionTest,
+                                      public WithParamInterface<bool> {
+ protected:
+  static bool WalModeEnabled() { return GetParam(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    SQLTransactionJournalTypeTest,
+    Bool(),
+    [](const TestParamInfo<SQLTransactionJournalTypeTest::ParamType>& info) {
+      return info.param ? "WALEnabled" : "WALDisabled";
+    });
+
+// Returns the number of rows in table "foo".
+int CountFoo(Database& db) {
+  Statement count(db.GetUniqueStatement("SELECT count(*) FROM foo"));
+  count.Step();
+  return count.ColumnInt(0);
+}
+
 TEST_F(SQLTransactionTest, Commit) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo (a, b)"));
+
   {
-    Transaction transaction(&db_);
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    Transaction transaction(&db);
+    EXPECT_FALSE(db.HasActiveTransactions());
     EXPECT_FALSE(transaction.IsActiveForTesting());
 
     ASSERT_TRUE(transaction.Begin());
-    EXPECT_TRUE(db_.HasActiveTransactions());
+    EXPECT_TRUE(db.HasActiveTransactions());
     EXPECT_TRUE(transaction.IsActiveForTesting());
 
-    ASSERT_TRUE(db_.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
-    ASSERT_EQ(1, CountFoo()) << "INSERT did not work as intended";
+    ASSERT_TRUE(db.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
+    ASSERT_EQ(1, CountFoo(db)) << "INSERT did not work as intended";
 
     transaction.Commit();
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    EXPECT_FALSE(db.HasActiveTransactions());
     EXPECT_FALSE(transaction.IsActiveForTesting());
   }
 
-  EXPECT_FALSE(db_.HasActiveTransactions());
-  EXPECT_EQ(1, CountFoo()) << "Transaction changes not committed";
+  EXPECT_FALSE(db.HasActiveTransactions());
+  EXPECT_EQ(1, CountFoo(db)) << "Transaction changes not committed";
 }
 
 // Regression test for <https://crbug.com/326498384>.
 TEST_F(SQLTransactionTest, CloseDatabase) {
-  EXPECT_FALSE(db_.HasActiveTransactions());
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo (a, b)"));
+
+  EXPECT_FALSE(db.HasActiveTransactions());
 
   {
-    Transaction transaction(&db_);
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    Transaction transaction(&db);
+    EXPECT_FALSE(db.HasActiveTransactions());
     EXPECT_FALSE(transaction.IsActiveForTesting());
 
     ASSERT_TRUE(transaction.Begin());
-    EXPECT_TRUE(db_.HasActiveTransactions());
+    EXPECT_TRUE(db.HasActiveTransactions());
     EXPECT_TRUE(transaction.IsActiveForTesting());
 
-    db_.Close();
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    db.Close();
+    EXPECT_FALSE(db.HasActiveTransactions());
   }
 
-  EXPECT_FALSE(db_.HasActiveTransactions());
+  EXPECT_FALSE(db.HasActiveTransactions());
 }
 
 TEST_F(SQLTransactionTest, RollbackOnDestruction) {
-  EXPECT_FALSE(db_.HasActiveTransactions());
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo (a, b)"));
+
+  EXPECT_FALSE(db.HasActiveTransactions());
 
   {
-    Transaction transaction(&db_);
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    Transaction transaction(&db);
+    EXPECT_FALSE(db.HasActiveTransactions());
     EXPECT_FALSE(transaction.IsActiveForTesting());
 
     ASSERT_TRUE(transaction.Begin());
-    EXPECT_TRUE(db_.HasActiveTransactions());
+    EXPECT_TRUE(db.HasActiveTransactions());
     EXPECT_TRUE(transaction.IsActiveForTesting());
 
-    ASSERT_TRUE(db_.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
-    ASSERT_EQ(1, CountFoo()) << "INSERT did not work as intended";
+    ASSERT_TRUE(db.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
+    ASSERT_EQ(1, CountFoo(db)) << "INSERT did not work as intended";
   }
 
-  EXPECT_FALSE(db_.HasActiveTransactions());
-  EXPECT_EQ(0, CountFoo()) << "Transaction changes not rolled back";
+  EXPECT_FALSE(db.HasActiveTransactions());
+  EXPECT_EQ(0, CountFoo(db)) << "Transaction changes not rolled back";
 }
 
 TEST_F(SQLTransactionTest, ExplicitRollback) {
-  EXPECT_FALSE(db_.HasActiveTransactions());
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo (a, b)"));
+
+  EXPECT_FALSE(db.HasActiveTransactions());
 
   {
-    Transaction transaction(&db_);
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    Transaction transaction(&db);
+    EXPECT_FALSE(db.HasActiveTransactions());
     EXPECT_FALSE(transaction.IsActiveForTesting());
 
     ASSERT_TRUE(transaction.Begin());
-    EXPECT_TRUE(db_.HasActiveTransactions());
+    EXPECT_TRUE(db.HasActiveTransactions());
     EXPECT_TRUE(transaction.IsActiveForTesting());
 
-    ASSERT_TRUE(db_.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
-    ASSERT_EQ(1, CountFoo()) << "INSERT did not work as intended";
+    ASSERT_TRUE(db.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
+    ASSERT_EQ(1, CountFoo(db)) << "INSERT did not work as intended";
 
     transaction.Rollback();
-    EXPECT_FALSE(db_.HasActiveTransactions());
+    EXPECT_FALSE(db.HasActiveTransactions());
     EXPECT_FALSE(transaction.IsActiveForTesting());
-    EXPECT_EQ(0, CountFoo()) << "Transaction changes not rolled back";
+    EXPECT_EQ(0, CountFoo(db)) << "Transaction changes not rolled back";
   }
 
-  EXPECT_FALSE(db_.HasActiveTransactions());
-  EXPECT_EQ(0, CountFoo()) << "Transaction changes not rolled back";
+  EXPECT_FALSE(db.HasActiveTransactions());
+  EXPECT_EQ(0, CountFoo(db)) << "Transaction changes not rolled back";
 }
 
 // Rolling back any part of a transaction should roll back all of them.
 TEST_F(SQLTransactionTest, NestedRollback) {
-  EXPECT_FALSE(db_.HasActiveTransactions());
-  EXPECT_EQ(0, db_.transaction_nesting());
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo (a, b)"));
+
+  EXPECT_FALSE(db.HasActiveTransactions());
+  EXPECT_EQ(0, db.transaction_nesting());
 
   // Outermost transaction.
   {
-    Transaction outer_txn(&db_);
-    EXPECT_FALSE(db_.HasActiveTransactions());
-    EXPECT_EQ(0, db_.transaction_nesting());
+    Transaction outer_txn(&db);
+    EXPECT_FALSE(db.HasActiveTransactions());
+    EXPECT_EQ(0, db.transaction_nesting());
 
     ASSERT_TRUE(outer_txn.Begin());
-    EXPECT_TRUE(db_.HasActiveTransactions());
-    EXPECT_EQ(1, db_.transaction_nesting());
+    EXPECT_TRUE(db.HasActiveTransactions());
+    EXPECT_EQ(1, db.transaction_nesting());
 
     // First inner transaction is committed.
     {
-      Transaction committed_inner_txn(&db_);
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(1, db_.transaction_nesting());
+      Transaction committed_inner_txn(&db);
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(1, db.transaction_nesting());
 
       ASSERT_TRUE(committed_inner_txn.Begin());
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(2, db_.transaction_nesting());
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(2, db.transaction_nesting());
 
-      ASSERT_TRUE(db_.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
-      ASSERT_EQ(1, CountFoo()) << "INSERT did not work as intended";
+      ASSERT_TRUE(db.Execute("INSERT INTO foo (a, b) VALUES (1, 2)"));
+      ASSERT_EQ(1, CountFoo(db)) << "INSERT did not work as intended";
 
       committed_inner_txn.Commit();
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(1, db_.transaction_nesting());
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(1, db.transaction_nesting());
     }
 
-    EXPECT_TRUE(db_.HasActiveTransactions());
-    EXPECT_EQ(1, db_.transaction_nesting());
-    EXPECT_EQ(1, CountFoo()) << "First inner transaction did not commit";
+    EXPECT_TRUE(db.HasActiveTransactions());
+    EXPECT_EQ(1, db.transaction_nesting());
+    EXPECT_EQ(1, CountFoo(db)) << "First inner transaction did not commit";
 
     // Second inner transaction is rolled back.
     {
-      Transaction rolled_back_inner_txn(&db_);
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(1, db_.transaction_nesting());
+      Transaction rolled_back_inner_txn(&db);
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(1, db.transaction_nesting());
 
       ASSERT_TRUE(rolled_back_inner_txn.Begin());
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(2, db_.transaction_nesting());
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(2, db.transaction_nesting());
 
-      ASSERT_TRUE(db_.Execute("INSERT INTO foo (a, b) VALUES (2, 3)"));
-      ASSERT_EQ(2, CountFoo()) << "INSERT did not work as intended";
+      ASSERT_TRUE(db.Execute("INSERT INTO foo (a, b) VALUES (2, 3)"));
+      ASSERT_EQ(2, CountFoo(db)) << "INSERT did not work as intended";
 
       rolled_back_inner_txn.Rollback();
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(1, db_.transaction_nesting());
-      EXPECT_EQ(2, CountFoo())
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(1, db.transaction_nesting());
+      EXPECT_EQ(2, CountFoo(db))
           << "Nested transaction rollback deferred to top-level transaction";
     }
 
-    EXPECT_TRUE(db_.HasActiveTransactions());
-    EXPECT_EQ(1, db_.transaction_nesting());
-    EXPECT_EQ(2, CountFoo())
+    EXPECT_TRUE(db.HasActiveTransactions());
+    EXPECT_EQ(1, db.transaction_nesting());
+    EXPECT_EQ(2, CountFoo(db))
         << "Nested transaction rollback deferred to top-level transaction";
 
     // Third inner transaction fails in Begin(), because a nested transaction
     // has already been rolled back.
     {
-      Transaction failed_inner_txn(&db_);
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(1, db_.transaction_nesting());
+      Transaction failed_inner_txn(&db);
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(1, db.transaction_nesting());
 
       EXPECT_FALSE(failed_inner_txn.Begin());
-      EXPECT_TRUE(db_.HasActiveTransactions());
-      EXPECT_EQ(1, db_.transaction_nesting());
+      EXPECT_TRUE(db.HasActiveTransactions());
+      EXPECT_EQ(1, db.transaction_nesting());
     }
   }
 
-  EXPECT_FALSE(db_.HasActiveTransactions());
-  EXPECT_EQ(0, db_.transaction_nesting());
-  EXPECT_EQ(0, CountFoo());
+  EXPECT_FALSE(db.HasActiveTransactions());
+  EXPECT_EQ(0, db.transaction_nesting());
+  EXPECT_EQ(0, CountFoo(db));
 }
 
 TEST_F(SQLTransactionTest, TransactionCommitWithPendingWriter) {
-  ASSERT_TRUE(db_.Execute("CREATE TABLE rows (id)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows (id) VALUES (12)"));
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows (id)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows (id) VALUES (12)"));
 
-  Transaction transaction(&db_);
+  Transaction transaction(&db);
   EXPECT_TRUE(transaction.Begin());
 
   // The'RETURNING' clause changes the behavior of the statement to return a
   // row. A pending write statement is kept alive in the sqlite connection.
   Statement update(
-      db_.GetUniqueStatement("UPDATE rows SET id = 2 * id RETURNING id"));
+      db.GetUniqueStatement("UPDATE rows SET id = 2 * id RETURNING id"));
   EXPECT_TRUE(update.Step());
 
   // The commit will fail due to the pending writer.
@@ -228,17 +277,21 @@ TEST_F(SQLTransactionTest, TransactionCommitWithPendingWriter) {
 }
 
 TEST_F(SQLTransactionTest, TransactionCommitWithActiveReader) {
+  Database db(sql::DatabaseOptions().set_exclusive_locking(false),
+              test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
   Database other_db(sql::DatabaseOptions().set_exclusive_locking(false),
                     test::kTestTag);
   ASSERT_TRUE(other_db.Open(db_path_));
 
-  ASSERT_TRUE(db_.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(1)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(2)"));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(2)"));
 
-  Transaction transaction(&db_);
+  Transaction transaction(&db);
   EXPECT_TRUE(transaction.Begin());
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(3)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(3)"));
 
   Statement select(other_db.GetUniqueStatement("SELECT * FROM rows"));
   EXPECT_TRUE(select.Step());
@@ -254,15 +307,19 @@ TEST_F(SQLTransactionTest, TransactionCommitWithActiveReader) {
 }
 
 TEST_F(SQLTransactionTest, TransactionCommitWithActiveTransaction) {
+  Database db(sql::DatabaseOptions().set_exclusive_locking(false),
+              test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
   Database other_db(sql::DatabaseOptions().set_exclusive_locking(false),
                     test::kTestTag);
   ASSERT_TRUE(other_db.Open(db_path_));
 
-  ASSERT_TRUE(db_.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(1)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(2)"));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(2)"));
 
-  Transaction transaction(&db_);
+  Transaction transaction(&db);
   EXPECT_TRUE(transaction.Begin());
 
   Transaction other_transaction(&other_db);
@@ -270,7 +327,7 @@ TEST_F(SQLTransactionTest, TransactionCommitWithActiveTransaction) {
   Statement select(other_db.GetUniqueStatement("SELECT * FROM rows"));
   EXPECT_TRUE(select.Step());
 
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(3)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(3)"));
 
   // The commit will fail with a SQL_BUSY error code since there is an
   // open statement. When this error code is detected, a explicit rollback is
@@ -282,54 +339,187 @@ TEST_F(SQLTransactionTest, TransactionCommitWithActiveTransaction) {
   ASSERT_TRUE(other_transaction.Commit());
 }
 
-TEST_F(SQLTransactionTest, TransactionOnRazedDB) {
-  ASSERT_TRUE(db_.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(1)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(2)"));
+TEST_F(SQLTransactionTest, CreateTransactionOnRazedDB) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
 
-  Transaction transaction(&db_);
+  EXPECT_TRUE(db.Raze());
+
+  // Transactions can be created and used normally after `Raze()`.
+  Transaction transaction(&db);
   EXPECT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(2)"));
+  EXPECT_TRUE(transaction.Commit());
 
-  Statement select(db_.GetUniqueStatement("SELECT * FROM rows"));
+  Statement select(db.GetUniqueStatement("SELECT id FROM rows"));
   EXPECT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnInt(0), 2);
+  EXPECT_FALSE(select.Step());
+}
+
+TEST_F(SQLTransactionTest, BeginOnRazedDB) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
+
+  Transaction transaction(&db);
+  EXPECT_TRUE(db.Raze());
+
+  // Transactions still work normally after `Raze()`.
+  EXPECT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(2)"));
+  EXPECT_TRUE(transaction.Commit());
+
+  Statement select(db.GetUniqueStatement("SELECT id FROM rows"));
+  EXPECT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnInt(0), 2);
+  EXPECT_FALSE(select.Step());
+}
+
+TEST_F(SQLTransactionTest, RollbackOnRazedDB) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
+
+  Transaction transaction(&db);
+  EXPECT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(2)"));
 
   // Raze won't succeed if there is a pending transaction. The pending commit
   // will succeed to apply the modifications.
-  EXPECT_FALSE(db_.Raze());
+  EXPECT_FALSE(db.Raze());
+  transaction.Rollback();
+
+  Statement select(db.GetUniqueStatement("SELECT id FROM rows"));
+  EXPECT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnInt(0), 1);
+  EXPECT_FALSE(select.Step());
+}
+
+TEST_F(SQLTransactionTest, CommitOnRazedDB) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
+
+  Transaction transaction(&db);
+  EXPECT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(2)"));
+
+  // Raze won't succeed if there is a pending transaction. The pending commit
+  // will succeed to apply the modifications.
+  EXPECT_FALSE(db.Raze());
   EXPECT_TRUE(transaction.Commit());
+
+  Statement select(db.GetUniqueStatement("SELECT id FROM rows ORDER BY id"));
+  EXPECT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnInt(0), 1);
+  EXPECT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnInt(0), 2);
+  EXPECT_FALSE(select.Step());
 }
 
-TEST_F(SQLTransactionTest, TransactionOnPoisonedDB) {
-  ASSERT_TRUE(db_.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(1)"));
+TEST_F(SQLTransactionTest, CreateTransactionOnPoisonedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
 
-  Transaction transaction(&db_);
+  db.Poison();
+  Transaction transaction(&db);
+  EXPECT_FALSE(transaction.Begin());
+}
+
+TEST_F(SQLTransactionTest, BeginOnPoisonedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+
+  Transaction transaction(&db);
+  db.Poison();
+  EXPECT_FALSE(transaction.Begin());
+}
+
+TEST_F(SQLTransactionTest, RollbackOnPoisonedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+
+  Transaction transaction(&db);
   EXPECT_TRUE(transaction.Begin());
-  db_.Poison();
+  db.Poison();
+  transaction.Rollback();
+}
+
+TEST_F(SQLTransactionTest, CommitOnPoisonedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+
+  Transaction transaction(&db);
+  EXPECT_TRUE(transaction.Begin());
+  db.Poison();
   EXPECT_FALSE(transaction.Commit());
 }
 
-TEST_F(SQLTransactionTest, TransactionOnClosedDB) {
-  ASSERT_TRUE(db_.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
-  ASSERT_TRUE(db_.Execute("INSERT INTO rows(id) VALUES(1)"));
+TEST_F(SQLTransactionTest, CreateTransactionOnClosedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
 
-  Transaction transaction(&db_);
+  db.Close();
+  Transaction transaction(&db);
+  EXPECT_FALSE(transaction.Begin());
+}
+
+TEST_F(SQLTransactionTest, BeginOnClosedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+
+  Transaction transaction(&db);
+  db.Close();
+  EXPECT_FALSE(transaction.Begin());
+}
+
+TEST_F(SQLTransactionTest, RollbackOnClosedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+
+  Transaction transaction(&db);
   EXPECT_TRUE(transaction.Begin());
-  db_.Close();
+  db.Close();
+  transaction.Rollback();
+}
+
+TEST_F(SQLTransactionTest, CommitOnClosedDb) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id INTEGER PRIMARY KEY)"));
+
+  Transaction transaction(&db);
+  EXPECT_TRUE(transaction.Begin());
+  db.Close();
   EXPECT_FALSE(transaction.Commit());
 }
 
-TEST(SQLTransactionDatabaseDestroyedTest, BeginIsNoOp) {
+TEST_F(SQLTransactionTest, BeginOnDestroyedDb) {
   auto db = std::make_unique<Database>(test::kTestTag);
-  ASSERT_TRUE(db->OpenInMemory());
+  ASSERT_TRUE(db->Open(db_path_));
   Transaction transaction(db.get());
   db.reset();
   ASSERT_FALSE(transaction.Begin());
 }
 
-TEST(SQLTransactionDatabaseDestroyedTest, RollbackIsNoOp) {
+TEST_F(SQLTransactionTest, RollbackOnDestroyedDb) {
   auto db = std::make_unique<Database>(test::kTestTag);
-  ASSERT_TRUE(db->OpenInMemory());
+  ASSERT_TRUE(db->Open(db_path_));
   Transaction transaction(db.get());
   ASSERT_TRUE(transaction.Begin());
   EXPECT_TRUE(db->HasActiveTransactions());
@@ -339,14 +529,193 @@ TEST(SQLTransactionDatabaseDestroyedTest, RollbackIsNoOp) {
   transaction.Rollback();
 }
 
-TEST(SQLTransactionDatabaseDestroyedTest, CommitIsNoOp) {
+TEST_F(SQLTransactionTest, CommitOnDestroyedDb) {
   auto db = std::make_unique<Database>(test::kTestTag);
-  ASSERT_TRUE(db->OpenInMemory());
+  ASSERT_TRUE(db->Open(db_path_));
   Transaction transaction(db.get());
   ASSERT_TRUE(transaction.Begin());
   EXPECT_TRUE(db->HasActiveTransactions());
   db.reset();
   ASSERT_FALSE(transaction.Commit());
+}
+
+TEST_F(SQLTransactionDeathTest, CreateTransactionFromNullptr) {
+  EXPECT_CHECK_DEATH(Transaction transaction(nullptr));
+}
+
+TEST_F(SQLTransactionTest, BeginBeforeDbOpen) {
+  Database db(test::kTestTag);
+  Transaction transaction(&db);
+  EXPECT_FALSE(transaction.Begin());
+}
+
+TEST_F(SQLTransactionTest, CloseDbInTransactionCommitErrorCallback) {
+  test::DriveErrorTestVfs test_vfs;
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
+  db.set_error_callback(
+      base::BindLambdaForTesting([&](int error, sql::Statement* statement) {
+        EXPECT_EQ(ToSqliteResultCode(error), SqliteResultCode::kFullDisk);
+        db.RazeAndPoison();
+      }));
+
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(id)"));
+  Transaction transaction(&db);
+  ASSERT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(id) VALUES(1)"));
+  test_vfs.set_drive_full(true);
+  EXPECT_FALSE(transaction.Commit());
+  EXPECT_THAT(test_vfs.errors_produced(), Contains(SqliteErrorCode::kFullDisk));
+  ASSERT_FALSE(db.is_open());
+}
+
+int64_t GetJournalSize(const base::FilePath& db_path, bool is_wal_mode) {
+  base::FilePath journal_path = is_wal_mode
+                                    ? Database::WriteAheadLogPath(db_path)
+                                    : Database::JournalPath(db_path);
+  return base::GetFileSize(journal_path).value_or(0);
+}
+
+TEST_P(SQLTransactionJournalTypeTest, TransactionRollbackDiskUnusable) {
+  test::DriveErrorTestVfs test_vfs;
+  Database db(
+      DatabaseOptions().set_cache_size(1).set_wal_mode(WalModeEnabled()),
+      test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int sqlite_error, sql::Statement* statement) {
+        FAIL() << "Error callback should not have been called";
+      }));
+
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(key, value)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(key, value) VALUES(1, 'original')"));
+
+  Transaction transaction(&db);
+  ASSERT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("UPDATE rows SET value = 'modified' WHERE key = 1"));
+
+  // Write more rows until the memory cache is full and SQLite is forced to
+  // write to the journal file.
+  const int64_t start_journal_size = GetJournalSize(db_path_, WalModeEnabled());
+  while (GetJournalSize(db_path_, WalModeEnabled()) == start_journal_size) {
+    ASSERT_TRUE(db.Execute("INSERT INTO rows(key, value) VALUES(42, 'foo')"));
+  }
+
+  // Make the drive unusable, causing file operations to fail with SQLITE_IOERR.
+  // If WAL mode is disabled, the rollback will fail because the journal file
+  // cannot be read to restore the main database file. If WAL mode is enabled,
+  // SQLite just rewind the WAL file leaving the rolled-back data there. No file
+  // IO usually happens. But since lots of data was written in the transaction,
+  // the database page 1 had to be modified to keep track of the new pages
+  // created. The rollback therefore needs to restore page 1 to its original
+  // state. It does so by reading it from the main database file. If this fails
+  // on an SQLITE_IOERR, the rollback aborts.
+  test_vfs.set_drive_unusable(true);
+  transaction.Rollback();
+  test_vfs.set_drive_unusable(false);
+  EXPECT_THAT(test_vfs.errors_produced(),
+              Contains(PrimaryErrorIs(SqliteErrorCode::kIo)));
+
+  // The rollback failed, leaving behind a hot journal. But the database is
+  // still valid. The next time the database is used, the hot journal will be
+  // used to restore the database.
+  Statement select(
+      db.GetUniqueStatement("SELECT value FROM rows WHERE key = 1"));
+  ASSERT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnString(0), "original");
+}
+
+class SqliteHardHeapLimitScope {
+ public:
+  explicit SqliteHardHeapLimitScope(int64_t limit)
+      : original_limit_(sqlite3_hard_heap_limit64(limit)) {}
+
+  ~SqliteHardHeapLimitScope() { sqlite3_hard_heap_limit64(original_limit_); }
+
+ private:
+  const int64_t original_limit_;
+};
+
+TEST_F(SQLTransactionTest, TransactionBeginOutOfMemory) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+  Transaction transaction(&db);
+
+  bool error_callback_invoked = false;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int sqlite_error, sql::Statement* statement) {
+        error_callback_invoked = true;
+      }));
+
+  // Set a hard heap limit to make SQLite fail allocating memory when parsing
+  // the "BEGIN" statement.
+  SqliteHardHeapLimitScope hard_heap_limit(1);
+  EXPECT_FALSE(transaction.Begin());
+  EXPECT_TRUE(error_callback_invoked);
+}
+
+TEST_F(SQLTransactionTest, TransactionRollbackOutOfMemory) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
+  bool error_callback_invoked = false;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int sqlite_error, sql::Statement* statement) {
+        error_callback_invoked = true;
+      }));
+
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(key, value)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(key, value) VALUES(1, 'original')"));
+  Transaction transaction(&db);
+  ASSERT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("UPDATE rows SET value = 'modified' WHERE key = 1"));
+
+  {
+    // Set a hard heap limit to prevent SQLite from allocating memory. The
+    // rollback still works because the "ROLLBACK" statement was prepared
+    // beforehand.
+    SqliteHardHeapLimitScope hard_heap_limit(1);
+    transaction.Rollback();
+  }
+
+  Statement select(
+      db.GetUniqueStatement("SELECT value FROM rows WHERE key = 1"));
+  ASSERT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnString(0), "original");
+  EXPECT_FALSE(error_callback_invoked);
+}
+
+TEST_F(SQLTransactionTest, TransactionCommitOutOfMemory) {
+  Database db(test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
+  bool error_callback_invoked = false;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int sqlite_error, sql::Statement* statement) {
+        error_callback_invoked = true;
+      }));
+
+  ASSERT_TRUE(db.Execute("CREATE TABLE rows(key, value)"));
+  ASSERT_TRUE(db.Execute("INSERT INTO rows(key, value) VALUES(1, 'original')"));
+  Transaction transaction(&db);
+  ASSERT_TRUE(transaction.Begin());
+  ASSERT_TRUE(db.Execute("UPDATE rows SET value = 'modified' WHERE key = 1"));
+
+  {
+    // Set a hard heap limit to prevent SQLite from allocating memory. The
+    // commit still works because the "COMMIT" statement was prepared
+    // beforehand.
+    SqliteHardHeapLimitScope hard_heap_limit(1);
+    EXPECT_TRUE(transaction.Commit());
+  }
+
+  Statement select(
+      db.GetUniqueStatement("SELECT value FROM rows WHERE key = 1"));
+  ASSERT_TRUE(select.Step());
+  EXPECT_EQ(select.ColumnString(0), "modified");
+  EXPECT_FALSE(error_callback_invoked);
 }
 
 }  // namespace

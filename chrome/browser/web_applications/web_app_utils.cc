@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <functional>
 #include <iterator>
-#include <map>
 #include <optional>
 #include <set>
 #include <string>
@@ -78,10 +77,10 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "components/user_manager/user_manager.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 namespace web_app {
@@ -156,11 +155,10 @@ class AppIconFetcherTask : public content::WebContentsObserver {
     MaybeSendImageAndSelfDestruct();
   }
 
-  void OnIconFetched(int fetched_size,
-                     std::map<SquareSizePx, SkBitmap> icon_bitmaps) {
+  void OnIconFetched(int fetched_size, OrderedSizeToBitmap icon_bitmaps) {
     DCHECK_EQ(icon_bitmaps.size(), 1ul);
     DCHECK_EQ(icon_bitmaps.begin()->first, fetched_size);
-    if (icon_bitmaps.size() == 0) {
+    if (icon_bitmaps.empty()) {
       delete this;
       return;
     }

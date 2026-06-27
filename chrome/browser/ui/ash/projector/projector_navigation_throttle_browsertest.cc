@@ -6,7 +6,6 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/webui/projector_app/public/cpp/projector_app_constants.h"
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "base/auto_reset.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -23,13 +22,13 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/common/page_type.h"
@@ -219,7 +218,6 @@ INSTANTIATE_TEST_SUITE_P(
     ProjectorNavigationCapturingParameterizedTest,
     ::testing::Combine(
         /*link_capturing_feature_version=*/::testing::Values(
-            LinkCapturingFeatureVersion::kV1DefaultOff,
             LinkCapturingFeatureVersion::kV2DefaultOff),
         /*navigate_from_link=*/
         testing::Values(ProjectorAppNavigationType::kFromOmnibox,
@@ -349,8 +347,7 @@ IN_PROC_BROWSER_TEST_P(ProjectorNavigationThrottleRedirectionParameterized,
 INSTANTIATE_TEST_SUITE_P(
     ,
     ProjectorNavigationThrottleRedirectionParameterized,
-    ::testing::Values(LinkCapturingFeatureVersion::kV1DefaultOff,
-                      LinkCapturingFeatureVersion::kV2DefaultOff),
+    ::testing::Values(LinkCapturingFeatureVersion::kV2DefaultOff),
     [](const testing::TestParamInfo<LinkCapturingFeatureVersion>& info) {
       return apps::test::ToString(info.param);
     });

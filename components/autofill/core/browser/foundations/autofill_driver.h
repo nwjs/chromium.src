@@ -5,20 +5,27 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_AUTOFILL_DRIVER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_AUTOFILL_DRIVER_H_
 
+#include <stdint.h>
+
+#include <optional>
+#include <string>
 #include <vector>
 
-#include "base/memory/raw_ptr.h"
-#include "base/memory/scoped_refptr.h"
+#include "base/containers/flat_set.h"
+#include "base/containers/span.h"
+#include "base/dcheck_is_on.h"
+#include "base/functional/callback_forward.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
+#include "components/autofill/core/common/unique_ids.h"
 #include "net/base/isolation_info.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
-#include "ui/accessibility/ax_tree_id.h"
 #include "url/origin.h"
 
 namespace autofill {
@@ -334,7 +341,8 @@ class AutofillDriver {
   // Exposes DOM Node IDs in an attribute "dom-node-id".
   virtual void ExposeDomNodeIdsInAllFrames() = 0;
 
-  // Tells the renderer to accept data list suggestions for |value|.
+  // Tells the renderer to set `field_id`'s value to the accepted datalist
+  // suggestion `value`.
   virtual void RendererShouldAcceptDataListSuggestion(
       const FieldGlobalId& field_id,
       const std::u16string& value) = 0;
@@ -347,9 +355,8 @@ class AutofillDriver {
       const FieldGlobalId& field_id,
       AutofillSuggestionTriggerSource trigger_source) = 0;
 
-  // Tells the renderer to set the currently focused node's corresponding
-  // accessibility node's autofill suggestion_availability to
-  // |suggestion_availability|.
+  // Tells the renderer to set `field_id`'s corresponding accessibility node's
+  // autofill suggestion availability to `suggestion_availability`.
   virtual void RendererShouldSetSuggestionAvailability(
       const FieldGlobalId& field_id,
       mojom::AutofillSuggestionAvailability suggestion_availability) = 0;
@@ -370,9 +377,12 @@ class AutofillDriver {
       base::OnceCallback<void(const std::string& amount)>
           response_callback) = 0;
 
-  virtual void DispatchEmailVerifiedEvent(
-      FieldGlobalId field_id,
-      const std::string& presentation_token) = 0;
+  // Sends an email verification token to the renderer to be used upon
+  // form submission.
+  virtual void SendEmailVerificationToken(FieldGlobalId email_field_id,
+                                          const std::string& email,
+                                          FieldGlobalId token_field_id,
+                                          const std::string& token) = 0;
 
   // Scrolls the page containing the field corresponding to `field_id` until it
   // becomes visible on the user's display.

@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
@@ -15,9 +16,9 @@
 #include "base/time/time.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
@@ -34,6 +35,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
@@ -72,10 +74,10 @@ std::unique_ptr<views::ImageButton> CreateImageButton(
 }  // namespace
 
 SidePanelHeaderController::SidePanelHeaderController(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     SidePanelToolbarPinningController* side_panel_toolbar_pinning_controller,
     SidePanelEntry* side_panel_entry)
-    : browser_(browser),
+    : browser_(CHECK_DEREF(browser)),
       side_panel_toolbar_pinning_controller_(
           side_panel_toolbar_pinning_controller),
       side_panel_entry_(side_panel_entry->GetWeakPtr()) {
@@ -140,14 +142,16 @@ SidePanelHeaderController::CreatePinButton() {
 
   int dip_size = ChromeLayoutProvider::Get()->GetDistanceMetric(
       ChromeDistanceMetric::DISTANCE_SIDE_PANEL_HEADER_VECTOR_ICON_SIZE);
-  const gfx::VectorIcon& pin_icon = kKeepIcon;
+  const gfx::VectorIcon& pin_icon =
+      features::IsRoundedIconsEnabled() ? kKeepIcon : kKeepOldIcon;
   views::SetImageFromVectorIconWithColor(
       button.get(), pin_icon,
       {kColorSidePanelHeaderButtonIcon,
        kColorSidePanelHeaderButtonIconDisabled},
       dip_size);
 
-  const gfx::VectorIcon& unpin_icon = kKeepOffIcon;
+  const gfx::VectorIcon& unpin_icon =
+      features::IsRoundedIconsEnabled() ? kKeepOffIcon : kKeepOffOldIcon;
   views::SetToggledImageFromVectorIconWithColor(
       button.get(), unpin_icon, dip_size,
       {kColorSidePanelHeaderButtonIcon,
@@ -175,7 +179,7 @@ SidePanelHeaderController::CreateOpenNewTabButton() {
   auto button = CreateImageButton(
       base::BindRepeating(&SidePanelHeaderController::OpenInNewTab,
                           base::Unretained(this)),
-      kOpenInNewIcon);
+      features::IsRoundedIconsEnabled() ? kOpenInNewIcon : kOpenInNewOldIcon);
 
   button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_ACCNAME_OPEN_IN_NEW_TAB));
@@ -195,7 +199,9 @@ SidePanelHeaderController::CreateMoreInfoButton() {
   CHECK(side_panel_entry_);
 
   // Callback will not be used since a button controller is being set.
-  auto button = CreateImageButton(base::RepeatingClosure(), kHelpMenuIcon);
+  auto button = CreateImageButton(
+      base::RepeatingClosure(),
+      features::IsRoundedIconsEnabled() ? kHelpCustomIcon : kHelpMenuOldIcon);
   button->SetVisible(side_panel_entry_->SupportsMoreInfoButton());
   button->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_SIDE_PANEL_HEADER_MORE_INFO_BUTTON_TOOLTIP));
@@ -221,10 +227,11 @@ SidePanelHeaderController::CreateCloseButton() {
   CHECK(!close_button_);
   CHECK(side_panel_entry_);
 
-  auto button =
-      CreateImageButton(base::BindRepeating(&SidePanelHeaderController::Close,
-                                            base::Unretained(this)),
-                        views::kIcCloseIcon);
+  auto button = CreateImageButton(
+      base::BindRepeating(&SidePanelHeaderController::Close,
+                          base::Unretained(this)),
+      features::IsRoundedIconsEnabled() ? views::kCloseIcon
+                                        : views::kIcCloseOldIcon);
   button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_ACCNAME_SIDE_PANEL_CLOSE));
   button->SetProperty(views::kElementIdentifierKey,
@@ -265,8 +272,8 @@ void SidePanelHeaderController::UpdateSidePanelHeader() {
 void SidePanelHeaderController::UpdatePinButton() {
   CHECK(side_panel_entry_);
   actions::ActionItem* const action_item =
-      SidePanelHelper::GetActionItem(browser_, side_panel_entry_->key());
-  Profile* const profile = browser_->profile();
+      SidePanelHelper::GetActionItem(&*browser_, side_panel_entry_->key());
+  Profile* const profile = browser_->GetProfile();
   const bool current_pinned_state =
       side_panel_toolbar_pinning_controller_->GetPinnedStateFor(
           side_panel_entry_->key());
@@ -285,7 +292,7 @@ void SidePanelHeaderController::UpdatePinButton() {
 ui::ImageModel SidePanelHeaderController::GetIconImage() {
   CHECK(side_panel_entry_);
   ui::ImageModel icon =
-      SidePanelHelper::GetActionItem(browser_, side_panel_entry_->key())
+      SidePanelHelper::GetActionItem(&*browser_, side_panel_entry_->key())
           ->GetImage();
   if (icon.IsVectorIcon()) {
     icon = ui::ImageModel::FromVectorIcon(*icon.GetVectorIcon().vector_icon(),
@@ -298,7 +305,7 @@ ui::ImageModel SidePanelHeaderController::GetIconImage() {
 std::u16string_view SidePanelHeaderController::GetTitleText() {
   CHECK(side_panel_entry_);
   return side_panel_entry_->GetProperty(kShouldShowTitleInSidePanelHeaderKey)
-             ? SidePanelHelper::GetActionItem(browser_,
+             ? SidePanelHelper::GetActionItem(&*browser_,
                                               side_panel_entry_->key())
                    ->GetText()
              : std::u16string_view();
@@ -391,7 +398,7 @@ void SidePanelHeaderController::MaybeQueuePinPromo(SidePanelEntryId id) {
   // Queue up the next promo to be shown, if there is one that can be shown.
   pending_pin_promo_ = iph_feature;
   if (iph_feature &&
-      !BrowserUserEducationInterface::From(browser_)
+      !BrowserUserEducationInterface::From(&*browser_)
            ->WouldShowFeaturePromo(*iph_feature,
                                    base::PassKey<SidePanelHeaderController>())
            .is_blocked_this_instance()) {
@@ -411,8 +418,8 @@ void SidePanelHeaderController::ShowPinPromo() {
     return;
   }
 
-  BrowserUserEducationInterface::From(browser_)->MaybeShowFeaturePromo(
-      *pending_pin_promo_);
+  BrowserUserEducationInterface::From(&*browser_)
+      ->MaybeShowFeaturePromo(*pending_pin_promo_);
 }
 
 void SidePanelHeaderController::MaybeEndPinPromo(bool pinned) {
@@ -420,7 +427,7 @@ void SidePanelHeaderController::MaybeEndPinPromo(bool pinned) {
     return;
   }
 
-  auto* const user_education = BrowserUserEducationInterface::From(browser_);
+  auto* const user_education = BrowserUserEducationInterface::From(&*browser_);
   if (pinned) {
     user_education->NotifyFeaturePromoFeatureUsed(
         *pending_pin_promo_,

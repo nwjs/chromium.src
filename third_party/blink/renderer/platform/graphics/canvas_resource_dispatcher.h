@@ -30,6 +30,7 @@ class ExportedCanvasResource;
 class CanvasResourceDispatcherClient {
  public:
   virtual bool BeginFrame() = 0;
+  virtual void SetParentVisibility(bool visible) {}
 };
 
 class PLATFORM_EXPORT CanvasResourceDispatcher
@@ -120,7 +121,7 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
   using ExportedResourceMap =
       HashMap<viz::ResourceId, scoped_refptr<ExportedCanvasResource>>;
 
-  bool PrepareFrame(scoped_refptr<CanvasResource>&&,
+  void PrepareFrame(scoped_refptr<ExportedCanvasResource>&&,
                     const gfx::Rect& damage_rect,
                     bool is_opaque,
                     viz::CompositorFrame* frame);

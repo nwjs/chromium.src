@@ -99,13 +99,6 @@ BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
     std::string,
     kPartitionAllocSchedulerLoopQuarantineConfig);
 
-using PartitionAllocSchedulerLoopQuarantineTaskControlledPurgeEnabledProcesses =
-    internal::PAFeatureEnabledProcesses;
-BASE_EXPORT BASE_DECLARE_FEATURE(
-    kPartitionAllocSchedulerLoopQuarantineTaskControlledPurge);
-BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    PartitionAllocSchedulerLoopQuarantineTaskControlledPurgeEnabledProcesses,
-    kPartitionAllocSchedulerLoopQuarantineTaskControlledPurgeEnabledProcessesParam);
 
 // Eventually zero out most PartitionAlloc memory. This is not meant as a
 // security guarantee, but to increase the compression ratio of PartitionAlloc's
@@ -223,11 +216,6 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUsePriorityInheritanceLocks);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocFreeWithSize);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
                                        kPartitionAllocStrictFreeSizeCheck);
-
-#if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARM64)
-BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocLockTuneSpin);
-BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kPartitionAllocLockSpinCount);
-#endif  // BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARM64)
 
 }  // namespace base::features
 

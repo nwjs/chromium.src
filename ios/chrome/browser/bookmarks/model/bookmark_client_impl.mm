@@ -126,6 +126,10 @@ bool BookmarkClientImpl::IsNodeManaged(const bookmarks::BookmarkNode* node) {
   return false;
 }
 
+bookmarks::BookmarkFormFactor BookmarkClientImpl::GetBookmarkFormFactor() {
+  return bookmarks::BookmarkFormFactor::kMobile;
+}
+
 std::string BookmarkClientImpl::EncodeLocalOrSyncableBookmarkSyncMetadata() {
   return local_or_syncable_bookmark_sync_service_->EncodeBookmarkSyncMetadata();
 }
@@ -171,7 +175,8 @@ void BookmarkClientImpl::SchedulePersistentTimerForDailyMetrics(
 }
 
 void BookmarkClientImpl::GetEncryptor(
-    base::OnceCallback<void(os_crypt_async::Encryptor encryptor)> callback) {
+    base::OnceCallback<void(scoped_refptr<os_crypt_async::Encryptor> encryptor)>
+        callback) {
   CHECK(GetApplicationContext());
   CHECK(GetApplicationContext()->GetOSCryptAsync());
   GetApplicationContext()->GetOSCryptAsync()->GetInstance(std::move(callback));

@@ -120,6 +120,9 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   bool IsExtensionIncognitoEnabled(
       const ExtensionId& extension_id,
       content::BrowserContext* context) const override;
+  bool IsExtensionIncognitoEnabled(
+      const Extension* extension,
+      content::BrowserContext* context) const override;
   bool CanExtensionCrossIncognito(
       const Extension* extension,
       content::BrowserContext* context) const override;
@@ -138,7 +141,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
       const network::ResourceRequest& request,
       network::mojom::RequestDestination destination,
       ui::PageTransition page_transition,
-      int child_id,
+      content::ChildProcessId child_id,
       bool is_incognito,
       const Extension* extension,
       const ExtensionSet& extensions,
@@ -324,6 +327,11 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
       const download::DownloadItem& download) override;
   std::unique_ptr<image_fetcher::ImageDecoder> CreateImageDecoder() override;
   bool CanUseNonComponentExtensions(content::BrowserContext* context) override;
+  void CanInstallExtensionByPolicy(
+      content::BrowserContext* context,
+      const ExtensionId& extension_id,
+      const base::Version& extension_version,
+      base::OnceCallback<void(bool, std::u16string)> callback) override;
 
   void SetAPIClientForTest(std::unique_ptr<ExtensionsAPIClient> client);
 

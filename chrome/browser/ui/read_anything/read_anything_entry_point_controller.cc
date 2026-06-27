@@ -18,8 +18,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
-#include "chrome/browser/ui/page_actions/page_action_triggers.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
+#include "chrome/browser/ui/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
@@ -238,7 +238,9 @@ void ReadAnythingEntryPointController::InvokePageAction(
 
   ReadAnythingOpenTrigger open_trigger;
   if (side_panel_trigger ==
-      static_cast<int>(SidePanelOpenTrigger::kPinnedEntryToolbarButton)) {
+          static_cast<int>(SidePanelOpenTrigger::kPinnedEntryToolbarButton) ||
+      side_panel_trigger ==
+          static_cast<int>(SidePanelOpenTrigger::kOverflowMenu)) {
     open_trigger = ReadAnythingOpenTrigger::kPinnedSidePanelEntryToolbarButton;
   } else if (IsTriggeredByOmnibox(context)) {
     open_trigger = ReadAnythingOpenTrigger::kOmniboxChip;

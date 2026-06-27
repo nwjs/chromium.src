@@ -31,7 +31,7 @@ class FakeProxy : public Proxy {
   void ReleaseLayerTreeFrameSink() override {}
   void SetShouldWarmUp() override {}
   void SetVisible(bool visible) override {}
-  void SetNeedsAnimate(bool urgent) override {}
+  void SetNeedsAnimate(BeginMainFrameReason, bool urgent) override {}
   void SetNeedsUpdateLayers() override {}
   void SetNeedsCommit() override {}
   void SetNeedsRedraw(const gfx::Rect& damage_rect) override {}
@@ -42,7 +42,7 @@ class FakeProxy : public Proxy {
   void SetDeferMainFrameUpdate(bool defer_main_frame_update) override {}
   bool StartDeferringCommits(base::TimeDelta timeout,
                              PaintHoldingReason reason) override;
-  void StopDeferringCommits(PaintHoldingCommitTrigger) override {}
+  void StopDeferringCommits() override {}
   bool IsDeferringCommits() const override;
   bool CommitRequested() const override;
   void SetShouldThrottleFrameRate(bool flag) override {}

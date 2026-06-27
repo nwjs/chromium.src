@@ -57,8 +57,7 @@ class MailboxToSurfaceBridgeImpl : public device::MailboxToSurfaceBridge {
 
   void WaitForClientGpuFence(gfx::GpuFence&) override;
 
-  void CreateGpuFence(const gpu::SyncToken& sync_token,
-                      base::OnceCallback<void(std::unique_ptr<gfx::GpuFence>)>
+  void CreateGpuFence(base::OnceCallback<void(std::unique_ptr<gfx::GpuFence>)>
                           callback) override;
 
   scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
@@ -72,6 +71,8 @@ class MailboxToSurfaceBridgeImpl : public device::MailboxToSurfaceBridge {
   void DestroySharedImage(
       const gpu::SyncToken& sync_token,
       scoped_refptr<gpu::ClientSharedImage> shared_image) override;
+
+  viz::ContextProvider* GetContextProvider() override;
 
  private:
   void BindContextProviderToCurrentThread();

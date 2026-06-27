@@ -40,8 +40,14 @@
     },
 
     'chrome_ai_wpt_tests_suite': {
-      'chrome_ai_wpt_tests': {
+      'chrome_ai_wpt_tests_cpu': {
         'test_common': {
+          'args': [
+            '--framework=llm-inference-engine',
+            '--backend=cpu',
+            '--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU',
+            '--expectations-file=AIExpectations_CPU',
+          ],
           'merge': {
             'script': '//third_party/blink/tools/merge_web_test_results.py',
             'args': [
@@ -49,6 +55,103 @@
             ],
           },
         },
+        'test': 'chrome_ai_wpt_tests',
+        'results_handler': 'layout tests',
+        'mixins': [
+          'has_native_resultdb_integration',
+          'blink_tests_write_run_histories',
+        ],
+        'args': [
+          '--release',
+        ],
+        'mac_args': [
+          '--driver-name',
+          'Google Chrome',
+        ],
+        'swarming': {
+          'shards': 1,
+        },
+      },
+      'chrome_ai_wpt_tests_gpu': {
+        'test_common': {
+          'args': [
+            '--framework=llm-inference-engine',
+            '--backend=gpu',
+            '--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE',
+            '--expectations-file=AIExpectations_GPU',
+          ],
+          'merge': {
+            'script': '//third_party/blink/tools/merge_web_test_results.py',
+            'args': [
+              '--verbose',
+            ],
+          },
+        },
+        'test': 'chrome_ai_wpt_tests',
+        'results_handler': 'layout tests',
+        'mixins': [
+          'has_native_resultdb_integration',
+          'blink_tests_write_run_histories',
+        ],
+        'args': [
+          '--release',
+        ],
+        'mac_args': [
+          '--driver-name',
+          'Google Chrome',
+        ],
+        'swarming': {
+          'shards': 1,
+        },
+      },
+      'chrome_ai_wpt_tests_litert_cpu': {
+        'test_common': {
+          'args': [
+            '--framework=litert-lm',
+            '--backend=cpu',
+            '--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU',
+            '--expectations-file=AIExpectations_LiteRTCPU',
+          ],
+          'merge': {
+            'script': '//third_party/blink/tools/merge_web_test_results.py',
+            'args': [
+              '--verbose',
+            ],
+          },
+        },
+        'test': 'chrome_ai_wpt_tests',
+        'results_handler': 'layout tests',
+        'mixins': [
+          'has_native_resultdb_integration',
+          'blink_tests_write_run_histories',
+        ],
+        'args': [
+          '--release',
+        ],
+        'mac_args': [
+          '--driver-name',
+          'Google Chrome',
+        ],
+        'swarming': {
+          'shards': 1,
+        },
+      },
+      'chrome_ai_wpt_tests_litert_gpu': {
+        'test_common': {
+          'args': [
+            '--framework=litert-lm',
+            '--backend=gpu',
+            '--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE',
+            '--expectations-file=AIExpectations_LiteRTGPU',
+          ],
+          'merge': {
+            'script': '//third_party/blink/tools/merge_web_test_results.py',
+            'args': [
+              '--verbose',
+            ],
+          },
+        },
+        'test': 'chrome_ai_wpt_tests',
         'results_handler': 'layout tests',
         'mixins': [
           'has_native_resultdb_integration',
@@ -216,11 +319,20 @@
     },
 
     'chromeos_device_only_gtests': {
-      'base_unittests': {},
+      'base_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
     },
 
     'chromeos_integration_tests_suite': {
-      'chromeos_integration_tests': {},
+      'chromeos_integration_tests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
     },
 
     'chromeos_system_friendly_gtests': {
@@ -228,17 +340,39 @@
         'args': [
           '--ozone-platform=headless',
         ],
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
-      'base_unittests': {},
+      'base_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
       'capture_unittests': {
         'args': [
           '--test-launcher-jobs=1',
           '--gtest_filter=-*UsingRealWebcam_CaptureMjpeg*',
         ],
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
-      'cc_unittests': {},
-      'crypto_unittests': {},
-      'display_unittests': {},
+      'cc_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'crypto_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'display_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
       'fake_libva_driver_unittest': {
         'test_common': {
           'args': [
@@ -250,18 +384,44 @@
             'libfake',
           ],
         },
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
         'experiment_percentage': 100,
       },
-      'google_apis_unittests': {},
-      'ipc_tests': {},
-      'latency_unittests': {},
+      'google_apis_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'ipc_tests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'latency_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
       'media_unittests': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.media_unittests.filter',
         ],
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
-      'midi_unittests': {},
-      'mojo_unittests': {},
+      'midi_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'mojo_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
       'net_unittests': {
         'args': [
           '--vpython-dir=../../vpython_dir_linux_amd64',
@@ -287,24 +447,57 @@
             },
           ],
         },
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
       'ozone_gl_unittests': {
         'args': [
           '--stop-ui',
         ],
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
-      'ozone_unittests': {},
-      'pdf_unittests': {},
-      'printing_unittests': {},
+      'ozone_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'pdf_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'printing_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
       'profile_provider_unittest': {
         'args': [
           '--stop-ui',
           '--test-launcher-jobs=1',
         ],
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
-      'rust_gtest_interop_unittests': {},
-      'sql_unittests': {},
-      'url_unittests': {},
+      'rust_gtest_interop_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'sql_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
+      'url_unittests': {
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
+      },
       'video_decode_accelerator_tests_fake_vaapi_av1': {
         'test_common': {
           'args': [
@@ -320,6 +513,9 @@
         },
         'test': 'video_decode_accelerator_tests',
         'ci_only': True,
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
         'experiment_percentage': 100,
       },
       'video_decode_accelerator_tests_fake_vaapi_vp8': {
@@ -337,6 +533,9 @@
         },
         'test': 'video_decode_accelerator_tests',
         'ci_only': True,
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
         'experiment_percentage': 100,
       },
       'video_decode_accelerator_tests_fake_vaapi_vp9': {
@@ -354,10 +553,56 @@
         },
         'test': 'video_decode_accelerator_tests',
         'ci_only': True,
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
     },
 
-    'chromeos_system_friendly_gtests_fails_vmlab': {
+    'chromeos_system_friendly_gtests_vmlab': {
+      'aura_unittests': {
+        'args': [
+          '--ozone-platform=headless',
+        ],
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'base_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'capture_unittests': {
+        'args': [
+          '--test-launcher-jobs=1',
+          '--gtest_filter=-*UsingRealWebcam_CaptureMjpeg*',
+        ],
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'cc_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'crypto_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'display_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
       'fake_libva_driver_unittest': {
         'test_common': {
           'args': [
@@ -369,7 +614,113 @@
             'libfake',
           ],
         },
-        'experiment_percentage': 100,
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'google_apis_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'ipc_tests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'latency_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'media_unittests': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.betty.media_unittests.filter',
+        ],
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'midi_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'mojo_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'net_unittests': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.betty.net_unittests.filter',
+        ],
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'ozone_gl_unittests': {
+        'args': [
+          '--stop-ui',
+        ],
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'ozone_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'pdf_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'printing_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'profile_provider_unittest': {
+        'args': [
+          '--stop-ui',
+          '--test-launcher-jobs=1',
+        ],
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'rust_gtest_interop_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'sql_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
+      },
+      'url_unittests': {
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
       },
       'video_decode_accelerator_tests_fake_vaapi_av1': {
         'test_common': {
@@ -385,8 +736,10 @@
           ],
         },
         'test': 'video_decode_accelerator_tests',
-        'ci_only': True,
-        'experiment_percentage': 100,
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
       },
       'video_decode_accelerator_tests_fake_vaapi_vp8': {
         'test_common': {
@@ -402,8 +755,10 @@
           ],
         },
         'test': 'video_decode_accelerator_tests',
-        'ci_only': True,
-        'experiment_percentage': 100,
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
       },
       'video_decode_accelerator_tests_fake_vaapi_vp9': {
         'test_common': {
@@ -419,58 +774,11 @@
           ],
         },
         'test': 'video_decode_accelerator_tests',
-        'ci_only': True,
+        'skylab': {
+          'timeout_sec': 5400,
+          'autotest_name': 'chromium',
+        },
       },
-    },
-
-    'chromeos_system_friendly_gtests_vmlab': {
-      'aura_unittests': {
-        'args': [
-          '--ozone-platform=headless',
-        ],
-      },
-      'base_unittests': {},
-      'capture_unittests': {
-        'args': [
-          '--test-launcher-jobs=1',
-          '--gtest_filter=-*UsingRealWebcam_CaptureMjpeg*',
-        ],
-      },
-      'cc_unittests': {},
-      'crypto_unittests': {},
-      'display_unittests': {},
-      'google_apis_unittests': {},
-      'ipc_tests': {},
-      'latency_unittests': {},
-      'media_unittests': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.betty.media_unittests.filter',
-        ],
-      },
-      'midi_unittests': {},
-      'mojo_unittests': {},
-      'net_unittests': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.betty.net_unittests.filter',
-        ],
-      },
-      'ozone_gl_unittests': {
-        'args': [
-          '--stop-ui',
-        ],
-      },
-      'ozone_unittests': {},
-      'pdf_unittests': {},
-      'printing_unittests': {},
-      'profile_provider_unittest': {
-        'args': [
-          '--stop-ui',
-          '--test-launcher-jobs=1',
-        ],
-      },
-      'rust_gtest_interop_unittests': {},
-      'sql_unittests': {},
-      'url_unittests': {},
     },
 
     'chromeos_vaapi_gtests': {
@@ -478,6 +786,9 @@
         'mixins': [
           'vaapi_unittest_args',
         ],
+        'skylab': {
+          'autotest_name': 'chromium',
+        },
       },
     },
 
@@ -665,6 +976,9 @@
         },
       },
       'perfetto_unittests': {},
+      'puffin_unittests': {
+        'experiment_percentage': 100,
+      },
       'services_unittests': {},
       'shell_dialogs_unittests': {},
       'skia_unittests': {},
@@ -782,7 +1096,6 @@
     },
 
     'client_v8_chromium_gtests': {
-      'app_shell_unittests': {},
       'browser_tests': {
         'swarming': {
           'shards': 10,
@@ -2035,6 +2348,21 @@
       },
     },
 
+    'litert_lm_advanced_main_legacy_tests_cpu_suite': {
+      'litert_lm_advanced_main_legacy_tests_cpu': {
+        'test_common': {
+          'mixins': [
+            'has_native_resultdb_integration',
+          ],
+          'args': [
+            '--benchmark_binary_dir=./',
+            '--backends=cpu',
+          ],
+        },
+        'test': 'litert_lm_advanced_main_legacy_tests',
+      },
+    },
+
     'model_validation_tests_light_suite': {
       'model_validation_tests_light': {
         'mixins': [
@@ -2081,7 +2409,6 @@
 
     'non_android_chromium_gtests': {
       'accessibility_unittests': {},
-      'app_shell_unittests': {},
       'blink_fuzzer_unittests': {},
       'browser_tests': {
         'swarming': {
@@ -2795,16 +3122,6 @@
           'CROS_LKGM',
         ],
       },
-      'chromeos_system_friendly_gtests_fails_vmlab': {
-        'mixins': [
-          'ci_only',
-          'experiments',
-          'skylab-rdb-gtest',
-        ],
-        'variants': [
-          'CROS_LKGM',
-        ],
-      },
       'chromeos_system_friendly_gtests_vmlab': {
         'mixins': [
           'skylab-rdb-gtest',
@@ -2815,9 +3132,8 @@
       },
       'chromeos_vaapi_gtests': {
         'mixins': [
-          'ci_only',
-          'experiments',
           'skylab-rdb-gtest',
+          'vaapi_unittest_libfake_args',
         ],
         'variants': [
           'CROS_LKGM',
@@ -2891,16 +3207,6 @@
           'CROS_LKGM',
         ],
       },
-      'chromeos_system_friendly_gtests_fails_vmlab': {
-        'mixins': [
-          'ci_only',
-          'experiments',
-          'skylab-rdb-gtest',
-        ],
-        'variants': [
-          'CROS_LKGM',
-        ],
-      },
       'chromeos_system_friendly_gtests_vmlab': {
         'mixins': [
           'skylab-rdb-gtest',
@@ -2911,9 +3217,8 @@
       },
       'chromeos_vaapi_gtests': {
         'mixins': [
-          'ci_only',
-          'experiments',
           'skylab-rdb-gtest',
+          'vaapi_unittest_libfake_args',
         ],
         'variants': [
           'CROS_LKGM',
@@ -3048,6 +3353,7 @@
       'gpu_noop_sleep_telemetry_test': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_GPU_BRYA_RELEASE_LKGM',
@@ -3059,6 +3365,7 @@
       'gpu_noop_sleep_telemetry_test': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_GPU_CORSOLA_RELEASE_LKGM',
@@ -3070,6 +3377,7 @@
       'gpu_common_and_optional_telemetry_tests': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_JACUZZI_RELEASE_LKGM',
@@ -3078,6 +3386,7 @@
       'gpu_passthrough_telemetry_tests': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_JACUZZI_RELEASE_LKGM',
@@ -3086,6 +3395,7 @@
       'gpu_webcodecs_telemetry_test': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_JACUZZI_RELEASE_LKGM',
@@ -3094,6 +3404,7 @@
       'gpu_webgl2_conformance_gles_passthrough_telemetry_tests': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_JACUZZI_RELEASE_LKGM',
@@ -3102,6 +3413,7 @@
       'gpu_webgl_conformance_gles_passthrough_telemetry_tests': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_JACUZZI_RELEASE_LKGM',
@@ -3113,6 +3425,7 @@
       'gpu_noop_sleep_telemetry_test': {
         'mixins': [
           'skylab-rdb-native',
+          'skylab-tauto-chromium-graphics',
         ],
         'variants': [
           'CROS_GPU_SKYRIM_RELEASE_LKGM',
@@ -3201,6 +3514,12 @@
           'non-gce',
         ],
       },
+      'litert_lm_advanced_main_legacy_tests_cpu_suite': {
+        'mixins': [
+          'chrome-intelligence-swarming-pool',
+          'non-gce',
+        ],
+      },
       'model_validation_tests_light_suite': {
         'mixins': [
           'gce',
@@ -3243,6 +3562,7 @@
 
     'optimization_guide_mac_script_tests': {
       'litert_e2e_tests_cpu_suite': {},
+      'litert_lm_advanced_main_legacy_tests_cpu_suite': {},
       'model_validation_tests_light_suite': {},
       'model_validation_tests_suite': {},
       'ondevice_stability_tests_suite': {},
@@ -3269,6 +3589,12 @@
 
     'optimization_guide_win64_script_tests': {
       'litert_e2e_tests_cpu_suite': {
+        'mixins': [
+          'chrome-intelligence-swarming-pool',
+          'non-gce',
+        ],
+      },
+      'litert_lm_advanced_main_legacy_tests_cpu_suite': {
         'mixins': [
           'chrome-intelligence-swarming-pool',
           'non-gce',

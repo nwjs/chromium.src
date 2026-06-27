@@ -41,21 +41,36 @@ class PageContextWrapperConfig {
   // This needs and will implicitly activate rich extraction.
   bool attempt_paid_content_json_fixing() const;
 
+  // True to include sensitive payments for redaction.
+  // This mirrors the `include_sensitive_payments_for_redaction` flag in
+  // Blink's `mojom::blink::AIPageContentOptions`.
+  bool include_sensitive_payments_for_redaction() const;
+
   // Returns the variant of the configuration to inject into the histograms.
   // Does not include all config bits, only structure-defining ones
   // ("InnerTextOnly", "Rich", and "RichAndActionable").
   std::string GetApcConfigVariant() const;
 
+  // True to extract autofill metadata.
+  bool extract_autofill() const;
+
+  // True to apply redacting metadata for credit card numbers.
+  bool extract_autofill_credit_card_redactions() const;
+
  private:
   friend class PageContextWrapperConfigBuilder;
 
   // Private constructor forces usage of the Builder.
-  explicit PageContextWrapperConfig(bool use_refactored_extractor,
-                                    bool graft_cross_origin_frame_content,
-                                    bool use_rich_extraction,
-                                    bool use_rich_extraction_with_actionable,
-                                    bool extract_paid_content,
-                                    bool attempt_paid_content_json_fixing);
+  explicit PageContextWrapperConfig(
+      bool use_refactored_extractor,
+      bool graft_cross_origin_frame_content,
+      bool use_rich_extraction,
+      bool use_rich_extraction_with_actionable,
+      bool extract_paid_content,
+      bool attempt_paid_content_json_fixing,
+      bool extract_autofill,
+      bool extract_autofill_credit_card_redactions,
+      bool include_sensitive_payments_for_redaction);
 
   // Bit to use the refactored PageContextExtractor.
   bool use_refactored_extractor_;
@@ -74,6 +89,15 @@ class PageContextWrapperConfig {
 
   // Bit to attempt to fix malformed paid content JSON.
   bool attempt_paid_content_json_fixing_;
+
+  // Bit to extract autofill metadata.
+  bool extract_autofill_;
+
+  // Bit to apply Autofill credit card redaction policies.
+  bool extract_autofill_credit_card_redactions_;
+
+  // Bit to include sensitive payments for redaction.
+  bool include_sensitive_payments_for_redaction_;
 };
 
 // Builder for PageContextWrapperConfig.
@@ -109,6 +133,24 @@ class PageContextWrapperConfigBuilder {
   PageContextWrapperConfigBuilder& SetAttemptPaidContentJsonFixing(
       bool attempt_paid_content_json_fixing);
 
+  // Sets whether to extract autofill metadata. Does the equivalent of the
+  // kAnnotatedPageContentWithAutofillAnnotations kill switch in
+  // components/optimization_guide/content/browser/page_content_proto_util.cc
+  // for blink.
+  PageContextWrapperConfigBuilder& SetExtractAutofill(bool extract_autofill);
+
+  // Sets whether to apply Autofill credit card redaction to field values. Does
+  // the equivalent of the kAnnotatedPageContentAutofillCreditCardRedactions
+  // feature switch in
+  // components/optimization_guide/content/browser/page_content_proto_util.cc
+  // for blink.
+  PageContextWrapperConfigBuilder& SetExtractAutofillCreditCardRedactions(
+      bool extract_autofill_credit_card_redactions);
+
+  // Sets whether to include sensitive payments for redaction.
+  PageContextWrapperConfigBuilder& SetIncludeSensitivePaymentsForRedaction(
+      bool include_sensitive_payments_for_redaction);
+
   // Returns the PageContextWrapperConfig.
   PageContextWrapperConfig Build() const;
 
@@ -119,6 +161,9 @@ class PageContextWrapperConfigBuilder {
   bool use_rich_extraction_with_actionable_;
   bool extract_paid_content_;
   bool attempt_paid_content_json_fixing_;
+  bool extract_autofill_;
+  bool extract_autofill_credit_card_redactions_;
+  bool include_sensitive_payments_for_redaction_;
 };
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_PROTO_WRAPPERS_PAGE_CONTEXT_WRAPPER_CONFIG_H_

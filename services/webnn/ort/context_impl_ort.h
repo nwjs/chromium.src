@@ -34,7 +34,7 @@ class ContextImplOrt final : public WebNNContextImpl {
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       scoped_refptr<Environment> env,
-      std::unique_ptr<ScopedGpuSequence> gpu_sequence,
+      std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
       scoped_refptr<gpu::MemoryTracker> memory_tracker,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
       gpu::SharedImageManager* shared_image_manager,
@@ -50,7 +50,7 @@ class ContextImplOrt final : public WebNNContextImpl {
                  mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
                  mojo::ScopedDataPipeProducerHandle read_tensor_producer,
                  scoped_refptr<Environment> env,
-                 std::unique_ptr<ScopedGpuSequence> gpu_sequence,
+                 std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
                  scoped_refptr<gpu::MemoryTracker> memory_tracker,
                  scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
                  gpu::SharedImageManager* shared_image_manager,
@@ -84,7 +84,7 @@ class ContextImplOrt final : public WebNNContextImpl {
   ~ContextImplOrt() override;
 
   void CreateGraphImpl(
-      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
       base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>

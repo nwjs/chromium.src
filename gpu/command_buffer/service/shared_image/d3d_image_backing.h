@@ -23,6 +23,7 @@
 #include "base/synchronization/waitable_event_watcher.h"
 #include "base/types/pass_key.h"
 #include "components/viz/common/resources/shared_image_format.h"
+#include "gpu/command_buffer/common/shared_image_info.h"
 #include "gpu/command_buffer/service/dxgi_shared_handle_manager.h"
 #include "gpu/command_buffer/service/memory_tracking.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
@@ -33,11 +34,6 @@
 #include "ui/gfx/win/d3d_shared_fence.h"
 #include "ui/gl/buildflags.h"
 #include "ui/gl/scoped_egl_image.h"
-
-namespace gfx {
-class Size;
-class ColorSpace;
-}  // namespace gfx
 
 namespace gpu {
 class D3D11ImageSameAdapterCopyStrategy;
@@ -62,13 +58,7 @@ class GPU_GLES2_EXPORT D3DImageBacking final
   // texture array used by video decoder.
   static std::unique_ptr<D3DImageBacking> Create(
       const Mailbox& mailbox,
-      viz::SharedImageFormat format,
-      const gfx::Size& size,
-      const gfx::ColorSpace& color_space,
-      GrSurfaceOrigin surface_origin,
-      SkAlphaType alpha_type,
-      gpu::SharedImageUsageSet usage,
-      std::string debug_label,
+      const SharedImageInfo& si_info,
       Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
       scoped_refptr<DXGISharedHandleState> dxgi_shared_handle_state,
       const GLFormatCaps& gl_format_caps,
@@ -260,13 +250,7 @@ class GPU_GLES2_EXPORT D3DImageBacking final
  private:
   using D3DSharedFenceSet = base::flat_set<scoped_refptr<gfx::D3DSharedFence>>;
   D3DImageBacking(const Mailbox& mailbox,
-                  viz::SharedImageFormat format,
-                  const gfx::Size& size,
-                  const gfx::ColorSpace& color_space,
-                  GrSurfaceOrigin surface_origin,
-                  SkAlphaType alpha_type,
-                  gpu::SharedImageUsageSet usage,
-                  std::string debug_label,
+                  const SharedImageInfo& si_info,
                   Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
                   scoped_refptr<DXGISharedHandleState> dxgi_shared_handle_state,
                   const GLFormatCaps& gl_format_caps,
@@ -359,7 +343,8 @@ class GPU_GLES2_EXPORT D3DImageBacking final
   // no-op. Similarly, |wait_dawn_device| can be provided to skip over waits on
   // fences previously signaled on the same Dawn device which are cached in
   // |dawn_signaled_fence_map_|.
-  std::vector<scoped_refptr<gfx::D3DSharedFence>> GetPendingWaitFences(
+  std::optional<std::vector<scoped_refptr<gfx::D3DSharedFence>>>
+  GetPendingWaitFences(
       const Microsoft::WRL::ComPtr<ID3D11Device>& wait_d3d11_device,
       const wgpu::Device& wait_dawn_device,
       bool write_access) EXCLUSIVE_LOCKS_REQUIRED(lock_);

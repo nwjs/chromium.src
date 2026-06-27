@@ -207,6 +207,7 @@ flexBasis
 flexDirection
 flexFlow
 flexGrow
+flexLineCount
 flexShrink
 flexWrap
 float
@@ -385,6 +386,7 @@ page
 pageBreakAfter
 pageBreakBefore
 pageBreakInside
+pageMarginSafety
 pageOrientation
 paintOrder
 parentRule
@@ -525,6 +527,7 @@ textEmphasis
 textEmphasisColor
 textEmphasisPosition
 textEmphasisStyle
+textFit
 textIndent
 textJustify
 textOrientation

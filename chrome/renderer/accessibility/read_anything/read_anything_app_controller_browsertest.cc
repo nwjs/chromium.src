@@ -28,6 +28,8 @@
 #include "chrome/renderer/accessibility/read_anything/read_anything_test_utils.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "content/public/renderer/render_frame.h"
+#include "gin/converter.h"
+#include "gin/dictionary.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/strings/grit/services_strings.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
@@ -43,6 +45,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 #include "v8/include/v8-context.h"
+#include "v8/include/v8-microtask-queue.h"
 
 namespace {
 
@@ -127,7 +130,8 @@ class MockReadAnythingUntrustedPageHandler
               (override));
   MOCK_METHOD(void,
               OnLineFocusChanged,
-              (read_anything::mojom::LineFocus line_focus),
+              (read_anything::mojom::LineFocus current_line_focus,
+               read_anything::mojom::LineFocus last_non_disabled_line_focus),
               (override));
   MOCK_METHOD(void,
               OnImageDataRequested,
@@ -576,6 +580,20 @@ TEST_F(ReadAnythingAppControllerTest, OnReadingModeHidden_ResetsWordsHeard) {
 
   EXPECT_EQ(0, model().words_heard());
   EXPECT_CALL(page_handler_, AckReadingModeHidden());
+}
+
+TEST_F(ReadAnythingAppControllerTest, OnDistilled_Screen2x_LogsMetric) {
+  base::HistogramTester histogram_tester;
+  const int word_count = 100;
+  // Ensure we are using Screen2x.
+  model().set_current_content_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  controller().OnDistilled(word_count);
+
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledOnNewPage", word_count, 1);
+  histogram_tester.ExpectTotalCount(
+      "Accessibility.ReadAnything.WordsDistilledByReadability", 0);
 }
 
 TEST_F(ReadAnythingAppControllerTest,
@@ -2916,9 +2934,11 @@ TEST_F(ReadAnythingAppControllerTest, TurnedHighlightOff_SavesHighlightState) {
 TEST_F(ReadAnythingAppControllerTest, OnLineFocusChanged_SetsLineFocus) {
   EnableLineFocus();
   auto line_focus = read_anything::mojom::LineFocus::kLineCursor;
-  EXPECT_CALL(page_handler_, OnLineFocusChanged(line_focus)).Times(1);
+  EXPECT_CALL(page_handler_, OnLineFocusChanged(line_focus, line_focus))
+      .Times(1);
 
-  controller().OnLineFocusChanged(static_cast<int>(line_focus));
+  controller().OnLineFocusChanged(static_cast<int>(line_focus),
+                                  static_cast<int>(line_focus));
 
   ASSERT_EQ(line_focus, model().last_non_disabled_line_focus());
   ASSERT_TRUE(controller().IsLineFocusOn());
@@ -2929,10 +2949,10 @@ TEST_F(ReadAnythingAppControllerTest,
   EnableLineFocus();
   auto line_focus_off = read_anything::mojom::LineFocus::kOff;
   auto line_focus = read_anything::mojom::LineFocus::kLineStatic;
-  EXPECT_CALL(page_handler_, OnLineFocusChanged).Times(2);
+  EXPECT_CALL(page_handler_, OnLineFocusChanged).Times(1);
 
-  controller().OnLineFocusChanged(static_cast<int>(line_focus));
-  controller().OnLineFocusChanged(static_cast<int>(line_focus_off));
+  controller().OnLineFocusChanged(static_cast<int>(line_focus_off),
+                                  static_cast<int>(line_focus));
 
   ASSERT_EQ(line_focus, model().last_non_disabled_line_focus());
   ASSERT_FALSE(controller().IsLineFocusOn());
@@ -3522,6 +3542,108 @@ TEST_F(ReadAnythingAppControllerImmersiveTest,
                                        false);
   page_handler_.FlushForTesting();
   Mock::VerifyAndClearExpectations(distiller_);
+}
+
+TEST_F(ReadAnythingAppControllerImmersiveTest,
+       ImmersiveMode_UnpausesOnReopenWithPendingSelection) {
+  // 1. Start in immersive overlay with a good distillation.
+  controller().OnGetPresentationState(
+      read_anything::mojom::ReadAnythingPresentationState::kInImmersiveOverlay);
+  EXPECT_CALL(page_handler_,
+              OnDistillationStateChanged(
+                  read_anything::mojom::ReadAnythingDistillationState::
+                      kDistillationWithContent))
+      .Times(1);
+  controller().OnAXTreeDistilled(tree_id_, {1});
+  page_handler_.FlushForTesting();
+  ASSERT_TRUE(controller().IsUpdateProcessingPaused());
+
+  // 2. Close immersive view (switch to kInactive layout).
+  controller().OnGetPresentationState(
+      read_anything::mojom::ReadAnythingPresentationState::kInactive);
+  ASSERT_TRUE(controller().IsUpdateProcessingPaused());
+
+  // 3. Send a selection change event, which should be queued, setting pending
+  // selection.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.has_tree_data = true;
+  update.tree_data.sel_anchor_object_id = 1;
+  update.tree_data.sel_focus_object_id = 1;
+  update.tree_data.sel_anchor_offset = 0;
+  update.tree_data.sel_focus_offset = 1;
+  ui::AXNodeData root;
+  root.id = 1;
+  update.root_id = root.id;
+  update.nodes = {std::move(root)};
+  std::vector<ui::AXEvent> events;
+  ui::AXEvent selection_event;
+  selection_event.event_type = ax::mojom::Event::kDocumentSelectionChanged;
+  events.push_back(selection_event);
+
+  controller().AccessibilityEventReceived(tree_id_, {update}, events);
+  EXPECT_TRUE(model().has_pending_selection());
+
+  // 4. Reopen immersive view. It should unpause to process the pending updates.
+  controller().OnGetPresentationState(
+      read_anything::mojom::ReadAnythingPresentationState::kInImmersiveOverlay);
+
+  // 5. Verify pending selection is cleared and update processing pauses again.
+  EXPECT_FALSE(model().has_pending_selection());
+  EXPECT_TRUE(controller().IsUpdateProcessingPaused());
+}
+
+TEST_F(ReadAnythingAppControllerImmersiveTest,
+       ImmersiveMode_ResetsReadingModeSelectionCountOnUserSelection) {
+  // 1. Start in immersive overlay with a good distillation.
+  controller().OnGetPresentationState(
+      read_anything::mojom::ReadAnythingPresentationState::kInImmersiveOverlay);
+  EXPECT_CALL(page_handler_,
+              OnDistillationStateChanged(
+                  read_anything::mojom::ReadAnythingDistillationState::
+                      kDistillationWithContent))
+      .Times(1);
+  controller().OnAXTreeDistilled(tree_id_, {1});
+  page_handler_.FlushForTesting();
+
+  // 2. Collapse selection from reading mode.
+  EXPECT_CALL(page_handler_, OnCollapseSelection()).Times(1);
+  controller().OnCollapseSelection();
+  page_handler_.FlushForTesting();
+  EXPECT_EQ(model().unprocessed_selections_from_reading_mode(), 1);
+
+  // 3. Close immersive view.
+  controller().OnGetPresentationState(
+      read_anything::mojom::ReadAnythingPresentationState::kInactive);
+
+  // 4. Send a user-initiated main panel selection change event.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.has_tree_data = true;
+  update.event_from = ax::mojom::EventFrom::kUser;
+  update.tree_data.sel_anchor_object_id = 1;
+  update.tree_data.sel_focus_object_id = 1;
+  update.tree_data.sel_anchor_offset = 0;
+  update.tree_data.sel_focus_offset = 1;
+  ui::AXNodeData root;
+  root.id = 1;
+  update.root_id = root.id;
+  update.nodes = {std::move(root)};
+  std::vector<ui::AXEvent> events;
+  ui::AXEvent selection_event;
+  selection_event.event_type = ax::mojom::Event::kDocumentSelectionChanged;
+  selection_event.event_from = ax::mojom::EventFrom::kUser;
+  events.push_back(selection_event);
+
+  controller().AccessibilityEventReceived(tree_id_, {update}, events);
+
+  // 5. Reopen immersive view.
+  controller().OnGetPresentationState(
+      read_anything::mojom::ReadAnythingPresentationState::kInImmersiveOverlay);
+
+  // 6. Verify that selections_from_reading_mode_ was reset to 0 by the user
+  // event.
+  EXPECT_EQ(model().unprocessed_selections_from_reading_mode(), 0);
 }
 
 class ReadAnythingAppControllerV8SegmentationTest
@@ -4906,6 +5028,8 @@ TEST_F(ReadAnythingAppControllerReadabilityTest,
 
   histogram_tester.ExpectUniqueSample(
       "Accessibility.ReadAnything.WordsDistilledByReadability", word_count, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Accessibility.ReadAnything.WordsDistilledOnNewPage", word_count, 1);
 }
 
 TEST_F(ReadAnythingAppControllerReadabilityTest,
@@ -5048,6 +5172,32 @@ TEST_F(ReadAnythingAppControllerReadabilityTest,
             ReadAnythingAppModel::DistillationMethod::kScreen2x);
 }
 
+TEST_F(
+    ReadAnythingAppControllerReadabilityTest,
+    AccessibilityEventReceived_Readability_DoesNotProcessSelectionIfFeatureDisabled) {
+  // Set conditions to process readability accessibility updates
+  EXPECT_CALL(page_handler_,
+              OnDistillationStateChanged(
+                  read_anything::mojom::ReadAnythingDistillationState::
+                      kDistillationInProgress))
+      .Times(1);
+  controller().SetDistillationState(
+      read_anything::mojom::ReadAnythingDistillationState::
+          kDistillationInProgress);
+
+  // Set up: requires_post_process_selection is true.
+  model().set_requires_post_process_selection(true);
+
+  // Call AccessibilityEventReceived.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  AccessibilityEventReceived({update});
+
+  // Verification: PostProcessSelection was NOT called because the feature flag
+  // is disabled, so requires_post_process_selection remains true.
+  EXPECT_TRUE(model().requires_post_process_selection());
+}
+
 TEST_F(ReadAnythingAppControllerTest, Draw_DebouncesForPdf) {
   static constexpr ui::AXNodeID kId = 4;
   ui::AXNodeData node;
@@ -5164,8 +5314,8 @@ TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
 
 TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
        OnRenderedTextBlocksAvailable_UpdatesModel) {
-  std::vector<std::string> blocks = {"The quick brown fox", "jumps over",
-                                     "the lazy dog"};
+  std::vector<std::u16string> blocks = {u"The quick brown fox", u"jumps over",
+                                        u"the lazy dog"};
 
   // Simulate the call from the WebUI.
   controller().OnRenderedTextBlocksAvailable(blocks);
@@ -5177,7 +5327,7 @@ TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
 TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
        UpdateContent_ResetsReadabilitySelectTextState) {
   // Dirty the model state with data from a previous distillation.
-  model().set_readability_text_blocks({"stale block 1", "stale block 2"});
+  model().set_readability_text_blocks({u"stale block 1", u"stale block 2"});
   model().set_should_map_rendered_text_to_tree_for_readability(true);
 
   // 3. Call UpdateContent
@@ -5204,7 +5354,7 @@ TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
   controller().OnReadabilityDistillationStateChanged(
       read_anything::mojom::ReadAnythingDistillationState::
           kDistillationWithContent);
-  controller().OnRenderedTextBlocksAvailable({"block1", "block2"});
+  controller().OnRenderedTextBlocksAvailable({u"block1", u"block2"});
 
   // Verify that the flag is set to true (waiting for the tree).
   // The mapping couldn't run because the tree is missing.
@@ -5251,8 +5401,74 @@ TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
   controller().OnReadabilityDistillationStateChanged(
       read_anything::mojom::ReadAnythingDistillationState::
           kDistillationWithContent);
-  controller().OnRenderedTextBlocksAvailable({"block1", "block2"});
+  controller().OnRenderedTextBlocksAvailable({u"block1", u"block2"});
 
   // Verify that the mapping was triggered and the flag was reset to false.
   EXPECT_FALSE(model().should_map_rendered_text_to_tree_for_readability());
+}
+
+TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
+       GetAXMapping_ReturnsCorrectMapping) {
+  ui::AXNodeData node;
+  node.id = 2;
+  node.role = ax::mojom::Role::kStaticText;
+  node.SetName("Hello world");
+  SendUpdateWithNodes({std::move(node)});
+
+  controller().OnRenderedTextBlocksAvailable({u"Hello world"});
+
+  v8::Isolate* isolate = GetMainFrame()->GetAgentGroupScheduler()->Isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = GetMainFrame()->MainWorldScriptContext();
+  v8::Context::Scope context_scope(context);
+
+  v8::MicrotasksScope microtasks_scope(
+      isolate, context->GetMicrotaskQueue(),
+      v8::MicrotasksScope::kDoNotRunMicrotasks);
+
+  v8::Local<v8::Value> result = controller().GetAXMapping(0);
+
+  ASSERT_TRUE(result->IsArray());
+  v8::Local<v8::Array> array = result.As<v8::Array>();
+  EXPECT_EQ(array->Length(), 1u);
+
+  // Verify the dictionary contents
+  v8::Local<v8::Value> item = array->Get(context, 0).ToLocalChecked();
+  ASSERT_TRUE(item->IsObject());
+  v8::Local<v8::Object> obj = item.As<v8::Object>();
+  gin::Dictionary dict(isolate, obj);
+  int axNodeId, start, end, axNodeOffset;
+  EXPECT_TRUE(dict.Get("axNodeId", &axNodeId));
+  EXPECT_TRUE(dict.Get("start", &start));
+  EXPECT_TRUE(dict.Get("end", &end));
+  EXPECT_TRUE(dict.Get("axNodeOffset", &axNodeOffset));
+  EXPECT_EQ(axNodeId, 2);
+  EXPECT_EQ(start, 0);
+  EXPECT_EQ(end, 11);
+  EXPECT_EQ(axNodeOffset, 0);
+}
+
+TEST_F(ReadAnythingAppControllerReadabilitySelectTextTest,
+       AccessibilityEventReceived_Readability_ProcessesSelectionIfRequired) {
+  // Set conditions to process readability accessibility updates
+  EXPECT_CALL(page_handler_,
+              OnDistillationStateChanged(
+                  read_anything::mojom::ReadAnythingDistillationState::
+                      kDistillationInProgress))
+      .Times(1);
+  controller().SetDistillationState(
+      read_anything::mojom::ReadAnythingDistillationState::
+          kDistillationInProgress);
+
+  // Set up: requires_post_process_selection is true.
+  model().set_requires_post_process_selection(true);
+
+  // Call AccessibilityEventReceived.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  AccessibilityEventReceived({update});
+
+  // Verification: PostProcessSelection was called, which reset
+  // requires_post_process_selection to false.
+  EXPECT_FALSE(model().requires_post_process_selection());
 }

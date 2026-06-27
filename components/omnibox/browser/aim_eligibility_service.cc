@@ -123,27 +123,6 @@ CoreAccountInfo GetPrimaryAccountInfo(
   return identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
 }
 
-// Returns the index of the primary account in the cookie jar or std::nullopt if
-// the primary account does not exist or is not found in the cookie jar.
-std::optional<size_t> GetSessionIndexForPrimaryAccount(
-    signin::IdentityManager* identity_manager) {
-  CoreAccountInfo primary_account_info =
-      GetPrimaryAccountInfo(identity_manager);
-  if (primary_account_info.gaia.empty()) {
-    return std::nullopt;
-  }
-
-  auto accounts_in_cookie_jar = identity_manager->GetAccountsInCookieJar();
-  const auto& accounts = accounts_in_cookie_jar.GetAllAccounts();
-  for (size_t i = 0; i < accounts.size(); ++i) {
-    if (accounts[i].gaia_id == primary_account_info.gaia) {
-      return i;
-    }
-  }
-
-  return std::nullopt;
-}
-
 const net::NetworkTrafficAnnotationTag kRequestTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("aim_eligibility_fetch", R"(
       semantics {
@@ -918,8 +897,10 @@ GURL AimEligibilityService::GetRequestUrl(
   }
 
   // Get the index of the primary account in the cookie jar.
-  std::optional<size_t> session_index =
-      GetSessionIndexForPrimaryAccount(identity_manager);
+  std::optional<size_t> session_index;
+  if (identity_manager) {
+    session_index = identity_manager->GetSessionIndexForPrimaryAccount();
+  }
   // Log whether the primary account exists, if so whether it was found in the
   // cookie jar, and if so its index in the cookie jar.
   auto primary_account_info = GetPrimaryAccountInfo(identity_manager);
@@ -1336,6 +1317,11 @@ void AimEligibilityService::LogEligibilityResponse(
       most_recent_response_.is_cobrowse_eligible());
   base::UmaHistogramBoolean(base::StrCat({prefix, ".is_cobrowse_eligible"}),
                             most_recent_response_.is_cobrowse_eligible());
+  base::UmaHistogramBoolean(
+      base::StrCat({sliced_prefix, ".is_fusebox_eligible"}),
+      most_recent_response_.is_fusebox_eligible());
+  base::UmaHistogramBoolean(base::StrCat({prefix, ".is_fusebox_eligible"}),
+                            most_recent_response_.is_fusebox_eligible());
 }
 
 void AimEligibilityService::LogEligibilityResponseChanges(
@@ -1361,6 +1347,9 @@ void AimEligibilityService::LogEligibilityResponseChanges(
   base::UmaHistogramBoolean(base::StrCat({prefix, ".is_cobrowse_eligible"}),
                             old_response.is_cobrowse_eligible() !=
                                 new_response.is_cobrowse_eligible());
+  base::UmaHistogramBoolean(
+      base::StrCat({prefix, ".is_fusebox_eligible"}),
+      old_response.is_fusebox_eligible() != new_response.is_fusebox_eligible());
 }
 
 void AimEligibilityService::LogEligibilityRequestDebounced(

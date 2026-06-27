@@ -83,6 +83,7 @@ extern const base::FeatureParam<std::string> kCsdClipboardCopyApiLoaders;
 extern const base::FeatureParam<std::string> kCsdClipboardCopyApiRunners;
 extern const base::FeatureParam<std::string> kCsdClipboardCopyApiRemoteRunners;
 extern const base::FeatureParam<std::string> kCsdClipboardCopyApiDecoders;
+extern const base::FeatureParam<bool> kCSDClipboardCopyApiSuspiciousTokenFilter;
 
 // Enables sending a CSD ping on the detection of a credit card form.
 BASE_DECLARE_FEATURE(kClientSideDetectionCreditCardForm);
@@ -112,9 +113,6 @@ extern const base::FeatureParam<bool>
     kCsdCreditCardFormEnableInteractionTrigger;
 // Specifies whether to enable triggering on detection of a credit card form.
 extern const base::FeatureParam<bool> kCsdCreditCardFormEnableDetectionTrigger;
-
-// Deprecate the DOM model and do not onboard to renderer.
-BASE_DECLARE_FEATURE(kClientSideDetectionDeprecateDOMModel);
 
 // Killswitch for Llama forced trigger info redirect chain check.
 BASE_DECLARE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch);
@@ -369,14 +367,6 @@ BASE_DECLARE_FEATURE(kNotificationTelemetry);
 // Enable the collection of ServiceWorkerBehaviors via the
 // NotificationTelemetryService.
 BASE_DECLARE_FEATURE(kNotificationTelemetrySwb);
-// Specifies the probability of sending a ServiceWorkerBehavior CSBRR off
-// device.
-extern const base::FeatureParam<double>
-    kNotificationTelemetrySwbReportingProbability;
-// Specifies the polling interval in minutes.
-extern const base::FeatureParam<int> kNotificationTelemetrySwbPollingInterval;
-// Determines whether CSBRRs are sent to Safe Browsing.
-extern const base::FeatureParam<bool> kNotificationTelemetrySwbSendReports;
 
 // Enables proactive password protection, which triggers a CSD scan when
 // focusing on a password field.
@@ -452,6 +442,9 @@ BASE_DECLARE_FEATURE(kSkipImageClassificationScoringForNonPageLoadTriggers);
 
 // Controls the daily quota for the suspicious site trigger.
 BASE_DECLARE_FEATURE(kSuspiciousSiteTriggerQuotaFeature);
+
+// Enables warnings on sites that Safe Browsing deems suspicious.
+BASE_DECLARE_FEATURE(kSuspiciousSiteWarnings);
 
 // Controls whether the integration of tailored security settings is enabled.
 BASE_DECLARE_FEATURE(kTailoredSecurityIntegration);

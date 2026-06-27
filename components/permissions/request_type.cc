@@ -16,6 +16,7 @@
 #include "components/permissions/features.h"
 #include "components/permissions/permission_request.h"
 #include "components/permissions/permissions_client.h"
+#include "ui/base/ui_base_features.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/resources/android/theme_resources.h"
@@ -52,8 +53,6 @@ int GetIconIdAndroid(RequestType type) {
       return IDR_ANDROID_INFOBAR_IDLE_DETECTION;
     case RequestType::kLocalNetwork:
       return IDR_ANDROID_INFOBAR_LOCAL_NETWORK;
-    case RequestType::kLocalNetworkAccess:
-      return IDR_ANDROID_INFOBAR_LOCAL_NETWORK_ACCESS;
     case RequestType::kLoopbackNetwork:
       return IDR_ANDROID_INFOBAR_LOOPBACK_NETWORK;
     case RequestType::kMicStream:
@@ -88,70 +87,120 @@ const gfx::VectorIcon& GetIconIdDesktop(RequestType type) {
   switch (type) {
     case RequestType::kArSession:
     case RequestType::kVrSession:
-      return vector_icons::kVrHeadsetChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kCardboardIcon
+                 : vector_icons::kVrHeadsetChromeRefreshOldIcon;
     case RequestType::kCameraPanTiltZoom:
     case RequestType::kCameraStream:
-      return vector_icons::kVideocamChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kVideocamIcon
+                 : vector_icons::kVideocamChromeRefreshOldIcon;
     case RequestType::kCapturedSurfaceControl:
-      return vector_icons::kTouchpadMouseIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kTouchpadMouseIcon
+                 : vector_icons::kTouchpadMouseOldIcon;
     case RequestType::kClipboard:
-      return vector_icons::kContentPasteIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kContentPasteIcon
+                 : vector_icons::kContentPasteOldIcon;
     case RequestType::kDiskQuota:
-      return vector_icons::kFolderChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kFolderIcon
+                 : vector_icons::kFolderChromeRefreshOldIcon;
     case RequestType::kGeolocation:
-      return vector_icons::kLocationOnChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kLocationOnIcon
+                 : vector_icons::kLocationOnChromeRefreshOldIcon;
     case RequestType::kHandTracking:
-      return vector_icons::kHandGestureIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kHandGestureIcon
+                 : vector_icons::kHandGestureOldIcon;
     case RequestType::kIdleDetection:
-      return vector_icons::kDevicesIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kDevicesIcon
+                 : vector_icons::kDevicesOldIcon;
     case RequestType::kKeyboardLock:
-      return vector_icons::kKeyboardLockIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kKeyboardLockIcon
+                 : vector_icons::kKeyboardLockOldIcon;
     case RequestType::kLocalFonts:
-      return vector_icons::kFontDownloadChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kFontDownloadIcon
+                 : vector_icons::kFontDownloadChromeRefreshOldIcon;
     case RequestType::kLocalNetwork:
-    case RequestType::kLocalNetworkAccess:
-      return vector_icons::kRouterIcon;
+      return ::features::IsRoundedIconsEnabled() ? vector_icons::kRouterIcon
+                                                 : vector_icons::kRouterOldIcon;
     case RequestType::kLoopbackNetwork:
-      return vector_icons::kDesktopWindowsIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kDesktopWindowsIcon
+                 : vector_icons::kDesktopWindowsOldIcon;
     case RequestType::kMicStream:
-      return vector_icons::kMicChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kMicIcon
+                 : vector_icons::kMicChromeRefreshOldIcon;
     case RequestType::kMidiSysex:
-      return vector_icons::kMidiChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kPianoIcon
+                 : vector_icons::kMidiChromeRefreshOldIcon;
     case RequestType::kMultipleDownloads:
-      return vector_icons::kFileDownloadChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kDownloadIcon
+                 : vector_icons::kFileDownloadChromeRefreshOldIcon;
     case RequestType::kNotifications:
-      return vector_icons::kNotificationsChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kNotificationsIcon
+                 : vector_icons::kNotificationsChromeRefreshOldIcon;
     case RequestType::kPointerLock:
-      return vector_icons::kPointerLockIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kMouseLockIcon
+                 : vector_icons::kPointerLockOldIcon;
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
     case RequestType::kProtectedMediaIdentifier:
       // This icon is provided by ChromePermissionsClient::GetOverrideIconId.
       NOTREACHED();
 #endif
     case RequestType::kRegisterProtocolHandler:
-      return vector_icons::kProtocolHandlerIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kProtocolHandlerIcon
+                 : vector_icons::kProtocolHandlerOldIcon;
     case RequestType::kSensors:
-      return vector_icons::kSensorsChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSensorsIcon
+                 : vector_icons::kSensorsChromeRefreshOldIcon;
 #if BUILDFLAG(IS_CHROMEOS)
     case RequestType::kSmartCard:
-      return vector_icons::kSmartCardReaderIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSmartCardReaderIcon
+                 : vector_icons::kSmartCardReaderOldIcon;
 #endif
     case RequestType::kWebAppInstallation:
-      return vector_icons::kInstallDesktopIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kInstallDesktopIcon
+                 : vector_icons::kInstallDesktopOldIcon;
 #if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(USE_CUPS)
     case RequestType::kWebPrinting:
-      return vector_icons::kPrinterIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kPrintIcon
+                 : vector_icons::kPrinterOldIcon;
 #endif
     case RequestType::kStorageAccess:
     case RequestType::kTopLevelStorageAccess:
-      return vector_icons::kStorageAccessIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kVr180Create2dIcon
+                 : vector_icons::kStorageAccessOldIcon;
     case RequestType::kWindowManagement:
-      return vector_icons::kSelectWindowChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSelectWindowIcon
+                 : vector_icons::kSelectWindowChromeRefreshOldIcon;
     case RequestType::kFileSystemAccess:
-      return vector_icons::kFolderIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kFolderFilledIcon
+                 : vector_icons::kFolderOldIcon;
     case RequestType::kIdentityProvider:
       // TODO(crbug.com/40252825): provide a dedicated icon.
-      return vector_icons::kFolderIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kFolderFilledIcon
+                 : vector_icons::kFolderOldIcon;
   }
   NOTREACHED();
 }
@@ -159,44 +208,75 @@ const gfx::VectorIcon& GetIconIdDesktop(RequestType type) {
 const gfx::VectorIcon& GetBlockedIconIdDesktop(RequestType type) {
   switch (type) {
     case RequestType::kGeolocation:
-      return vector_icons::kLocationOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kLocationOffIcon
+                 : vector_icons::kLocationOffChromeRefreshOldIcon;
     case RequestType::kNotifications:
-      return vector_icons::kNotificationsOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kNotificationsOffIcon
+                 : vector_icons::kNotificationsOffChromeRefreshOldIcon;
     case RequestType::kArSession:
     case RequestType::kVrSession:
-      return vector_icons::kVrHeadsetOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kCardboardOffIcon
+                 : vector_icons::kVrHeadsetOffChromeRefreshOldIcon;
     case RequestType::kCameraStream:
-      return vector_icons::kVideocamOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kVideocamOffIcon
+                 : vector_icons::kVideocamOffChromeRefreshOldIcon;
     case RequestType::kCapturedSurfaceControl:
-      return vector_icons::kTouchpadMouseOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kTouchpadMouseOffIcon
+                 : vector_icons::kTouchpadMouseOffOldIcon;
     case RequestType::kClipboard:
-      return vector_icons::kContentPasteOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kContentPasteOffIcon
+                 : vector_icons::kContentPasteOffOldIcon;
     case RequestType::kHandTracking:
-      return vector_icons::kHandGestureOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kHandGestureOffIcon
+                 : vector_icons::kHandGestureOffOldIcon;
     case RequestType::kIdleDetection:
-      return vector_icons::kDevicesOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kDevicesOffIcon
+                 : vector_icons::kDevicesOffOldIcon;
     case RequestType::kLocalNetwork:
-    case RequestType::kLocalNetworkAccess:
-      return vector_icons::kRouterOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kRouterOffIcon
+                 : vector_icons::kRouterOffOldIcon;
     case RequestType::kLoopbackNetwork:
-      return vector_icons::kDesktopAccessDisabledIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kDesktopAccessDisabledIcon
+                 : vector_icons::kDesktopAccessDisabledOldIcon;
     case RequestType::kMicStream:
-      return vector_icons::kMicOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kMicOffIcon
+                 : vector_icons::kMicOffChromeRefreshOldIcon;
     case RequestType::kMidiSysex:
-      return vector_icons::kMidiOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kPianoOffIcon
+                 : vector_icons::kMidiOffChromeRefreshOldIcon;
     case RequestType::kSensors:
-      return vector_icons::kSensorsOffChromeRefreshIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSensorsOffIcon
+                 : vector_icons::kSensorsOffChromeRefreshOldIcon;
     case RequestType::kStorageAccess:
-      return vector_icons::kStorageAccessOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kVr180Create2dOffIcon
+                 : vector_icons::kStorageAccessOffOldIcon;
     case RequestType::kIdentityProvider:
       // TODO(crbug.com/40252825): use a dedicated icon
       return gfx::VectorIcon::EmptyIcon();
     case RequestType::kKeyboardLock:
-      return vector_icons::kKeyboardLockOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kKeyboardLockOffIcon
+                 : vector_icons::kKeyboardLockOffOldIcon;
     case RequestType::kPointerLock:
-      return vector_icons::kPointerLockOffIcon;
+      return ::features::IsRoundedIconsEnabled()
+                 ? vector_icons::kMouseLockOffIcon
+                 : vector_icons::kPointerLockOffOldIcon;
     case RequestType::kWebAppInstallation:
-      return vector_icons::kInstallDesktopOffIcon;
+      return vector_icons::kInstallDesktopOffCustomIcon;
     default:
       NOTREACHED();
   }
@@ -265,8 +345,6 @@ std::optional<RequestType> ContentSettingsTypeToRequestTypeIfExists(
       return RequestType::kVrSession;
     case ContentSettingsType::WINDOW_MANAGEMENT:
       return RequestType::kWindowManagement;
-    case ContentSettingsType::LOCAL_NETWORK_ACCESS:
-      return RequestType::kLocalNetworkAccess;
     case ContentSettingsType::LOCAL_NETWORK:
       return RequestType::kLocalNetwork;
     case ContentSettingsType::LOOPBACK_NETWORK:
@@ -323,8 +401,6 @@ std::optional<ContentSettingsType> RequestTypeToContentSettingsType(
     case RequestType::kLocalFonts:
       return ContentSettingsType::LOCAL_FONTS;
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-    case RequestType::kLocalNetworkAccess:
-      return ContentSettingsType::LOCAL_NETWORK_ACCESS;
     case RequestType::kLocalNetwork:
       return ContentSettingsType::LOCAL_NETWORK;
     case RequestType::kLoopbackNetwork:
@@ -379,8 +455,14 @@ std::optional<ContentSettingsType> RequestTypeToContentSettingsType(
     case RequestType::kWebAppInstallation:
       return ContentSettingsType::WEB_APP_INSTALLATION;
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-    default:
       // Not associated with a ContentSettingsType.
+    case RequestType::kDiskQuota:
+    case RequestType::kFileSystemAccess:
+    case RequestType::kIdentityProvider:
+    case RequestType::kMultipleDownloads:
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    case RequestType::kRegisterProtocolHandler:
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
       return std::nullopt;
   }
 }
@@ -455,8 +537,6 @@ const char* PermissionKeyForRequestType(permissions::RequestType request_type) {
     case permissions::RequestType::kLocalFonts:
       return "local_fonts";
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-    case permissions::RequestType::kLocalNetworkAccess:
-      return "local_network_access";
     case permissions::RequestType::kLocalNetwork:
       return "local_network";
     case permissions::RequestType::kLoopbackNetwork:

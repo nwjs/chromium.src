@@ -56,12 +56,36 @@ class GeolocationHeaderService : public KeyedService {
   // Returns true if a location is available and cached.
   bool HasCachedLocation() const;
 
+  // Returns the accuracy level of the current cached position if a fresh
+  // location is available. Otherwise, returns std::nullopt.
+  std::optional<GeolocationAccuracy> GetCachedLocationAccuracy() const;
+
   // Returns the serialized X-Geo header if a valid, fresh location is
   // available and the url matches the DSE. Otherwise, returns std::nullopt.
-  std::optional<std::string> GetLocationHeader(const GURL& url);
+  // - `for_automatic_sending` is true when this is called for search matches
+  //    that will 'invisibly' add geo header. So it returns the header only if
+  //    site level permissions are explicitly granted (ALLOW).
+  // - `for_automatic_sending` is false when this is called for search matches
+  //    that will explicitly warn the user a geo header is included. So it
+  //    returns the header only if site level permissions are not explicitly
+  //    granted (ASK/DENY). Showing a location match even when the permission is
+  //    DENY is ok because the match is non-intrusive and is not allowed to be
+  //    default. This behavior is in line with similar features involving users
+  //    proactively initiating some capability access: geolocation, usermedia,
+  //    install.
+  std::optional<std::string> GetLocationHeader(const GURL& url,
+                                               bool for_automatic_sending);
 
   void SetLocationAgeForTesting(base::TimeDelta age) {
     location_age_for_testing_ = age;
+  }
+
+  void SetLocationForTesting(device::mojom::GeopositionPtr position) {
+    last_position_ = std::move(position);
+  }
+
+  bool is_geolocation_bound_for_testing() const {
+    return geolocation_.is_bound();
   }
 
  private:
@@ -73,7 +97,8 @@ class GeolocationHeaderService : public KeyedService {
   bool IsUrlEligibleForLocationHeader(const GURL& url) const;
 
   // Encapsulates the logic to connect to the device geolocation service.
-  bool EnsureGeolocationServiceConnection(const GURL& requesting_url);
+  bool EnsureGeolocationServiceConnection(const GURL& requesting_url,
+                                          bool use_cache_only = false);
 
   void OnLocationUpdate(device::mojom::GeopositionResultPtr result);
 

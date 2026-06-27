@@ -224,6 +224,11 @@ bool IsWebUIOmniboxFullPopupEnabled() {
          base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopupV2);
 }
 
+bool IsWebUIOmniboxInBrowserViewEnabled() {
+  return base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopupV2) &&
+         kWebUIOmniboxFullPopupV2UseBrowserView.Get();
+}
+
 bool IsAimPopupFeatureEnabled() {
   return base::FeatureList::IsEnabled(internal::kWebUIOmniboxAimPopup);
 }
@@ -330,14 +335,6 @@ const base::FeatureParam<bool> kShowLensSearchChip(
     &internal::kWebUIOmniboxSimplification,
     "Omnibox_ShowLensSearchChip",
     false);
-const base::FeatureParam<bool> kAddTabUploadDelayOnRecentTabChipClick(
-    &internal::kWebUIOmniboxAimPopup,
-    "Omnibox_AddTabUploadDelayOnRecentTabChipClick",
-    true);
-const base::FeatureParam<bool> kShowRecentTabChip(
-    &internal::kWebUIOmniboxAimPopup,
-    "Omnibox_ShowRecentTabChip",
-    false);
 const base::FeatureParam<bool> kShowSmartCompose(
     &internal::kWebUIOmniboxAimPopup,
     "Omnibox_ShowSmartCompose",
@@ -363,6 +360,8 @@ const base::FeatureParam<bool> kContextButtonShapeIsOblong{
 const base::FeatureParam<bool> kContextButtonShowSuggestionLabel{
     &internal::kWebUIOmniboxSimplification,
     "Omnibox_ContextButtonShowSuggestionLabel", false};
+const base::FeatureParam<bool> kWebUIOmniboxFullPopupV2UseBrowserView{
+    &kWebUIOmniboxFullPopupV2, "Omnibox_UseBrowserView", false};
 
 FeatureConfig::FeatureConfig() : config(GetNTPComposeboxConfig()) {}
 

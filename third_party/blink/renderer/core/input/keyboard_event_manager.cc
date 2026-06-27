@@ -250,8 +250,7 @@ WebInputEventResult KeyboardEventManager::KeyEvent(
   // - not to be a modifier event
   // https://crbug.com/709765
   bool is_modifier = ui::KeycodeConverter::IsDomKeyForModifier(
-      static_cast<ui::DomKey>(initial_key_event.dom_key));
-
+      ui::DomKey(initial_key_event.dom_key));
   if (!is_modifier && initial_key_event.dom_key != ui::DomKey::ESCAPE &&
       (initial_key_event.GetType() == WebInputEvent::Type::kKeyDown ||
        initial_key_event.GetType() == WebInputEvent::Type::kRawKeyDown)) {
@@ -558,28 +557,28 @@ void KeyboardEventManager::DefaultNavigationKeyEventHandler(
   }
 }
 
-void KeyboardEventManager::DefaultTabEventHandler(KeyboardEvent* event) {
+bool KeyboardEventManager::DefaultTabEventHandler(KeyboardEvent* event) {
   DCHECK_EQ(event->type(), event_type_names::kKeydown);
   // We should only advance focus on tabs if no special modifier keys are held
   // down.
   if (event->ctrlKey() || event->metaKey()) {
-    return;
+    return false;
   }
 
 #if !BUILDFLAG(IS_MAC)
   // Option-Tab is a shortcut based on a system-wide preference on Mac but
   // should be ignored on all other platforms.
   if (event->altKey()) {
-    return;
+    return false;
   }
 #endif
 
   Page* page = frame_->GetPage();
   if (!page) {
-    return;
+    return false;
   }
   if (!page->TabKeyCyclesThroughElements()) {
-    return;
+    return false;
   }
 
   mojom::blink::FocusType focus_type = event->shiftKey()
@@ -588,7 +587,7 @@ void KeyboardEventManager::DefaultTabEventHandler(KeyboardEvent* event) {
 
   // Tabs can be used in design mode editing.
   if (frame_->GetDocument()->InDesignMode()) {
-    return;
+    return false;
   }
 
   if (page->GetFocusController().AdvanceFocus(focus_type,
@@ -597,7 +596,9 @@ void KeyboardEventManager::DefaultTabEventHandler(KeyboardEvent* event) {
                                                   ->GetInputDeviceCapabilities()
                                                   ->FiresTouchEvents(false))) {
     event->SetDefaultHandled();
+    return true;
   }
+  return false;
 }
 
 void KeyboardEventManager::DefaultEscapeEventHandler(KeyboardEvent* event) {

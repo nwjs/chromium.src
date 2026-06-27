@@ -30,8 +30,8 @@
 #include "base/time/time.h"
 #include "cc/input/event_listener_properties.h"
 #include "cc/input/overscroll_behavior.h"
+#include "cc/metrics/begin_main_frame_metrics.h"
 #include "cc/paint/draw_image.h"
-#include "cc/trees/paint_holding_commit_trigger.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
@@ -162,14 +162,18 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual gfx::Rect LocalRootToScreenDIPs(const gfx::Rect&,
                                           const LocalFrameView*) const = 0;
 
-  void ScheduleAnimation(const LocalFrameView* view) {
-    ScheduleAnimation(view, base::TimeDelta(), /*urgent=*/false);
+  void ScheduleAnimation(const LocalFrameView* view,
+                         cc::BeginMainFrameReason reason) {
+    ScheduleAnimation(view, reason, base::TimeDelta(), /*urgent=*/false);
   }
-  void ScheduleAnimation(const LocalFrameView* view, base::TimeDelta delay) {
-    ScheduleAnimation(view, delay, /*urgent=*/false);
+  void ScheduleAnimation(const LocalFrameView* view,
+                         base::TimeDelta delay = base::TimeDelta(),
+                         bool urgent = false) {
+    ScheduleAnimation(view, cc::BeginMainFrameReason::kOther, delay, urgent);
   }
 
-  virtual void ScheduleAnimation(const LocalFrameView* local_frame_view,
+  virtual void ScheduleAnimation(const LocalFrameView* view,
+                                 cc::BeginMainFrameReason reason,
                                  base::TimeDelta delay,
                                  bool urgent) = 0;
 
@@ -227,12 +231,12 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual void UnregisterFromCommitObservation(CommitObserver*) = 0;
 
   virtual void WillCommitCompositorFrame() = 0;
+  virtual void RequestFrameWithoutVSyncFromRoot(LocalFrame& frame) {}
 
   virtual bool StartDeferringCommits(LocalFrame& main_frame,
                                      base::TimeDelta timeout,
                                      cc::PaintHoldingReason reason) = 0;
-  virtual void StopDeferringCommits(LocalFrame& main_frame,
-                                    cc::PaintHoldingCommitTrigger) = 0;
+  virtual void StopDeferringCommits(LocalFrame& main_frame) = 0;
   virtual void SetShouldThrottleFrameRate(bool flag,
                                           LocalFrame& main_frame) = 0;
   virtual void RequestMainFrameOnCompositorAnimation(
@@ -543,6 +547,12 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual void JavaScriptChangedValue(HTMLFormControlElement&,
                                       const String& old_value,
                                       bool was_autofilled) {}
+
+  // Returns true if the given HTMLFormControlElement is eligible for Autofill
+  // by the embedder's Autofill client.
+  virtual bool IsAutofillableElement(const HTMLFormControlElement&) {
+    return false;
+  }
 
   // Input method editor related functions.
   virtual void ShowVirtualKeyboardOnElementFocus(LocalFrame&) {}

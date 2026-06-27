@@ -131,6 +131,19 @@ class AuctionV8DevToolsSession::IOSession
 
   void UnpauseAndTerminate() override { NOTREACHED(); }
 
+  void AddScriptToEvaluateOnNewDocument(
+      const std::string& identifier,
+      blink::mojom::ScriptToEvaluateOnNewDocumentPtr script,
+      bool run_immediately,
+      AddScriptToEvaluateOnNewDocumentCallback callback) override {
+    NOTIMPLEMENTED();
+  }
+
+  void RemoveScriptToEvaluateOnNewDocument(
+      const std::string& identifier) override {
+    NOTIMPLEMENTED();
+  }
+
  private:
   IOSession(scoped_refptr<DebugCommandQueue> debug_command_queue,
             RunDispatch v8_thread_dispatch)
@@ -251,15 +264,30 @@ void AuctionV8DevToolsSession::DispatchProtocolCommand(
 
     v8_session_->dispatchProtocolMessage(cbor_message);
   } else {
-    crdtp::Dispatchable dispatchable(crdtp::span<uint8_t>(
-        cbor_message.characters8(), cbor_message.length()));
-    fallback_dispatcher_.Dispatch(dispatchable).Run();
+    crdtp::Dispatchable dispatchable(
+        crdtp::span<uint8_t>(cbor_message.characters8(), cbor_message.length()),
+        std::string_view(),
+        /*fallthrough_callback=*/nullptr);
+    fallback_dispatcher_.Dispatch(dispatchable);
   }
 }
 
 void AuctionV8DevToolsSession::UnpauseAndTerminate() {
   // This is currently only invoked for frame targets.
   NOTREACHED();
+}
+
+void AuctionV8DevToolsSession::AddScriptToEvaluateOnNewDocument(
+    const std::string& identifier,
+    blink::mojom::ScriptToEvaluateOnNewDocumentPtr script,
+    bool run_immediately,
+    AddScriptToEvaluateOnNewDocumentCallback callback) {
+  NOTIMPLEMENTED();
+}
+
+void AuctionV8DevToolsSession::RemoveScriptToEvaluateOnNewDocument(
+    const std::string& identifier) {
+  NOTIMPLEMENTED();
 }
 
 void AuctionV8DevToolsSession::sendResponse(
@@ -289,13 +317,6 @@ void AuctionV8DevToolsSession::SendProtocolResponse(
 
 void AuctionV8DevToolsSession::SendProtocolNotification(
     std::unique_ptr<crdtp::Serializable> message) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(v8_sequence_checker_);
-  NOTIMPLEMENTED();
-}
-
-void AuctionV8DevToolsSession::FallThrough(int call_id,
-                                           crdtp::span<uint8_t> method,
-                                           crdtp::span<uint8_t> message) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(v8_sequence_checker_);
   NOTIMPLEMENTED();
 }

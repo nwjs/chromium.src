@@ -60,6 +60,7 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
         ?ntp-realbox-next-enabled="${this.ntpRealboxNextEnabled_}"
         ?cycling-placeholders="${this.searchboxCyclingPlaceholders_}"
         context-menu-glif-animation-state="${this.contextMenuGlifAnimationState_}"
+        .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled_}"
         ?multi-line-enabled="${this.multiLineEnabled_}">
     </ntp-searchbox>
     ${this.showComposebox_ ? html`
@@ -69,6 +70,10 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
           <ntp-composebox id="composebox"
               searchbox-layout-mode="Compact"
               searchbox-next-enabled
+              ?disable-caret-color-animation="${!this.caretAnimationsEnabled_}"
+              .state="${this.composeboxState_}"
+              .usePecApi="${this.usePecApi_}"
+              .showVoiceSearch="${true}"
               @close-composebox="${this.onCloseComposebox_}">
           </ntp-composebox>
         ` : html`

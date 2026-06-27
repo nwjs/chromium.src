@@ -22,14 +22,15 @@
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/execution_engine.h"
+#include "chrome/browser/actor/tab_observation_strategy.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
-#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/journal_details_builder.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/page.h"
@@ -158,6 +159,9 @@ ActorTask::ActorTask(base::PassKey<ActorKeyedService, ActorTask>,
                             actor::webui::mojom::TaskDuration::kTransient
                     ? TaskDuration::kTransient
                     : TaskDuration::kDefault),
+      feature_mode_(options && options->feature_mode.has_value()
+                        ? options->feature_mode.value()
+                        : glic::mojom::FeatureMode::kUnspecified),
       policy_checker_(*policy_checker),
       delegate_(std::move(delegate)),
       ui_weak_ptr_factory_(ui_event_dispatcher_.get()) {
@@ -317,15 +321,17 @@ void ActorTask::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
                   JournalDetailsBuilder().AddError("Task is paused").Build());
     MaybeRunLater(
         base::BindOnce(std::move(callback),
-                       MakeResultVector(mojom::ActionResultCode::kTaskPaused)));
+                       MakeResultVector(mojom::ActionResultCode::kTaskPaused),
+                       TabObservationStrategy()));
     return;
   }
   if (IsCompleted()) {
     journal_->Log(GURL(), id(), "ActorTask::Act",
                   JournalDetailsBuilder().AddError("Task is Stopped").Build());
-    MaybeRunLater(base::BindOnce(
-        std::move(callback),
-        MakeResultVector(mojom::ActionResultCode::kTaskWentAway)));
+    MaybeRunLater(
+        base::BindOnce(std::move(callback),
+                       MakeResultVector(mojom::ActionResultCode::kTaskWentAway),
+                       TabObservationStrategy()));
     return;
   }
 
@@ -335,7 +341,8 @@ void ActorTask::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
         JournalDetailsBuilder().AddError("Task is Waiting for User").Build());
     MaybeRunLater(base::BindOnce(
         std::move(callback),
-        MakeResultVector(mojom::ActionResultCode::kInvalidTaskStateForAct)));
+        MakeResultVector(mojom::ActionResultCode::kInvalidTaskStateForAct),
+        TabObservationStrategy()));
     return;
   }
 
@@ -377,7 +384,8 @@ void ActorTask::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
 }
 
 void ActorTask::OnFinishedAct(
-    std::vector<ActionResultWithLatencyInfo> action_results) {
+    std::vector<ActionResultWithLatencyInfo> action_results,
+    TabObservationStrategy observation_strategy) {
   mojom::ActionResultPtr result = MakeOkResult();
   for (const auto& action_result : action_results) {
     if (!IsOk(action_result.result->code)) {
@@ -419,7 +427,8 @@ void ActorTask::OnFinishedAct(
     if (result) {
       action_tracker_for_metrics_->OnFinishedAct(*result);
     }
-    std::move(callback_for_act_).Run(std::move(action_results));
+    std::move(callback_for_act_)
+        .Run(std::move(action_results), std::move(observation_strategy));
   }
 
   if (state_ == State::kActing ||
@@ -431,15 +440,20 @@ void ActorTask::OnFinishedAct(
 void ActorTask::Stop(StoppedReason stop_reason) {
   // Invoke the callback before changing states so that the client sees the Act
   // result before seeing the state transition.
-  if (callback_for_act_) {
-    DCHECK(state_ == State::kActing || state_ == State::kWaitingOnUser);
-    mojom::ActionResultPtr result =
-        MakeResult(mojom::ActionResultCode::kTaskWentAway);
-    action_tracker_for_metrics_->OnFinishedAct(*result);
-    std::move(callback_for_act_).Run(MakeResultVector(std::move(result)));
+  mojom::ActionResultCode result_code = mojom::ActionResultCode::kTaskWentAway;
+  if (stop_reason == StoppedReason::kUserNavigatedAway) {
+    result_code = mojom::ActionResultCode::kUserNavigatedAway;
   }
 
-  CancelOngoingActions(mojom::ActionResultCode::kTaskWentAway);
+  if (callback_for_act_) {
+    DCHECK(state_ == State::kActing || state_ == State::kWaitingOnUser);
+    mojom::ActionResultPtr result = MakeResult(result_code);
+    action_tracker_for_metrics_->OnFinishedAct(*result);
+    std::move(callback_for_act_)
+        .Run(MakeResultVector(std::move(result)), TabObservationStrategy());
+  }
+
+  CancelOngoingActions(result_code);
 
   end_time_ = base::Time::Now();
   State final_state = GetTaskStateFromStoppedReason(stop_reason);
@@ -458,7 +472,8 @@ void ActorTask::Stop(StoppedReason stop_reason) {
       .final_state = final_state,
       .title = title_,
       .last_acted_on_tab_handle = last_tab_handle,
-      .duration = duration_});
+      .duration = duration_,
+      .feature_mode = feature_mode_});
 }
 
 void ActorTask::Pause(bool from_actor, bool cancel_existing_action) {
@@ -474,7 +489,8 @@ void ActorTask::Pause(bool from_actor, bool cancel_existing_action) {
     mojom::ActionResultPtr result =
         MakeResult(mojom::ActionResultCode::kTaskPaused);
     action_tracker_for_metrics_->OnFinishedAct(*result);
-    std::move(callback_for_act_).Run(MakeResultVector(std::move(result)));
+    std::move(callback_for_act_)
+        .Run(MakeResultVector(std::move(result)), TabObservationStrategy());
   }
 
   if (cancel_existing_action) {
@@ -526,6 +542,7 @@ bool ActorTask::CancelOngoingActions(mojom::ActionResultCode reason) {
   switch (reason) {
     case mojom::ActionResultCode::kTaskWentAway:
     case mojom::ActionResultCode::kActionsCancelled:
+    case mojom::ActionResultCode::kUserNavigatedAway:
       execution_engine_->RunUserTakeoverCallbackIfExists(
           /*should_cancel=*/true);
       break;
@@ -590,6 +607,15 @@ void ActorTask::AddTab(tabs::TabHandle tab_handle,
   journal_->Log(
       GURL(), id(), "ActorTask::AddTab",
       JournalDetailsBuilder().Add("tab_id", tab_handle.raw_value()).Build());
+
+  if (CheckCrossProfileAndLog(tab_handle.Get(), tab_handle,
+                              "ActorTask::AddTab")) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback),
+                       MakeResult(mojom::ActionResultCode::kTaskWentAway)));
+    return;
+  }
 
   auto emplace_result = controlled_tabs_.emplace(
       tab_handle,
@@ -673,6 +699,10 @@ void ActorTask::ObserveTabOnce(tabs::TabHandle tab_handle) {
     return;
   }
 
+  if (CheckCrossProfileAndLog(tab, tab_handle, "ObserveTabOnce")) {
+    return;
+  }
+
   journal_->Log(
       GURL(), id(), "ObserveTabOnce",
       JournalDetailsBuilder().Add("tab_id", tab_handle.raw_value()).Build());
@@ -726,7 +756,8 @@ void ActorTask::DidEarlyAddTabs(
   // with failure.
   for (mojom::ActionResultPtr& result : add_tab_results) {
     if (!IsOk(*result)) {
-      OnFinishedAct(MakeResultVector(std::move(result)));
+      OnFinishedAct(MakeResultVector(std::move(result)),
+                    TabObservationStrategy());
       return;
     }
   }
@@ -893,6 +924,21 @@ void ActorTask::DidContentsExitActorControl(
 #endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
 }
 
+bool ActorTask::CheckCrossProfileAndLog(tabs::TabInterface* tab,
+                                        tabs::TabHandle tab_handle,
+                                        std::string_view method_name) {
+  if (tab && tab->GetContents() &&
+      tab->GetContents()->GetBrowserContext() != GetProfile()) {
+    journal_->Log(GURL(), id(), method_name,
+                  JournalDetailsBuilder()
+                      .Add("tab_id", tab_handle.raw_value())
+                      .AddError("Cross-profile access denied")
+                      .Build());
+    return true;
+  }
+  return false;
+}
+
 void ActorTask::AddAdditionalTabObservations(
     std::vector<optimization_guide::proto::TabObservation> tab_observations) {
   // This is currently only used by the load and extract content tool.
@@ -938,6 +984,7 @@ ActorTask::State ActorTask::GetTaskStateFromStoppedReason(
     case StoppedReason::kUserStartedNewChat:
     case StoppedReason::kUserLoadedPreviousChat:
     case StoppedReason::kStoppedByUser:
+    case StoppedReason::kUserNavigatedAway:
     case StoppedReason::kTabDetached:
     case StoppedReason::kShutdown:
       final_state = State::kCancelled;

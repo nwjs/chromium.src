@@ -204,11 +204,14 @@ class ChromePasswordProtectionService
   //
   // |username| can be an email address or a username for a non-GAIA or
   // saved-password reuse. No validation has been done on it.
-  void MaybeReportPasswordReuseDetected(const GURL& main_frame_url,
-                                        const std::string& username,
-                                        PasswordType password_type,
-                                        bool is_phishing_url,
-                                        bool warning_shown) override;
+  // |referrer_chain| is the referrer chain of the main frame URL.
+  void MaybeReportPasswordReuseDetected(
+      const GURL& main_frame_url,
+      const std::string& username,
+      PasswordType password_type,
+      bool is_phishing_url,
+      bool warning_shown,
+      const ReferrerChain& referrer_chain) override;
 
   // Triggers "safeBrowsingPrivate.OnPolicySpecifiedPasswordChanged" (on desktop
   // platforms) and a password changed enterprise event report (on both desktop
@@ -252,6 +255,12 @@ class ChromePasswordProtectionService
   void RemovePhishedSavedPasswordCredential(
       const std::vector<password_manager::MatchingReusedCredential>&
           matching_reused_credentials) override;
+
+  // PasswordProtectionServiceBase overrides.
+  void RequestFinished(
+      PasswordProtectionRequest* request,
+      RequestOutcome outcome,
+      std::unique_ptr<LoginReputationClientResponse> response) override;
 
 #if BUILDFLAG(IS_ANDROID)
   ReferringAppInfo GetReferringAppInfo(
@@ -548,6 +557,13 @@ class ChromePasswordProtectionService
       RequestOutcome outcome,
       LoginReputationClientResponse::VerdictType verdict_type,
       const std::string& verdict_token);
+
+  // Records site engagement score for the site for which a verdict was
+  // received.
+  void RecordSiteEngagementScore(
+      const GURL& url,
+      LoginReputationClientRequest::TriggerType trigger_type,
+      LoginReputationClientResponse::VerdictType verdict_type);
 
   // Add the bypass event to pref when the user ignore the modal warning.
   void AddModelWarningBypasstoPref();

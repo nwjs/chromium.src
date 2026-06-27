@@ -8,13 +8,21 @@
 #include "base/observer_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_observer.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/adapters/event_bridge.h"
+#include "components/browser_apis/tab_strip/adapters/event_bridge.h"
+#include "components/tabs/public/tab_collection_observer.h"
 
 namespace tabs_api {
 
-class AndroidTabModelEventBridge : public EventBridge, public TabModelObserver {
+class AndroidTabStripModelAdapter;
+class TranslationAdapter;
+
+class AndroidTabModelEventBridge : public EventBridge,
+                                   public TabModelObserver,
+                                   public tabs::TabCollectionObserver {
  public:
-  explicit AndroidTabModelEventBridge(TabModel* model);
+  AndroidTabModelEventBridge(TabModel* model,
+                             AndroidTabStripModelAdapter& adapter,
+                             TranslationAdapter& translation_adapter);
   ~AndroidTabModelEventBridge() override;
 
   // EventBridge:
@@ -22,13 +30,47 @@ class AndroidTabModelEventBridge : public EventBridge, public TabModelObserver {
   void RemoveObserver(events::EventObserver* observer) override;
 
   // TabModelObserver:
+  // Note that activation and selection are usually intertwined. Since Tab Strip
+  // API expresses activation and selection change within the same event, we'll
+  // want to suppress firing double events from Android. Therefore, the
+  // DidSelectTab and OnTabsSelectionChanged are naturally aware of each other's
+  // implementation.
+  //////////////////////////////////////////////////////////////////////////////
+  // Select in this case means activate.
+  void DidSelectTab(TabAndroid* tab, TabModel::TabSelectionType type) override;
+  void OnTabsSelectionsChanged() override;
+  /////////////////////////////////////////////////////////////////////////////
+  void DidAddTab(TabAndroid* tab, TabModel::TabLaunchType type) override;
   void DidRemoveTabForClosure(TabAndroid* tab) override;
+  void TabRemoved(TabAndroid* tab) override;
+  void OnTabGroupCreated(tab_groups::TabGroupId group_id) override;
+  void OnTabGroupRemoving(tab_groups::TabGroupId group_id) override;
+  void OnTabGroupVisualsChanged(tab_groups::TabGroupId group_id) override;
+
+  // TabCollectionObserver:
+  // NOTE: Be VERY careful about the TabHandles from this observation. Android
+  // TabCollection uses a "shadow" or wrapper TabHandles to deal with ownership
+  // issues. Any TabHandle received from TabCollection MUST be exchanged to
+  // AndroidTab* before usage.
+  void OnChildMoved(const tabs::TabCollection::Position& to_position,
+                    const NodeData& node_data) override;
 
  private:
+  // Exchanges a tab collection's TabHandle to an AndroidTab.
+  TabAndroid* ToAndroidTab(tabs::TabHandle tab_collection_handle) const;
+
+  void HandleSelectionAndActivationChange();
   void Notify(events::Event event) const;
 
   base::ObserverList<events::EventObserver> observers_;
   raw_ptr<TabModel> model_;
+  raw_ref<AndroidTabStripModelAdapter> adapter_;
+  raw_ref<TranslationAdapter> translation_adapter_;
+
+  // Android tab model does selection change event does not contain the last
+  // selected tab, so we will need to keep track of it ourselves.
+  tabs::TabHandle last_active_tab_;
+  std::vector<tabs::TabHandle> last_selection_;
 };
 
 }  // namespace tabs_api

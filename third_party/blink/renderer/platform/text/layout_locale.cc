@@ -346,17 +346,21 @@ scoped_refptr<QuotesData> LayoutLocale::GetQuotesData() const {
   String normalized_lang = LocaleString();
   normalized_lang.Replace('-', '_');
 
-  // Try to find exact match
-  quotes_data_ = GetQuotesDataForLanguage(normalized_lang);
-
-  if (!quotes_data_) {
-    // No exact match, try to find without subtags.
-    wtf_size_t hyphen_offset = normalized_lang.rfind('_');
-    if (hyphen_offset == kNotFound) {
-      return nullptr;
-    }
+  // Try the exact locale first, then remove subtags one at a time.
+  wtf_size_t locale_length = normalized_lang.length();
+  while (locale_length) {
     quotes_data_ =
-        GetQuotesDataForLanguage(StringView(normalized_lang, 0, hyphen_offset));
+        GetQuotesDataForLanguage(StringView(normalized_lang, 0, locale_length));
+    if (quotes_data_) {
+      break;
+    }
+
+    // No exact match, try again without the last subtag.
+    wtf_size_t separator_offset = normalized_lang.rfind('_', locale_length - 1);
+    if (separator_offset == kNotFound) {
+      break;
+    }
+    locale_length = separator_offset;
   }
   return quotes_data_;
 }
@@ -399,7 +403,7 @@ AtomicString LayoutLocale::LocaleWithBreakKeyword(
     }
 
     bool SetKeywordValue(const char* keyword_name, const char* value) {
-      ICUError status;
+      IcuError status;
       int32_t length_needed = uloc_setKeywordValue(
           keyword_name, value, buffer_.data(), buffer_.size(), &status);
       if (U_SUCCESS(status)) {

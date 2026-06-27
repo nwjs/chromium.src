@@ -233,15 +233,18 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
        "px;"});
 
   const auto& typography_provider = views::TypographyProvider::Get();
-  AddFontVariables("--omnibox-primary",
-                   typography_provider.GetFont(CONTEXT_OMNIBOX_PRIMARY,
-                                               views::style::STYLE_PRIMARY),
+  AddFontVariables("--omnibox-primary", CONTEXT_OMNIBOX_PRIMARY,
+                   views::style::STYLE_PRIMARY, typography_provider,
                    css_string);
-  AddFontVariables(
-      "--omnibox-chip",
-      typography_provider.GetFont(CONTEXT_OMNIBOX_PRIMARY,
-                                  views::style::STYLE_BODY_4_EMPHASIS),
-      css_string);
+  AddFontVariables("--omnibox-primary-body-3-emphasis", CONTEXT_OMNIBOX_PRIMARY,
+                   views::style::STYLE_BODY_3_EMPHASIS, typography_provider,
+                   css_string);
+  AddFontVariables("--omnibox-chip", CONTEXT_OMNIBOX_PRIMARY,
+                   views::style::STYLE_BODY_4_EMPHASIS, typography_provider,
+                   css_string);
+  AddFontVariables("--permission-chip", views::style::CONTEXT_BUTTON_MD,
+                   views::style::STYLE_PRIMARY, typography_provider,
+                   css_string);
 
   css_string.push_back('}');
   return css_string;
@@ -312,17 +315,29 @@ std::string WebUIToolbarLayoutCssHelper::EscapeCssFontName(
 }
 
 // static
-void WebUIToolbarLayoutCssHelper::AddFontVariables(std::string_view prefix,
-                                                   const gfx::FontList& font,
-                                                   std::string& out) {
+void WebUIToolbarLayoutCssHelper::AddFontVariables(
+    std::string_view prefix,
+    int context,
+    int style,
+    const views::TypographyProvider& typography_provider,
+    std::string& out) {
+  const gfx::FontList& font = typography_provider.GetFont(context, style);
   DCHECK_EQ(1u, font.GetFonts().size());
+  std::string_view font_family = font.GetPrimaryFont().GetFontName();
+  // Convert internal Mac font name back to CSS name.
+  if (font_family == ".AppleSystemUIFont") {
+    font_family = "system-ui";
+  }
   base::StrAppend(
       &out,
       // clang-format off
       {prefix, "-font-family:\"",
-       EscapeCssFontName(font.GetPrimaryFont().GetFontName()), "\";",
+       EscapeCssFontName(font_family), "\";",
        prefix, "-font-size:", base::NumberToString(font.GetFontSize()), "px;",
        prefix, "-font-weight:",
-       base::NumberToString(static_cast<int>(font.GetFontWeight())), ";"});
+       base::NumberToString(static_cast<int>(font.GetFontWeight())), ";",
+       prefix, "-line-height:",
+       base::NumberToString(typography_provider.GetLineHeight(context, style)),
+       "px;"});
   // clang-format on
 }

@@ -458,6 +458,17 @@ def _speedometer3_crossbench(estimated_runtime: int = 60,
                           flags=flags)
 
 
+@_register("speedometer3-turbolev_future.crossbench")
+def _speedometer3_turbolev_future_crossbench(estimated_runtime: int = 60,
+                                             flags: tuple[str, ...] = ()):
+  flags += ("--js-flags=--turbolev-future", )
+  return CrossbenchConfig(
+      "speedometer3-turbolev_future.crossbench",
+      "speedometer_3",
+      estimated_runtime=estimated_runtime,
+      flags=flags,
+  )
+
 @_register('browser_startup.crossbench')
 def _browser_startup_crossbench(estimated_runtime: int = 60,
                                 flags: tuple[str, ...] = ()):
@@ -874,7 +885,7 @@ PLATFORM_INFO = {
     },
     'android-brya-kano-i5-8gb-perf': {
         'description': 'Brya SKU kano_12th_Gen_IntelR_CoreTM_i5_1235U_8GB',
-        'num_shards': 4,
+        'num_shards': 2,
         'platform_os': 'android',
         'is_fyi': False
     },
@@ -915,21 +926,9 @@ PLATFORM_INFO = {
         'platform_os': 'android',
         'is_fyi': False
     },
-    'android-pixel6-perf': {
-        'description': 'Android U',
-        'num_shards': 14,
-        'platform_os': 'android',
-        'is_fyi': False
-    },
     'android-pixel6-perf-pgo': {
         'description': 'Android U',
         'num_shards': 8,
-        'platform_os': 'android',
-        'is_fyi': False
-    },
-    'android-pixel6-pro-perf': {
-        'description': 'Android T',
-        'num_shards': 10,
         'platform_os': 'android',
         'is_fyi': False
     },
@@ -982,15 +981,15 @@ PLATFORM_INFO = {
         'platform_os': 'android',
         'is_fyi': False
     },
-    'android-pixel25-ultra-perf': {
+    'android-pixel10-perf': {
         'description': 'Android B',
-        'num_shards': 4,
+        'num_shards': 25,
         'platform_os': 'android',
         'is_fyi': False
     },
-    'android-pixel25-ultra-xl-perf': {
+    'android-pixel10_webview-perf': {
         'description': 'Android B',
-        'num_shards': 3,
+        'num_shards': 23,
         'platform_os': 'android',
         'is_fyi': False
     },

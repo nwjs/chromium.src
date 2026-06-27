@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 @protocol DownloadManagerViewControllerDelegate;
+class FullscreenBrowserAgent;
 class FullscreenController;
 @class LayoutGuideCenter;
 
@@ -27,6 +28,14 @@ class FullscreenController;
 
 // Sets the fullscreen controller to update UI on fullscreen changes.
 - (void)setFullscreenController:(FullscreenController*)fullscreenController;
+
+// Sets the fullscreen browser agent to update UI on fullscreen changes.
+- (void)setFullscreenBrowserAgent:
+    (FullscreenBrowserAgent*)fullscreenBrowserAgent;
+
+// Disables the current action button temporarily to prevent tapjacking.
+// Must be called after presenting the view controller.
+- (void)disableCurrentButtonTemporarily;
 
 @end
 

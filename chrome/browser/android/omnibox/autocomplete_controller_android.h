@@ -49,6 +49,7 @@ class AutocompleteControllerAndroid : public AutocompleteController::Observer,
       omnibox::ToolMode tool_mode,
       bool prevent_inline_autocomplete,
       bool prefer_keyword,
+      bool in_keyword_mode,
       bool allow_exact_keyword_match,
       bool want_asynchronous_matches);
   void StartPrefetch(
@@ -67,7 +68,7 @@ class AutocompleteControllerAndroid : public AutocompleteController::Observer,
       ::metrics::OmniboxEventProto::PageClassification page_classification,
       omnibox::ToolMode tool_mode,
       const std::u16string& current_title);
-  void Stop(JNIEnv* env, bool clear_result);
+  void Stop(JNIEnv* env, AutocompleteStopReason reason);
   void ResetSession(JNIEnv* env);
   void StartPrewarm(JNIEnv* env, content::WebContents* web_contents);
 
@@ -184,6 +185,9 @@ class AutocompleteControllerAndroid : public AutocompleteController::Observer,
   // This call may get triggered multiple time during User interaction with the
   // Omnibox - these requests are deduplicated down the call chain.
   void WarmUpRenderProcess() const;
+
+  // Post-processes the result to apply any Android-specific display logic.
+  void PostProcessResult(AutocompleteResult& result);
 
   // Whether the current device is a low-memory device.
   const bool is_low_memory_device_{};

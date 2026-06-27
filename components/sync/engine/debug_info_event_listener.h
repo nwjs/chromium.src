@@ -17,11 +17,13 @@
 namespace sync_pb {
 class DebugEventInfo;
 class DebugInfo;
-class EncryptedData;
 enum SyncEnums_SingletonDebugEventType : int;
 }  // namespace sync_pb
 
 namespace syncer {
+
+class CustomPassphraseBootstrapToken;
+class RequiredPassphraseVerifier;
 
 // Listens to events and records them in a queue. And passes the events to
 // syncer when requested.
@@ -53,11 +55,13 @@ class DebugInfoEventListener : public SyncManager::Observer,
 
   // SyncEncryptionHandler::Observer implementation.
   void OnPassphraseRequired(
-      const KeyDerivationParams& key_derivation_params,
-      const sync_pb::EncryptedData& pending_keys) override;
-  void OnPassphraseAccepted() override;
+      std::unique_ptr<RequiredPassphraseVerifier> verifier) override;
+  void OnPassphraseAccepted(
+      const CustomPassphraseBootstrapToken& bootstrap_token) override;
   void OnTrustedVaultKeyRequired() override;
   void OnTrustedVaultKeyAccepted() override;
+  void OnKeystoreKeysRequired() override;
+  void OnKeystoreKeysAccepted() override;
   void OnEncryptedTypesChanged(DataTypeSet encrypted_types,
                                bool encrypt_everything) override;
   void OnCryptographerStateChanged(Cryptographer* cryptographer,

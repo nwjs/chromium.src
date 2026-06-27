@@ -7,6 +7,7 @@ import argparse
 import datetime
 import hashlib
 import os
+from pathlib import Path
 import re
 import sys
 
@@ -16,6 +17,20 @@ import chromium_src.tools.metrics.histograms.extract_histograms as extract_histo
 import chromium_src.tools.metrics.histograms.histogram_paths as histogram_paths
 import chromium_src.tools.metrics.histograms.merge_xml as merge_xml
 
+# The number of weeks per milestone, used for calculating expiry dates.
+_WEEKS_PER_MSTONE = 4
+
+# Some extra "grace" time is given to expired histograms during which they
+# will contintue to be collected and reported. The dashboard should ignore
+# data from this period making the expiry noticeable and giving time for
+# owners to re-enable them without any discontinuity of data. Releases are
+# generally 4 weeks apart but sometimes longer so +2 weeks to be safe.
+
+# _EXPIRE_GRACE_MSTONES is used for expiry dates in the milestone format.
+_EXPIRE_GRACE_MSTONES = 3
+
+# _EXPIRE_GRACE_WEEKS is used for expiry dates in the date format.
+_EXPIRE_GRACE_WEEKS = _EXPIRE_GRACE_MSTONES * _WEEKS_PER_MSTONE + 2
 
 _DATE_FILE_RE = re.compile(r".*MAJOR_BRANCH_DATE=(.+).*")
 _CURRENT_MILESTONE_RE = re.compile(r"MAJOR=([0-9]{2,3})\n")
@@ -43,14 +58,6 @@ const {hash_datatype} kExpiredHistogramsHashes[] = {{
 """
 
 _DATE_FORMAT_ERROR = "Unable to parse expiry {date} in histogram {name}."
-
-# Some extra "grace" time is given to expired histograms during which they
-# will contintue to be collected and reported.  The dashboard should ignore
-# data from this period making the expiry noticeable and giving time for
-# owners to re-enable them without any discontinuity of data. Releases are
-# geneally 6 weeks apart but sometimes 7 so +2 to be safe.
-_EXPIRE_GRACE_MSTONES = 2
-_EXPIRE_GRACE_WEEKS = _EXPIRE_GRACE_MSTONES * 6 + 2
 
 
 class Error(Exception):
@@ -260,8 +267,8 @@ def _GenerateFile(arguments):
       descriptions, branch_file_content, mstone_file_content,
       arguments.header_filename, arguments.namespace)
 
-  with open(os.path.join(arguments.output_dir, arguments.header_filename),
-            "w") as generated_file:
+  output_path = Path(arguments.output_dir) / arguments.header_filename
+  with open(output_path, "w") as generated_file:
     generated_file.write(header_file_content)
 
 

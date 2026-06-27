@@ -117,7 +117,7 @@ PerformanceManagerTabHelper::PerformanceManagerTabHelper(
   // Create the page node.
   page_node_ = PerformanceManagerImpl::CreatePageNode(
       web_contents->GetWeakPtr(), web_contents->GetUniqueToken(),
-      web_contents->GetBrowserContext()->UniqueId(),
+      web_contents->GetBrowserContext()->UniqueToken(),
       web_contents->GetVisibleURL(), initial_property_flags,
       web_contents->GetLastActiveTimeTicks());
 
@@ -586,6 +586,32 @@ void PerformanceManagerTabHelper::InnerWebContentsAttached(
   // Note that guest views can simultaneously have openers *and* be embedded.
   CHECK(frame);
   page->SetEmbedderFrameNode(frame);
+}
+
+void PerformanceManagerTabHelper::SurfaceEmbedChildWebContentsAttached(
+    content::WebContents* inner_web_contents,
+    content::RenderFrameHost* embedder_render_frame_host) {
+  auto* helper = FromWebContents(inner_web_contents);
+  CHECK(helper);
+  auto* page = helper->page_node_.get();
+  CHECK(page);
+  auto* frame = GetFrameNode(embedder_render_frame_host);
+
+  // For a surface embed, the RFH should already have been seen.
+  CHECK(frame);
+  CHECK(!page->embedder_frame_node());
+  page->SetEmbedderFrameNode(frame);
+}
+
+void PerformanceManagerTabHelper::SurfaceEmbedChildWebContentsDetached(
+    content::WebContents* inner_web_contents) {
+  auto* helper = FromWebContents(inner_web_contents);
+  CHECK(helper);
+  auto* page = helper->page_node_.get();
+  CHECK(page);
+
+  CHECK(page->embedder_frame_node());
+  page->ClearEmbedderFrameNode();
 }
 
 void PerformanceManagerTabHelper::WebContentsDestroyed() {

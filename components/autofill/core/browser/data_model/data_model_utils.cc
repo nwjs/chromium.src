@@ -4,13 +4,24 @@
 
 #include "components/autofill/core/browser/data_model/data_model_utils.h"
 
-#include <optional>
-#include <ranges>
+#include <stddef.h>
+#include <stdint.h>
 
+#include <array>
+#include <cstdlib>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "base/check.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/i18n/string_search.h"
 #include "base/i18n/unicodestring.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -18,8 +29,9 @@
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_regex_constants.h"
 #include "components/autofill/core/common/autofill_regexes.h"
-#include "components/autofill/core/common/dense_set.h"
-#include "third_party/icu/source/common/unicode/uloc.h"
+#include "third_party/icu/source/common/unicode/locid.h"
+#include "third_party/icu/source/common/unicode/unistr.h"
+#include "third_party/icu/source/common/unicode/utypes.h"
 #include "third_party/icu/source/i18n/unicode/dtfmtsym.h"
 #include "third_party/icu/source/i18n/unicode/dtptngen.h"
 
@@ -351,6 +363,52 @@ std::optional<int> ParseYearFromString(std::u16string_view text) {
     return std::nullopt;
 
   return GetExpirationYear(year);
+}
+
+bool ParseExpirationDate(std::u16string_view text,
+                         std::u16string* month,
+                         std::u16string* year) {
+  static constexpr char16_t kDateRegex[] =
+      uR"(^\s*[0-9]{1,2}\s*[-/|]?\s*[0-9]{2,4}\s*$)";
+  if (!MatchesRegex<kDateRegex>(text)) {
+    return false;
+  }
+
+  std::u16string month_local;
+  std::u16string year_local;
+
+  // Check for a separator.
+  std::u16string found_separator;
+  const std::vector<std::u16string> kSeparators{u"-", u"/", u"|"};
+  for (const std::u16string& separator : kSeparators) {
+    if (text.find(separator) != std::u16string::npos) {
+      found_separator = separator;
+      break;
+    }
+  }
+
+  if (!found_separator.empty()) {
+    std::vector<std::u16string> month_year = base::SplitString(
+        text, found_separator, base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+    if (month_year.size() != 2) {
+      return false;
+    }
+    month_local = month_year[0];
+    year_local = month_year[1];
+  } else if (text.size() % 2 == 0) {
+    month_local = text.substr(0, 2);
+    year_local = text.substr(2);
+  } else {
+    return false;
+  }
+
+  if (month) {
+    *month = std::move(month_local);
+  }
+  if (year) {
+    *year = std::move(year_local);
+  }
+  return true;
 }
 
 std::optional<int> GetExpirationMonth(int value) {

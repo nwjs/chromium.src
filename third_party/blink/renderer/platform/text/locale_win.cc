@@ -207,7 +207,7 @@ Vector<String> GetShortMonthLabels(LCID lcid, bool defaults_for_locale) {
   return GetLocaleInfoStrings(lcid, kTypes, defaults_for_locale, false);
 }
 
-Vector<String> GetTimeAMPMLabels(LCID lcid, bool defaults_for_locale) {
+Vector<String> GetTimeAmPmLabels(LCID lcid, bool defaults_for_locale) {
   WebSandboxSupport* proxy = Platform::Current()->GetSandboxSupport();
   if (proxy && proxy->IsLocaleProxyEnabled()) {
     return Vector<String>(proxy->AmPmLabels(lcid, defaults_for_locale));
@@ -415,7 +415,7 @@ unsigned LocaleWin::FirstDayOfWeek() {
   return first_day_of_week_;
 }
 
-bool LocaleWin::IsRTL() {
+bool LocaleWin::IsRtl() {
   unicode::CharDirection dir = unicode::Direction(MonthLabels()[0][0]);
   return dir == unicode::kRightToLeft || dir == unicode::kRightToLeftArabic;
 }
@@ -510,9 +510,9 @@ const Vector<String>& LocaleWin::ShortStandAloneMonthLabels() {
   return ShortMonthLabels();
 }
 
-const Vector<String>& LocaleWin::TimeAMPMLabels() {
+const Vector<String>& LocaleWin::TimeAmPmLabels() {
   if (time_ampm_labels_.empty()) {
-    time_ampm_labels_ = GetTimeAMPMLabels(lcid_, defaults_for_locale_);
+    time_ampm_labels_ = GetTimeAmPmLabels(lcid_, defaults_for_locale_);
   }
   return time_ampm_labels_;
 }

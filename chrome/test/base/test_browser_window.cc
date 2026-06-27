@@ -48,6 +48,10 @@ OmniboxView* TestBrowserWindow::TestLocationBar::GetOmniboxView() {
   return nullptr;
 }
 
+OmniboxPopupView* TestBrowserWindow::TestLocationBar::GetOmniboxPopupView() {
+  return nullptr;
+}
+
 OmniboxController* TestBrowserWindow::TestLocationBar::GetOmniboxController() {
   return nullptr;
 }
@@ -329,10 +333,6 @@ ShowTranslateBubbleResult TestBrowserWindow::ShowTranslateBubble(
   return ShowTranslateBubbleResult::kSuccess;
 }
 
-void TestBrowserWindow::StartPartialTranslate(
-    const std::string& source_language,
-    const std::string& target_language,
-    const std::u16string& text_selection) {}
 
 #if BUILDFLAG(IS_CHROMEOS)
 void TestBrowserWindow::ToggleMultitaskMenu() {

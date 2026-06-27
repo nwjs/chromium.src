@@ -31,6 +31,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -109,6 +110,7 @@ public class KeyboardFocusRowManagerTest {
     @SmallTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature("KeyboardShortcuts")
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288498
     public void testSwitchKeyboardFocusRow_withTabletTabStrip() {
         // Put something in the content view so we can focus on it.
         ChromeTabUtils.newTabFromMenu(
@@ -150,7 +152,127 @@ public class KeyboardFocusRowManagerTest {
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature("KeyboardShortcuts")
     @EnableFeatures(ChromeFeatureList.ANDROID_BOOKMARK_BAR)
-    public void testSwitchKeyboardFocusRow_withBookmarksBar() {
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288498
+    public void testSwitchKeyboardFocusRow_withBookmarksBarOnly() {
+        setBookmarkBarFeatureParam(true);
+        setUserPrefsShowBookmarksBar(true);
+
+        // Put something in the content view so we can focus on it.
+        ChromeTabUtils.newTabFromMenu(
+                InstrumentationRegistry.getInstrumentation(), mActivity, false, true);
+
+        // Switch the first time.
+        switchRow();
+        assertOnToolbar();
+
+        // Switch a 2nd time.
+        switchRow();
+        assertOnTabStrip();
+
+        // Switch a 3rd time.
+        switchRow();
+        assertOnBookmarksBar();
+
+        // Switch a 4th time.
+        switchRow();
+        assertOnNone();
+    }
+
+    @Test
+    @SmallTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Feature("KeyboardShortcuts")
+    @EnableFeatures({
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE
+    })
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288498
+    public void testSwitchKeyboardFocusRow_withSidePanelOnly() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mTabbedRootUiCoordinator.getSidePanelDevFeatureForTesting().toggle());
+
+        // Put something in the content view so we can focus on it.
+        ChromeTabUtils.newTabFromMenu(
+                InstrumentationRegistry.getInstrumentation(), mActivity, false, true);
+
+        // Switch the first time.
+        switchRow();
+        assertOnToolbar();
+
+        // Switch a 2nd time.
+        switchRow();
+        assertOnTabStrip();
+
+        // Switch a 3rd time.
+        switchRow();
+        assertOnSidePanel();
+
+        // Switch a 4th time.
+        switchRow();
+        assertOnNone();
+
+        // Clean up and close the side panel.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mTabbedRootUiCoordinator.getSidePanelDevFeatureForTesting().toggle());
+    }
+
+    @Test
+    @SmallTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Feature("KeyboardShortcuts")
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_BOOKMARK_BAR,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE
+    })
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288498
+    public void testSwitchKeyboardFocusRow_withBookmarksBarAndSidePanel() {
+        setBookmarkBarFeatureParam(true);
+        setUserPrefsShowBookmarksBar(true);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mTabbedRootUiCoordinator.getSidePanelDevFeatureForTesting().toggle());
+
+        // Put something in the content view so we can focus on it.
+        ChromeTabUtils.newTabFromMenu(
+                InstrumentationRegistry.getInstrumentation(), mActivity, false, true);
+
+        // Switch the first time.
+        switchRow();
+        assertOnToolbar();
+
+        // Switch a 2nd time.
+        switchRow();
+        assertOnTabStrip();
+
+        // Switch a 3rd time.
+        switchRow();
+        assertOnBookmarksBar();
+
+        // Switch a 4th time.
+        switchRow();
+        assertOnSidePanel();
+
+        // Switch a 5th time.
+        switchRow();
+        assertOnNone();
+
+        // Clean up and close the side panel.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mTabbedRootUiCoordinator.getSidePanelDevFeatureForTesting().toggle());
+    }
+
+    @Test
+    @SmallTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Feature("KeyboardShortcuts")
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_BOOKMARK_BAR,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL_DEV_FEATURE
+    })
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288498
+    public void testSwitchKeyboardFocusRow_withBookmarksBarOnly_sidePanelFeatureEnabled() {
         setBookmarkBarFeatureParam(true);
         setUserPrefsShowBookmarksBar(true);
 
@@ -208,6 +330,7 @@ public class KeyboardFocusRowManagerTest {
     @SmallTest
     @Feature("KeyboardShortcuts")
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288498
     public void testSkipStripIfHidden() {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
@@ -308,32 +431,53 @@ public class KeyboardFocusRowManagerTest {
     }
 
     private void assertOnToolbar() {
-        assertEquals(
-                "Expected focus to be on toolbar after invocation of keyboard focus row switch",
-                KeyboardFocusRow.TOOLBAR,
-                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting());
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        assertEquals(
+                                "Expected focus to be on toolbar after invocation of keyboard"
+                                        + " focus row switch",
+                                KeyboardFocusRow.TOOLBAR,
+                                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting()));
     }
 
     private void assertOnTabStrip() {
-        assertEquals(
-                "Expected focus to be on tab strip after invocation of keyboard focus row switch",
-                KeyboardFocusRow.TAB_STRIP,
-                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting());
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        assertEquals(
+                                "Expected focus to be on tab strip after invocation of keyboard"
+                                        + " focus row switch",
+                                KeyboardFocusRow.TAB_STRIP,
+                                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting()));
     }
 
     private void assertOnBookmarksBar() {
-        assertEquals(
-                "Expected focus to be on bookmarks bar after invocation of keyboard focus row"
-                    + " switch",
-                KeyboardFocusRow.BOOKMARKS_BAR,
-                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting());
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        assertEquals(
+                                "Expected focus to be on bookmarks bar after invocation of"
+                                        + " keyboard focus row switch",
+                                KeyboardFocusRow.BOOKMARKS_BAR,
+                                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting()));
+    }
+
+    private void assertOnSidePanel() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        assertEquals(
+                                "Expected focus to be on side panel after invocation of keyboard"
+                                        + " focus row switch",
+                                KeyboardFocusRow.SIDE_PANEL,
+                                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting()));
     }
 
     private void assertOnNone() {
-        assertEquals(
-                "Expected focus to be on none after invocation of keyboard focus row switch",
-                KeyboardFocusRow.NONE,
-                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting());
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        assertEquals(
+                                "Expected focus to be on none after invocation of keyboard focus"
+                                        + " row switch",
+                                KeyboardFocusRow.NONE,
+                                mKeyboardFocusRowManager.getKeyboardFocusRowForTesting()));
     }
 
     private void setUserPrefsShowBookmarksBar(boolean showBookmarksBar) {

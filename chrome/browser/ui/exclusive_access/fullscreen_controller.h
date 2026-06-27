@@ -7,14 +7,13 @@
 
 #include <optional>
 
+#include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/observer_list.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_controller_base.h"
-#include "chrome/browser/ui/exclusive_access/fullscreen_observer.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_tab_params.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "content/public/browser/fullscreen_types.h"
@@ -66,8 +65,9 @@ class FullscreenController : public ExclusiveAccessControllerBase {
 
   ~FullscreenController() override;
 
-  void AddObserver(FullscreenObserver* observer);
-  void RemoveObserver(FullscreenObserver* observer);
+  // Subscribe to be notified whenever the fullscreen state changes.
+  base::CallbackListSubscription RegisterOnFullscreenStateChanged(
+      base::RepeatingClosure callback);
 
   static int64_t GetDisplayId(const content::WebContents& web_contents);
 
@@ -137,7 +137,7 @@ class FullscreenController : public ExclusiveAccessControllerBase {
   void ExitFullscreenModeForTab(content::WebContents* web_contents);
 
   base::WeakPtr<FullscreenController> GetWeakPtr() {
-    return ptr_factory_.GetWeakPtr();
+    return weak_ptr_factory_.GetWeakPtr();
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -149,7 +149,6 @@ class FullscreenController : public ExclusiveAccessControllerBase {
   // Platform Fullscreen ///////////////////////////////////////////////////////
 
   // Override from ExclusiveAccessControllerBase.
-  void OnTabDeactivated(content::WebContents* web_contents) override;
   void OnTabDetachedFromView(content::WebContents* web_contents) override;
   void OnTabClosing(content::WebContents* web_contents) override;
   bool HandleUserPressedEscape() override;
@@ -254,10 +253,6 @@ class FullscreenController : public ExclusiveAccessControllerBase {
   // is completed.
   base::OnceClosure fullscreen_transition_complete_callback_;
 
-  // Set in OnTabDeactivated(). Used to see if we're in the middle of
-  // deactivation of a tab.
-  raw_ptr<content::WebContents> deactivated_contents_ = nullptr;
-
   // Used in testing to set the state to tab fullscreen.
   bool is_tab_fullscreen_for_testing_ = false;
 
@@ -274,7 +269,7 @@ class FullscreenController : public ExclusiveAccessControllerBase {
   std::unique_ptr<PopunderPreventer> popunder_preventer_;
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-  base::ObserverList<FullscreenObserver> observer_list_;
+  base::RepeatingClosureList fullscreen_state_changed_callbacks_;
 
   // Recorded when the controller switches to fullscreen or when the fullscreen
   // window state changes, which ever comes first.
@@ -283,7 +278,7 @@ class FullscreenController : public ExclusiveAccessControllerBase {
   // This is used for accessing HistoryService.
   base::CancelableTaskTracker task_tracker_;
 
-  base::WeakPtrFactory<FullscreenController> ptr_factory_{this};
+  base::WeakPtrFactory<FullscreenController> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_EXCLUSIVE_ACCESS_FULLSCREEN_CONTROLLER_H_

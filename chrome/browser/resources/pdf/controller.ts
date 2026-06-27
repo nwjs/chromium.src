@@ -7,7 +7,7 @@ import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 
 // clang-format off
 // <if expr="enable_pdf_ink2">
-import type {AnnotationBrush, AnnotationBrushType, AnnotationMode, TextAnnotation} from './constants.js';
+import type {AnnotationBrush, AnnotationBrushType, AnnotationMode, TextAnnotation, TextAnnotationMessageData} from './constants.js';
 // </if>
 import type {NamedDestinationMessageData, Rect} from './constants.js';
 // clang-format on
@@ -80,7 +80,7 @@ interface EditTextAnnotationMessage {
 // finishTextAnnotation goes from the viewer to the plugin.
 interface FinishTextAnnotationMessage {
   type: 'finishTextAnnotation';
-  data: TextAnnotation;
+  data: TextAnnotationMessageData;
 }
 // </if>
 
@@ -354,10 +354,15 @@ export class PluginController implements ContentController {
   private requestResolverMap_: Map<string, PromiseResolver<unknown>> =
       new Map();
   private uidCounter_: number = 1;
+  private port_: MessagePort|null = null;
 
   init(
       plugin: HTMLEmbedElement, viewport: Viewport,
       getIsUserInitiatedCallback: () => boolean) {
+    if (this.port_) {
+      this.port_.onmessage = null;
+      this.port_ = null;
+    }
     this.viewport_ = viewport;
     this.getIsUserInitiatedCallback_ = getIsUserInitiatedCallback;
     this.pendingSaveTokens_ = new Map();
@@ -448,7 +453,7 @@ export class PluginController implements ContentController {
     this.postMessage_(message);
   }
 
-  finishTextAnnotation(annotation: TextAnnotation) {
+  finishTextAnnotation(annotation: TextAnnotationMessageData) {
     const message: FinishTextAnnotationMessage = {
       type: 'finishTextAnnotation',
       data: annotation,
@@ -459,13 +464,13 @@ export class PluginController implements ContentController {
   // </if>
 
   redo() {
-    // <if "enable_pdf_ink2">
+    // <if expr="enable_pdf_ink2">
     this.postMessage_({type: 'annotationRedo'});
     // </if>
   }
 
   undo() {
-    // <if "enable_pdf_ink2">
+    // <if expr="enable_pdf_ink2">
     this.postMessage_({type: 'annotationUndo'});
     // </if>
   }
@@ -739,6 +744,7 @@ export class PluginController implements ContentController {
     const delayedMessages = this.delayedMessages_;
     this.delayedMessages_ = null;
 
+    this.port_ = port;
     this.plugin_.postMessage = port.postMessage.bind(port);
     port.onmessage = e => this.handlePluginMessage_(e);
 

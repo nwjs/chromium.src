@@ -1076,12 +1076,13 @@ TEST_F(PaymentsNetworkInterfaceTest, GetUploadAccountFromSyncTest) {
       secondary_account_info);
 
   StartUploading();
-  ReturnResponse(payments_network_interface_.get(), net::HTTP_OK, "{}");
 
   // Issue a token for the secondary account.
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       secondary_account_info.account_id, "secondary_account_token",
       AutofillClock::Now() + base::Days(10));
+
+  ReturnResponse(payments_network_interface_.get(), net::HTTP_OK, "{}");
 
   // Verify the auth header.
   EXPECT_THAT(
@@ -1778,7 +1779,7 @@ TEST_P(PaymentsNetworkInterfaceTestWithPaymentsRpcResultParam,
   request_details.type =
       GetDetailsForUpdateBnplPaymentInstrumentRequestDetails::
           GetDetailsForUpdateBnplPaymentInstrumentType::kGetDetailsForAcceptTos;
-  request_details.instrument_id = 111222333444;
+  request_details.instrument_id = "111222333444";
   std::string context_token = "some_token";
 
   payments_network_interface_->GetDetailsForUpdateBnplPaymentInstrument(
@@ -1891,7 +1892,7 @@ TEST_P(PaymentsNetworkInterfaceTestWithPaymentsRpcResultParam,
   request_details.billing_customer_number = 555666777888;
   request_details.context_token = "context_token";
   request_details.risk_data = "wjhJLg";
-  request_details.instrument_id = 111222333444;
+  request_details.instrument_id = "111222333444";
   request_details.issuer_id = "Affirm";
   request_details.type = UpdateBnplPaymentInstrumentRequestDetails::
       UpdateBnplPaymentInstrumentType::kAcceptTos;

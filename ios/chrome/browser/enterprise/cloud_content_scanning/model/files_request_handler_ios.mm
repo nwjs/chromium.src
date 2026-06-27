@@ -4,11 +4,14 @@
 
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/files_request_handler_ios.h"
 
+#import "base/metrics/histogram_functions.h"
 #import "components/enterprise/connectors/core/cloud_content_scanning/deep_scanning_utils.h"
 #import "components/enterprise/connectors/core/cloud_content_scanning/request_handler_base.h"
 #import "components/enterprise/connectors/core/reporting_constants.h"
 #import "components/enterprise/connectors/core/reporting_event_router.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/download_protection_metrics.h"
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_content_analysis_request.h"
+#import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_util.h"
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
@@ -55,6 +58,8 @@ void FilesRequestHandlerIOS::ReportWarningBypass(
       path_.AsUTF8Unsafe(), file_info_.sha256_or_cb, file_info_.mime_type,
       trigger, content_transfer_method, file_info_.size, response_,
       user_justification);
+  base::UmaHistogramCounts100(
+      kIOSDownloadProtectionScanTriggeredWarningBypassedHistogram, 1);
 }
 
 bool FilesRequestHandlerIOS::UploadDataImpl() {
@@ -71,28 +76,6 @@ bool FilesRequestHandlerIOS::UploadDataImpl() {
   return true;
 }
 
-void FilesRequestHandlerIOS::UpdateFileInfo(size_t index,
-                                            BinaryUploadRequest::Data data,
-                                            BinaryUploadRequest* request) {
-  file_info_.sha256_or_cb = data.hash;
-  if (data.hash.empty() && request && request->register_on_got_hash_callback_) {
-    request->register_on_got_hash_callback_.Run(
-        /* call_last= */ false,
-        base::BindOnce(&FilesRequestHandlerIOS::OnGotHash,
-                       weak_ptr_factory_.GetWeakPtr(), index));
-    file_info_.sha256_or_cb = base::BindRepeating(
-        request->register_on_got_hash_callback_, /* call_last= */ false);
-  }
-  file_info_.size = data.size;
-  file_info_.mime_type = data.mime_type;
-}
-
-void FilesRequestHandlerIOS::OnGotHash(size_t index, std::string hash) {
-  // The BinaryUploadRequest will soon be destroyed, so overwrite the callback
-  // to that object with the actual hash.
-  file_info_.sha256_or_cb = hash;
-}
-
 void FilesRequestHandlerIOS::UpdateRequestHandlerResult(
     size_t index,
     RequestHandlerResult result,
@@ -106,6 +89,15 @@ void FilesRequestHandlerIOS::UpdateRequestHandlerResult(
     MaybeReportDangerousDownloadEvent(*handler_->content_analysis_info(),
                                       response_, path_, file_info_,
                                       event_result, GetReportingEventRouter());
+    if (event_result == EventResult::WARNED) {
+      base::UmaHistogramEnumeration(
+          kIOSDownloadProtectionScanTriggeredEventResultHistogram,
+          EnterpriseDownloadProtectionEventResult::kWarn);
+    } else if (event_result == EventResult::BLOCKED) {
+      base::UmaHistogramEnumeration(
+          kIOSDownloadProtectionScanTriggeredEventResultHistogram,
+          EnterpriseDownloadProtectionEventResult::kBlock);
+    }
   }
 }
 
@@ -114,6 +106,11 @@ const base::FilePath& FilesRequestHandlerIOS::GetPath(size_t index) const {
 }
 
 const FilesRequestHandlerBase::FileInfo& FilesRequestHandlerIOS::GetFileInfo(
+    size_t index) {
+  return file_info_;
+}
+
+FilesRequestHandlerBase::FileInfo& FilesRequestHandlerIOS::GetMutableFileInfo(
     size_t index) {
   return file_info_;
 }

@@ -89,7 +89,7 @@ class VIZ_COMMON_EXPORT CompositorFrameMetadata {
 
   gfx::SizeF scrollable_viewport_size;
 
-  // The size of the viewport for the visible region in DIP.
+  // The size of the viewport for the visible region in pixels.
   gfx::Size visible_viewport_size;
 
   gfx::ContentColorUsage content_color_usage = gfx::ContentColorUsage::kSRGB;
@@ -171,10 +171,6 @@ class VIZ_COMMON_EXPORT CompositorFrameMetadata {
 
   // Please refer RenderFrameMetadata::is_mobile_optimized for detailed comment.
   bool is_mobile_optimized = false;
-
-  // If true, viz will set an Android-only cap on CPU performance, intended to
-  // reduce power consumption in idle periods.
-  bool prefer_efficient_scheduling = false;
 
   // Contains the metadata required for drawing a delegated ink trail onto the
   // end of a rendered ink stroke. This should only be present when two

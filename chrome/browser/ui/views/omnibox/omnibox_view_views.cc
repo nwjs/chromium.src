@@ -47,18 +47,20 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
+#include "chrome/browser/ui/omnibox/ai_mode_button_config.h"
 #include "chrome/browser/ui/omnibox/clipboard_utils.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_text_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
@@ -118,6 +120,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
 #include "ui/gfx/canvas.h"
@@ -199,27 +202,10 @@ void LogOmniboxFocusToCutOrCopyAllTextTime(
   }
 }
 
-const char kOpenMatchWithKeyboardModifiersMetricName[] =
-    "Omnibox.OpenMatchWithKeyboardModifiers";
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-// LINT.IfChange(OpenMatchWithKeyboardModifiers)
-enum class OpenMatchWithKeyboardModifiers {
-  kNoModifier = 0,
-  kCtrl = 1,
-  kAlt = 2,
-  kCtrlAlt = 3,
-  kShiftCommand = 4,
-  kCtrlShiftCommand = 5,
-  kAltShift = 6,
-  kCtrlAltShift = 7,
-  kCommand = 8,
-  kCtrlCommand = 9,
-  kShift = 10,
-  kCtrlShift = 11,
-  kMaxValue = kCtrlShift,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:OpenMatchWithKeyboardModifiers)
+std::u16string AimPlaceholderText() {
+  const auto& config = ai_mode_button_config::GetCurrentAiModeButtonConfig();
+  return u"\u21E5 " + config.placeholder_text;
+}
 
 }  // namespace
 
@@ -287,6 +273,9 @@ OmniboxViewViews::OmniboxViewViews(bool popup_window_mode,
 #else
   GetViewAccessibility().SetKeyShortcuts("Ctrl+L");
 #endif
+
+  SetSelectionBackgroundColorId(kColorOmniboxSelectionBackground);
+  SetSelectionTextColorId(kColorOmniboxSelectionForeground);
 }
 
 OmniboxViewViews::~OmniboxViewViews() {
@@ -394,7 +383,7 @@ void OmniboxViewViews::SetUserTextForTab(content::WebContents* web_contents,
         /*user_input_in_progress=*/true,
         /*user_text=*/text, existing_state->model_state.keyword,
         existing_state->model_state.keyword_placeholder,
-        existing_state->model_state.is_keyword_hint,
+        existing_state->model_state.keyword_state,
         existing_state->model_state.keyword_mode_entry_method,
         existing_state->model_state.focus_state,
         existing_state->model_state.autocomplete_input);
@@ -416,12 +405,12 @@ void OmniboxViewViews::InstallPlaceholderText() {
     // placeholder text to suggest tabbing into AI Mode. Note, even if the AI
     // placeholder text is installed, it will only be visible if
     // `ShouldShowPlaceholderText()` is also true.
-    SetPlaceholderText(
-        l10n_util::GetStringUTF16(IDS_OMNIBOX_AIM_PLACEHOLDER_TEXT));
+    SetPlaceholderText(AimPlaceholderText());
     // Override the AIM accessibility placeholder text, so that the tab icon is
     // not announced.
+    const auto& config = ai_mode_button_config::GetCurrentAiModeButtonConfig();
     GetViewAccessibility().SetPlaceholder(
-        l10n_util::GetStringUTF8(IDS_ACC_AI_MODE_PLACEHOLDER_TEXT));
+        base::UTF16ToUTF8(config.placeholder_text));
   } else if (ShouldInstallContextualTasksPlaceholderText()) {
     // For Contextual Tasks page, use the page title as placeholder text.
     SetPlaceholderText(location_bar_view_->GetWebContents()->GetTitle());
@@ -716,9 +705,7 @@ void OmniboxViewViews::OnPaint(gfx::Canvas* canvas) {
 
   // Record an impression of the AIM hint text if it is being shown.
   const bool should_show_placeholder = ShouldShowPlaceholderText();
-  const bool is_aim_placeholder =
-      GetPlaceholderText() ==
-      l10n_util::GetStringUTF16(IDS_OMNIBOX_AIM_PLACEHOLDER_TEXT);
+  const bool is_aim_placeholder = GetPlaceholderText() == AimPlaceholderText();
   if (should_show_placeholder && is_aim_placeholder && !aim_hint_shown_) {
     aim_hint_shown_ = true;
     RecordAimHintImpression();
@@ -753,7 +740,7 @@ void OmniboxViewViews::ExecuteCommand(int command_id, int event_flags) {
 
     case IDC_SEND_TAB_TO_SELF:
       send_tab_to_self::SendTabToSelfBubbleController::
-          CreateOrGetFromWebContents(location_bar_view_->GetWebContents())
+          GetOrCreateForWebContents(location_bar_view_->GetWebContents())
               ->ShowBubble();
       return;
 
@@ -855,12 +842,6 @@ void OmniboxViewViews::UpdateSchemeStyle(const gfx::Range& range) {
 
 void OmniboxViewViews::OnThemeChanged() {
   views::Textfield::OnThemeChanged();
-
-  UpdatePlaceholderTextColor();
-  SetSelectionBackgroundColor(
-      GetColorProvider()->GetColor(kColorOmniboxSelectionBackground));
-  SetSelectionTextColor(
-      GetColorProvider()->GetColor(kColorOmniboxSelectionForeground));
 
   EmphasizeURLComponents();
 }
@@ -1878,6 +1859,24 @@ bool OmniboxViewViews::IsCommandIdEnabled(int command_id) const {
           location_bar_view_->command_updater()->IsCommandEnabled(command_id));
 }
 
+bool OmniboxViewViews::SupportsEmoji() const {
+  return !features::IsMenuSimplificationEnabled();
+}
+
+#if BUILDFLAG(IS_MAC)
+bool OmniboxViewViews::SupportsEditableContextMenuItems() const {
+  return !features::IsMenuSimplificationEnabled();
+}
+
+bool OmniboxViewViews::SupportsLookUp() const {
+  return !features::IsMenuSimplificationEnabled();
+}
+
+bool OmniboxViewViews::SupportsAutoFill() const {
+  return !features::IsMenuSimplificationEnabled();
+}
+#endif  // BUILDFLAG(IS_MAC)
+
 void OmniboxViewViews::PasteSelectionClipboard(
     base::OnceCallback<void(bool)> callback) {
   ui::Clipboard::GetForCurrentThread()->ReadText(
@@ -2093,35 +2092,10 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
           return true;
         }
       }
-      WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB;
-      OpenMatchWithKeyboardModifiers metric_value;
-      if (alt && !shift) {
-        metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlAlt
-                               : OpenMatchWithKeyboardModifiers::kAlt;
-        disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
-      } else if (shift && command) {
-        metric_value = control
-                           ? OpenMatchWithKeyboardModifiers::kCtrlShiftCommand
-                           : OpenMatchWithKeyboardModifiers::kShiftCommand;
-        disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
-      } else if (alt && shift) {
-        metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlAltShift
-                               : OpenMatchWithKeyboardModifiers::kAltShift;
-        disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
-      } else if (command && !shift) {
-        metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlCommand
-                               : OpenMatchWithKeyboardModifiers::kCommand;
-        disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
-      } else if (shift && !alt) {
-        metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlShift
-                               : OpenMatchWithKeyboardModifiers::kShift;
-        disposition = WindowOpenDisposition::NEW_WINDOW;
-      } else {
-        metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrl
-                               : OpenMatchWithKeyboardModifiers::kNoModifier;
-      }
-      base::UmaHistogramEnumeration(kOpenMatchWithKeyboardModifiersMetricName,
-                                    metric_value);
+
+      WindowOpenDisposition disposition =
+          ComputeOpenDispositionFromModifiersAndLogToUma(shift, control, alt,
+                                                         command);
       if (controller()->IsPopupOpen() && !control) {
         // Normal case of pressing <return> when the popup is open.
         controller()->edit_model()->OpenCurrentSelection(event.time_stamp(),
@@ -2414,6 +2388,10 @@ void OmniboxViewViews::UpdateContextMenu(ui::SimpleMenuModel* menu_contents) {
           ? IDS_MANAGE_SEARCH_ENGINES_AND_SHORTCUTS
           : IDS_MANAGE_SEARCH_ENGINES_AND_SITE_SEARCH);
 
+  if (features::IsMenuSimplificationEnabled()) {
+    menu_contents->AddSeparator(ui::NORMAL_SEPARATOR);
+  }
+
   const PrefService::Preference* show_full_urls_pref =
       location_bar_view_->GetProfile()->GetPrefs()->FindPreference(
           omnibox::kPreventUrlElisionsInOmnibox);
@@ -2441,9 +2419,9 @@ void OmniboxViewViews::UpdateContextMenu(ui::SimpleMenuModel* menu_contents) {
 
   if (omnibox::ShouldShowAimContextMenuOption(
           location_bar_view_->GetProfile())) {
-    menu_contents->AddCheckItemWithStringId(
-        IDC_SHOW_AI_MODE_OMNIBOX_BUTTON,
-        IDS_CONTEXT_MENU_SHOW_AI_MODE_OMNIBOX_BUTTON);
+    const auto& config = ai_mode_button_config::GetCurrentAiModeButtonConfig();
+    menu_contents->AddCheckItem(IDC_SHOW_AI_MODE_OMNIBOX_BUTTON,
+                                config.context_menu_label);
   }
 
   if (omnibox_feature_configs::Toolbelt::Get().enabled) {
@@ -2630,6 +2608,10 @@ void OmniboxViewViews::MaybeAddSendTabToSelfItem(
     return;
   }
 
+  if (features::IsMenuSimplificationEnabled()) {
+    return;
+  }
+
   size_t index = menu_contents->GetIndexOfCommandId(Textfield::kUndo).value();
   // Add a separator if this is not the first item.
   if (index) {
@@ -2640,7 +2622,10 @@ void OmniboxViewViews::MaybeAddSendTabToSelfItem(
       index, IDC_SEND_TAB_TO_SELF,
       l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF));
 #if !BUILDFLAG(IS_MAC)
-  menu_contents->SetIcon(index, ui::ImageModel::FromVectorIcon(kDevicesIcon));
+  menu_contents->SetIcon(
+      index, ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
+                                                ? kDevicesIcon
+                                                : kDevicesOldIcon));
 #endif
   menu_contents->InsertSeparatorAt(++index, ui::NORMAL_SEPARATOR);
 }
@@ -2650,17 +2635,13 @@ void OmniboxViewViews::UpdatePlaceholderTextColor() {
   // placeholders are dim to differentiate from user input. DSE placeholders are
   // not dim to draw attention to the omnibox and because the omnibox is
   // unfocused so there's less risk of confusion with user input.
-  // Null in tests.
-  if (!GetColorProvider()) {
-    return;
-  }
   bool dse_placeholder_installed =
       controller()->edit_model()->keyword_placeholder().empty() &&
       !ShouldInstallAimPlaceholderText() &&
       !ShouldInstallContextualTasksPlaceholderText();
-  set_placeholder_text_color(GetColorProvider()->GetColor(
-      dse_placeholder_installed ? kColorOmniboxText
-                                : kColorOmniboxForegroundDisabled));
+  SetPlaceholderTextColorId(dse_placeholder_installed
+                                ? kColorOmniboxText
+                                : kColorOmniboxForegroundDisabled);
 }
 
 bool OmniboxViewViews::AreAimHintImpressionLimitsReached() const {

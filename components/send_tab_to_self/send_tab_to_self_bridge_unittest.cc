@@ -41,6 +41,7 @@
 #include "components/sync_device_info/device_info_util.h"
 #include "components/sync_device_info/device_name_util.h"
 #include "components/sync_device_info/fake_device_info_tracker.h"
+#include "components/sync_device_info/test_device_info_builder.h"
 #include "components/sync_sessions/fake_open_tabs_ui_delegate.h"
 #include "components/sync_sessions/open_tabs_ui_delegate.h"
 #include "components/sync_sessions/session_sync_service.h"
@@ -97,24 +98,14 @@ std::unique_ptr<syncer::DeviceInfo> CreateDevice(
     bool send_tab_to_self_receiving_enabled = true,
     syncer::DeviceInfo::SendTabReceivingType send_tab_to_self_receiving_type =
         syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified) {
-  return std::make_unique<syncer::DeviceInfo>(
-      guid, name, "chrome_version", "user_agent",
-      syncer::DeviceInfo::DeviceType::kLinux,
-      syncer::DeviceInfo::OsType::kLinux,
-      syncer::DeviceInfo::FormFactor::kDesktop, "scoped_id", "manufacturer",
-      model, "full_hardware_class", last_updated_timestamp,
-      syncer::DeviceInfoUtil::GetPulseInterval(),
-      send_tab_to_self_receiving_enabled, send_tab_to_self_receiving_type,
-      /*sharing_info=*/std::nullopt,
-      /*paask_info=*/std::nullopt,
-      /*fcm_registration_token=*/std::string(),
-      /*interested_data_types=*/syncer::DataTypeSet(),
-      /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-      /*desktop_to_ios_promo_receiving_enabled=*/false,
-      /*desktop_to_ios_promo_receiving_types=*/
-      MobilePromoOnDesktopPromoTypeSet{},
-      /*glic_experimental_triggering_state=*/
-      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
+  return syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kLinux)
+      .WithGuid(guid)
+      .WithClientName(name)
+      .WithModelName(model)
+      .WithLastUpdatedTimestamp(last_updated_timestamp)
+      .WithSendTabToSelfReceivingEnabled(send_tab_to_self_receiving_enabled)
+      .WithSendTabToSelfReceivingType(send_tab_to_self_receiving_type)
+      .Build();
 }
 
 sync_pb::DataTypeState StateWithEncryption(
@@ -126,13 +117,12 @@ sync_pb::DataTypeState StateWithEncryption(
 
 class MockSendTabToSelfModelObserver : public SendTabToSelfModelObserver {
  public:
-  MOCK_METHOD0(SendTabToSelfModelLoaded, void());
-  MOCK_METHOD1(EntriesAddedRemotely,
+  MOCK_METHOD1(OnEntriesAddedRemotely,
                void(const std::vector<const SendTabToSelfEntry*>&));
-  MOCK_METHOD1(EntriesOpenedRemotely,
+  MOCK_METHOD1(OnEntriesOpenedRemotely,
                void(const std::vector<const SendTabToSelfEntry*>&));
 
-  MOCK_METHOD1(EntriesRemovedRemotely, void(const std::vector<std::string>&));
+  MOCK_METHOD1(OnEntriesRemovedRemotely, void(const std::vector<std::string>&));
 };
 
 class FakeSessionSyncService : public sync_sessions::SessionSyncService {
@@ -184,6 +174,12 @@ class SendTabToSelfBridgeTest : public testing::Test {
   void SetUp() override {
     pref_service_.registry()->RegisterStringPref(
         prefs::kIOSSendTabToSelfLastReceivedTabURLPref, std::string());
+  }
+
+  void TearDown() override {
+    if (bridge_) {
+      ShutdownBridge();
+    }
   }
 
   void InitializeLocalDeviceIfNeeded() {
@@ -335,7 +331,7 @@ class SendTabToSelfBridgeTest : public testing::Test {
 TEST_F(SendTabToSelfBridgeTest, CheckEmpties) {
   InitializeBridge();
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(_)).Times(0);
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(_)).Times(0);
   EXPECT_EQ(0ul, bridge()->GetAllGuids().size());
   AddSampleEntries();
   EXPECT_EQ(4ul, bridge()->GetAllGuids().size());
@@ -353,7 +349,7 @@ TEST_F(SendTabToSelfBridgeTest, SyncAddOneEntry) {
       syncer::EntityChange::CreateAdd("guid1", MakeEntityData(entry)));
   auto metadata_change_list =
       std::make_unique<syncer::InMemoryMetadataChangeList>();
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(SizeIs(1)));
   bridge()->MergeFullSyncData(std::move(metadata_change_list),
                               std::move(remote_input));
   EXPECT_EQ(1ul, bridge()->GetAllGuids().size());
@@ -370,7 +366,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesAddTwoSpecifics) {
       bridge()->CreateMetadataChangeList();
   metadata_changes->UpdateDataTypeState(state);
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(SizeIs(2)));
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(SizeIs(2)));
 
   auto error = bridge()->ApplyIncrementalSyncChanges(
       std::move(metadata_changes), EntityAddList({specifics1, specifics2}));
@@ -391,7 +387,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesOneAdd) {
   auto metadata_change_list =
       std::make_unique<syncer::InMemoryMetadataChangeList>();
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(SizeIs(1)));
   bridge()->ApplyIncrementalSyncChanges(std::move(metadata_change_list),
                                         std::move(add_changes));
   EXPECT_EQ(1ul, bridge()->GetAllGuids().size());
@@ -410,7 +406,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesOneDeletion) {
   add_changes.push_back(
       syncer::EntityChange::CreateAdd("guid1", MakeEntityData(entry)));
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(SizeIs(1)));
   bridge()->ApplyIncrementalSyncChanges(bridge()->CreateMetadataChangeList(),
                                         std::move(add_changes));
   EXPECT_EQ(1ul, bridge()->GetAllGuids().size());
@@ -418,7 +414,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesOneDeletion) {
   delete_changes.push_back(
       syncer::EntityChange::CreateDelete("guid1", syncer::EntityData()));
 
-  EXPECT_CALL(*mock_observer(), EntriesRemovedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesRemovedRemotely(SizeIs(1)));
   bridge()->ApplyIncrementalSyncChanges(bridge()->CreateMetadataChangeList(),
                                         std::move(delete_changes));
   EXPECT_EQ(0ul, bridge()->GetAllGuids().size());
@@ -457,7 +453,7 @@ TEST_F(SendTabToSelfBridgeTest, LocalHistoryDeletion) {
   urls_to_remove.push_back(history::URLRow(GURL("http://www.example.com/")));
   urls_to_remove.push_back(history::URLRow(GURL("http://www.example2.com/")));
 
-  EXPECT_CALL(*mock_observer(), EntriesRemovedRemotely(SizeIs(2)));
+  EXPECT_CALL(*mock_observer(), OnEntriesRemovedRemotely(SizeIs(2)));
   EXPECT_CALL(*processor(), Delete("guid1", _, _));
   EXPECT_CALL(*processor(), Delete("guid2", _, _));
 
@@ -468,7 +464,7 @@ TEST_F(SendTabToSelfBridgeTest, LocalHistoryDeletion) {
 
 TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesEmpty) {
   InitializeBridge();
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(_)).Times(0);
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(_)).Times(0);
 
   auto error = bridge()->ApplyIncrementalSyncChanges(
       bridge()->CreateMetadataChangeList(), syncer::EntityChangeList());
@@ -495,7 +491,7 @@ TEST_F(SendTabToSelfBridgeTest, SendEntryAndRestartBridge) {
                   syncer::HasEncryptionKeyName(state.encryption_key_name()),
                   /*entities=*/IsEmpty())));
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(_)).Times(0);
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(_)).Times(0);
   InitializeBridge();
 
   std::vector<std::string> guids = bridge()->GetAllGuids();
@@ -511,7 +507,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesInMemory) {
   std::unique_ptr<syncer::MetadataChangeList> metadata_changes =
       bridge()->CreateMetadataChangeList();
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(SizeIs(1)));
 
   auto error_on_add = bridge()->ApplyIncrementalSyncChanges(
       bridge()->CreateMetadataChangeList(), EntityAddList({specifics}));
@@ -520,7 +516,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesInMemory) {
 
   EXPECT_EQ(1ul, bridge()->GetAllGuids().size());
 
-  EXPECT_CALL(*mock_observer(), EntriesRemovedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesRemovedRemotely(SizeIs(1)));
 
   syncer::EntityChangeList entity_change_list;
   entity_change_list.push_back(syncer::EntityChange::CreateDelete(
@@ -534,7 +530,7 @@ TEST_F(SendTabToSelfBridgeTest, ApplyIncrementalSyncChangesInMemory) {
 
 TEST_F(SendTabToSelfBridgeTest, ApplyDeleteNonexistent) {
   InitializeBridge();
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(_)).Times(0);
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(_)).Times(0);
 
   std::unique_ptr<syncer::MetadataChangeList> metadata_changes =
       bridge()->CreateMetadataChangeList();
@@ -639,7 +635,7 @@ TEST_F(SendTabToSelfBridgeTest, ExpireEntryDuringInit) {
 
   AdvanceAndGetTime(kExpiryTime / 2.0);
 
-  EXPECT_CALL(*mock_observer(), EntriesRemovedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesRemovedRemotely(SizeIs(1)));
   EXPECT_CALL(*processor(), Delete(_, _, _));
 
   InitializeBridge();
@@ -682,7 +678,7 @@ TEST_F(SendTabToSelfBridgeTest, AddExpiredEntry) {
 
 TEST_F(SendTabToSelfBridgeTest, AddInvalidEntries) {
   InitializeBridge();
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(_)).Times(0);
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(_)).Times(0);
 
   // Add Entry should fail on invalid URLs.
   EXPECT_CALL(*processor(), Put(_, _, _)).Times(0);
@@ -771,6 +767,19 @@ TEST_F(SendTabToSelfBridgeTest, NotifyPendingCommitsOnCommitAttemptFailed) {
   EXPECT_EQ(future.Get(), SendTabToSelfResult::kFailureCommitAttemptFailed);
 }
 
+TEST_F(SendTabToSelfBridgeTest,
+       NotifyPendingCommitsOnCommitAttemptFailedWithNetworkError) {
+  InitializeBridge();
+  base::test::TestFuture<SendTabToSelfResult> future;
+  const SendTabToSelfEntry* entry = bridge()->SendEntry(
+      GURL("https://www.example.com/"), "title", kLocalDeviceCacheGuid,
+      PageContext(), NavigationHistory(), future.GetCallback());
+  ASSERT_NE(nullptr, entry);
+
+  bridge()->OnCommitAttemptFailed(syncer::SyncCommitError::kNetworkError);
+  EXPECT_EQ(future.Get(), SendTabToSelfResult::kFailureNoInternetConnection);
+}
+
 // Tests that the pending commit callback is fired with a sync disabled error
 // when sync is disabled while there are still pending commits.
 TEST_F(SendTabToSelfBridgeTest, NotifyPendingCommitsOnDisableSync) {
@@ -857,7 +866,7 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfoSortedList_BridgeNotReady) {
 TEST_F(SendTabToSelfBridgeTest, AddDuplicateEntries) {
   InitializeBridge();
 
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(_)).Times(0);
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(_)).Times(0);
 
   // The de-duplication code does not use the title as a comparator.
   // So they are intentionally different here.
@@ -900,7 +909,7 @@ TEST_F(SendTabToSelfBridgeTest, NotifyRemoteSendTabToSelfEntryAdded) {
       std::make_unique<syncer::InMemoryMetadataChangeList>();
 
   // There should only be one entry sent to the observers.
-  EXPECT_CALL(*mock_observer(), EntriesAddedRemotely(SizeIs(1)));
+  EXPECT_CALL(*mock_observer(), OnEntriesAddedRemotely(SizeIs(1)));
   bridge()->MergeFullSyncData(std::move(metadata_change_list),
                               std::move(remote_input));
 
@@ -1137,7 +1146,7 @@ TEST_F(SendTabToSelfBridgeTest, NotifyRemoteSendTabToSelfEntryOpened) {
 
   // an entry with "guid1" should be sent to the observers.
   EXPECT_CALL(*mock_observer(),
-              EntriesOpenedRemotely(
+              OnEntriesOpenedRemotely(
                   AllOf(SizeIs(1), UnorderedElementsAre(GuidIs("guid1")))));
   bridge()->MergeFullSyncData(std::move(metadata_change_list),
                               std::move(remote_input));
@@ -1246,11 +1255,7 @@ TEST_F(SendTabToSelfBridgeTest,
       CreateDevice("guid", "name", device_time);
   AddTestDevice(device.get());
 
-  sync_sessions::SyncedSession session;
-  session.SetSessionTag("guid");
-  session.SetModifiedTime(session_time);
-
-  open_tabs_ui_delegate()->SetForeignSessions({&session});
+  open_tabs_ui_delegate()->AddForeignSession("guid", session_time);
 
   TargetDeviceInfo expected_device_info(device->client_name(), device->guid(),
                                         device->form_factor(), session_time,
@@ -1258,8 +1263,6 @@ TEST_F(SendTabToSelfBridgeTest,
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(expected_device_info));
-
-  open_tabs_ui_delegate()->SetForeignSessions({});
 }
 
 // Tests that the device info timestamp is used if it is more recent than the
@@ -1275,11 +1278,7 @@ TEST_F(SendTabToSelfBridgeTest,
       CreateDevice("guid", "name", device_time);
   AddTestDevice(device.get());
 
-  sync_sessions::SyncedSession session;
-  session.SetSessionTag("guid");
-  session.SetModifiedTime(session_time);
-
-  open_tabs_ui_delegate()->SetForeignSessions({&session});
+  open_tabs_ui_delegate()->AddForeignSession("guid", session_time);
 
   TargetDeviceInfo expected_device_info(device->client_name(), device->guid(),
                                         device->form_factor(), device_time,
@@ -1287,8 +1286,6 @@ TEST_F(SendTabToSelfBridgeTest,
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(expected_device_info));
-
-  open_tabs_ui_delegate()->SetForeignSessions({});
 }
 
 TEST_F(SendTabToSelfBridgeTest,
@@ -1299,24 +1296,13 @@ TEST_F(SendTabToSelfBridgeTest,
   // different models. This should result in the same short name but different
   // full names.
   std::unique_ptr<syncer::DeviceInfo> device1 =
-      std::make_unique<syncer::DeviceInfo>(
-          "guid1", "model1", "chrome_version", "user_agent",
-          syncer::DeviceInfo::DeviceType::kLinux,
-          syncer::DeviceInfo::OsType::kLinux,
-          syncer::DeviceInfo::FormFactor::kPhone, "scoped_id", "manufacturer",
-          "model1", "full_hardware_class", clock()->Now(),
-          syncer::DeviceInfoUtil::GetPulseInterval(),
-          /*send_tab_to_self_receiving_enabled=*/true,
-          syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified,
-          /*sharing_info=*/std::nullopt, /*paask_info=*/std::nullopt,
-          /*fcm_registration_token=*/std::string(),
-          /*interested_data_types=*/syncer::DataTypeSet(),
-          /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-          /*desktop_to_ios_promo_receiving_enabled=*/false,
-          /*desktop_to_ios_promo_receiving_types=*/
-          MobilePromoOnDesktopPromoTypeSet{},
-          /*glic_experimental_triggering_state=*/
-          syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
+          .WithGuid("guid1")
+          .WithClientName("model1")
+          .WithModelName("model1")
+          .WithLastUpdatedTimestamp(clock()->Now())
+          .WithSendTabToSelfReceivingEnabled(true)
+          .Build();
   syncer::DeviceDisplayNames names1 =
       syncer::GetDeviceDisplayNames(device1.get());
   ASSERT_EQ("Manufacturer Phone model1", names1.full_name);
@@ -1324,24 +1310,13 @@ TEST_F(SendTabToSelfBridgeTest,
   AddTestDevice(device1.get());
 
   std::unique_ptr<syncer::DeviceInfo> device2 =
-      std::make_unique<syncer::DeviceInfo>(
-          "guid2", "model2", "chrome_version", "user_agent",
-          syncer::DeviceInfo::DeviceType::kLinux,
-          syncer::DeviceInfo::OsType::kLinux,
-          syncer::DeviceInfo::FormFactor::kPhone, "scoped_id", "manufacturer",
-          "model2", "full_hardware_class", clock()->Now() - base::Seconds(1),
-          syncer::DeviceInfoUtil::GetPulseInterval(),
-          /*send_tab_to_self_receiving_enabled=*/true,
-          syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified,
-          /*sharing_info=*/std::nullopt, /*paask_info=*/std::nullopt,
-          /*fcm_registration_token=*/std::string(),
-          /*interested_data_types=*/syncer::DataTypeSet(),
-          /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-          /*desktop_to_ios_promo_receiving_enabled=*/false,
-          /*desktop_to_ios_promo_receiving_types=*/
-          MobilePromoOnDesktopPromoTypeSet{},
-          /*glic_experimental_triggering_state=*/
-          syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
+          .WithGuid("guid2")
+          .WithClientName("model2")
+          .WithModelName("model2")
+          .WithLastUpdatedTimestamp(clock()->Now() - base::Seconds(1))
+          .WithSendTabToSelfReceivingEnabled(true)
+          .Build();
   syncer::DeviceDisplayNames names2 =
       syncer::GetDeviceDisplayNames(device2.get());
   ASSERT_EQ("Manufacturer Phone model2", names2.full_name);
@@ -1392,14 +1367,9 @@ TEST_F(SendTabToSelfBridgeTest,
       CreateDevice("guid", "name", device_time);
   AddTestDevice(device.get());
 
-  sync_sessions::SyncedSession session;
-  session.SetSessionTag("guid");
-  session.SetModifiedTime(session_time);
-  open_tabs_ui_delegate()->SetForeignSessions({&session});
+  open_tabs_ui_delegate()->AddForeignSession("guid", session_time);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(), SizeIs(1));
-
-  open_tabs_ui_delegate()->SetForeignSessions({});
 }
 
 TEST_F(SendTabToSelfBridgeTest,
@@ -1415,14 +1385,9 @@ TEST_F(SendTabToSelfBridgeTest,
       CreateDevice("guid", "name", device_time);
   AddTestDevice(device.get());
 
-  sync_sessions::SyncedSession session;
-  session.SetSessionTag("guid");
-  session.SetModifiedTime(session_time);
-  open_tabs_ui_delegate()->SetForeignSessions({&session});
+  open_tabs_ui_delegate()->AddForeignSession("guid", session_time);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(), SizeIs(1));
-
-  open_tabs_ui_delegate()->SetForeignSessions({});
 }
 
 TEST_F(SendTabToSelfBridgeTest,
@@ -1480,44 +1445,20 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfoSortedList_FormFactors) {
   InitializeBridge();
 
   std::unique_ptr<syncer::DeviceInfo> desktop =
-      std::make_unique<syncer::DeviceInfo>(
-          "desktop_guid", "desktop", "chrome_version", "user_agent",
-          syncer::DeviceInfo::DeviceType::kLinux,
-          syncer::DeviceInfo::OsType::kLinux,
-          syncer::DeviceInfo::FormFactor::kDesktop, "scoped_id", "manufacturer",
-          "model", "full_hardware_class", clock()->Now(),
-          syncer::DeviceInfoUtil::GetPulseInterval(),
-          /*send_tab_to_self_receiving_enabled=*/true,
-          syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified,
-          /*sharing_info=*/std::nullopt, /*paask_info=*/std::nullopt,
-          /*fcm_registration_token=*/std::string(),
-          /*interested_data_types=*/syncer::DataTypeSet(),
-          /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-          /*desktop_to_ios_promo_receiving_enabled=*/false,
-          /*desktop_to_ios_promo_receiving_types=*/
-          MobilePromoOnDesktopPromoTypeSet{},
-          /*glic_experimental_triggering_state=*/
-          syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kLinux)
+          .WithGuid("desktop_guid")
+          .WithClientName("desktop")
+          .WithLastUpdatedTimestamp(clock()->Now())
+          .WithSendTabToSelfReceivingEnabled(true)
+          .Build();
 
   std::unique_ptr<syncer::DeviceInfo> phone =
-      std::make_unique<syncer::DeviceInfo>(
-          "phone_guid", "phone", "chrome_version", "user_agent",
-          syncer::DeviceInfo::DeviceType::kLinux,
-          syncer::DeviceInfo::OsType::kLinux,
-          syncer::DeviceInfo::FormFactor::kPhone, "scoped_id", "manufacturer",
-          "model", "full_hardware_class", clock()->Now() - base::Seconds(1),
-          syncer::DeviceInfoUtil::GetPulseInterval(),
-          /*send_tab_to_self_receiving_enabled=*/true,
-          syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified,
-          /*sharing_info=*/std::nullopt, /*paask_info=*/std::nullopt,
-          /*fcm_registration_token=*/std::string(),
-          /*interested_data_types=*/syncer::DataTypeSet(),
-          /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-          /*desktop_to_ios_promo_receiving_enabled=*/false,
-          /*desktop_to_ios_promo_receiving_types=*/
-          MobilePromoOnDesktopPromoTypeSet{},
-          /*glic_experimental_triggering_state=*/
-          syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
+          .WithGuid("phone_guid")
+          .WithClientName("phone")
+          .WithLastUpdatedTimestamp(clock()->Now() - base::Seconds(1))
+          .WithSendTabToSelfReceivingEnabled(true)
+          .Build();
 
   AddTestDevice(desktop.get());
   AddTestDevice(phone.get());
@@ -1834,6 +1775,65 @@ TEST_F(SendTabToSelfBridgeTest, DeleteAllEntriesPersists) {
   ShutdownBridge();
   InitializeBridge();
   EXPECT_EQ(0ul, bridge()->GetAllGuids().size());
+}
+
+TEST_F(SendTabToSelfBridgeTest, GetUnopenedEntriesTargetedToLocalDevice) {
+  InitializeBridge();
+
+  syncer::EntityChangeList remote_input;
+
+  // entry1: targeted to local device, unopened, not dismissed.
+  SendTabToSelfEntry entry1(
+      "guid1", GURL("http://www.example.com/"), "title", AdvanceAndGetTime(),
+      "device", kLocalDeviceCacheGuid, PageContext(), NavigationHistory());
+
+  // entry2: targeted to another device.
+  SendTabToSelfEntry entry2("guid2", GURL("http://www.example.com/"), "title",
+                            AdvanceAndGetTime(), "device", "RemoteDevice",
+                            PageContext(), NavigationHistory());
+
+  // entry3: targeted to local device, but will be marked opened.
+  SendTabToSelfEntry entry3(
+      "guid3", GURL("http://www.example.com/"), "title", AdvanceAndGetTime(),
+      "device", kLocalDeviceCacheGuid, PageContext(), NavigationHistory());
+
+  // entry4: targeted to local device, but will be dismissed.
+  SendTabToSelfEntry entry4(
+      "guid4", GURL("http://www.example.com/"), "title", AdvanceAndGetTime(),
+      "device", kLocalDeviceCacheGuid, PageContext(), NavigationHistory());
+
+  // entry5: targeted to local device, unopened, not dismissed.
+  SendTabToSelfEntry entry5(
+      "guid5", GURL("http://www.example.com/"), "title", AdvanceAndGetTime(),
+      "device", kLocalDeviceCacheGuid, PageContext(), NavigationHistory());
+
+  remote_input.push_back(
+      syncer::EntityChange::CreateAdd("guid1", MakeEntityData(entry1)));
+  remote_input.push_back(
+      syncer::EntityChange::CreateAdd("guid2", MakeEntityData(entry2)));
+  remote_input.push_back(
+      syncer::EntityChange::CreateAdd("guid3", MakeEntityData(entry3)));
+  remote_input.push_back(
+      syncer::EntityChange::CreateAdd("guid4", MakeEntityData(entry4)));
+  remote_input.push_back(
+      syncer::EntityChange::CreateAdd("guid5", MakeEntityData(entry5)));
+
+  bridge()->MergeFullSyncData(bridge()->CreateMetadataChangeList(),
+                              std::move(remote_input));
+
+  bridge()->MarkEntryOpened("guid3");
+  bridge()->DismissEntry("guid4");
+
+  std::vector<const SendTabToSelfEntry*> unopened_entries =
+      bridge()->GetUnopenedEntriesTargetedToLocalDevice();
+
+  // entry1, entry4, and entry5 should be returned, because they are unopened (
+  // even though entry4 was dismissed).
+  // entry2 should not be returned because it's not targeted to local device.
+  // entry3 should not be returned because it's marked opened.
+  EXPECT_THAT(
+      unopened_entries,
+      UnorderedElementsAre(GuidIs("guid1"), GuidIs("guid4"), GuidIs("guid5")));
 }
 
 }  // namespace

@@ -25,7 +25,6 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
@@ -36,8 +35,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
 #include "components/browsing_data/core/browsing_data_utils.h"
 #include "components/browsing_data/core/cookie_or_cache_deletion_choice.h"
@@ -66,37 +63,17 @@ namespace {
 const int kMaxTimesHistoryNoticeShown = 1;
 
 // TODO(msramek): Get the list of deletion preferences from the JS side.
-// TODO(crbug.com/397187800): Remove basic and password counters when
-// kDbdRevampDesktop is launched.
-std::vector<std::string> GetAdvancedCounterPrefs() {
-  std::vector<std::string> counter_prefs_advanced = {
-      browsing_data::prefs::kDeleteBrowsingHistory,
-      browsing_data::prefs::kDeleteCache,
-      browsing_data::prefs::kDeleteCookies,
-      browsing_data::prefs::kDeleteDownloadHistory,
-      browsing_data::prefs::kDeleteFormData,
-      browsing_data::prefs::kDeleteHostedAppsData,
-      browsing_data::prefs::kDeleteSiteSettings,
-  };
-
-  if (!base::FeatureList::IsEnabled(
-          browsing_data::features::kDbdRevampDesktop)) {
-    counter_prefs_advanced.push_back(browsing_data::prefs::kDeletePasswords);
-  }
-
-  return counter_prefs_advanced;
-}
-
-std::vector<std::string> GetBasicCounterPrefs() {
-  std::vector<std::string> counter_prefs_basic = {};
-
-  if (!base::FeatureList::IsEnabled(
-          browsing_data::features::kDbdRevampDesktop)) {
-    counter_prefs_basic.push_back(browsing_data::prefs::kDeleteCacheBasic);
-  }
-
-  return counter_prefs_basic;
-}
+// TODO(crbug.com/502885275): Refactor when removing the basic/advanced tabs
+// logic.
+const char* kCounterPrefsAdvanced[] = {
+    browsing_data::prefs::kDeleteBrowsingHistory,
+    browsing_data::prefs::kDeleteCache,
+    browsing_data::prefs::kDeleteCookies,
+    browsing_data::prefs::kDeleteDownloadHistory,
+    browsing_data::prefs::kDeleteFormData,
+    browsing_data::prefs::kDeleteHostedAppsData,
+    browsing_data::prefs::kDeleteSiteSettings,
+};
 
 }  // namespace
 
@@ -142,11 +119,8 @@ void ClearBrowsingDataHandler::OnJavascriptAllowed() {
 
   DCHECK(counters_basic_.empty());
   DCHECK(counters_advanced_.empty());
-  for (const std::string& pref : GetBasicCounterPrefs()) {
-    AddCounter(BrowsingDataCounterFactory::GetForProfileAndPref(profile_, pref),
-               browsing_data::ClearBrowsingDataTab::BASIC);
-  }
-  for (const std::string& pref : GetAdvancedCounterPrefs()) {
+
+  for (const std::string& pref : kCounterPrefsAdvanced) {
     AddCounter(BrowsingDataCounterFactory::GetForProfileAndPref(profile_, pref),
                browsing_data::ClearBrowsingDataTab::ADVANCED);
   }
@@ -217,12 +191,9 @@ void ClearBrowsingDataHandler::HandleClearBrowsingData(
             content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB;
         break;
       case BrowsingDataType::PASSWORDS:
-        CHECK(!base::FeatureList::IsEnabled(
-            browsing_data::features::kDbdRevampDesktop));
-        remove_mask |= chrome_browsing_data_remover::DATA_TYPE_PASSWORDS;
-        remove_mask |=
-            chrome_browsing_data_remover::DATA_TYPE_ACCOUNT_PASSWORDS;
-        break;
+        // Passwords are no longer deletable via DBD modal
+        // (crbug.com/397187800).
+        NOTREACHED();
       case BrowsingDataType::FORM_DATA:
         remove_mask |= chrome_browsing_data_remover::DATA_TYPE_FORM_DATA;
         break;

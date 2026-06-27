@@ -11,10 +11,14 @@
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/banner_promo/model/default_browser_banner_promo_app_agent.h"
+#import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_coordinator.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
@@ -26,12 +30,14 @@
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_panel_entrypoint_commands.h"
 #import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
@@ -50,6 +56,8 @@
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/toolbar/coordinator/main_toolbar_mediator.h"
 #import "ios/chrome/browser/toolbar/coordinator/toolbar_mediator.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/adaptive_toolbar_view_controller.h"
@@ -211,6 +219,9 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
                    forProtocol:@protocol(ReaderModeChipCommands)];
   BOOL isOmniboxInBottomPosition =
       [_mainToolbarMediator isOmniboxInBottomPosition];
+
+  OmniboxPositionBrowserAgent::FromBrowser(self.browser)
+      ->SetIsCurrentLayoutBottomOmnibox(isOmniboxInBottomPosition);
 
   if (IsChromeNextIaEnabled()) {
     _topLocationBarCoordinator =
@@ -522,12 +533,12 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
     if (self.primaryToolbarViewController.view.hidden) {
       // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
       // zero. This is a temporary fix for the pdf bug.
-      return 1.0;
+      return IsFullscreenRefactoringEnabled() ? 0.0 : 1.0;
     }
     if ([self isOmniboxInBottomPosition]) {
       // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
       // zero. This is a temporary fix for the pdf bug.
-      return 1;
+      return IsFullscreenRefactoringEnabled() ? 0 : 1;
     }
     if (ShouldHaveFullHeightTopToolbar(self.traitEnvironment)) {
       return kToolbarHeightFullscreen;
@@ -537,7 +548,7 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
   if (_omniboxPosition == ToolbarType::kSecondary) {
     // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
     // zero. This is a temporary fix for the pdf bug.
-    return 1.0;
+    return IsFullscreenRefactoringEnabled() ? 0.0 : 1.0;
   }
 
   return ToolbarCollapsedHeight(
@@ -549,7 +560,7 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
     if (self.primaryToolbarViewController.view.hidden) {
       // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
       // zero. This is a temporary fix for the pdf bug.
-      return 1.0;
+      return IsFullscreenRefactoringEnabled() ? 0.0 : 1.0;
     }
     BOOL isOmniboxInBottomPosition = [self isOmniboxInBottomPosition];
     CGFloat height = 0;
@@ -569,7 +580,11 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
     if (isOmniboxInBottomPosition) {
       // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
       // zero. This is a temporary fix for the pdf bug.
-      return height > 0 ? height : 1;
+      if (IsFullscreenRefactoringEnabled()) {
+        return height;
+      } else {
+        return height > 0 ? height : 1;
+      }
     }
     if (ShouldHaveFullHeightTopToolbar(self.traitEnvironment)) {
       return height + kToolbarHeight;
@@ -789,7 +804,7 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
         break;
     }
 
-    [mediator updateConsumerWithWebState:webState];
+    [mediator updateConsumerWithWebState:webState animated:NO];
 
     UIView* toolbarView = toolbar.view;
     // The toolbar must be in the view hierarchy to be snapshotted.
@@ -800,7 +815,8 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
         toolbarView, toolbarView.window.screen.scale, kClientSideRendering);
 
     [mediator updateConsumerWithWebState:self.browser->GetWebStateList()
-                                             ->GetActiveWebState()];
+                                             ->GetActiveWebState()
+                                animated:NO];
 
     return toolbarSnapshot;
   }
@@ -1087,6 +1103,14 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
 }
 
 - (CGFloat)keyboardAttachedBottomOmniboxHeight {
+  if (IsChromeNextIaEnabled()) {
+    if (self.browser->GetSceneState().layoutState.appBarPosition ==
+        AppBarPosition::kBottom) {
+      return kKeyboardAttachedOmniboxBottomPadding;
+    } else {
+      return kKeyboardAttachedOmniboxBottomPaddingLandscape;
+    }
+  }
   return 0;
 }
 
@@ -1227,6 +1251,9 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
   ToolbarViewController* toolbarViewController =
       [[ToolbarViewController alloc] initInIncognito:incognito
                                          topPosition:topPosition];
+  toolbarViewController.layoutGuideCenter =
+      LayoutGuideCenterForBrowser(browser);
+  toolbarViewController.layoutState = browser->GetSceneState().layoutState;
   toolbarViewController.buttonFactory =
       [[ToolbarButtonFactory alloc] initWithIncognito:incognito];
   toolbarViewController.mutator = mediator;
@@ -1280,21 +1307,39 @@ constexpr CGFloat kBannerPromoVerticalSpacing = 8;
         agentFromApp:browser->GetSceneState().profileState.appState];
   }
 
+  ProfileIOS* profile = self.profile;
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForProfile(profile);
+  GeminiService* geminiService = GeminiServiceFactory::GetForProfile(profile);
+  GeminiBrowserAgent* geminiBrowserAgent =
+      GeminiBrowserAgent::FromBrowser(browser);
+
   ToolbarMediator* toolbarMediator = [[ToolbarMediator alloc]
               initWithWebStateList:browser->GetWebStateList()
                      actionFactory:actionFactory
+                       prefService:profile->GetPrefs()
               fullscreenController:FullscreenController::FromBrowser(browser)
                        topPosition:topPosition
-      defaultBrowserBannerAppAgent:agent];
+      defaultBrowserBannerAppAgent:agent
+             authenticationService:authService
+                     geminiService:geminiService
+                geminiBrowserAgent:geminiBrowserAgent];
   toolbarMediator.incognito = isIncognito;
   toolbarMediator.navigationBrowserAgent =
       WebNavigationBrowserAgent::FromBrowser(browser);
+  toolbarMediator.tabBasedIPHAgent =
+      TabBasedIPHBrowserAgent::FromBrowser(browser);
   if (IsFullscreenRefactoringEnabled()) {
     toolbarMediator.fullscreenCommands =
         HandlerForProtocol(browser->GetCommandDispatcher(), FullscreenCommands);
   }
   toolbarMediator.settingsHandler =
       HandlerForProtocol(browser->GetCommandDispatcher(), SettingsCommands);
+  toolbarMediator.geminiHandler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), BWGCommands);
+  toolbarMediator.baseViewController = self.baseViewController;
+  toolbarMediator.sceneHandler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), SceneCommands);
 
   return toolbarMediator;
 }

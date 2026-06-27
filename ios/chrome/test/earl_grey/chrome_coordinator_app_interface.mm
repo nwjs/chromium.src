@@ -14,6 +14,7 @@
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
 #import "ios/chrome/browser/composebox/eg_tests/inttest/composebox_inttest_coordinator.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/history/ui_bundled/history_coordinator_factory.h"
 #import "ios/chrome/browser/history/ui_bundled/stub_history_coordinator_delegate.h"
 #import "ios/chrome/browser/main/model/browser_impl.h"
@@ -28,12 +29,14 @@
 #import "ios/chrome/browser/settings/ui_bundled/privacy/privacy_safe_browsing_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
+#import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_scene_agent.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snackbar/ui_bundled/snackbar_coordinator.h"
 #import "ios/chrome/browser/snackbar/ui_bundled/stub_snackbar_coordinator_delegate.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
@@ -144,27 +147,42 @@
 }
 
 - (void)useNonTestBrowser {
+  SceneState* sceneState = chrome_test_util::GetForegroundActiveScene();
   _browser = std::make_unique<BrowserImpl>(
-      chrome_test_util::GetOriginalProfile(),
-      chrome_test_util::GetForegroundActiveScene(), _dispatcher,
+      chrome_test_util::GetOriginalProfile(), sceneState, _dispatcher,
       /*active_browser=*/nullptr,
       BrowserImpl::InsertionPolicy::kAttachTabHelpers,
       BrowserImpl::ActivationPolicy::kForceRealization,
       BrowserImpl::Type::kRegular);
   UrlLoadingBrowserAgent::RemoveFromBrowser(_browser.get());
   FakeUrlLoadingBrowserAgent::InjectForBrowser(_browser.get());
+
+  if (![LayoutGuideSceneAgent agentFromScene:sceneState]) {
+    LayoutGuideSceneAgent* layoutGuideSceneAgent =
+        [[LayoutGuideSceneAgent alloc] init];
+    [sceneState addAgent:layoutGuideSceneAgent];
+  }
+
   [self insertInitialWebstate];
   chrome_test_util::SetMainBrowserOverride(self.browser);
 }
 
 - (void)useTestBrowser {
+  SceneState* sceneState = chrome_test_util::GetForegroundActiveScene();
+
   std::unique_ptr<TestBrowser> testBrowser = std::make_unique<TestBrowser>(
-      chrome_test_util::GetOriginalProfile(),
-      chrome_test_util::GetForegroundActiveScene());
+      chrome_test_util::GetOriginalProfile(), sceneState);
   testBrowser->SetCommandDispatcher(_dispatcher);
   _browser = std::move(testBrowser);
   UrlLoadingNotifierBrowserAgent::CreateForBrowser(_browser.get());
   FakeUrlLoadingBrowserAgent::InjectForBrowser(_browser.get());
+
+  if (![LayoutGuideSceneAgent agentFromScene:sceneState]) {
+    LayoutGuideSceneAgent* layoutGuideSceneAgent =
+        [[LayoutGuideSceneAgent alloc] init];
+    [sceneState addAgent:layoutGuideSceneAgent];
+  }
+
   [self insertInitialWebstate];
   chrome_test_util::SetMainBrowserOverride(self.browser);
 }
@@ -309,6 +327,9 @@
   StartSurfaceRecentTabBrowserAgent::CreateForBrowser(browser);
   BrowserViewVisibilityNotifierBrowserAgent::CreateForBrowser(browser);
   DiscoverFeedVisibilityBrowserAgent::CreateForBrowser(browser);
+  if (IsFullscreenRefactoringEnabled()) {
+    FullscreenBrowserAgent::CreateForBrowser(browser);
+  }
 
   // Insert a New Tab Page.
   std::unique_ptr<web::FakeWebState> webState =

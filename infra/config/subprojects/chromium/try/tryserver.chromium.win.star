@@ -37,7 +37,7 @@ try_.defaults.set(
     siso_output_local_strategy = "greedy",
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-    siso_remote_linking = True,
+    siso_remote_linking = False,
 )
 
 targets.builder_defaults.set(
@@ -90,6 +90,18 @@ try_.builder(
         ],
     ),
     contact_team_email = "chrome-desktop-engprod@google.com",
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "win-arm64-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
 )
 
 try_.builder(
@@ -117,6 +129,18 @@ try_.builder(
         ],
     ),
     contact_team_email = "chrome-desktop-engprod@google.com",
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "win-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
 )
 
 try_.builder(
@@ -217,6 +241,18 @@ try_.builder(
         ],
     ),
     contact_team_email = "chrome-desktop-engprod@google.com",
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "win32-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
 )
 
 try_.builder(
@@ -408,6 +444,9 @@ try_.builder(
     ),
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
+    # TODO: crbug.com/509602362 - Temporarily enable remote linking builder by builder.
+    # Will enable it for all CQ builds again after resolving RBE-CAS issue.
+    siso_remote_linking = True,
 )
 
 try_.builder(
@@ -459,16 +498,31 @@ try_.builder(
     name = "win10-code-coverage",
     mirrors = ["ci/win10-code-coverage"],
     gn_args = "ci/win10-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )
 
 try_.builder(
-    name = "win-treesinviz-enabled-rel",
+    name = "win-treesinviz-disabled-rel",
     mirrors = [
-        "ci/win-treesinviz-enabled-rel",
+        "ci/win-treesinviz-disabled-rel",
     ],
-    gn_args = "ci/win-treesinviz-enabled-rel",
+    gn_args = "ci/win-treesinviz-disabled-rel",
     contact_team_email = "chrome-gpu-team@google.com",
+)
+
+try_.builder(
+    name = "windows-no-initial-webui-rel",
+    mirrors = [
+        "ci/Win x64 Builder",
+        "ci/windows-no-initial-webui-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/Win x64 Builder",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "chrome-webium-product-eng@google.com",
 )
 
 try_.builder(

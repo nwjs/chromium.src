@@ -58,7 +58,8 @@ BASE_FEATURE(kLensOverlayVisualSelectionUpdates,
 BASE_FEATURE(kLensOverlayUpdatedClientContext,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSearchSidePanelNewFeedback, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLensSearchSidePanelNewFeedback,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the Lens Overlay omnibox entry point. This is a separate feature from
 // kLensOverlay so that the omnibox entry point can be disabled without a
@@ -124,6 +125,9 @@ BASE_FEATURE(kLensOverlayOptimizationFilter, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLensOverlayNonBlockingPrivacyNotice,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlayNonBlockingPrivacyNoticeForImageSearch,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensUseSeparateRequestIdForViewportImages,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -134,7 +138,13 @@ BASE_FEATURE(kLensSendRawFileMediaTypes, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensSendUrlsInComposeboxes, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOnlySendAaiForModalityChips,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensRestrictAnnotatedPageContentToSameSiteFramesForNextQueries,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensDeleteContextOnPageNavigation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<int> kLensUpdatedFeedbackToastTimeoutMs{
@@ -581,6 +591,9 @@ const base::FeatureParam<LensAimSuggestionsType> kLensAimSuggestionsType(
 const base::FeatureParam<int> kLensOverlayNonBlockingPrivacyNoticeImpressionCap{
     &kLensOverlayNonBlockingPrivacyNotice, "impression-cap", 0};
 
+const base::FeatureParam<bool> kLensSidePanelUnificationAllowSignedOut{
+    &kLensSidePanelUnification, "allow-signed-out", true};
+
 std::string_view LensAimSuggestionModeToString(
     LensAimSuggestionsType type) {
   switch (type) {
@@ -928,6 +941,15 @@ int GetLensOverlayImageContextMenuActionsTextReceivedTimeout() {
 
 bool IsLensOverlaySidePanelOpenInNewTabEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlaySidePanelOpenInNewTab);
+}
+
+bool IsLensSidePanelUnificationEnabled() {
+  return base::FeatureList::IsEnabled(kLensSidePanelUnification);
+}
+
+bool IsLensSidePanelUnificationAllowSignedOut() {
+  return IsLensSidePanelUnificationEnabled() &&
+         kLensSidePanelUnificationAllowSignedOut.Get();
 }
 
 bool IsLensOverlayClusterInfoOptimizationEnabled() {
@@ -1287,6 +1309,12 @@ bool IsLensOverlayNonBlockingPrivacyNoticeEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayNonBlockingPrivacyNotice);
 }
 
+bool IsLensOverlayNonBlockingPrivacyNoticeForImageSearchEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayNonBlockingPrivacyNotice) &&
+         base::FeatureList::IsEnabled(
+             kLensOverlayNonBlockingPrivacyNoticeForImageSearch);
+}
+
 int GetLensOverlayNonBlockingPrivacyNoticeImpressionCap() {
   return kLensOverlayNonBlockingPrivacyNoticeImpressionCap.Get();
 }
@@ -1297,6 +1325,10 @@ bool IsLensSendRawFileMediaTypesEnabled() {
 
 bool IsLensSendUrlsInComposeboxesEnabled() {
   return base::FeatureList::IsEnabled(kLensSendUrlsInComposeboxes);
+}
+
+bool IsLensOnlySendAaiForModalityChipsEnabled() {
+  return base::FeatureList::IsEnabled(kLensOnlySendAaiForModalityChips);
 }
 
 }  // namespace lens::features

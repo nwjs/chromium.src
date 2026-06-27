@@ -146,13 +146,17 @@ class GaiaCookieManagerServiceTest : public testing::Test {
         account_id4_(CoreAccountId::FromGaiaId(kAccountId4)),
         no_error_(GoogleServiceAuthError::NONE),
         error_(GoogleServiceAuthError::SERVICE_ERROR),
-        canceled_(GoogleServiceAuthError::REQUEST_CANCELED),
-        account_tracker_service_(CreateAccountTrackerService()) {
+        canceled_(GoogleServiceAuthError::REQUEST_CANCELED) {
     AccountTrackerService::RegisterPrefs(pref_service_.registry());
     GaiaCookieManagerService::RegisterPrefs(pref_service_.registry());
     signin_client_ = std::make_unique<CustomTestSigninClient>(&pref_service_);
-    account_tracker_service_ = std::make_unique<AccountTrackerService>();
-    account_tracker_service_->Initialize(&pref_service_, base::FilePath());
+
+#if BUILDFLAG(IS_ANDROID)
+    signin::SetUpFakeAccountManagerFacade();
+#endif
+
+    account_tracker_service_ = std::make_unique<AccountTrackerService>(
+        &pref_service_, base::FilePath());
     token_service_ =
         std::make_unique<FakeProfileOAuth2TokenService>(&pref_service_);
   }
@@ -260,13 +264,6 @@ class GaiaCookieManagerServiceTest : public testing::Test {
   const CoreAccountId account_id4_;
 
  private:
-  std::unique_ptr<AccountTrackerService> CreateAccountTrackerService() {
-#if BUILDFLAG(IS_ANDROID)
-    signin::SetUpFakeAccountManagerFacade();
-#endif
-    return std::make_unique<AccountTrackerService>();
-  }
-
   base::test::TaskEnvironment task_environment_;
   GoogleServiceAuthError no_error_;
   GoogleServiceAuthError error_;
@@ -1306,6 +1303,20 @@ TEST_F(GaiaCookieManagerServiceTest, OptimizeListAccounts) {
                              signin::SetAccountsInCookieResult::kSuccess);
   SimulateListAccountsSuccess(&helper, data);
   EXPECT_FALSE(helper.is_running());
+}
+
+// Tests delaying a network call, then calling `CancelAll`. This used to crash.
+// Regression test for crbug.com/462549500.
+TEST_F(GaiaCookieManagerServiceTest, CancelAllWithDelayedBlock) {
+  GaiaCookieManagerService helper(account_tracker_service(), token_service(),
+                                  signin_client());
+  signin_client()->SetNetworkCallsDelayed(true);
+  helper.TriggerListAccounts();
+  helper.CancelAll();
+
+  // Release delayed network calls.
+  // This used to crash in `StartFetchingListAccounts`.
+  signin_client()->SetNetworkCallsDelayed(false);
 }
 
 class GaiaCookieManagerServiceCookieTest

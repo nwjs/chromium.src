@@ -629,7 +629,8 @@ void ServiceWorkerVersion::TriggerIdleTerminationAsap() {
   endpoint()->SetIdleDelay(base::Seconds(0));
 }
 
-bool ServiceWorkerVersion::OnRequestTermination() {
+bool ServiceWorkerVersion::OnRequestTermination(
+    uint64_t observed_keepalive_sequence_number) {
   if (running_status() == blink::EmbeddedWorkerStatus::kStopping) {
     return true;
   }
@@ -637,13 +638,21 @@ bool ServiceWorkerVersion::OnRequestTermination() {
 
   worker_is_idle_on_renderer_ = true;
 
+  // A stale request means the renderer requested termination before observing a
+  // browser keepalive that was already accepted for this worker run.
+  bool has_stale_keepalive_sequence_number =
+      observed_keepalive_sequence_number <
+      latest_external_keepalive_sequence_number_;
+
   // Determine if the worker can be terminated.
-  bool will_be_terminated = HasNoWork();
+  bool will_be_terminated = !has_stale_keepalive_sequence_number && HasNoWork();
   if (embedded_worker_->devtools_attached()) {
     // Basically the service worker won't be terminated if DevTools is attached.
     // But when activation is happening and this worker needs to be terminated
     // asap, it'll be terminated.
-    will_be_terminated = needs_to_be_terminated_asap_;
+    if (!has_stale_keepalive_sequence_number) {
+      will_be_terminated = needs_to_be_terminated_asap_;
+    }
 
     if (!will_be_terminated) {
       // When the worker is being kept alive due to devtools, it's important to
@@ -810,7 +819,8 @@ ServiceWorkerExternalRequestResult ServiceWorkerVersion::StartExternalRequest(
   // Cancel idle timeout when there is a new request started.
   // Idle timer will be scheduled when request finishes, if there is no other
   // requests and events.
-  endpoint()->AddKeepAlive();
+  ++latest_external_keepalive_sequence_number_;
+  endpoint()->AddKeepAlive(latest_external_keepalive_sequence_number_);
 
   return ServiceWorkerExternalRequestResult::kOk;
 }
@@ -1667,6 +1677,16 @@ void ServiceWorkerVersion::OnStopping() {
   // stopped because subsequent StartWorker() may read the flag to decide
   // whether an event can be dispatched or not.
   is_endpoint_ready_ = false;
+
+  // The renderer's service worker thread may be blocked in
+  // `ThreadSafeScriptContainer::WaitOnWorkerThread` waiting for script data;
+  // the only thing that wakes it (besides the bytes arriving) is the
+  // browser-side Mojo binding to `ServiceWorkerInstalledScriptsManager` being
+  // torn down. If we leave `installed_scripts_sender_` alive across the `Stop`,
+  // the renderer cannot acknowledge the `StopWorker` IPC and we hit
+  // `DETACH_STALLED_IN_STOPPING` after `kStopWorkerTimeout`. So we drop the
+  // sender eagerly. See crbug.com/484218883.
+  installed_scripts_sender_.reset();
 
   // Shorten the interval so stalling in stopped can be fixed quickly. Once the
   // worker stops, the timer is disabled. The interval will be reset to normal
@@ -3116,6 +3136,7 @@ void ServiceWorkerVersion::OnStoppedInternal(
   inflight_requests_.Clear();
   request_timeouts_.clear();
   external_request_uuid_to_request_id_.clear();
+  latest_external_keepalive_sequence_number_ = 0;
   service_worker_remote_.reset();
   is_endpoint_ready_ = false;
   remote_controller_.reset();

@@ -114,9 +114,9 @@ std::optional<extensions::mojom::HostID> GenerateHostIDFromEmbedder(
   }
 
   if (embedder_rfh && embedder_rfh->GetMainFrame()->GetWebUI()) {
-    const GURL& url = embedder_rfh->GetSiteInstance()->GetSiteURL();
     return extensions::mojom::HostID(
-        extensions::mojom::HostID::HostType::kWebUi, url.spec());
+        extensions::mojom::HostID::HostType::kWebUi,
+        embedder_rfh->GetLastCommittedOrigin().Serialize());
   }
 
   if (embedder_rfh->GetWebExposedIsolationLevel() >=
@@ -640,8 +640,12 @@ WebViewInternalAddContentScriptsFunction::Run() {
   if (!params->instance_id)
     return RespondNow(Error(kViewInstanceIdError));
 
-  GURL owner_base_url(
-      render_frame_host()->GetSiteInstance()->GetSiteURL().GetWithEmptyPath());
+  // Use GetTupleOrPrecursorTupleIfOpaque() so that this works properly if
+  // the owner is in a sandboxed frame, which has an opaque origin.
+  GURL owner_base_url(render_frame_host()
+                          ->GetLastCommittedOrigin()
+                          .GetTupleOrPrecursorTupleIfOpaque()
+                          .GetURL());
   std::optional<extensions::mojom::HostID> host_id =
       GenerateHostIDFromEmbedder(extension(), render_frame_host());
   if (!host_id) {

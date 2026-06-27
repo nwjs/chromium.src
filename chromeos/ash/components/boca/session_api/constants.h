@@ -22,6 +22,9 @@ inline constexpr char kSchoolToolsAuthScope[] =
 inline constexpr char kGetSessionUrlTemplate[] =
     "v1/users/$1/sessions:getActive?device.device_id=$2";
 
+inline constexpr char kGetGeminiStatusUrlTemplate[] =
+    "v1/users/$1:getGeminiStatus";
+
 inline constexpr char kUploadFCMTokenTemplate[] = "v1/users/$1";
 
 inline constexpr char kUpdateSessionUrlTemplate[] =
@@ -96,9 +99,16 @@ inline constexpr char kStudentStatus[] = "studentStatuses";
 inline constexpr char kStudentStatusState[] = "state";
 inline constexpr char kDeviceStatusState[] = "state";
 inline constexpr char kReceiverConnectionState[] = "receiverConnectionState";
+inline constexpr char kGeminiEnablementState[] = "geminiEnablementState";
+inline constexpr char kGeminiStateEnabled[] = "GEMINI_ENABLEMENT_STATE_ENABLED";
+inline constexpr char kGeminiStateDisabled[] =
+    "GEMINI_ENABLEMENT_STATE_DISABLED";
+inline constexpr char kGeminiStatusFetchResponseTemplate[] =
+    R"({"geminiEnablementState": "$1"})";
 inline constexpr char kUrl[] = "url";
 inline constexpr char kTitle[] = "title";
 inline constexpr char kFavIcon[] = "faviconUrl";
+inline constexpr char kUrlType[] = "urlType";
 inline constexpr char kContentConfigs[] = "contentConfigs";
 inline constexpr char kActiveBundle[] = "activeBundle";
 inline constexpr char kLocked[] = "locked";

@@ -52,7 +52,6 @@ class EntityDataManagerAndroidTest : public testing::Test {
         &prefs_, identity_test_env_.identity_manager(), &sync_service_,
         webdata_helper_.autofill_webdata_service(),
         /*history_service=*/nullptr, /*strike_database=*/nullptr,
-        /*accessibility_annotator_service=*/nullptr,
         autofill::GeoIpCountryCode("US"));
 
     entity_data_manager_android_ = new EntityDataManagerAndroid(
@@ -86,18 +85,14 @@ class EntityDataManagerAndroidTest : public testing::Test {
   raw_ptr<JNIEnv> env_ = base::android::AttachCurrentThread();
 };
 
-// Test that when masked storage is not supported, Google Wallet servers are not
-// called. Note that this does not mean the entity record type is `kLocal`.
-// Public passes can have a record type of `kServerWallet` but upon saving the
-// Wallet servers are not called. This is because these entities are later
-// shared with Wallet via sync.
+// Test that when saving a public pass, Google Wallet servers are not called.
 TEST_F(EntityDataManagerAndroidTest,
-       AddOrUpdate_MaskedStorageNotSupported_DoNotCallWalletServers) {
+       AddOrUpdate_PublicPass_DoesNotCallWalletServers) {
   EntityInstance entity = test::GetVehicleEntityInstance(
       {.record_type = EntityInstance::RecordType::kServerWallet});
 
-  // Ensure it's NOT masked storage supported.
-  ASSERT_FALSE(IsMaskedStorageSupported(entity.type(), entity.record_type()));
+  ASSERT_TRUE(GetWalletPassType(entity.type(), entity.record_type()) ==
+              EntityInstance::WalletPassType::kPublic);
   // Wallet servers are not called when storing public passes.
   EXPECT_CALL(mock_wallet_pass_access_manager(), SaveWalletEntityInstance)
       .Times(0);

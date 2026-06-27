@@ -77,6 +77,7 @@
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/css/resolver/filter_operation_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/transform_builder.h"
+#include "third_party/blink/renderer/core/css/style_caret_color.h"
 #include "third_party/blink/renderer/core/css/style_color.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
@@ -378,7 +379,7 @@ ClipPathOperation* StyleBuilderConverter::ConvertClipPath(
           geometry_box_value ? geometry_box_value->ConvertTo<GeometryBox>()
                              : GeometryBox::kBorderBox;
       return MakeGarbageCollected<ShapeClipPathOperation>(
-          BasicShapeForValue(state, shape_value), geometry_box);
+          *BasicShapeForValue(state, shape_value), geometry_box);
     }
     UseCounter::Count(state.GetDocument(), WebFeature::kClipPathGeometryBox);
     auto& geometry_box_value = To<CSSIdentifierValue>(list->First());
@@ -1564,8 +1565,7 @@ GridPosition StyleBuilderConverter::ConvertGridPosition(
   DCHECK(values.length());
 
   bool is_span_position = false;
-  // The specification makes the <integer> optional, in which case it default to
-  // '1'.
+  // Default the span/line count to '1' (a calc-expression may make it invalid).
   int grid_line_number = 1;
   AtomicString grid_line_name;
 
@@ -1581,8 +1581,14 @@ GridPosition StyleBuilderConverter::ConvertGridPosition(
 
   auto* current_primitive_value = DynamicTo<CSSPrimitiveValue>(current_value);
   if (current_primitive_value && current_primitive_value->IsNumber()) {
-    grid_line_number = current_primitive_value->ComputeInteger(
+    const int number = current_primitive_value->ComputeInteger(
         state.CssToLengthConversionData());
+    if (is_span_position) {
+      // A span count must be a positive integer.
+      grid_line_number = ClampTo(number, 1, kGridMaxTracks);
+    } else if (number != 0) {  // A line count must be non-zero.
+      grid_line_number = ClampTo(number, -kGridMaxTracks, kGridMaxTracks);
+    }
     ++i;
     current_value = i < values.length() ? &values.Item(i) : nullptr;
   }
@@ -1955,6 +1961,15 @@ StyleInterestDelay StyleBuilderConverter::ConvertInterestDelayValue(
       StyleBuilderConverter::ConvertTimeValue(state, value));
 }
 
+int StyleBuilderConverter::ClampLineWidth(double width) {
+  if (width > 0.0 && width < 1.0) {
+    return 1;
+  }
+
+  // Clamp the result to a reasonable range for layout.
+  return ClampTo<int>(std::floor(width), 0, LayoutUnit::Max().ToInt());
+}
+
 int StyleBuilderConverter::ConvertBorderWidth(const StyleResolverState& state,
                                               const CSSValue& value) {
   double result = 0;
@@ -1982,12 +1997,7 @@ int StyleBuilderConverter::ConvertBorderWidth(const StyleResolverState& state,
         primitive_value.ComputeLength<float>(state.CssToLengthConversionData());
   }
 
-  if (result > 0.0 && result < 1.0) {
-    return 1;
-  }
-
-  // Clamp the result to a reasonable range for layout.
-  return ClampTo<int>(floor(result), 0, LayoutUnit::Max().ToInt());
+  return ClampLineWidth(result);
 }
 
 int StyleBuilderConverter::ConvertOutlineOffset(const StyleResolverState& state,
@@ -2749,22 +2759,22 @@ ShapeValue* StyleBuilderConverter::ConvertShapeValue(StyleResolverState& state,
   }
 
   const BasicShape* shape = nullptr;
-  CSSBoxType css_box = CSSBoxType::kMissing;
+  ShapeBox css_box = ShapeBox::kMissing;
   const auto& value_list = To<CSSValueList>(value);
   for (unsigned i = 0; i < value_list.length(); ++i) {
     const CSSValue& item_value = value_list.Item(i);
     if (item_value.IsBasicShapeValue()) {
       shape = BasicShapeForValue(state, item_value);
     } else {
-      css_box = To<CSSIdentifierValue>(item_value).ConvertTo<CSSBoxType>();
+      css_box = To<CSSIdentifierValue>(item_value).ConvertTo<ShapeBox>();
     }
   }
 
   if (shape) {
-    return MakeGarbageCollected<ShapeValue>(shape, css_box);
+    return MakeGarbageCollected<ShapeValue>(*shape, css_box);
   }
 
-  DCHECK_NE(css_box, CSSBoxType::kMissing);
+  DCHECK_NE(css_box, ShapeBox::kMissing);
   return MakeGarbageCollected<ShapeValue>(css_box);
 }
 
@@ -3066,6 +3076,20 @@ StyleAutoColor StyleBuilderConverter::ConvertStyleAutoColor(
     }
   }
   return StyleAutoColor(ConvertStyleColor(state, value, for_visited_link));
+}
+
+StyleCaretColor StyleBuilderConverter::ConvertStyleCaretColor(
+    StyleResolverState& state,
+    const CSSValue& value,
+    bool for_visited_link) {
+  if (const auto* list = DynamicTo<CSSValueList>(value)) {
+    DCHECK_EQ(list->length(), 2u);
+    return StyleCaretColor(
+        ConvertStyleAutoColor(state, list->Item(0), for_visited_link),
+        ConvertStyleAutoColor(state, list->Item(1), for_visited_link));
+  }
+  return StyleCaretColor(ConvertStyleAutoColor(state, value, for_visited_link),
+                         StyleAutoColor::AutoColor());
 }
 
 SVGPaint StyleBuilderConverter::ConvertSVGPaint(StyleResolverState& state,
@@ -3429,7 +3453,7 @@ OffsetPathOperation* ConvertOffsetPathValueToOperation(
         coord_box);
   }
   return MakeGarbageCollected<ShapeOffsetPathOperation>(
-      BasicShapeForValue(state, value), coord_box);
+      *BasicShapeForValue(state, value), coord_box);
 }
 
 }  // namespace
@@ -4201,25 +4225,25 @@ PositionTryFallback StyleBuilderConverter::ConvertSinglePositionTryFallback(
   return PositionTryFallback(scoped_name, tactic_list);
 }
 
-FitText StyleBuilderConverter::ConvertFitText(StyleResolverState& state,
+TextFit StyleBuilderConverter::ConvertTextFit(StyleResolverState& state,
                                               const CSSValue& value) {
   const auto& list = To<CSSValueList>(value);
 
   const auto type_id = To<CSSIdentifierValue>(list.Item(0)).GetValueID();
-  FitTextType type = FitTextType::kNone;
+  TextFitType type = TextFitType::kNone;
   if (type_id == CSSValueID::kNone) {
     // It's the default value. Do nothing.
   } else if (type_id == CSSValueID::kGrow) {
-    type = FitTextType::kGrow;
+    type = TextFitType::kGrow;
   } else {
-    // If this DCHECK fails, This function and ConsumeFitText() are
+    // If this DCHECK fails, This function and ConsumeTextFit() are
     // inconsistent.
     DCHECK_EQ(type_id, CSSValueID::kShrink);
-    type = FitTextType::kShrink;
+    type = TextFitType::kShrink;
   }
   wtf_size_t next_index = 1;
 
-  FitTextTarget target = FitTextTarget::kConsistent;
+  TextFitTarget target = TextFitTarget::kConsistent;
   if (next_index < list.length()) {
     if (const auto* target_value =
             DynamicTo<CSSIdentifierValue>(list.Item(next_index))) {
@@ -4227,12 +4251,12 @@ FitText StyleBuilderConverter::ConvertFitText(StyleResolverState& state,
       if (target_id == CSSValueID::kConsistent) {
         // It's the default value. Do nothing.
       } else if (target_id == CSSValueID::kPerLine) {
-        target = FitTextTarget::kPerLine;
+        target = TextFitTarget::kPerLine;
       } else {
-        // If this DCHECK fails, This function and ConsumeFitText() are
+        // If this DCHECK fails, This function and ConsumeTextFit() are
         // inconsistent.
         DCHECK_EQ(target_id, CSSValueID::kPerLineAll);
-        target = FitTextTarget::kPerLineAll;
+        target = TextFitTarget::kPerLineAll;
       }
       ++next_index;
     }
@@ -4248,7 +4272,7 @@ FitText StyleBuilderConverter::ConvertFitText(StyleResolverState& state,
     }
     ++next_index;
   }
-  return FitText(type, target, limit);
+  return TextFit(type, target, limit);
 }
 
 TextOverflowData StyleBuilderConverter::ConvertTextOverflow(
@@ -4263,6 +4287,27 @@ TextOverflowData StyleBuilderConverter::ConvertTextOverflow(
   }
   DCHECK(identifier_value.GetValueID() == CSSValueID::kClip);
   return TextOverflowData(TextOverflowData::Type::kClip);
+}
+
+MaxLinesData StyleBuilderConverter::ConvertMaxLines(StyleResolverState& state,
+                                                    const CSSValue& value) {
+  if (const auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
+    DCHECK_EQ(ident->GetValueID(), CSSValueID::kAuto);
+    return MaxLinesData(0, true);
+  }
+
+  const CSSValue* num_lines_value = &value;
+  bool has_auto = false;
+  if (const auto* pair = DynamicTo<CSSValuePair>(value)) {
+    DCHECK_EQ(To<CSSIdentifierValue>(pair->Second()).GetValueID(),
+              CSSValueID::kAuto);
+    has_auto = true;
+    num_lines_value = &pair->First();
+  }
+  uint16_t num_lines =
+      To<CSSPrimitiveValue>(num_lines_value)
+          ->ConvertTo<uint16_t>(state.CssToLengthConversionData());
+  return MaxLinesData(num_lines, has_auto);
 }
 
 ScopedCSSNameList* StyleBuilderConverter::ConvertTimelineTriggerName(

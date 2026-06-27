@@ -69,40 +69,6 @@ net::NetworkTrafficAnnotationTag GetNetworkTrafficAnnotation(
             }
           }
         })");
-    case ModelBasedCapabilityKey::kTabOrganization:
-      return net::DefineNetworkTrafficAnnotation(
-          "tab_organizer_model_execution", R"(
-        semantics {
-          sender: "Tab organizer"
-          description:
-            "Automatically creates tab groups based on the open tabs."
-          trigger:
-            "User right-clicks on a tab and clicks Organize Similar Tabs."
-          destination: GOOGLE_OWNED_SERVICE
-          data:
-            "URL and title of the tabs to organize."
-          internal {
-            contacts {
-              email: "chrome-intelligence-core@google.com"
-            }
-          }
-          user_data {
-            type: ACCESS_TOKEN
-            type: SENSITIVE_URL
-            type: WEB_CONTENT
-          }
-          last_reviewed: "2024-01-11"
-        }
-        policy {
-          cookies_allowed: NO
-          setting:
-            "Users can control this by signing-in to Chrome, and from Settings."
-          chrome_policy {
-            TabOrganizerSettings {
-              TabOrganizerSettings: 2
-            }
-          }
-        })");
     case ModelBasedCapabilityKey::kCompose:
       return net::DefineNetworkTrafficAnnotation(
           "help_me_write_model_execution", R"(
@@ -484,7 +450,43 @@ net::NetworkTrafficAnnotationTag GetNetworkTrafficAnnotation(
       // TODO(crbug.com/492168146): Add network traffic annotation.
       return MISSING_TRAFFIC_ANNOTATION;
     case ModelBasedCapabilityKey::kContextualCueing:
-      // TODO(crbug.com/495507631): Add network traffic annotation.
+      return net::DefineNetworkTrafficAnnotation("suggestions_powered_by_ai",
+                                                 R"(
+        semantics {
+          sender: "Suggestions, powered by AI"
+          description:
+            "Generates contextual suggestions to the user at relevant moments."
+          trigger:
+            "User navigates to a page that is a part of one of the target "
+            "CUJs (ex: shopping and education)."
+          destination: GOOGLE_OWNED_SERVICE
+          data:
+            "Title and URL of the main frame page the user has navigated too."
+          internal {
+            contacts {
+              email: "sophiechang@google.com"
+            }
+          }
+          user_data {
+            type: SENSITIVE_URL
+            type: WEB_CONTENT
+          }
+          last_reviewed: "2026-04-28"
+        }
+        policy {
+          cookies_allowed: NO
+          setting:
+            "Administrators can control this feature via the "
+            "ChromeSuggestionsSettings policy. Users must also have history "
+            "sync enabled to use this feature."
+          chrome_policy {
+            ChromeSuggestionsSettings {
+              ChromeSuggestionsSettings: 1
+            }
+          }
+        })");
+    case ModelBasedCapabilityKey::kUpdaterChat:
+      // TODO(crbug.com/512194219): Add network traffic annotation.
       return MISSING_TRAFFIC_ANNOTATION;
   }
 }
@@ -504,7 +506,6 @@ void AppendHeadersIfNeeded(network::ResourceRequest& request) {
 bool IsAccessTokenRequiredForFeature(ModelBasedCapabilityKey feature) {
   switch (feature) {
     case ModelBasedCapabilityKey::kCompose:
-    case ModelBasedCapabilityKey::kTabOrganization:
     case ModelBasedCapabilityKey::kWallpaperSearch:
     case ModelBasedCapabilityKey::kTest:
     case ModelBasedCapabilityKey::kHistorySearch:
@@ -519,6 +520,7 @@ bool IsAccessTokenRequiredForFeature(ModelBasedCapabilityKey feature) {
     case ModelBasedCapabilityKey::kAnnotationReducerOnePResolver:
     case ModelBasedCapabilityKey::kAnnotationReducerQueryClassifier:
     case ModelBasedCapabilityKey::kContextualCueing:
+    case ModelBasedCapabilityKey::kUpdaterChat:
       return true;
     case ModelBasedCapabilityKey::kFormsClassifications:
       return !base::FeatureList::IsEnabled(

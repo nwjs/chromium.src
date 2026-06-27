@@ -10,6 +10,7 @@
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/android/ui/actor_ui_tab_controller_android.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_tab_visit_tracker.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -28,9 +29,11 @@
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/side_panel_container/internal/android/dev/side_panel_tab_scoped_dev_feature.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/actor_features.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/security_interstitials/core/features.h"
 #include "components/tabs/public/tab_interface.h"
@@ -40,6 +43,10 @@
 namespace tabs {
 
 TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
+  TabInterface* const tab = TabInterface::GetFromContents(web_contents);
+  CHECK(tab);
+  tab_subscription_ = webui::InitEmbeddingContext(tab);
+
   sync_sessions_router_ =
       std::make_unique<sync_sessions::SyncSessionsRouterTabHelper>(
           web_contents,
@@ -55,8 +62,6 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
 
   new_tab_page_preload_pipeline_manager_ =
       std::make_unique<NewTabPagePreloadPipelineManager>(web_contents);
-
-  TabInterface* const tab = TabInterface::GetFromContents(web_contents);
 
   if (base::FeatureList::IsEnabled(
           security_interstitials::features::kHttpsFirstDialogUi)) {
@@ -95,13 +100,21 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
                 *tab, *tab, actor_service);
   }
 
+  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasksContext)) {
+    contextual_tasks_tab_visit_tracker_ =
+        GetUserDataFactory()
+            .CreateInstance<contextual_tasks::ContextualTasksTabVisitTracker>(
+                *tab, *tab);
+  }
+
   tab_contextualization_controller_ =
       GetUserDataFactory().CreateInstance<lens::TabContextualizationController>(
           *tab, tab);
 
   glic_instance_helper_ =
       GetUserDataFactory().CreateInstance<glic::GlicInstanceHelper>(*tab, tab);
-  if (base::FeatureList::IsEnabled(features::kGlicAndroidSidePanel)) {
+  if (base::FeatureList::IsEnabled(features::kGlicAndroidSidePanel) &&
+      AndroidSidePanelEnabledFn::IsEnabled()) {
     glic_side_panel_coordinator_ =
         GetUserDataFactory()
             .CreateInstance<glic::GlicSidePanelCoordinatorDesktopAndroid>(

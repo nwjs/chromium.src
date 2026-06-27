@@ -447,7 +447,18 @@ void LineBreaker::UpdateAvailableWidth() {
   // Available width must be smaller than |LayoutUnit::Max()| so that the
   // position can be larger.
   available_width = std::min(available_width, LayoutUnit::NearlyMax());
-  available_width_ = available_width;
+  base_available_width_ = available_width;
+  UpdateAvailableWidthFromBaseAvailableWidth();
+}
+
+inline void LineBreaker::UpdateAvailableWidthFromBaseAvailableWidth() {
+  if (RuntimeEnabledFeatures::BoxDecorationBreakCloneLineBreakingEnabled() &&
+      cloned_box_decorations_end_size_) [[unlikely]] {
+    available_width_ = std::max(
+        LayoutUnit(), base_available_width_ - cloned_box_decorations_end_size_);
+  } else {
+    available_width_ = base_available_width_;
+  }
 }
 
 LineBreaker::LineBreaker(InlineNode node,
@@ -689,7 +700,7 @@ void LineBreaker::RecalcClonedBoxDecorations() {
   position_ += cloned_box_decorations_initial_size_;
   // |cloned_box_decorations_initial_size_| may affect available width.
   UpdateAvailableWidth();
-  DCHECK_GE(available_width_, cloned_box_decorations_initial_size_);
+  DCHECK_GE(base_available_width_, cloned_box_decorations_initial_size_);
 }
 
 // Add a hyphen string to the |InlineItemResult|.
@@ -1090,11 +1101,12 @@ void LineBreaker::BreakLine(LineInfo* line_info) {
         MoveToNextOf(item);
         continue;
       }
-      if (!HandleRuby(line_info)) {
+      if (HandleRuby(line_info)) {
+        HandleOverflowIfNeeded(line_info);
+      } else {
         AddItem(item, line_info);
         MoveToNextOf(item);
       }
-      HandleOverflowIfNeeded(line_info);
       continue;
     }
     if (item.Type() == InlineItem::kOutOfFlowPositioned) {
@@ -1115,7 +1127,7 @@ void LineBreaker::BreakLine(LineInfo* line_info) {
 void LineBreaker::ComputeLineLocation(LineInfo* line_info) const {
   // Negative margins can make the position negative, but the inline size is
   // always positive or 0.
-  LayoutUnit available_width = AvailableWidth();
+  LayoutUnit available_width = base_available_width_;
   line_info->SetWidth(available_width + line_clamp_ellipsis_width_,
                       position_ + cloned_box_decorations_end_size_ +
                           line_clamp_ellipsis_width_);
@@ -1346,7 +1358,7 @@ void LineBreaker::HandleText(const InlineItem& item,
   // difficult to compute overhang after bidi reordering because it affect
   // line breaking.
   if (maybe_have_end_overhang_) {
-    position_ -= CommitPendingEndOverhang(item, line_info);
+    position_ -= CommitPendingEndOverhang(item, shape_result, line_info);
   }
 
   InlineItemResult* item_result = nullptr;
@@ -3330,10 +3342,11 @@ bool LineBreaker::HandleRuby(LineInfo* line_info, LayoutUnit retry_size) {
 
   LayoutUnit ruby_size = MaxLineWidth(base_line_info, annotation_line_list);
   LayoutUnit available = RemainingAvailableWidth().ClampNegativeToZero();
-  AnnotationOverhang overhang =
-      GetOverhang(ruby_size, base_line_info, annotation_line_list);
-  if (!CanApplyStartOverhang(*line_info, line_info->Results().size(),
-                             *current_style_, overhang.start)) {
+  wtf_size_t ruby_index = line_info->Results().size();
+  AnnotationOverhang overhang = GetOverhang(
+      ruby_size, base_line_info, annotation_line_list, *line_info, ruby_index);
+  if (!CanApplyStartOverhang(*line_info, ruby_index, *current_style_,
+                             overhang.start)) {
     overhang.start = LayoutUnit();
   }
   bool is_monolithic = IsMonolithicRuby(base_line_info, annotation_line_list);
@@ -3573,14 +3586,15 @@ InlineItemResult* LineBreaker::AddRubyColumnResult(
 
   if (base_line_info.Width() < ruby_size) {
     line_info.SetMayHaveRubyOverhang();
-
-    AnnotationOverhang overhang = GetOverhang(*column_result);
+    wtf_size_t ruby_index = line_info.Results().size() - 1;
+    AnnotationOverhang overhang =
+        GetOverhang(*column_result, line_info, ruby_index);
     if (overhang.end > LayoutUnit()) {
       column_result->pending_end_overhang = overhang.end;
       maybe_have_end_overhang_ = true;
     }
 
-    if (CanApplyStartOverhang(line_info, line_info.Results().size() - 1,
+    if (CanApplyStartOverhang(line_info, ruby_index,
                               column_result->item->GetLayoutObject()
                                   ? *column_result->item->Style()
                                   : *current_style_,
@@ -3717,11 +3731,17 @@ void LineBreaker::HandleFloat(const InlineItem& item,
   }
 
   // Make sure we populate the positioned_float inside the |item_result|.
-  if (current_.item_index <= leading_floats_.handled_index &&
-      !leading_floats_.floats.empty()) {
-    DCHECK_LT(leading_floats_index_, leading_floats_.floats.size());
-    item_result->positioned_float =
-        leading_floats_.floats[leading_floats_index_++];
+  if (current_.item_index <= leading_floats_.HandledIndex() &&
+      !leading_floats_.Empty()) {
+    DCHECK_LT(leading_floats_index_, leading_floats_.Count());
+
+    const LeadingFloat& leading_float =
+        leading_floats_.At(leading_floats_index_++);
+    item_result->positioned_float = leading_float.positioned_float;
+    if (leading_float.parallel_flow_break_token) {
+      line_info->PropagateParallelFlowBreakToken(
+          leading_float.parallel_flow_break_token);
+    }
 
     // Save a backup copy of `exclusion_space_` even if leading floats don't
     // modify it. See `RewindFloats`.
@@ -3824,9 +3844,9 @@ void LineBreaker::RewindFloats(unsigned new_end,
 
       // Adjust `leading_floats_index_` if this is a leading float. See
       // `HandleFloat` and `PositionLeadingFloats`.
-      if (item_index < leading_floats_.handled_index) {
-        for (unsigned i = 0; i < leading_floats_.floats.size(); ++i) {
-          if (leading_floats_.floats[i].layout_result ==
+      if (item_index < leading_floats_.HandledIndex()) {
+        for (unsigned i = 0; i < leading_floats_.Count(); ++i) {
+          if (leading_floats_.At(i).positioned_float.layout_result ==
               item_result.positioned_float->layout_result) {
             leading_floats_index_ = i;
             // Need to restore `exclusion_space_` even if leading floats don't
@@ -3936,6 +3956,7 @@ void LineBreaker::HandleOpenTag(const InlineItem& item, LineInfo* line_info) {
     cloned_box_decorations_end_size_ += item_result->margins.inline_end +
                                         item_result->borders.inline_end +
                                         item_result->padding.inline_end;
+    UpdateAvailableWidthFromBaseAvailableWidth();
   }
 
   bool was_auto_wrap = auto_wrap_;
@@ -3969,6 +3990,7 @@ void LineBreaker::HandleCloseTag(const InlineItem& item, LineInfo* line_info) {
       --cloned_box_decorations_count_;
       DCHECK_GE(cloned_box_decorations_end_size_, item_result->inline_size);
       cloned_box_decorations_end_size_ -= item_result->inline_size;
+      UpdateAvailableWidthFromBaseAvailableWidth();
     }
   }
   DCHECK(item.GetLayoutObject() && item.GetLayoutObject()->Parent());
@@ -4161,7 +4183,7 @@ void LineBreaker::HandleOverflow(LineInfo* line_info) {
   }
 
   if (applied_text_indent_ && width_to_rewind > LayoutUnit() &&
-      is_first_formatted_line_ && !leading_floats_.floats.empty()) {
+      is_first_formatted_line_ && !leading_floats_.Empty()) {
     // If there is no inflow content and there are only leading floats, also
     // rewind text indentation. The idea here is that text-indent alone
     // shouldn't contribute to overflow (and it doesn't even belong on this

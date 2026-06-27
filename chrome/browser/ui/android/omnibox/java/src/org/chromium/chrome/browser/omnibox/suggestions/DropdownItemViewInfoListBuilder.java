@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
 import android.content.Context;
 import android.text.TextUtils;
 
@@ -16,7 +14,6 @@ import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxImageSupplier;
 import org.chromium.chrome.browser.omnibox.suggestions.answer.AnswerSuggestionProcessor;
@@ -37,8 +34,8 @@ import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteResult;
 import org.chromium.components.omnibox.GroupsProto.GroupConfig;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
-import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.ToolModeUtils;
 import org.chromium.components.omnibox.action.OmniboxActionDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -112,7 +109,7 @@ class DropdownItemViewInfoListBuilder {
         assert mPriorityOrderedSuggestionProcessors.size() == 0 : "Processors already initialized.";
 
         mImageSupplier =
-                OmniboxFeatures.isLowMemoryDevice() ? null : new OmniboxImageSupplier(context);
+                OmniboxCapabilities.isLowMemoryDevice() ? null : new OmniboxImageSupplier(context);
 
         AutocompleteUIContext uiContext =
                 createUIContext(context, host, textProvider, actionDelegate);
@@ -125,9 +122,7 @@ class DropdownItemViewInfoListBuilder {
         registerSuggestionProcessor(new EntitySuggestionProcessor(uiContext));
         registerSuggestionProcessor(new TailSuggestionProcessor(uiContext));
         registerSuggestionProcessor(new MostVisitedTilesProcessor(uiContext));
-        if (OmniboxFeatures.sAndroidHubSearchTabGroups.isEnabled()) {
-            registerSuggestionProcessor(new TabGroupSuggestionProcessor(uiContext));
-        }
+        registerSuggestionProcessor(new TabGroupSuggestionProcessor(uiContext));
         registerSuggestionProcessor(new BasicSuggestionProcessor(uiContext));
     }
 
@@ -270,17 +265,8 @@ class DropdownItemViewInfoListBuilder {
             }
         }
 
-        boolean toolbarOnBottom =
-                ChromeFeatureList.sAndroidBottomToolbarV2ReverseOrderSuggestionsList.getValue()
-                        && assumeNonNull(mToolbarPositionSupplier.get()) == ControlsPosition.BOTTOM;
-        var roundingStartEdge =
-                toolbarOnBottom
-                        ? SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED
-                        : SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED;
-        var roundingEndEdge =
-                toolbarOnBottom
-                        ? SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED
-                        : SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED;
+        var roundingStartEdge = SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED;
+        var roundingEndEdge = SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED;
 
         for (int indexInList = 0; indexInList < numGroupMatches; indexInList++) {
             var indexOnList = firstVerticalPosition + indexInList;
@@ -404,12 +390,11 @@ class DropdownItemViewInfoListBuilder {
             // Inner loop to populate AutocompleteMatch objects belonging to this group.
             while (index < newMatchesCount) {
                 var match = newMatches.get(index);
-                if (isAimRequest && OmniboxFeatures.sAIMSuppressVerbatimMatch.isEnabled()) {
-                    if (match.getType() == OmniboxSuggestionType.SEARCH_WHAT_YOU_TYPED
-                            || match.getType() == OmniboxSuggestionType.URL_WHAT_YOU_TYPED) {
-                        index++;
-                        continue;
-                    }
+                if (isAimRequest
+                        && OmniboxFeatures.sAIMSuppressVerbatimMatch.isEnabled()
+                        && match.isWhatYouTyped()) {
+                    index++;
+                    continue;
                 }
 
                 var matchGroupConfig =

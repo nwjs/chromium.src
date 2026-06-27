@@ -578,6 +578,11 @@ void Shell::SetCursorColor(SkColor cursor_color) {
   cursor_manager_->SetCursorColor(cursor_color);
 }
 
+void Shell::SetCursorInverted(bool inverted) {
+  window_tree_host_manager_->cursor_window_controller()->SetCursorInverted(
+      inverted);
+}
+
 void Shell::UpdateCursorCompositingEnabled() {
   SetCursorCompositingEnabled(
       window_tree_host_manager_->cursor_window_controller()
@@ -710,11 +715,6 @@ void Shell::RemoveAccessibilityEventHandler(ui::EventHandler* handler) {
 bool Shell::AddStatusTrayIcon(const TrayIconConfiguration& configuration,
                               int64_t display_id,
                               base::RepeatingClosure callback) {
-  if (!base::FeatureList::IsEnabled(
-          chromeos::features::kSupportCustomIconsInStatusArea)) {
-    return false;
-  }
-
   aura::Window* root_window = GetRootWindowForDisplayId(display_id);
   auto* status_area = StatusAreaWidget::ForWindow(root_window);
   return status_area->AddTrayIcon(configuration, std::move(callback));
@@ -722,11 +722,6 @@ bool Shell::AddStatusTrayIcon(const TrayIconConfiguration& configuration,
 
 bool Shell::UpdateStatusTrayIcon(const TrayIconConfiguration& configuration,
                                  int64_t display_id) {
-  if (!base::FeatureList::IsEnabled(
-          chromeos::features::kSupportCustomIconsInStatusArea)) {
-    return false;
-  }
-
   aura::Window* root_window = GetRootWindowForDisplayId(display_id);
   auto* status_area = StatusAreaWidget::ForWindow(root_window);
   return status_area->UpdateTrayIcon(configuration);
@@ -734,11 +729,6 @@ bool Shell::UpdateStatusTrayIcon(const TrayIconConfiguration& configuration,
 
 bool Shell::RemoveStatusTrayIcon(const TrayIconConfiguration& configuration,
                                  int64_t display_id) {
-  if (!base::FeatureList::IsEnabled(
-          chromeos::features::kSupportCustomIconsInStatusArea)) {
-    return false;
-  }
-
   aura::Window* root_window = GetRootWindowForDisplayId(display_id);
   auto* status_area = StatusAreaWidget::ForWindow(root_window);
   return status_area->RemoveTrayIcon(configuration);
@@ -1294,6 +1284,7 @@ Shell::~Shell() {
     observer.OnShellDestroyed();
   }
 
+  native_cursor_manager_ = nullptr;
   DCHECK(instance_ == this);
   instance_ = nullptr;
 }
@@ -1827,7 +1818,6 @@ void Shell::Init(
   window_restore_controller_ = std::make_unique<WindowRestoreController>();
 
   static_cast<CursorManager*>(cursor_manager_.get())->Init();
-  window_tree_host_manager_->cursor_window_controller()->Init();
 
   mojo::PendingRemote<device::mojom::Fingerprint> fingerprint;
   shell_delegate_->BindFingerprint(

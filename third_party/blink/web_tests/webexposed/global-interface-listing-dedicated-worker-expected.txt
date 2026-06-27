@@ -1006,10 +1006,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface GPUValidationError : GPUError
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
-[Worker] interface GeolocationPermissionStatus : PermissionStatus
-[Worker]     attribute @@toStringTag
-[Worker]     getter accuracyMode
-[Worker]     method constructor
 [Worker] interface HID : EventTarget
 [Worker]     attribute @@toStringTag
 [Worker]     getter onconnect
@@ -1540,7 +1536,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method getContextAttributes
 [Worker]     method getImageData
 [Worker]     method getLineDash
-[Worker]     method getTextureFormat
 [Worker]     method getTransform
 [Worker]     method isContextLost
 [Worker]     method isPointInPath
@@ -1564,8 +1559,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method strokeRect
 [Worker]     method strokeText
 [Worker]     method strokeTextCluster
-[Worker]     method transferBackFromGPUTexture
-[Worker]     method transferToGPUTexture
 [Worker]     method transform
 [Worker]     method translate
 [Worker]     setter direction
@@ -1735,7 +1728,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method unobserve
 [Worker] interface PressureRecord
 [Worker]     attribute @@toStringTag
-[Worker]     getter ownContributionEstimate
 [Worker]     getter source
 [Worker]     getter state
 [Worker]     getter time
@@ -1943,6 +1935,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method getRetryOptions
 [Worker]     method json
 [Worker]     method text
+[Worker]     method textStream
 [Worker] interface Response
 [Worker]     static method error
 [Worker]     static method redirect
@@ -1964,6 +1957,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method formData
 [Worker]     method json
 [Worker]     method text
+[Worker]     method textStream
 [Worker] interface RestrictionTarget
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
@@ -3929,6 +3923,10 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter source
 [Worker]     getter streamErrorCode
 [Worker]     method constructor
+[Worker] interface WebTransportReceiveStream : ReadableStream
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker]     method getStats
 [Worker] interface WebTransportSendGroup
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor

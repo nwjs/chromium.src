@@ -30,14 +30,25 @@ static_library("core") {
     "//chrome/browser/notifications/scheduler/public",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles:profile",
+    "//chrome/common",
     "//components/history/core/browser",
+    "//components/omnibox/browser",
     "//components/optimization_guide/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/pref_registry",
     "//components/prefs",
     "//components/search_engines",
+    "//components/sessions",
+    "//components/sync",
+    "//components/unified_consent",
     "//content/public/browser",
   ]
+  if (is_android) {
+    deps += [
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/ui/android/tab_model",
+    ]
+  }
 }
 
 source_set("unit_tests") {
@@ -56,11 +67,13 @@ source_set("unit_tests") {
     "//chrome/browser/notifications/scheduler/test:test_support",
     "//chrome/browser/optimization_guide:test_support",
     "//chrome/browser/search_engines",
+    "//chrome/browser/sync:factories",
     "//chrome/test:test_support",
     "//components/history/core/browser",
     "//components/optimization_guide/core:test_support",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/prefs:test_support",
+    "//components/sync:test_support",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",

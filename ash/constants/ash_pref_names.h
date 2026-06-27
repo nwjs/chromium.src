@@ -2867,6 +2867,18 @@ inline constexpr char kSessionWaitForInitialUserActivity[] =
     "session.wait_for_initial_user_activity";
 
 //-----------------------------------------------------------------------------
+// Login screen related Prefs
+//-----------------------------------------------------------------------------
+
+// Boolean pref indicating whether the message displayed on the login screen for
+// the managed guest session should be the full warning or not.
+// True means the full warning should be displayed.
+// False means the normal warning should be displayed.
+// It's true by default, unless it's ensured that all extensions are "safe".
+inline constexpr char kManagedSessionUseFullLoginWarning[] =
+    "managed_session.use_full_warning";
+
+//-----------------------------------------------------------------------------
 // Automatic reboot related Prefs
 //-----------------------------------------------------------------------------
 
@@ -3033,6 +3045,24 @@ inline constexpr char kLanguageShouldMergeInputMethods[] =
 // "xkb:us::eng".
 inline constexpr char kHardwareKeyboardLayout[] = "intl.hardware_keyboard";
 
+// A boolean pref set to true if the virtual keyboard should be enabled.
+inline constexpr char kTouchVirtualKeyboardEnabled[] =
+    "ui.touch_virtual_keyboard_enabled";
+
+// A boolean pref to enable virtual keyboard smart visibility.
+inline constexpr char kVirtualKeyboardSmartVisibilityEnabled[] =
+    "ui.virtual_keyboard_smart_visibility_enabled";
+
+//-----------------------------------------------------------------------------
+// Mobile data related Prefs
+//-----------------------------------------------------------------------------
+
+// A boolean pref of whether to show mobile data first-use warning notification.
+// Note: 3g in the name is for legacy reasons. The pref was added while only 3G
+// mobile data was supported.
+inline constexpr char kShowMobileDataNotification[] =
+    "settings.internet.mobile.show_3g_promo_notification";
+
 //-----------------------------------------------------------------------------
 // Clock/Timezone related Prefs
 //-----------------------------------------------------------------------------
@@ -3129,6 +3159,16 @@ inline constexpr char kCertificateProvisioningStateForUser[] =
 inline constexpr char kCertificateProvisioningStateForDevice[] =
     "cert_provisioning_device_state";
 
+// A boolean preference that will be registered in local_state prefs to track
+// migration of permissions on device-wide key pairs and will be registered in
+// Profile prefs to track migration of permissions on user-owned key pairs.
+inline constexpr char kKeyPermissionsOneTimeMigrationDone[] =
+    "key_permissions_one_time_migration_done";
+
+// A dictionary pref mapping public keys that identify platform keys to its
+// properties like whether it's meant for corporate usage.
+inline constexpr char kPlatformKeys[] = "platform_keys";
+
 //-----------------------------------------------------------------------------
 // TPM related Prefs
 //-----------------------------------------------------------------------------
@@ -3150,6 +3190,48 @@ inline constexpr char kTPMUpdateOnNextRebootNotificationShown[] =
 // notification was not yet shown the pref holds the value Time::Min().
 inline constexpr char kTPMUpdatePlannedNotificationShownTime[] =
     "tpm_auto_update.planned_notification_shown_time";
+
+//-----------------------------------------------------------------------------
+// Kcer related Prefs
+//-----------------------------------------------------------------------------
+
+// A boolean preference that is registered in user prefs to tracks that at least
+// one PKCS#12 certificate+key pair was dual written into NSS software-backed
+// slot and Chaps. This is a part of the experiment to import PKCS#12 files into
+// Chaps user slot instead of NSS and if the copy from Chaps will not work this
+// preference will be used to decide when a clean up is needed to delete
+// non-working certificates+keys.
+inline constexpr char kNssChapsDualWrittenCertsExist[] =
+    "nss_chaps_dual_written_certs_exist";
+
+//-----------------------------------------------------------------------------
+// CryptAuth related Prefs
+//-----------------------------------------------------------------------------
+
+// Device identifier used by CryptAuth stored in local state. This ID is
+// combined with a user ID before being registered with the CryptAuth server,
+// so it can't correlate users on the same device.
+// Note: This constant was previously specific to EasyUnlock, so the string
+//       constant contains "easy_unlock".
+inline constexpr char kCryptAuthDeviceId[] = "easy_unlock.device_id";
+
+// The most recently retrieved Instance ID and Instance ID token for the app ID,
+// "com.google.chrome.cryptauth", used by the CryptAuth client. These prefs are
+// used to track how often (if ever) the Instance ID and Instance ID token
+// rotate because CryptAuth assumes the Instance ID is static.
+inline constexpr char kCryptAuthInstanceId[] = "cryptauth.instance_id";
+inline constexpr char kCryptAuthInstanceIdToken[] =
+    "cryptauth.instance_id_token";
+
+//-----------------------------------------------------------------------------
+// RLZ related Prefs
+//-----------------------------------------------------------------------------
+
+// The RLZ brand code, if enabled.
+inline constexpr char kRLZBrand[] = "rlz.brand";
+
+// Whether RLZ pings are disabled.
+inline constexpr char kRLZDisabled[] = "rlz.disabled";
 
 //-----------------------------------------------------------------------------
 // File manager/file system related Prefs
@@ -3663,6 +3745,11 @@ inline constexpr char kPrintingDuplexDefault[] = "printing.duplex_default";
 inline constexpr char kPrintingMaxSheetsAllowed[] =
     "printing.max_sheets_allowed";
 
+// A dictionary that keeps client_ids assigned by Authorization Servers indexed
+// by URLs of these servers. It does not contain empty strings.
+inline constexpr char kPrintingOAuth2AuthorizationServers[] =
+    "printing.oauth2_authorization_servers";
+
 // A pref holding the default PIN mode.
 inline constexpr char kPrintingPinDefault[] = "printing.pin_default";
 
@@ -3806,6 +3893,14 @@ inline constexpr char kFamilyUserMetricsSessionEngagementDuration[] =
 inline constexpr char kKnownUserParentAccessCodeConfig[] =
     "child_user.parent_access_code.config";
 
+// Last time that the kChildScreenTimeMilliseconds pref was reset.
+inline constexpr char kLastChildScreenTimeReset[] =
+    "last_child_screen_time_reset";
+
+// Last time the kChildScreenTimeMilliseconds was saved.
+inline constexpr char kLastChildScreenTimeSaved[] =
+    "last_child_screen_time_saved";
+
 // Dictionary pref containing configuration used to verify Parent Access Code.
 // Controlled by ParentAccessCodeConfig policy.
 inline constexpr char kParentAccessCodeConfig[] =
@@ -3849,6 +3944,37 @@ inline constexpr char kTimeLimitLocalOverride[] = "screen_time.local_override";
 inline constexpr char kUsageTimeLimit[] = "screen_time.limit";
 
 //-----------------------------------------------------------------------------
+// Remote command related Prefs
+//-----------------------------------------------------------------------------
+
+// A boolean pref which determines whether a remote admin can start a CRD
+// connection through the 'start crd session' remote command when no local user
+// is present at the device.
+inline constexpr char kDeviceAllowEnterpriseRemoteAccessConnections[] =
+    "device_allow_enterprise_remote_access_connections";
+
+// String containing last RSU (Remote service unlock) lookup key uploaded.
+// Empty until first upload.
+inline constexpr char kLastRsuDeviceIdUploaded[] =
+    "rsu.last_rsu_device_id_uploaded";
+
+// A boolean pref which determines whether a remote admin can start a CRD
+// connection through the 'start crd session' remote command.
+inline constexpr char
+    kRemoteAccessHostAllowEnterpriseRemoteSupportConnections[] =
+        "enterprise_remote_support_connections_allowed";
+
+// A boolean to store that an admin user accessed the host device remotely when
+// no user was present at the device. This boolean enables the device to display
+// a notification to the local user when the session was terminated.
+inline constexpr char kRemoteAdminWasPresent[] = "remote_admin_was_present";
+
+// Whether we received the remove users remote command, and hence should proceed
+// with removing the users while at the login screen.
+inline constexpr char kRemoveUsersRemoteCommand[] =
+    "remove_users_remote_command";
+
+//-----------------------------------------------------------------------------
 // SkyVault related Prefs
 //-----------------------------------------------------------------------------
 
@@ -3878,6 +4004,16 @@ inline constexpr char kSkyVaultMigrationStartTime[] =
 // since wallpaper was cached.
 inline constexpr char kCustomizationDefaultWallpaperURL[] =
     "customization.default_wallpaper_url";
+
+//-----------------------------------------------------------------------------
+// Apps related Prefs
+//-----------------------------------------------------------------------------
+
+// A string pref that contains either a Chrome app ID (see
+// extensions::ExtensionId) or an Android package name (using Java package
+// naming conventions) of the preferred note-taking app. An empty value
+// indicates that the user hasn't selected an app yet.
+inline constexpr char kNoteTakingAppId[] = "settings.note_taking_app_id";
 
 // NOTE: New prefs should start with the "ash." prefix. Existing prefs moved
 // into this file should not be renamed, since they may be synced.

@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/passwords/views_utils.h"
-#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -41,6 +40,7 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/metadata/view_factory.h"
 #include "ui/views/vector_icons.h"
+#include "ui/views/view_tracker.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -159,8 +159,8 @@ class NudgePasswordButtons : public views::View {
         accept_button_has_focus_);
     cancel_button_->GetViewAccessibility().SetIsSelected(
         cancel_button_has_focus_);
-    views::FocusRing::Get(accept_button_)->SchedulePaint();
-    views::FocusRing::Get(cancel_button_)->SchedulePaint();
+    views::FocusRing::Get(accept_button_)->Refresh();
+    views::FocusRing::Get(cancel_button_)->Refresh();
   }
 
   views::View* GetAcceptButton() { return accept_button_; }
@@ -365,11 +365,19 @@ void PasswordGenerationPopupViewViews::ButtonSelectionUpdated() {
 
   auto* nudge_password_buttons =
       static_cast<NudgePasswordButtons*>(nudge_password_buttons_view_);
+  views::ViewTracker nudge_buttons_tracker(nudge_password_buttons);
+
   if (controller_->accept_button_selected()) {
     NotifyAXSelection(*nudge_password_buttons->GetAcceptButton());
   } else if (controller_->cancel_button_selected()) {
     NotifyAXSelection(*nudge_password_buttons->GetCancelButton());
   }
+
+  // Ensure the buttons were not destroyed during the NotifyAXSelection call.
+  if (!nudge_buttons_tracker.view()) {
+    return;
+  }
+
   nudge_password_buttons->UpdateFocus(controller_->accept_button_selected());
 }
 

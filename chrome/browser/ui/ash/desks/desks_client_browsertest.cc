@@ -25,7 +25,6 @@
 #include "ash/shell.h"
 #include "ash/style/pill_button.h"
 #include "ash/test/ash_test_util.h"
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desk_action_context_menu.h"
 #include "ash/wm/desks/desks_controller.h"
@@ -89,7 +88,6 @@
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
@@ -102,6 +100,7 @@
 #include "chrome/test/base/ash/util/ash_test_util.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/app_types.h"
 #include "chromeos/ui/base/window_properties.h"
@@ -639,6 +638,42 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, CaptureBrowserTabGroupsTest) {
   // We don't care about the order of the tab groups.
   EXPECT_THAT(data->browser_extra_info.tab_group_infos,
               testing::UnorderedElementsAreArray(expected_tab_groups));
+}
+
+// Tests that a template with inconsistent tab group data (range out of bounds)
+// is handled gracefully.
+IN_PROC_BROWSER_TEST_F(DesksClientTest,
+                       LaunchBrowserWithInconsistentTabGroups) {
+  // Construct template with 1 URL but a tab group requiring 2 tabs.
+  tab_groups::TabGroupInfo group_info(
+      gfx::Range(0, 2), tab_groups::TabGroupVisualData(
+                            u"Group", tab_groups::TabGroupColorId::kBlue));
+  auto app_launch_info = std::make_unique<app_restore::AppLaunchInfo>(
+      app_constants::kChromeAppId, 123);
+  app_launch_info->container =
+      static_cast<int32_t>(apps::LaunchContainer::kLaunchContainerWindow);
+  app_launch_info->disposition =
+      static_cast<int32_t>(WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  app_launch_info->browser_extra_info.urls = {GURL(kExampleUrl1)};
+  app_launch_info->browser_extra_info.tab_group_infos = {group_info};
+
+  auto restore_data = std::make_unique<app_restore::RestoreData>();
+  restore_data->AddAppLaunchInfo(std::move(app_launch_info));
+  auto desk_template = std::make_unique<ash::DeskTemplate>(
+      base::Uuid::GenerateRandomV4(), ash::DeskTemplateSource::kUser,
+      "Inconsistent Template", base::Time::Now(),
+      ash::DeskTemplateType::kTemplate);
+  desk_template->set_desk_restore_data(std::move(restore_data));
+  SetAndLaunchTemplate(std::move(desk_template));
+
+  BrowserWindowInterface* launched_browser =
+      FindLaunchedBrowserByURLs({GURL(kExampleUrl1)});
+  ASSERT_TRUE(launched_browser);
+  const TabStripModel* const tab_strip_model =
+      launched_browser->GetTabStripModel();
+  EXPECT_EQ(tab_strip_model->count(), 1);
+  EXPECT_EQ(tab_strip_model->GetWebContentsAt(0)->GetVisibleURL(),
+            GURL(kExampleUrl1));
 }
 
 // Tests that a browser's pinned tabs can be captured correctly in a saved desk.

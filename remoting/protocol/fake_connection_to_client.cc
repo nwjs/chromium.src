@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/notimplemented.h"
+#include "remoting/base/fifo_buffer.h"
 #include "remoting/protocol/audio_source.h"
 #include "remoting/protocol/audio_stream.h"
 #include "remoting/protocol/session.h"
@@ -78,6 +79,11 @@ std::unique_ptr<AudioStream> FakeConnectionToClient::StartAudioStream(
   return nullptr;
 }
 
+void FakeConnectionToClient::SetAudioWriter(
+    std::unique_ptr<FifoBufferWriter> writer) {
+  audio_writer_ = std::move(writer);
+}
+
 ClientStub* FakeConnectionToClient::client_stub() {
   return client_stub_;
 }
@@ -109,9 +115,6 @@ void FakeConnectionToClient::set_host_stub(HostStub* host_stub) {
 void FakeConnectionToClient::set_input_stub(InputStub* input_stub) {
   input_stub_ = input_stub;
 }
-
-void FakeConnectionToClient::set_audio_stub(
-    base::WeakPtr<AudioStub> audio_stub) {}
 
 PeerConnectionControls* FakeConnectionToClient::peer_connection_controls() {
   return nullptr;

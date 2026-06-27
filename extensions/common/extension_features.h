@@ -40,6 +40,9 @@ namespace extensions_features {
 // Controls the availability of action.openPopup().
 BASE_DECLARE_FEATURE(kApiActionOpenPopup);
 
+// Controls the limit for alarms.create() API input.
+BASE_DECLARE_FEATURE(kApiAlarmsCreateLengthLimit);
+
 // Controls the availability of contentSettings.clipboard.
 BASE_DECLARE_FEATURE(kApiContentSettingsClipboard);
 
@@ -121,6 +124,10 @@ BASE_DECLARE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall);
 // extension).
 BASE_DECLARE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs);
 
+// Controls whether component extensions are allowed to use chrome://resources/
+// URLs in worker scripts and subresources.
+BASE_DECLARE_FEATURE(kComponentExtensionAllowWorkerChromeResources);
+
 // If enabled, <webview>s will be allowed to request permission from an
 // embedding Chrome App to request access to Human Interface Devices.
 BASE_DECLARE_FEATURE(kEnableWebHidInWebView);
@@ -147,10 +154,6 @@ BASE_DECLARE_FEATURE(kExtensionLocalizationGuid);
 
 // A replacement key for declaring icons, in addition to supporting dark mode.
 BASE_DECLARE_FEATURE(kExtensionIconVariants);
-
-// Controls disabling affected MV2 extensions that are no longer supported.
-// Users can re-enable these extensions.
-BASE_DECLARE_FEATURE(kExtensionManifestV2Disabled);
 
 // Controls fully removing support for user-installed MV2 extensions.
 // Users may no longer re-enable these extensions. Enterprises may still
@@ -230,10 +233,8 @@ BASE_DECLARE_FEATURE(kSafeBrowsingCrxAllowlistAutoDisable);
 // messaging hosts.
 BASE_DECLARE_FEATURE(kStructuredCloningForMessaging);
 
-// If enabled, APIs of the Telemetry Extension platform that have pending
-// approval will be enabled. Read more about the platform here:
-// https://chromium.googlesource.com/chromium/src/+/master/docs/telemetry_extension/README.md.
-BASE_DECLARE_FEATURE(kTelemetryExtensionPendingApprovalApi);
+// Controls whether the component webstore hosted app is loaded.
+BASE_DECLARE_FEATURE(kWebstoreHostedApp);
 
 // Used to control whether downloads initiated by `WebstoreInstaller` are marked
 // as having a corresponding user gesture or not.
@@ -336,12 +337,6 @@ BASE_DECLARE_FEATURE(kSearchEngineUnconditionalDialog);
 // Enables the securityInfo in chrome.webRequest API for extensions.
 // Allowing them to retrieve certificate information from web requests.
 BASE_DECLARE_FEATURE(kWebRequestSecurityInfo);
-
-// When enabled, filtered webRequest event listeners for service worker-based
-// extensions are persisted to ExtensionPrefs by the general mechanism in
-// EventRouter. If disabled, they're instead persisted by the custom mechanism
-// in WebRequestEventRouter.
-BASE_DECLARE_FEATURE(kWebRequestPersistFilteredEventsViaEventRouter);
 
 // When enabled, optimizes WebRequest proxying by strictly limiting it to
 // requests that are subject to interception. This ensures that the 'webview'

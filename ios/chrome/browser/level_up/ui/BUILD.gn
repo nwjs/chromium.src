@@ -1,0 +1,37 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("ui") {
+  sources = [
+    "level_up_all_tasks_view_controller.h",
+    "level_up_all_tasks_view_controller.mm",
+    "level_up_consumer.h",
+    "level_up_profile_consumer.h",
+    "level_up_progress_view.h",
+    "level_up_progress_view.mm",
+    "level_up_table_view_controller.h",
+    "level_up_table_view_controller.mm",
+    "level_up_task.h",
+    "level_up_task.mm",
+    "level_up_task_cell.h",
+    "level_up_task_cell.mm",
+    "level_up_view_controller.h",
+    "level_up_view_controller.mm",
+  ]
+
+  deps = [
+    "//base",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/level_up/model",
+    "//ios/chrome/browser/shared/public/commands",
+    "//ios/chrome/browser/shared/ui/elements/gradient",
+    "//ios/chrome/browser/shared/ui/symbols",
+    "//ios/chrome/browser/shared/ui/table_view",
+    "//ios/chrome/common/ui/colors",
+    "//ios/chrome/common/ui/util",
+    "//ui/base",
+  ]
+
+  frameworks = [ "UIKit.framework" ]
+}

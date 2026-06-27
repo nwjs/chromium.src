@@ -438,6 +438,13 @@ URLLoader::URLLoader(
       durable_message_writer_(std::move(maybe_durable_message_writer)) {
   DCHECK(delete_callback_);
 
+  // To minimize performance overhead and UMA report volume, this metric is
+  // only logged for extremely long URLs, and aims to track their prevalence.
+  if (request.url.GetWithoutRef().spec().length() > 8192) {
+    base::UmaHistogramCounts10M("Net.RequestedUrlLength",
+                                request.url.GetWithoutRef().spec().length());
+  }
+
   if (options_ & mojom::kURLLoadOptionReadAndDiscardBody) {
     if (!factory_params_->is_orb_enabled) {
       discard_buffer_ =
@@ -781,9 +788,7 @@ URLLoader::~URLLoader() {
 const void* const URLLoader::kUserDataKey = &URLLoader::kUserDataKey;
 
 void URLLoader::FollowRedirect(
-    const std::vector<std::string>& removed_headers,
-    const net::HttpRequestHeaders& modified_headers,
-    const net::HttpRequestHeaders& modified_cors_exempt_headers,
+    network::HttpRequestHeadersUpdateParams headers_update_params,
     const std::optional<GURL>& new_url) {
   if (!deferred_redirect_url_) {
     NOTREACHED();
@@ -812,8 +817,9 @@ void URLLoader::FollowRedirect(
 
   // Removing headers can't make the set of pre-existing headers unsafe, but
   // adding headers can.
-  if (!AreRequestHeadersSafe(modified_headers) ||
-      !AreRequestHeadersSafe(modified_cors_exempt_headers)) {
+  if (!AreRequestHeadersSafe(headers_update_params.modified_headers) ||
+      !AreRequestHeadersSafe(
+          headers_update_params.modified_cors_exempt_headers)) {
     NotifyCompleted(net::ERR_INVALID_ARGUMENT);
     // |this| may have been deleted.
     return;
@@ -823,7 +829,8 @@ void URLLoader::FollowRedirect(
   // the request.
   if (allow_cookies_from_browser_) {
     cookies_from_browser_ = url_loader_util::GetCookiesFromHeaders(
-        modified_headers, modified_cors_exempt_headers);
+        headers_update_params.modified_headers,
+        headers_update_params.modified_cors_exempt_headers);
   }
 
   // Reset the state of the LNA checker - redirects should be treated like new
@@ -836,14 +843,17 @@ void URLLoader::FollowRedirect(
   // restored.
   DCHECK(shared_storage_request_helper_);
   shared_storage_request_helper_->UpdateSharedStorageWritableEligible(
-      removed_headers, modified_headers);
+      headers_update_params.removed_headers,
+      headers_update_params.modified_headers);
 
   deferred_redirect_url_.reset();
   new_redirect_url_ = new_url;
 
-  net::HttpRequestHeaders merged_modified_headers = modified_headers;
-  merged_modified_headers.MergeFrom(modified_cors_exempt_headers);
-  url_request_->FollowDeferredRedirect(removed_headers,
+  net::HttpRequestHeaders merged_modified_headers =
+      std::move(headers_update_params.modified_headers);
+  merged_modified_headers.MergeFrom(
+      headers_update_params.modified_cors_exempt_headers);
+  url_request_->FollowDeferredRedirect(headers_update_params.removed_headers,
                                        merged_modified_headers);
   new_redirect_url_.reset();
 }
@@ -1204,7 +1214,8 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
   if (expected_response_headers_for_synthetic_response &&
       !CheckHeaderConsistencyForSyntheticResponse(
           *response_->headers,
-          *expected_response_headers_for_synthetic_response)) {
+          *expected_response_headers_for_synthetic_response,
+          url_request_->url().spec())) {
     // If `expected_response_headers_for_synthetic_response` is set, check the
     // headers are expected ones. If not, returns a fallback response.
     PerformSyntheticResponseFallback();
@@ -2064,11 +2075,11 @@ void URLLoader::NotifyCompleted(int error_code) {
     // raw body bytes from the request.
     const auto& resp_info = url_request_->response_info();
     if (resp_info.encoded_body_size.has_value()) {
-      status.encoded_body_length = resp_info.encoded_body_size.value();
+      status.encoded_body_length = resp_info.encoded_body_size->InBytes();
     } else {
       status.encoded_body_length = url_request_->GetRawBodyBytes().InBytes();
     }
-    status.decoded_body_length = total_written_bytes_;
+    status.decoded_body_length = total_written_bytes_.InBytes();
     status.resolve_error_info =
         url_request_->response_info().resolve_error_info;
     if (trust_token_interceptor_ && trust_token_interceptor_->status()) {
@@ -2133,7 +2144,7 @@ void URLLoader::CompletePendingWrite(bool success) {
     response_body_stream_ =
         pending_write_->Complete(pending_write_buffer_offset_);
   }
-  total_written_bytes_ += pending_write_buffer_offset_;
+  total_written_bytes_ += base::ByteSize(pending_write_buffer_offset_);
   pending_write_ = nullptr;
   pending_write_buffer_offset_ = 0;
 }
@@ -2592,66 +2603,6 @@ void URLLoader::StartReading() {
   ReadMore();
 }
 
-bool URLLoader::ShouldForceIgnoreSiteForCookies(
-    const ResourceRequest& request) {
-  // Ignore site for cookies in requests from an initiator covered by the
-  // same-origin-policy exclusions in `origin_access_list_` (typically requests
-  // initiated by Chrome Extensions).
-  if (request.request_initiator.has_value() &&
-      cors::OriginAccessList::AccessState::kAllowed ==
-          origin_access_list_->CheckAccessState(
-              request.request_initiator.value(), request.url)) {
-    return true;
-  }
-
-  // Convert `site_for_cookies` into an origin (an opaque origin if
-  // `net::SiteForCookies::IsNull()` returns true).
-  //
-  // Note that `site_for_cookies` is a _site_ rather than an _origin_, but for
-  // Chrome Extensions the _site_ and _origin_ of a host are the same extension
-  // id.  Thanks to this, for Chrome Extensions, we can pass a _site_ into
-  // OriginAccessChecks (which normally expect an _origin_).
-  url::Origin site_origin =
-      url::Origin::Create(request.site_for_cookies.RepresentativeUrl());
-
-  // If `site_for_cookies` represents an origin that is granted access to the
-  // initiator and the target by `origin_access_list_` (typically such
-  // `site_for_cookies` represents a Chrome Extension), then we also should
-  // force ignoring of site for cookies if the initiator and the target are
-  // same-site.
-  //
-  // Ideally we would walk up the frame tree and check that each ancestor is
-  // first-party to the main frame (treating the `origin_access_list_`
-  // exceptions as "first-party").  But walking up the tree is not possible in
-  // //services/network and so we make do with just checking the direct
-  // initiator of the request.
-  //
-  // We also check same-siteness between the initiator and the requested URL,
-  // because setting `force_ignore_site_for_cookies` to true causes Strict
-  // cookies to be attached, and having the initiator be same-site to the
-  // request URL is a requirement for Strict cookies (see
-  // net::cookie_util::ComputeSameSiteContext).
-  if (!site_origin.opaque() && request.request_initiator.has_value()) {
-    bool site_can_access_target =
-        cors::OriginAccessList::AccessState::kAllowed ==
-        origin_access_list_->CheckAccessState(site_origin, request.url);
-    bool site_can_access_initiator =
-        cors::OriginAccessList::AccessState::kAllowed ==
-        origin_access_list_->CheckAccessState(
-            site_origin, request.request_initiator->GetURL());
-    net::SiteForCookies site_of_initiator =
-        net::SiteForCookies::FromOrigin(request.request_initiator.value());
-    bool are_initiator_and_target_same_site =
-        site_of_initiator.IsFirstParty(request.url);
-    if (site_can_access_initiator && site_can_access_target &&
-        are_initiator_and_target_same_site) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 bool URLLoader::ShouldSendTransferSizeUpdated() const {
   return devtools_request_id() || url_request_->ad_tagged();
 }
@@ -2745,7 +2696,7 @@ void URLLoader::PerformSyntheticResponseFallback() {
       WriteSyntheticResponseFallbackBody(response_body_stream_);
   if (result == MOJO_RESULT_OK) {
     CHECK_GT(written_bytes, 0u);
-    total_written_bytes_ += written_bytes;
+    total_written_bytes_ += base::ByteSize(written_bytes);
     SendResponseToClient();
     NotifyCompleted(net::OK);
   } else {

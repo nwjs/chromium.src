@@ -156,16 +156,10 @@
       },
     },
   },
-  'ci_only': {
-    'ci_only': True,
-  },
   'crosier-no-arc': {
     'args': [
       '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.reven.chromeos_integration_tests.filter',
     ],
-  },
-  'experiments': {
-    'experiment_percentage': 100,
   },
   'gce': {
     'swarming': {
@@ -392,7 +386,7 @@
       'dimensions': {
         'os': 'Android',
         'device_type': 'frankel',
-        'device_os': 'BD3A.250721.001',
+        'device_os': 'CP1A.260405.005',
         'device_os_type': 'userdebug',
         'pool': 'chromium.tests.gpu',
       },
@@ -569,8 +563,8 @@
     'fail_if_unused': False,
     'swarming': {
       'dimensions': {
-        'gpu': '1002:7340-23.2.1|1002:7340-25.2.8',
-        'os': 'Ubuntu-22.04|Ubuntu-24.04',
+        'gpu': '1002:7340-25.2.8',
+        'os': 'Ubuntu-24.04',
         'display_attached': '1',
         'display_server': 'x11',
         'pool': 'chromium.tests.gpu',
@@ -742,7 +736,7 @@
     'swarming': {
       'dimensions': {
         'cpu': 'arm64',
-        'os': 'Mac-15',
+        'os': 'Mac-15|Mac-26',
       },
     },
   },
@@ -750,7 +744,7 @@
     'swarming': {
       'dimensions': {
         'cpu': 'x86-64',
-        'os': 'Mac-15',
+        'os': 'Mac-15|Mac-26',
       },
     },
   },
@@ -833,7 +827,7 @@
         {
           'cipd_package': 'infra/tools/mac_toolchain/${platform}',
           'location': '.',
-          'revision': 'git_revision:4c7290150d1c360cecc6a93c0214dc531585c3ab',
+          'revision': 'git_revision:07e67ff89ff11ed0e3071867ed6bb49319a91b05',
         },
       ],
     },
@@ -912,6 +906,11 @@
       'result_format': 'tast',
     },
   },
+  'skylab-tauto-chromium-graphics': {
+    'skylab': {
+      'autotest_name': 'chromium_Graphics',
+    },
+  },
   'swarming_containment_auto': {
     'fail_if_unused': False,
     'swarming': {
@@ -920,6 +919,7 @@
   },
   'tfc-cq-tast': {
     'skylab': {
+      'timeout_sec': 5400,
       'cros_test_names_from_file': [
         'chromeos/tast_control_cq_tests.txt',
       ],
@@ -942,6 +942,16 @@
     'args': [
       '--stop-ui',
       '--gtest_filter="VaapiTest.*"',
+    ],
+  },
+  'vaapi_unittest_libfake_args': {
+    'args': [
+      '--env-var',
+      'LIBVA_DRIVERS_PATH',
+      './',
+      '--env-var',
+      'LIBVA_DRIVER_NAME',
+      'libfake',
     ],
   },
   'very_limited_capacity_bot': {

@@ -306,6 +306,14 @@ void InProgressDownloadManager::GetAllDownloads(
     downloads->push_back(item.get());
 }
 
+void InProgressDownloadManager::GetAllDownloadsAsync(
+    GetAllDownloadsCallback callback) {
+  DownloadVector downloads;
+  GetAllDownloads(&downloads);
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), std::move(downloads)));
+}
+
 DownloadItem* InProgressDownloadManager::GetDownloadByGuid(
     const std::string& guid) {
   for (auto& item : in_progress_downloads_) {
@@ -313,6 +321,13 @@ DownloadItem* InProgressDownloadManager::GetDownloadByGuid(
       return item.get();
   }
   return nullptr;
+}
+
+void InProgressDownloadManager::GetDownloadByGuidAsync(
+    const std::string& guid,
+    SimpleDownloadManager::GetDownloadCallback callback) {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), GetDownloadByGuid(guid)));
 }
 
 void InProgressDownloadManager::BeginDownload(
@@ -465,6 +480,19 @@ void InProgressDownloadManager::ResumeInterruptedDownload(
     const std::string& serialized_embedder_download_data) {
   if (!url_loader_factory_)
     return;
+
+  // If the original response came from a Service Worker, the bytes on disk
+  // came from event.respondWith(); resuming against `url_loader_factory_`
+  // would fetch unrelated network bytes and corrupt the file. The IPDM has
+  // no SW context, so defer: DownloadManagerImpl::ImportInProgressDownloads
+  // will reattach as the delegate, and the next resume runs through
+  // DownloadManagerImpl which restarts the download against the SW.
+  // `skip_service_worker_interception` is set by
+  // DownloadItemImpl::ResumeInterruptedDownload to true exactly when the
+  // original was network-fetched, so the negation identifies SW-fetched.
+  if (!params->skip_service_worker_interception()) {
+    return;
+  }
 
   BeginDownload(std::move(params), url_loader_factory_->Clone(), false,
                 serialized_embedder_download_data, GURL(), GURL());

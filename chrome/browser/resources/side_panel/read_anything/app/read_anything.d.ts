@@ -179,6 +179,11 @@ declare namespace chrome {
     // distillation method.
     let distillationTypeReadability: number;
 
+    // Returns the AXTree mapping segments for the distilled block at the given
+    // index. A segment links a character range within the block to its AXnode.
+    function getAxMapping(index: number): Array<
+        {axNodeId: number, start: number, end: number, axNodeOffset: number}>;
+
     // Returns whether the reading highlight is currently on.
     function isHighlightOn(): boolean;
 
@@ -297,7 +302,8 @@ declare namespace chrome {
     function onHighlightGranularityChanged(value: number): void;
 
     // Called when the line focus mode is changed via the webui toolbar.
-    function onLineFocusChanged(value: number): void;
+    function onLineFocusChanged(
+        currentValue: number, lastNonDisabledLineFocus: number): void;
 
     // Called when a language is enabled/disabled for Read Aloud
     // via the webui language menu.
@@ -328,6 +334,10 @@ declare namespace chrome {
 
     // Called when distillation completes with the word count.
     function onDistilled(wordCount: number): void;
+
+    // Reports a user selection attempt. A metric is logged if text mapping is
+    // still in progress. (One time per-navigation).
+    function attemptLogEarlySelection(fromSidePanel: boolean): void;
 
     // Called by the Read Anything app to provide the rendered text blocks from
     // the distilled content for AXTree mapping.

@@ -11,6 +11,7 @@
 #include "ash/constants/notifier_catalogs.h"
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/public/cpp/reauth_reason.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -26,7 +27,6 @@
 #include "chrome/browser/notifications/notification_display_service.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/login/auth/auth_factor_editor.h"
 #include "chromeos/ash/components/login/auth/public/authentication_error.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
@@ -45,6 +45,7 @@
 #include "components/user_manager/user_manager.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
 #include "ui/message_center/public/cpp/notification_types.h"
@@ -93,7 +94,8 @@ void ShowNotification(Profile* profile,
       title, message, /*display_source=*/std::u16string(),
       /*origin_url=*/GURL(), notifier_id, optional_fields,
       base::MakeRefCounted<LocalAuthFactorsNotificationDelegate>(profile),
-      vector_icons::kBusinessIcon,
+      ::features::IsRoundedIconsEnabled() ? vector_icons::kDomainIcon
+                                          : vector_icons::kBusinessOldIcon,
       message_center::SystemNotificationWarningLevel::WARNING);
   notification.SetSystemPriority();
   NotificationDisplayServiceFactory::GetForProfile(profile)->Display(
@@ -126,7 +128,7 @@ LocalAuthFactorsPolicyController::LocalAuthFactorsPolicyController(
     PrefService& local_state,
     Profile* profile,
     const AccountId& account_id)
-    : profile_(profile), account_id_(account_id) {
+    : local_state_(local_state), profile_(profile), account_id_(account_id) {
   pref_change_registrar_.Init(profile->GetPrefs());
   // `base::Unretained(this)` is safe as `this` outlives the registrar.
   pref_change_registrar_.Add(
@@ -215,7 +217,7 @@ void LocalAuthFactorsPolicyController::OnGetAuthFactorsConfiguration(
   if (has_local_auth_factors) {
     user_manager::UserManager::Get()->SaveForceOnlineSignin(
         user_context->GetAccountId(), /*force_online_signin=*/true);
-    ash::RecordReauthReason(user_context->GetAccountId(),
+    ash::RecordReauthReason(local_state_.get(), user_context->GetAccountId(),
                             ash::ReauthReason::kForcedByLocalAuthFactorsPolicy);
   }
   base::UmaHistogramBoolean("Enterprise.LocalAuthFactorsPolicy.ForcedReauth",
@@ -239,7 +241,13 @@ LocalAuthFactorsPolicyController::GetAllowedAuthFactors() {
   return ash::GetAuthFactorsSetFromPolicyList(&allowed_auth_factors);
 }
 
-void LocalAuthFactorsPolicyController::OnFactorChanged(AuthFactor factor) {
+void LocalAuthFactorsPolicyController::OnFactorChanged(
+    AuthFactor factor,
+    ash::auth::mojom::ConfigureResult result) {
+  if (result != ash::auth::mojom::ConfigureResult::kSuccess) {
+    return;
+  }
+
   const int enforced_complexity =
       prefs().GetInteger(ash::prefs::kLocalAuthFactorsComplexity);
 
@@ -367,8 +375,12 @@ void LocalAuthFactorsPolicyController::OnShowComplexityUpdateNotification(
 }
 
 void LocalAuthFactorsPolicyController::DismissComplexityUpdateNotification() {
-  NotificationDisplayServiceFactory::GetForProfile(profile_)->Close(
-      NotificationHandler::Type::TRANSIENT, kComplexityUpdateNotificationId);
+  auto* notification_display_service =
+      NotificationDisplayServiceFactory::GetForProfile(profile_);
+  if (notification_display_service) {
+    notification_display_service->Close(NotificationHandler::Type::TRANSIENT,
+                                        kComplexityUpdateNotificationId);
+  }
 }
 
 }  // namespace ash

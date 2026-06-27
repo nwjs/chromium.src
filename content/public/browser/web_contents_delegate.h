@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -714,6 +715,8 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void OnDidBlockNavigation(
       WebContents* web_contents,
       const GURL& blocked_url,
+      const GURL& initiator_url,
+      const url::Origin& initiator_origin,
       blink::mojom::NavigationBlockedReason reason) {}
 
   // Reports that passive mixed content was found at the specified url.
@@ -956,6 +959,11 @@ class CONTENT_EXPORT WebContentsDelegate {
 
   // Returns true if immersive playback is enabled.
   virtual bool IsImmersivePlaybackEnabled() const;
+
+  // Requests a confirmation from the user to enter immersive playback.
+  virtual void RequestImmersivePlaybackConfirmation(
+      base::OnceCallback<
+          void(blink::mojom::ImmersivePlaybackConfirmationResultPtr)> callback);
 
  protected:
   virtual ~WebContentsDelegate();

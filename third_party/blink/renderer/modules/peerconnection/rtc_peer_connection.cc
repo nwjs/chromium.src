@@ -97,7 +97,6 @@
 #include "third_party/blink/renderer/modules/mediastream/media_stream_event.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/peer_connection_dependency_factory.h"
-#include "third_party/blink/renderer/modules/peerconnection/peer_connection_features.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_certificate.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_certificate_generator.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_data_channel.h"
@@ -610,6 +609,10 @@ RTCPeerConnection* RTCPeerConnection::Create(
         return nullptr;
       }
     }
+  }
+
+  if (RuntimeEnabledFeatures::WebRtcSctpSnapEnabled(context)) {
+    configuration.enable_sctp_snap = true;
   }
 
   RTCPeerConnection* peer_connection = MakeGarbageCollected<RTCPeerConnection>(
@@ -2256,7 +2259,7 @@ RTCRtpTransceiver* RTCPeerConnection::CreateOrUpdateTransceiver(
 RTCDtlsTransport* RTCPeerConnection::CreateOrUpdateDtlsTransport(
     webrtc::scoped_refptr<webrtc::DtlsTransportInterface> native_transport,
     const webrtc::DtlsTransportInformation& information) {
-  if (!native_transport.get()) {
+  if (!native_transport) {
     return nullptr;
   }
   auto& transport = dtls_transports_by_native_transport_
@@ -2274,7 +2277,7 @@ RTCDtlsTransport* RTCPeerConnection::CreateOrUpdateDtlsTransport(
 
 RTCIceTransport* RTCPeerConnection::CreateOrUpdateIceTransport(
     webrtc::scoped_refptr<webrtc::IceTransportInterface> ice_transport) {
-  if (!ice_transport.get()) {
+  if (!ice_transport) {
     return nullptr;
   }
   auto& transport =
@@ -2571,14 +2574,6 @@ void RTCPeerConnection::DidModifyTransceivers(
         transceiver->receiver(), transceiver->receiver()->track(),
         transceiver->receiver()->streams(), transceiver);
     MaybeDispatchEvent(track_event);
-  }
-
-  // TODO(https://crbug.com/40821064): Remove killswitch after rollout.
-  if (!base::FeatureList::IsEnabled(kWebRtcUnmuteTracksWhenPacketArrives2)) {
-    for (auto& transceiver : track_events) {
-      transceiver->receiver()->track()->Component()->Source()->SetReadyState(
-          MediaStreamSource::kReadyStateLive);
-    }
   }
 
   // Transceiver modifications can cause changes in the set of ICE

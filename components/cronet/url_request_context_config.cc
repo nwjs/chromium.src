@@ -88,6 +88,13 @@ BASE_FEATURE_PARAM(std::string,
                    "ForceOff",
                    "");
 
+// Enables the resolution of hostnames via platform DNS APIs in Cronet.
+BASE_FEATURE(kCronetEnableDnsPlatform, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(
+    kCronetMigrateSessionsEarlyV2EnableRetryOnAlternateNetworkBeforeHandshake,
+    base::FEATURE_DISABLED_BY_DEFAULT);
+
 namespace {
 
 // Name of disk cache directory.
@@ -569,6 +576,12 @@ void URLRequestContextConfig::SetContextBuilderExperimentalOptions(
               base::Milliseconds<int>)
               .value_or(quic_params->retransmittable_on_wire_timeout);
 
+      if (base::FeatureList::IsEnabled(
+              kCronetMigrateSessionsEarlyV2EnableRetryOnAlternateNetworkBeforeHandshake) &&
+          quic_params->migrate_sessions_early_v2) {
+        quic_params->retry_on_alternate_network_before_handshake = true;
+      }
+
       quic_params->retry_on_alternate_network_before_handshake =
           quic_args.FindBool(kQuicRetryOnAlternateNetworkBeforeHandshake)
               .value_or(
@@ -796,14 +809,35 @@ void URLRequestContextConfig::SetContextBuilderExperimentalOptions(
         quic::ParseQuicTagVector(kConnectionOptionsForceOff.Get()));
   }
 
-  if (async_dns_enable || stale_dns_enable || host_resolver_rules_enable ||
-      disable_ipv6_on_wifi || is_network_bound || https_svcb_options) {
+  const bool enable_platform_dns =
+      net::features::IsDnsPlatformSupported() &&
+      base::FeatureList::IsEnabled(kCronetEnableDnsPlatform);
+
+  if (enable_platform_dns || async_dns_enable || stale_dns_enable ||
+      host_resolver_rules_enable || disable_ipv6_on_wifi || is_network_bound ||
+      https_svcb_options) {
     net::HostResolver::ManagerOptions host_resolver_manager_options;
     host_resolver_manager_options.insecure_dns_client_enabled =
         async_dns_enable;
     host_resolver_manager_options.check_ipv6_on_wifi = !disable_ipv6_on_wifi;
     if (https_svcb_options) {
       host_resolver_manager_options.https_svcb_options = https_svcb_options;
+    }
+
+    if (enable_platform_dns) {
+      // Using the platform DNS APIs requires:
+      // 1. Enabling the built-in DNS client
+      //    (insecure_dns_client_enabled = true)
+      // 2. Disabling DoH queries, these do not yet use the platform DNS APIs
+      //    (secure_dns_mode = net::SecureDnsMode::kOff)
+      // 3. Make HostResolverManager use the platform DNS APIs
+      //    (insecure_dns_via_platform_apis_enabled = true)
+      host_resolver_manager_options.insecure_dns_client_enabled = true;
+      host_resolver_manager_options.insecure_dns_via_platform_apis_enabled =
+          true;
+      net::DnsConfigOverrides overrides;
+      overrides.secure_dns_mode = net::SecureDnsMode::kOff;
+      host_resolver_manager_options.dns_config_overrides = overrides;
     }
 
     if (!is_network_bound) {

@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ClientCapabilities, ExperimentalTriggeringUpdateType, SkillSource} from '/glic/glic_api/glic_api.js';
-import type {ExperimentalTriggeringUpdate, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, TabData} from '/glic/glic_api/glic_api.js';
+import {CancelActionsResult, ClientCapabilities, ExperimentalTriggeringUpdateType, SbThreatType, SkillSource, WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {AdditionalContext, CounterAbuseVerdict, ExperimentalTriggeringUpdate, GlicBrowserHost, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, TabData, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
 import {Subject} from '/glic/observable.js';
 
-import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
+import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
 
 
 class ApiTests extends ApiTestFixtureBase {
@@ -17,6 +17,65 @@ class ApiTests extends ApiTestFixtureBase {
   async testDoNothing() {}
 
   async testReloadWebUi() {}
+
+  async testDefaultTabContextApiIsUndefinedWhenFeatureDisabled() {
+    assertTrue(this.host.getDefaultTabContextPermissionState === undefined);
+  }
+
+  async testGetDefaultTabContextPermissionState() {
+    assertDefined(this.host.getDefaultTabContextPermissionState);
+    const defaultTabContextState =
+        observeSequence(this.host.getDefaultTabContextPermissionState());
+    assertTrue(await defaultTabContextState.next() as boolean);
+    await this.advanceToNextStep();
+    assertFalse(await defaultTabContextState.next() as boolean);
+  }
+
+  async testPinOnBind() {
+    assertDefined(this.host.getDefaultTabContextPermissionState);
+    assertDefined(this.host.getFocusedTabStateV2);
+    const defaultTabContextState =
+        observeSequence(this.host.getDefaultTabContextPermissionState());
+    assertTrue(await defaultTabContextState.next() as boolean);
+    assertDefined(this.host.getPinnedTabs);
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+
+    // The active tab should be automatically pinned on bind.
+    const pinnedTabs =
+        await pinnedTabsUpdates.waitFor(tabs => tabs.length === 1);
+    const focus =
+        await observeSequence(this.host.getFocusedTabStateV2()).next();
+    const activeTabId = checkDefined(focus.hasFocus?.tabData.tabId);
+    assertEquals(pinnedTabs[0]!.tabId, activeTabId);
+  }
+
+  async testNoPinOnBindWhenSettingOff() {
+    assertDefined(this.host.getPinnedTabs);
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+
+    // The initial value is an empty array.
+    const initialTabs = await pinnedTabsUpdates.next();
+    assertEquals(0, initialTabs.length);
+
+    // Wait briefly to ensure no unexpected updates arrive.
+    await sleep(200);
+    assertTrue(
+        pinnedTabsUpdates.isEmpty(),
+        'Pinned tabs should remain empty when auto-pinning is disabled.');
+  }
+
+  async testWebActuationSettingIsUndefinedWhenFeatureDisabled() {
+    assertTrue(this.host.getActuationOnWebSetting === undefined);
+  }
+
+  async testGetWebActuationSetting() {
+    assertDefined(this.host.getActuationOnWebSetting);
+    const webActuationSetting =
+        observeSequence(this.host.getActuationOnWebSetting());
+    assertFalse(await webActuationSetting.next() as boolean);
+    await this.advanceToNextStep();
+    assertTrue(await webActuationSetting.next() as boolean);
+  }
 
   async testInvocationSource() {
     const expectedSource = this.testParams as number;
@@ -34,6 +93,8 @@ class ApiTests extends ApiTestFixtureBase {
   async testLoadWhileWindowClosed() {
     await observeSequence(this.host.panelActive()).waitForValue(false);
   }
+
+  async testNoWebUiLoader() {}
 
   async testGetPageMetadata() {
     assertDefined(this.host.getPageMetadata);
@@ -122,8 +183,10 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(authorTag);
     assertEquals('George', authorTag.content);
 
-    // Wait for C++ to modify the page.
-    await this.advanceToNextStep();
+    // Change the content of the 'author' meta tag from "George" to "Ruth".
+    assertTrue(await this.browser.execJsInTab(tabId, `
+      document.querySelector("meta[name='author']").content = 'Ruth';
+    `));
 
     const metadata2: PageMetadata = await metadataSequence.next();
     assertEquals(1, metadata2.frameMetadata.length);
@@ -157,8 +220,7 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(metadata);
     assertEquals(1, metadata.frameMetadata[0]!.metaTags.length);
 
-    // Close the tab.
-    await this.advanceToNextStep();
+    await this.browser.closeTab(otherTabId);
 
     // The observable should not emit any more values, and should complete.
     await waitFor(metadataSequence.completed);
@@ -229,9 +291,10 @@ class ApiTests extends ApiTestFixtureBase {
 
   async testCancelActions() {
     assertDefined(this.host.cancelActions);
-    const taskId: number = this.testParams;
-    const result = await this.host.cancelActions(taskId);
-    await this.advanceToNextStep(result);
+    // Task with id 12345 does not exist.
+    assertEquals(
+        await this.host.cancelActions(12345),
+        CancelActionsResult.TASK_NOT_FOUND);
   }
 
   async testNotifyActOnWebCapabilityChanged() {
@@ -285,6 +348,117 @@ class ApiTests extends ApiTestFixtureBase {
   async testShowClientErrorDialog() {
     assertDefined(this.host.setErrorDialogState);
     this.host.setErrorDialogState!(1 /* kDisabledByOrganization */);
+  }
+
+  async testReportClientTransientError() {
+    assertDefined(this.host.reportClientTransientError);
+    this.host.reportClientTransientError!(16 /* kUnauthenticated */);
+  }
+
+  private async closePanelAndWaitUntilInactive() {
+    assertDefined(this.host.closePanel);
+    await this.host.closePanel();
+    await observeSequence(this.host.panelActive()).waitForValue(false);
+  }
+
+  async testGetZeroStateSuggestionsForFocusedTabApi() {
+    assertDefined(this.host.getZeroStateSuggestionsForFocusedTab);
+    const suggestions = await this.host.getZeroStateSuggestionsForFocusedTab();
+    assertDefined(suggestions);
+    assertEquals(3, suggestions.suggestions.length);
+  }
+
+  async testGetZeroStateSuggestionsForFocusedTabFailsWhenHidden() {
+    assertDefined(this.host.getZeroStateSuggestionsForFocusedTab);
+    assertDefined(this.host.closePanel);
+    await this.closePanelAndWaitUntilInactive();
+    const suggestions = await this.host.getZeroStateSuggestionsForFocusedTab();
+    assertDefined(suggestions);
+    assertEquals(0, suggestions.suggestions.length);
+  }
+
+  async testGetZeroStateSuggestionsApi() {
+    assertDefined(this.host.getZeroStateSuggestions);
+    const sequence = observeSequence<ZeroStateSuggestionsV2>(
+        this.host.getZeroStateSuggestions());
+    const suggestions = await sequence.next();
+    assertDefined(suggestions);
+    assertEquals(3, suggestions.suggestions.length);
+    assertEquals(false, suggestions.isPending);
+  }
+
+  async testGetZeroStateSuggestionsMultipleNavigations() {
+    // Initial state.
+    assertDefined(this.host.getZeroStateSuggestions);
+    const sequence = observeSequence<ZeroStateSuggestionsV2>(
+        this.host.getZeroStateSuggestions());
+    const suggestions = await sequence.next();
+    assertDefined(suggestions);
+    assertEquals(3, suggestions.suggestions.length);
+    assertEquals(
+        'Sug 1 for /test_data/page.html',
+        suggestions.suggestions[0]?.suggestion);
+    assertEquals(false, suggestions.isPending);
+
+    // After a second navigation occurs.
+    assertTrue(
+        await this.browser.navigateActiveTab(this.getTestUrl('page.html?new')));
+
+    // Should first get a pending state.
+    const suggestions2 = await sequence.next();
+    assertDefined(suggestions2);
+    // We don't care about the suggestions here.
+    assertEquals(true, suggestions2.isPending);
+
+    // Should later get the actual suggestions.
+    const suggestions3 = await sequence.next();
+    assertDefined(suggestions3);
+    assertEquals(3, suggestions3.suggestions.length);
+    assertEquals(
+        'Sug 1 for /test_data/page.html?new',
+        suggestions3.suggestions[0]?.suggestion);
+    assertEquals(false, suggestions3.isPending);
+  }
+
+  async testGetZeroStateSuggestionsFailsWhenHidden() {
+    // Initial state.
+    assertDefined(this.host.getZeroStateSuggestions);
+    const sequence = observeSequence<ZeroStateSuggestionsV2>(
+        this.host.getZeroStateSuggestions());
+    const suggestions = await sequence.next();
+    assertDefined(suggestions);
+    assertEquals(3, suggestions.suggestions.length);
+
+    // Close panel.
+    assertDefined(this.host.closePanel);
+    await this.closePanelAndWaitUntilInactive();
+
+    // After next navigation in focused tab occurs.
+    await this.advanceToNextStep();
+  }
+
+  async testProcessCounterAbuseVerdict() {
+    assertDefined(this.host.processCounterAbuseVerdict);
+    assertDefined(this.host.getFocusedTabStateV2);
+    const focus =
+        await observeSequence(this.host.getFocusedTabStateV2()).next();
+    const tabData = checkDefined(focus.hasFocus?.tabData);
+    const url = tabData.url;
+
+    const verdict: CounterAbuseVerdict = {
+      sbVerdictResult: {
+        url: url,
+        threatType: SbThreatType.SOCIAL_ENGINEERING,
+        showInterstitial: true,
+      },
+    };
+    this.host.processCounterAbuseVerdict(tabData.tabId, verdict);
+
+    await this.advanceToNextStep();
+  }
+
+  async testProcessCounterAbuseVerdictIsUndefinedWhenFeatureDisabled() {
+    assertTrue(this.host.processCounterAbuseVerdict === undefined);
   }
 }
 
@@ -409,7 +583,10 @@ class FaviconTest extends ApiTests {
     await faviconColors.waitFor((colors) => colors === '#00ff');
 
     // Change the page's favicon to red.
-    await this.advanceToNextStep();
+    assertTrue(await this.browser.execJsInTab(tab.tabId, `
+      var link = document.querySelector("link[rel~='icon']");
+      link.href = "./red.ico";
+    `));
 
     await faviconColors.waitFor((colors) => colors === '#f00f');
   }
@@ -424,7 +601,12 @@ class FaviconTest extends ApiTests {
     await faviconColors.waitFor((colors) => colors === '#00ff');
 
     // Navigate to a page without a favicon.
-    await this.advanceToNextStep();
+    assertTrue(await this.browser.navigateTab(
+        tab.tabId,
+        new URL(
+            '/test_data/page_no_favicon.html',
+            this.initData!.embeddedTestServerUrl)
+            .href));
 
     // We should see the generic globe icon. Just assert there is a change.
     await faviconColors.waitFor((colors) => colors !== '#00ff');
@@ -460,7 +642,7 @@ class InvokeClient extends WebClient {
     return super.notifyPanelWillOpen!(panelOpeningData);
   }
 
-  async invoke?(_options: InvokeOptions): Promise<void> {
+  override async invoke(_options: InvokeOptions): Promise<void> {
     this.calls.push('invoke');
   }
 }
@@ -590,6 +772,68 @@ class ApiTestFailsToInitialize extends ApiTestFixtureBase {
   async testInitializeFailsWindowOpen() {
     this.deferredSetUpClient();
   }
+
+  async testReload() {
+    // First run.
+    if (this.getTestParams().failWith === 'reloadAfterInitialize') {
+      this.deferredSetUpClient();
+      return;
+    }
+
+    // Second run. Client should initialize and be opened.
+    await super.setUpClient();
+    await this.client.waitForFirstOpen();
+  }
+
+  async testSorryPageBeforeInitialize() {
+    this.deferredSetUpClient();
+  }
+
+  async testSorryPageAfterInitialize() {
+    this.deferredSetUpClient();
+  }
+
+  async testInitializeFailsAfterReload() {
+    this.deferredSetUpClient();
+  }
+
+  // Skips the setup entirely.
+  async testNoClientCreated() {}
+
+  // Skips the bootstrap as well. The test name "testNoBootstrap" is handled
+  // specially.
+  async testNoBootstrap() {}
+
+  async testInitializeTimesOut() {
+    await super.setUpClient();
+  }
+
+  async testInitializeFails() {
+    await super.setUpClient();
+  }
+
+  // Tests notifyPanelWillOpen() returning after the panel is closed and then
+  // reopened.
+  async testCloseAndOpenWhileOpening() {
+    const openSignal = Promise.withResolvers<void>();
+    class WebClientThatOpensSlowly extends WebClient {
+      override async notifyPanelWillOpen(): Promise<OpenPanelInfo> {
+        this.panelOpenState.assignAndSignal(true);
+        await openSignal.promise;
+        return {
+          startingMode: WebClientMode.TEXT,
+        };
+      }
+    }
+    await this.setUpWithClient(new WebClientThatOpensSlowly());
+    const panelOpenState = observeSequence(this.client.panelOpenState);
+    panelOpenState.waitForValue(true);
+    await this.host.closePanel!();
+    panelOpenState.waitForValue(false);
+    await this.advanceToNextStep();
+    openSignal.resolve();
+    await panelOpenState.waitForValue(true);
+  }
 }
 
 class SkillsApiTests extends ApiTests {
@@ -706,8 +950,41 @@ class SkillsApiTests extends ApiTests {
   }
 }
 
+class ContextCapturingClient extends WebClient {
+  capturedContext: AdditionalContext[] = [];
+
+  override async initialize(glicBrowserHost: GlicBrowserHost): Promise<void> {
+    await super.initialize(glicBrowserHost);
+    glicBrowserHost.getAdditionalContext!
+        ().subscribe((context: AdditionalContext) => {
+          this.capturedContext.push(context);
+        });
+  }
+}
+
+class AdditionalContextQueuedTest extends ApiTestFixtureBase {
+  override createWebClient(): WebClient {
+    return new ContextCapturingClient();
+  }
+
+  async testAdditionalContextQueued() {
+    const client = this.client as ContextCapturingClient;
+    await runUntil(() => client.capturedContext.length > 0);
+    const context = client.capturedContext[0];
+    assertDefined(context);
+    assertEquals(context.name, 'queued part');
+    assertEquals(context.parts.length, 1);
+    const part1 = context.parts[0]!;
+    assertDefined(part1.data);
+    assertEquals(part1.data!.type, 'text/plain');
+    const data1 = new Uint8Array(await part1.data!.arrayBuffer());
+    assertEquals(new TextDecoder().decode(data1), 'queued');
+  }
+}
+
 const TEST_FIXTURES = [
   ApiTests,
+  AdditionalContextQueuedTest,
   FaviconTest,
   FaviconOmittedTest,
   InvokeTest,

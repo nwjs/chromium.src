@@ -437,21 +437,16 @@ TEST_P(ES3ClearBufferTest,
   constexpr size_t kFeedbackSize =
       kQuadVertexCount * kVec4ComponentCount * sizeof(GLfloat);
 
-  void* mapped = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
-                                  kFeedbackSize, GL_MAP_READ_BIT);
-  ASSERT_NE(nullptr, mapped);
+  uint8_t buffer_data[kFeedbackSize] = {0};
+  glGetBufferSubDataCHROMIUM(GL_TRANSFORM_FEEDBACK_BUFFER, 0, kFeedbackSize,
+                             buffer_data);
   ASSERT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
-  // SAFETY: The transform feedback varying is on v_out which is a vec4 type
-  // (four-component floating-point vector), so a GLfloat is used.
-  // glMapBufferRange (OpenGL API) returns a pointer to the beginning of the
-  // mapped range of size kTfBufferSizeBytes, and kBufferFloats is
-  // kTfBufferSizeBytes / sizeof(GLfloat) is the exact number of GLfloat
-  // elements that fit in that buffer. mapped is not null, so no errors.
+  // SAFETY: glBufferSubDataCHROMIUM would fail if reading out of bounds of the
+  // GPU buffer and the kFeedbackSize is a multiple of the span size for bytes
+  // -> floats.
   auto feedback_span =
-      UNSAFE_BUFFERS(base::span(static_cast<const GLfloat*>(mapped),
+      UNSAFE_BUFFERS(base::span(reinterpret_cast<const GLfloat*>(buffer_data),
                                 kQuadVertexCount * kVec4ComponentCount));
-  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
-  ASSERT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
 
   for (size_t vertex_index = 0; vertex_index < kQuadVertexCount;
        ++vertex_index) {
@@ -521,20 +516,15 @@ TEST_P(ES3ClearBufferTest, ClearDoesNotWriteToTransformFeedbackBuffer) {
   // The TF buffer was initialized with nullptr (all zeros). If glClear
   // workaround incorrectly wrote anything to it, we would see non-zero values.
   constexpr size_t kBufferFloats = kTfBufferSizeBytes / sizeof(GLfloat);
-  void* mapped = glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
-                                  kTfBufferSizeBytes, GL_MAP_READ_BIT);
-  ASSERT_NE(nullptr, mapped);
+  uint8_t buffer_data[kTfBufferSizeBytes] = {0};
+  glGetBufferSubDataCHROMIUM(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+                             kTfBufferSizeBytes, buffer_data);
   ASSERT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
-  // SAFETY: The transform feedback varying is on v_out which is a vec4 type
-  // (four-component floating-point vector), so a GLfloat is used.
-  // glMapBufferRange (OpenGL API) returns a pointer to the beginning of the
-  // mapped range of size kTfBufferSizeBytes, and kBufferFloats is
-  // kTfBufferSizeBytes / sizeof(GLfloat) is the exact number of GLfloat
-  // elements that fit in that buffer. mapped is not null, so no errors.
+  // SAFETY: glBufferSubDataCHROMIUM would fail if reading out of bounds of the
+  // GPU buffer and the kFeedbackSizekTfBufferSizeBytes is a multiple of the
+  // span size for bytes -> floats.
   auto feedback_span = UNSAFE_BUFFERS(
-      base::span(static_cast<const GLfloat*>(mapped), kBufferFloats));
-  glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
-  ASSERT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
+      base::span(reinterpret_cast<const GLfloat*>(buffer_data), kBufferFloats));
 
   for (size_t float_index = 0; float_index < kBufferFloats; ++float_index) {
     EXPECT_EQ(0.0f, feedback_span[float_index])
@@ -631,6 +621,89 @@ TEST_P(ES3ClearBufferTest,
 
   glEndTransformFeedback();
   ASSERT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
+}
+
+TEST_P(ES3ClearBufferTest, RasterizerDiscardIntegerClearBypass) {
+  if (ShouldSkipTest()) {
+    return;
+  }
+
+  const GLsizei kDirtyWidth = 256;
+  const GLsizei kDirtyHeight = 256;
+
+  // Step 0: Dirty VRAM using a separate context.
+  {
+    GLManager gl2;
+    gl2.Initialize(GetGlManagerOptions());
+    gl2.MakeCurrent();
+
+    for (int i = 0; i < 8; ++i) {
+      GLuint rb = 0;
+      glGenRenderbuffers(1, &rb);
+      glBindRenderbuffer(GL_RENDERBUFFER, rb);
+      glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, kDirtyWidth,
+                            kDirtyHeight);
+      GLuint fb = 0;
+      glGenFramebuffers(1, &fb);
+      glBindFramebuffer(GL_FRAMEBUFFER, fb);
+      glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                GL_RENDERBUFFER, rb);
+      EXPECT_EQ(static_cast<GLenum>(GL_FRAMEBUFFER_COMPLETE),
+                glCheckFramebufferStatus(GL_FRAMEBUFFER));
+
+      glClearColor(0.8f, 0.2f, 0.6f, 1.0f);
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      glDeleteFramebuffers(1, &fb);
+      glDeleteRenderbuffers(1, &rb);
+    }
+    glFinish();
+    gl2.Destroy();
+  }
+
+  // Restore main context.
+  gl_.MakeCurrent();
+
+  // Step 1: Trigger the bug.
+  GLuint rb = 0;
+  glGenRenderbuffers(1, &rb);
+  glBindRenderbuffer(GL_RENDERBUFFER, rb);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8UI, kDirtyWidth, kDirtyHeight);
+
+  GLuint fb = 0;
+  glGenFramebuffers(1, &fb);
+  glBindFramebuffer(GL_FRAMEBUFFER, fb);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                            GL_RENDERBUFFER, rb);
+  EXPECT_EQ(static_cast<GLenum>(GL_FRAMEBUFFER_COMPLETE),
+            glCheckFramebufferStatus(GL_FRAMEBUFFER));
+
+  glEnable(GL_RASTERIZER_DISCARD);
+  ASSERT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
+
+  // readPixels to trigger lazy clear.
+  std::vector<GLuint> pixels(kDirtyWidth * kDirtyHeight * 4, 0xAAAAAAAAu);
+  glReadPixels(0, 0, kDirtyWidth, kDirtyHeight, GL_RGBA_INTEGER,
+               GL_UNSIGNED_INT, pixels.data());
+
+  EXPECT_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
+
+  // Inspect results.
+  uint32_t nonzero_components = 0;
+  for (GLuint val : pixels) {
+    if (val != 0) {
+      nonzero_components++;
+    }
+  }
+
+  // If bug is present, we expect non-zero components (leak from dirty VRAM).
+  // If fixed, we expect ALL zero.
+  EXPECT_EQ(0u, nonzero_components);
+
+  // Cleanup.
+  glDisable(GL_RASTERIZER_DISCARD);
+  glDeleteFramebuffers(1, &fb);
+  glDeleteRenderbuffers(1, &rb);
 }
 
 }  // namespace gpu

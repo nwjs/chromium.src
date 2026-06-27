@@ -198,9 +198,6 @@ suite('SiteDetails', function() {
               ContentSettingsTypes.POINTER_LOCK,
               [createRawSiteException('https://foo.com:443')]),
           createContentSettingTypeToValuePair(
-              ContentSettingsTypes.LOCAL_NETWORK_ACCESS,
-              [createRawSiteException('https://foo.com:443')]),
-          createContentSettingTypeToValuePair(
               ContentSettingsTypes.LOCAL_NETWORK,
               [createRawSiteException('https://foo.com:443')]),
           createContentSettingTypeToValuePair(
@@ -230,9 +227,11 @@ suite('SiteDetails', function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
   });
 
-  function createSiteDetails(origin: string, prefs?: {[key: string]: any}) {
+  function createSiteDetails(origin: string, prefs?: Record<string, unknown>) {
     const siteDetailsElement = document.createElement('site-details');
-    siteDetailsElement.prefs = prefs;
+    if (prefs) {
+      siteDetailsElement.prefs = prefs;
+    }
     document.body.appendChild(siteDetailsElement);
     Router.getInstance().navigateTo(
         routes.SITE_SETTINGS_SITE_DETAILS,

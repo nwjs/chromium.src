@@ -76,6 +76,8 @@ export declare interface AdditionalContextPart {
    * to read it as a stream if the data is large.
    */
   data?: Blob;
+  /** The filename of the data, if available. */
+  filename?: string;
   /**
    * The following four fields can be contained by `tabContext` and are
    * deprecated
@@ -89,10 +91,27 @@ export declare interface AdditionalContextPart {
   pendingRegion?: PendingCapturedRegion;
 }
 
+/** Payload for Universal Cart invocation. */
+export declare interface UniversalCartPayload {
+  serializedMetadata: ArrayBuffer;
+}
+
+/** Union representing source-specific payloads. */
+export declare interface InvocationPayload {
+  universalCart?: UniversalCartPayload;
+}
+
 /** Configuration to override the default ZSS behavior for the invocation. */
 export declare interface ZssConfig {
   /** Additional content to inject into the body of the ZSS message. */
   additionalContent?: string;
+}
+
+/** Settings for Gemini Enterprise. */
+export declare interface GeminiEnterpriseSettings {
+  projectId: string;
+  appId: string;
+  location: string;
 }
 
 /** Options for invoking Glic. */
@@ -115,6 +134,8 @@ export declare interface InvokeOptions {
   skillId?: string;
   /** Configuration to override the default ZSS behavior for the invocation. */
   zssConfig?: ZssConfig;
+  /** Source-specific payload for the invocation. */
+  payload?: InvocationPayload;
 }
 
 /** An update sent from the web client to the host. */
@@ -222,7 +243,7 @@ export declare interface GlicWebClient {
    * take place.
    */
   getExperimentalTriggeringUpdates?
-      (): Observable2<ExperimentalTriggeringUpdate>;
+    (): Observable2<ExperimentalTriggeringUpdate>;
 
   // !!! ATTENTION !!!
   // Avoid adding new methods to this interface! Instead, to push information to
@@ -278,15 +299,6 @@ export declare interface GlicBrowserHost {
   enableDragResize?(enabled: boolean): Promise<void>;
 
   /**
-   * Set the areas of the glic window from which it should be draggable. If
-   * `areas` is empty, a default draggable area will be created.
-   *
-   * Returns a promise that resolves when the browser has updated the draggable
-   * area.
-   */
-  setWindowDraggableAreas(areas: DraggableArea[]): Promise<void>;
-
-  /**
    * Sets the minimum possible size a user can resize to for the glic window.
    *
    * All provided values will go through sanity checks (e.g. checking min
@@ -305,6 +317,13 @@ export declare interface GlicBrowserHost {
    * this method can be unsafe to call even when it's defined.
    */
   getModelQualityClientId?(): Promise<string>;
+
+  /**
+   * Returns the Gemini Enterprise settings if available.
+   * New in May 2026.
+   */
+  getGeminiEnterpriseSettings?
+      (): ObservableValue<GeminiEnterpriseSettings|undefined>;
 
   /**
    * Fetches page context for the currently focused tab, optionally including
@@ -539,7 +558,7 @@ export declare interface GlicBrowserHost {
    * be terminated and a new one will begin.
    */
   captureRegion?
-      (params?: CaptureRegionParams): ObservableValue<CaptureRegionResult>;
+    (params?: CaptureRegionParams): ObservableValue<CaptureRegionResult>;
 
   /**
    * Deletes a captured region.
@@ -1129,6 +1148,22 @@ export declare interface GlicBrowserHost {
    *   `undefined`, no error dialog is showing.
    */
   setErrorDialogState?(shownDialogType?: ClientErrorDialogType): void;
+
+  /**
+   * Reports that the web client encountered a transient error. Transient errors
+   * are errors may be presented to the user, but may not prevent further use of
+   * GiC. Chrome may use this information to influence whether sign in cookies
+   * are synced later.
+   *
+   * @param abslStatus A absl::StatusCode value. See
+   *     https://abseil.io/docs/cpp/guides/status-codes.
+   */
+  reportClientTransientError?(abslStatus: number): void;
+
+  /**
+   * Notifies the host of a counter-abuse verdict received from the server.
+   */
+  processCounterAbuseVerdict?(tabId: string, verdict: CounterAbuseVerdict): void;
 }
 
 /** Information about a conversation. */
@@ -1148,6 +1183,22 @@ export declare interface ConversationInfo {
   clientData?: string;
   /** Optional turn ID to open this conversation at. */
   turnId?: string;
+}
+
+/**
+ * The type of counter abuse verdict that was received.
+ */
+export declare interface SafeBrowsingVerdict {
+  url: string;
+  threatType: SbThreatType;
+  showInterstitial: boolean;
+}
+
+/**
+ * The type of counter abuse verdict that was received.
+ */
+export declare interface CounterAbuseVerdict {
+  sbVerdictResult: SafeBrowsingVerdict;
 }
 
 /** Fields of interest from the system settings page. */
@@ -1919,6 +1970,10 @@ export declare interface TaskOptions {
    * The expected duration of the the task.
    */
   duration?: TaskDuration;
+  /**
+   * The feature mode for the task.
+   */
+  featureMode?: FeatureMode;
 }
 
 /** Maps the ErrorWithReason.reasonType to the type of reason. */
@@ -2104,18 +2159,6 @@ export declare interface ScrollToNodeSelector {
 
 /** Error type used for scrollTo(). */
 export type ScrollToError = ErrorWithReason<'scrollTo'>;
-
-/**
- * A rectangular area based in the glic window's coordinate system. All
- * coordinate and size values are in DIPs. The coordinate system is based in the
- * panel's view with the origin located in the top-left of the panel.
- */
-export declare interface DraggableArea {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 /**
  * A generic interface for observing a stream of values.
@@ -2472,6 +2515,11 @@ export declare interface FormFillingRequest {
    */
   formattedRequestOrigin?: string;
   /**
+   * The label for the section that this form is in. Displayed by the UI to
+   * provide filling context in addition to the selection.
+   */
+  sectionLabel?: string;
+  /**
    * The list of suggestions for this form. The web client shows a selector with
    * these suggestions.
    */
@@ -2692,6 +2740,17 @@ export enum CaptureScreenshotErrorReason {
   SCREEN_CAPTURE_REQUEST_THROTTLED = 1,
   // User declined screen capture dialog before taking a screenshot.
   USER_CANCELLED_SCREEN_PICKER_DIALOG = 2,
+}
+
+///////////////////////////////////////////////
+// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.
+// Safe Browsing Threat Type.
+export enum SbThreatType {
+  // Default value.
+  UNSPECIFIED = 0,
+  SOCIAL_ENGINEERING = 1,
+  MALWARE = 2,
+  UNWANTED_SOFTWARE = 3,
 }
 
 ///////////////////////////////////////////////
@@ -2992,19 +3051,18 @@ export enum InvocationSource {
   // Used exclusively for invocations originating from the
   // GlicExperimentalTriggeringMessageHandler.
   EXPERIMENTAL_TRIGGERING = 28,
-}
-
-///////////////////////////////////////////////
-// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.
-// Mode for specific feature behaviors.
-export enum FeatureMode {
-  UNSPECIFIED = 0,
-  IMAGE_GENERATION = 1,
-  ACTUATION = 2,
-  // Client feature mode to initiate actuation for Experimental Triggering.
-  EXPERIMENTAL_TRIGGERING = 3,
-  // Client feature mode to initiate actuation for Universal Cart.
-  UNIVERSAL_CART = 4,
+  // Actuation triggered by the password change feature.
+  PASSWORD_CHANGE = 29,
+  // From an Autofill action.
+  AUTOFILL = 30,
+  // Button in the toolbar.
+  TOOLBAR_BUTTON = 31,
+  // User clicked on an Indigo page action.
+  INDIGO_PAGE_ACTION = 32,
+  // User dropped a file/image onto the GLIC panel.
+  WEB_DRAG_DROP = 33,
+  // From the promotion page.
+  PROMOTION_PAGE = 34,
 }
 
 ///////////////////////////////////////////////
@@ -3061,6 +3119,7 @@ export enum WebUseCounter {
   TASK_INTERRUPTED_FOR_USER_CLARIFICATION = 3,
   SELECTION_TOGGLED_VIA_SHARED_MENU = 4,
   SELECTION_TOGGLED_VIA_HOT_KEY = 5,
+  SUBMIT_PROMPT_WITH_TEXT_SELECTION_CUE = 6,
 }
 
 ///////////////////////////////////////////////
@@ -3082,6 +3141,7 @@ export enum AdditionalContextSource {
   SHARE_CONTEXT_MENU = 0,
   REGION_SELECTION = 1,
   TEXT_SELECTION = 3,
+  WEB_DRAG_DROP = 4,
 }
 
 ///////////////////////////////////////////////
@@ -3100,6 +3160,8 @@ export enum ExperimentalTriggeringUpdateType {
   TERMINAL_STOPPED = 4,
   // The interaction failed.
   TERMINAL_FAILED = 5,
+  // The interaction yielded to the user.
+  YIELD_TO_USER = 6,
 }
 
 ///////////////////////////////////////////////
@@ -3164,6 +3226,8 @@ export enum HostCapability {
   SHARE_IMAGE_VIA_INVOKE = 11,
   // Indicates that the host supports image drag and drop from the web
   IMG_WEB_DRAG_DROP = 12,
+  // Indicates that the host does not show the WebUi preloader.
+  NO_WEB_UI_LOADER = 13,
 }
 
 ///////////////////////////////////////////////
@@ -3213,6 +3277,21 @@ export enum CredentialType {
   PASSWORD = 0,
   // Used with an identity provider (e.g. Sign in with Google).
   FEDERATED = 1,
+}
+
+///////////////////////////////////////////////
+// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.
+// Mode for specific feature behaviors.
+export enum FeatureMode {
+  UNSPECIFIED = 0,
+  IMAGE_GENERATION = 1,
+  ACTUATION = 2,
+  // Client feature mode to initiate actuation for Experimental Triggering.
+  EXPERIMENTAL_TRIGGERING = 3,
+  // Client feature mode to initiate actuation for Universal Cart.
+  UNIVERSAL_CART = 4,
+  // Client feature mode for Promotion Page.
+  PROMOTION_PAGE = 5,
 }
 
 

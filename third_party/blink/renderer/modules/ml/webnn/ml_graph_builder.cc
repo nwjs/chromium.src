@@ -1624,8 +1624,7 @@ MLGraphBuilder* MLGraphBuilder::Create(ScriptState* script_state,
 MLGraphBuilder::MLGraphBuilder(
     ExecutionContext* execution_context,
     MLContext* context,
-    mojo::PendingAssociatedRemote<blink_mojom::WebNNGraphBuilder>
-        pending_remote)
+    mojo::PendingRemote<blink_mojom::WebNNGraphBuilder> pending_remote)
     : execution_context_(execution_context),
       ml_context_(context),
       remote_(execution_context) {
@@ -3511,7 +3510,7 @@ void MLGraphBuilder::DidCreateWebNNGraph(
   }
   auto* graph = MakeGarbageCollected<MLGraph>(
       resolver->GetExecutionContext(), ml_context_,
-      std::move(success->graph_remote),
+      std::move(success->graph_remote), success->graph_token,
       std::move(input_and_output_constraints.first),
       std::move(input_and_output_constraints.second), std::move(devices),
       base::PassKey<MLGraphBuilder>());

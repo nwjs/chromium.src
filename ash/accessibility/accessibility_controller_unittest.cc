@@ -1356,6 +1356,16 @@ TEST_F(AccessibilityControllerTest, DisableLargeCursorDoesNotResetSize) {
             48);
 }
 
+TEST_F(AccessibilityControllerTest, CursorColorIsBlackInitially) {
+  EXPECT_EQ(0, prefs()->GetInteger(prefs::kAccessibilityCursorColor));
+  EXPECT_FALSE(prefs()->GetBoolean(prefs::kAccessibilityCursorColorEnabled));
+
+  CursorWindowController* cursor_window_controller =
+      Shell::Get()->window_tree_host_manager()->cursor_window_controller();
+  EXPECT_EQ(ui::kDefaultCursorColor,
+            cursor_window_controller->GetCursorColorForTest());
+}
+
 TEST_F(AccessibilityControllerTest, ChangingCursorColorPrefChangesCursorColor) {
   // Simulate using chrome settings webui to set cursor color, which also turns
   // on the cursor color enabled pref.
@@ -1374,6 +1384,20 @@ TEST_F(AccessibilityControllerTest, ChangingCursorColorPrefChangesCursorColor) {
   // Expect cursor color in cursor_window_controller to be green.
   EXPECT_EQ(SK_ColorGREEN, cursor_window_controller->GetCursorColorForTest());
   ExpectSessionDurationMetricCount("CrosCursorColor", 0);
+
+  {
+    // Set cursor color pref to inverted.
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(
+        ::features::kAccessibilityInvertedMouseCursor);
+
+    prefs()->SetBoolean(prefs::kAccessibilityCursorColorEnabled, true);
+    prefs()->SetInteger(prefs::kAccessibilityCursorColor,
+                        kAccessibilityCursorColorInverted);
+
+    // Expect cursor to be inverted.
+    EXPECT_TRUE(cursor_window_controller->IsCursorInvertedForTest());
+  }
 
   // Simulate using chrome settings webui to set cursor color to black, which
   // which also turns off the cursor color enabled pref.
@@ -2786,6 +2810,7 @@ class AccessibilityControllerSyncablePrefsOnSigninTest
     using prefs::kAccessibilityMonoAudioEnabled;
     using prefs::kAccessibilitySpokenFeedbackEnabled;
     using prefs::kDockedMagnifierEnabled;
+    using prefs::kDockedMagnifierScale;
 
     const bool should_signin_prefs_be_copied =
         GetParam() == TestUserLoginType::kNewUser;
@@ -2803,6 +2828,8 @@ class AccessibilityControllerSyncablePrefsOnSigninTest
       EXPECT_TRUE(user_prefs->GetBoolean(kAccessibilityHighContrastEnabled));
       EXPECT_TRUE(user_prefs->GetBoolean(kAccessibilityCaretHighlightEnabled));
       EXPECT_TRUE(user_prefs->GetBoolean(kDockedMagnifierEnabled));
+      EXPECT_FLOAT_EQ(kMagnifierScale,
+                      user_prefs->GetDouble(kDockedMagnifierScale));
       EXPECT_TRUE(user_prefs->GetBoolean(kAccessibilitySpokenFeedbackEnabled));
       EXPECT_TRUE(user_prefs->GetBoolean(kAccessibilityAutoclickEnabled));
       EXPECT_TRUE(user_prefs->GetBoolean(kAccessibilityMonoAudioEnabled));
@@ -2817,6 +2844,8 @@ class AccessibilityControllerSyncablePrefsOnSigninTest
           kAccessibilityCaretHighlightEnabled, base::Value(true)));
       EXPECT_TRUE(IsPrefLockedWithValueForTesting(kDockedMagnifierEnabled,
                                                   base::Value(true)));
+      EXPECT_TRUE(IsPrefLockedWithValueForTesting(
+          kDockedMagnifierScale, base::Value(kMagnifierScale)));
       EXPECT_FALSE(IsPrefLockedWithValueForTesting(
           kAccessibilitySpokenFeedbackEnabled, std::nullopt));
       EXPECT_FALSE(IsPrefLockedWithValueForTesting(
@@ -2831,6 +2860,9 @@ class AccessibilityControllerSyncablePrefsOnSigninTest
           user_prefs->GetBoolean(kAccessibilityCursorHighlightEnabled));
       EXPECT_TRUE(IsPrefLockedWithValueForTesting(
           kAccessibilityCursorHighlightEnabled, base::Value(false)));
+      EXPECT_TRUE(
+          user_prefs->FindPreference(kAccessibilityCursorHighlightEnabled)
+              ->IsDefaultValue());
     } else {
       EXPECT_FALSE(accessibility->large_cursor().enabled());
       EXPECT_FALSE(accessibility->spoken_feedback().enabled());
@@ -2848,6 +2880,7 @@ class AccessibilityControllerSyncablePrefsOnSigninTest
       EXPECT_FALSE(user_prefs->GetBoolean(kAccessibilityMonoAudioEnabled));
       EXPECT_FALSE(user_prefs->GetBoolean(kAccessibilityCaretHighlightEnabled));
       EXPECT_FALSE(user_prefs->GetBoolean(kDockedMagnifierEnabled));
+      EXPECT_NE(kMagnifierScale, user_prefs->GetDouble(kDockedMagnifierScale));
       EXPECT_FALSE(
           user_prefs->GetBoolean(kAccessibilityCursorHighlightEnabled));
 
@@ -3000,6 +3033,9 @@ TEST_P(AccessibilityControllerSyncablePrefsOnSigninTest,
     EXPECT_FALSE(
         signin_prefs->FindPreference(kAccessibilityCursorHighlightEnabled)
             ->IsUserControlled());
+    EXPECT_TRUE(
+        signin_prefs->FindPreference(kAccessibilityCursorHighlightEnabled)
+            ->IsDefaultValue());
   }
 
   // The type of user (new or existing) will trigger the copying of

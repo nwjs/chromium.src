@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/containers/queue.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/ptr_util.h"
@@ -28,12 +29,14 @@
 #include "content/browser/renderer_host/navigation_entry_restore_context_impl.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/common/content_constants_internal.h"
+#include "content/common/features.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/url_constants.h"
 #include "net/storage_access_api/status.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
+#include "services/network/public/mojom/link_header.mojom.h"
 #include "third_party/blink/public/common/navigation/navigation_params.h"
 #include "third_party/blink/public/common/page_state/page_state_serialization.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
@@ -828,6 +831,15 @@ void NavigationEntryImpl::AddExtraHeaders(
   extra_headers_ += more_extra_headers;
 }
 
+bool NavigationEntryImpl::GetRemoveExtraHeadersOnCrossOriginRedirect() const {
+  return remove_extra_headers_on_cross_origin_redirect_;
+}
+
+void NavigationEntryImpl::SetRemoveExtraHeadersOnCrossOriginRedirect(
+    bool value) {
+  remove_extra_headers_on_cross_origin_redirect_ = value;
+}
+
 int64_t NavigationEntryImpl::GetMainFrameDocumentSequenceNumber() const {
   return frame_tree_->frame_entry->document_sequence_number();
 }
@@ -1022,6 +1034,12 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
     current_length_to_send = 0;
   }
 
+  const GURL original_url_for_renderer =
+      base::FeatureList::IsEnabled(
+          features::kSanitizeOriginalUrlDuringNavigation)
+          ? original_url.DeprecatedGetOriginAsURL()
+          : original_url;
+
   blink::mojom::CommitNavigationParamsPtr commit_params =
       blink::mojom::CommitNavigationParams::New(
           url::Origin(),
@@ -1029,12 +1047,12 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           // navigation.
           blink::StorageKey(), GetIsOverridingUserAgent(), redirects,
           std::vector<network::mojom::URLResponseHeadPtr>(),
-          std::vector<net::RedirectInfo>(), std::string(), original_url,
-          original_method, GetCanLoadLocalResources(),
-          frame_entry.page_state().ToEncodedData(), GetUniqueID(),
-          subframe_unique_names, intended_as_new_entry, pending_index_to_send,
-          current_index_to_send, current_length_to_send, false,
-          IsViewSourceMode(), should_clear_history_list(),
+          std::vector<net::RedirectInfo>(), std::string(),
+          original_url_for_renderer, original_method,
+          GetCanLoadLocalResources(), frame_entry.page_state().ToEncodedData(),
+          GetUniqueID(), subframe_unique_names, intended_as_new_entry,
+          pending_index_to_send, current_index_to_send, current_length_to_send,
+          false, IsViewSourceMode(), should_clear_history_list(),
           blink::mojom::NavigationTiming::New(),
           blink::mojom::WasActivatedOption::kUnknown,
           base::UnguessableToken::Create(),
@@ -1052,7 +1070,7 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           false /* should_have_sticky_user_activation */,
           nullptr /* old_page_info */, -1 /* http_response_code */,
           blink::mojom::NavigationApiHistoryEntryArrays::New(),
-          std::vector<GURL>() /* early_hints_preloaded_resources */,
+          std::vector<network::mojom::LinkHeaderPtr>(),
           // This timestamp will be populated when the commit IPC is sent.
           base::TimeTicks() /* commit_sent */, std::string() /* srcdoc_value */,
           false /* should_load_data_url */, ancestor_or_self_has_cspee,

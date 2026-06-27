@@ -3291,7 +3291,8 @@ class MonthPopupButton extends View {
    */
   constructor(maxWidth) {
     super(createElement('button', MonthPopupButton.ClassNameMonthPopupButton));
-    this.element.setAttribute('aria-label', global.params.axShowMonthSelector);
+    this.element.setAttribute(
+        'aria-description', global.params.axShowMonthSelector);
 
     /**
      * @type {!Element}
@@ -3299,6 +3300,8 @@ class MonthPopupButton extends View {
      */
     this.labelElement = createElement(
         'span', MonthPopupButton.ClassNameMonthPopupButtonLabel, '-----');
+    this.labelElement.setAttribute('aria-live', 'polite');
+    this.labelElement.setAttribute('aria-atomic', 'true');
     this.element.appendChild(this.labelElement);
 
     /**
@@ -3770,10 +3773,13 @@ class DayCell extends ListCell {
    * @param {!boolean} selected
    */
   setIsToday(selected) {
-    if (selected)
+    if (selected) {
       this.element.classList.add(DayCell.ClassNameToday);
-    else
+      this.element.setAttribute('aria-current', 'date');
+    } else {
       this.element.classList.remove(DayCell.ClassNameToday);
+      this.element.removeAttribute('aria-current');
+    }
   }
 
   /**

@@ -39,6 +39,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/memory_coordinator_browsertest_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ozone_buildflags.h"
@@ -200,42 +201,6 @@ class GlicProfileManagerBrowserTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(GlicProfileManagerBrowserTest,
-                       SetActiveGlic_SameProfile) {
-  auto* service0 = GetMockGlicKeyedService(browser()->profile());
-  GlicProfileManager::GetInstance()->SetActiveGlic(service0);
-  // Opening glic twice for the same profile shouldn't cause it to close.
-  EXPECT_CALL(*service0, CloseFloatingPanel()).Times(0);
-  GlicProfileManager::GetInstance()->SetActiveGlic(service0);
-}
-
-// TODO(crbug.com/448406730): Re-enable after testing the logic of close panel
-// being now handled by EmbedderDelegate.
-IN_PROC_BROWSER_TEST_F(GlicProfileManagerBrowserTest,
-                       DISABLED_SetActiveGlic_DifferentProfiles) {
-  auto* service0 = GetMockGlicKeyedService(browser()->profile());
-
-  auto* profile1 =
-#if BUILDFLAG(IS_CHROMEOS)
-      CreateNewUserSessionAndProfile(kAccountId1, /*allow_glic=*/true);
-#else
-      CreateNewProfile(/*signin_and_allow_glic=*/true);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-  auto* service1 = GetMockGlicKeyedService(profile1);
-
-  auto* profile_manager = GlicProfileManager::GetInstance();
-  profile_manager->SetActiveGlic(service0);
-
-  // Tell the mock glic to pretend that the window is open (otherwise, we won't
-  // attempt to close it).
-  service0->SetWindowShowing(true);
-
-  // Opening glic from a second profile should make the profile manager close
-  // the first one.
-  EXPECT_CALL(*service0, CloseFloatingPanel());
-  profile_manager->SetActiveGlic(service1);
-}
-
-IN_PROC_BROWSER_TEST_F(GlicProfileManagerBrowserTest,
                        ProfileForLaunch_WithDetachedGlic) {
   if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
     // TODO(b/453696965): Broken in multi-instance.
@@ -257,7 +222,6 @@ IN_PROC_BROWSER_TEST_F(GlicProfileManagerBrowserTest,
   auto* profile_manager = GlicProfileManager::GetInstance();
   // Profile 0 is the last used Glic and Profile 1 is the last used window.
   // Profile 1 should be selected for launch.
-  profile_manager->SetActiveGlic(service0);
   CreateBrowser(profile1);
   EXPECT_EQ(profile1, profile_manager->GetProfileForLaunch());
 
@@ -430,10 +394,12 @@ IN_PROC_BROWSER_TEST_P(GlicProfileManagerPreloadingTest,
     GTEST_SKIP() << "This test only applies if prewarming is enabled.";
   }
   ResetPrewarming();
-  base::RunLoop run_loop;
-  base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL, run_loop.QuitClosure());
-  run_loop.Run();
+
+  content::test::ScopedMemoryLimitOverride scoped_memory_limit_override(
+      GlicProfileManager::kMemoryConsumerName);
+  scoped_memory_limit_override.SetLimit(0);
+  scoped_memory_limit_override.NotifyReleaseMemory();
+
   EXPECT_EQ(WaitForShouldPreload(),
             GlicPrewarmingChecksResult::kUnderMemoryPressure);
 }

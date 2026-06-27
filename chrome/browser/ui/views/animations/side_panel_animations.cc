@@ -7,27 +7,53 @@
 #include "base/time/time.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "ui/base/identifier/unique_identifier.h"
+#include "ui/base/interaction/safe_castable.h"
 #include "ui/gfx/animation/tween.h"
 
+DEFINE_SAFE_CAST_TARGET(SidePanelAnimations)
+
 DEFINE_CLASS_BROWSER_ANIMATION_GROUP(SidePanelAnimations, kSidePanel);
+
+// Any new motion that is added should also be set to record performance
+// histograms below.
+// LINT.IfChange(SidePanelMotions)
 DEFINE_CLASS_BROWSER_ANIMATION_MOTION(SidePanelAnimations, kOpen);
 DEFINE_CLASS_BROWSER_ANIMATION_MOTION(SidePanelAnimations,
                                       kOpenWithContentTransition);
 DEFINE_CLASS_BROWSER_ANIMATION_MOTION(SidePanelAnimations, kClose);
+// LINT.ThenChange(:SidePanelAnimationType)
+
 DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kPanelWidth);
-DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kMainAreaPadding);
 DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kMainAreaShadow);
 DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kContentTop);
 DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kContentLeft);
 DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kContentBottom);
 DEFINE_CLASS_BROWSER_ANIMATION_SEQUENCE(SidePanelAnimations, kContentWidth);
 
+SidePanelAnimations::SidePanelAnimations() {
+  SetSequenceParams(kSidePanel, Persist(kPanelWidth), Persist(kMainAreaShadow));
+
+  // Because we want to keep separate prefixes for content- vs. toolbar-height
+  // panels (despite them using the same motions), instead of saving a single
+  // histogram name here for `kSidePanel`, a histogram prefix will be specified
+  // when starting the animation based on whether it's a true toolbar-height
+  // side panel or not.
+
+  // LINT.IfChange(SidePanelAnimationType)
+  SetHistogramName(kClose, "Close");
+  SetHistogramName(kOpen, "Open");
+  SetHistogramName(kOpenWithContentTransition, "OpenWithContentTransition");
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/browser/histograms.xml:SidePanelAnimationType)
+}
+
+SidePanelAnimations::~SidePanelAnimations() = default;
+
 SidePanelAnimations::GroupInfos SidePanelAnimations::GenerateAnimations()
     const {
   const int kDefaultAnimationMs = features::kSidePanelFlyoverDurationMs.Get();
   const bool use_flyover = features::UseSidePanelFlyoverAnimation();
   const gfx::Tween::Type tween = use_flyover
-                                     ? gfx::Tween::Type::ACCEL_30_DECEL_20_85
+                                     ? gfx::Tween::Type::ACCEL_80_DECEL_20
                                      : gfx::Tween::Type::ACCEL_45_DECEL_88;
   const gfx::Tween::Type content_transition_tween =
       gfx::Tween::Type::ACCEL_45_DECEL_88;

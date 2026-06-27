@@ -326,12 +326,13 @@ void ChromeContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
     return;
   }
 
-  const GURL& site = render_frame_host->GetSiteInstance()->GetSiteURL();
   content::BrowserContext* browser_context =
       render_frame_host->GetProcess()->GetBrowserContext();
   auto* extension = extensions::ExtensionRegistry::Get(browser_context)
                         ->enabled_extensions()
-                        .GetByID(site.GetHost());
+                        .GetByID(render_frame_host->GetSiteInstance()
+                                     ->GetSecurityPrincipal()
+                                     .GetHost());
   if (!extension)
     return;
   extensions::ExtensionsBrowserClient::Get()
@@ -641,6 +642,7 @@ void ChromeContentBrowserClient::BindGpuHostReceiver(
 }
 
 void ChromeContentBrowserClient::BindUtilityHostReceiver(
+    const std::string& service_name,
     mojo::GenericPendingReceiver receiver) {
   if (auto r = receiver.As<metrics::mojom::CallStackProfileCollector>()) {
     metrics::CallStackProfileCollector::Create(std::move(r));
@@ -651,7 +653,7 @@ void ChromeContentBrowserClient::BindUtilityHostReceiver(
           receiver
               .As<chromeos::mojo_service_manager::mojom::ServiceManager>()) {
     ash::mojo_service_manager::EstablishUtilityProcessBridge(
-        std::move(service_manager_receiver));
+        service_name, std::move(service_manager_receiver));
     return;
   }
 #endif

@@ -1052,7 +1052,13 @@ H264Parser::Result H264Parser::ParseSPS(int* sps_id) {
   READ_BOOL_OR_RETURN(&sps->gaps_in_frame_num_value_allowed_flag);
 
   READ_UE_OR_RETURN(&sps->pic_width_in_mbs_minus1);
+  // H.264 Level 6.2 restricts max frame width to 8704 samples (544
+  // macroblocks).
+  IN_RANGE_OR_RETURN(sps->pic_width_in_mbs_minus1, 0, 543);
   READ_UE_OR_RETURN(&sps->pic_height_in_map_units_minus1);
+  // H.264 Level 6.2 restricts max frame height to 8704 samples (544
+  // macroblocks).
+  IN_RANGE_OR_RETURN(sps->pic_height_in_map_units_minus1, 0, 543);
 
   READ_BOOL_OR_RETURN(&sps->frame_mbs_only_flag);
   if (!sps->frame_mbs_only_flag)
@@ -1078,6 +1084,18 @@ H264Parser::Result H264Parser::ParseSPS(int* sps_id) {
 
   // If an SPS with the same id already exists, replace it.
   *sps_id = sps->seq_parameter_set_id;
+
+  if (validate_extended_bitstream_) {
+    auto it = active_SPSes_.find(*sps_id);
+    if (it == active_SPSes_.end() || *(it->second) != *sps) {
+      // Invalidate dependent PPSes since their validations against the old SPS
+      // are no longer guaranteed to hold under the new SPS.
+      std::erase_if(active_PPSes_, [id = *sps_id](const auto& pair) {
+        return pair.second->seq_parameter_set_id == id;
+      });
+    }
+  }
+
   active_SPSes_[*sps_id] = std::move(sps);
 
   return kOk;

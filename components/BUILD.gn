@@ -92,7 +92,6 @@ disallowed_extension_deps_ = [
   "//extensions/common",
   "//extensions/common:core_api_provider",
   "//extensions/renderer/*",
-  "//extensions/shell/*",
   "//extensions/components/*",
   "//extensions/strings/*",
 ]
@@ -282,6 +281,7 @@ test("components_unittests") {
     "//components/page_image_service:unit_tests",
     "//components/page_info/core:unit_tests",
     "//components/password_manager/core/browser:unit_tests",
+    "//components/password_manager/core/browser/actor_login/internal:unit_tests",
     "//components/password_manager/core/browser/affiliation:affiliation_fetching_unittests",
     "//components/password_manager/core/browser/affiliation:unit_tests",
     "//components/password_manager/core/browser/export:unit_tests",
@@ -299,6 +299,7 @@ test("components_unittests") {
     "//components/password_manager/services/csv_password:unit_tests",
     "//components/payments/core:unit_tests",
     "//components/persistent_cache:unit_tests",
+    "//components/personal_context/core:unit_tests",
     "//components/plus_addresses/core/browser:unit_tests",
     "//components/plus_addresses/core/browser/metrics:unit_tests",
     "//components/plus_addresses/core/browser/settings:unit_tests",
@@ -347,6 +348,7 @@ test("components_unittests") {
     "//components/signin/public/browser:unit_tests",
     "//components/signin/public/identity_manager:unit_tests",
     "//components/signin/public/webdata:unit_tests",
+    "//components/site_cookie_provider:unit_tests",
     "//components/skills:unit_tests",
     "//components/speech:unit_tests",
     "//components/sqlite_proto:unit_tests",
@@ -402,9 +404,10 @@ test("components_unittests") {
     deps += [
       "//components/enterprise:unit_tests",
       "//components/enterprise/common:unit_tests",
-      "//components/enterprise/connectors/core:cloud_content_scanning_unittests",
+      "//components/enterprise/connectors/core:cloud_content_scanning_unit_tests",
       "//components/enterprise/connectors/core:unit_tests",
       "//components/enterprise/data_protection:unit_tests",
+      "//components/enterprise/isolated_mode:unit_tests",
       "//components/enterprise/obfuscation/core:unit_tests",
     ]
   }
@@ -469,13 +472,13 @@ test("components_unittests") {
 
   if (use_blink) {
     deps += [
-      "//components/accessibility_annotator/first_run:unit_tests",
       "//components/autofill/content/browser:unit_tests",
       "//components/autofill/core/common/mojom:unit_tests",
       "//components/browsing_data/content:unit_tests",
       "//components/browsing_topics:unit_tests",
       "//components/browsing_topics/common:unit_tests",
       "//components/captive_portal/content:unit_tests",
+      "//components/capture_mode:unit_tests",
       "//components/cast_receiver:unit_tests",
       "//components/cast_streaming:unit_tests",
       "//components/certificate_transparency:unit_tests",
@@ -506,6 +509,7 @@ test("components_unittests") {
       "//components/history/content/browser:unit_tests",
       "//components/history_clusters/core:unit_tests",
       "//components/history_embeddings/core:unit_tests",
+      "//components/infobars/content:unit_tests",
       "//components/input:unit_tests",
       "//components/invalidation:legacy_topics_cleanup_unit_tests",
       "//components/invalidation:unit_tests",
@@ -545,9 +549,11 @@ test("components_unittests") {
       "//components/performance_manager:unit_tests",
       "//components/performance_manager/scenario_api:unit_tests",
       "//components/permissions:unit_tests",
+      "//components/personal_context/first_run:unit_tests",
       "//components/policy/content:unit_tests",
       "//components/push_messaging:unit_tests",
       "//components/record_replay/content/browser:unit_tests",
+      "//components/record_replay/core/browser:unit_tests",
       "//components/reduce_accept_language/browser:unit_tests",
       "//components/reporting/resources:unit_tests",
       "//components/services/heap_profiling:unit_tests",
@@ -627,8 +633,7 @@ test("components_unittests") {
       "//components/autofill/content/renderer:unit_tests",
       "//components/background_sync:unit_tests",
       "//components/blocked_content:unit_tests",
-      "//components/browser_apis/browser_controls:unit_tests",
-      "//components/browser_apis/tab_strip:unit_tests",
+      "//components/browser_apis:unit_tests",
       "//components/content_settings/browser/ui:unit_tests",
       "//components/headless/test:unit_tests",
       "//components/media_router/browser:unit_tests",
@@ -680,8 +685,6 @@ test("components_unittests") {
       "//components/cdm/browser:unit_tests",
       "//components/collaboration/internal:comments_native_java_unittests_java",
       "//components/collaboration/internal:messaging_native_java_unittests_java",
-      "//components/component_updater/android:embedded_component_loader_java",
-      "//components/component_updater/android:embedded_component_loader_unittests",
       "//components/crash/android:java",
       "//components/crash/android:unit_tests",
       "//components/credential_management:unit_tests",
@@ -766,7 +769,6 @@ test("components_unittests") {
       "//components/live_caption:unit_tests",
 
       # TODO(crbug.com/470475787): Enable this test on Android.
-      "//components/password_manager/core/browser/actor_login/internal:unit_tests",
       "//components/soda:unit_tests",
       "//components/storage_monitor:unit_tests",
       "//components/web_modal:unit_tests",
@@ -893,8 +895,8 @@ test("components_unittests") {
 
   if (safe_browsing_mode != 0 && !is_ios) {
     deps += [
-      # TODO(chromium: 1169835) components / reporting / storage / resources: unit_tests
-      # can't be run on iOS until they are updated.
+      # TODO(chromium: 1169835) components / reporting / storage / resources:
+      # unit_tests can't be run on iOS until they are updated.
       "//components/safe_browsing/content/browser/password_protection:password_protection_unittest",
       "//components/safe_browsing/content/browser/triggers:unit_tests",
       "//components/safe_browsing/content/browser/web_ui:unit_tests",
@@ -1025,6 +1027,7 @@ test("components_unittests") {
     "PaymentCurrencyAmountFuzzTest.FromValueDictDoesNotCrash",
     "PrivacyMathTest.GetKCombinationAtIndexDoesNotCrash",
     "PrivacyMathTest.GetNumStatesDoesNotCrash",
+    "PrivacySandboxAttestationsParserFuzzTest.ParseAttestationsFromStringDoesNotCrash",
     "RegistrationInfoTest.Parses",
     "SourceRegistrationTest.Parses",
     "TranslateUtilFuzzTest.GetTranslateSecurityOriginDoesNotCrash",
@@ -1311,8 +1314,8 @@ if (use_blink) {
     }
 
     if (is_linux || is_chromeos) {
-      # content_extractor_browsertest is a standalone content extraction tool built as
-      # a MANUAL component_browsertest.
+      # content_extractor_browsertest is a standalone content extraction tool
+      # built as a MANUAL component_browsertest.
       sources += [ "dom_distiller/standalone/content_extractor_browsertest.cc" ]
       deps += [
         "//components/leveldb_proto",
@@ -1406,6 +1409,7 @@ if (use_blink) {
       "//components/omnibox/browser",
       "//components/omnibox/browser:test_support",
       "//components/subresource_filter/core/common",
+      "//components/subresource_filter/core/common:test_support",
       "//components/subresource_filter/tools:tools_lib",
       "//components/test:test_support",
       "//components/visitedlink/browser",

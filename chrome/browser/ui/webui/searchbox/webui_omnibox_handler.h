@@ -70,6 +70,7 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
       bookmarks::BookmarkModel* bookmark_model,
       const omnibox::GroupConfigMap& suggestion_groups_map,
       const TemplateURLService* turl_service) const override;
+  void OnFocusChanged(bool focused) override;
 
   // AutocompleteController::Observer:
   void OnStart(AutocompleteController* controller,
@@ -84,6 +85,7 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
   void OnCharTyped(base::TimeTicks timestamp) override;
   void OnMatchIconUpdated(size_t index) override {}
   void OnContentsChanged() override {}
+  void StopAutocomplete(bool clear_result) override;
 
   // TabListInterfaceObserver:
   void OnActiveTabChanged(TabListInterface& tab_list,

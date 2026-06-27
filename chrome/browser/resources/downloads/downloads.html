@@ -1,5 +1,6 @@
 <!doctype html>
-<html dir="$i18n{textdirection}" lang="$i18n{language}" class="loading">
+<html dir="$i18n{textdirection}" lang="$i18n{language}" class="loading"
+    $i18n{webuiRefresh2026}>
 <head>
   <meta charset="utf-8">
   <meta name="color-scheme" content="light dark">
@@ -26,6 +27,10 @@
     body {
       display: flex;
       margin: 0;
+    }
+
+    html[webui-refresh-2026] {
+      background: var(--color-webui-page-background);
     }
   </style>
 </head>

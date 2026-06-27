@@ -27,7 +27,6 @@ namespace app_current_window_internal =
 namespace Show = app_current_window_internal::Show;
 namespace SetBounds = app_current_window_internal::SetBounds;
 namespace SetSizeConstraints = app_current_window_internal::SetSizeConstraints;
-namespace SetResizable = app_current_window_internal::SetResizable;
 namespace SetIcon = app_current_window_internal::SetIcon;
 namespace SetShape = app_current_window_internal::SetShape;
 namespace SetAlwaysOnTop = app_current_window_internal::SetAlwaysOnTop;
@@ -268,15 +267,6 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction
-AppCurrentWindowInternalSetResizableFunction::Run() {
-  std::optional<SetResizable::Params> params = SetResizable::Params::Create(args());
-  CHECK(params.has_value());
-  window()->GetBaseWindow()->SetResizable(params->resizable);
-  window()->OnNativeWindowChanged();
-  return RespondNow(NoArguments());
-}
-
-ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetSizeConstraintsFunction::Run() {
   std::optional<SetSizeConstraints::Params> params =
       SetSizeConstraints::Params::Create(args());
@@ -368,10 +358,8 @@ AppCurrentWindowInternalSetShapeFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetAlwaysOnTopFunction::Run() {
-
   // TODO(devlin): Can't this be done with the feature files?
-  if (extension() != nullptr && // NWJS#5738
-      !extension()->permissions_data()->HasAPIPermission(
+  if (!extension()->permissions_data()->HasAPIPermission(
           extensions::mojom::APIPermissionID::kAlwaysOnTopWindows)) {
     return RespondNow(Error(kAlwaysOnTopPermission));
   }

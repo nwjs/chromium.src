@@ -17,6 +17,8 @@
 #include "base/version_info/version_info.h"
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
 #include "chrome/browser/extensions/extension_install_prompt_show_params.h"
+#include "chrome/browser/extensions/extension_management.h"
+#include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/supervised_user/supervised_user_test_util.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -187,7 +189,25 @@ class WebstorePrivateApiTestBase : public testing::Test {
         TestingProfile::kDefaultProfileUserName, /*prefs=*/nullptr,
         /*user_name=*/std::u16string(),
         /*avatar_id=*/0, /*testing_factories=*/{});
+    CreateExtensionServiceAndSetFactories(profile());
     extension_ = ExtensionBuilder("Test").Build();
+  }
+
+  void CreateExtensionServiceAndSetFactories(Profile* profile) {
+    TestExtensionSystem* extension_system =
+        static_cast<TestExtensionSystem*>(ExtensionSystem::Get(profile));
+    extension_system->CreateExtensionService(
+        base::CommandLine::ForCurrentProcess(),
+        base::FilePath() /* install_directory */,
+        false /* autoupdate_enabled */);
+
+    ManagementAPI::GetFactoryInstance()->SetTestingFactory(
+        profile, base::BindRepeating(&BuildManagementApi));
+    EventRouterFactory::GetInstance()->SetTestingFactory(
+        profile, base::BindRepeating(&BuildEventRouter));
+
+    // Create instance of ManagementAPI.
+    CHECK(ManagementAPI::GetFactoryInstance()->Get(profile));
   }
 
   void TearDown() override {
@@ -373,14 +393,6 @@ class WebstorePrivateBeginInstallWithManifest3Test
     : public WebstorePrivateApiTestBase {
  public:
   WebstorePrivateBeginInstallWithManifest3Test() = default;
-
-  void SetUp() override {
-    WebstorePrivateApiTestBase::SetUp();
-    ManagementAPI::GetFactoryInstance()->SetTestingFactory(
-        profile(), base::BindRepeating(&BuildManagementApi));
-    EventRouterFactory::GetInstance()->SetTestingFactory(
-        profile(), base::BindRepeating(&BuildEventRouter));
-  }
 
   void EnableExtensionRequest(bool enable) {
     profile()->GetTestingPrefService()->SetManagedPref(
@@ -707,6 +719,7 @@ TEST_F(WebstorePrivateBeginInstallWithManifest3Test,
   TestingProfile* const test_profile =
       profile_manager()->CreateTestingProfile(profile_name);
   ASSERT_TRUE(test_profile);
+  CreateExtensionServiceAndSetFactories(test_profile);
   // There should be no pending approvals.
   EXPECT_EQ(WebstorePrivateApi::GetPendingApprovalsCountForTesting(), 0);
   {
@@ -873,23 +886,13 @@ WebstorePrivateManifestV2DeprecationUnitTest::
   std::vector<base::test::FeatureRef> enabled_features;
   std::vector<base::test::FeatureRef> disabled_features;
   switch (GetParam()) {
-    case MV2ExperimentStage::kWarning:
-      disabled_features.push_back(
-          extensions_features::kExtensionManifestV2Disabled);
-      disabled_features.push_back(
-          extensions_features::kExtensionManifestV2Unsupported);
-      break;
     case MV2ExperimentStage::kDisableWithReEnable:
-      enabled_features.push_back(
-          extensions_features::kExtensionManifestV2Disabled);
       disabled_features.push_back(
           extensions_features::kExtensionManifestV2Unsupported);
       break;
     case MV2ExperimentStage::kUnsupported:
       enabled_features.push_back(
           extensions_features::kExtensionManifestV2Unsupported);
-      disabled_features.push_back(
-          extensions_features::kExtensionManifestV2Disabled);
       break;
   }
 
@@ -899,13 +902,10 @@ WebstorePrivateManifestV2DeprecationUnitTest::
 INSTANTIATE_TEST_SUITE_P(
     ,
     WebstorePrivateManifestV2DeprecationUnitTest,
-    testing::Values(MV2ExperimentStage::kWarning,
-                    MV2ExperimentStage::kDisableWithReEnable,
+    testing::Values(MV2ExperimentStage::kDisableWithReEnable,
                     MV2ExperimentStage::kUnsupported),
     [](const testing::TestParamInfo<MV2ExperimentStage>& info) {
       switch (info.param) {
-        case MV2ExperimentStage::kWarning:
-          return "WarningExperiment";
         case MV2ExperimentStage::kDisableWithReEnable:
           return "DisableExperiment";
         case MV2ExperimentStage::kUnsupported:
@@ -925,9 +925,6 @@ TEST_P(WebstorePrivateManifestV2DeprecationUnitTest,
 
   std::string expected;
   switch (GetParam()) {
-    case MV2ExperimentStage::kWarning:
-      expected = "warning";
-      break;
     case MV2ExperimentStage::kDisableWithReEnable:
       expected = "soft_disable";
       break;

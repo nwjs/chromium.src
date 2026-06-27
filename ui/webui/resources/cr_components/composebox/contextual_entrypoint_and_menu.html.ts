@@ -14,19 +14,28 @@ export function getHtml(this: ContextualEntrypointAndMenuElement) {
       <cr-composebox-contextual-entrypoint-button id="entrypointButton"
           exportparts="context-menu-entrypoint-icon, entrypoint-button"
           .inputState="${this.inputState}"
+          .sharedTabs="${this.sharedTabs}"
+          .restoredTabs="${this.aimThreadRestoredTabs}"
+          .smartTabSharingActive="${this.smartTabSharingActive}"
           @context-menu-entrypoint-click="${this.onContextMenuEntrypointClick_}"
           ?upload-button-disabled="${this.uploadButtonDisabled}"
           ?show-context-menu-description="${this.showContextMenuDescription}"
-          glif-animation-state="${this.glifAnimationState}">
+          .glifAnimationState="${this.glifAnimationState}"
+          .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled}"
+          .disableFallbackGlifAnimation="${this.disableFallbackGlifAnimation}">
       </cr-composebox-contextual-entrypoint-button>
     ` : ''}
     <cr-composebox-contextual-action-menu id="menu"
         .fileNum="${this.fileNum}"
+        .isSidePanel="${this.isSidePanel}"
         .disabledTabIds="${this.disabledTabIds}"
+        .aimThreadRestoredTabs="${this.aimThreadRestoredTabs}"
         .tabSuggestions="${this.tabSuggestions}"
+        .recentTabId="${this.recentTabId}"
         .inputState="${this.inputState}"
         .smartTabSharingActive="${this.smartTabSharingActive}"
         .disableAutoReposition="${this.disableAutoReposition}"
+        .uploadButtonDisabled="${this.uploadButtonDisabled}"
         @close="${this.onMenuClose_}">
     </cr-composebox-contextual-action-menu>
   <!--_html_template_end_-->`;

@@ -15,7 +15,9 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/rand_util.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
@@ -149,7 +151,7 @@ bool IsUnresolvedUrlUpload(const contextual_search::FileInfo& file_info) {
          !file_info.input_data->viewport_screenshot.has_value() &&
          !file_info.input_data->viewport_screenshot_bytes.has_value() &&
          !file_info.input_data->context_input.has_value() &&
-         file_info.input_data->page_url.has_value();
+         file_info.input_data->parsed_url.has_value();
 }
 
 // The maximum number of times to retry fetching cluster info.
@@ -187,10 +189,11 @@ void PopulateContentMetadata(lens::Payload* payload,
                              const std::optional<std::string>& page_title,
                              const std::optional<std::string>& file_name,
                              const std::optional<std::string>& drive_id,
-                             const std::optional<std::string>& resource_key) {
+                             const std::optional<std::string>& resource_key,
+                             const std::optional<std::string>& parsed_url) {
   if (!page_title.has_value() && !file_name.has_value() &&
       !page_url.has_value() && !drive_id.has_value() &&
-      !resource_key.has_value()) {
+      !resource_key.has_value() && !parsed_url.has_value()) {
     return;
   }
   auto* content_metadata = payload->mutable_content_metadata();
@@ -200,7 +203,9 @@ void PopulateContentMetadata(lens::Payload* payload,
   if (file_name.has_value()) {
     content_metadata->set_file_name(file_name.value());
   }
-  if (page_url.has_value()) {
+  if (parsed_url.has_value() && !parsed_url->empty()) {
+    content_metadata->set_url(parsed_url.value());
+  } else if (page_url.has_value()) {
     content_metadata->set_url(page_url->spec());
   }
   if (drive_id.has_value()) {
@@ -220,11 +225,14 @@ lens::Payload CreateContentextualDataUploadPayload(
     std::optional<std::string> page_title,
     std::optional<std::string> drive_id,
     std::optional<std::string> resource_key,
-    std::optional<std::string> file_name) {
+    std::optional<std::string> file_name,
+    std::optional<std::string> parsed_url) {
   lens::Payload payload;
   auto* content = payload.mutable_content();
 
-  if (page_url.has_value() && !page_url->is_empty()) {
+  if (parsed_url.has_value() && !parsed_url->empty()) {
+    content->set_webpage_url(parsed_url.value());
+  } else if (page_url.has_value() && !page_url->is_empty()) {
     content->set_webpage_url(page_url->spec());
   }
   if (page_title.has_value() && !page_title.value().empty()) {
@@ -232,7 +240,7 @@ lens::Payload CreateContentextualDataUploadPayload(
   }
 
   PopulateContentMetadata(&payload, page_url, page_title, file_name, drive_id,
-                          resource_key);
+                          resource_key, parsed_url);
 
   for (const lens::ContextualInput& context_input : context_inputs) {
     auto* content_data = content->add_content_data();
@@ -361,6 +369,16 @@ bool ModalityChipHasVsrid(const lens::ModalityChipProps& modality_chip_props) {
   return modality_chip_props.has_added_input() &&
          modality_chip_props.added_input().has_lens_file() &&
          modality_chip_props.added_input().lens_file().has_vsrid();
+}
+
+std::string ImageTypeToString(
+    ComposeboxQueryController::UploadImageType image_type) {
+  switch (image_type) {
+    case ComposeboxQueryController::UploadImageType::kViewport:
+      return "Viewport";
+    case ComposeboxQueryController::UploadImageType::kFile:
+      return "File";
+  }
 }
 
 }  // namespace
@@ -533,29 +551,31 @@ lens::AddedInputs ComposeboxQueryController::CreateAddedInputs(
       // Process modality chips.
       added_inputs.add_added_inputs()->CopyFrom(
           file_info->input_data->modality_chip_props->added_input());
-    } else if (IsUnresolvedUrlUpload(*file_info)) {
-      lens::AimThumbnail* thumbnail = added_inputs.add_turn_title_thumbnail();
-      thumbnail->set_title(file_info->input_data->page_url.value().spec());
-      thumbnail->mutable_icon()->set_type(lens::AimIconType::ICON_TYPE_LINK);
-    } else if (file_info->request_id.has_value() &&
-               file_info->mime_type != lens::MimeType::kImage) {
-      // Process Lens file non-image uploads. Do not create added inputs for
-      // image uploads.
-      lens::LensOverlayLensFile* lens_file =
-          added_inputs.add_added_inputs()->mutable_lens_file();
-      lens_file->set_vsrid(
-          lens::Base64EncodeRequestId(file_info->request_id.value()));
-      lens_file->set_sticky_cluster_token(cluster_info_->search_session_id());
-      auto mime_type = MimeTypeStringFromFileInfo(*file_info);
-      if (mime_type.has_value()) {
-        lens_file->set_mime_type(mime_type.value());
-      }
-      lens_file->set_file_name(file_info->file_name);
-      if (file_info->tab_title.has_value()) {
-        lens_file->set_page_title(file_info->tab_title.value());
-      }
-      if (file_info->tab_url.has_value()) {
-        lens_file->set_page_url(file_info->tab_url.value().spec());
+    } else if (!lens::features::IsLensOnlySendAaiForModalityChipsEnabled()) {
+      if (IsUnresolvedUrlUpload(*file_info)) {
+        lens::AimThumbnail* thumbnail = added_inputs.add_turn_title_thumbnail();
+        thumbnail->set_title(file_info->input_data->parsed_url.value());
+        thumbnail->mutable_icon()->set_type(lens::AimIconType::ICON_TYPE_LINK);
+      } else if (file_info->request_id.has_value() &&
+                 file_info->mime_type != lens::MimeType::kImage) {
+        // Process Lens file non-image uploads. Do not create added inputs for
+        // image uploads.
+        lens::LensOverlayLensFile* lens_file =
+            added_inputs.add_added_inputs()->mutable_lens_file();
+        lens_file->set_vsrid(
+            lens::Base64EncodeRequestId(file_info->request_id.value()));
+        lens_file->set_sticky_cluster_token(cluster_info_->search_session_id());
+        auto mime_type = MimeTypeStringFromFileInfo(*file_info);
+        if (mime_type.has_value()) {
+          lens_file->set_mime_type(mime_type.value());
+        }
+        lens_file->set_file_name(file_info->file_name);
+        if (file_info->tab_title.has_value()) {
+          lens_file->set_page_title(file_info->tab_title.value());
+        }
+        if (file_info->tab_url.has_value()) {
+          lens_file->set_page_url(file_info->tab_url.value().spec());
+        }
       }
     }
   }
@@ -753,6 +773,20 @@ void ComposeboxQueryController::CreateSearchUrl(
                           context_media_type);
           }
         }
+
+        // Cache the generated Search URL request ID and ensure it preserves
+        // the file's native media type (e.g. PDF/Webpage) instead of the
+        // query's DEFAULT_IMAGE.
+        if (request_id) {
+          auto* mutable_file =
+              GetMutableFileInfo(last_active_lens_file->file_token);
+          if (mutable_file) {
+            mutable_file->request_id_for_updates = *request_id;
+            mutable_file->request_id_for_updates->set_media_type(
+                last_active_lens_file->request_id->media_type());
+          }
+        }
+
         std::move(callback).Run(GetUrlForMultimodalSearch(
             template_url_service_, is_aim_search,
             search_url_request_info->aim_entry_point,
@@ -973,9 +1007,22 @@ void ComposeboxQueryController::StartFileUploadFlow(
         current_file_info.request_id = *std::move(parsed_request_id);
       }
     }
-    UpdateContextUploadStatus(
-        file_token, contextual_search::ContextUploadStatus::kUploadSuccessful,
-        std::nullopt);
+    // Modality chips are pre-loaded by the server and do not need client-side
+    // uploads. However, they still require `cluster_info_` (specifically the
+    // search session ID) to be present to construct a valid multimodal query.
+    // If `cluster_info_` is not yet available, the status is set to
+    // `kProcessing` to ensure the query submission is stashed until
+    // `cluster_info_` is loaded, avoiding omitting the modality chip on the
+    // first query of a session.
+    if (cluster_info_.has_value()) {
+      UpdateContextUploadStatus(
+          file_token, contextual_search::ContextUploadStatus::kUploadSuccessful,
+          std::nullopt);
+    } else {
+      UpdateContextUploadStatus(
+          file_token, contextual_search::ContextUploadStatus::kProcessing,
+          std::nullopt);
+    }
     return;
   }
 
@@ -1033,7 +1080,11 @@ void ComposeboxQueryController::StartFileUploadFlow(
         // Mark the previous request as superceded since the new request has the
         // same context id and is a newer request.
         info->is_superceded = true;
-        previous_request_id = info->request_id;
+        // Use request_id_for_updates if present, otherwise fall back to
+        // request_id.
+        previous_request_id = info->request_id_for_updates.has_value()
+                                  ? info->request_id_for_updates
+                                  : info->request_id;
         break;
       }
     }
@@ -1172,14 +1223,28 @@ void ComposeboxQueryController::
         std::optional<GURL> page_url,
         std::optional<std::string> page_title,
         std::optional<std::string> file_name,
+        UploadImageType image_type,
         lens::ImageData image_data) {
+  bool is_empty_bytes = image_data.payload().image_bytes().empty();
+  base::UmaHistogramBoolean(base::StrCat({"Lens.Composebox.ImageUpload.",
+                                          ImageTypeToString(image_type),
+                                          ".DownscaleAndEncodeFailed"}),
+                            is_empty_bytes);
+
   // Validate that client-side image compression/encoding succeeded.
-  if (image_data.payload().image_bytes().empty()) {
+  if (is_empty_bytes) {
     std::move(callback).Run(
         lens::LensOverlayServerRequest(),
         contextual_search::ContextUploadErrorType::kImageProcessingError);
     return;
   }
+
+  int max_processed_dimension = std::max(image_data.image_metadata().width(),
+                                         image_data.image_metadata().height());
+  base::UmaHistogramCustomCounts(
+      base::StrCat({"Lens.Composebox.ImageUpload.",
+                    ImageTypeToString(image_type), ".ProcessedMaxDimension"}),
+      max_processed_dimension, 1, 10000, 50);
   lens::LensOverlayServerRequest request;
   auto* objects_request = request.mutable_objects_request();
   objects_request->mutable_request_context()->mutable_request_id()->CopyFrom(
@@ -1194,7 +1259,8 @@ void ComposeboxQueryController::
 
   PopulateContentMetadata(objects_request->mutable_payload(), page_url,
                           page_title, file_name, /*drive_id=*/std::nullopt,
-                          /*resource_key=*/std::nullopt);
+                          /*resource_key=*/std::nullopt,
+                          /*parsed_url=*/std::nullopt);
 
   objects_request->mutable_image_data()->CopyFrom(image_data);
   request.mutable_client_logs()->CopyFrom(client_logs->client_logs());
@@ -1325,7 +1391,10 @@ ComposeboxQueryController::CreateSuggestInputs(
   if (attach_page_title_and_url_to_suggest_requests_) {
     suggest_inputs->set_send_page_title_and_url(true);
     suggest_inputs->set_page_title(file_info->tab_title.value_or(""));
-    if (file_info->tab_url.has_value()) {
+    if (file_info->input_data &&
+        file_info->input_data->parsed_url.has_value()) {
+      suggest_inputs->set_page_url(file_info->input_data->parsed_url.value());
+    } else if (file_info->tab_url.has_value()) {
       suggest_inputs->set_page_url(file_info->tab_url.value().spec());
     }
   }
@@ -1613,21 +1682,54 @@ void ComposeboxQueryController::HandleClusterInfoResponse(
   }
   SetQueryControllerState(QueryControllerState::kClusterInfoReceived);
 
-  // Iterate through any existing files and send the upload requests if ready.
-  for (const auto& [file_token, file_info] : active_files_) {
-    // If the file is processing, set its state to suggest signals ready.
-    if (file_info->upload_status ==
-        contextual_search::ContextUploadStatus::kProcessing) {
-      UpdateContextUploadStatus(file_token,
-                                contextual_search::ContextUploadStatus::
-                                    kProcessingSuggestSignalsReady,
-                                std::nullopt);
-    }
+  // Collect the tokens and requests that need updating first to avoid iterator
+  // invalidation if observers synchronously mutate active_files_ during status
+  // updates.
+  std::vector<base::UnguessableToken> modality_chips_to_succeed;
+  std::vector<base::UnguessableToken> files_to_suggest_signals_ready;
+  std::vector<std::pair<base::UnguessableToken, size_t>>
+      upload_requests_to_send;
 
-    // Trigger pending upload requests.
-    for (size_t i = 0; i < file_info->upload_requests_.size(); ++i) {
-      MaybeSendUploadNetworkRequest(file_token, i);
+  for (const auto& [file_token, file_info] : active_files_) {
+    if (file_info->input_data &&
+        file_info->input_data->modality_chip_props.has_value()) {
+      if (file_info->upload_status ==
+          contextual_search::ContextUploadStatus::kProcessing) {
+        modality_chips_to_succeed.push_back(file_token);
+      }
+    } else {
+      if (file_info->upload_status ==
+          contextual_search::ContextUploadStatus::kProcessing) {
+        files_to_suggest_signals_ready.push_back(file_token);
+      }
+      for (size_t i = 0; i < file_info->upload_requests_.size(); ++i) {
+        upload_requests_to_send.emplace_back(file_token, i);
+      }
     }
+  }
+
+  for (const auto& file_token : modality_chips_to_succeed) {
+    // Modality chips that were held in `kProcessing` status waiting for
+    // `cluster_info_` are now marked as `kUploadSuccessful` because the
+    // required session tokens are available. This transitions them to a
+    // terminal status and triggers the query handler to resume any pending
+    // stashed queries.
+    UpdateContextUploadStatus(
+        file_token, contextual_search::ContextUploadStatus::kUploadSuccessful,
+        std::nullopt);
+  }
+
+  for (const auto& file_token : files_to_suggest_signals_ready) {
+    // If the file is processing, set its state to suggest signals ready.
+    UpdateContextUploadStatus(
+        file_token,
+        contextual_search::ContextUploadStatus::kProcessingSuggestSignalsReady,
+        std::nullopt);
+  }
+
+  for (const auto& [file_token, request_index] : upload_requests_to_send) {
+    // Trigger pending upload requests.
+    MaybeSendUploadNetworkRequest(file_token, request_index);
   }
 
   if (pending_search_url_request_) {
@@ -1702,16 +1804,37 @@ void ComposeboxQueryController::ProcessDecodedImageAndContinue(
     std::optional<GURL> page_url,
     std::optional<std::string> page_title,
     std::optional<std::string> file_name,
+    UploadImageType image_type,
     const SkBitmap& bitmap) {
 #if !BUILDFLAG(IS_IOS)
   scoped_refptr<lens::RefCountedLensOverlayClientLogs> ref_counted_logs =
       base::MakeRefCounted<lens::RefCountedLensOverlayClientLogs>();
-  if (bitmap.isNull() || bitmap.empty()) {
+
+  bool is_empty_bitmap = bitmap.isNull() || bitmap.empty();
+  base::UmaHistogramBoolean(
+      base::StrCat({"Lens.Composebox.ImageUpload.",
+                    ImageTypeToString(image_type), ".InputImageInvalid"}),
+      is_empty_bitmap);
+
+  if (is_empty_bitmap) {
     std::move(callback).Run(
         lens::LensOverlayServerRequest(),
         contextual_search::ContextUploadErrorType::kImageProcessingError);
     return;
   }
+
+  int limit_max_dimension =
+      std::max(image_options.max_width, image_options.max_height);
+  int max_dimension = std::max(bitmap.width(), bitmap.height());
+
+  base::UmaHistogramCustomCounts(
+      base::StrCat({"Lens.Composebox.ImageUpload.",
+                    ImageTypeToString(image_type), ".LimitMaxDimension"}),
+      limit_max_dimension, 1, 10000, 50);
+  base::UmaHistogramCustomCounts(
+      base::StrCat({"Lens.Composebox.ImageUpload.",
+                    ImageTypeToString(image_type), ".InputMaxDimension"}),
+      max_dimension, 1, 10000, 50);
 
   // If the bitmap is a viewport bitmap, it will be destroyed after the
   // owning ContextualInputData is destroyed (i.e. at the end of
@@ -1728,7 +1851,8 @@ void ComposeboxQueryController::ProcessDecodedImageAndContinue(
       base::BindOnce(&ComposeboxQueryController::
                          CreateFileUploadRequestProtoWithImageDataAndContinue,
                      request_id, CreateClientContext(), ref_counted_logs,
-                     std::move(callback), page_url, page_title, file_name));
+                     std::move(callback), page_url, page_title, file_name,
+                     image_type));
 #endif  // !BUILDFLAG(IS_IOS)
 }
 
@@ -1739,6 +1863,7 @@ void ComposeboxQueryController::CreateImageUploadRequest(
     std::optional<GURL> page_url,
     std::optional<std::string> page_title,
     std::optional<std::string> file_name,
+    UploadImageType image_type,
     RequestBodyProtoCreatedCallback callback) {
 #if !BUILDFLAG(IS_IOS)
   CHECK(image_options.has_value());
@@ -1750,7 +1875,7 @@ void ComposeboxQueryController::CreateImageUploadRequest(
       base::BindOnce(&ComposeboxQueryController::ProcessDecodedImageAndContinue,
                      weak_ptr_factory_.GetWeakPtr(), request_id,
                      image_options.value(), std::move(callback), page_url,
-                     page_title, file_name));
+                     page_title, file_name, image_type));
 #endif  // !BUILDFLAG(IS_IOS)
 }
 
@@ -1778,6 +1903,7 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
         std::move(contextual_input_data->viewport_screenshot_bytes.value()),
         std::move(image_options), contextual_input_data->page_url,
         contextual_input_data->page_title, /*file_name=*/std::nullopt,
+        UploadImageType::kViewport,
         base::BindOnce(
             &ComposeboxQueryController::AddPageIndexToUploadRequestAndContinue,
             weak_ptr_factory_.GetWeakPtr(),
@@ -1809,7 +1935,7 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
                     weak_ptr_factory_.GetWeakPtr(), file_token,
                     request_index))),
         contextual_input_data->page_url, contextual_input_data->page_title,
-        /*file_name=*/std::nullopt,
+        /*file_name=*/std::nullopt, UploadImageType::kViewport,
         // Pass ownership of the viewport screenshot to the
         // callback.
         std::move(*contextual_input_data->viewport_screenshot));
@@ -1864,7 +1990,8 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
               contextual_input_data->page_title,
               contextual_input_data->drive_id,
               contextual_input_data->resource_key,
-              contextual_input_data->file_name),
+              contextual_input_data->file_name,
+              contextual_input_data->parsed_url),
           base::BindOnce(
               &CreateFileUploadRequestProtoWithPayloadAndContinue,
               file_info->request_id.value(), CreateClientContext(),
@@ -1899,6 +2026,7 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
             std::move(contextual_input_data->context_input->front().bytes_),
             std::move(image_options), contextual_input_data->page_url,
             contextual_input_data->page_title, contextual_input_data->file_name,
+            UploadImageType::kFile,
             base::BindOnce(
                 &ComposeboxQueryController::
                     AddLensUsageIntentToUploadRequestAndContinue,

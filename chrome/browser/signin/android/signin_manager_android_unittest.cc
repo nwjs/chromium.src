@@ -42,20 +42,23 @@
 #include "components/offline_pages/core/stub_offline_page_model.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/prefs/pref_service.h"
 #include "components/reading_list/core/reading_list_model.h"
 #include "components/reading_list/core/reading_list_test_utils.h"
 #include "components/signin/public/base/signin_pref_names.h"
-#include "content/public/browser/background_tracing_manager.h"
+#include "content/public/browser/background_tracing.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/tracing_delegate.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/browsing_data_remover_test_util.h"
 #include "net/cookies/cookie_store.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "services/tracing/public/cpp/background_tracing/background_tracing_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/origin.h"
@@ -117,7 +120,7 @@ class SigninManagerAndroidTest : public ::testing::Test {
     profile_ = profile_builder.Build();
 
     background_tracing_manager_ =
-        content::BackgroundTracingManager::CreateInstance(&tracing_delegate_);
+        content::CreateBackgroundTracingManager(&tracing_delegate_);
 
     // Creating a BookmarkModel also a creates a StubOfflinePageModel.
     // We need to replace this with a mock that responds to deletions.
@@ -175,7 +178,7 @@ class SigninManagerAndroidTest : public ::testing::Test {
   content::BrowserTaskEnvironment task_environment_;
   std::unique_ptr<TestingProfile> profile_;
   content::TracingDelegate tracing_delegate_;
-  std::unique_ptr<content::BackgroundTracingManager>
+  std::unique_ptr<tracing::BackgroundTracingManager>
       background_tracing_manager_;
 };
 
@@ -204,9 +207,11 @@ TEST_F(SigninManagerAndroidTest, WipeLocalPasswords) {
   profile_store_form.signon_realm = "https://local.com";
   password_manager::PasswordForm account_store_form = profile_store_form;
   account_store_form.signon_realm = "htts://account.com";
-  profile_password_store()->AddLogin(profile_store_form);
+  profile_password_store()->AddLogin(
+      password_manager::FromPasswordForm(profile_store_form));
   ASSERT_TRUE(account_password_store());
-  account_password_store()->AddLogin(account_store_form);
+  account_password_store()->AddLogin(
+      password_manager::FromPasswordForm(account_store_form));
 
   WipeData(ClearedTypes::kAllData);
 

@@ -50,15 +50,15 @@ std::u16string GetSecurityChipText(const LocationBarModel* model,
     return l10n_util::GetStringUTF16(IDS_OMNIBOX_READER_MODE);
   }
 
+  // On ChromeOS, this can be called using web_contents from
+  // SimpleWebViewDialog::GetWebContents() which always returns null.
+  // TODO(crbug.com/40501128) Remove the null check and make
+  // SimpleWebViewDialog::GetWebContents return the proper web contents
+  // instead.
   if (web_contents) {
-    // On ChromeOS, this can be called using web_contents from
-    // SimpleWebViewDialog::GetWebContents() which always returns null.
-    // TODO(crbug.com/40501128) Remove the null check and make
-    // SimpleWebViewDialog::GetWebContents return the proper web contents
-    // instead.
     const std::u16string extension_name =
-        extensions::ui_util::GetEnabledExtensionNameForUrl(
-            model->GetURL(), web_contents->GetBrowserContext());
+        extensions::ui_util::GetEnabledExtensionNameForUrl(model->GetURL(),
+                                                           *web_contents);
     if (!extension_name.empty()) {
       return extension_name;
     }
@@ -68,6 +68,7 @@ std::u16string GetSecurityChipText(const LocationBarModel* model,
 }
 
 bool ShouldShowSecurityChipText(const LocationBarModel* model,
+                                content::WebContents* web_contents,
                                 bool is_editing_or_empty) {
   if (is_editing_or_empty) {
     return false;
@@ -83,13 +84,24 @@ bool ShouldShowSecurityChipText(const LocationBarModel* model,
     return true;
   }
 
+  // Generic MIME handler indicator: show the chip even when no security
+  // text is available, so the chip can carry the extension name. The
+  // chrome-extension:// scheme is already covered by the scheme test above;
+  // this branch covers https:// URLs handled by a generic MIME handler.
+  if (web_contents &&
+      !extensions::ui_util::GetEnabledExtensionNameForUrl(url, *web_contents)
+           .empty()) {
+    return true;
+  }
+
   return !model->GetSecureDisplayText().empty();
 }
 
-bool IsGradientGoogleSuperGIcon(const ui::ImageModel& icon) {
+std::optional<int> MaybeGetGradientGoogleSuperGIcon(
+    const ui::ImageModel& icon) {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (!icon.IsImage()) {
-    return false;
+    return std::nullopt;
   }
   gfx::ImageSkia image = icon.GetImage().AsImageSkia();
   gfx::ImageSkia target_16 =
@@ -98,53 +110,14 @@ bool IsGradientGoogleSuperGIcon(const ui::ImageModel& icon) {
   gfx::ImageSkia target_20 =
       *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
           IDR_GOOGLE_G_GRADIENT_20);
-  return image.BackedBySameObjectAs(target_16) ||
-         image.BackedBySameObjectAs(target_20);
-#else
-  return false;
-#endif
-}
-
-SecurityChipIcon GetSecurityChipIconEnum(const LocationBarModel* model,
-                                         bool is_add_context_button_shown) {
-  if (is_add_context_button_shown) {
-    return SecurityChipIcon::kAddContext;
+  if (image.BackedBySameObjectAs(target_16)) {
+    return IDR_GOOGLE_G_GRADIENT_16_ALT;
   }
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)  // nocheck
-  const gfx::VectorIcon& icon = model->GetVectorIcon();
-  const char* icon_name = icon.name;
-  // TODO(b/507061157): Use gradient icon here instead of
-  //   `vector_icons::kGoogleSuperGIcon`.
-  if (icon_name == vector_icons::kGoogleSuperGIcon.name) {
-    return SecurityChipIcon::kGoogleSuperG;
-  }
-  if (icon_name == vector_icons::kGoogleGLogoMonochromeIcon.name) {
-    return SecurityChipIcon::kGoogleGMonochrome;
+  if (image.BackedBySameObjectAs(target_20)) {
+    return IDR_GOOGLE_G_GRADIENT_20;
   }
 #endif
-
-  auto security_level = model->GetSecurityLevel();
-  if (security_level == security_state::DANGEROUS) {
-    return SecurityChipIcon::kDangerous;
-  } else if (security_level == security_state::WARNING) {
-    return SecurityChipIcon::kNotSecureWarning;
-  } else if (security_level == security_state::SECURE) {
-    return SecurityChipIcon::kSecurePageInfo;
-  }
-  return SecurityChipIcon::kHttp;
-}
-
-bool IsSecurityChipInteractive(bool is_editing_or_empty,
-                               SecurityChipIcon icon) {
-  if (is_editing_or_empty) {
-    return false;
-  }
-  if (icon == SecurityChipIcon::kGoogleSuperG ||
-      icon == SecurityChipIcon::kGoogleGMonochrome) {
-    return false;
-  }
-  return true;
+  return std::nullopt;
 }
 
 SecurityChipAccessibilityState GetSecurityChipAccessibilityState(

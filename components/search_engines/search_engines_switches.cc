@@ -74,8 +74,16 @@ BASE_FEATURE(kResetTamperedDefaultSearchEngine,
 
 BASE_FEATURE(kClankDefaultSearchApi, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kKwdbRefreshDebugging, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kSearchSettingsUpdate, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_WIN)
+// When enabled, will reject encrypted keyword table hashes that are weakly
+// encrypted.
+BASE_FEATURE(kRejectWeakKeywordHashes, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace switches

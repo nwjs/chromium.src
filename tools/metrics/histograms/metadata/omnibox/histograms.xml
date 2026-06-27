@@ -26,6 +26,7 @@ chromium-metrics-reviews@google.com.
   <variant name="is_cobrowse_eligible" summary="is_cobrowse_eligible"/>
   <variant name="is_deep_search_eligible" summary="is_deep_search_eligible"/>
   <variant name="is_eligible" summary="is_eligible"/>
+  <variant name="is_fusebox_eligible" summary="is_fusebox_eligible"/>
   <variant name="is_image_generation_eligible"
       summary="is_image_generation_eligible"/>
   <variant name="is_pdf_upload_eligible" summary="is_pdf_upload_eligible"/>
@@ -93,7 +94,20 @@ chromium-metrics-reviews@google.com.
   <variant name=".Unknown" summary="Unknown drag and drop type"/>
 </variants>
 
-<!-- LINT.ThenChange(//ios/chrome/browser/composebox/ui/composebox_metrics_recorder.h:ComposeboxDragAndDropType, //tools/metrics/histograms/metadata/omnibox/enums.xml:ComposeboxDragAndDropType) -->
+<!-- LINT.ThenChange(//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:ComposeboxDragAndDropType, //tools/metrics/histograms/metadata/omnibox/enums.xml:ComposeboxDragAndDropType) -->
+
+<!-- LINT.IfChange(ComposeboxEntrypoint) -->
+
+<variants name="ComposeboxEntrypoint">
+  <variant name="" summary="Overall"/>
+  <variant name=".Cobrowse" summary="Cobrowse entrypoint"/>
+  <variant name=".NTPAIMButton" summary="NTP AIM button entrypoint"/>
+  <variant name=".NTPFakebox" summary="NTP fakebox entrypoint"/>
+  <variant name=".NTPPlusButton" summary="NTP plus button entrypoint"/>
+  <variant name=".Other" summary="Other entrypoint (Omnibox)"/>
+</variants>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/composebox/public/composebox_entrypoint.h:ComposeboxEntrypoint) -->
 
 <variants name="DsePreloadTriggerType">
   <variant name=".OnPress" summary="on-press trigger"/>
@@ -106,8 +120,23 @@ chromium-metrics-reviews@google.com.
   <variant name=".CurrentTab" summary="Current Tab button"/>
   <variant name=".Files" summary="File picker"/>
   <variant name=".Gallery" summary="Image picker"/>
+  <variant name=".RecentTab" summary="Add Recent Tabs button"/>
   <variant name=".TabPicker" summary="Tab picker"/>
 </variants>
+
+<!-- LINT.IfChange(FuseboxAttachmentFileType) -->
+
+<variants name="FuseboxAttachmentFileType">
+  <variant name="" summary="All files"/>
+  <variant name=".Audio" summary="Audio file"/>
+  <variant name=".Image" summary="Image file"/>
+  <variant name=".Pdf" summary="PDF file"/>
+  <variant name=".Text" summary="Text file"/>
+  <variant name=".Unknown" summary="Unknown file type"/>
+  <variant name=".Video" summary="Video file"/>
+</variants>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:getHistogramExtensionForMimeType) -->
 
 <variants name="KeywordType">
   <variant name="" summary="aggregated across all keyword types"/>
@@ -216,6 +245,7 @@ chromium-metrics-reviews@google.com.
   <variant name="APP_SEARCH" summary="search app"/>
   <variant name="BLANK" summary="about:blank"/>
   <variant name="CHROMEOS_APP_LIST" summary="ChromeOS app list"/>
+  <variant name="CO_BROWSING_COMPOSEBOX" summary="Co-browsing composebox"/>
   <variant name="CONTEXTUAL_SEARCHBOX" summary="Contextual searchbox"/>
   <variant name="HOME_PAGE" summary="the user's home page"/>
   <variant name="INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS"
@@ -230,6 +260,12 @@ chromium-metrics-reviews@google.com.
       summary="Lens side panel searchbox"/>
   <variant name="NTP"
       summary="extension-replaced new tab page OR obsolete new tab page"/>
+  <variant name="NTP_COMPOSEBOX"
+      summary="New Tab Page with focus in the composebox"/>
+  <variant name="NTP_COMPOSEBOX_PREFETCH"
+      summary="New Tab Page composebox zero-prefix suggestion prefetch"/>
+  <variant name="NTP_OMNIBOX_COMPOSEBOX"
+      summary="Omnibox composebox in the NTP"/>
   <variant name="NTP_REALBOX"
       summary="New Tab Page with realbox as starting focus"/>
   <variant name="NTP_ZPS_PREFETCH"
@@ -246,6 +282,7 @@ chromium-metrics-reviews@google.com.
   <variant name="OTHER"
       summary="other (typically an arbitrary URL, not a search results page,
                new tab page, etc.)"/>
+  <variant name="OTHER_OMNIBOX_COMPOSEBOX" summary="Omnibox composebox on Web"/>
   <variant name="OTHER_ON_CCT"
       summary="other (typically an arbitrary URL, not a search results page,
                new tab page, etc.) on CCT"/>
@@ -259,6 +296,8 @@ chromium-metrics-reviews@google.com.
       summary="search results page on CCT"/>
   <variant name="SEARCH_SIDE_PANEL_SEARCHBOX"
       summary="Search side panel searchbox"/>
+  <variant name="SRP_OMNIBOX_COMPOSEBOX"
+      summary="Omnibox composebox in the SRP"/>
   <variant name="SRP_ZPS_PREFETCH"
       summary="Search Results Page zero-prefix suggestion prefetch"/>
 </variants>
@@ -692,6 +731,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
     <variant name="is_cobrowse_eligible" summary="is_cobrowse_eligible"/>
     <variant name="is_deep_search_eligible" summary="is_deep_search_eligible"/>
     <variant name="is_eligible" summary="is_eligible"/>
+    <variant name="is_fusebox_eligible" summary="is_fusebox_eligible"/>
     <variant name="is_image_generation_eligible"
         summary="is_image_generation_eligible"/>
     <variant name="is_pdf_upload_eligible" summary="is_pdf_upload_eligible"/>
@@ -850,7 +890,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.AimEntrypoint.Shown" enum="Boolean"
-    expires_after="2026-09-13">
+    expires_after="2026-11-15">
   <owner>khalidpeer@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -1312,7 +1352,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ContextualSearchSuggestion.Precision" enum="Boolean"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1335,7 +1375,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ContextualSearchSuggestion.Recall" enum="Boolean"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1355,7 +1395,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ContextualSearchSuggestion.Usage" enum="Boolean"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1375,7 +1415,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.CutOrCopyAllText" units="count"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -1386,7 +1426,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.DocumentSuggest.HttpResponseCode"
-    enum="HttpResponseCode" expires_after="2026-09-27">
+    enum="HttpResponseCode" expires_after="2026-11-22">
   <owner>manukh@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <summary>
@@ -1658,7 +1698,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
-<histogram name="Omnibox.FocusResultedInNavigation{Usage}"
+<histogram name="Omnibox.FocusResultedInNavigation{Entrypoint}{Usage}"
     enum="FocusResultedInNavigationTypes" expires_after="2026-08-30">
   <owner>ender@google.com</owner>
   <owner>jdonnelly@chromium.org</owner>
@@ -1682,6 +1722,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
     Recorded every time the Omnibox focus is cleared.
   </summary>
+  <token key="Entrypoint" variants="ComposeboxEntrypoint"/>
   <token key="Usage">
     <variant name="" summary="Overall"/>
     <variant name=".AIMode" summary="AI Mode"/>
@@ -1712,7 +1753,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToCutOrCopyAllTextTime.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2026-09-27">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1731,7 +1772,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.FocusToCutOrCopyAllTextTime.{OmniboxZeroPrefixState}"
-    units="ms" expires_after="2026-05-24">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1751,7 +1792,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToCutOrCopyAllTextTime.{OmniboxZeroPrefixState}.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2026-09-27">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1772,7 +1813,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.FocusToOpenTimeAnyPopupState3" units="ms"
-    expires_after="2026-09-27">
+    expires_after="2026-10-25">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -1809,7 +1850,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.BySummarizedResultType.{OmniboxSummarizedResultType}"
-    units="ms" expires_after="2026-09-13">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1829,7 +1870,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.BySummarizedResultType.{OmniboxSummarizedResultType}.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2026-09-13">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1850,7 +1891,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.{OmniboxZeroPrefixState}"
-    units="ms" expires_after="2026-06-28">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1869,7 +1910,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.{OmniboxZeroPrefixState}.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2026-07-12">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1889,7 +1930,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.{OmniboxZeroPrefixState}.BySummarizedResultType.{OmniboxSummarizedResultType}"
-    units="ms" expires_after="2026-05-10">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1910,7 +1951,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.{OmniboxZeroPrefixState}.BySummarizedResultType.{OmniboxSummarizedResultType}.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2026-05-10">
+    units="ms" expires_after="2026-10-25">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2108,7 +2149,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.IsPasteAndGo" enum="Boolean"
-    expires_after="2026-09-20">
+    expires_after="2026-11-22">
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2229,7 +2270,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.LensAction.Recall" enum="Boolean"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2250,7 +2291,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.LensAction.Usage" enum="Boolean"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2496,7 +2537,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram
-    name="Omnibox.MobileFusebox.AttachmentButtonUsedInSession{FuseboxAttachmentButtonType}"
+    name="Omnibox.MobileFusebox.AttachmentButtonUsedInSession{FuseboxAttachmentButtonType}{Entrypoint}"
     enum="Boolean" expires_after="2026-11-11">
   <owner>pnoland@google.com</owner>
   <owner>chrome-mobile-search@google.com</owner>
@@ -2507,6 +2548,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
   <token key="FuseboxAttachmentButtonType"
       variants="FuseboxAttachmentButtonType"/>
+  <token key="Entrypoint" variants="ComposeboxEntrypoint"/>
 </histogram>
 
 <histogram name="Omnibox.MobileFusebox.AttachmentCountAtSubmission.{Type}"
@@ -2545,6 +2587,42 @@ Keep consistent with active providers. Doesn't need to include every provider in
     attachment, and when it failed to upload. Scoped to a particular button
     type. Note that abandonment, success, and failure are exclusive outcomes,
     only one will be reported.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.MobileFusebox.AttachmentSizeLimitCheck"
+    enum="FuseboxAttachmentSizeLimitCheck" expires_after="2026-11-11">
+  <owner>jkoblinsky@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the result of the size limit check for a Fusebox file attachment.
+    (whether it is under the limit or exceeds the limit on metered or unmetered
+    networks), where exceeding the limit for a given file type and network
+    condition will result in the file not being attached (or sent to the
+    server).
+
+    A value is emitted when the user selects a file from the file picker, or
+    when they confirm their selection of multiple files from the file picker. In
+    the case of multiple files, a value will be independently emitted for each
+    selected file. Attaching the same file twice will result in duplicate
+    emissions.
+
+    An emission will certainly occur if the file is ultimately attached, and
+    thus appears as an attachment chip. An emission will still occur even if the
+    file is ultimately not attached on the client side (e.g., because its
+    content cannot be read from disk or upload fails later), given that the
+    title, mime type, and size can be resolved. If the title, mime type, or size
+    cannot be resolved, then no emission will occur. An emission will still
+    occur if the user dismisses the omnibox before the file is uploaded to the
+    server, that is, the omnibox is dismissed while the loading spinner is
+    shown. An emission will not occur if the user dismisses the file picker
+    without selecting any files.
+
+    At most one emission will occur per file attachment attempt. So, e.g., if a
+    file is so large that it would exceed the size limit on both metered and
+    unmetered networks, but the user is on a metered network, a value will be
+    emitted for the metered network case, but not for the unmetered network
+    case.
   </summary>
 </histogram>
 
@@ -2613,6 +2691,45 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
+<histogram name="Omnibox.MobileFusebox.ContextUploadError"
+    enum="ContextUploadErrorType" expires_after="2027-05-19">
+  <owner>skym@chromium.org</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the error type when a context (attachment) upload fails.
+
+    Emitted when the upload transitions to a terminal failure state (validation
+    failure, upload failure, or upload expiration) after a user attempts to add
+    an attachment (e.g. by choosing a file, capturing an image, or adding a tab)
+    in the Composebox.
+
+    This is recorded once per failed upload attempt. If an upload fails and is
+    retried, subsequent failures will trigger additional emissions. It is not
+    emitted if the upload succeeds, or if the user manually removes the pending
+    attachment before the failure is reported. Adding the same attachment
+    repeatedly will trigger subsequent emissions for each attempt.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.MobileFusebox.ContextUploadStatus"
+    enum="ContextUploadStatus" expires_after="2027-05-19">
+  <owner>skym@chromium.org</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the status of a context (attachment) upload.
+
+    Emitted on every status change reported by the backend for an active upload,
+    starting when the user adds an attachment (e.g. file, image, tab) in the
+    Composebox. This includes intermediate states (processing, upload started)
+    and terminal states (success, validation failed, upload failed, expired).
+
+    Emitted multiple times per attachment upload (once for each transition). If
+    the user manually removes the attachment before the upload finishes, no
+    further status changes for that upload are recorded. Adding the same
+    attachment repeatedly triggers subsequent emissions for each attempt.
+  </summary>
+</histogram>
+
 <histogram name="Omnibox.MobileFusebox.DragAndDrop{ComposeboxDragAndDropType}"
     enum="ComposeboxDragAndDropType" expires_after="2026-11-11">
   <owner>thegreenfrog@chromium.org</owner>
@@ -2624,6 +2741,37 @@ Keep consistent with active providers. Doesn't need to include every provider in
     Composebox. {ComposeboxDragAndDropType}
   </summary>
   <token key="ComposeboxDragAndDropType" variants="ComposeboxDragAndDropType"/>
+</histogram>
+
+<histogram
+    name="Omnibox.MobileFusebox.FileAttachmentSize{FuseboxAttachmentFileType}"
+    units="KiB" expires_after="2027-05-01">
+  <owner>jkoblinsky@google.com</owner>
+  <owner>chrome-mobile-search@google.com</owner>
+  <summary>
+    Records the size of the Fusebox file attachment.
+
+    There is a unique histogram for each file type (Audio, Image, PDF, ...), and
+    a general agregate total histogram for all file types. A value is emitted to
+    both the general histogram and a specific file type histogram when the user
+    selects a file from the file picker, or when they confirm their selection of
+    multiple files from the file picker. In the case of multiple files, a value
+    will be independently emmited for each selected file. Attaching the same
+    file twice will result in duplicate emissions.
+
+    An emmision to both histograms will certainly occur if file is ultimately
+    attached, and thus appears as an attachment chip. An emmission will still
+    occur even if the file is ultimately not attached on the client side (e.g.,
+    because it's title cannot be resolved), given that the size and mime type
+    can be resolved. If either the size or mime type cannot be resolved, then no
+    emmission will occur. An emmission will still occur if the file exceeds the
+    size limit (an error message is shown). An emmission will still occur if the
+    user dismisses the omnibox before the file is uploaded to the server, that
+    is, the omnibox is dismissed while the loading spinner is shown. An
+    emmission will not occur if the user dismisses the file picker without
+    selecting any files.
+  </summary>
+  <token key="FuseboxAttachmentFileType" variants="FuseboxAttachmentFileType"/>
 </histogram>
 
 <histogram name="Omnibox.MobileFusebox.FilesAttached" units="count"
@@ -3144,7 +3292,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
-<histogram name="Omnibox.Paste" units="count" expires_after="2026-09-20">
+<histogram name="Omnibox.Paste" units="count" expires_after="2026-11-22">
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -3194,6 +3342,10 @@ Keep consistent with active providers. Doesn't need to include every provider in
     this metric can be seen as a time budget for the AI Mode WebUI page remote
     to be bound and ready to receive calls. Recorded at most once per browser
     window.
+
+    Recorded the very first time the AI Mode WebUI Omnibox popup is shown to the
+    user during the course of a browser session (i.e. subsequent show-popup
+    operations in the same browser window DO NOT log this histogram).
   </summary>
 </histogram>
 
@@ -3205,6 +3357,8 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <summary>
     Records whether the renderer process has crashed and the contents is being
     reloaded before showing the WebUI AI Mode popup.
+
+    Recorded every time the AI Mode WebUI Omnibox popup web content is shown.
   </summary>
 </histogram>
 
@@ -3240,6 +3394,8 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <summary>
     Record the time between the request of the AIM popup widget to show and when
     the first frame is painted by the widget on the screen.
+
+    Recorded every time the native widget hosting the AIM popup is shown.
   </summary>
 </histogram>
 
@@ -3250,7 +3406,94 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
     Records the termination status of the AI Mode Popup WebUI renderer process
-    when it goes away. This helps monitor crash rates and types.
+    when it goes away, whether due to normal termination or a process crash.
+    This helps monitor crash rates and types.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.Popup.FullWebUI.ConstructionToFirstShownDuration"
+    units="ms" expires_after="2026-12-22">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>mahmadi@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Records the time between the Full WebUI page load which happens when the
+    omnibox popup presenter is constructed and the first time the popup widget
+    is shown. Given that the Full WebUI page begins the asynchronous process of
+    loading its resources, initialization, and binding immediately after it is
+    loaded, this metric can be seen as a time budget for the WebUI page remote
+    to be bound and ready to receive calls. Recorded at most once per browser
+    window.
+
+    Recorded the very first time the full WebUI Omnibox popup is shown to the
+    user during the course of a browser session (i.e. subsequent show-popup
+    operations in the same browser window DO NOT log this histogram).
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.Popup.FullWebUI.CrashRecovery" enum="Boolean"
+    expires_after="2026-12-22">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>avivkiss@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Records whether the renderer process has crashed and the contents is being
+    reloaded before showing the Full WebUI Omnibox popup.
+
+    Recorded every time the full WebUI Omnibox popup web content is shown.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.Popup.FullWebUI.DeferredShowVisualStateReadyDuration"
+    units="ms" expires_after="2026-12-22">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>avivkiss@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Records the duration it took for the visual state callback to be called (or
+    fallback timeout to be reached) during a deferred show of the Full WebUI
+    popup. Logged every time the popup show is triggered.
+  </summary>
+</histogram>
+
+<histogram
+    name="Omnibox.Popup.FullWebUI.DeferredShowVisualStateReadyFromTimeout"
+    enum="Boolean" expires_after="2026-12-22">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>avivkiss@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Records whether the deferred show of the Full WebUI popup was triggered by
+    the fallback timer task (True) or the visual state callback (False). Logged
+    every time the popup show is triggered.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.Popup.FullWebUI.PresenterShowLatency.ToPaint"
+    units="ms" expires_after="2026-12-22">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>mahmadi@chromium.org</owner>
+  <owner>kylixrd@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Record the time between the request of the Full WebUI popup widget to show
+    and when the first frame is painted by the widget on the screen.
+
+    Recorded every time the native widget hosting the full WebUI popup is shown.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.Popup.FullWebUI.RendererProcessGoneStatus"
+    enum="OmniboxWebUIRendererProcessGoneStatus" expires_after="2026-12-22">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>avivkiss@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Records the termination status of the Full WebUI Omnibox Popup renderer
+    process when it goes away, whether due to normal termination or a process
+    crash. This helps monitor crash rates and types.
   </summary>
 </histogram>
 
@@ -3308,6 +3551,10 @@ Keep consistent with active providers. Doesn't need to include every provider in
     resources, initialization, and binding immediately after it is loaded, this
     metric can be seen as a time budget for the WebUI page remote to be bound
     and ready to receive calls. Recorded at most once per browser window.
+
+    Recorded the very first time the classic WebUI Omnibox popup is shown to the
+    user during the course of a browser session (i.e. subsequent show-popup
+    operations in the same browser window DO NOT log this histogram).
   </summary>
 </histogram>
 
@@ -3317,7 +3564,9 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
     Records whether the renderer process has crashed and the contents is being
-    reloaded before showing the WebUI Omnibox popup.
+    reloaded before showing the classic WebUI Omnibox popup.
+
+    Recorded every time the classic WebUI Omnibox popup web content is shown.
   </summary>
 </histogram>
 
@@ -3362,6 +3611,8 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <summary>
     Record the time between the request of the classic popup widget to show and
     when the first frame is painted by the widget on the screen.
+
+    Recorded every time the native widget hosting the classic popup is shown.
   </summary>
 </histogram>
 
@@ -3371,7 +3622,8 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
     Records the termination status of the Omnibox WebUI renderer process when it
-    goes away. This helps monitor crash rates and types.
+    goes away, whether due to normal termination or a process crash. This helps
+    monitor crash rates and types.
   </summary>
 </histogram>
 
@@ -3579,6 +3831,17 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
+<histogram name="Omnibox.SearchEngineType.PostNavigation"
+    enum="OmniboxSearchEngineType" expires_after="2026-11-12">
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>wfh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The type of search engine associated with a match opened from the omnibox,
+    recorded after all navigations (including server redirects) have completed.
+  </summary>
+</histogram>
+
 <histogram name="Omnibox.SearchEngineType{Population}"
     enum="OmniboxSearchEngineType" expires_after="2026-11-12">
   <owner>jdonnelly@chromium.org</owner>
@@ -3639,7 +3902,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchPrefetch.KeepAliveRequestFinalStage"
-    enum="FetchKeepAliveRequestStage" expires_after="2026-08-30">
+    enum="FetchKeepAliveRequestStage" expires_after="2026-11-15">
   <owner>lingqi@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -4145,7 +4408,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SuggestionUsed.URL.Experimental.NavigationToFirstMeaningfulPaint"
-    units="ms" expires_after="2026-08-30">
+    units="ms" expires_after="2026-11-01">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -4393,7 +4656,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SuggestTiles.SelectedTileIndex" units="position"
-    expires_after="2026-09-06">
+    expires_after="2026-11-15">
   <owner>ender@google.com</owner>
   <owner>mahmadi@chromium.org</owner>
   <summary>
@@ -4519,8 +4782,38 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
+<histogram name="Omnibox.TemplateUrl.DBRefresh.MigrationMatch"
+    enum="MigrationMatch" expires_after="2026-12-31">
+  <owner>dgn@google.com</owner>
+  <owner>chrome-regionalcapabilities@google.com</owner>
+  <summary>
+    The match or mismatch reason found while comparing prepopulated engines and
+    keywords DB engines during prepopulated engines migration.
+
+    A &quot;match&quot; (e.g., exact or host match) indicates that an engine in
+    the keywords database corresponds to a prepopulated engine definition and
+    can be migrated. A &quot;mismatch&quot; (e.g., URL mismatch or invalid URL)
+    indicates that the existing engine does not sufficiently match the
+    prepopulated one, and thus cannot be safely migrated.
+
+    Recorded for each engine under migration that matches an existing engine,
+    during the keywords DB refresh that is done on profile load after a database
+    version update, country change, or migration feature flag flip.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.TemplateUrl.DBRefresh.TotalDuplicates" units="units"
+    expires_after="2026-12-31">
+  <owner>dgn@google.com</owner>
+  <owner>chrome-regionalcapabilities@google.com</owner>
+  <summary>
+    The total number of duplicate prepopulated engine IDs found in the search
+    engine database during a refresh.
+  </summary>
+</histogram>
+
 <histogram name="Omnibox.TemplateUrl.DBRefresh.UnmatchedDefaultSearchCount"
-    units="count" expires_after="2026-09-20">
+    units="count" expires_after="2026-11-22">
   <owner>dgn@google.com</owner>
   <owner>ender@google.com</owner>
   <owner>chrome-regionalcapabiltiies@google.com</owner>
@@ -4536,8 +4829,19 @@ Keep consistent with active providers. Doesn't need to include every provider in
   </summary>
 </histogram>
 
+<histogram name="Omnibox.TemplateUrl.DseReconciler.MigrationMatch"
+    enum="MigrationMatch" expires_after="2026-12-31">
+  <owner>dgn@google.com</owner>
+  <owner>chrome-reg-cap@google.com</owner>
+  <summary>
+    The type of match found during prepopulated engine migration in the DSE
+    reconciler. Recorded for each engine under migration that matches an
+    existing engine.
+  </summary>
+</histogram>
+
 <histogram name="Omnibox.TemplateUrl.Reconciliation.Type"
-    enum="ReconciliationType" expires_after="2026-08-30">
+    enum="ReconciliationType" expires_after="2026-11-01">
   <owner>ender@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -4588,7 +4892,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.TemplateUrl.RegulatoryExtension.SuggestVariant"
-    enum="RegulatoryExtensionVariant" expires_after="2026-08-30">
+    enum="RegulatoryExtensionVariant" expires_after="2026-11-01">
   <owner>ender@google.com</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>

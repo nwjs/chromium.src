@@ -18,16 +18,17 @@ import type {Origin} from '//resources/mojo/url/mojom/origin.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import type {PageMetadata as PageMetadataMojo} from '../../ai_page_content_metadata.mojom-webui.js';
-import type {AdditionalContext as AdditionalContextMojo, AdditionalContextPart as AdditionalContextPartMojo, AnnotatedPageData as AnnotatedPageDataMojo, CaptureRegionResult as CaptureRegionResultMojo, ContextData as ContextDataMojo, ConversationInfo as ConversationInfoMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, GetTabContextOptions as TabContextOptionsMojo, HostCapability as HostCapabilityMojo, InvokeOptions as InvokeOptionsMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PdfDocumentData as PdfDocumentDataMojo, PinTabsOptions as PinTabsOptionsMojo, Screenshot as ScreenshotMojo, ScreenshotCollectionOptions as ScreenshotCollectionOptionsMojo, SubscriberObservationType as SubscriberObservationTypeMojo, TabContext as TabContextMojo, TabData as TabDataMojo, UnpinTabsOptions as UnpinTabsOptionsMojo, WebPageData as WebPageDataMojo, ZeroStateSuggestionsV2 as ZeroStateSuggestionsV2Mojo, ZssConfig as ZssConfigMojo} from '../../glic.mojom-webui.js';
+import type {AdditionalContext as AdditionalContextMojo, AdditionalContextPart as AdditionalContextPartMojo, AnnotatedPageData as AnnotatedPageDataMojo, CaptureRegionResult as CaptureRegionResultMojo, ContextData as ContextDataMojo, ConversationInfo as ConversationInfoMojo, CounterAbuseVerdict as CounterAbuseVerdictMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, GetTabContextOptions as TabContextOptionsMojo, HostCapability as HostCapabilityMojo, InvocationPayload as InvocationPayloadMojo, InvokeOptions as InvokeOptionsMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PdfDocumentData as PdfDocumentDataMojo, PinTabsOptions as PinTabsOptionsMojo, Screenshot as ScreenshotMojo, ScreenshotCollectionOptions as ScreenshotCollectionOptionsMojo, SubscriberObservationType as SubscriberObservationTypeMojo, TabContext as TabContextMojo, TabData as TabDataMojo, UnpinTabsOptions as UnpinTabsOptionsMojo, WebPageData as WebPageDataMojo, ZeroStateSuggestionsV2 as ZeroStateSuggestionsV2Mojo, ZssConfig as ZssConfigMojo} from '../../glic.mojom-webui.js';
 import {MicrophoneStatus as MicrophoneStatusMojo, PinTrigger as PinTriggerMojo, ScreenshotCompressionQuality as ScreenshotCompressionQualityMojo, ScreenshotImageFormat as ScreenshotImageFormatMojo, UnpinTrigger as UnpinTriggerMojo, WebClientMode as WebClientModeMojo} from '../../glic.mojom-webui.js';
-import type {CaptureRegionResult, ConversationInfo, GetPinCandidatesOptions, HostCapability, PageMetadata, PanelOpeningData, PanelState, PinTabsOptions, PinTrigger, Screenshot, ScreenshotCollectionOptions, TabContextOptions, TaskOptions, UnpinTabsOptions, UnpinTrigger, WebPageData, ZeroStateSuggestionsV2, ZssConfig} from '../../glic_api/glic_api.js';
-import {DEFAULT_INNER_TEXT_BYTES_LIMIT, DEFAULT_PDF_SIZE_LIMIT, MicrophoneStatus, Platform, WebClientMode} from '../../glic_api/glic_api.js';
+import type {CaptureRegionResult, ConversationInfo, CounterAbuseVerdict, GetPinCandidatesOptions, HostCapability, InvocationPayload, PageMetadata, PanelOpeningData, PanelState, PinTabsOptions, PinTrigger, Screenshot, ScreenshotCollectionOptions, TabContextOptions, TaskOptions, UnpinTabsOptions, UnpinTrigger, WebPageData, ZeroStateSuggestionsV2, ZssConfig} from '../../glic_api/glic_api.js';
+import {DEFAULT_INNER_TEXT_BYTES_LIMIT, DEFAULT_PDF_SIZE_LIMIT, FeatureMode, MicrophoneStatus, Platform, WebClientMode} from '../../glic_api/glic_api.js';
+import type {NavigationConfirmationRequestPrivate, NavigationConfirmationResponsePrivate, SelectAutofillSuggestionsDialogRequestPrivate, SelectAutofillSuggestionsDialogResponsePrivate, SelectCredentialDialogRequestPrivate, SelectCredentialDialogResponsePrivate, UserConfirmationDialogRequestPrivate, UserConfirmationDialogResponsePrivate} from '../actor/actor_types.js';
 import {enumFromClient, enumToClient} from '../enum_conversions.js';
+import type {ResponseExtras} from '../transport/messaging.js';
 
 import type {ConfirmationRequestErrorReason as ConfirmationRequestErrorReasonMojo, NavigationConfirmationRequest as NavigationConfirmationRequestMojo, NavigationConfirmationResponse as NavigationConfirmationResponseMojo, SelectAutofillSuggestionsDialogErrorReason as SelectAutofillSuggestionsDialogErrorReasonMojo, SelectAutofillSuggestionsDialogRequest as SelectAutofillSuggestionsDialogRequestMojo, SelectAutofillSuggestionsDialogResponse as SelectAutofillSuggestionsDialogResponseMojo, SelectCredentialDialogErrorReason as SelectCredentialDialogErrorReasonMojo, SelectCredentialDialogRequest as SelectCredentialDialogRequestMojo, SelectCredentialDialogResponse as SelectCredentialDialogResponseMojo, TaskOptions as TaskOptionsMojo, UserConfirmationDialogRequest as UserConfirmationDialogRequestMojo, UserConfirmationDialogResponse as UserConfirmationDialogResponseMojo, UserGrantedPermissionDuration as UserGrantedPermissionDurationMojo} from './../../actor_webui.mojom-webui.js';
 import {replaceProperties} from './../conversions.js';
-import type {ResponseExtras} from './../post_message_transport.js';
-import type {AdditionalContextPartPrivate, AdditionalContextPrivate, AnnotatedPageDataPrivate, FocusedTabDataPrivate, InvokeOptionsPrivate, NavigationConfirmationRequestPrivate, NavigationConfirmationResponsePrivate, PdfDocumentDataPrivate, ResumeActorTaskResultPrivate, RgbaImage, SelectAutofillSuggestionsDialogRequestPrivate, SelectAutofillSuggestionsDialogResponsePrivate, SelectCredentialDialogRequestPrivate, SelectCredentialDialogResponsePrivate, TabContextResultPrivate, TabDataPrivate, UserConfirmationDialogRequestPrivate, UserConfirmationDialogResponsePrivate} from './../request_types.js';
+import type {AdditionalContextPartPrivate, AdditionalContextPrivate, AnnotatedPageDataPrivate, FocusedTabDataPrivate, InvokeOptionsPrivate, PdfDocumentDataPrivate, ResumeActorTaskResultPrivate, RgbaImage, TabContextResultPrivate, TabDataPrivate} from './../request_types.js';
 import {ImageAlphaType, ImageColorType} from './../request_types.js';
 import type {SubscriberObservationType} from './../request_types.js';
 
@@ -335,6 +336,17 @@ export function conversationInfoFromClient(conversationInfo: ConversationInfo):
   };
 }
 
+export function counterAbuseVerdictFromClient(verdict: CounterAbuseVerdict):
+    CounterAbuseVerdictMojo {
+  return {
+    sbVerdictResult: verdict.sbVerdictResult ? {
+      url: verdict.sbVerdictResult.url,
+      threatType: enumFromClient(verdict.sbVerdictResult.threatType),
+      showInterstitial: verdict.sbVerdictResult.showInterstitial,
+    } : null,
+  };
+}
+
 export function panelStateToClient(panelState: PanelStateMojo): PanelState {
   return {
     kind: enumToClient(panelState.kind),
@@ -623,6 +635,8 @@ export function taskOptionsToMojo(taskOptions?: TaskOptions): TaskOptionsMojo|
     return {
       title: taskOptions.title ?? null,
       duration: enumFromClient(taskOptions.duration),
+      featureMode:
+          enumFromClient(taskOptions.featureMode ?? FeatureMode.UNSPECIFIED),
     };
   }
   return null;
@@ -697,7 +711,32 @@ export function invokeOptionsToClient(
     skillId: options.skillId || undefined,
     zssConfig: options.zssConfig ? zssConfigToClient(options.zssConfig) :
                                    undefined,
+    payload: invocationPayloadToClient(options.payload, extras),
   };
+}
+
+export function invocationPayloadToClient(
+    payload: InvocationPayloadMojo, extras: ResponseExtras): InvocationPayload;
+export function invocationPayloadToClient(
+    payload: InvocationPayloadMojo|null,
+    extras: ResponseExtras): InvocationPayload|undefined;
+export function invocationPayloadToClient(
+    payload: InvocationPayloadMojo|null,
+    extras: ResponseExtras): InvocationPayload|undefined {
+  if (!payload) {
+    return undefined;
+  }
+  if (payload.universalCart) {
+    const buffer =
+        new Uint8Array(payload.universalCart.serializedMetadata).buffer;
+    extras.addTransfer(buffer);
+    return {
+      universalCart: {
+        serializedMetadata: buffer,
+      },
+    };
+  }
+  throw new Error('Unknown payload type');
 }
 
 export function additionalContextToClient(
@@ -733,6 +772,7 @@ export function additionalContextPartToClient(
       mimeType: part.data.mimeType,
       data: getArrayBufferFromBigBuffer(part.data.data)!,
     };
+    result.filename = optionalToClient(part.data.filename);
     extras.addTransfer(result.data.data);
   } else if (part.screenshot) {
     result.screenshot = screenshotToClient(part.screenshot, extras);

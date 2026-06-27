@@ -337,6 +337,7 @@ android_library("content_full_java") {
     "java/src/org/chromium/content/browser/input/SuggestionsPopupWindow.java",
     "java/src/org/chromium/content/browser/input/TextInputState.java",
     "java/src/org/chromium/content/browser/input/TextSuggestionHost.java",
+    "java/src/org/chromium/content/browser/input/TextSuggestionPopupController.java",
     "java/src/org/chromium/content/browser/input/TextSuggestionsPopupWindow.java",
     "java/src/org/chromium/content/browser/input/ThreadedInputConnection.java",
     "java/src/org/chromium/content/browser/input/ThreadedInputConnectionFactory.java",
@@ -437,6 +438,7 @@ android_library("content_full_java") {
     "java/src/org/chromium/content_public/browser/WebContentsStatics.java",
     "java/src/org/chromium/content_public/browser/selection/SelectionActionMenuDelegate.java",
     "java/src/org/chromium/content_public/browser/selection/SelectionDropdownMenuDelegate.java",
+    "java/src/org/chromium/content_public/browser/selection/SelectionUtils.java",
   ]
 
   if (enable_screen_capture) {
@@ -540,6 +542,7 @@ generate_jni("content_jni_headers") {
     "java/src/org/chromium/content/browser/input/SelectPopup.java",
     "java/src/org/chromium/content/browser/input/SuggestionInfo.java",
     "java/src/org/chromium/content/browser/input/TextSuggestionHost.java",
+    "java/src/org/chromium/content/browser/input/TextSuggestionPopupController.java",
     "java/src/org/chromium/content/browser/selection/MagnifierSurfaceControl.java",
     "java/src/org/chromium/content/browser/selection/SelectionPopupControllerImpl.java",
     "java/src/org/chromium/content/browser/selection/SmartSelectionClient.java",
@@ -675,6 +678,7 @@ android_library("content_javatests") {
     "javatests/src/org/chromium/content/browser/accessibility/AccessibilityContentShellTestData.java",
     "javatests/src/org/chromium/content/browser/accessibility/AccessibilityContentShellTestUtils.java",
     "javatests/src/org/chromium/content/browser/accessibility/AccessibilityEventDispatcherTest.java",
+    "javatests/src/org/chromium/content/browser/accessibility/AccessibilityNodeInfoUtilsTest.java",
     "javatests/src/org/chromium/content/browser/accessibility/AssistViewStructureTest.java",
     "javatests/src/org/chromium/content/browser/accessibility/FakeAconfigFlaggedApiDelegate.java",
     "javatests/src/org/chromium/content/browser/accessibility/FakeAndroidCacheTest.java",
@@ -724,9 +728,6 @@ android_library("content_javatests") {
 robolectric_binary("content_junit_tests") {
   resources_package = "org.chromium.content"
   sources = [
-    "java/src/org/chromium/content/browser/input/AutocorrectManagerUnitTest.java",
-    "java/src/org/chromium/content/browser/input/ImeAdapterImplUnitTest.java",
-    "java/src/org/chromium/content/browser/input/ImeUtilsTest.java",
     "junit/src/org/chromium/content/browser/AudioFocusDelegateTest.java",
     "junit/src/org/chromium/content/browser/BindingManagerTest.java",
     "junit/src/org/chromium/content/browser/ChildProcessConnectionMetricsUnitTest.java",
@@ -736,6 +737,9 @@ robolectric_binary("content_junit_tests") {
     "junit/src/org/chromium/content/browser/ScreenOrientationProviderImplTest.java",
     "junit/src/org/chromium/content/browser/SpareChildConnectionTest.java",
     "junit/src/org/chromium/content/browser/androidoverlay/DialogOverlayCoreTest.java",
+    "junit/src/org/chromium/content/browser/input/AutocorrectManagerTest.java",
+    "junit/src/org/chromium/content/browser/input/ImeAdapterImplTest.java",
+    "junit/src/org/chromium/content/browser/input/ImeUtilsTest.java",
     "junit/src/org/chromium/content/browser/input/InputMethodManagerWrapperImplTest.java",
     "junit/src/org/chromium/content/browser/input/OngoingGestureTest.java",
     "junit/src/org/chromium/content/browser/input/RangeTest.java",
@@ -748,10 +752,13 @@ robolectric_binary("content_junit_tests") {
     "junit/src/org/chromium/content/browser/selection/SelectActionMenuHelperTest.java",
     "junit/src/org/chromium/content/browser/selection/SelectionMenuCachedResultTest.java",
     "junit/src/org/chromium/content/browser/selection/SelectionPopupControllerTest.java",
+    "junit/src/org/chromium/content/browser/selection/SelectionUtilsTest.java",
     "junit/src/org/chromium/content/browser/selection/SmartSelectionEventProcessorTest.java",
+    "junit/src/org/chromium/content/browser/selection/SmartSelectionProviderTest.java",
     "junit/src/org/chromium/content/browser/sms/SmsProviderGmsTest.java",
     "junit/src/org/chromium/content/browser/webcontents/WebContentsImplTest.java",
     "junit/src/org/chromium/content/browser/webcontents/WebContentsObserverProxyTest.java",
+    "junit/src/org/chromium/content_public/browser/ContactsDialogHostTest.java",
     "junit/src/org/chromium/content_public/browser/MessagePayloadTest.java",
     "junit/src/org/chromium/content_public/browser/media/capture/ImageHandlerTest.java",
     "junit/src/org/chromium/content_public/browser/media/capture/ScreenCaptureTest.java",

@@ -10,18 +10,21 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 
 namespace autofill {
 
 // Command line flags that enable importing AutofillProfiles for manual testing:
 //   --autofill-profiles-content-for-manual-testing
-//       Expects profile and credit card descriptions as a string in JSON
-//       format.
+//       Expects profile, credit card and entity descriptions as a string in
+//       JSON format.
 //   --autofill-profiles-for-manual-testing
 //       The same as above, but instead of the JSON content, expects the path
-//       to a file with profile and credit card descriptions in JSON format.
+//       to a file with profile, credit card and entity descriptions in JSON
+//       format.
 // The following format is expected:
 // {
 //   "profiles" : [
@@ -39,17 +42,77 @@ namespace autofill {
 //       "field-type" : "value",
 //       ...
 //     }
+//   ],
+//   "entities" : [
+//     {
+//       "entity_type" : "Passport",
+//       "attributes" : {
+//         "Number" : "123456789",
+//         "Name" : "John Doe",
+//         "Country" : "US"
+//       }
+//     },
+//     {
+//       "entity_type": "Vehicle",
+//       "attributes": {
+//         "Make": "Tesla",
+//         "Model": "Model 3",
+//         "Year": "2023",
+//         "Plate number": "CHROME1",
+//         "VIN": "1ABCD2EF3GHI45678"
+//       }
+//     },
+//     {
+//       "entity_type": "Flight Reservation",
+//       "attributes": {
+//         "Flight number": "UA 123",
+//         "Ticket number": "0161234567890",
+//         "Confirmation code": "ABCDEF",
+//         "Passenger name": "John Doe",
+//         "Departure airport": "SFO",
+//         "Arrival airport": "JFK",
+//         "Departure date": "2024-12-25"
+//       }
+//     },
+//     {
+//       "entity_type": "Order",
+//       "record_type": "serverWallet",
+//       "attributes": {
+//         "Id": "12345",
+//         "Account": "user@example.com",
+//         "Date": "2025-05-12",
+//         "Merchant name": "Example Store",
+//         "Merchant domain": "example.com",
+//         "Product names": "Widget, Gadget"
+//       }
+//     },
+//     {
+//       "entity_type": "Shipment",
+//       "record_type": "serverWallet",
+//       "attributes": {
+//         "Tracking number": "TRK123456",
+//         "Delivery zip code": "94043",
+//         "Carrier name": "Carrier X",
+//         "Carrier domain": "carrierx.com",
+//         "Estimated delivery date": "2025-05-15",
+//         "Order ids": "12345",
+//         "Order dates": "2025-05-12",
+//         "Merchant name": "Example Store",
+//         "Product names": "Widget, Gadget"
+//       }
+//     }
 //   ]
 // }
-// The "record_type" is optional and can either be "account" or
-// "localOrSyncable". This corresponds to the AutofillProfile::RecordType of the
-// resulting profile. It default to "localOrSyncable". The "initial_creator_id"
-// is an optional int value which sets the profile's property of the same name.
-// The "nickname" in credit cards optional as well. "field-type" corresponds to
-// FieldTypes like "NAME_FULL". For profiles and credit cards, only field types
-// valid for AutofillProfile or CreditCard are accepted. All profiles and credit
-// cards specified in the file are imported. They replace any existing data. The
-// profiles are expected to be fully structured.
+// The "record_type" is optional. For profiles, it can either be "account" or
+// "localOrSyncable" (defaulting to "localOrSyncable"). For entities, it can
+// be "local", "serverWallet", or "personalContext" (defaulting to "local").
+// The "initial_creator_id" is an optional int value which sets the profile's
+// property of the same name. The "nickname" in credit cards optional as well.
+// "field-type" corresponds to FieldTypes like "NAME_FULL". For profiles and
+// credit cards, only field types valid for AutofillProfile or CreditCard are
+// accepted. All profiles and credit cards specified in the file are imported.
+// They replace any existing data. The profiles are expected to be fully
+// structured.
 // TODO(crbug.com/40255599): remove `profiles` from flags' name.
 constexpr char kManualFileImportForTestingFlag[] =
     "autofill-profiles-for-manual-testing";
@@ -66,6 +129,12 @@ std::optional<std::vector<AutofillProfile>> LoadProfilesFromFile(
 // content into a list of CreditCards.
 // If any step fails, an error message is logged and std::nullopt is returned.
 std::optional<std::vector<CreditCard>> LoadCreditCardsFromFile(
+    base::FilePath file);
+
+// Reads the contents of `file`, parses it as a JSON file and converts its
+// content into a list of EntityInstances.
+// If any step fails, an error message is logged and std::nullopt is returned.
+std::optional<std::vector<EntityInstance>> LoadEntitiesFromFile(
     base::FilePath file);
 
 // Given the array of descriptions of fully structured profiles in the
@@ -88,15 +157,24 @@ std::optional<std::vector<AutofillProfile>> AutofillProfilesFromJSON(
 std::optional<std::vector<CreditCard>> CreditCardsFromJSON(
     const base::ListValue* const cards_json);
 
+// Given the array of valid entities in the aforementioned JSON format,
+// converts it to a vector of EntityInstances.
+// If the JSON list doesn't adhere to the above format, an error message is
+// logged and std::nullopt is returned.
+std::optional<std::vector<EntityInstance>> EntitiesFromJSON(
+    const base::ListValue* const entities_json);
+
 // Checks if the `kManualImportForTestingFlag` flag is present. If so,
 // reads the specified file, parses the profiles and credit cards description
 // and imports them into the `pdm`.
 // In case the import fails, an error message is logged and the browser
 // intentionally exits ungracefully. This is to prevent manual testing with
 // incorrect data.
-// Since importing is done in a separate thread, the `pdm` is passed as a weak
-// ptr. It is updated once the import has finished.
-void MaybeImportDataForManualTesting(base::WeakPtr<PersonalDataManager> pdm);
+// Since importing is done in a separate thread, the data managers are passed as
+// weak ptrs. They are updated once the import has finished.
+void MaybeImportProfilesAndCardsForTesting(
+    base::WeakPtr<PersonalDataManager> pdm);
+void MaybeImportEntitiesForTesting(base::WeakPtr<EntityDataManager> edm);
 
 }  // namespace autofill
 

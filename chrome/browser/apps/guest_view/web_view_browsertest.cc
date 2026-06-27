@@ -64,8 +64,8 @@
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/hid/hid_chooser_controller.h"
@@ -114,7 +114,10 @@
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/security_principal.h"
+#include "content/public/browser/service_worker_context.h"
+#include "content/public/browser/service_worker_running_info.h"
 #include "content/public/browser/site_isolation_policy.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/child_process_id.h"
@@ -155,6 +158,7 @@
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
 #include "extensions/browser/process_map.h"
+#include "extensions/browser/service_worker/service_worker_test_utils.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extensions_client.h"
@@ -975,6 +979,31 @@ INSTANTIATE_TEST_SUITE_P(/* no prefix */,
 IN_PROC_BROWSER_TEST_P(WebViewTest, Basic) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   LoadAppWithGuest("web_view/simple");
+}
+
+// Tests that GuestViewBase::GetOwnerSiteURL() correctly returns the extension
+// origin URL when the webview is embedded in a sandboxed iframe (which has an
+// opaque origin). This exercises the GetTupleOrPrecursorTupleIfOpaque() path.
+IN_PROC_BROWSER_TEST_P(WebViewTest, OwnerSiteURLFromSandboxedIframe) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  LoadAppWithGuest("web_view/sandboxed_owner");
+
+  guest_view::GuestViewBase* guest = GetGuestView();
+  ASSERT_TRUE(guest);
+  ASSERT_TRUE(guest->owner_rfh());
+
+  // The owner RFH should be the sandboxed iframe, which has an opaque origin.
+  url::Origin owner_origin = guest->owner_rfh()->GetLastCommittedOrigin();
+  EXPECT_TRUE(owner_origin.opaque());
+
+  // Despite the opaque origin, GetOwnerSiteURL() should return the extension
+  // origin URL by unwrapping the precursor origin.
+  GURL owner_site_url = guest->GetOwnerSiteURL();
+  EXPECT_TRUE(owner_site_url.SchemeIs(extensions::kExtensionScheme));
+
+  // The owner site URL host should be the extension ID.
+  GURL embedder_url = GetEmbedderWebContents()->GetLastCommittedURL();
+  EXPECT_EQ(embedder_url.DeprecatedGetOriginAsURL(), owner_site_url);
 }
 
 class WebContentsAudioMutedObserver : public content::WebContentsObserver {
@@ -5112,6 +5141,90 @@ IN_PROC_BROWSER_TEST_P(WebViewTest, Shim_TestWebRequestBlockedNavigation) {
              NEEDS_TEST_SERVER);
 }
 
+class WebViewServiceWorkerAutoPreloadTest
+    : public WebViewTestBase,
+      public testing::WithParamInterface<testing::tuple<bool, bool>> {
+ public:
+  WebViewServiceWorkerAutoPreloadTest() {
+    scoped_feature_list_.InitWithFeatureStates(
+        {{features::kGuestViewMPArch, testing::get<0>(GetParam())},
+         {features::kOptimizeWebRequestProxyForServiceWorkerAutoPreload,
+          testing::get<1>(GetParam())}});
+  }
+  ~WebViewServiceWorkerAutoPreloadTest() override = default;
+
+  static std::string DescribeParams(
+      const testing::TestParamInfo<ParamType>& info) {
+    const auto [mparch, optimization] = info.param;
+    return base::StrCat({mparch ? "MPArch" : "InnerWebContents",
+                         "_Optimization",
+                         optimization ? "Enabled" : "Disabled"});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /* no prefix */,
+    WebViewServiceWorkerAutoPreloadTest,
+    testing::Combine(testing::Bool(), testing::Bool()),
+    WebViewServiceWorkerAutoPreloadTest::DescribeParams);
+
+IN_PROC_BROWSER_TEST_P(WebViewServiceWorkerAutoPreloadTest,
+                       Shim_TestWebRequestOnErrorOccurredNavigation) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  LoadAndLaunchPlatformApp("web_view/shim", "Launched");
+
+  content::WebContents* embedder_web_contents = GetFirstAppWindowWebContents();
+  ASSERT_TRUE(embedder_web_contents);
+
+  ExtensionTestMessageListener sw_registered_listener(
+      "SW_REGISTERED", ReplyBehavior::kWillReply);
+  ExtensionTestMessageListener done_listener("TEST_PASSED");
+  done_listener.set_failure_message("TEST_FAILED");
+
+  content::ExecuteScriptAsync(
+      embedder_web_contents,
+      "runTest('testWebRequestOnErrorOccurredNavigation')");
+
+  ASSERT_TRUE(sw_registered_listener.WaitUntilSatisfied());
+
+  // Get the guest view.
+  guest_view::GuestViewBase* guest_view =
+      GetGuestViewManager()->WaitForSingleGuestViewCreated();
+  ASSERT_TRUE(guest_view);
+
+  // SW is registered. Stop it in the guest's storage partition.
+  content::StoragePartition* storage_partition =
+      guest_view->GetGuestMainFrame()->GetStoragePartition();
+  content::ServiceWorkerContext* sw_context =
+      storage_partition->GetServiceWorkerContext();
+
+  const blink::StorageKey& sw_storage_key =
+      guest_view->GetGuestMainFrame()->GetStorageKey();
+  GURL sw_scope = sw_storage_key.origin().GetURL().Resolve(
+      "/extensions/platform_apps/web_view/shim/sw/");
+
+  // ServiceWorkerAutoPreload only operates during the Service Worker startup
+  // phase. We must ensure the Service Worker is completely stopped before
+  // triggering navigation. Since JavaScript cannot reliably trigger a
+  // force-stop and synchronize with the browser, we use the C++ side helper.
+  ASSERT_TRUE(extensions::service_worker_test_utils::StopServiceWorkerForScope(
+      sw_context, sw_scope, sw_storage_key));
+
+  // Reply to JS to resume.
+  sw_registered_listener.Reply("SW_STOPPED");
+
+  ASSERT_TRUE(done_listener.WaitUntilSatisfied());
+
+  EXPECT_EQ(sw_scope.Resolve("index.html?stream=1"),
+            guest_view->GetGuestMainFrame()->GetLastCommittedURL());
+  EXPECT_EQ("SW Scope Page",
+            content::EvalJs(guest_view->GetGuestMainFrame(), "document.title"));
+}
+
 // This test verifies that various types of network requests (defined in
 // chrome/test/data/webview/request_interception_coverage_guest.js) are
 // correctly intercepted by the extensions::WebRequestAPI. The same test logic
@@ -6696,7 +6809,27 @@ IN_PROC_BROWSER_TEST_P(WebstoreWebViewTest, NoRendererKillWithChromeWebStore) {
   content::TestFrameNavigationObserver error_observer(guest);
   EXPECT_TRUE(ExecJs(guest, "location.href = '" + url.spec() + "';"));
   error_observer.Wait();
-  EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT, error_observer.last_net_error_code());
+
+  // Navigation should be blocked if it corresponds to the webstore.
+  // * This is always true for the "new" webstore URL
+  //   (chromewebstore.google.com). This is the URL used in production.
+  // * This is always true for a URL provided by the test switch to set a
+  //   webstore URL (used in testing / staging).
+  // * This is true for the legacy webstore URL (chrome.google.com/webstore) if
+  //   any only if the legacy hosted app is installed. If the app isn't
+  //   installed, navigation to its URL should succeed (it's treated like a
+  //   normal URL).
+  bool expect_blocked =
+      webstore_url() == GURL(kNewWebstoreURL) ||
+      webstore_url() == GURL(kWebstoreURLOverride) ||
+      (webstore_url() == GURL(kWebstoreURL) &&
+       base::FeatureList::IsEnabled(extensions_features::kWebstoreHostedApp));
+
+  if (expect_blocked) {
+    EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT, error_observer.last_net_error_code());
+  } else {
+    EXPECT_TRUE(error_observer.last_navigation_succeeded());
+  }
 
   guest = GetGuestRenderFrameHost();
   EXPECT_TRUE(guest->IsRenderFrameLive());
@@ -6810,8 +6943,10 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessWebViewTest, SimpleNavigations) {
 
   // Ensure the guest SiteInstance reflects the proper site and actually uses
   // site isolation.
-  EXPECT_EQ("http://a.test/",
-            main_frame->GetSiteInstance()->GetSiteURL().spec());
+  EXPECT_EQ("http://a.test/", main_frame->GetSiteInstance()
+                                  ->GetSecurityPrincipal()
+                                  .GetDeprecatedSiteURL()
+                                  .spec());
   EXPECT_TRUE(main_frame->GetSiteInstance()->RequiresDedicatedProcess());
   EXPECT_TRUE(main_frame->GetProcess()->IsProcessLockedToSiteForTesting());
 
@@ -6838,7 +6973,10 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessWebViewTest, SimpleNavigations) {
                 .GetStoragePartitionConfig());
   EXPECT_EQ(subframe->GetProcess()->GetStoragePartition(),
             main_frame->GetProcess()->GetStoragePartition());
-  EXPECT_EQ("http://b.test/", subframe->GetSiteInstance()->GetSiteURL().spec());
+  EXPECT_EQ("http://b.test/", subframe->GetSiteInstance()
+                                  ->GetSecurityPrincipal()
+                                  .GetDeprecatedSiteURL()
+                                  .spec());
   EXPECT_TRUE(subframe->GetSiteInstance()->RequiresDedicatedProcess());
   EXPECT_TRUE(subframe->GetProcess()->IsProcessLockedToSiteForTesting());
 }
@@ -8208,12 +8346,15 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksWebViewTest, OpenLinkInNewTab) {
   // Click on open link in incognito windown and verify a new incognito window
   // is created.
   {
-    int incognito_browser_count = chrome::GetIncognitoBrowserCount();
+    int incognito_browser_count =
+        GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount();
     ContextMenuWaiter waiter(IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD);
     OpenContextMenu(guest_view2->GetGuestMainFrame());
     waiter.WaitForMenuOpenAndClose();
     EXPECT_TRUE(waiter.IsCommandExecuted().value());
-    EXPECT_EQ(incognito_browser_count + 1, chrome::GetIncognitoBrowserCount());
+    EXPECT_EQ(
+        incognito_browser_count + 1,
+        GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount());
   }
 }
 

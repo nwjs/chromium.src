@@ -5,6 +5,8 @@
 #ifndef UI_DISPLAY_MAC_VSYNC_PROVIDER_MAC_H_
 #define UI_DISPLAY_MAC_VSYNC_PROVIDER_MAC_H_
 
+#include <CoreGraphics/CGDirectDisplay.h>
+
 #include <list>
 #include <map>
 
@@ -32,20 +34,21 @@ class DISPLAY_EXPORT VSyncProviderMac {
   VSyncProviderMac& operator=(const VSyncProviderMac&) = delete;
 
   // Originated from the browser process
-  void OnVSync(const VSyncParamsMac& params, int64_t display_id);
+  void OnVSync(const VSyncParamsMac& params, int64_t vsync_display_id);
 
   void RegisterCallback(VSyncCallbackMac::Callback callback,
-                        int64_t display_id);
+                        CGDirectDisplayID display_id);
   void UnregisterCallback(VSyncCallbackMac::Callback callback,
-                          int64_t display_id);
+                          CGDirectDisplayID display_id);
 
-  void SetSupportedDisplayLinkId(int64_t display_id, bool is_supported);
+  void SetSupportedDisplayLinkId(int64_t vsync_display_id, bool is_supported);
 
   // Returns the vsync interval via the Vsync provider.
   void SetCallbackForRemoteNeedsBeginFrame(NeedsBeginFrameCB callback);
 
   // Whether CADisplayLink in Browser with this display_id is supported.
-  bool IsDisplayLinkSupported(int64_t display_id);
+  // The status is updated by SetSupportedDisplayLinkId().
+  bool IsDisplayLinkInBrowserValid(int64_t vsync_display_id);
 
   // Whether the task runner of VSyncProviderMac belongs to the current thread.
   bool BelongsToCurrentThread();
@@ -53,26 +56,11 @@ class DISPLAY_EXPORT VSyncProviderMac {
  private:
   friend class base::NoDestructor<VSyncProviderMac>;
 
-  // To prevent CADisplayLink from frequently switching between the on and off
-  // states, keep VSync alive for extra callbacks after all clients are
-  // unregistered. This reduces IPC latency for the first frame after pause.
-  static constexpr int kMaxExtraVSyncCallbacks = 20;
-
   VSyncProviderMac();
   virtual ~VSyncProviderMac();
 
-  void AddSupportedDisplayLinkId(int64_t display_id);
-  void RemoveSupportedDisplayLinkId(int64_t display_id);
-
-  struct DisplayState {
-    DisplayState();
-    ~DisplayState();
-    DisplayState(DisplayState&& other);
-    DisplayState& operator=(DisplayState&& other);
-
-    std::list<VSyncCallbackMac::Callback> callbacks;
-    int consecutive_vsyncs_with_no_callbacks = 0;
-  };
+  void AddSupportedDisplayLinkId(CGDirectDisplayID display_id);
+  void RemoveSupportedDisplayLinkId(CGDirectDisplayID display_id);
 
   NeedsBeginFrameCB needs_begin_frame_callback_;
 
@@ -80,7 +68,8 @@ class DISPLAY_EXPORT VSyncProviderMac {
   // Use this lock when it's written on the Viz thread and read back on the gpu
   // main thread. No need to lock when read on Viz thread.
   base::Lock id_lock_;
-  std::map<int64_t, DisplayState> display_states_;
+  std::map<CGDirectDisplayID, std::list<VSyncCallbackMac::Callback>>
+      callback_lists_;
 
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 

@@ -40,9 +40,14 @@
 #include "services/webnn/webnn_switches.h"
 #include "services/webnn/webnn_utils.h"
 #include "third_party/fp16/src/include/fp16.h"
+#include "third_party/tflite/buildflags.h"
 #include "third_party/tflite/src/tensorflow/compiler/mlir/lite/schema/schema_generated.h"
 #include "third_party/tflite/src/tensorflow/compiler/mlir/lite/schema/schema_utils.h"
 #include "third_party/tflite/src/tensorflow/compiler/mlir/lite/tools/optimize/reduced_precision_metadata.h"
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+#include "third_party/xnnpack/src/include/xnnpack.h"  // nogncheck
+#endif
 
 #if BUILDFLAG(WEBNN_USE_LITERT)
 #include "third_party/litert/src/litert/cc/litert_options.h"
@@ -64,6 +69,12 @@ BASE_FEATURE(kApplyQDQFusion, base::FEATURE_ENABLED_BY_DEFAULT);
 // Align weights to match default LITERT_HOST_MEMORY_BUFFER_ALIGNMENT.
 constexpr size_t kWeightsAlignment = 64;
 
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+static_assert(
+    kWeightsAlignment >= XNN_EXTRA_BYTES,
+    "kWeightsAlignment must be at least XNN_EXTRA_BYTES for XNNPACK reads.");
+#endif
+
 // Flatbuffers cannot be larger than 2 GiB however the library does not provide
 // feedback when this limit is exceeded and can instead encounter integer
 // overflows. To avoid this, limit the size of buffers that have to be included
@@ -80,6 +91,19 @@ constexpr int32_t kMaxKernelBlockSize = 16;
 base::CheckedNumeric<int32_t> RoundUp(base::CheckedNumeric<int32_t> value,
                                       int32_t block_size) {
   return (value + block_size - 1) / block_size * block_size;
+}
+
+// Returns true if XNNPACK will use the subconv2d path for deconvolution.
+// See is_subconv2d() in
+// third_party/xnnpack/src/src/operators/deconvolution-nhwc.c.
+// For convTranspose2d in WebNN, dilations are always 1 and
+// XNN_FLAG_INLINE_LHS_PACKING is not set, so those conditions from
+// the original check are always satisfied.
+bool IsXnnpackSubconv2d(const mojom::Size2d& strides,
+                        const webnn::Size2d<uint32_t>& filter_size) {
+  return std::max(strides.height, strides.width) > 1 &&
+         strides.width <= filter_size.width &&
+         strides.height <= filter_size.height;
 }
 
 // The name of the external buffer group for weights. This is used by the LiteRT
@@ -554,6 +578,82 @@ GetCoordinatesNDFromIndex(size_t flat_index,
   return coordinates;
 }
 
+// Right-aligns `lhs` and `rhs` (which must be broadcast-compatible) and merges
+// adjacent axes whose broadcast pattern is consistent for both operands,
+// producing equivalent shapes with a (possibly) lower rank. Two adjacent axes
+// may be merged only when, for each operand individually, both axes are
+// "kept" (operand size equals output size) or both are "broadcast" (operand
+// size is 1 while output size is > 1); otherwise merging would change the
+// broadcast semantics.
+//
+// Note that an axis where lhs, rhs and output are all 1 counts as "kept" for
+// both operands, so leading size-1 axes still fold into adjacent kept axes.
+// For example:
+//   lhs    = {1, 4, 5, 6, 7}
+//   rhs    = {1, 4, 1, 6, 1}
+//   output = {1, 4, 5, 6, 7}
+// is collapsed to:
+//   lhs    = {4, 5, 6, 7}
+//   rhs    = {4, 1, 6, 1}
+//   output = {4, 5, 6, 7}
+// because axes 0 and 1 are both "kept" on both operands and can be merged.
+//
+// Conversely, an axis that is broadcast on one operand cannot merge with an
+// adjacent kept axis on the same operand. For example, given
+// lhs = {2, 3}, rhs = {1, 3}, output = {2, 3}, axes 0 and 1 cannot be merged
+// because rhs broadcasts axis 0 (1 != 2) but keeps axis 1 (3 == 3), so
+// folding them would lose the broadcast and change the result.
+//
+// Returns a tuple of (collapsed_lhs, collapsed_rhs, collapsed_output), all of
+// the same rank, so callers can destructure with `std::tie`.
+std::tuple<std::vector<int32_t>, std::vector<int32_t>, std::vector<int32_t>>
+CollapseBroadcastShapes(base::span<const int32_t> lhs,
+                        base::span<const int32_t> rhs) {
+  const size_t rank = std::max(lhs.size(), rhs.size());
+  std::vector<int32_t> padded_lhs(rank, 1);
+  std::vector<int32_t> padded_rhs(rank, 1);
+  std::ranges::copy_backward(lhs, padded_lhs.end());
+  std::ranges::copy_backward(rhs, padded_rhs.end());
+
+  std::vector<int32_t> collapsed_lhs;
+  std::vector<int32_t> collapsed_rhs;
+  std::vector<int32_t> collapsed_output;
+  for (size_t i = 0; i < rank; ++i) {
+    const int32_t l = padded_lhs[i];
+    const int32_t r = padded_rhs[i];
+    // Enforce broadcast compatibility: per-axis sizes must be equal or one
+    // side must be 1.
+    CHECK(l == r || l == 1 || r == 1);
+    const int32_t o = std::max(l, r);
+    // Skip axes of size 1 in the output
+    if (o == 1) {
+      continue;
+    }
+    if (!collapsed_output.empty()) {
+      const int32_t prev_l = collapsed_lhs.back();
+      const int32_t prev_r = collapsed_rhs.back();
+      const int32_t prev_o = collapsed_output.back();
+      const bool lhs_compatible = (prev_l == prev_o) == (l == o);
+      const bool rhs_compatible = (prev_r == prev_o) == (r == o);
+      if (lhs_compatible && rhs_compatible) {
+        // Fold the current axis into the previous one by multiplying their
+        // sizes. A broadcast axis (size 1) leaves the previous size
+        // unchanged, while a kept axis multiplies it, which preserves the
+        // flat element count and the broadcast semantics on both operands.
+        collapsed_lhs.back() = prev_l * l;
+        collapsed_rhs.back() = prev_r * r;
+        collapsed_output.back() *= o;
+        continue;
+      }
+    }
+    collapsed_lhs.push_back(l);
+    collapsed_rhs.push_back(r);
+    collapsed_output.push_back(o);
+  }
+  return {std::move(collapsed_lhs), std::move(collapsed_rhs),
+          std::move(collapsed_output)};
+}
+
 }  // namespace
 
 GraphBuilderTflite::Result::Result(
@@ -775,18 +875,27 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        {kFloat16To32AndInt32To64, SupportedRanks::UpTo(4)},
        /*not_equal_input=*/
        {kFloat16To32AndInt32To64, SupportedRanks::UpTo(4)},
-       // Logical binary operators are limited to 4D when broadcasting is
-       // required:
+       // TFLite's native LOGICAL_AND/LOGICAL_OR kernels are limited to 4D
+       // when broadcasting is required, and the NOT_EQUAL kernel used to
+       // polyfill XOR is limited to 4D as well. SerializeElementWiseBinary
+       // handles rank-5 cases by reducing the rank before invoking the
+       // native kernel: it first tries to collapse adjacent axes whose
+       // broadcast pattern is consistent for both operands, and falls back
+       // to explicit BROADCAST_TO + RESHAPE when collapsing alone is
+       // insufficient.
        // https://source.chromium.org/chromium/chromium/src/+/main:third_party/tflite/src/tensorflow/lite/kernels/logical.cc
        /*logical_and_input=*/
-       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(4)},
+       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(5)},
        /*logical_or_input=*/
-       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(4)},
-       // Polyfilled using a cast to BOOL and NOT_EQUAL.
+       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(5)},
+       // Polyfilled using a cast to BOOL and NOT_EQUAL (with the same
+       // rank-reduction strategy at rank 5; see comment above).
        /*logical_xor_input=*/
-       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(4)},
+       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(5)},
+       // LogicalNot's rank limit is intentionally kept aligned with the binary
+       // logical ops (UpTo(5)).
        /*logical_not_input=*/
-       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(8)},
+       {DataTypeConstraint::kUint8, SupportedRanks::UpTo(5)},
        // IsNaN is emulated by not_equal.
        /*is_nan_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(4)},
@@ -914,9 +1023,12 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
        /*max_pool2d_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
+       // TFLite's native PReLU path is used for lower-rank tensors, and
+       // SerializePrelu emulates rank-5 cases with element-wise ops to preserve
+       // WebNN broadcasting semantics for the 5D conformance coverage.
        // https://source.chromium.org/chromium/chromium/src/+/main:third_party/tflite/src/tensorflow/lite/kernels/internal/reference/prelu.h
        /*prelu_input=*/
-       {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(4)},
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(5)},
        // TODO(crbug.com/376722724): Support float16 input.
        // QuantizeLinear may be emulated by div and add ops that only support
        // max rank up to 5.
@@ -3137,6 +3249,18 @@ auto GraphBuilderTflite::FinishAndTakeResult(
   ::tflite::FinishModelBuffer(builder_, model_buffer);
   is_created_model_ = true;
 
+  // The XNNPACK delegate may read up to XNN_EXTRA_BYTES beyond the end of
+  // tensor buffers. Add padding to the weights file so that the last buffer has
+  // sufficient readable memory after it.
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  if (weights_file_.IsValid()) {
+    const uint8_t zeros[XNN_EXTRA_BYTES] = {};
+    if (!weights_file_.WriteAtCurrentPosAndCheck(zeros)) {
+      return base::unexpected("Failed to write weights file padding.");
+    }
+  }
+#endif
+
 #if BUILDFLAG(WEBNN_USE_LITERT)
   ::litert::Options::ScopedWeightSectionMap weights_section_map;
   if (use_external_buffer_ && weights_file_.IsValid()) {
@@ -3400,6 +3524,100 @@ auto GraphBuilderTflite::SerializeBinaryOperation(
       builder_, operator_code_index,
       builder_.CreateVector<TensorIndex>(op_inputs),
       builder_.CreateVector<TensorIndex>(op_outputs));
+}
+
+base::expected<void, std::string>
+GraphBuilderTflite::InsertLogicalBinaryOperations(
+    ::tflite::BuiltinOperator code,
+    TensorIndex lhs_bool_tensor_index,
+    base::span<const int32_t> lhs_dims,
+    TensorIndex rhs_bool_tensor_index,
+    base::span<const int32_t> rhs_dims,
+    TensorIndex output_bool_tensor_index,
+    base::span<const int32_t> output_dims) {
+  // TFLite's LOGICAL_AND/LOGICAL_OR kernels and the NOT_EQUAL kernel used to
+  // polyfill LogicalXor are all limited to 4D when broadcasting is required.
+  // Use `> 4` rather than `== 5` to reflect the kernel's broadcast rank limit
+  // directly and remain correct if the op support limit is ever raised
+  // beyond rank 5.
+  constexpr size_t kMaxLogicalBroadcastRank = 4;
+  if (lhs_dims.size() <= kMaxLogicalBroadcastRank &&
+      rhs_dims.size() <= kMaxLogicalBroadcastRank) {
+    // Fast path: shapes already within the kernel's broadcast rank limit.
+    operators_.emplace_back(SerializeBinaryOperation(
+        code, lhs_bool_tensor_index, rhs_bool_tensor_index,
+        output_bool_tensor_index));
+    return base::ok();
+  }
+
+  // For higher-rank inputs, reduce the rank before invoking the native
+  // kernel: first try to collapse adjacent axes whose broadcast pattern is
+  // consistent for both operands; if the collapsed rank still exceeds 4,
+  // fall back to explicitly broadcasting both operands to the output shape
+  // (which removes any need for the kernel to broadcast) and then reshaping
+  // to rank 1.
+  TensorIndex binary_lhs_tensor_index = lhs_bool_tensor_index;
+  TensorIndex binary_rhs_tensor_index = rhs_bool_tensor_index;
+  std::vector<int32_t> binary_lhs_dims;
+  std::vector<int32_t> binary_rhs_dims;
+  std::vector<int32_t> binary_output_dims;
+  std::tie(binary_lhs_dims, binary_rhs_dims, binary_output_dims) =
+      CollapseBroadcastShapes(lhs_dims, rhs_dims);
+  if (binary_output_dims.size() > kMaxLogicalBroadcastRank) {
+    // Fallback: explicitly broadcast both operands to the output shape so
+    // the binary kernel does not need to broadcast, then flatten to rank 1
+    // (safe because both operands now share the output shape).
+    ASSIGN_OR_RETURN(const TensorIndex broadcast_lhs_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         output_dims, ::tflite::TensorType_BOOL));
+    ASSIGN_OR_RETURN(
+        const OperatorOffset broadcast_lhs_op,
+        SerializeBroadcastToOperation(lhs_bool_tensor_index, output_dims,
+                                      broadcast_lhs_tensor_index));
+    operators_.emplace_back(broadcast_lhs_op);
+
+    ASSIGN_OR_RETURN(const TensorIndex broadcast_rhs_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         output_dims, ::tflite::TensorType_BOOL));
+    ASSIGN_OR_RETURN(
+        const OperatorOffset broadcast_rhs_op,
+        SerializeBroadcastToOperation(rhs_bool_tensor_index, output_dims,
+                                      broadcast_rhs_tensor_index));
+    operators_.emplace_back(broadcast_rhs_op);
+
+    binary_lhs_tensor_index = broadcast_lhs_tensor_index;
+    binary_rhs_tensor_index = broadcast_rhs_tensor_index;
+    const int32_t flat_size =
+        std::accumulate(output_dims.begin(), output_dims.end(), int32_t{1},
+                        std::multiplies<int32_t>());
+    binary_lhs_dims = {flat_size};
+    binary_rhs_dims = {flat_size};
+    binary_output_dims = {flat_size};
+  }
+
+  ASSIGN_OR_RETURN(const TensorIndex reshaped_lhs_tensor_index,
+                   SerializeTemporaryTensorWithByteSizeCheck(
+                       binary_lhs_dims, ::tflite::TensorType_BOOL));
+  operators_.emplace_back(SerializeReshapeOperation(
+      binary_lhs_tensor_index, reshaped_lhs_tensor_index, binary_lhs_dims));
+
+  ASSIGN_OR_RETURN(const TensorIndex reshaped_rhs_tensor_index,
+                   SerializeTemporaryTensorWithByteSizeCheck(
+                       binary_rhs_dims, ::tflite::TensorType_BOOL));
+  operators_.emplace_back(SerializeReshapeOperation(
+      binary_rhs_tensor_index, reshaped_rhs_tensor_index, binary_rhs_dims));
+
+  ASSIGN_OR_RETURN(const TensorIndex binary_output_tensor_index,
+                   SerializeTemporaryTensorWithByteSizeCheck(
+                       binary_output_dims, ::tflite::TensorType_BOOL));
+  operators_.emplace_back(SerializeBinaryOperation(
+      code, reshaped_lhs_tensor_index, reshaped_rhs_tensor_index,
+      binary_output_tensor_index));
+
+  // Reshape the BOOL result back to the WebNN output shape.
+  operators_.emplace_back(SerializeReshapeOperation(
+      binary_output_tensor_index, output_bool_tensor_index, output_dims));
+  return base::ok();
 }
 
 auto GraphBuilderTflite::SerializeConcatOperation(
@@ -4279,6 +4497,19 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
   const webnn::Size2d<uint32_t> filter_size2d = {.height = filter_shape[1],
                                                  .width = filter_shape[2]};
 
+  // Conservative upper bounds for runtime-determined XNNPACK config
+  // parameters, used to validate buffer sizes at graph build time.
+  constexpr int32_t kMaxMr = 16;
+  constexpr int32_t kMaxNr = 128;
+  constexpr int32_t kMaxKrSr = 8;
+  constexpr int32_t kMaxPrimaryTile = 25;
+  constexpr int32_t kMaxChannelTile = 32;
+  constexpr int32_t kMaxFilterElementSize = 4;  // sizeof(float32)
+  // bias_element_size (max 4) + extra_weights_bytes (max 8).
+  constexpr int32_t kMaxBiasAndExtraBytes = 12;
+  // XNN_ALLOCATION_ALIGNMENT is platform-dependent (max 128 on Hexagon).
+  constexpr int32_t kMaxAllocationAlignment = 128;
+
   if (conv2d.kind == mojom::Conv2d::Kind::kDirect) {
     // Calculate the im2col temp tensor size [batch_size * output_height *
     // output_width * input_channels * filter_height * filter_width].
@@ -4298,11 +4529,6 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
     // Check indirection buffer size for the XNNPack kernel. The formula
     // depends on whether XNNPack uses the dwconv path or the igemm path.
     // See third_party/xnnpack/src/src/operators/convolution-nhwc.c.
-    //
-    // `mr` is a runtime GEMM tile size chosen by XNNPack based on hardware;
-    // use a conservative upper bound since the exact value is unknown at
-    // graph build time.
-    constexpr int32_t kMaxMr = 16;
     auto checked_kernel_size =
         base::CheckedNumeric<int32_t>(filter_size2d.height);
     checked_kernel_size *= base::CheckedNumeric<int32_t>(filter_size2d.width);
@@ -4316,14 +4542,9 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
       //     output_height * (kernel_size + (output_width - 1) * step_width *
       //     kernel_height))
       //
-      // Use a conservative upper bound for primary_tile value (max 25 across
-      // all architectures). See
-      // third_party/xnnpack/src/src/configs/dwconv-config.c
-      //
       // Use kernel_width as a conservative upper bound for step_width
       // (step_width = min(stride_width, kernel_width) when dilation == 1,
       // or kernel_width otherwise).
-      constexpr int32_t kMaxPrimaryTile = 25;
       checked_output_width -= 1;
       checked_output_width *=
           base::CheckedNumeric<int32_t>(filter_size2d.width);
@@ -4347,6 +4568,55 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
       return base::unexpected(
           "Conv2d doesn't support configurations that require an internal "
           "computation buffer exceeding the maximum size.");
+    }
+
+    // Check XNNPACK packed weights buffer size to prevent overflow.
+    // See third_party/xnnpack/src/src/operators/convolution-nhwc.c.
+    if (webnn::IsDepthwiseConv2d(input_channels, output_channels,
+                                 conv2d.groups)) {
+      // dwconv path: aligned_total_weights_size = round_up_po2(
+      //   (primary_tile * filter_element_size + bias_element_size +
+      //   extra_weights_bytes) * c_stride, XNN_ALLOCATION_ALIGNMENT)
+      // where c_stride = round_up_po2(groups, channel_tile).
+      auto checked_packed_weights =
+          base::CheckedNumeric<int32_t>(kMaxPrimaryTile);
+      checked_packed_weights *= kMaxFilterElementSize;
+      checked_packed_weights += kMaxBiasAndExtraBytes;
+      checked_packed_weights *= RoundUp(
+          base::CheckedNumeric<int32_t>(conv2d.groups), kMaxChannelTile);
+      checked_packed_weights =
+          RoundUp(checked_packed_weights, kMaxAllocationAlignment);
+      if (!checked_packed_weights.IsValid()) {
+        return base::unexpected(
+            "Conv2d doesn't support configurations that require "
+            "packed weights exceeding the maximum size.");
+      }
+    } else {
+      // igemm path: aligned_total_weights_size = round_up_po2(
+      //   ((kernel_size * k_stride * filter_element_size) + bias_element_size +
+      //   extra_weights_bytes) * n_stride * groups, XNN_ALLOCATION_ALIGNMENT)
+      // where k_stride = round_up_po2(group_input_channels, kr * sr),
+      //       n_stride = round_up(group_output_channels, nr).
+      auto checked_group_input_channels =
+          base::CheckedNumeric<int32_t>(input_channels) /
+          base::CheckedNumeric<int32_t>(conv2d.groups);
+      auto checked_group_output_channels =
+          base::CheckedNumeric<int32_t>(output_channels) /
+          base::CheckedNumeric<int32_t>(conv2d.groups);
+      auto checked_k_stride = RoundUp(checked_group_input_channels, kMaxKrSr);
+      auto checked_n_stride = RoundUp(checked_group_output_channels, kMaxNr);
+      auto checked_packed_weights = checked_kernel_size * checked_k_stride;
+      checked_packed_weights *= kMaxFilterElementSize;
+      checked_packed_weights += kMaxBiasAndExtraBytes;
+      checked_packed_weights *= checked_n_stride;
+      checked_packed_weights *= base::CheckedNumeric<int32_t>(conv2d.groups);
+      checked_packed_weights =
+          RoundUp(checked_packed_weights, kMaxAllocationAlignment);
+      if (!checked_packed_weights.IsValid()) {
+        return base::unexpected(
+            "Conv2d doesn't support configurations that require "
+            "packed weights exceeding the maximum size.");
+      }
     }
   }
 
@@ -4399,19 +4669,12 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
     // Check indirection buffer size for the XNNPack kernel. The formula
     // depends on whether XNNPack uses the subconv2d path or the igemm path.
     // See third_party/xnnpack/src/src/operators/deconvolution-nhwc.c.
-    //
-    // `mr` is a runtime GEMM tile size chosen by XNNPack based on hardware;
-    // use a conservative upper bound since the exact value is unknown at
-    // graph build time.
-    constexpr int32_t kMaxMr = 16;
     auto checked_kernel_size =
         base::CheckedNumeric<int32_t>(filter_size2d.height);
     checked_kernel_size *= base::CheckedNumeric<int32_t>(filter_size2d.width);
     auto checked_indirection_buffer_size =
         base::CheckedNumeric<int32_t>(sizeof(void*));
-    if (std::max(conv2d.strides->height, conv2d.strides->width) > 1 &&
-        conv2d.strides->width <= filter_size2d.width &&
-        conv2d.strides->height <= filter_size2d.height) {
+    if (IsXnnpackSubconv2d(*conv2d.strides, filter_size2d)) {
       // subconv2d path: sizeof(void*) * kernel_size * output_height *
       //     stride_width * round_up(ceil(output_width / stride_width), mr)
       auto checked_stride_width =
@@ -4437,6 +4700,50 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
       return base::unexpected(
           "convTranspose2d doesn't support configurations that require an "
           "internal computation buffer exceeding the maximum size.");
+    }
+
+    // Check XNNPACK packed weights buffer size to prevent overflow. The formula
+    // depends on whether XNNPack uses the subconv2d path or the igemm path:
+    // aligned_total_weights_size = round_up_po2(packed_group_weights_size *
+    //   groups, XNN_ALLOCATION_ALIGNMENT)
+    // subconv2d: packed_group_weights_size =
+    //   (kernel_size * k_stride * filter_element_size + (bias_element_size +
+    //   extra_weights_bytes) * subkernels) * n_stride
+    // igemm: packed_group_weights_size =
+    //   (kernel_size * k_stride * filter_element_size + bias_element_size +
+    //   extra_weights_bytes) * n_stride
+    // where k_stride = round_up_po2(group_input_channels, kr * sr),
+    //       n_stride = round_up(group_output_channels, nr).
+    // See third_party/xnnpack/src/src/operators/deconvolution-nhwc.c.
+    auto checked_group_output_channels =
+        base::CheckedNumeric<int32_t>(output_channels) /
+        base::CheckedNumeric<int32_t>(conv2d.groups);
+    auto checked_group_input_channels =
+        base::CheckedNumeric<int32_t>(input_channels) /
+        base::CheckedNumeric<int32_t>(conv2d.groups);
+    auto checked_n_stride = RoundUp(checked_group_output_channels, kMaxNr);
+    auto checked_k_stride = RoundUp(checked_group_input_channels, kMaxKrSr);
+    auto checked_packed_weights = checked_kernel_size * checked_k_stride;
+    checked_packed_weights *= kMaxFilterElementSize;
+    if (IsXnnpackSubconv2d(*conv2d.strides, filter_size2d)) {
+      auto checked_subkernels =
+          base::CheckedNumeric<int32_t>(conv2d.strides->height);
+      checked_subkernels *=
+          base::CheckedNumeric<int32_t>(conv2d.strides->width);
+      checked_subkernels *= kMaxBiasAndExtraBytes;
+      checked_packed_weights += checked_subkernels;
+    } else {
+      checked_packed_weights += kMaxBiasAndExtraBytes;
+    }
+
+    checked_packed_weights *= checked_n_stride;
+    checked_packed_weights *= base::CheckedNumeric<int32_t>(conv2d.groups);
+    checked_packed_weights =
+        RoundUp(checked_packed_weights, kMaxAllocationAlignment);
+    if (!checked_packed_weights.IsValid()) {
+      return base::unexpected(
+          "convTranspose2d doesn't support configurations that require "
+          "packed weights exceeding the maximum size.");
     }
   }
 
@@ -4769,39 +5076,58 @@ auto GraphBuilderTflite::SerializeElementWiseBinary(
 
   ASSIGN_OR_RETURN(const TensorInfo output_tensor_info,
                    SerializeOutputTensorInfo(op.output_operand_id));
-  TensorIndex lhs_tensor_index = lhs_tensor_info.index;
-  TensorIndex rhs_tensor_index = rhs_tensor_info.index;
+
+  // For LOGICAL_AND/LOGICAL_OR (and LogicalXor, polyfilled with NOT_EQUAL),
+  // the WebNN inputs and output are uint8 but TFLite kernels expect BOOL. The
+  // shared flow is: CAST each uint8 input to BOOL, run the binary op on
+  // BOOL (delegating high-rank broadcast handling to a helper), then CAST
+  // the BOOL result back to uint8. CAST is unary so it has no broadcast
+  // rank limit.
   if (op.kind == mojom::ElementWiseBinary::Kind::kLogicalAnd ||
       op.kind == mojom::ElementWiseBinary::Kind::kLogicalOr ||
       op.kind == mojom::ElementWiseBinary::Kind::kLogicalXor) {
-    // The data types of the inputs for these binary logical operators are
-    // uint8 in WebNN. However, TFLite requires them to be bools, so we need
-    // to cast the inputs to temporary bool tensors, perform the actual
-    // operation.
     CHECK_EQ(lhs_tensor_info.data_type, ::tflite::TensorType_UINT8);
-    ASSIGN_OR_RETURN(
-        lhs_tensor_index,
-        SerializeTemporaryTensorWithByteSizeCheck(lhs_tensor_info.dimensions,
-                                                  ::tflite::TensorType_BOOL));
-    operators_.emplace_back(SerializeCastOperation(
-        lhs_tensor_info.index,
-        /*input_tensor_type=*/::tflite::TensorType_UINT8, lhs_tensor_index,
-        /*output_tensor_type=*/::tflite::TensorType_BOOL));
-
     CHECK_EQ(rhs_tensor_info.data_type, ::tflite::TensorType_UINT8);
-    ASSIGN_OR_RETURN(
-        rhs_tensor_index,
-        SerializeTemporaryTensorWithByteSizeCheck(rhs_tensor_info.dimensions,
-                                                  ::tflite::TensorType_BOOL));
-    operators_.emplace_back(SerializeCastOperation(
-        rhs_tensor_info.index,
-        /*input_tensor_type=*/::tflite::TensorType_UINT8, rhs_tensor_index,
-        /*output_tensor_type=*/::tflite::TensorType_BOOL));
+    CHECK_EQ(output_tensor_info.data_type, ::tflite::TensorType_UINT8);
+
+    auto cast_uint8_to_bool =
+        [&](const TensorInfo& tensor_info)
+        -> base::expected<TensorIndex, std::string> {
+      ASSIGN_OR_RETURN(const TensorIndex bool_tensor_index,
+                       SerializeTemporaryTensorWithByteSizeCheck(
+                           tensor_info.dimensions, ::tflite::TensorType_BOOL));
+      operators_.emplace_back(SerializeCastOperation(
+          tensor_info.index,
+          /*input_tensor_type=*/::tflite::TensorType_UINT8, bool_tensor_index,
+          /*output_tensor_type=*/::tflite::TensorType_BOOL));
+      return bool_tensor_index;
+    };
+    ASSIGN_OR_RETURN(const TensorIndex lhs_bool_tensor_index,
+                     cast_uint8_to_bool(lhs_tensor_info));
+    ASSIGN_OR_RETURN(const TensorIndex rhs_bool_tensor_index,
+                     cast_uint8_to_bool(rhs_tensor_info));
+
+    ASSIGN_OR_RETURN(const TensorIndex output_bool_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         output_tensor_info.dimensions,
+                         ::tflite::TensorType_BOOL));
+    RETURN_IF_ERROR(InsertLogicalBinaryOperations(
+        code, lhs_bool_tensor_index, lhs_tensor_info.dimensions,
+        rhs_bool_tensor_index, rhs_tensor_info.dimensions,
+        output_bool_tensor_index, output_tensor_info.dimensions));
+
+    // Cast the output from bool to uint8, since that's what WebNN expects
+    // back.
+    return SerializeCastOperation(
+        output_bool_tensor_index,
+        /*input_tensor_type=*/::tflite::TensorType_BOOL,
+        output_tensor_info.index,
+        /*output_tensor_type=*/::tflite::TensorType_UINT8);
   }
 
-  // The data types of the output for all the binary logical operators are
-  // uint8 in WebNN. However, TFLite returns bools, so we need to cast the
-  // output to uint8.
+  // Remaining logical kernels (EQUAL/GREATER/LESS/etc.) operate on the
+  // original input types directly but produce a BOOL output that WebNN
+  // expects to be uint8.
   CHECK_EQ(output_tensor_info.data_type, ::tflite::TensorType_UINT8);
   ASSIGN_OR_RETURN(
       TensorIndex output_tensor_bool_index,
@@ -4809,7 +5135,8 @@ auto GraphBuilderTflite::SerializeElementWiseBinary(
                                                 ::tflite::TensorType_BOOL));
 
   operators_.emplace_back(SerializeBinaryOperation(
-      code, lhs_tensor_index, rhs_tensor_index, output_tensor_bool_index));
+      code, lhs_tensor_info.index, rhs_tensor_info.index,
+      output_tensor_bool_index));
 
   // Cast the output from bool to uint8, since that's what WebNN expects back.
   return SerializeCastOperation(
@@ -5329,13 +5656,40 @@ auto GraphBuilderTflite::SerializeGatherIndices(
       const TensorIndex lesser_tensor_index,
       SerializeTemporaryTensorWithByteSizeCheck(indices_tensor_info.dimensions,
                                                 ::tflite::TensorType_BOOL));
+  TensorIndex less_input_tensor_index = clamp_tensor_index;
+  TensorIndex less_output_tensor_index = lesser_tensor_index;
+  if (indices_rank > 4) {
+    // The TFLite LESS kernel only supports tensors up to rank 4. Flatten the
+    // indices to 1D before LESS and then reshape back to the original shape.
+    const int32_t flattened_size =
+        std::accumulate(indices_tensor_info.dimensions.begin(),
+                        indices_tensor_info.dimensions.end(), int32_t{1},
+                        std::multiplies<int32_t>());
+    const std::array<int32_t, 1> flattened_shape = {flattened_size};
+    ASSIGN_OR_RETURN(const TensorIndex flattened_indices_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         flattened_shape, cast_tensor_type));
+    operators_.emplace_back(SerializeReshapeOperation(
+        clamp_tensor_index, flattened_indices_tensor_index, flattened_shape));
+
+    ASSIGN_OR_RETURN(const TensorIndex flattened_lesser_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         flattened_shape, ::tflite::TensorType_BOOL));
+    less_input_tensor_index = flattened_indices_tensor_index;
+    less_output_tensor_index = flattened_lesser_tensor_index;
+  }
   ASSIGN_OR_RETURN(const TensorIndex zero_value_tensor_index,
                    SerializeTensorWithBuffer<DataType>(
                        /*buffer=*/std::array<DataType, 1>{0},
                        /*dimensions=*/{}));
   operators_.emplace_back(SerializeBinaryOperation(
-      ::tflite::BuiltinOperator_LESS, clamp_tensor_index,
-      zero_value_tensor_index, lesser_tensor_index));
+      ::tflite::BuiltinOperator_LESS, less_input_tensor_index,
+      zero_value_tensor_index, less_output_tensor_index));
+  if (indices_rank > 4) {
+    operators_.emplace_back(
+        SerializeReshapeOperation(less_output_tensor_index, lesser_tensor_index,
+                                  indices_tensor_info.dimensions));
+  }
 
   ASSIGN_OR_RETURN(const TensorIndex add_tensor_index,
                    SerializeTemporaryTensorWithByteSizeCheck(
@@ -8214,12 +8568,64 @@ auto GraphBuilderTflite::SerializePrelu(const mojom::Prelu& prelu)
     -> base::expected<OperatorOffset, std::string> {
   CHECK(context_properties_.data_type_limits.prelu_input.Supports(
       GetOperand(prelu.input_operand_id).descriptor));
+  CHECK(context_properties_.data_type_limits.prelu_input.Supports(
+      GetOperand(prelu.slope_operand_id).descriptor));
+  CHECK(context_properties_.data_type_limits.prelu_input.Supports(
+      GetOperand(prelu.output_operand_id).descriptor));
   ASSIGN_OR_RETURN(const TensorInfo& input_tensor_info,
                    SerializeInputTensorInfo(prelu.input_operand_id));
   ASSIGN_OR_RETURN(const TensorInfo& slope_tensor_info,
                    SerializeInputTensorInfo(prelu.slope_operand_id));
   ASSIGN_OR_RETURN(const TensorInfo output_tensor_info,
                    SerializeOutputTensorInfo(prelu.output_operand_id));
+
+  // TFLite's PReLU kernel only supports broadcasting up to rank 4, so emulate
+  // higher-rank cases with element-wise ops. Use `> 4` rather than `== 5` to
+  // reflect the kernel's rank limit directly and remain correct if the op
+  // support limit is ever raised beyond rank 5.
+  //
+  // Emulate PReLU as `max(x, 0) + slope * min(x, 0)`, which is equivalent to:
+  //   - For x >= 0: max(x, 0) = x, min(x, 0) = 0, result = x
+  //   - For x <  0: max(x, 0) = 0, min(x, 0) = x, result = slope * x
+  if (input_tensor_info.dimensions.size() > 4 ||
+      slope_tensor_info.dimensions.size() > 4) {
+    // SerializeInputTensorInfo() has already dequantized input tensors to
+    // float32 for PReLU, so the shared scalar zero tensor is created as
+    // float32 as well.
+    ASSIGN_OR_RETURN(const TensorIndex zero_value_tensor_index,
+                     SerializeTensorWithBuffer<float>(
+                         /*buffer=*/std::array<float, 1>{0.0f},
+                         /*dimensions=*/{}));
+    ASSIGN_OR_RETURN(const TensorIndex positive_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         input_tensor_info.dimensions,
+                         input_tensor_info.data_type));
+    operators_.emplace_back(SerializeBinaryOperation(
+        ::tflite::BuiltinOperator_MAXIMUM, input_tensor_info.index,
+        zero_value_tensor_index, positive_tensor_index));
+
+    ASSIGN_OR_RETURN(const TensorIndex negative_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         input_tensor_info.dimensions,
+                         input_tensor_info.data_type));
+    operators_.emplace_back(SerializeBinaryOperation(
+        ::tflite::BuiltinOperator_MINIMUM, input_tensor_info.index,
+        zero_value_tensor_index, negative_tensor_index));
+
+    ASSIGN_OR_RETURN(const TensorIndex scaled_negative_tensor_index,
+                     SerializeTemporaryTensorWithByteSizeCheck(
+                         output_tensor_info.dimensions,
+                         output_tensor_info.data_type));
+    operators_.emplace_back(SerializeBinaryOperation(
+        ::tflite::BuiltinOperator_MUL, negative_tensor_index,
+        slope_tensor_info.index, scaled_negative_tensor_index));
+
+    return SerializeBinaryOperation(::tflite::BuiltinOperator_ADD,
+                                    positive_tensor_index,
+                                    scaled_negative_tensor_index,
+                                    output_tensor_info.index);
+  }
+
   const OperatorCodeIndex operator_code_index =
       GetOperatorCodeIndex(::tflite::BuiltinOperator_PRELU);
   const std::array<TensorIndex, 2> op_inputs = {input_tensor_info.index,

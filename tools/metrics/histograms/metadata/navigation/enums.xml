@@ -41,7 +41,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Match found and index match"/>
 </enum>
 
-<!-- LINT.ThenChange(//content/browser/renderer_host/back_forward_cache_impl.h:BackForwardCacheEntryMatchResult) -->
+<!-- LINT.ThenChange(//content/browser/back_forward_cache/back_forward_cache_impl.h:BackForwardCacheEntryMatchResult) -->
 
 <enum name="BackForwardCacheEvictedAfterDocumentRestoredReason">
   <int value="0" label="Restored"/>
@@ -276,21 +276,12 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Same entry (e.g. session restore)"/>
 </enum>
 
-<!-- LINT.ThenChange(//content/browser/renderer_host/back_forward_cache_metrics.h:HistoryNavigationDirection) -->
+<!-- LINT.ThenChange(//content/browser/back_forward_cache/back_forward_cache_metrics.h:HistoryNavigationDirection) -->
 
 <enum name="HistoryNavType">
   <int value="0" label="kMainFrame"/>
   <int value="1" label="kMainFrameAndSubframe"/>
   <int value="2" label="kSubframe"/>
-</enum>
-
-<enum name="LinkPreviewZoomUsage">
-  <int value="0"
-      label="kOnlyDefaultUsed: A preview was started with default zoom level
-             and not changed."/>
-  <int value="1"
-      label="kNonDefaultUsed: A preview was shown with non default zoom level
-             in some timing in a preview lifecycle."/>
 </enum>
 
 <enum name="MojoInterfaceName">
@@ -1845,6 +1836,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Running in Isolated Web App"/>
   <int value="11" label="Running in Kiosk Session"/>
   <int value="12" label="Low memory device"/>
+  <int value="13" label="Disabled by blackout"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/preloading/prerender/prerender_manager.h:PrewarmDecision) -->

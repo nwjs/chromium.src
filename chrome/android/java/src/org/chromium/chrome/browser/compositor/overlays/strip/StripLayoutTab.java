@@ -21,7 +21,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList;
@@ -47,6 +46,7 @@ import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.util.MotionEventUtils;
+import org.chromium.ui.util.StyleUtils;
 
 import java.util.List;
 
@@ -270,8 +270,7 @@ public class StripLayoutTab extends StripLayoutView {
 
         int iconColor =
                 incognito ? R.color.default_icon_color_light : R.color.default_icon_color_tint_list;
-        int iconColorInt =
-                AppCompatResources.getColorStateList(context, iconColor).getDefaultColor();
+        int iconColorInt = context.getColorStateList(iconColor).getDefaultColor();
         mCloseButton.setTint(iconColorInt);
         @ColorInt
         int backgroundHoverTint =
@@ -423,10 +422,19 @@ public class StripLayoutTab extends StripLayoutView {
                 || (mMediaState != MediaState.NONE && !shouldHideMediaIndicator());
     }
 
+    private boolean isRecordingOrSharingMedia() {
+        return mMediaState == MediaState.RECORDING || mMediaState == MediaState.SHARING;
+    }
+
     /**
-     * @return The resource ID of the indicator to show, prioritizing actuatigon over media.
+     * @return The resource ID of the indicator to show, prioritizing active media recording, then
+     *     actuation, then other media indicators. For desktop counterpart, see tab alert priority
+     *     in {@code chrome/browser/ui/tabs/alert/tab_alert_controller.cc}.
      */
     public @DrawableRes int getIndicatorRes() {
+        if (isRecordingOrSharingMedia() && shouldShowIndicator()) {
+            return TabUtils.getMediaIndicatorDrawable(mMediaState);
+        }
         if (getTabIndicatorStatus() == TabIndicatorStatus.DYNAMIC) {
             return R.drawable.ic_arrow_selector_spark_14dp;
         } else if (getTabIndicatorStatus() == TabIndicatorStatus.STATIC) {
@@ -442,6 +450,10 @@ public class StripLayoutTab extends StripLayoutView {
      * @return The tint color for the active indicator.
      */
     public @ColorInt int getIndicatorTint() {
+        if (isRecordingOrSharingMedia()) {
+            return TabUtils.getMediaIndicatorTintColor(
+                    mContext, mMediaState, getCloseButton().getTint());
+        }
         if (getTabIndicatorStatus() != TabIndicatorStatus.NONE) {
             return SemanticColorUtils.getColorPrimary(mContext);
         }
@@ -453,6 +465,9 @@ public class StripLayoutTab extends StripLayoutView {
      * @return The resource ID of the indicator overlay to show.
      */
     public @DrawableRes int getIndicatorOverlayRes() {
+        if (isRecordingOrSharingMedia()) {
+            return Resources.ID_NULL;
+        }
         if (getTabIndicatorStatus() == TabIndicatorStatus.DYNAMIC) {
             return R.drawable.tab_indicator_spinner;
         }
@@ -975,9 +990,9 @@ public class StripLayoutTab extends StripLayoutView {
         }
 
         mClosePlacement.top =
-                StripLayoutUtils.shouldApplyMoreDensity() ? DESKTOP_CLOSE_BUTTON_OFFSET_Y_DP : 0;
+                StyleUtils.shouldApplyDesktopDensity() ? DESKTOP_CLOSE_BUTTON_OFFSET_Y_DP : 0;
         mClosePlacement.bottom =
-                StripLayoutUtils.shouldApplyMoreDensity()
+                StyleUtils.shouldApplyDesktopDensity()
                         ? mClosePlacement.top + closeButtonHeight
                         : getHeight();
 
@@ -1005,7 +1020,7 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     public int getCloseButtonOffsetX() {
-        return StripLayoutUtils.shouldApplyMoreDensity()
+        return StyleUtils.shouldApplyDesktopDensity()
                 ? DESKTOP_CLOSE_BUTTON_OFFSET_X_DP
                 : getTabTouchTargetEndOffsetX();
     }
@@ -1035,6 +1050,9 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     public float getMediaIndicatorWidth() {
+        if (isRecordingOrSharingMedia()) {
+            return MEDIA_INDICATOR_WIDTH;
+        }
         if (getTabIndicatorStatus() == TabIndicatorStatus.DYNAMIC) {
             return DYNAMIC_GLIC_ACTUATION_INDICATOR_WIDTH;
         }

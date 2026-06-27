@@ -19,6 +19,7 @@
 #include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
 #include "content/public/browser/bluetooth_chooser.h"
 #include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/common/child_process_id.h"
 #include "extensions/browser/extension_event_histogram_value.h"
 #include "extensions/browser/extension_prefs_observer.h"
 #include "extensions/browser/extensions_browser_api_provider.h"
@@ -38,6 +39,7 @@ class ExtensionFunctionRegistry;
 namespace base {
 class CommandLine;
 class FilePath;
+class Version;
 }  // namespace base
 
 namespace content {
@@ -258,6 +260,9 @@ class ExtensionsBrowserClient {
   virtual bool IsExtensionIncognitoEnabled(
       const ExtensionId& extension_id,
       content::BrowserContext* context) const = 0;
+  virtual bool IsExtensionIncognitoEnabled(
+      const Extension* extension,
+      content::BrowserContext* context) const = 0;
 
   // Returns true if `extension` can see events and data from another
   // sub-profile (incognito to original profile, or vice versa).
@@ -289,7 +294,7 @@ class ExtensionsBrowserClient {
       const network::ResourceRequest& request,
       network::mojom::RequestDestination destination,
       ui::PageTransition page_transition,
-      int child_id,
+      content::ChildProcessId child_id,
       bool is_incognito,
       const Extension* extension,
       const ExtensionSet& extensions,
@@ -687,6 +692,13 @@ class ExtensionsBrowserClient {
   // Returns whether the given browser context is allowed to use non-component
   // extensions.
   virtual bool CanUseNonComponentExtensions(content::BrowserContext* context);
+
+  // Checks whether the extension can be installed based on policy.
+  virtual void CanInstallExtensionByPolicy(
+      content::BrowserContext* context,
+      const ExtensionId& extension_id,
+      const base::Version& extension_version,
+      base::OnceCallback<void(bool, std::u16string)> callback);
 
  protected:
   std::unique_ptr<ExtensionAssetsManager> assets_manager_;

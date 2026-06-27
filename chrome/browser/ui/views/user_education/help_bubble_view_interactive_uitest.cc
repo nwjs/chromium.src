@@ -30,7 +30,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/expect_call_in_scope.h"
-#include "ui/base/interaction/framework_specific_implementation.h"
+#include "ui/base/interaction/safe_castable.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
@@ -47,6 +47,10 @@
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
 
 using user_education::HelpBubbleArrow;
 using user_education::HelpBubbleParams;
@@ -67,7 +71,7 @@ class TestHelpBubbleFactory : public user_education::HelpBubbleFactoryViews {
   TestHelpBubbleFactory() : HelpBubbleFactoryViews(GetHelpBubbleDelegate()) {}
   ~TestHelpBubbleFactory() override = default;
 
-  DECLARE_FRAMEWORK_SPECIFIC_METADATA()
+  DECLARE_SAFE_CAST_TARGET()
 
   // Returns whether the bubble owner can show a bubble for the TrackedElement.
   bool CanBuildBubbleForTrackedElement(
@@ -94,7 +98,7 @@ class TestHelpBubbleFactory : public user_education::HelpBubbleFactoryViews {
   }
 };
 
-DEFINE_FRAMEWORK_SPECIFIC_METADATA(TestHelpBubbleFactory)
+DEFINE_SAFE_CAST_TARGET(TestHelpBubbleFactory)
 
 }  // namespace
 
@@ -349,6 +353,13 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleViewInteractiveUiTest, MAYBE_AnnotateMenu) {
     GTEST_SKIP_(kLinuxWaylandErrorMessage);
   }
 
+#if BUILDFLAG(IS_MAC)
+  // TODO(crbug.com/510801992): Re-enable on macOS 26 once test is deflaked
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
+#endif
+
   UNCALLED_MOCK_CALLBACK(base::OnceClosure, default_button_clicked);
   constexpr char16_t kButton1Text[] = u"button 1";
 
@@ -390,6 +401,13 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleViewInteractiveUiTest, TwoMenuHelpBubbles) {
   if (SkipIfLinuxWayland()) {
     GTEST_SKIP_(kLinuxWaylandErrorMessage);
   }
+
+#if BUILDFLAG(IS_MAC)
+  // TODO(crbug.com/510801992): Re-enable on macOS 26 once test is deflaked
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
+#endif
 
   UNCALLED_MOCK_CALLBACK(base::OnceClosure, button_clicked);
   constexpr char16_t kButtonText[] = u"button";

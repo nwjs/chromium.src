@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Copyright 2026 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/ntp_customization_theme_tip_bottom_sheet_scrollview"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center_horizontal"
+    android:layout_marginBottom="@dimen/ntp_customization_theme_main_sheet_vertical_margin"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:clickable="true">
+
+        <!-- Rectangle Background Container -->
+        <include layout="@layout/ntp_customization_theme_tip_illustration_box" />
+
+        <org.chromium.ui.widget.TextViewWithLeading
+            android:id="@+id/theme_tip_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:layout_marginHorizontal="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:focusable="true"
+            android:accessibilityHeading="true"
+            android:textAppearance="@style/TextAppearance.TextLarge.Primary"
+            android:gravity="center_horizontal|top"
+            android:text="@string/ntp_customization_theme_tip_title" />
+
+        <org.chromium.ui.widget.TextViewWithLeading
+            android:id="@+id/theme_tip_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:focusable="true"
+            android:textAppearance="@style/TextAppearance.TextMedium.Secondary"
+            android:gravity="center_horizontal|top"
+            android:text="@string/ntp_customization_theme_tip_description" />
+
+        <org.chromium.ui.widget.ButtonCompat
+            android:id="@+id/customize_button"
+            style="@style/FilledButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:layout_marginHorizontal="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:paddingVertical="@dimen/ntp_customization_theme_list_item_padding_vertical"
+            android:text="@string/ntp_customization_theme_tip_customize_button" />
+
+        <org.chromium.ui.widget.ButtonCompat
+            android:id="@+id/cancel_button"
+            style="@style/TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:layout_marginBottom="@dimen/ntp_customization_theme_tip_sheet_horizontal_margin"
+            android:paddingVertical="@dimen/ntp_customization_theme_list_item_padding_vertical"
+            android:text="@string/no_thanks" />
+
+    </LinearLayout>
+</ScrollView>

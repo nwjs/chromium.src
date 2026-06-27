@@ -45,8 +45,7 @@ public class AutofillOptionsFragment extends ChromeBaseSettingsFragment {
     public static final String AUTOFILL_OPTIONS_REFERRER = "autofill-options-referrer";
     public static final String PREF_AUTOFILL_THIRD_PARTY_FILLING = "autofill_third_party_filling";
     public static final String PREF_THIRD_PARTY_TOGGLE_HINT = "third_party_toggle_hint";
-    public static final String PREF_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR =
-            "autofill_ai_accessibility_annotator";
+    public static final String PREF_AUTOFILL_AI_PERSONAL_CONTEXT = "autofill_ai_personal_context";
     public static final String PREF_AUTOFILL_AI_SWITCH = "autofill_ai_switch";
     public static final String PREF_AUTOFILL_AI_AUTHENTICATION_SWITCH =
             "autofill_ai_authentication_switch";
@@ -62,12 +61,16 @@ public class AutofillOptionsFragment extends ChromeBaseSettingsFragment {
     // numeric values should never be reused.
     //
     // Needs to stay in sync with AutofillOptionsReferrer in enums.xml.
+    // LINT.IfChange(AutofillOptionsReferrer)
     @IntDef({
         AutofillOptionsReferrer.SETTINGS,
         AutofillOptionsReferrer.DEEP_LINK_TO_SETTINGS,
         AutofillOptionsReferrer.PAYMENT_METHODS_FRAGMENT,
         AutofillOptionsReferrer.AUTOFILL_PROFILES_FRAGMENT,
         AutofillOptionsReferrer.AUTOFILL_AND_PASSWORDS_FRAGMENT,
+        AutofillOptionsReferrer.AUTOFILL_IDENTITY_DOCS_FRAGMENT,
+        AutofillOptionsReferrer.AUTOFILL_TRAVEL_FRAGMENT,
+        AutofillOptionsReferrer.AUTOFILL_SHOPPING_FRAGMENT,
         AutofillOptionsReferrer.COUNT
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -87,8 +90,19 @@ public class AutofillOptionsFragment extends ChromeBaseSettingsFragment {
         /** Autofill and passwords in Chrome settings. */
         int AUTOFILL_AND_PASSWORDS_FRAGMENT = 4;
 
-        int COUNT = 5;
+        /** Identity docs fragment in Chrome settings. */
+        int AUTOFILL_IDENTITY_DOCS_FRAGMENT = 5;
+
+        /** Travel fragment in Chrome settings. */
+        int AUTOFILL_TRAVEL_FRAGMENT = 6;
+
+        /** Shopping fragment in Chrome settings. */
+        int AUTOFILL_SHOPPING_FRAGMENT = 7;
+
+        int COUNT = 8;
     }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillOptionsReferrer)
 
     private final SettableMonotonicObservableSupplier<String> mPageTitle =
             ObservableSuppliers.createMonotonic();
@@ -103,8 +117,8 @@ public class AutofillOptionsFragment extends ChromeBaseSettingsFragment {
         return thirdPartyFillingSwitch;
     }
 
-    @Nullable Preference getAutofillAiAccessibilityAnnotator() {
-        return findPreference(PREF_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR);
+    @Nullable Preference getAutofillAiPersonalContext() {
+        return findPreference(PREF_AUTOFILL_AI_PERSONAL_CONTEXT);
     }
 
     ChromeSwitchPreference getAutofillAiSwitch() {
@@ -246,15 +260,13 @@ public class AutofillOptionsFragment extends ChromeBaseSettingsFragment {
                         Context context, SettingsIndexData indexData, Profile profile) {
                     indexData.removeEntry(getUniqueId(PREF_THIRD_PARTY_TOGGLE_HINT));
                     if (!isAutofillAiEnabled()) {
-                        indexData.removeEntry(
-                                getUniqueId(PREF_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR));
+                        indexData.removeEntry(getUniqueId(PREF_AUTOFILL_AI_PERSONAL_CONTEXT));
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_AI_SWITCH));
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_AI_AUTHENTICATION_SWITCH));
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_SERVICE_PROVIDER_CETEGORY));
                     } else {
-                        if (!EntityDataManager.isAccessibilityAnnotatorSettingVisible(profile)) {
-                            indexData.removeEntry(
-                                    getUniqueId(PREF_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR));
+                        if (!EntityDataManager.isPersonalContextSettingVisible(profile)) {
+                            indexData.removeEntry(getUniqueId(PREF_AUTOFILL_AI_PERSONAL_CONTEXT));
                         }
                         if (!isAutofillAiReauthEnabled()) {
                             indexData.removeEntry(

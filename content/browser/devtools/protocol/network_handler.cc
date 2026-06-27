@@ -1599,6 +1599,10 @@ void NetworkHandler::SetRenderer(int render_process_host_id,
   }
 }
 
+void NetworkHandler::SetStoragePartition(StoragePartition* storage_partition) {
+  storage_partition_ = storage_partition;
+}
+
 Response NetworkHandler::Enable(
     std::optional<int> max_total_size,
     std::optional<int> max_resource_size,
@@ -1633,7 +1637,9 @@ Response NetworkHandler::Enable(
 DispatchResponse NetworkHandler::Disable() {
   enabled_ = false;
   url_loader_interceptor_.reset();
-  SetNetworkConditions({}, /*offline=*/false);
+  if (network_conditions_configured_) {
+    SetNetworkConditions({}, /*offline=*/false);
+  }
   extra_headers_.clear();
   ClearAcceptedEncodingsOverride();
   enable_third_party_cookie_restriction_ = false;
@@ -2156,6 +2162,10 @@ String BuildProtocolDeviceBoundSessionFetchResult(
         kSessionDeletedDuringRefresh:
       return protocol::Network::DeviceBoundSessionFetchResultEnum::
           SessionDeletedDuringRefresh;
+    case net::device_bound_sessions::SessionError::ErrorType::
+        kCrossOriginRegistrationSiteNotIncluded:
+      return protocol::Network::DeviceBoundSessionFetchResultEnum::
+          CrossOriginRegistrationSiteNotIncluded;
   }
 }
 
@@ -4333,6 +4343,7 @@ void NetworkHandler::SetNetworkConditions(
   if (!storage_partition_) {
     return;
   }
+  network_conditions_configured_ = !matched_conditions.empty() || offline;
   network::mojom::NetworkContext* context =
       storage_partition_->GetNetworkContext();
 

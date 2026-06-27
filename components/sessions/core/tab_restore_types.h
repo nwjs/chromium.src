@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
@@ -17,6 +18,8 @@
 #include "components/sessions/core/session_id.h"
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/sessions_export.h"
+#include "components/split_tabs/split_tab_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
@@ -41,6 +44,7 @@ class SESSIONS_EXPORT PlatformSpecificTabData {
 // The type of entry.
 enum Type {
   TAB,
+  SPLIT,
   GROUP,
   WINDOW,
 };
@@ -123,6 +127,12 @@ struct SESSIONS_EXPORT Tab : public Entry {
   // The user agent override used for the tab's navigations (if applicable).
   sessions::SerializedUserAgentOverride user_agent_override;
 
+  // The split view the tab belonged to, if any.
+  std::optional<split_tabs::SplitTabId> split_id = std::nullopt;
+
+  // The split visual data for the tab, if any.
+  std::optional<split_tabs::SplitTabVisualData> split_visual_data;
+
   // The group the tab belonged to, if any.
   std::optional<tab_groups::TabGroupId> group;
 
@@ -131,6 +141,26 @@ struct SESSIONS_EXPORT Tab : public Entry {
 
   // The group metadata for the tab, if any.
   std::optional<tab_groups::TabGroupVisualData> group_visual_data;
+};
+
+// Represents a previously open split view.
+// If you add a new field that can allocate memory also add
+// it to the EstimatedMemoryUsage() implementation.
+struct SESSIONS_EXPORT Split : public Entry {
+  Split();
+  ~Split() override;
+
+  // Entry:
+  size_t EstimateMemoryUsage() const override;
+
+  // The unique identifier for this split view instance.
+  std::optional<split_tabs::SplitTabId> split_id = std::nullopt;
+
+  // The visual data for the split view.
+  split_tabs::SplitTabVisualData visual_data;
+
+  // The tabs that comprised the split view, in order.
+  std::vector<std::unique_ptr<Tab>> tabs;
 };
 
 // Represents a previously open group.
@@ -160,6 +190,9 @@ struct SESSIONS_EXPORT Group : public Entry {
   // The ID of the browser to which this group belonged, so it can be restored
   // there.
   SessionID::id_type browser_id = 0;
+
+  // A mapping of split tab IDs to the split tabs inside this group.
+  std::map<split_tabs::SplitTabId, std::vector<raw_ptr<Tab>>> split_tabs;
 };
 
 // Represents a previously open window.

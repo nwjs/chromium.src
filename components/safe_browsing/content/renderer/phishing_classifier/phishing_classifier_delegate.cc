@@ -45,6 +45,13 @@ GURL StripRef(const GURL& url) {
   return url.ReplaceComponents(replacements);
 }
 
+GURL StripQueryAndRef(const GURL& url) {
+  GURL::Replacements replacements;
+  replacements.ClearQuery();
+  replacements.ClearRef();
+  return url.ReplaceComponents(replacements);
+}
+
 void LogClassificationRetryWithinTimeout(bool success) {
   base::UmaHistogramBoolean(
       "SBClientPhishing.Classifier.ReadyAfterRetryTimeout", success);
@@ -171,6 +178,12 @@ void PhishingClassifierDelegate::StartPhishingDetection(
 void PhishingClassifierDelegate::DidCommitProvisionalLoad(
     ui::PageTransition transition) {
   blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+  // A new page is starting to load, and if we had a browser request waiting, we
+  // log that if it never got the chance to classify.
+  if (is_phishing_detection_running_ && !is_classifying_) {
+    RecordEvent(
+        SBPhishingClassifierEvent::kNewPageLoadWhileBrowserRequestWaitsForLoad);
+  }
   // A new page is starting to load, so cancel classificaiton, and reset URL.
   CancelPendingClassification(CancelClassificationReason::kNavigateAway);
   renderer_layout_finished_ = false;
@@ -183,9 +196,7 @@ bool PhishingClassifierDelegate::is_ready() {
   return classifier_->is_ready();
 }
 
-void PhishingClassifierDelegate::PageCaptured(
-    scoped_refptr<const base::RefCountedString16> page_text,
-    bool preliminary_capture) {
+void PhishingClassifierDelegate::PageCaptured(bool preliminary_capture) {
   if (!base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
     RecordEvent(SBPhishingClassifierEvent::kPageTextCaptured);
 
@@ -196,6 +207,7 @@ void PhishingClassifierDelegate::PageCaptured(
     RecordEvent(
         SBPhishingClassifierEvent::kPhishingClassifierPageFinishedLoading);
 
+    renderer_layout_finished_ = true;
     last_finished_load_url_ =
         render_frame()->GetWebFrame()->GetDocument().Url();
 
@@ -262,7 +274,6 @@ void PhishingClassifierDelegate::PageCaptured(
           base::BindOnce(&PhishingClassifierDelegate::MaybeStartClassification,
                          weak_factory_.GetWeakPtr()),
           base::Seconds(kCsdClassificationDelay.Get()));
-
     } else {
       MaybeStartClassification();
     }
@@ -285,6 +296,8 @@ void PhishingClassifierDelegate::CancelPendingClassification(
   if (classifier_->is_ready()) {
     classifier_->CancelPendingClassification();
   }
+  is_phishing_detection_running_ = false;
+  last_url_received_from_browser_ = GURL();
   awaiting_retry_ = false;
   request_type_ = std::nullopt;
 }
@@ -331,8 +344,14 @@ void PhishingClassifierDelegate::ClassificationDone(
     }
   }
 
+  // In the process of classifiation, especially on pages that are single page
+  // applications (SPAs), the URL could change due to pushState, etc. Check once
+  // more that the URL still matches, ignoring ref and query.
   if (result == mojom::PhishingDetectorResult::SUCCESS) {
-    DCHECK_EQ(last_url_sent_to_classifier_.spec(), verdict.url());
+    DCHECK(StripQueryAndRef(last_url_sent_to_classifier_) ==
+           StripQueryAndRef(GURL(verdict.url())))
+        << "URL mismatch: " << last_url_sent_to_classifier_.spec() << " vs "
+        << verdict.url();
   }
   request_type_ = std::nullopt;
   RecordEvent(SBPhishingClassifierEvent::kPhishingClassifierRequestResponded);
@@ -342,17 +361,22 @@ void PhishingClassifierDelegate::ClassificationDone(
 void PhishingClassifierDelegate::MaybeStartClassification() {
   // We can begin phishing classification when the following conditions are
   // met:
-  //  1. There's no current classification going on.
-  //  2. A Scorer has been created.
-  //  3. The browser has sent a StartPhishingDetection message for the
+  //  1. We still actually have a request to answer.
+  //  2. There's no current classification going on.
+  //  3. A Scorer has been created.
+  //  4. The browser has sent a StartPhishingDetection message for the
   //     current toplevel URL.
-  //  4. The page has finished loading.
-  //  5. The load is a new navigation (not a session history navigation).
-  //  6. The toplevel URL has not already been classified.
-  //
-  // Note that if we determine that this particular navigation should not be
-  // classified at all (as opposed to deferring it until we get an IPC or
-  // the load completes), we discard the page text since it won't be needed.
+  //  5. The page has finished loading.
+  //  6. The load is a new navigation (not a session history navigation).
+  //  7. The toplevel URL has not already been classified.
+
+  // It is possible that these two variables are reset when
+  // MaybeStartClassification() is called after a delay with the feature study
+  // ClientSideDetectionNewObservers. Check again that there is actually a
+  // request to respond to.
+  if (!is_phishing_detection_running_ || !renderer_layout_finished_) {
+    return;
+  }
 
   // We shouldn't hit this ever, but for sanity check, we should return when
   // this hits.
@@ -369,7 +393,7 @@ void PhishingClassifierDelegate::MaybeStartClassification() {
     if (base::FeatureList::IsEnabled(kClientSideDetectionRetryLimit) &&
         is_phishing_detection_running_) {
       // If there's a browser side request and a retry has been submitted, this
-      // is only possible if the PageText has been recaptured. If there's a new
+      // is only possible if the page has been recaptured. If there's a new
       // browser side request, the |awaiting_retry_| and
       // |is_phishing_detection_running_| would have been set to false so we'd
       // retry again on a fresh browser request.
@@ -485,7 +509,7 @@ void PhishingClassifierDelegate::OnScorerChanged() {
   }
 
   // We check |is_classifying_| here because |CancelPendingClassification|
-  // clears the page text, and we do not want that if we are awaiting retry.
+  // clears the request type, and we do not want that if we are awaiting retry.
   if (is_classifying_) {
     CancelPendingClassification(
         CancelClassificationReason::kNewPhishingScorerUpdate);

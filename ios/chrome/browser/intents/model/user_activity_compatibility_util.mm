@@ -36,7 +36,6 @@ ActivityCompatibilityMode CompatibleModeForActivityType(
       [activity_type isEqualToString:kSiriShortcutAddReadingListItemToChrome] ||
       [activity_type isEqualToString:kSiriShortcutSearchInChrome] ||
       [activity_type isEqualToString:NSUserActivityTypeBrowsingWeb] ||
-      [activity_type isEqualToString:kSiriOpenLatestTab] ||
       [activity_type isEqualToString:kSiriOpenReadingList] ||
       [activity_type isEqualToString:kSiriOpenBookmarks] ||
       [activity_type isEqualToString:kSiriOpenTabGrid] ||
@@ -52,13 +51,13 @@ ActivityCompatibilityMode CompatibleModeForActivityType(
     return ActivityCompatibilityMode::kRegularAndIncognito;
   }
   if (@available(iOS 26, *)) {
-    if (CredentialExchangeEnabled() &&
-        [activity_type isEqualToString:[CredentialImportManager
+    if ([activity_type isEqualToString:[CredentialImportManager
                                            credentialExchangeActivity]]) {
       return ActivityCompatibilityMode::kRegularAndIncognito;
     }
   }
   if ([activity_type isEqualToString:kSiriShortcutOpenInChrome] ||
+      [activity_type isEqualToString:kSiriOpenLatestTab] ||
       [activity_type isEqualToString:kSiriOpenRecentTabs] ||
       [activity_type isEqualToString:kSiriViewHistory] ||
       [activity_type isEqualToString:kSiriClearBrowsingData]) {

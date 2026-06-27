@@ -12,12 +12,12 @@
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_aim_handler.h"
@@ -27,7 +27,6 @@
 #include "chrome/browser/ui/webui/searchbox/omnibox_composebox_handler.h"
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_handler.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/omnibox_popup_resources.h"
 #include "chrome/grit/omnibox_popup_resources_map.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
@@ -39,6 +38,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/webui/webui_util.h"
 
 namespace {
@@ -92,6 +92,7 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
        .session_allows_drag_and_drop = session_allows_drag_and_drop}));
 
   source->AddBoolean("isTopChromeSearchbox", true);
+  source->AddBoolean("isTouchUi", ui::TouchUiController::Get()->touch_ui());
   source->AddBoolean("omniboxAimPopupEnabled",
                      omnibox::IsAimPopupFeatureEnabled());
   source->AddBoolean("omniboxShowContextButtonSuggestionLabel",
@@ -143,10 +144,6 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
   source->AddBoolean("composeboxShowLensSearchChip",
                      omnibox::IsAimPopupEnabled(profile_) &&
                          omnibox::kShowLensSearchChip.Get());
-  source->AddBoolean("addTabUploadDelayOnRecentTabChipClick",
-                     omnibox::kAddTabUploadDelayOnRecentTabChipClick.Get());
-  source->AddBoolean("composeboxShowRecentTabChip",
-                     omnibox::kShowRecentTabChip.Get());
   source->AddBoolean("composeboxShowTypedSuggest",
                      omnibox::kShowComposeboxTypedSuggest.Get());
   source->AddBoolean("composeboxShowZps", omnibox::kShowComposeboxZps.Get());
@@ -154,6 +151,9 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
                      omnibox::kShowSmartCompose.Get());
   source->AddBoolean("contextButtonHasBackground",
                      omnibox::kContextButtonHasBackground.Get());
+  source->AddBoolean("webuiOmniboxSimplificationEnabled",
+                     base::FeatureList::IsEnabled(
+                         omnibox::internal::kWebUIOmniboxSimplification));
   source->AddBoolean("hideClassicContextButton",
                      omnibox::kHideClassicContextButton.Get());
   source->AddBoolean("composeboxForkEnabled",
@@ -161,6 +161,10 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
   source->AddBoolean(
       "contextManagementInComposeboxEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
+  source->AddBoolean(
+      "tabFaviconChipsToCoinsEnabled",
+      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
+          base::FeatureList::IsEnabled(omnibox::kTabFaviconChipsToCoins));
   auto searchbox_layout_mode = AddContextButtonVariantToSearchboxLayoutMode(
       omnibox::kWebUIOmniboxAimPopupAddContextButtonVariantParam.Get());
   source->AddString("searchboxLayoutMode", searchbox_layout_mode);
@@ -236,8 +240,8 @@ void OmniboxPopupUI::BindInterface(
 void OmniboxPopupUI::CreatePageHandler(
     mojo::PendingRemote<omnibox_popup::mojom::Page> page,
     mojo::PendingReceiver<omnibox_popup::mojom::PageHandler> receiver) {
-  popup_handler_ = std::make_unique<OmniboxPopupHandler>(std::move(receiver),
-                                                         std::move(page));
+  popup_handler_ = std::make_unique<OmniboxPopupHandler>(
+      std::move(receiver), std::move(page), web_ui()->GetWebContents());
   popup_handler_->set_embedder(embedder());
 }
 
@@ -280,6 +284,15 @@ void OmniboxPopupUI::CreatePageHandler(
                           base::Unretained(this)),
       base::BindRepeating(&OmniboxPopupUI::ClearContextualSessionHandle,
                           base::Unretained(this)));
+
+  // If presenter delegate is connected, set the delegate in the handler so the
+  // handler can notify the delegate when there are embedded permissions prompt
+  // changes. Otherwise, once the presenter delegate connects itself, connect
+  // the two there instead. `composebox_handler_` is used since composebox page
+  // handler is where PEPC mojo call lives.
+  if (presenter_delegate_) {
+    composebox_handler_->set_delegate(presenter_delegate_);
+  }
 }
 
 contextual_search::ContextualSearchSessionHandle*
@@ -301,4 +314,17 @@ OmniboxPopupUI::GetOrCreateContextualSessionHandle() {
 
 void OmniboxPopupUI::ClearContextualSessionHandle() {
   shared_session_handle_.reset();
+}
+
+void OmniboxPopupUI::SetPresenterDelegate(OmniboxPopupPresenterBase* delegate) {
+  presenter_delegate_ = delegate;
+
+  // If the handler is initialized already, set the delegate in the handler so
+  // the handler can notify the delegate when there are embedded permissions
+  // prompt changes. Otherwise, once the handler is initialized, connect the two
+  // there instead. `composebox_handler_` is used since composebox page handler
+  // is where PEPC mojo call lives.
+  if (composebox_handler_) {
+    composebox_handler_->set_delegate(presenter_delegate_);
+  }
 }

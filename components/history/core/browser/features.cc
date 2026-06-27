@@ -112,26 +112,13 @@ constexpr base::FeatureParam<int> kMvtScoringParamDailyVisitCountCap{
 
 // If enabled, very old history databases that cannot be migrated are deleted.
 BASE_FEATURE(kRazeOldHistoryDatabase,
-             base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
+             base::FeatureState::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_IOS)
-// Whether Browsing History Actor Integration M2 or any dependent feature is
-// enabled.
-bool IsBrowsingHistoryActorIntegrationM2Enabled() {
-  return base::FeatureList::IsEnabled(kBrowsingHistoryActorIntegrationM2) ||
-         base::FeatureList::IsEnabled(kBrowsingHistoryActorIntegrationM3);
-}
-
 // Whether Browsing History Actor Integration M3 is enabled.
 bool IsBrowsingHistoryActorIntegrationM3Enabled() {
   return base::FeatureList::IsEnabled(kBrowsingHistoryActorIntegrationM3);
 }
-
-// Enables Milestone 2 of History-Actor integration, this includes hiding
-// actor-initiated visits from non-primary sources (Omnibox, MVT) and updating
-// the deduplication logic of actor visits.
-BASE_FEATURE(kBrowsingHistoryActorIntegrationM2,
-             base::FeatureState::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
 

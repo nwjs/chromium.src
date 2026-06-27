@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.url_constants;
 
-import org.chromium.base.CommandLine;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -14,16 +13,20 @@ import org.chromium.url.GURL;
 import java.util.HashMap;
 import java.util.Map;
 
-/** A resolver class for resolving Chrome URL constants. */
+/**
+ * Resolves Chrome native page URL constants with support for dynamic page overrides.
+ *
+ * <p>This resolver is strictly for handling "chrome-native://" scheme URLs (e.g.,
+ * "chrome-native://newtab/"). Do NOT use it to override "chrome://" scheme URLs. "chrome-native://"
+ * pages are intercepted early in navigation to render native Android Views, whereas "chrome://"
+ * overrides are handled in C++ via new_tab_page_url_handler.cc.
+ *
+ * <p>The URLs returned by original static methods will always remain strictly constant across app
+ * loads, sessions, and experiments. They must never fluctuate dynamically, as they serve as
+ * persistent keys for database lookups, navigation logging, and override registries.
+ */
 @NullMarked
 public class UrlConstantResolver {
-    private static final String SERIALIZED_NATIVE_NTP_URL =
-            "82,1,true,0,13,0,-1,0,-1,16,6,0,-1,22,1,0,-1,0,-1,false,false,chrome-native://newtab/";
-    private static final String SERIALIZED_NTP_URL =
-            "73,1,true,0,6,0,-1,0,-1,9,6,0,-1,15,1,0,-1,0,-1,false,false,chrome://newtab/";
-
-    private static final GURL NATIVE_NTP_GURL = deserializeGurlString(SERIALIZED_NATIVE_NTP_URL);
-    private static final GURL NTP_GURL = deserializeGurlString(SERIALIZED_NTP_URL);
 
     public UrlConstantResolver() {}
 
@@ -36,34 +39,34 @@ public class UrlConstantResolver {
         @Nullable String getUrlOverrideIfEnabled();
     }
 
-    /**
-     * Used to register any GURLs that are accessible pre-native. The GURLs this contains must be
-     * created via deserialization in order to operate prior to Native initialization.
-     */
-    /*package*/ static class PreNativeGurlHolder {
-        public final GURL gurl;
-        public final @Nullable GURL gurlOverride;
-
-        public PreNativeGurlHolder(GURL gurl, @Nullable GURL gurlOverride) {
-            this.gurl = gurl;
-            this.gurlOverride = gurlOverride;
-        }
-    }
-
     private final Map<String, UrlConstantOverride> mUrlConstantOverrides = new HashMap<>();
-    private final Map<String, PreNativeGurlHolder> mPreNativeGurls = new HashMap<>();
 
-    /** Returns the potentially overridden URL for the New Tab Page. */
+    /**
+     * Returns the dynamically resolved and potentially overridden URL for the New Tab Page.
+     *
+     * <p>This is the preferred method for obtaining the NTP URL, and should be used for navigation
+     * purposes.
+     */
     public String getNtpUrl() {
         return getUrlOverrideIfPresent(getOriginalNativeNtpUrl());
     }
 
-    /** Returns the potentially overridden URL for the bookmarks page. */
+    /**
+     * Returns the dynamically resolved and potentially overridden URL for the bookmarks page.
+     *
+     * <p>This is the preferred method for obtaining the bookmarks URL, and should be used for
+     * navigation purposes.
+     */
     public String getBookmarksPageUrl() {
         return getUrlOverrideIfPresent(getOriginalNativeBookmarksUrl());
     }
 
-    /** Returns the potentially overridden URL for the history page. */
+    /**
+     * Returns the dynamically resolved and potentially overridden URL for the history page.
+     *
+     * <p>This is the preferred method for obtaining the history URL, and should be used for
+     * navigation purposes.
+     */
     public String getHistoryPageUrl() {
         return getUrlOverrideIfPresent(getOriginalNativeHistoryUrl());
     }
@@ -79,75 +82,101 @@ public class UrlConstantResolver {
     }
 
     /**
-     * Registers a {@link GURL} that must be available pre-native.
+     * Returns a {@link GURL} representation of the dynamically resolved NTP URL.
      *
-     * @param url The URL string to override.
-     * @param holder Holds the pre-native available GURL, and its override if any.
+     * <p>This is the preferred method for obtaining the NTP GURL, and should be used for navigation
+     * purposes.
      */
-    /*package*/ void registerPreNativeGurl(String url, PreNativeGurlHolder holder) {
-        mPreNativeGurls.put(url, holder);
+    public GURL getNtpGurl() {
+        return new GURL(getNtpUrl());
     }
 
     /**
-     * Returns a cached GURL representation of {@link UrlConstantResolver#getNtpUrl()}. It is safe
-     * to call this method before native is loaded and doing so will not block on native loading
-     * completion since a hardcoded, serialized string is used.
+     * Returns the native URL for the New Tab Page, ignoring any overrides. This should only be used
+     * when strictly needing the exact native NTP URL, such as for string comparisons. Otherwise,
+     * prefer {@link #getNtpUrl()} to obtain the potentially overridden URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
      */
-    public GURL getNtpGurl() {
-        GURL ntpGurl = getPreNativeGurl(getOriginalNativeNtpUrl());
-        assert ntpGurl != null;
-        return ntpGurl;
-    }
-
-    /** Returns the native URL for the New Tab Page, ignoring any overrides. */
     public static String getOriginalNativeNtpUrl() {
-        if (CommandLine.getInstance().hasSwitch("use-webui-ntp")) {
-            return UrlConstants.NEW_TAB_PAGE_URL_LEGACY;
-        }
         return UrlConstants.NTP_URL;
     }
 
-    /** Returns the native URL for the bookmarks page, ignoring any overrides. */
+    /**
+     * Returns the WebUI URL for the New Tab Page, ignoring any overrides. This should only be used
+     * when strictly needing the exact non-native WebUI NTP URL. Otherwise, prefer {@link
+     * #getNtpUrl()} to obtain the active NTP URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
+     */
+    public static String getOriginalWebUiNtpUrl() {
+        return UrlConstants.NEW_TAB_PAGE_URL_LEGACY;
+    }
+
+    /**
+     * Returns the native URL for the bookmarks page, ignoring any overrides. This should only be
+     * used when strictly needing the exact native bookmarks URL, such as for string comparisons.
+     * Otherwise, prefer {@link #getBookmarksPageUrl()} to obtain the potentially overridden URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
+     */
     public static String getOriginalNativeBookmarksUrl() {
         return UrlConstants.BOOKMARKS_NATIVE_URL;
     }
 
-    /** Returns the native URL for the history page, ignoring any overrides. */
+    /**
+     * Returns the native URL for the history page, ignoring any overrides. This should only be used
+     * when strictly needing the exact native history URL, such as for string comparisons.
+     * Otherwise, prefer {@link #getHistoryPageUrl()} to obtain the potentially overridden URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
+     */
     public static String getOriginalNativeHistoryUrl() {
         return UrlConstants.NATIVE_HISTORY_URL;
     }
 
-    /** Returns the non-native URL for the New Tab Page, ignoring any overrides. */
-    public static String getOriginalNonNativeNtpUrl() {
+    /**
+     * Returns the URL for the New Tab Page, ignoring any overrides. This should only be used when
+     * strictly needing the exact non-native NTP URL, such as for string comparisons. Otherwise,
+     * prefer {@link #getNtpUrl()} to obtain the potentially overridden URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
+     */
+    public static String getOriginalNtpUrl() {
         return UrlConstants.NTP_NON_NATIVE_URL;
     }
 
-    /** Returns the non-native URL for the bookmarks page, ignoring any overrides. */
-    public static String getOriginalNonNativeBookmarksUrl() {
+    /**
+     * Returns the URL for the bookmarks page, ignoring any overrides. This should only be used when
+     * strictly needing the exact bookmarks URL, such as for string comparisons. Otherwise, prefer
+     * {@link #getBookmarksPageUrl()} to obtain the potentially overridden URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
+     */
+    public static String getOriginalBookmarksUrl() {
         return UrlConstants.BOOKMARKS_URL;
     }
 
-    /** Returns the non-native URL for the history page, ignoring any overrides. */
-    public static String getOriginalNonNativeHistoryUrl() {
+    /**
+     * Returns the URL for the history page, ignoring any overrides. This should only be used when
+     * strictly needing the exact history URL, such as for string comparisons. Otherwise, prefer
+     * {@link #getHistoryPageUrl()} to obtain the potentially overridden URL.
+     *
+     * <p>This will strictly remain constant across all experiments and app loads.
+     */
+    public static String getOriginalHistoryUrl() {
         return UrlConstants.HISTORY_URL;
     }
 
     /**
-     * Returns the non-native {@link GURL} for the native NTP, ignoring any overrides.
+     * Returns the {@link GURL} for the NTP, ignoring any overrides. This should only be used when
+     * strictly needing the exact NTP GURL, such as for GURL comparisons. Otherwise, prefer {@link
+     * #getNtpGurl()} to obtain the potentially overridden URL.
      *
-     * <p>This is guaranteed to be available pre-native.
+     * <p>This will strictly remain constant across all experiments and app loads.
      */
-    public static GURL getOriginalNativeNtpGurl() {
-        return NATIVE_NTP_GURL;
-    }
-
-    /**
-     * Returns the non-native {@link GURL} for the non-native NTP, ignoring any overrides.
-     *
-     * <p>This is guaranteed to be available pre-native.
-     */
-    public static GURL getOriginalNonNativeNtpGurl() {
-        return NTP_GURL;
+    public static GURL getOriginalNtpGurl() {
+        return new GURL(getOriginalNtpUrl());
     }
 
     private String getUrlOverrideIfPresent(String url) {
@@ -158,31 +187,5 @@ public class UrlConstantResolver {
 
         String urlOverride = override.getUrlOverrideIfEnabled();
         return urlOverride == null ? url : urlOverride;
-    }
-
-    /**
-     * Returns a {@link GURL} that is guaranteed to be available pre-native, or null if none was
-     * registered for the provided URL.
-     *
-     * @param url The URL string to override. This must be the original, non-overridden URL.
-     */
-    private @Nullable GURL getPreNativeGurl(String url) {
-        PreNativeGurlHolder preNativeGurlHolder = mPreNativeGurls.get(url);
-        if (preNativeGurlHolder == null) return null;
-
-        UrlConstantOverride override = mUrlConstantOverrides.get(url);
-        GURL gurl = preNativeGurlHolder.gurl;
-        if (override == null
-                || override.getUrlOverrideIfEnabled() == null
-                || !ChromeFeatureList.sChromeNativeUrlOverriding.isEnabled()) {
-            return gurl;
-        }
-
-        GURL gurlOverride = preNativeGurlHolder.gurlOverride;
-        return gurlOverride == null ? gurl : gurlOverride;
-    }
-
-    private static GURL deserializeGurlString(String serializedGurl) {
-        return GURL.deserializeLatestVersionOnly(serializedGurl.replace(',', '\0'));
     }
 }

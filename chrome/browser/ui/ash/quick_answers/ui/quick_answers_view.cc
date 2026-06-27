@@ -45,6 +45,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
@@ -134,9 +135,13 @@ const gfx::VectorIcon& GetVectorIcon(std::optional<Intent> intent) {
     case Intent::kDefinition:
       return chromeos::kDictionaryIcon;
     case Intent::kTranslation:
-      return omnibox::kAnswerTranslationIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kTranslateIcon
+                 : omnibox::kAnswerTranslationOldIcon;
     case Intent::kUnitConversion:
-      return omnibox::kAnswerCalculatorIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kEqualIcon
+                 : omnibox::kAnswerCalculatorOldIcon;
   }
 
   NOTREACHED() << "Invalid intent enum value specified";
@@ -412,7 +417,9 @@ QuickAnswersView::QuickAnswersView(
                   .SetImageModel(
                       views::Button::STATE_NORMAL,
                       ui::ImageModel::FromVectorIcon(
-                          vector_icons::kDogfoodIcon,
+                          features::IsRoundedIconsEnabled()
+                              ? vector_icons::kPetsIcon
+                              : vector_icons::kDogfoodOldIcon,
                           design_ == Design::kCurrent ? ui::kColorIconSecondary
                                                       : ui::kColorSysSecondary,
                           kDogfoodButtonSizeDip)))
@@ -427,7 +434,9 @@ QuickAnswersView::QuickAnswersView(
                   .SetImageModel(
                       views::Button::ButtonState::STATE_NORMAL,
                       ui::ImageModel::FromVectorIcon(
-                          vector_icons::kSettingsOutlineIcon,
+                          features::IsRoundedIconsEnabled()
+                              ? vector_icons::kSettingsIcon
+                              : vector_icons::kSettingsOutlineOldIcon,
                           design_ == Design::kCurrent ? ui::kColorIconSecondary
                                                       : ui::kColorSysSecondary,
                           kSettingsButtonSizeDip))

@@ -23,10 +23,12 @@
 #import "ios/chrome/browser/composebox/coordinator/composebox_constants.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
 #import "ios/chrome/browser/composebox/public/features.h"
+#import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_item.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_item_collection.h"
 #import "ios/chrome/browser/composebox/ui/composebox_strings.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
+#import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -112,29 +114,9 @@ omnibox::ToolMode ToolModeForComposeboxMode(ComposeboxMode mode,
   }
 }
 
-// Returns the placeholder text for regular search.
-NSString* CustomRegularSearchHintText(BOOL isFuseboxEligible,
-                                      TemplateURLService* templateURLService) {
-  if (!IsAIOmniboxAskPlaceholderEnabled() || !templateURLService ||
-      !isFuseboxEligible) {
-    // No custom placeholder text.
-    return nil;
-  }
-  const TemplateURL* defaultSearchProvider =
-      templateURLService->GetDefaultSearchProvider();
-  if (!defaultSearchProvider) {
-    return nil;
-  }
-
-  return l10n_util::GetNSStringF(
-      IDS_OMNIBOX_EMPTY_ASK_HINT_WITH_DSE_NAME,
-      defaultSearchProvider->AdjustedShortNameForLocaleDirection());
-}
-
 // Returns the server strings object from a given input state.
 ComposeboxStrings* ServerStringsFromInputState(
-    const contextual_search::InputState& input_state,
-    NSString* customRegularSearchHintText) {
+    const contextual_search::InputState& input_state) {
   std::unordered_map<ComposeboxMode, ComposeboxStringBundle*> tool_mapping;
   for (const omnibox::ToolConfig& tool_config : input_state.tool_configs) {
     NSString* menuLabel = base::SysUTF8ToNSString(tool_config.menu_label());
@@ -173,17 +155,16 @@ ComposeboxStrings* ServerStringsFromInputState(
         base::SysUTF8ToNSString(input_state.tools_section_config->header());
   }
 
-  return [[ComposeboxStrings alloc]
-        initWithToolMapping:tool_mapping
-               modelMapping:model_mapping
-         modelSectionHeader:modelSectionHeader
-         toolsSectionHeader:toolsSectionHeader
-      regularSearchHintText:customRegularSearchHintText];
+  return [[ComposeboxStrings alloc] initWithToolMapping:tool_mapping
+                                           modelMapping:model_mapping
+                                     modelSectionHeader:modelSectionHeader
+                                     toolsSectionHeader:toolsSectionHeader];
 }
 
 }  // namespace
 
-@interface ComposeboxInputStateManager () <ComposeboxModeObserver>
+@interface ComposeboxInputStateManager () <ComposeboxModeObserver,
+                                           SearchEngineObserving>
 @end
 
 @implementation ComposeboxInputStateManager {
@@ -220,6 +201,12 @@ ComposeboxStrings* ServerStringsFromInputState(
   base::CallbackListSubscription _inputStateSubscription;
   // Cached server strings.
   ComposeboxStrings* _cachedStrings;
+  // Observer for the TemplateURLService.
+  std::unique_ptr<SearchEngineObserverBridge> _searchEngineObserver;
+  // Subscription for eligibility changes.
+  base::CallbackListSubscription _aimEligibilitySubscription;
+  // Cached DSE status.
+  BOOL _isDSEGoogle;
 }
 
 #pragma mark - Public
@@ -254,6 +241,21 @@ ComposeboxStrings* ServerStringsFromInputState(
     _entrypoint = entrypoint;
     _isIncognito = isIncognito;
     _activeModel = ComposeboxModelOption::kNone;
+
+    if (_templateURLService) {
+      _isDSEGoogle = search::DefaultSearchProviderIsGoogle(_templateURLService);
+      _searchEngineObserver = std::make_unique<SearchEngineObserverBridge>(
+          self, _templateURLService);
+    }
+
+    __weak __typeof(self) weakSelf = self;
+    _aimEligibilitySubscription =
+        _aimEligibilityService->RegisterEligibilityChangedCallback(
+            base::BindRepeating(^{
+              [weakSelf onAimEligibilityChanged];
+            }));
+
+    [self updateSearchboxConfig];
   }
   return self;
 }
@@ -272,34 +274,9 @@ ComposeboxStrings* ServerStringsFromInputState(
   _sessionHandle.reset();
   [_modeHolder removeObserver:self];
   _modeHolder = nil;
-}
-
-- (void)setSearchboxConfig:(const omnibox::SearchboxConfig&)searchboxConfig {
-  if (!_sessionHandle) {
-    return;
-  }
-
-  BOOL has_primary_account =
-      _identityManager &&
-      _identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
-
-  _inputStateModel = std::make_unique<contextual_search::InputStateModel>(
-      *_sessionHandle, searchboxConfig, GURL(), _isIncognito,
-      has_primary_account);
-
-  [self startInputStateObservation];
-  // `Initialize` is synchronous and immediately notifies observers, updating
-  // the state.
-  _inputStateModel->Initialize();
-
-  // iOS doesn't rely on the active hint text from `_inputState`, strings only
-  // changes when `searchboxConfig` is updated.
-  NSString* customRegularSearchHintText =
-      CustomRegularSearchHintText([self isEligibleToAIM], _templateURLService);
-  _cachedStrings = ServerStringsFromInputState(
-      _inputStateModel->GetInputState(), customRegularSearchHintText);
-
-  [self.delegate inputStateManagerDidUpdateUIState:self];
+  _searchEngineObserver.reset();
+  _aimEligibilitySubscription = {};
+  _metricsRecorder = nil;
 }
 
 - (ComposeboxModelOption)activeModel {
@@ -338,6 +315,8 @@ ComposeboxStrings* ServerStringsFromInputState(
   BOOL switchToAIM = explicitUserAction && _modeHolder.isRegularSearch;
   if (switchToAIM) {
     _modeHolder.mode = ComposeboxMode::kAIM;
+    [self.metricsRecorder
+        recordAiModeActivationSource:AiModeActivationSource::kImplicit];
     return;
   }
 }
@@ -362,6 +341,15 @@ ComposeboxStrings* ServerStringsFromInputState(
   if (activeMode == ComposeboxMode::kImageGeneration) {
     [self setActiveToolInInputState:ToolModeForComposeboxMode(
                                         activeMode, self.items.hasImage)];
+  }
+
+  // AI mode is implicitly enabled by items attachment.
+  BOOL shouldSwitchToAIM =
+      self.items && !self.items.empty && _modeHolder.isRegularSearch;
+  if (shouldSwitchToAIM) {
+    _modeHolder.mode = ComposeboxMode::kAIM;
+    [self.metricsRecorder
+        recordAiModeActivationSource:AiModeActivationSource::kImplicit];
   }
 }
 
@@ -518,6 +506,7 @@ ComposeboxStrings* ServerStringsFromInputState(
   state.currentTabFavicon = currentTabFavicon;
   state.remainingAttachmentCapacity = [self remainingAttachmentCapacity];
   state.remainingNumberOfImagesAllowed = [self remainingNumberOfImagesAllowed];
+  state.maxTabAttachmentCount = [self maxTabAttachmentCount];
   state.allowModelPicker = ShowComposeboxAdditionalAdvancedTools();
 
   state.activeTool = [self activeMode];
@@ -595,6 +584,21 @@ ComposeboxStrings* ServerStringsFromInputState(
 
 #pragma mark - Private
 
+#pragma mark - SearchEngineObserving
+
+- (void)searchEngineChanged {
+  BOOL isDSEGoogle = search::DefaultSearchProviderIsGoogle(_templateURLService);
+  if (isDSEGoogle != _isDSEGoogle) {
+    _isDSEGoogle = isDSEGoogle;
+    [self.delegate inputStateManagerDidUpdateUIState:self];
+  }
+}
+
+- (void)templateURLServiceShuttingDown:(TemplateURLService*)urlService {
+  _searchEngineObserver.reset();
+  _templateURLService = nullptr;
+}
+
 #pragma mark - ComposeboxModeObserver
 
 - (void)composeboxModeDidChange:(ComposeboxMode)mode {
@@ -667,6 +671,45 @@ ComposeboxStrings* ServerStringsFromInputState(
   }
 
   return invalidatedItems;
+}
+
+#pragma mark AIMEligibilityService Observation
+
+- (void)onAimEligibilityChanged {
+  [self updateSearchboxConfig];
+}
+
+- (void)updateSearchboxConfig {
+  if (!_aimEligibilityService) {
+    return;
+  }
+
+  const omnibox::SearchboxConfig* searchboxConfig =
+      _aimEligibilityService->GetSearchboxConfig();
+
+  if (!_sessionHandle || !searchboxConfig) {
+    return;
+  }
+
+  BOOL has_primary_account =
+      _identityManager &&
+      _identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
+
+  _inputStateModel = std::make_unique<contextual_search::InputStateModel>(
+      *_sessionHandle, *searchboxConfig, GURL(), _isIncognito,
+      has_primary_account);
+
+  [self startInputStateObservation];
+  // `Initialize` is synchronous and immediately notifies observers, updating
+  // the state.
+  _inputStateModel->Initialize();
+
+  // iOS doesn't rely on the active hint text from `_inputState`, strings only
+  // changes when `searchboxConfig` is updated.
+  _cachedStrings =
+      ServerStringsFromInputState(_inputStateModel->GetInputState());
+
+  [self.delegate inputStateManagerDidUpdateUIState:self];
 }
 
 #pragma mark Observation

@@ -36,6 +36,8 @@ static_library("autofill") {
     "ml_log_router_factory.h",
     "one_time_token_service_factory.cc",
     "one_time_token_service_factory.h",
+    "personal_context_access_manager_factory.cc",
+    "personal_context_access_manager_factory.h",
     "personal_data_manager_factory.cc",
     "personal_data_manager_factory.h",
     "subkey_requester_factory.cc",
@@ -73,6 +75,7 @@ static_library("autofill") {
     "//chrome/browser/history",
     "//chrome/browser/net",
     "//chrome/browser/optimization_guide",
+    "//chrome/browser/personal_context",
     "//chrome/browser/profiles",
     "//chrome/browser/signin",
     "//chrome/browser/strike_database",
@@ -156,14 +159,16 @@ static_library("autofill") {
       "//components/messages/android:feature_flags",
       "//components/one_time_tokens/android/backend/sms:backend",
       "//components/password_manager/core/browser",
+      "//components/personal_context/core",
+      "//components/personal_context/core:features",
       "//components/plus_addresses/core/common:features",
       "//components/wallet/core/common:features",
       "//third_party/jni_zero",
       "//third_party/libaddressinput",
       "//ui/android",
 
-      # TODO(crbug.com/352191610): Use //chrome/browser instead after fixing cyclic
-      # dependency.
+      # TODO(crbug.com/352191610): Use //chrome/browser instead after fixing
+      # cyclic dependency.
       "//chrome/browser/page_info:page_info_buildflags",
     ]
   } else {
@@ -242,7 +247,9 @@ source_set("browser_tests") {
       "autofill_browsertest.cc",
       "autofill_metrics_browsertest.cc",
       "autofill_server_browsertest.cc",
+      "email_verification_browsertest.cc",
       "form_structure_browsertest.cc",
+      "omnibox_autofill_delegate_browsertest.cc",
     ]
   }
 

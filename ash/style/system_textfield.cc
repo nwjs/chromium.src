@@ -11,6 +11,7 @@
 #include "ash/style/system_textfield_controller.h"
 #include "ash/style/typography.h"
 #include "ash/wm/work_area_insets.h"
+#include "base/debug/stack_trace.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
@@ -25,6 +26,7 @@
 #include "ui/views/border.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
+#include "ui/views/controls/textfield/textfield.h"
 #include "ui/wm/core/coordinate_conversion.h"
 
 namespace ash {
@@ -248,7 +250,7 @@ void SystemTextfield::SetShowFocusRing(bool show) {
   // It's possible that derived classes could have removed the focus ring.
   if (auto* focus_ring = views::FocusRing::Get(this); focus_ring != nullptr) {
     focus_ring->SetOutsetFocusRingDisabled(true);
-    focus_ring->SchedulePaint();
+    focus_ring->Refresh();
   }
 }
 
@@ -371,8 +373,8 @@ void SystemTextfield::UpdateTextColor() {
           cros_tokens::kCrosSysHighlightText)));
 
   // Set placeholder text color
-  set_placeholder_text_color(color_provider->GetColor(
-      placeholder_text_color_id_.value_or(cros_tokens::kCrosSysDisabled)));
+  views::Textfield::SetPlaceholderTextColorId(
+      placeholder_text_color_id_.value_or(cros_tokens::kCrosSysDisabled));
 }
 
 BEGIN_METADATA(SystemTextfield)

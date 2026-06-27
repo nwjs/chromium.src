@@ -126,8 +126,6 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
 
   // NativeAppWindow:
   void SetFullscreen(int fullscreen_types) override;
-  void SetResizable(bool flag) override;
-  bool IsResizable() const override;
   bool IsFullscreenOrPending() const override;
   void UpdateWindowIcon() override;
   void UpdateWindowTitle() override;
@@ -149,7 +147,6 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   bool CanHaveAlphaEnabled() const override;
   void SetVisibleOnAllWorkspaces(bool always_visible) override;
   void SetActivateOnPointer(bool activate_on_pointer) override;
-  void SetShowInTaskbar(bool show) override;
 
   // web_modal::WebContentsModalDialogHost:
   gfx::NativeView GetHostView() const override;
@@ -176,7 +173,6 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   bool frameless_ = false;
   bool resizable_ = false;
   extensions::SizeConstraints size_constraints_;
-  extensions::SizeConstraints saved_size_constraints_;
 
   views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 

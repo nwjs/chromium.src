@@ -41,6 +41,7 @@
 #include "remoting/host/mojom/webauthn_proxy.mojom.h"
 #include "remoting/host/remote_input_filter.h"
 #include "remoting/proto/action.pb.h"
+#include "remoting/protocol/audio_sample_info.h"
 #include "remoting/protocol/clipboard_echo_filter.h"
 #include "remoting/protocol/clipboard_filter.h"
 #include "remoting/protocol/clipboard_stub.h"
@@ -179,6 +180,9 @@ class ClientSession : public protocol::HostStub,
   void OnIncomingDataChannel(
       const std::string& channel_name,
       std::unique_ptr<protocol::MessagePipe> pipe) override;
+  void OnIncomingAudioFormatChanged(
+      const protocol::AudioSampleInfo& info,
+      base::OnceCallback<void(bool)> done) override;
 
   // ClientSessionControl interface.
   const std::string& client_jid() const override;
@@ -253,6 +257,8 @@ class ClientSession : public protocol::HostStub,
  private:
   void OnDesktopEnvironmentCreated(
       std::unique_ptr<DesktopEnvironment> desktop_environment);
+
+  void CreateAudioInjectorAndBuffer();
 
   void OnLocalSessionPoliciesChanged(const SessionPolicies& new_policies);
 
@@ -389,6 +395,12 @@ class ClientSession : public protocol::HostStub,
   std::map<webrtc::ScreenId, std::unique_ptr<protocol::VideoStream>>
       video_streams_;
   std::unique_ptr<protocol::AudioStream> audio_stream_;
+  std::unique_ptr<FifoBufferWriter> pending_audio_writer_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+  std::optional<protocol::AudioSampleInfo> pending_audio_sample_info_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+  base::OnceCallback<void(bool)> pending_audio_format_ack_callback_
+      GUARDED_BY_CONTEXT(sequence_checker_);
 
   // The set of all capabilities supported by the client.
   std::unique_ptr<std::string> client_capabilities_;

@@ -37,6 +37,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -70,10 +71,10 @@ MultiContentsView::MultiContentsView(
     std::unique_ptr<MultiContentsViewDelegate> delegate)
     : browser_view_(browser_view),
       delegate_(std::move(delegate)),
-      start_contents_view_inset_(
-          gfx::Insets(kSplitViewContentInset).set_top(0).set_right(0)),
-      end_contents_view_inset_(
-          gfx::Insets(kSplitViewContentInset).set_top(0).set_left(0)) {
+      split_view_insets_(gfx::Insets::TLBR(0,
+                                           kSplitViewContentInset,
+                                           kSplitViewContentInset,
+                                           kSplitViewContentInset)) {
   SetLayoutManager(std::make_unique<views::DelegatingLayoutManager>(this));
   SetProperty(views::kElementIdentifierKey, kMultiContentsViewElementId);
 
@@ -97,7 +98,8 @@ MultiContentsView::MultiContentsView(
       AddChildView(std::make_unique<MultiContentsDropTargetView>());
   drop_target_controller_ =
       std::make_unique<MultiContentsViewDropTargetController>(
-          *drop_target_view_, *delegate_, g_browser_process->local_state());
+          *drop_target_view_, *delegate_, g_browser_process->local_state(),
+          browser_view_->browser()->tab_strip_model());
 
   contents_separators_.top_separator =
       AddChildView(ContentsSeparator::CreateLayerBasedContentsSeparator());
@@ -255,20 +257,20 @@ void MultiContentsView::SetWebContentsAtIndex(
   }
 }
 
-void MultiContentsView::ShowSplitView(double ratio) {
+void MultiContentsView::ShowSplitView(
+    split_tabs::SplitTabVisualData visual_data) {
   if (!contents_container_views_[1]->GetVisible()) {
-    // If split view is not visible, set the `start_ratio_` and update the view
+    // If split view is not visible, set the `visual_data_` and update the view
     // visibility.
-    start_ratio_ = ratio;
+    visual_data_ = visual_data;
     contents_container_views_[1]->SetVisible(true);
     resize_area_->SetVisible(true);
+    resize_area_->SetLayout(visual_data.split_layout());
     UpdateContentsBorderAndOverlay();
-  } else if (start_ratio_ != ratio) {
-    // If the split view is visible but ratio is changed, update the split
-    // ratio.
-    UpdateSplitRatio(ratio);
+  } else {
+    // If the split view is visible, update the split visual data.
+    UpdateSplitVisualData(visual_data);
   }
-  // Split view is visible and ratio is not changed, do nothing.
 }
 
 void MultiContentsView::CloseSplitView() {
@@ -319,12 +321,14 @@ void MultiContentsView::SetActiveIndex(int index) {
   UpdateContentsBorderAndOverlay();
 }
 
-void MultiContentsView::UpdateSplitRatio(double ratio) {
-  if (start_ratio_ == ratio) {
+void MultiContentsView::UpdateSplitVisualData(
+    const split_tabs::SplitTabVisualData& visual_data) {
+  if (visual_data_ == visual_data) {
     return;
   }
 
-  start_ratio_ = ratio;
+  visual_data_ = visual_data;
+  resize_area_->SetLayout(visual_data.split_layout());
   InvalidateLayout();
 }
 
@@ -379,37 +383,35 @@ std::vector<views::View*> MultiContentsView::GetAccessiblePanes() {
 }
 
 void MultiContentsView::OnResize(int resize_amount, bool done_resizing) {
-  if (!initial_start_width_on_resize_.has_value()) {
-    initial_start_width_on_resize_ =
-        std::make_optional(contents_container_views_[0]->size().width());
+  if (!initial_start_size_on_resize_.has_value()) {
+    initial_start_size_on_resize_ = std::make_optional(
+        GetResizeAxisComponent(contents_container_views_[0]->size()));
   }
-  double total_width = contents_container_views_[0]->size().width() +
-                       contents_container_views_[0]->GetInsets().width() +
-                       contents_container_views_[1]->size().width() +
-                       contents_container_views_[1]->GetInsets().width();
-  double end_width = (initial_start_width_on_resize_.value() +
-                      contents_container_views_[0]->GetInsets().width() +
-                      static_cast<double>(resize_amount));
+  double total_size =
+      GetResizeAxisComponent(contents_container_views_[0]->size()) +
+      GetResizeAxisComponent(contents_container_views_[1]->size());
+  double new_start_size = initial_start_size_on_resize_.value() + resize_amount;
 
-  // If end_width is within the snap point widths, update to the snap point.
+  // If new_start_size is within the snap point sizes, update to the snap
+  // point.
   delegate_->ResizeWebContents(
-      CalculateRatioWithSnapPoints(end_width, total_width), done_resizing);
+      CalculateRatioWithSnapPoints(new_start_size, total_size), done_resizing);
 
   if (done_resizing) {
-    initial_start_width_on_resize_ = std::nullopt;
+    initial_start_size_on_resize_ = std::nullopt;
   }
 }
 
 double MultiContentsView::CalculateRatioWithSnapPoints(
-    double end_width,
-    double total_width) const {
+    double start_size,
+    double total_size) const {
   for (const double& snap_point : snap_points_) {
-    double dp_snap_point = snap_point * total_width;
-    if (std::abs(dp_snap_point - end_width) < kSnapDistance) {
+    double dp_snap_point = snap_point * total_size;
+    if (std::abs(dp_snap_point - start_size) < kSnapDistance) {
       return snap_point;
     }
   }
-  return end_width / total_width;
+  return start_size / total_size;
 }
 
 void MultiContentsView::OnThemeChanged() {
@@ -496,19 +498,26 @@ views::ProposedLayout MultiContentsView::CalculateProposedLayout(
   available_space =
       CalculateSeparatorLayouts(available_space, layouts.child_layouts);
 
-  ViewWidths widths = GetViewWidths(available_space);
-
-  gfx::Rect start_rect(available_space.origin(),
-                       gfx::Size(widths.start_width, available_space.height()));
-  gfx::Rect resize_rect(
-      start_rect.top_right(),
-      gfx::Size(widths.resize_width, available_space.height()));
-  gfx::Rect end_rect(resize_rect.top_right(),
-                     gfx::Size(widths.end_width, available_space.height()));
-
   if (IsInSplitView()) {
-    start_rect.Inset(start_contents_view_inset_);
-    end_rect.Inset(end_contents_view_inset_);
+    available_space.Inset(split_view_insets_);
+  }
+  ViewSizes sizes = GetViewSizes(available_space);
+
+  gfx::Rect start_rect, resize_rect, end_rect;
+  if (GetSplitLayout() == split_tabs::SplitTabLayout::kSideBySide) {
+    start_rect = gfx::Rect(available_space.origin(),
+                           gfx::Size(sizes.start, available_space.height()));
+    resize_rect = gfx::Rect(start_rect.top_right(),
+                            gfx::Size(sizes.resize, available_space.height()));
+    end_rect = gfx::Rect(resize_rect.top_right(),
+                         gfx::Size(sizes.end, available_space.height()));
+  } else {
+    start_rect = gfx::Rect(available_space.origin(),
+                           gfx::Size(available_space.width(), sizes.start));
+    resize_rect = gfx::Rect(start_rect.bottom_left(),
+                            gfx::Size(available_space.width(), sizes.resize));
+    end_rect = gfx::Rect(resize_rect.bottom_left(),
+                         gfx::Size(available_space.width(), sizes.end));
   }
 
   layouts.child_layouts.emplace_back(contents_container_views_[0],
@@ -694,59 +703,67 @@ gfx::Rect MultiContentsView::CalculateSeparatorLayouts(
                    height - separator_height);
 }
 
-MultiContentsView::ViewWidths MultiContentsView::GetViewWidths(
+MultiContentsView::ViewSizes MultiContentsView::GetViewSizes(
     gfx::Rect available_space) const {
-  ViewWidths widths;
+  const int available_size =
+      GetSplitLayout() == split_tabs::SplitTabLayout::kSideBySide
+          ? available_space.width()
+          : available_space.height();
+  ViewSizes sizes;
   if (IsInSplitView()) {
     CHECK(contents_container_views_[0]->GetVisible() &&
           contents_container_views_[1]->GetVisible());
-    widths.resize_width = resize_area_->GetPreferredSize().width();
-    widths.start_width =
-        start_ratio_ * (available_space.width() - widths.resize_width);
-    widths.end_width =
-        available_space.width() - widths.start_width - widths.resize_width;
+    sizes.resize = GetSplitLayout() == split_tabs::SplitTabLayout::kSideBySide
+                       ? resize_area_->GetPreferredSize().width()
+                       : resize_area_->GetPreferredSize().height();
+    sizes.start = std::round(visual_data_.split_ratio() *
+                             (available_size - sizes.resize));
+    sizes.end = available_size - sizes.start - sizes.resize;
   } else {
     CHECK(!contents_container_views_[1]->GetVisible());
-    widths.start_width = available_space.width();
+    sizes.start = available_size;
   }
-  return ClampToMinWidth(available_space, widths);
+  return ClampToMinSize(available_space, sizes);
 }
 
-MultiContentsView::ViewWidths MultiContentsView::ClampToMinWidth(
+MultiContentsView::ViewSizes MultiContentsView::ClampToMinSize(
     gfx::Rect available_space,
-    ViewWidths widths) const {
+    ViewSizes sizes) const {
   if (!IsInSplitView()) {
     // Don't clamp if in a single-view state, where other views should be 0
     // width.
-    return widths;
+    return sizes;
   }
 
-  const int min_width = GetMinViewWidth(available_space);
-  if (widths.start_width < min_width) {
-    const double diff = min_width - widths.start_width;
-    widths.start_width += diff;
-    widths.end_width -= diff;
-  } else if (widths.end_width < min_width) {
-    const double diff = min_width - widths.end_width;
-    widths.end_width += diff;
-    widths.start_width -= diff;
+  const int min_size = GetMinViewSize(available_space);
+  if (sizes.start < min_size) {
+    const int diff = min_size - sizes.start;
+    sizes.start += diff;
+    sizes.end -= diff;
+  } else if (sizes.end < min_size) {
+    const int diff = min_size - sizes.end;
+    sizes.end += diff;
+    sizes.start -= diff;
   }
-  return widths;
+  return sizes;
 }
 
-int MultiContentsView::GetMinViewWidth(gfx::Rect available_space) const {
+int MultiContentsView::GetMinViewSize(gfx::Rect available_space) const {
   CHECK(IsInSplitView());
 
-  // The minimum width for a content view in a split should be the lesser of
-  // kMinWebContentsWidth, and kMinWebContentsWidthPercentage as a percentage of
-  // the MultiContentsView's available width with a lower bound of
-  // kConstrainedMinWebContentsWidth.
+  // The minimum size (in the resize axis) for a content view in a split should
+  // be the lesser of kMinWebContentsSize, and kMinWebContentsSizePercentage as
+  // a percentage of the MultiContentsView's available size with a lower bound
+  // of kConstrainedMinWebContentsSize.
   const int min_percentage =
-      kMinWebContentsWidthPercentage * available_space.width();
+      kMinWebContentsSizePercentage *
+      (visual_data_.split_layout() == split_tabs::SplitTabLayout::kSideBySide
+           ? available_space.width()
+           : available_space.height());
   const int min_fixed_value =
-      min_contents_width_for_testing_.value_or(kMinWebContentsWidth);
+      min_contents_size_for_testing_.value_or(kMinWebContentsSize);
   return std::min(min_fixed_value,
-                  std::max(kConstrainedMinWebContentsWidth, min_percentage));
+                  std::max(kConstrainedMinWebContentsSize, min_percentage));
 }
 
 void MultiContentsView::UpdateContentsBorderAndOverlay() {
@@ -803,18 +820,21 @@ void MultiContentsView::SetShouldShowTopSeparator(bool should_show) {
   InvalidateLayout(/*avoid_propagate_during_layout=*/true);
 }
 
-void MultiContentsView::SetSplitViewInsets(
-    gfx::Insets start_contents_view_inset,
-    gfx::Insets end_contents_view_inset) {
-  if (start_contents_view_inset == start_contents_view_inset_ &&
-      end_contents_view_inset == end_contents_view_inset_) {
+void MultiContentsView::SetSplitViewInsets(const gfx::Insets& insets) {
+  if (split_view_insets_ == insets) {
     return;
   }
-  start_contents_view_inset_ = std::move(start_contents_view_inset);
-  end_contents_view_inset_ = std::move(end_contents_view_inset);
+  split_view_insets_ = insets;
   // This can be called during BrowserView layout, so protect against creating a
   // layout loop.
   InvalidateLayout(/*avoid_propagate_during_layout=*/true);
+}
+
+int MultiContentsView::GetResizeAxisComponent(const gfx::Size& size) const {
+  return (visual_data_.split_layout() ==
+          split_tabs::SplitTabLayout::kSideBySide)
+             ? size.width()
+             : size.height();
 }
 
 BEGIN_METADATA(MultiContentsView)

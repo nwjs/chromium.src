@@ -12,7 +12,9 @@
 #include "base/logging.h"
 #include "base/strings/string_split.h"
 #include "base/values.h"
+#include "crypto/keypair.h"
 #include "crypto/random.h"
+#include "crypto/sign.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -43,6 +45,11 @@ Base64String Base64UrlEncode(const std::string_view& str) {
 Jwk::Jwk() = default;
 Jwk::~Jwk() = default;
 Jwk::Jwk(const Jwk& other) = default;
+
+bool Jwk::operator==(const Jwk& other) const {
+  return kty == other.kty && crv == other.crv && x == other.x && y == other.y &&
+         d == other.d && n == other.n && e == other.e;
+}
 
 // static
 std::optional<Jwk> Jwk::From(const base::DictValue& dict) {
@@ -316,6 +323,10 @@ std::optional<Header> Header::From(const base::DictValue& json) {
   }
   result.alg = *alg;
 
+  auto* kid = json.FindString("kid");
+  if (kid) {
+    result.kid = *kid;
+  }
   auto* jwk = json.FindDict("jwk");
   if (jwk) {
     // JWK is an optional parameter.
@@ -331,6 +342,9 @@ std::optional<JSONString> Header::ToJson() const {
   header_dict.Set("typ", typ);
   header_dict.Set("alg", alg);
 
+  if (!kid.empty()) {
+    header_dict.Set("kid", kid);
+  }
   if (jwk) {
     header_dict.Set("jwk", jwk->ToDict());
   }
@@ -435,6 +449,10 @@ std::optional<Payload> Payload::From(const base::DictValue& json) {
     result.email = *email;
   }
 
+  auto email_verified = json.FindBool("email_verified");
+  if (email_verified) {
+    result.email_verified = *email_verified;
+  }
   return result;
 }
 
@@ -497,6 +515,9 @@ std::optional<JSONString> Payload::ToJson() const {
     payload_dict.Set("email", email);
   }
 
+  if (email_verified) {
+    payload_dict.Set("email_verified", email_verified);
+  }
   auto result = base::WriteJson(payload_dict);
 
   if (!result) {
@@ -591,6 +612,20 @@ bool Jwt::Sign(Signer signer) {
                         &signature.value());
 
   return true;
+}
+
+bool Jwt::Verify(Verifier verifier) const {
+  std::string message = Base64UrlEncode(header.value()).value() + "." +
+                        Base64UrlEncode(payload.value()).value();
+
+  std::string sig_bytes;
+  if (!base::Base64UrlDecode(signature.value(),
+                             base::Base64UrlDecodePolicy::IGNORE_PADDING,
+                             &sig_bytes)) {
+    return false;
+  }
+
+  return std::move(verifier).Run(message, base::as_byte_span(sig_bytes));
 }
 
 SdJwt::SdJwt() = default;

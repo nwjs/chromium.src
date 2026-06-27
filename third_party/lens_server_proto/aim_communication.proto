@@ -41,6 +41,9 @@ enum FeatureCapability {
 
   // lockInput() method
   LOCK_INPUT = 26;
+
+  // notifyLinkClicked() method
+  NOTIFY_LINK_CLICKED = 31;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -140,7 +143,13 @@ message AimToClientMessage {
     RemoveInjectedInput remove_injected_input = 11;
     UnlockInput unlock_input = 12;
     LockInput lock_input = 13;
+    OpenLinkInSidePanelMode open_link_in_side_panel_mode = 14;
   }
+}
+
+// Message AIM sends to clients notifying them a link in a response was clicked.
+message OpenLinkInSidePanelMode {
+  string url = 1;
 }
 
 // Message AIM sends to clients to unlock the input plate.

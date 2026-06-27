@@ -31,7 +31,7 @@
 #include "cc/test/fake_scrollbar_layer.h"
 #include "cc/test/layer_tree_impl_test_base.h"
 #include "cc/test/layer_tree_test.h"
-#include "cc/test/stub_layer_tree_host_single_thread_client.h"
+#include "cc/test/stub_layer_tree_host_single_thread_delegate.h"
 #include "cc/test/test_task_graph_runner.h"
 #include "cc/trees/effect_node.h"
 #include "cc/trees/layer_tree_host.h"
@@ -98,10 +98,10 @@ class FakeResourceTrackingUIResourceManager : public UIResourceManager {
       std::unordered_map<UIResourceId, UIResourceBitmap>;
   UIResourceBitmapMap ui_resource_bitmap_map_;
 
-  StubLayerTreeHostSingleThreadClient single_thread_client_;
-  int next_id_;
-  int total_ui_resource_created_;
-  int total_ui_resource_deleted_;
+  StubLayerTreeHostSingleThreadDelegate single_thread_delegate_;
+  int next_id_ = 1;
+  int total_ui_resource_created_ = 0;
+  int total_ui_resource_deleted_ = 0;
 };
 
 class BaseScrollbarLayerTest : public testing::Test {
@@ -136,7 +136,7 @@ class BaseScrollbarLayerTest : public testing::Test {
     layer_tree_host_->SetUIResourceManagerForTesting(
         std::move(fake_ui_resource_manager));
     layer_tree_host_->InitializeSingleThreaded(
-        &single_thread_client_,
+        &single_thread_delegate_,
         base::SingleThreadTaskRunner::GetCurrentDefault());
     layer_tree_host_->SetVisible(true);
     fake_client_.SetLayerTreeHost(layer_tree_host_.get());
@@ -144,7 +144,7 @@ class BaseScrollbarLayerTest : public testing::Test {
 
  protected:
   FakeLayerTreeHostDelegate fake_client_;
-  StubLayerTreeHostSingleThreadClient single_thread_client_;
+  StubLayerTreeHostSingleThreadDelegate single_thread_delegate_;
   TestTaskGraphRunner task_graph_runner_;
   LayerTreeSettings layer_tree_settings_;
   std::unique_ptr<AnimationHost> animation_host_;
@@ -945,10 +945,11 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerOpacity) {
 
   // A solid color scrollbar layer's opacity is initialized to 0 on main thread
   layer_tree_host_->UpdateLayers();
-  const EffectNode* node =
-      layer_tree_host_->property_trees()->effect_tree().Node(
-          scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 0.f);
+  EXPECT_EQ(layer_tree_host_->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
+            0.f);
 
   // This tests that the initial opacity(0) of the scrollbar gets pushed onto
   // the pending tree and then onto the active tree.
@@ -957,14 +958,18 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerOpacity) {
   LayerImpl* layer_impl_tree_root = layer_tree_host_->CommitToPendingTree();
   LayerTreeImpl* layer_tree_impl = layer_impl_tree_root->layer_tree_impl();
   EXPECT_TRUE(layer_tree_impl->IsPendingTree());
-  node = layer_tree_impl->property_trees()->effect_tree().Node(
-      scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 0.f);
+  EXPECT_EQ(layer_tree_host_->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
+            0.f);
   host_impl->ActivateSyncTree();
   layer_tree_impl = host_impl->active_tree();
-  node = layer_tree_impl->property_trees()->effect_tree().Node(
-      scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 0.f);
+  EXPECT_EQ(layer_tree_host_->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
+            0.f);
 
   // This tests that activation does not change the opacity of scrollbar layer.
   ScrollbarLayerImplBase* scrollbar_layer_impl =
@@ -976,14 +981,18 @@ TEST_F(ScrollbarLayerTest, ScrollbarLayerOpacity) {
   layer_impl_tree_root = layer_tree_host_->CommitToPendingTree();
   layer_tree_impl = layer_impl_tree_root->layer_tree_impl();
   EXPECT_TRUE(layer_tree_impl->IsPendingTree());
-  node = layer_tree_impl->property_trees()->effect_tree().Node(
-      scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 0.f);
+  EXPECT_EQ(layer_tree_host_->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
+            0.f);
   host_impl->ActivateSyncTree();
   layer_tree_impl = host_impl->active_tree();
-  node = layer_tree_impl->property_trees()->effect_tree().Node(
-      scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 0.25f);
+  EXPECT_EQ(layer_tree_impl->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
+            0.25f);
 }
 
 TEST_P(AuraScrollbarLayerTest, ScrollbarLayerPushProperties) {
@@ -1026,12 +1035,13 @@ TEST_P(AuraScrollbarLayerTest, ScrollbarLayerPushProperties) {
   host_impl->CreatePendingTree();
   layer_tree_host_->CommitToPendingTree();
   host_impl->ActivateSyncTree();
-  const EffectNode* node =
-      host_impl->active_tree()->property_trees()->effect_tree().Node(
-          scrollbar_layer->effect_tree_index());
   // If Fluent overlay scrollbars are active, changing the bounds scrollable
   // content shouldn't make the scrollbars appear.
-  EXPECT_EQ(node->opacity,
+  EXPECT_EQ(host_impl->active_tree()
+                ->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
             layer_tree_settings_.enable_fluent_overlay_scrollbar ? 0.f : 1.f);
 }
 
@@ -1116,10 +1126,12 @@ TEST_P(AuraScrollbarLayerTest, ScrollbarLayerCreateAfterSetScrollable) {
 
   EXPECT_TRUE(host_impl->ScrollbarAnimationControllerForElementId(
       scroll_layer->element_id()));
-  const EffectNode* node =
-      host_impl->active_tree()->property_trees()->effect_tree().Node(
-          scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 1.f);
+  EXPECT_EQ(host_impl->active_tree()
+                ->property_trees()
+                ->effect_tree()
+                .Node(scrollbar_layer->effect_tree_index())
+                .opacity,
+            1.f);
 }
 
 class ScrollbarLayerSolidColorThumbTest : public testing::Test {

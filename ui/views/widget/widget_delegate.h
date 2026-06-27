@@ -53,6 +53,7 @@ class SimpleWebViewDialog;
 class TabModalConfirmDialogViews;
 class TestBaseWidgetDelegate;
 class UpdateRecommendedMessageBox;
+class ViewTracker;
 class WebDialogBrowserTest;
 FORWARD_DECLARE_TEST(AcceleratorCommandsFullscreenBrowserTest,
                      ToggleFullscreen);
@@ -228,10 +229,6 @@ FORWARD_DECLARE_TEST(NativeWidgetAuraTest, TransientChildModalWindowVisibility);
 FORWARD_DECLARE_TEST(NativeViewHostAuraTest,
                      FocusManagerUpdatedDuringDestruction);
 
-namespace borealis {
-class BorealisDisallowedDialog;
-class BorealisLaunchErrorDialog;
-}  // namespace borealis
 
 namespace test {
 FORWARD_DECLARE_TEST(DesktopWidgetTest, LockPaintAsActiveAndCloseParent);
@@ -322,7 +319,7 @@ class VIEWS_EXPORT WidgetDelegate {
 
     // The widget's initially focused view, if any. This can only be set before
     // this WidgetDelegate is used to initialize a Widget.
-    std::optional<View*> initially_focused_view;
+    std::unique_ptr<ViewTracker> initially_focused_view;
 
     // This is used by modal dialogs to override and constrain desired bounds
     // calculations.
@@ -436,8 +433,6 @@ class VIEWS_EXPORT WidgetDelegate {
     friend class BubbleDialogModelHost;
     friend class FocusTraversalTest;
     FRIEND_TEST_ALL_PREFIXES(BubbleUmaLoggerTest, LogMetricFromDelegate);
-    friend class borealis::BorealisDisallowedDialog;
-    friend class borealis::BorealisLaunchErrorDialog;
     friend class ::web_app::IsolatedWebAppInstallerViewController;
     friend class ::web_app::SubAppsInstallDialogController;
 

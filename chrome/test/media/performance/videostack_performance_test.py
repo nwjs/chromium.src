@@ -77,6 +77,10 @@ def setup_test_environment(args, chrome_version):
         tuple: A tuple containing the WebDriver, the tunnel process, and the
                actual chrome version used.
     """
+    if args.sender_os == 'cros':
+        return common.setup_cros_environment(
+            args, chrome_version, CHROME_OPTIONS)
+
     common.terminate_old_chromedriver(args)
     remote_app_path, actual_version = common.install_and_setup_chrome(
         args, chrome_version)
@@ -225,6 +229,9 @@ def run_performance_test(video_file: str, driver: webdriver):
     for metric in common.METRICS:
         record(metric)
 
+    original_video = f"/usr/local/cipd/videostack_videos_30s/{video_file}"
+    common.calculate_psnr_ssim(video_file, output_file, original_video)
+
     logging.warning('Video analysis result of %s: %s', video_file, results)
     return rec_proc_local
 
@@ -253,7 +260,9 @@ def main():
         default=None,
         help='Chrome for Testing version to use. Defaults to the latest '
     'known good version.')
-    parser.add_argument('--sender-os', help='OS of the sender device.')
+    parser.add_argument('--sender-os',
+                        choices=['mac', 'win', 'linux', 'cros'],
+                        help='OS of the sender device.')
     args, _ = parser.parse_known_args()
     cv = args.chrome_version
 
@@ -268,6 +277,12 @@ def main():
     try:
         driver, tunnel_proc, actual_version = setup_test_environment(args, cv)
         for video in common.VIDEOS:
+            # TODO(b/512198717): Enable HEVC tests on ChromeOS.
+            # Currently these tests are rendering a blank white screen, so we
+            # skip them to bring up the other cros tests.
+            if args.sender_os == 'cros' and 'HEVC' in video['name']:
+                logging.info("Skipping HEVC on ChromeOS: %s", video['name'])
+                continue
             logging.info("Starting test for video: %s", video['name'])
             rec_proc = None
             try:

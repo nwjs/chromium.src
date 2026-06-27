@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar_controller_util.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
 #include "chrome/browser/ui/views/toolbar/overflow_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_button_status_indicator.h"
@@ -37,6 +38,7 @@
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/menu/menu_item_view.h"
@@ -132,12 +134,14 @@ ToolbarController::ToolbarController(
     const std::vector<ui::ElementIdentifier>& elements_in_overflow_order,
     int element_flex_order_start,
     views::View* toolbar_container_view,
+    WebUIToolbarControllerDelegate* webui_toolbar_controller_delegate,
     OverflowButton* overflow_button,
     ToolbarController::PinnedActionsDelegate* pinned_actions_delegate,
     PinnedToolbarActionsModel* pinned_actions_model)
     : responsive_elements_(responsive_elements),
       element_flex_order_start_(element_flex_order_start),
       toolbar_container_view_(toolbar_container_view),
+      webui_toolbar_controller_delegate_(webui_toolbar_controller_delegate),
       overflow_button_(overflow_button),
       pinned_actions_delegate_(pinned_actions_delegate),
       pinned_actions_model_(pinned_actions_model) {
@@ -209,6 +213,18 @@ ToolbarController::ToolbarController(
         overflow_id);
   }
 
+  // Adjust overflow order of WebUI toolbar. It doesn't have an entry in
+  // `responsive_elements` because it potentially adds multiple elements, so has
+  // to be handled separately.
+  auto* const web_ui_toolbar_element = FindToolbarElementWithId(
+      toolbar_container_view_, kWebUIToolbarElementIdentifier);
+  if (web_ui_toolbar_element) {
+    views::FlexSpecification flex_spec =
+        web_ui_toolbar_element->GetProperty(views::kFlexBehaviorKey)
+            ->WithOrder(id_to_order_map.at(kWebUIToolbarElementIdentifier));
+    web_ui_toolbar_element->SetProperty(views::kFlexBehaviorKey, flex_spec);
+  }
+
   responsive_elements_ = GetResponsiveElementsWithOrderedActions();
   pinned_actions_model_->AddObserver(this);
 }
@@ -228,25 +244,32 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
           ToolbarController::ElementIdInfo{
               kToolbarForwardButtonElementId,
               IDS_OVERFLOW_MENU_ITEM_TEXT_FORWARD,
-              &vector_icons::kForwardArrowChromeRefreshIcon,
+              &(features::IsRoundedIconsEnabled()
+                    ? vector_icons::kArrowForwardIcon
+                    : vector_icons::kForwardArrowChromeRefreshOldIcon),
               kToolbarForwardButtonElementId},
           /*is_section_end=*/false),
       ToolbarController::ResponsiveElementInfo(
           ToolbarController::ElementIdInfo{
               kToolbarHomeButtonElementId, IDS_OVERFLOW_MENU_ITEM_TEXT_HOME,
-              &kNavigateHomeChromeRefreshIcon, kToolbarHomeButtonElementId},
+              &(features::IsRoundedIconsEnabled()
+                    ? kHomeIcon
+                    : kNavigateHomeChromeRefreshOldIcon),
+              kToolbarHomeButtonElementId},
           /*is_section_end=*/false),
       ToolbarController::ResponsiveElementInfo(
           ToolbarController::ElementIdInfo{
               kToolbarSplitTabsToolbarButtonElementId,
-              IDS_OVERFLOW_MENU_ITEM_TEXT_SPLIT_TABS, &kSplitSceneIcon,
+              IDS_OVERFLOW_MENU_ITEM_TEXT_SPLIT_VIEW,
+              &(features::IsRoundedIconsEnabled() ? kSplitSceneIcon
+                                                  : kSplitSceneOldIcon),
               kToolbarSplitTabsToolbarButtonElementId},
-          /*is_section_end=*/false),
+          /*is_section_end=*/true),
       ToolbarController::ResponsiveElementInfo(
           ToolbarController::ElementIdInfo{
               ContextualTasksButton::kContextualTasksToolbarButton,
               IDS_OVERFLOW_MENU_ITEM_TEXT_CONTEXTUAL_TASKS,
-              &kDockToRightSparkIcon,
+              &kDockToRightSparkCustomIcon,
               ContextualTasksButton::kContextualTasksToolbarButton},
           /*is_section_end=*/false),
   };
@@ -274,10 +297,8 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
           elements.emplace_back(id.value());
         }
       }
-      auto& last_element = elements.back();
-      if (std::holds_alternative<actions::ActionId>(last_element.overflow_id)) {
-        last_element.is_section_end = true;
-      }
+      // Section end for the pinned actions is handled in
+      // GetResponsiveElementsWithOrderedActions().
     }
   }
 
@@ -287,48 +308,60 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
            ToolbarController::ElementIdInfo(
                kToolbarBatterySaverButtonElementId,
                IDS_OVERFLOW_MENU_ITEM_TEXT_ENERGY_SAVER,
-               &kBatterySaverRefreshIcon, kToolbarBatterySaverButtonElementId,
+               &kBatterySaverRefreshCustomIcon,
+               kToolbarBatterySaverButtonElementId,
                kToolbarBatterySaverBubbleElementId),
-           /*is_section_end=*/false),
-       ToolbarController::ResponsiveElementInfo(
-           ToolbarController::ElementIdInfo(kToolbarChromeLabsButtonElementId,
-                                            IDS_OVERFLOW_MENU_ITEM_TEXT_LABS,
-                                            &kScienceIcon,
-                                            kToolbarChromeLabsButtonElementId,
-                                            kToolbarChromeLabsBubbleElementId),
            /*is_section_end=*/false),
        ToolbarController::ResponsiveElementInfo(
            ToolbarController::ElementIdInfo(
                kToolbarMediaButtonElementId,
                IDS_OVERFLOW_MENU_ITEM_TEXT_MEDIA_CONTROLS,
-               &kMediaToolbarButtonChromeRefreshIcon,
+               &(features::IsRoundedIconsEnabled()
+                     ? kQueueMusicIcon
+                     : kMediaToolbarButtonChromeRefreshOldIcon),
                kToolbarMediaButtonElementId, kToolbarMediaBubbleElementId),
-           /*is_section_end=*/true),
-       ToolbarController::ResponsiveElementInfo(
-           ToolbarController::ElementIdInfo(kToolbarNewTabButtonElementId,
-                                            IDS_OVERFLOW_MENU_ITEM_TEXT_NEW_TAB,
-                                            nullptr,
-                                            kToolbarNewTabButtonElementId),
            /*is_section_end=*/true),
        ToolbarController::ResponsiveElementInfo(
            ToolbarController::ElementIdInfo(
                kToolbarAvatarButtonElementId,
                IDS_OVERFLOW_MENU_ITEM_TEXT_PROFILE,
-               is_incognito ? (&kIncognitoRefreshMenuIcon)
-                            : (&kUserAccountAvatarRefreshIcon),
+               is_incognito ? (&(features::IsRoundedIconsEnabled()
+                                     ? kIncognitoIcon
+                                     : kIncognitoRefreshMenuOldIcon))
+                            : (&(features::IsRoundedIconsEnabled()
+                                     ? kAccountCircleIcon
+                                     : kUserAccountAvatarRefreshOldIcon)),
                kToolbarAvatarButtonElementId, kToolbarAvatarBubbleElementId),
            /*is_section_end=*/false)});
+
+  if (base::FeatureList::IsEnabled(features::kToolbarGlicButtonResizing)) {
+    elements.emplace_back(
+        ToolbarController::ElementIdInfo(
+            kGlicButtonElementId, IDS_GLIC_BUTTON_ENTRYPOINT_ASK_GEMINI_LABEL,
+            nullptr, kGlicButtonElementId),
+        /*is_section_end=*/false);
+  }
+
   return elements;
 }
 
 std::vector<ui::ElementIdentifier>
 ToolbarController::GetDefaultOverflowOrder() {
-  return std::vector<ui::ElementIdentifier>(
-      {kToolbarHomeButtonElementId, kToolbarChromeLabsButtonElementId,
-       kToolbarMediaButtonElementId, kToolbarNewTabButtonElementId,
-       kToolbarForwardButtonElementId, kToolbarBatterySaverButtonElementId,
-       kToolbarAvatarButtonElementId, kToolbarSplitTabsToolbarButtonElementId,
-       ContextualTasksButton::kContextualTasksToolbarButton});
+  std::vector<ui::ElementIdentifier> order = {
+      kToolbarMediaButtonElementId, kToolbarBatterySaverButtonElementId,
+      kToolbarHomeButtonElementId, kToolbarHomeButtonElementId,
+      // The WebUIToolbarWebView is between the home and forward button in
+      // overflow order, since it can include one or both of them, and hides
+      // them on overflow.
+      kWebUIToolbarElementIdentifier, kToolbarForwardButtonElementId,
+      kToolbarAvatarButtonElementId, kToolbarSplitTabsToolbarButtonElementId,
+      ContextualTasksButton::kContextualTasksToolbarButton};
+  if (base::FeatureList::IsEnabled(features::kToolbarGlicButtonResizing)) {
+    const auto it =
+        std::find(order.begin(), order.end(), kToolbarAvatarButtonElementId);
+    order.insert(it, kGlicButtonElementId);
+  }
+  return order;
 }
 
 // Every activate identifier should have an action name in order to emit
@@ -340,12 +373,10 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
       identifier_to_action_name_map(
           {{kToolbarAvatarButtonElementId, "AvatarButton"},
            {kToolbarBatterySaverButtonElementId, "BatterySaverButton"},
-           {kToolbarChromeLabsButtonElementId, "ChromeLabsButton"},
            {kExtensionsMenuButtonElementId, "ExtensionsMenuButton"},
            {kToolbarForwardButtonElementId, "ForwardButton"},
            {kToolbarHomeButtonElementId, "HomeButton"},
            {kToolbarMediaButtonElementId, "MediaButton"},
-           {kToolbarNewTabButtonElementId, "NewTabButton"},
            {kToolbarSidePanelButtonElementId, "SidePanelButton"},
            {kToolbarSplitTabsToolbarButtonElementId, "SplitTabs"},
            {ContextualTasksButton::kContextualTasksToolbarButton,
@@ -414,7 +445,20 @@ bool ToolbarController::PopOut(ui::ElementIdentifier identifier) {
   auto& original = it->second->original_spec;
 
   if (original.has_value()) {
-    element->SetProperty(views::kFlexBehaviorKey, original.value());
+    if (base::FeatureList::IsEnabled(features::kToolbarProfileChipResizing)) {
+      // Some elements (e.g. profile chip) use flex rules that allow
+      // snapping/scaling to zero. When popping out, elements should never be
+      // below the mininmum size.
+      element->SetProperty(
+          views::kFlexBehaviorKey,
+          views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
+                                   views::MaximumFlexSizeRule::kPreferred)
+              .WithOrder((*original).order())
+              .WithWeight((*original).weight())
+              .WithAlignment((*original).alignment()));
+    } else {
+      element->SetProperty(views::kFlexBehaviorKey, original.value());
+    }
   } else {
     element->ClearProperty(views::kFlexBehaviorKey);
   }
@@ -582,14 +626,28 @@ bool ToolbarController::IsOverflowed(
           [&](ToolbarController::ElementIdInfo id) {
             const auto* const toolbar_element = FindToolbarElementWithId(
                 toolbar_container_view_, id.overflow_identifier);
-            const views::FlexLayout* const flex_layout =
-                static_cast<views::FlexLayout*>(
-                    toolbar_container_view_->GetLayoutManager());
-            return flex_layout->CanBeVisible(toolbar_element) &&
-                   !(proposed_layout
-                         ? proposed_layout->GetLayoutFor(toolbar_element)
-                               ->visible
-                         : toolbar_element->GetVisible());
+            // If the element is on the toolbar, it's being handled by Views, so
+            // check the state of the Views element.
+            if (toolbar_element) {
+              const views::FlexLayout* const flex_layout =
+                  static_cast<views::FlexLayout*>(
+                      toolbar_container_view_->GetLayoutManager());
+              return flex_layout->CanBeVisible(toolbar_element) &&
+                     !(proposed_layout
+                           ? proposed_layout->GetLayoutFor(toolbar_element)
+                                 ->visible
+                           : toolbar_element->GetVisible());
+            }
+            // If the element is not on the toolbar, either it's being handled
+            // by WebUI, or the element was not added to the toolbar. We do not
+            // know which, so need to check with the WebUI toolbar in either
+            // case, if there is a WebUI toolbar.
+            if (webui_toolbar_controller_delegate_) {
+              return webui_toolbar_controller_delegate_->IsOverflowed(
+                  id.overflow_identifier, proposed_layout);
+            } else {
+              return false;
+            }
           }},
       element.overflow_id);
 }
@@ -659,6 +717,32 @@ ToolbarController::GetResponsiveElementsWithOrderedActions() const {
         ordered_responsive_elements.begin() + next_non_action_element_index,
         actions_sorting_function);
 
+    std::optional<size_t> last_pinned_index;
+    std::optional<size_t> last_ephemeral_index;
+
+    // Set the last pinned and last unpinned ActionItem elements as section
+    // ends.
+    for (size_t i = element_index; i < next_non_action_element_index; ++i) {
+      const auto& element = ordered_responsive_elements[i];
+      actions::ActionId action_id =
+          std::get<actions::ActionId>(element.overflow_id);
+      bool is_pinned = std::find(ordered_pinned_action_ids.begin(),
+                                 ordered_pinned_action_ids.end(),
+                                 action_id) != ordered_pinned_action_ids.end();
+      if (is_pinned) {
+        last_pinned_index = i;
+      } else {
+        last_ephemeral_index = i;
+      }
+    }
+
+    if (last_pinned_index.has_value()) {
+      ordered_responsive_elements[*last_pinned_index].is_section_end = true;
+    }
+    if (last_ephemeral_index.has_value()) {
+      ordered_responsive_elements[*last_ephemeral_index].is_section_end = true;
+    }
+
     element_index = next_non_action_element_index;
   }
   return ordered_responsive_elements;
@@ -700,9 +784,16 @@ bool ToolbarController::IsCommandIdEnabled(int command_id) const {
             return pinned_actions_delegate_->GetActionItemFor(id)->GetEnabled();
           },
           [this](ToolbarController::ElementIdInfo id) {
-            return FindToolbarElementWithId(toolbar_container_view_,
-                                            id.overflow_identifier)
-                ->GetEnabled();
+            const views::View* element = FindToolbarElementWithId(
+                toolbar_container_view_, id.overflow_identifier);
+            if (element) {
+              return element->GetEnabled();
+            }
+            // If an element is on the overflow menu, but has no toolbar
+            // element, there must be a WebUI toolbar handling that element.
+            CHECK(webui_toolbar_controller_delegate_);
+            return webui_toolbar_controller_delegate_->IsEnabled(
+                id.overflow_identifier);
           }},
       responsive_elements_.at(command_id).overflow_id);
 }
@@ -727,9 +818,16 @@ void ToolbarController::ExecuteCommand(int command_id, int event_flags) {
             const auto& activate_identifier = id.activate_identifier;
             const auto* const element = FindToolbarElementWithId(
                 toolbar_container_view_, activate_identifier);
-            CHECK(element);
-            const auto* button = AsViewClass<views::Button>(element);
-            button->button_controller()->NotifyClick();
+            if (element) {
+              const auto* button = AsViewClass<views::Button>(element);
+              button->button_controller()->NotifyClick();
+            } else {
+              // If an element is on the overflow menu, but has no toolbar
+              // element, there must be a WebUI toolbar handling that element.
+              CHECK(webui_toolbar_controller_delegate_);
+              webui_toolbar_controller_delegate_->OverflowButtonClicked(
+                  id.activate_identifier);
+            }
             action_key.emplace<ui::ElementIdentifier>(activate_identifier);
           }},
       element_info.overflow_id);
@@ -781,12 +879,7 @@ void ToolbarController::ShowStatusIndicator() {
           action_item->GetProperty(kActionItemUnderlineIndicatorKey)) {
         const ui::ImageModel& pinned_icon_image = action_item->GetImage();
         if (!pinned_icon_image.IsEmpty() && pinned_icon_image.IsVectorIcon()) {
-          ui::VectorIconModel vector_icon_model =
-              pinned_icon_image.GetVectorIcon();
-
-          menu_item->icon_view()->SetImage(ui::ImageModel::FromVectorIcon(
-              *vector_icon_model.vector_icon(), kColorToolbarActionItemEngaged,
-              ui::SimpleMenuModel::kDefaultIconSize));
+          menu_item->SetIconColor(kColorToolbarActionItemEngaged);
         }
         status_indicator->Show();
       }
@@ -799,7 +892,7 @@ void ToolbarController::ActionItemChanged(actions::ActionItem* action_item) {
     return;
   }
 
-  std::optional<int> command_id = std::nullopt;
+  std::optional<int> command_id;
   for (size_t i = 0; i < responsive_elements_.size(); ++i) {
     const auto& element = responsive_elements_[i];
     if (std::holds_alternative<actions::ActionId>(element.overflow_id)) {
@@ -834,21 +927,13 @@ void ToolbarController::ActionItemChanged(actions::ActionItem* action_item) {
   if (action_item->GetProperty(kActionItemUnderlineIndicatorKey)) {
     const ui::ImageModel& pinned_icon_image = action_item->GetImage();
     if (!pinned_icon_image.IsEmpty() && pinned_icon_image.IsVectorIcon()) {
-      ui::VectorIconModel vector_icon_model = pinned_icon_image.GetVectorIcon();
-
-      menu_item->icon_view()->SetImage(ui::ImageModel::FromVectorIcon(
-          *vector_icon_model.vector_icon(), kColorToolbarActionItemEngaged,
-          ui::SimpleMenuModel::kDefaultIconSize));
+      menu_item->SetIconColor(kColorToolbarActionItemEngaged);
     }
     status_indicator->Show();
   } else {
     const ui::ImageModel& pinned_icon_image = action_item->GetImage();
     if (!pinned_icon_image.IsEmpty() && pinned_icon_image.IsVectorIcon()) {
-      ui::VectorIconModel vector_icon_model = pinned_icon_image.GetVectorIcon();
-
-      menu_item->icon_view()->SetImage(ui::ImageModel::FromVectorIcon(
-          *vector_icon_model.vector_icon(), vector_icon_model.color(),
-          ui::SimpleMenuModel::kDefaultIconSize));
+      menu_item->SetIconColor(std::nullopt);
     }
     status_indicator->Hide();
   }

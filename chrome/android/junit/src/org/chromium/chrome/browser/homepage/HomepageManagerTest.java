@@ -4,15 +4,17 @@
 
 package org.chromium.chrome.browser.homepage;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNonNativeNtpUrl;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNtpUrl;
 
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -20,16 +22,23 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.UserDataHost;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.actor.ui.ActorUiTabController;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.new_tab_url.DseNewTabUrlManager;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabCreator;
+import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.url_constants.ExtensionsUrlOverrideRegistry;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolverFactory;
+import org.chromium.ui.base.PageTransition;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -37,9 +46,11 @@ import org.chromium.url.JUnitTestGURLs;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 @EnableFeatures(ChromeFeatureList.CHROME_NATIVE_URL_OVERRIDING)
+@DisableFeatures(ChromeFeatureList.GLIC)
 public class HomepageManagerTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private PartnerBrowserCustomizations mPartnerBrowserCustomizations;
+    @Mock private ActorUiTabController mActorUiTabController;
 
     @Before
     public void setUp() {
@@ -216,7 +227,7 @@ public class HomepageManagerTest {
         ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
         UrlConstantResolverFactory.resetResolvers();
 
-        GURL nonNativeNtp = new GURL(getOriginalNonNativeNtpUrl());
+        GURL nonNativeNtp = new GURL(getOriginalNtpUrl());
         GURL incognitoNtp = UrlConstantResolverFactory.getIncognitoResolver().getNtpGurl();
 
         Assert.assertEquals(
@@ -241,7 +252,7 @@ public class HomepageManagerTest {
         UrlConstantResolverFactory.resetResolvers();
 
         GURL originalNtp = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
-        GURL nonNativeNtp = new GURL(getOriginalNonNativeNtpUrl());
+        GURL nonNativeNtp = new GURL(getOriginalNtpUrl());
 
         Assert.assertEquals(
                 "Regular homepage should be the native NTP URL.",
@@ -265,7 +276,7 @@ public class HomepageManagerTest {
         ExtensionsUrlOverrideRegistry.setIncognitoNtpOverrideEnabled(true);
         UrlConstantResolverFactory.resetResolvers();
 
-        GURL nonNativeNtp = new GURL(getOriginalNonNativeNtpUrl());
+        GURL nonNativeNtp = new GURL(getOriginalNtpUrl());
 
         Assert.assertEquals(
                 "Regular homepage should be the non-native NTP URL.",
@@ -282,7 +293,7 @@ public class HomepageManagerTest {
         ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
         UrlConstantResolverFactory.resetResolvers();
 
-        GURL nonNativeNtp = new GURL(getOriginalNonNativeNtpUrl());
+        GURL nonNativeNtp = new GURL(getOriginalNtpUrl());
         Assert.assertEquals(
                 "getNtpUrl should return non-native NTP when overridden.",
                 nonNativeNtp,
@@ -419,7 +430,7 @@ public class HomepageManagerTest {
         ExtensionsUrlOverrideRegistry.setNtpOverrideEnabled(true);
         UrlConstantResolverFactory.resetResolvers();
 
-        GURL nonNativeNtp = new GURL(getOriginalNonNativeNtpUrl());
+        GURL nonNativeNtp = new GURL(getOriginalNtpUrl());
         GURL nativeNtp = UrlConstantResolverFactory.getOriginalResolver().getNtpGurl();
         Assert.assertNotEquals(
                 "getNtpUrl should return native NTP when override is disabled by feature.",
@@ -540,5 +551,278 @@ public class HomepageManagerTest {
         Assert.assertEquals(
                 JUnitTestGURLs.EXAMPLE_URL,
                 homepageManager.getHomepageGurlForZeroTabs(/* isIncognito= */ false));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true")
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testIsHomepageEnabled_HomeButtonRemovalEverywhere_NoBottomBar() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertFalse(homepageManager.isHomepageEnabled());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true",
+        ChromeFeatureList.ANDROID_BOTTOM_BAR
+    })
+    public void testIsHomepageEnabled_HomeButtonRemovalEverywhere_WithBottomBar() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertTrue(homepageManager.isHomepageEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true")
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomepageSettings_HomeButtonRemovalEverywhere_NoBottomBar() {
+        Assert.assertFalse(HomepageManager.shouldShowHomepageSettings());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/true",
+        ChromeFeatureList.ANDROID_BOTTOM_BAR
+    })
+    public void testShouldShowHomepageSettings_HomeButtonRemovalEverywhere_WithBottomBar() {
+        Assert.assertTrue(HomepageManager.shouldShowHomepageSettings());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.HOME_BUTTON_REMOVAL + ":remove_home_button_everywhere/false")
+    public void testShouldShowHomepageSettings_HomeButtonRemovalEverywhereDisabled() {
+        Assert.assertTrue(HomepageManager.shouldShowHomepageSettings());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomeButtonOnToolbar_KeepOnNtp_NoBottomBar() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertTrue(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ true));
+        Assert.assertFalse(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ false));
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true",
+        ChromeFeatureList.ANDROID_BOTTOM_BAR
+    })
+    public void testShouldShowHomeButtonOnToolbar_KeepOnNtp_WithBottomBar() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertTrue(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ true));
+        Assert.assertTrue(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ false));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/false"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomeButtonOnToolbar_NotKeepOnNtp() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertTrue(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ true));
+        Assert.assertTrue(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ false));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomeButtonOnToolbar_KeepOnNtp_IsNtp_HomepageDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, false);
+        Assert.assertFalse(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ true));
+        Assert.assertFalse(homepageManager.shouldShowHomeButtonOnToolbar(/* isNtp= */ false));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomepageMenuItem_KeepOnNtp_NoBottomBar() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertTrue(homepageManager.shouldShowHomepageMenuItem());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true",
+        ChromeFeatureList.ANDROID_BOTTOM_BAR
+    })
+    public void testShouldShowHomepageMenuItem_KeepOnNtp_WithBottomBar() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertFalse(homepageManager.shouldShowHomepageMenuItem());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/false"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomepageMenuItem_NotKeepOnNtp() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+        Assert.assertFalse(homepageManager.shouldShowHomepageMenuItem());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testShouldShowHomepageMenuItem_KeepOnNtp_HomepageDisabled() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, false);
+        Assert.assertFalse(homepageManager.shouldShowHomepageMenuItem());
+    }
+
+    @Test
+    public void testOpenHomepage_WithActiveTab() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        HomepagePolicyManager.setHomepageForTesting(true, JUnitTestGURLs.EXAMPLE_URL, false);
+
+        Tab tab = Mockito.mock(Tab.class);
+        TabCreatorManager tabCreatorManager = Mockito.mock(TabCreatorManager.class);
+
+        homepageManager.openHomepage(tab, tabCreatorManager, /* isIncognito= */ false);
+
+        verify(tab)
+                .loadUrl(
+                        ArgumentMatchers.argThat(
+                                params ->
+                                        params.getUrl().equals(JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                                                && params.getTransitionType()
+                                                        == PageTransition.HOME_PAGE));
+        Mockito.verifyNoInteractions(tabCreatorManager);
+    }
+
+    @Test
+    public void testOpenHomepage_WithNoActiveTab() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        HomepagePolicyManager.setHomepageForTesting(true, JUnitTestGURLs.EXAMPLE_URL, false);
+
+        TabCreatorManager tabCreatorManager = Mockito.mock(TabCreatorManager.class);
+        TabCreator tabCreator = Mockito.mock(TabCreator.class);
+        when(tabCreatorManager.getTabCreator(false)).thenReturn(tabCreator);
+
+        homepageManager.openHomepage(null, tabCreatorManager, /* isIncognito= */ false);
+
+        verify(tabCreator)
+                .createNewTab(
+                        ArgumentMatchers.argThat(
+                                params ->
+                                        params.getUrl().equals(JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                                                && params.getTransitionType()
+                                                        == PageTransition.HOME_PAGE),
+                        ArgumentMatchers.eq(TabLaunchType.FROM_CHROME_UI),
+                        ArgumentMatchers.isNull());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.GLIC)
+    public void testOpenHomepage_WithActiveTab_GlicEnabled_ActorActive_ConfirmDialogShown() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        HomepagePolicyManager.setHomepageForTesting(true, JUnitTestGURLs.EXAMPLE_URL, false);
+
+        Tab tab = Mockito.mock(Tab.class);
+        UserDataHost userDataHost = new UserDataHost();
+        Mockito.doReturn(userDataHost).when(tab).getUserDataHost();
+        userDataHost.setUserData(ActorUiTabController.class, mActorUiTabController);
+
+        Mockito.doReturn(true).when(mActorUiTabController).isActorActive();
+        Mockito.doReturn(true)
+                .when(mActorUiTabController)
+                .showTaskAbortConfirmationDialog(ArgumentMatchers.any(Runnable.class));
+
+        TabCreatorManager tabCreatorManager = Mockito.mock(TabCreatorManager.class);
+
+        homepageManager.openHomepage(tab, tabCreatorManager, /* isIncognito= */ false);
+
+        // Immediate loadUrl should not be called as the confirmation dialog was shown.
+        Mockito.verify(tab, Mockito.never()).loadUrl(ArgumentMatchers.any());
+        Mockito.verifyNoInteractions(tabCreatorManager);
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        Mockito.verify(mActorUiTabController)
+                .showTaskAbortConfirmationDialog(runnableCaptor.capture());
+
+        // Now run the navigation runnable, which should load the page on the tab.
+        runnableCaptor.getValue().run();
+
+        Mockito.verify(tab)
+                .loadUrl(
+                        ArgumentMatchers.argThat(
+                                params ->
+                                        params.getUrl().equals(JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                                                && params.getTransitionType()
+                                                        == PageTransition.HOME_PAGE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.GLIC)
+    public void testOpenHomepage_WithActiveTab_GlicEnabled_ActorActive_ConfirmDialogNotShown() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        HomepagePolicyManager.setHomepageForTesting(true, JUnitTestGURLs.EXAMPLE_URL, false);
+
+        Tab tab = Mockito.mock(Tab.class);
+        UserDataHost userDataHost = new UserDataHost();
+        Mockito.doReturn(userDataHost).when(tab).getUserDataHost();
+        userDataHost.setUserData(ActorUiTabController.class, mActorUiTabController);
+
+        Mockito.doReturn(true).when(mActorUiTabController).isActorActive();
+        Mockito.doReturn(false)
+                .when(mActorUiTabController)
+                .showTaskAbortConfirmationDialog(ArgumentMatchers.any(Runnable.class));
+
+        TabCreatorManager tabCreatorManager = Mockito.mock(TabCreatorManager.class);
+
+        homepageManager.openHomepage(tab, tabCreatorManager, /* isIncognito= */ false);
+
+        // Immediate loadUrl should be called.
+        Mockito.verify(tab)
+                .loadUrl(
+                        ArgumentMatchers.argThat(
+                                params ->
+                                        params.getUrl().equals(JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                                                && params.getTransitionType()
+                                                        == PageTransition.HOME_PAGE));
+        Mockito.verifyNoInteractions(tabCreatorManager);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.GLIC)
+    public void testOpenHomepage_WithActiveTab_GlicEnabled_ActorNotActive() {
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        HomepagePolicyManager.setHomepageForTesting(true, JUnitTestGURLs.EXAMPLE_URL, false);
+
+        Tab tab = Mockito.mock(Tab.class);
+        UserDataHost userDataHost = new UserDataHost();
+        Mockito.doReturn(userDataHost).when(tab).getUserDataHost();
+        userDataHost.setUserData(ActorUiTabController.class, mActorUiTabController);
+
+        Mockito.doReturn(false).when(mActorUiTabController).isActorActive();
+
+        TabCreatorManager tabCreatorManager = Mockito.mock(TabCreatorManager.class);
+
+        homepageManager.openHomepage(tab, tabCreatorManager, /* isIncognito= */ false);
+
+        // Immediate loadUrl should be called.
+        Mockito.verify(tab)
+                .loadUrl(
+                        ArgumentMatchers.argThat(
+                                params ->
+                                        params.getUrl().equals(JUnitTestGURLs.EXAMPLE_URL.getSpec())
+                                                && params.getTransitionType()
+                                                        == PageTransition.HOME_PAGE));
+        Mockito.verifyNoInteractions(tabCreatorManager);
     }
 }

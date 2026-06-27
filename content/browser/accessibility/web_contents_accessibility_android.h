@@ -20,9 +20,12 @@
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/abseil-cpp/absl/container/node_hash_map.h"
 #include "ui/accessibility/platform/ax_node_id_delegate.h"
+#include "ui/accessibility/platform/ax_unique_id.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace ui {
+enum class AXOffscreenResult;
 class MotionEventAndroid;
 struct AXTreeUpdate;
 }  // namespace ui
@@ -179,6 +182,7 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void Click(JNIEnv* env, int32_t id);
   void Focus(JNIEnv* env, int32_t id);
   void Blur(JNIEnv* env);
+  int32_t GetFocus(JNIEnv* env);
   void Expand(JNIEnv* env, int32_t id);
   void Collapse(JNIEnv* env, int32_t id);
   void ScrollToMakeNodeVisible(JNIEnv* env, int32_t id);
@@ -550,6 +554,10 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
       int32_t id,
       BrowserAccessibilityAndroid* node);
 
+  gfx::Rect GetAbsoluteBoundsForNode(
+      BrowserAccessibilityAndroid* node,
+      ui::AXOffscreenResult* offscreen_result = nullptr);
+
   base::android::ScopedJavaLocalRef<jobject> ToJavaCanonicalStringRangesMap(
       JNIEnv* env,
       const std::optional<
@@ -594,6 +602,11 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // Owns itself, and destroyed upon WebContentsObserver::WebContentsDestroyed.
   class Connector;
   raw_ptr<Connector> connector_ = nullptr;
+
+  // A mapping of each AXNodeID managed by `snapshot_root_manager_`, which is
+  // only unique within its renderer, to an AXUniqueId, which is unique within
+  // the scope of the web contents.
+  absl::flat_hash_map<ui::AXNodeID, ui::AXUniqueId> ax_unique_ids_;
 
   // This isn't associated with a real WebContents and is only populated when
   // this class is constructed with a ui::AXTreeUpdate.

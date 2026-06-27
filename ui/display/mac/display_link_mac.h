@@ -16,6 +16,10 @@ namespace gpu {
 class ImageTransportSurfaceOverlayMacTest;
 }
 
+namespace viz {
+class ExternalBeginFrameSourceMacTest;
+}
+
 namespace ui {
 
 // VSync parameters parsed from CVDisplayLinkOutputCallback's parameters.
@@ -40,10 +44,6 @@ class DISPLAY_EXPORT VSyncCallbackMac {
   using Callback = base::RepeatingCallback<void(VSyncParamsMac)>;
   ~VSyncCallbackMac();
 
-  // To prevent constantly switching VSync on and off, allow this max number of
-  // extra CVDisplayLink VSync running before stopping CVDisplayLink.
-  static constexpr int kMaxExtraVSyncs = 12;
-
   base::WeakPtr<VSyncCallbackMac> GetWeakPtr();
 
  private:
@@ -56,6 +56,7 @@ class DISPLAY_EXPORT VSyncCallbackMac {
   friend struct ObjCState;
 
   friend class gpu::ImageTransportSurfaceOverlayMacTest;
+  friend class viz::ExternalBeginFrameSourceMacTest;
 
   using UnregisterCallback = base::OnceCallback<void(VSyncCallbackMac*)>;
 
@@ -104,11 +105,6 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
 
   static bool SupportsDisplayLinkMacInBrowser();
 
-  // For CADisplayLink and CVDisplayLink in GPU, always return true;
-  // For ExternalDisplayLinkMac, check whether the display id has been added in
-  // AddSupportedDisplayLinkId().
-  static bool IsDisplayLinkAllowed(int64_t display_id);
-
   // CADisplayLink is not designed for multi-process use and can become
   // non-functional in the GPU process following a power state change or a
   // system refresh rate update.
@@ -119,7 +115,7 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
   //
   // Returns true if the display link instance is still valid after a power
   // event or refresh rate change.
-  virtual bool NotifyEventAndCheckValidity(int64_t display_id);
+  virtual bool NotifyEventAndCheckValidity();
 
   // Register an observer callback.
   // * The specified callback will be called at every VSync tick, until the

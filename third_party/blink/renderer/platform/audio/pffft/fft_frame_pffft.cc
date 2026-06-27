@@ -19,8 +19,10 @@ namespace blink {
 
 namespace {
 
-// PFFFT supports real FFTs up to at least order 20 (1048576 samples).
-constexpr unsigned kMaxFFTPow2Size = 20;
+// PFFFT supports real FFTs up to at least order 20 (1048576 samples), but we
+// only go up to a max size of 32768, because we need at least an FFT size of
+// 32768 for the convolver node.
+constexpr unsigned kMaxFFTPow2Size = 15;
 
 // PFFFT has a minimum real FFT order of 5 (32-point transforms).
 constexpr unsigned kMinFFTPow2Size = 5;
@@ -50,7 +52,7 @@ FFTSetup::FFTSetup(unsigned fft_size) {
 FFTSetup::~FFTSetup() {
   CHECK(setup_);
 
-  pffft_destroy_setup(setup_);
+  pffft_destroy_setup(setup_.ExtractAsDangling());
 }
 
 HashMap<unsigned, std::unique_ptr<FFTSetup>>& FFTSetups() {
@@ -78,16 +80,15 @@ HashMap<unsigned, std::unique_ptr<FFTSetup>>& FFTSetups() {
     // Initialize the hash map with all the possible keys (FFT sizes), with a
     // value of nullptr because we want to initialize the setup data lazily. The
     // set of valid FFT sizes for PFFFT are of the form 2^k*3^m*5^n where k >=
-    // 5, m >= 0, n >= 0.  We only go up to a max size of 32768, because we need
-    // at least an FFT size of 32768 for the convolver node.
+    // 5, m >= 0, n >= 0.
 
-    // TODO(crbug.com/988121):  Sync this with kMaxFFTPow2Size.
-    const int kMaxConvolverFFTSize = 32768;
+    const unsigned kMaxConvolverFFTSize = FFTFrame::MaxFFTSize();
 
-    for (int n = 1; n <= kMaxConvolverFFTSize; n *= 5) {
-      for (int m = 1; m <= kMaxConvolverFFTSize / n; m *= 3) {
-        for (int k = 32; k <= kMaxConvolverFFTSize / (n * m); k *= 2) {
-          int size = k * m * n;
+    for (unsigned n = 1; n <= kMaxConvolverFFTSize; n *= 5) {
+      for (unsigned m = 1; m <= kMaxConvolverFFTSize / n; m *= 3) {
+        for (unsigned k = FFTFrame::MinFFTSize();
+             k <= kMaxConvolverFFTSize / (n * m); k *= 2) {
+          unsigned size = k * m * n;
           if (size <= kMaxConvolverFFTSize && !fft_setups.Contains(size)) {
             fft_setups.insert(size, nullptr);
           }
@@ -132,50 +133,29 @@ PFFFT_Setup* FFTSetupForSize(wtf_size_t fft_size) {
 
 }  // namespace
 
-FFTFrame::FFTFrame(unsigned fft_size)
-    : fft_size_(fft_size),
-      log2fft_size_(static_cast<unsigned>(log2(fft_size))),
-      real_data_(fft_size / 2),
-      imag_data_(fft_size / 2),
-      complex_data_(fft_size),
-      pffft_work_(fft_size) {
-  CHECK_GE(fft_size, MinFFTSize());
-  CHECK_LE(fft_size, MaxFFTSize());
+void FFTFrame::PlatformConstruct() {
+  CHECK_GE(fft_size_, MinFFTSize());
+  CHECK_LE(fft_size_, MaxFFTSize());
 
-  // Initialize the PFFFT_Setup object here so that it will be ready when we
-  // compute FFTs.
-  InitializeFFTSetupForSize(fft_size);
-}
+  real_data_.Allocate(fft_size_ / 2);
+  imag_data_.Allocate(fft_size_ / 2);
+  complex_data_.Allocate(fft_size_);
+  pffft_work_.Allocate(fft_size_);
 
-// Creates a blank/empty frame (interpolate() must later be called).
-FFTFrame::FFTFrame() : fft_size_(0), log2fft_size_(0) {}
-
-// Copy constructor.
-FFTFrame::FFTFrame(const FFTFrame& frame)
-    : fft_size_(frame.fft_size_),
-      log2fft_size_(frame.log2fft_size_),
-      real_data_(frame.fft_size_ / 2),
-      imag_data_(frame.fft_size_ / 2),
-      complex_data_(frame.fft_size_),
-      pffft_work_(frame.fft_size_) {
   // Initialize the PFFFT_Setup object here so that it will be ready when we
   // compute FFTs.
   InitializeFFTSetupForSize(fft_size_);
-
-  // Copy/setup frame data.
-  real_data_.as_span().copy_from(frame.real_data_.as_span());
-  imag_data_.as_span().copy_from(frame.imag_data_.as_span());
 }
 
-unsigned FFTFrame::MinFFTSize() {
+unsigned FFTFrame::PlatformMinFFTSize() {
   return 1u << kMinFFTPow2Size;
 }
 
-unsigned FFTFrame::MaxFFTSize() {
+unsigned FFTFrame::PlatformMaxFFTSize() {
   return 1u << kMaxFFTPow2Size;
 }
 
-void FFTFrame::Initialize(float sample_rate) {
+void FFTFrame::PlatformInitialize(float sample_rate) {
   // Initialize the vector now so it's ready for use when we construct
   // FFTFrames.
   FFTSetups();
@@ -196,23 +176,20 @@ void FFTFrame::Initialize(float sample_rate) {
   InitializeFFTSetupForSize(hrtf_fft_size / 2);
 }
 
-void FFTFrame::Cleanup() {
+void FFTFrame::PlatformCleanup() {
   for (auto& setup : FFTSetups()) {
     setup.value.reset();
   }
 }
 
-FFTFrame::~FFTFrame() {
-}
-
-void FFTFrame::DoFFT(const float* data) {
+void FFTFrame::PlatformDoFFT(base::span<const float> data_span) {
   DCHECK_EQ(pffft_work_.size(), fft_size_);
 
   PFFFT_Setup* setup = FFTSetupForSize(fft_size_);
   DCHECK(setup);
 
-  pffft_transform_ordered(setup, data, complex_data_.Data(), pffft_work_.Data(),
-                          PFFFT_FORWARD);
+  pffft_transform_ordered(setup, data_span.data(), complex_data_.Data(),
+                          pffft_work_.Data(), PFFFT_FORWARD);
 
   unsigned len = fft_size_ / 2;
 
@@ -226,7 +203,7 @@ void FFTFrame::DoFFT(const float* data) {
   }
 }
 
-void FFTFrame::DoInverseFFT(float* data) {
+void FFTFrame::PlatformDoInverseFFT(base::span<float> data_span) {
   DCHECK_EQ(complex_data_.size(), fft_size_);
 
   unsigned len = fft_size_ / 2;
@@ -242,12 +219,12 @@ void FFTFrame::DoInverseFFT(float* data) {
   PFFFT_Setup* setup = FFTSetupForSize(fft_size_);
   DCHECK(setup);
 
-  pffft_transform_ordered(setup, complex_data_.Data(), data, pffft_work_.Data(),
-                          PFFFT_BACKWARD);
+  pffft_transform_ordered(setup, complex_data_.Data(), data_span.data(),
+                          pffft_work_.Data(), PFFFT_BACKWARD);
 
   // The inverse transform needs to be scaled because PFFFT doesn't.
   float scale = 1.0 / fft_size_;
-  vector_math::Vsmul(data, 1, &scale, data, 1, fft_size_);
+  vector_math::Vsmul(data_span, scale, data_span, fft_size_);
 }
 
 }  // namespace blink

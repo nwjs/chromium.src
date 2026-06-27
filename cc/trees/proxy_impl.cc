@@ -250,14 +250,20 @@ void ProxyImpl::SetDeferBeginMainFrameFromImpl(bool defer_begin_main_frame) {
     scheduler_->SetDeferBeginMainFrame(ShouldDeferBeginMainFrame());
 }
 
+void ProxyImpl::SendEarlyFinalBeginMainFrame() {
+  // Triggers a fake vsync
+  scheduler_->SendEarlyFinalBeginMainFrame();
+  host_impl_->DidSendEarlyFinalBeginMainFrame();
+}
+
 void ProxyImpl::SetNeedsRedrawOnImpl(const gfx::Rect& damage_rect) {
   DCHECK(IsImplThread());
   host_impl_->SetViewportDamage(damage_rect);
   SetNeedsRedrawOnImplThread();
 }
 
-void ProxyImpl::SetNeedsCommitOnImpl(bool urgent) {
-  SetNeedsCommitOnImplThread(urgent);
+void ProxyImpl::SetNeedsCommitOnImpl(BeginMainFrameReason reason, bool urgent) {
+  SetNeedsCommitOnImplThread(reason, urgent);
 }
 
 void ProxyImpl::SetTargetLocalSurfaceIdOnImpl(
@@ -500,7 +506,9 @@ void ProxyImpl::SetNeedsPrepareTilesOnImplThread() {
   scheduler_->SetNeedsPrepareTiles();
 }
 
-void ProxyImpl::SetNeedsCommitOnImplThread(bool urgent) {
+void ProxyImpl::SetNeedsCommitOnImplThread(BeginMainFrameReason reason,
+                                           bool urgent) {
+  set_begin_main_frame_reason(reason);
   TRACE_EVENT0("cc", "ProxyImpl::SetNeedsCommitOnImplThread");
   DCHECK(IsImplThread());
   scheduler_->SetNeedsBeginMainFrame(urgent);
@@ -636,7 +644,8 @@ void ProxyImpl::NotifyImageDecodeRequestFinished(int request_id,
         base::BindOnce(&ProxyMain::NotifyImageDecodeRequestFinished,
                        proxy_main_weak_ptr_, request_id, decode_succeeded));
   } else {
-    SetNeedsCommitOnImplThread(/* urgent= */ false);
+    SetNeedsCommitOnImplThread(BeginMainFrameReason::kOther,
+                               /* urgent= */ false);
   }
 }
 
@@ -754,6 +763,8 @@ void ProxyImpl::ScheduledActionSendBeginMainFrame(
       host_impl_->FrameSequenceTrackerActiveTypes();
   begin_main_frame_state->evicted_ui_resources =
       host_impl_->EvictedUIResourcesExist();
+  begin_main_frame_state->reason = begin_main_frame_reason_;
+  begin_main_frame_reason_.reset();
   host_impl_->WillSendBeginMainFrame();
   {
     TRACE_EVENT_INSTANT(

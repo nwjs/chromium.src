@@ -47,9 +47,33 @@ void AllowAccessToRenderNodes(std::vector<BrokerFilePermission>& permissions,
         uint32_t major = (static_cast<uint32_t>(st.st_rdev) >> 8) & 0xff;
         uint32_t minor = static_cast<uint32_t>(st.st_rdev) & 0xff;
         std::string char_device_path =
-            base::StringPrintf("/sys/dev/char/%u:%u/", major, minor);
+            base::StringPrintf("/sys/dev/char/%u:%u", major, minor);
+        permissions.push_back(BrokerFilePermission::ReadOnly(char_device_path));
         permissions.push_back(
-            BrokerFilePermission::ReadOnlyRecursive(char_device_path));
+            BrokerFilePermission::ReadOnly(char_device_path + "/uevent"));
+        permissions.push_back(
+            BrokerFilePermission::ReadOnly(char_device_path + "/dev"));
+
+        // libdrm and graphics drivers query these specific sysfs files inside
+        // the sandbox (e.g. during vaInitialize) to identify the GPU and
+        // select/configure the correct driver. We whitelist them explicitly
+        // to avoid granting recursive read access to the whole device
+        // directory. Note: 'config' is omitted because 'revision' exists on
+        // target devices.
+        std::string device_path = char_device_path + "/device/";
+        for (const char* file : {
+                 "vendor",
+                 "device",
+                 "revision",
+                 "subsystem_vendor",
+                 "subsystem_device",
+                 "subsystem",
+                 "uevent",
+                 "drm",
+             }) {
+          permissions.push_back(
+              BrokerFilePermission::ReadOnly(device_path + file));
+        }
       }
     }
   }
@@ -81,6 +105,9 @@ bool HardwareVideoDecodingPreSandboxHookForVaapiOnIntel(
   //
   // TODO(b/210759684): we probably will need to do this for Linux as well.
   command_set.set(sandbox::syscall_broker::COMMAND_ACCESS);
+
+  // libdrm calls readlink on the 'subsystem' symlink to determine the bus type.
+  command_set.set(sandbox::syscall_broker::COMMAND_READLINK);
 
   AllowAccessToRenderNodes(permissions, /*include_sys_dev_char=*/true,
                            /*read_write=*/false);

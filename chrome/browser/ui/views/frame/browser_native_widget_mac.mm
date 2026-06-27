@@ -55,6 +55,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/native_theme/native_theme.h"
 #import "ui/views/cocoa/native_widget_mac_ns_window_host.h"
 #include "ui/views/interaction/element_tracker_views.h"
 
@@ -91,6 +92,19 @@ bool ShouldHandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) {
 }
 
 }  // namespace
+
+// NSGlassEffectView intercepts hit testing even when added below the
+// WebContents NSViews. Returning nil here lets clicks pass through to the
+// sibling subviews that are supposed to receive them.
+API_AVAILABLE(macos(26.0))
+@interface GlassFrameBackgroundView : NSGlassEffectView
+@end
+
+@implementation GlassFrameBackgroundView
+- (NSView*)hitTest:(NSPoint)point {
+  return nil;
+}
+@end
 
 // Bridge Obj-C class for WindowTouchBarDelegate and
 // BrowserWindowTouchBarController.
@@ -213,7 +227,10 @@ void BrowserNativeWidgetMac::OnWidgetDestroyed(views::Widget* widget) {
     chrome::RemoveCommandObserver(browser_view_->browser(), IDC_FORWARD, this);
   }
   touch_bar_delegate_ = nullptr;
+  background_view_ = nil;
   browser_view_ = nullptr;
+  last_preferred_color_scheme_.reset();
+  last_theme_color_.reset();
   NativeWidgetMac::OnWidgetDestroyed(widget);
 }
 
@@ -554,23 +571,12 @@ void BrowserNativeWidgetMac::OnWindowInitialized() {
 
 void BrowserNativeWidgetMac::OnWidgetInitDone() {
   NativeWidgetMac::OnWidgetInitDone();
+  UpdateBackground();
+}
 
-  if (features::IsGlassFrameEnabled()) {
-    NSWindow* ns_window = GetNSWindowHost()->GetInProcessNSWindow();
-    if (ns_window) {
-      NSView* content_view = [ns_window contentView];
-      CHECK(content_view);
-      NSVisualEffectView* effect_view =
-          [[NSVisualEffectView alloc] initWithFrame:content_view.bounds];
-      effect_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-      effect_view.material = NSVisualEffectMaterialUnderWindowBackground;
-      effect_view.blendingMode = NSVisualEffectBlendingModeBehindWindow;
-      effect_view.state = NSVisualEffectStateActive;
-      [content_view addSubview:effect_view
-                    positioned:NSWindowBelow
-                    relativeTo:nil];
-    }
-  }
+void BrowserNativeWidgetMac::OnWidgetThemeChanged(views::Widget* widget) {
+  NativeWidgetMac::OnWidgetThemeChanged(widget);
+  UpdateBackground();
 }
 
 void BrowserNativeWidgetMac::OnWindowDestroying(
@@ -678,5 +684,57 @@ void BrowserNativeWidgetMac::AnnounceTextInInProcessWindow(
     NSAccessibilityPostNotificationWithUserInfo(
         ns_window, NSAccessibilityAnnouncementRequestedNotification,
         notification_info);
+  }
+}
+
+void BrowserNativeWidgetMac::UpdateBackground() {
+  if (!features::IsGlassFrameEnabled()) {
+    return;
+  }
+
+  if (@available(macOS 26.0, *)) {
+    auto color_scheme =
+        browser_view_->GetNativeTheme()->preferred_color_scheme();
+    auto theme_color =
+        browser_view_->GetColorProvider()->GetColor(ui::kColorFrameActive);
+
+    if (background_view_ && last_preferred_color_scheme_ == color_scheme &&
+        last_theme_color_ == theme_color) {
+      return;
+    }
+
+    last_preferred_color_scheme_ = color_scheme;
+    last_theme_color_ = theme_color;
+
+    if (background_view_) {
+      [background_view_ removeFromSuperview];
+    }
+    background_view_ = nil;
+
+    NSWindow* ns_window = GetNSWindowHost()->GetInProcessNSWindow();
+    if (!ns_window) {
+      return;
+    }
+
+    NSView* content_view = [ns_window contentView];
+
+    NSGlassEffectView* glass_view =
+        [[GlassFrameBackgroundView alloc] initWithFrame:content_view.bounds];
+    glass_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    glass_view.style = NSGlassEffectViewStyleRegular;
+
+    CGFloat r = SkColorGetR(theme_color) / 255.0;
+    CGFloat g = SkColorGetG(theme_color) / 255.0;
+    CGFloat b = SkColorGetB(theme_color) / 255.0;
+
+    glass_view.tintColor = [NSColor colorWithSRGBRed:r
+                                               green:g
+                                                blue:b
+                                               alpha:0.55];
+
+    background_view_ = glass_view;
+    [content_view addSubview:background_view_
+                  positioned:NSWindowBelow
+                  relativeTo:nil];
   }
 }

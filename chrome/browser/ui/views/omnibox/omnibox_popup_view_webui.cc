@@ -50,12 +50,25 @@ OmniboxPopupViewWebUI::OmniboxPopupViewWebUI(
     OmniboxController* controller,
     LocationBar* location_bar,
     OmniboxPopupPresenterDelegate& presenter_delegate)
+    : OmniboxPopupViewWebUI(
+          omnibox_view,
+          controller,
+          location_bar,
+          presenter_delegate,
+          std::make_unique<OmniboxPopupPresenter>(location_bar,
+                                                  presenter_delegate,
+                                                  controller)) {}
+
+OmniboxPopupViewWebUI::OmniboxPopupViewWebUI(
+    OmniboxView* omnibox_view,
+    OmniboxController* controller,
+    LocationBar* location_bar,
+    OmniboxPopupPresenterDelegate& presenter_delegate,
+    std::unique_ptr<OmniboxPopupPresenterBase> presenter)
     : OmniboxPopupView(controller),
-      construction_time_(base::TimeTicks::Now()),
       omnibox_view_(omnibox_view),
-      location_bar_(location_bar) {
-  presenter_ = std::make_unique<OmniboxPopupPresenter>(
-      location_bar, presenter_delegate, controller);
+      location_bar_(location_bar),
+      presenter_(std::move(presenter)) {
   controller->edit_model()->set_popup_view(this);
   edit_model_observation_.Observe(controller->edit_model());
 }
@@ -66,6 +79,10 @@ OmniboxPopupViewWebUI::~OmniboxPopupViewWebUI() {
 
 bool OmniboxPopupViewWebUI::IsOpen() const {
   return presenter_->IsShown();
+}
+
+OmniboxPopupPresenterBase* OmniboxPopupViewWebUI::presenter() {
+  return presenter_.get();
 }
 
 void OmniboxPopupViewWebUI::InvalidateLine(size_t line) {}
@@ -83,14 +100,15 @@ void OmniboxPopupViewWebUI::UpdatePopupAppearance() {
       controller()->autocomplete_controller()->result().has_contextual_chips();
   const bool contextual_chips_feature_enabled =
       omnibox::IsAimPopupEnabled(location_bar_->GetProfile()) &&
-      (omnibox::kShowRecentTabChip.Get() || omnibox::kShowLensSearchChip.Get());
+      omnibox::kShowLensSearchChip.Get();
   const bool has_results_or_chips =
       has_results || (contextual_chips_feature_enabled && has_contextual_chips);
   const bool should_be_visible =
       controller()->popup_state_manager()->popup_state() !=
           OmniboxPopupState::kAim &&
-      (has_results_or_chips || (omnibox::IsWebUIOmniboxFullPopupEnabled() &&
-                                controller()->edit_model()->has_focus())) &&
+      (has_results_or_chips ||
+       (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+        controller()->edit_model()->has_focus())) &&
       !omnibox_view_->IsImeShowingPopup();
 
   if (!should_be_visible) {
@@ -118,15 +136,15 @@ void OmniboxPopupViewWebUI::UpdatePopupAppearance() {
           presenter_->GetWebUIContent()->GetWebContents(),
           base::TimeTicks::Now());
     }
-    // Update the popup state manager that the classic popup is opening.
+    // Update the popup state manager to reflect the appropriate "opened" state.
     controller()->popup_state_manager()->SetPopupState(
         OmniboxPopupState::kClassic);
 
     if (!was_visible) {
-      if (!construction_time_.is_null()) {
+      if (!logged_first_shown_metric_) {
         const base::TimeDelta delta =
-            base::TimeTicks::Now() - construction_time_;
-        construction_time_ = base::TimeTicks();
+            base::TimeTicks::Now() - construction_time();
+        logged_first_shown_metric_ = true;
         base::UmaHistogramTimes(
             base::StrCat({presenter_->GetPopupMetricPrefix(),
                           ".ConstructionToFirstShownDuration"}),

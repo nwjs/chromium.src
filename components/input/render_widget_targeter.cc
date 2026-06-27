@@ -198,7 +198,16 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
     // an event. If we are in autoscroll mode, we used cached data. So we need
     // to update the target location of the |result|.
     if (is_autoscroll_in_progress_) {
-      result.target_location = request_target_location;
+      gfx::PointF transformed_point;
+      bool success =
+          request_target && result.view &&
+          request_target->TransformPointToCoordSpaceForView(
+              request_target_location, result.view, &transformed_point);
+      if (success) {
+        result.target_location = transformed_point;
+      } else {
+        result.target_location = request_target_location;
+      }
     }
 
     if (!is_autoscroll_in_progress_ &&
@@ -212,6 +221,10 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
   }
   RenderWidgetHostViewInput* target = result.view;
   if (!is_autoscroll_in_progress_ && result.should_query_view) {
+    if (request.IsWebInputEventRequest() &&
+        IsMouseMiddleClick(*request.GetEvent())) {
+      middle_click_targeting_pending_ = true;
+    }
     TRACE_EVENT("viz,benchmark", "Event.Pipeline",
                 perfetto::Flow::Global(trace_id_), "step", "QueryClient(Start)",
                 "event_location", request.GetLocation().ToString());
@@ -235,8 +248,13 @@ void RenderWidgetTargeter::ViewWillBeDestroyed(
     RenderWidgetHostViewInput* view) {
   unresponsive_views_.erase(view);
 
-  if (is_autoscroll_in_progress_ && middle_click_result_.view == view) {
-    SetIsAutoScrollInProgress(false);
+  if (pending_autoscroll_view_ == view) {
+    pending_autoscroll_view_ = nullptr;
+  }
+
+  if (middle_click_result_.view == view) {
+    middle_click_result_ = RenderWidgetTargetResult();
+    is_autoscroll_in_progress_ = false;
   }
 }
 
@@ -244,13 +262,37 @@ bool RenderWidgetTargeter::HasEventsPendingDispatch() const {
   return request_in_flight_ || !requests_.empty();
 }
 
-void RenderWidgetTargeter::SetIsAutoScrollInProgress(
-    bool autoscroll_in_progress) {
+RenderWidgetTargeter::AutoscrollStatus
+RenderWidgetTargeter::SetIsAutoScrollInProgress(RenderWidgetHostViewInput* view,
+                                                bool autoscroll_in_progress) {
+  if (autoscroll_in_progress && (!view || view != middle_click_result_.view)) {
+    if (!middle_click_result_.view) {
+      if (middle_click_targeting_pending_) {
+        pending_autoscroll_view_ = view;
+        return AutoscrollStatus::kDeferred;
+      }
+      // During testing it is possible for us to have never done any input
+      // targeting. This is because WebDriver tests inject input events via
+      // JavaScript, and are processed immediately by the test page. Thus
+      // bypassing all input targeting in the Browser process.
+      //
+      // However Autoscroll and Flings are still driven by the Browser process.
+      // In order to support these tests we enable autoscroll if we do not
+      // have either a found target in `middle_click_result_.view` not a
+      // pending targeting in `middle_click_targeting_pending_`.
+      is_autoscroll_in_progress_ = autoscroll_in_progress;
+      return AutoscrollStatus::kProcessed;
+    }
+    return AutoscrollStatus::kFailed;
+  }
   is_autoscroll_in_progress_ = autoscroll_in_progress;
 
   // If middle click autoscroll ends, reset |middle_click_result_|.
-  if (!autoscroll_in_progress)
+  if (!autoscroll_in_progress) {
     middle_click_result_ = RenderWidgetTargetResult();
+    pending_autoscroll_view_ = nullptr;
+  }
+  return AutoscrollStatus::kProcessed;
 }
 
 void RenderWidgetTargeter::QueryClient(
@@ -315,9 +357,9 @@ void RenderWidgetTargeter::FlushEventQueue() {
       delegate_->SetEventsBeingFlushed(true);
       events_being_flushed = true;
     }
-      ResolveTargetingRequest(std::move(request));
+    ResolveTargetingRequest(std::move(request));
   }
-    delegate_->SetEventsBeingFlushed(false);
+  delegate_->SetEventsBeingFlushed(false);
 }
 
 void RenderWidgetTargeter::FoundFrameSinkId(
@@ -348,16 +390,22 @@ void RenderWidgetTargeter::FoundFrameSinkId(
       ->input_target_client()
       .set_disconnect_handler(base::OnceClosure());
 
-  auto* view = delegate_->FindViewFromFrameSinkId(frame_sink_id);
-  if (!view) {
-    view = target.get();
-  }
+  // Ensure the returned view is a valid descendant of the frame we queried
+  // (|target.get()|) to prevent a compromised renderer from redirecting input.
+  RenderWidgetHostViewInput* resolved_view =
+      delegate_->FindViewFromFrameSinkId(frame_sink_id, target.get());
+
+  // Compute final target and location.
+  RenderWidgetHostViewInput* final_view =
+      resolved_view ? resolved_view : target.get();
+  gfx::PointF final_location =
+      resolved_view ? transformed_location : target_location;
 
   // If a client returned an embedded target, then it might be necessary to
   // continue asking the clients until a client claims an event for itself.
-  if (view == target.get() ||
-      unresponsive_views_.find(view) != unresponsive_views_.end() ||
-      !delegate_->ShouldContinueHitTesting(view)) {
+  if (final_view == target.get() ||
+      unresponsive_views_.find(final_view) != unresponsive_views_.end() ||
+      !delegate_->ShouldContinueHitTesting(final_view)) {
     // Reduced scope is required since FoundTarget can trigger another query
     // which would end up linked to the current query.
     {
@@ -368,13 +416,25 @@ void RenderWidgetTargeter::FoundFrameSinkId(
 
     if (request.IsWebInputEventRequest() &&
         IsMouseMiddleClick(*request.GetEvent())) {
-      middle_click_result_ = {view, /*should_query_view=*/false,
-                              transformed_location};
+      middle_click_result_ = {final_view, /*should_query_view=*/false,
+                              final_location};
+      if (pending_autoscroll_view_) {
+        bool success = (pending_autoscroll_view_ == final_view) ||
+                       RenderWidgetHostViewInput::IsAncestorView(
+                           final_view, pending_autoscroll_view_) ||
+                       RenderWidgetHostViewInput::IsAncestorView(
+                           pending_autoscroll_view_, final_view);
+        pending_autoscroll_view_->OnAutoscrollTargetResolved(success);
+        if (!success) {
+          delegate_->CancelAutoscroll(pending_autoscroll_view_);
+        }
+        pending_autoscroll_view_ = nullptr;
+      }
     }
 
-    FoundTarget(view, transformed_location, &request);
+    FoundTarget(final_view, final_location, &request);
   } else {
-    QueryClient(view, transformed_location, target.get(), target_location,
+    QueryClient(final_view, final_location, target.get(), target_location,
                 std::move(request));
   }
 }
@@ -384,6 +444,10 @@ void RenderWidgetTargeter::FoundTarget(
     const std::optional<gfx::PointF>& target_location,
     TargetingRequest* request) {
   DCHECK(request);
+  if (request->IsWebInputEventRequest() &&
+      IsMouseMiddleClick(*request->GetEvent())) {
+    middle_click_targeting_pending_ = false;
+  }
   // RenderWidgetHostViewMac can be deleted asynchronously, in which case the
   // View will be valid but there will no longer be a RenderWidgetHostImpl.
   if (!request->GetRootView() ||

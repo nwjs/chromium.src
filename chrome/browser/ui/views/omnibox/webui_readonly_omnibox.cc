@@ -14,9 +14,13 @@
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
+#include "chrome/browser/ui/webui/webui_toolbar/browser_controls_service.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "net/cert/cert_status_flags.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/keycodes/dom/dom_key.h"
+#include "ui/events/keycodes/dom/keycode_converter.h"
 
 namespace {
 
@@ -73,6 +77,21 @@ void WebUIReadOnlyOmnibox::OnTabChanged(
 
 void WebUIReadOnlyOmnibox::ResetTabState(content::WebContents* web_contents) {
   web_contents->SetUserData(OmniboxTabHelper::kOmniboxStateKey, nullptr);
+}
+
+base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+WebUIReadOnlyOmnibox::OnOmniboxAction(
+    toolbar_ui_api::mojom::OmniboxActionPtr action) {
+  switch (action->which()) {
+    case toolbar_ui_api::mojom::OmniboxAction::Tag::kFocusChange:
+      return OnFocusChange(*action->get_focus_change());
+
+    case toolbar_ui_api::mojom::OmniboxAction::Tag::kTextInput:
+      return OnTextInput(*action->get_text_input());
+
+    case toolbar_ui_api::mojom::OmniboxAction::Tag::kKey:
+      return OnKey(*action->get_key());
+  }
 }
 
 void WebUIReadOnlyOmnibox::Update() {
@@ -172,6 +191,8 @@ void WebUIReadOnlyOmnibox::RevertAll() {
   if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
     popup_closer->CloseWithReason(omnibox::PopupCloseReason::kRevertAll);
   }
+  ResetBrowserVersion();
+  RequestUpdateWebUI();
 }
 
 void WebUIReadOnlyOmnibox::SetFocus(bool is_user_initiated) {
@@ -197,6 +218,7 @@ void WebUIReadOnlyOmnibox::OnTemporaryTextMaybeChanged(
   }
 
   // This will call RequestUpdateWebUI(), so we don't have to.
+  ResetBrowserVersion();
   SetWindowTextAndCaretPos(display_text, display_text.length(),
                            /*update_popup=*/false, notify_text_changed);
 }
@@ -308,6 +330,8 @@ void WebUIReadOnlyOmnibox::UpdateSchemeStyle(const gfx::Range& range) {
 toolbar_ui_api::mojom::OmniboxViewStatePtr
 WebUIReadOnlyOmnibox::ComputeMojoState() const {
   auto state = toolbar_ui_api::mojom::OmniboxViewState::New();
+  state->ui_version = ui_version_;
+  state->browser_version = browser_version_;
   if (selection_.IsValid()) {
     state->selection = selection_;
   }
@@ -352,4 +376,139 @@ void WebUIReadOnlyOmnibox::ResetFormatting() {
   text_strike_through_.ClearAndSetInitialValue(false);
   text_colors_.ClearAndSetInitialValue(
       toolbar_ui_api::mojom::OmniboxTextColor::kOmniboxText);
+}
+
+void WebUIReadOnlyOmnibox::ResetBrowserVersion() {
+  ++browser_version_;
+  ui_version_ = 0;
+}
+
+base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+WebUIReadOnlyOmnibox::OnFocusChange(
+    const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change) {
+  if (focus_change.has_focus) {
+    // TODO(crbug.com/500653057): Key state, though Views impl doesn't have it.
+    // TODO(crbug.com/503784990): May have to call ConsumeCtrlKey() when
+    //   acquiring focus, including via Ctrl-L.
+    controller()->edit_model()->OnSetFocus(/*control_down=*/false);
+  } else {
+    controller()->edit_model()->OnWillKillFocus();
+    if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
+      popup_closer->CloseWithReason(omnibox::PopupCloseReason::kBlur);
+    }
+    controller()->edit_model()->OnKillFocus();
+  }
+  return base::ok(std::monostate());
+}
+
+base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+WebUIReadOnlyOmnibox::OnTextInput(
+    const toolbar_ui_api::mojom::OmniboxActionTextInput& text_input) {
+  if (text_input.browser_version == browser_version_) {
+    OnBeforePossibleChange();
+    ui_version_ = text_input.ui_version;
+    SetTextAndSelectedRange(text_input.text, text_input.inline_autocompletion,
+                            gfx::Range(text_input.text.size()));
+    OnAfterPossibleChange(/*allow_keyword_ui_change=*/true);
+  }
+  return base::ok(std::monostate());
+}
+
+base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+WebUIReadOnlyOmnibox::OnKey(
+    const toolbar_ui_api::mojom::OmniboxActionKey& key) {
+  auto decoded_modifiers =
+      browser_controls_api::BrowserControlsService::ToUiEventFlags(
+          key.modifiers);
+  if (!decoded_modifiers.has_value()) {
+    return base::unexpected(std::move(decoded_modifiers).error());
+  }
+
+  ui::EventFlags event_flags = *decoded_modifiers;
+  const bool shift = event_flags & ui::EF_SHIFT_DOWN;
+  const bool control = event_flags & ui::EF_CONTROL_DOWN;
+  const bool alt =
+      (event_flags & ui::EF_ALT_DOWN) || (event_flags & ui::EF_ALTGR_DOWN);
+  const bool command = event_flags & ui::EF_COMMAND_DOWN;
+
+  ui::DomKey dom_key = LookupAndCacheDomKey(key.key);
+  if (dom_key == ui::DomKey::CONTROL) {
+    controller()->edit_model()->OnControlKeyChanged(key.is_key_down);
+    return base::ok(std::monostate());
+  }
+
+  if (!key.is_key_down) {
+    // We only care about keyup for control.
+    return base::ok(std::monostate());
+  }
+
+  switch (dom_key) {
+    case ui::DomKey::ENTER: {
+      WindowOpenDisposition disposition =
+          ComputeOpenDispositionFromModifiersAndLogToUma(shift, control, alt,
+                                                         command);
+      // TODO(crbug.com/503784580): Views impl has some special handling of
+      //   AIM button here. We may or may not need it depending on how we
+      //   implement its focus behavior.
+      if (!control) {
+        controller()->edit_model()->OpenCurrentSelection(base::TimeTicks::Now(),
+                                                         disposition,
+                                                         /*via_keyboard=*/true);
+      } else {
+        // Ctrl+Enter has special magic behavior where it can append www. and
+        // .com if needed.
+        controller()->edit_model()->OpenSelection(
+            OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch,
+                                  OmniboxPopupSelection::LineState::NORMAL),
+            base::TimeTicks::Now(), disposition, /*via_keyboard=*/true);
+      }
+      break;
+    }
+
+    case ui::DomKey::ESCAPE:
+      controller()->edit_model()->OnEscapeKeyPressed();
+      break;
+
+    case ui::DomKey::ARROW_UP:
+      controller()->edit_model()->OnUpOrDownPressed(/*down=*/false,
+                                                    /*page=*/false);
+      break;
+
+    case ui::DomKey::ARROW_DOWN:
+      controller()->edit_model()->OnUpOrDownPressed(/*down=*/true,
+                                                    /*page=*/false);
+      break;
+
+    case ui::DomKey::FromCharacter(' '):
+      // This is relying on search keyword activation incrementing browser
+      // version to resolve the conflict with text input with ' ' appended
+      // that's incoming --- the JS side doesn't know whether the space will
+      // trigger the keyboard or not.
+      controller()->edit_model()->OnSpacePressed();
+      break;
+
+    case ui::DomKey::BACKSPACE:
+      if (controller()->edit_model()->is_keyword_selected()) {
+        controller()->edit_model()->ClearKeyword();
+      }
+      break;
+
+    default:
+      break;
+  }
+  return base::ok(std::monostate());
+}
+
+ui::DomKey WebUIReadOnlyOmnibox::LookupAndCacheDomKey(
+    std::string_view key_str) {
+  // ui::KeycodeConverter is quite slow for looking up by KeyEvent.Key strings,
+  // (well, primarily ' '), but it's unclear for most usages it makes sense to
+  // make it more sophisticated... So instead cache what we use, which is a tiny
+  // number of keys, so should be quite cheap.
+  if (auto it = key_code_cache_.find(key_str); it != key_code_cache_.end()) {
+    return it->second;
+  }
+  ui::DomKey dom_key = ui::KeycodeConverter::KeyStringToDomKey(key_str);
+  key_code_cache_.insert(std::pair(std::string(key_str), dom_key));
+  return dom_key;
 }

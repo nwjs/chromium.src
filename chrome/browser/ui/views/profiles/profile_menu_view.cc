@@ -47,7 +47,6 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
@@ -162,7 +161,7 @@ std::u16string GetProfileIdentifier(const ProfileAttributesEntry& entry) {
 bool ProfileMenuView::close_on_deactivate_for_testing_ = true;
 
 ProfileMenuView::ProfileMenuView(
-    ui::TrackedElement* anchor_element,
+    views::BubbleAnchor anchor_element,
     Browser* browser,
     signin::ProfileMenuAvatarButtonPromoInfo promo_info,
     bool from_avatar_promo)
@@ -953,14 +952,17 @@ void ProfileMenuView::MaybeBuildBatchUploadButton() {
       base::BindRepeating(&ProfileMenuView::OnBatchUploadButtonClicked,
                           base::Unretained(this),
                           ActionableItem::kBatchUploadButton),
-      vector_icons::kSaveCloudIcon);
+      features::IsRoundedIconsEnabled() ? vector_icons::kCloudUploadIcon
+                                        : vector_icons::kSaveCloudOldIcon);
 }
 
 void ProfileMenuView::BuildAutofillSettingsButton() {
   CHECK(!profile().IsGuestSession());
 
   int message_id = IDS_PROFILE_MENU_AUTOFILL_SETTINGS_BUTTON;
-  const gfx::VectorIcon& icon = vector_icons::kPasswordManagerIcon;
+  const gfx::VectorIcon& icon = features::IsRoundedIconsEnabled()
+                                    ? vector_icons::kPasswordManagerIcon
+                                    : vector_icons::kPasswordManagerOldIcon;
   auto action = base::FeatureList::IsEnabled(
                     autofill::features::kYourSavedInfoSettingsPage)
                     ? &ProfileMenuView::OnYourSavedInfoSettingsButtonClicked
@@ -976,7 +978,10 @@ void ProfileMenuView::BuildCustomizeProfileButton() {
       l10n_util::GetStringUTF16(IDS_PROFILE_MENU_CUSTOMIZE_PROFILE_BUTTON),
       base::BindRepeating(&ProfileMenuView::OnEditProfileButtonClicked,
                           base::Unretained(this)),
-      vector_icons::kEditChromeRefreshIcon);
+      features::IsRoundedIconsEnabled() ? kEditIcon
+      : features::IsRoundedIconsEnabled()
+          ? vector_icons::kEditIcon
+          : vector_icons::kEditChromeRefreshOldIcon);
 }
 
 void ProfileMenuView::MaybeBuildChromeAccountSettingsButton() {
@@ -1005,7 +1010,9 @@ void ProfileMenuView::MaybeBuildChromeAccountSettingsButton() {
       l10n_util::GetStringUTF16(IDS_PROFILE_MENU_ACCOUNT_SETTINGS_BUTTON),
       base::BindRepeating(&ProfileMenuView::OnAccountSettingsButtonClicked,
                           base::Unretained(this)),
-      vector_icons::kSettingsChromeRefreshIcon);
+      features::IsRoundedIconsEnabled()
+          ? vector_icons::kSettingsIcon
+          : vector_icons::kSettingsChromeRefreshOldIcon);
 }
 
 void ProfileMenuView::MaybeBuildChromeAccountSettingsButtonWithSync() {
@@ -1029,12 +1036,17 @@ void ProfileMenuView::MaybeBuildChromeAccountSettingsButtonWithSync() {
   }
 
   int message_id = IDS_PROFILE_MENU_OPEN_ACCOUNT_SETTINGS;
-  const gfx::VectorIcon* icon = &vector_icons::kSettingsChromeRefreshIcon;
+  const gfx::VectorIcon* icon =
+      &(features::IsRoundedIconsEnabled()
+            ? vector_icons::kSettingsIcon
+            : vector_icons::kSettingsChromeRefreshOldIcon);
   if (signin_util::GetSignedInState(identity_manager) ==
       signin_util::SignedInState::kSyncing) {
     // Indicates clearly that Sync is ON.
     message_id = IDS_PROFILES_OPEN_SYNC_SETTINGS_BUTTON;
-    icon = &kSyncChromeRefreshIcon;
+    icon = &(features::IsRoundedIconsEnabled()   ? kSyncIcon
+             : features::IsRoundedIconsEnabled() ? vector_icons::kSyncIcon
+                                                 : kSyncChromeRefreshOldIcon);
   }
 
   AddFeatureButton(
@@ -1063,7 +1075,9 @@ void ProfileMenuView::MaybeBuildGoogleServicesSettingsButton() {
       base::BindRepeating(
           &ProfileMenuView::OnGoogleServicesSettingsButtonClicked,
           base::Unretained(this)),
-      vector_icons::kSettingsChromeRefreshIcon);
+      features::IsRoundedIconsEnabled()
+          ? vector_icons::kSettingsIcon
+          : vector_icons::kSettingsChromeRefreshOldIcon);
 }
 
 void ProfileMenuView::MaybeBuildManageGoogleAccountButton() {
@@ -1101,7 +1115,8 @@ void ProfileMenuView::MaybeBuildManageGoogleAccountButton() {
       l10n_util::GetStringUTF16(IDS_SETTINGS_MANAGE_GOOGLE_ACCOUNT),
       base::BindRepeating(&ProfileMenuView::OnManageGoogleAccountButtonClicked,
                           base::Unretained(this)),
-      vector_icons::kFilterIcon);
+      features::IsRoundedIconsEnabled() ? vector_icons::kTuneIcon
+                                        : vector_icons::kFilterOldIcon);
 #endif
 }
 
@@ -1138,7 +1153,10 @@ void ProfileMenuView::MaybeBuildCloseBrowsersButton() {
 
   AddFeatureButton(
       l10n_util::GetPluralStringFUTF16(button_title_id, window_count),
-      std::move(callback), vector_icons::kCloseChromeRefreshIcon);
+      std::move(callback),
+      features::IsRoundedIconsEnabled()
+          ? vector_icons::kCloseSmallIcon
+          : vector_icons::kCloseChromeRefreshOldIcon);
 }
 
 void ProfileMenuView::MaybeBuildSignoutButton() {
@@ -1170,10 +1188,11 @@ void ProfileMenuView::MaybeBuildSignoutButton() {
   signout_button_text = l10n_util::GetStringUTF16(
       signin_pending ? IDS_PROFILE_MENU_SIGN_OUT_WHEN_SIGNIN_PENDING
                      : IDS_PROFILE_MENU_SIGN_OUT);
-  AddFeatureButton(signout_button_text,
-                   base::BindRepeating(&ProfileMenuView::OnSignoutButtonClicked,
-                                       base::Unretained(this)),
-                   kLogoutIcon);
+  AddFeatureButton(
+      signout_button_text,
+      base::BindRepeating(&ProfileMenuView::OnSignoutButtonClicked,
+                          base::Unretained(this)),
+      features::IsRoundedIconsEnabled() ? kLogoutIcon : kLogoutOldIcon);
 }
 
 void ProfileMenuView::BuildFeatureButtons() {
@@ -1259,7 +1278,8 @@ void ProfileMenuView::BuildProfileManagementFeatureButtons() {
 
   if (profiles::IsProfileCreationAllowed()) {
     AddProfileManagementFeatureButton(
-        kAccountAddChromeRefreshIcon,
+        features::IsRoundedIconsEnabled() ? kPersonAddIcon
+                                          : kAccountAddChromeRefreshOldIcon,
         l10n_util::GetStringUTF16(IDS_PROFILE_MENU_ADD_PROFILE),
         base::BindRepeating(&ProfileMenuView::OnAddNewProfileButtonClicked,
                             base::Unretained(this)));
@@ -1268,14 +1288,16 @@ void ProfileMenuView::BuildProfileManagementFeatureButtons() {
   if (profiles::IsGuestModeEnabled(profile()) &&
       !web_app::AppBrowserController::IsWebApp(&browser())) {
     AddProfileManagementFeatureButton(
-        kAccountBoxIcon,
+        features::IsRoundedIconsEnabled() ? kAccountBoxIcon
+                                          : kAccountBoxOldIcon,
         l10n_util::GetStringUTF16(IDS_PROFILE_MENU_OPEN_GUEST_PROFILE),
         base::BindRepeating(&ProfileMenuView::OnGuestProfileButtonClicked,
                             base::Unretained(this)));
   }
 
   AddProfileManagementFeatureButton(
-      kAccountManageChromeRefreshIcon,
+      features::IsRoundedIconsEnabled() ? kManageAccountsIcon
+                                        : kAccountManageChromeRefreshOldIcon,
       l10n_util::GetStringUTF16(IDS_PROFILE_MENU_MANAGE_PROFILES),
       base::BindRepeating(&ProfileMenuView::OnManageProfilesButtonClicked,
                           base::Unretained(this)));

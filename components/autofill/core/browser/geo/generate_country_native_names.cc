@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <stdint.h>
+
 #include <map>
 #include <set>
 #include <string>
@@ -10,12 +12,13 @@
 #include "base/at_exit.h"
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/icu_util.h"
 #include "base/i18n/unicodestring.h"
-#include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/geo/country_data.h"
 #include "third_party/icu/source/common/unicode/locid.h"
@@ -32,11 +35,13 @@ std::map<std::u16string, std::string> GenerateCountryNativeNamesMap() {
   std::map<std::u16string, std::string> country_native_names;
 
   int32_t num_locales = 0;
-  const icu::Locale* available_locales =
+  const icu::Locale* available_locales_ptr =
       icu::Locale::getAvailableLocales(num_locales);
+  auto available_locales = UNSAFE_BUFFERS(base::span<const icu::Locale>(
+      available_locales_ptr, static_cast<size_t>(num_locales)));
 
   for (int32_t i = 0; i < num_locales; ++i) {
-    const icu::Locale& locale = UNSAFE_BUFFERS(available_locales[i]);
+    const icu::Locale& locale = available_locales[i];
     std::string country_of_locale = locale.getCountry();
     if (country_of_locale.empty() ||
         !autofill_country_codes.count(country_of_locale)) {

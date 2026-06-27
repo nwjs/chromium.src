@@ -18,10 +18,13 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/uuid.h"
+#include "build/build_config.h"
 #include "components/optimization_guide/core/hints/mock_optimization_guide_decider.h"
+#include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/skills/features.h"
 #include "components/skills/proto/skill.pb.h"
 #include "components/skills/public/skill.h"
+#include "components/skills/public/skills_prefs.h"
 #include "components/sync/engine/data_type_activation_response.h"
 #include "components/sync/model/data_type_activation_request.h"
 #include "components/sync/model/data_type_controller_delegate.h"
@@ -29,6 +32,7 @@
 #include "components/sync/protocol/skill_specifics.pb.h"
 #include "components/sync/test/data_type_store_test_util.h"
 #include "components/sync/test/mock_data_type_worker.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -101,7 +105,9 @@ class SkillsServiceImplTest : public testing::Test {
  public:
   SkillsServiceImplTest()
       : local_store_(syncer::DataTypeStoreTestUtil::CreateInMemoryStoreForTest(
-            syncer::SKILL)) {}
+            syncer::SKILL)) {
+    skills::prefs::RegisterProfilePrefs(pref_service_.registry());
+  }
 
   // Initializes the service and connects to sync. Data is loaded from the
   // in-memory storage.
@@ -126,7 +132,8 @@ class SkillsServiceImplTest : public testing::Test {
     CHECK(!service_) << "Service already initialized";
 
     service_ = std::make_unique<SkillsServiceImpl>(
-        &mock_optimization_guide_decider_, version_info::Channel::UNKNOWN,
+        &pref_service_, &mock_optimization_guide_decider_,
+        identity_test_env_.identity_manager(), version_info::Channel::UNKNOWN,
         syncer::DataTypeStoreTestUtil::FactoryForForwardingStore(
             local_store_.get()),
         test_url_loader_factory_.GetSafeWeakWrapper());
@@ -180,6 +187,8 @@ class SkillsServiceImplTest : public testing::Test {
 
  protected:
   base::test::TaskEnvironment task_environment_;
+  sync_preferences::TestingPrefServiceSyncable pref_service_;
+  signin::IdentityTestEnvironment identity_test_env_;
   std::unique_ptr<syncer::DataTypeStore> local_store_;
   std::unique_ptr<SkillsServiceImpl> service_;
   network::TestURLLoaderFactory test_url_loader_factory_;
@@ -211,6 +220,35 @@ TEST_F(SkillsServiceImplTest,
       .Times(Exactly(1));
 
   InitService();
+}
+
+TEST_F(SkillsServiceImplTest,
+       DoesNotRegisterSkillsOptimizationTypeWhenPrefDisabled) {
+  scoped_feature_list_.InitAndEnableFeature(features::kSkillsEnabled);
+  pref_service_.SetBoolean(skills::prefs::kChromeSkillsEnabled, false);
+
+  EXPECT_CALL(mock_optimization_guide_decider_, RegisterOptimizationTypes)
+      .Times(0);
+
+  InitService();
+}
+
+TEST_F(SkillsServiceImplTest, RegistersSkillsOptimizationTypeOnPrefToggle) {
+  scoped_feature_list_.InitAndEnableFeature(features::kSkillsEnabled);
+  pref_service_.SetBoolean(skills::prefs::kChromeSkillsEnabled, false);
+
+  // No registration during InitService.
+  EXPECT_CALL(mock_optimization_guide_decider_, RegisterOptimizationTypes)
+      .Times(0);
+  InitService();
+
+  // Expect registration when pref is toggled ON.
+  EXPECT_CALL(
+      mock_optimization_guide_decider_,
+      RegisterOptimizationTypes(ElementsAre(optimization_guide::proto::SKILLS)))
+      .Times(Exactly(1));
+
+  pref_service_.SetBoolean(skills::prefs::kChromeSkillsEnabled, true);
 }
 
 TEST_F(SkillsServiceImplTest, LoadInitialSkills) {
@@ -476,7 +514,8 @@ TEST_F(SkillsServiceImplTest, FetchDiscoverySkills_Success) {
   test_url_loader_factory_.AddResponse(kSkillsDownloaderGstaticUrl,
                                        skills_list.SerializeAsString());
   MockSkillsServiceImpl mock_service(
-      &mock_optimization_guide_decider_, version_info::Channel::UNKNOWN,
+      &pref_service_, &mock_optimization_guide_decider_,
+      identity_test_env_.identity_manager(), version_info::Channel::UNKNOWN,
       syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
       test_url_loader_factory_.GetSafeWeakWrapper());
 
@@ -498,7 +537,8 @@ TEST_F(SkillsServiceImplTest, FetchDiscoverySkills_Failure) {
   test_url_loader_factory_.AddResponse(kSkillsDownloaderGstaticUrl, "",
                                        net::HTTP_NOT_FOUND);
   MockSkillsServiceImpl mock_service(
-      &mock_optimization_guide_decider_, version_info::Channel::UNKNOWN,
+      &pref_service_, &mock_optimization_guide_decider_,
+      identity_test_env_.identity_manager(), version_info::Channel::UNKNOWN,
       syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
       test_url_loader_factory_.GetSafeWeakWrapper());
 
@@ -514,6 +554,85 @@ TEST_F(SkillsServiceImplTest, FetchDiscoverySkills_Failure) {
 
   run_loop.Run();
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+TEST_F(SkillsServiceImplTest, FetchDiscoverySkills_FromService_Success) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kSkillsEnabled, features::kSkillsServiceApi}, {});
+  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
+                                                 signin::ConsentLevel::kSignin);
+
+  skills::proto::SkillsList skills_list;
+  skills::proto::Skill* skill = skills_list.add_skills();
+  skill->set_name("Service Skill");
+
+  test_url_loader_factory_.AddResponse(features::kSkillsServiceApiUrl.Get(),
+                                       skills_list.SerializeAsString());
+
+  MockSkillsServiceImpl mock_service(
+      &pref_service_, &mock_optimization_guide_decider_,
+      identity_test_env_.identity_manager(), version_info::Channel::UNKNOWN,
+      syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
+      test_url_loader_factory_.GetSafeWeakWrapper());
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_service, Handle1pSkills(_))
+      .WillOnce(
+          [&](std::unique_ptr<FirstPartySkillData> first_party_skill_data) {
+            ASSERT_TRUE(first_party_skill_data);
+            ASSERT_EQ(1u, first_party_skill_data->skills_list.size());
+            EXPECT_EQ("Service Skill",
+                      first_party_skill_data->skills_list[0].name());
+            run_loop.Quit();
+          });
+
+  mock_service.FetchDiscoverySkills();
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "token", base::Time::Max());
+
+  run_loop.Run();
+}
+
+TEST_F(SkillsServiceImplTest, FetchDiscoverySkills_FromService_Fallback) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kSkillsEnabled, features::kSkillsServiceApi}, {});
+  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
+                                                 signin::ConsentLevel::kSignin);
+
+  // Service API fails.
+  test_url_loader_factory_.AddResponse(features::kSkillsServiceApiUrl.Get(), "",
+                                       net::HTTP_INTERNAL_SERVER_ERROR);
+
+  // Gstatic succeeds.
+  skills::proto::SkillsList gstatic_list;
+  gstatic_list.add_skills()->set_name("Gstatic Skill");
+  test_url_loader_factory_.AddResponse(kSkillsDownloaderGstaticUrl,
+                                       gstatic_list.SerializeAsString());
+
+  MockSkillsServiceImpl mock_service(
+      &pref_service_, &mock_optimization_guide_decider_,
+      identity_test_env_.identity_manager(), version_info::Channel::UNKNOWN,
+      syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
+      test_url_loader_factory_.GetSafeWeakWrapper());
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_service, Handle1pSkills(_))
+      .WillOnce(
+          [&](std::unique_ptr<FirstPartySkillData> first_party_skill_data) {
+            ASSERT_TRUE(first_party_skill_data);
+            ASSERT_EQ(1u, first_party_skill_data->skills_list.size());
+            EXPECT_EQ("Gstatic Skill",
+                      first_party_skill_data->skills_list[0].name());
+            run_loop.Quit();
+          });
+
+  mock_service.FetchDiscoverySkills();
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "token", base::Time::Max());
+
+  run_loop.Run();
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(SkillsServiceImplTest, AddSkillSortsByLastUpdateTime) {
   InitService();

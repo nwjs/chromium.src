@@ -365,6 +365,20 @@ PictureInPictureResult VideoPictureInPictureWindowControllerImpl::StartSession(
   return result;
 }
 
+void VideoPictureInPictureWindowControllerImpl::
+    RequestImmersivePlaybackConfirmation(
+        RequestImmersivePlaybackConfirmationCallback callback) {
+  WebContentsDelegate* delegate = web_contents()->GetDelegate();
+  if (!delegate || !delegate->IsImmersivePlaybackEnabled()) {
+    auto result = blink::mojom::ImmersivePlaybackConfirmationResult::New();
+    result->status = blink::mojom::ImmersivePlaybackConfirmationStatus::kFailed;
+    std::move(callback).Run(std::move(result));
+    return;
+  }
+
+  delegate->RequestImmersivePlaybackConfirmation(std::move(callback));
+}
+
 void VideoPictureInPictureWindowControllerImpl::OnServiceDeleted(
     PictureInPictureServiceImpl* service) {
   if (!active_session_ || active_session_->service() != service)
@@ -665,13 +679,21 @@ void VideoPictureInPictureWindowControllerImpl::OnLeavingPictureInPicture(
 
 void VideoPictureInPictureWindowControllerImpl::CloseInternal(
     bool should_pause_video) {
+  // `web_contents()` can be null during `WebContents` destruction. If this
+  // controller is notified of destruction first, it clears its pointer via
+  // `Observe(nullptr)`. If `PictureInPictureWindowManager` tries to close the
+  // window later in the teardown sequence, it can crash when accessing
+  // `web_contents()`.
+  //
   // We shouldn't have an empty active_session_ in this case but (at least for
   // there tests), extensions seem to be closing the window before the
   // WebContents is marked as being destroyed. It leads to `CloseInternal()`
   // being called twice. This early check avoids the rest of the code having to
   // be aware of this oddity.
-  if (web_contents()->IsBeingDestroyed() || !active_session_)
+  if (!web_contents() || web_contents()->IsBeingDestroyed() ||
+      !active_session_) {
     return;
+  }
 
   GetWebContentsImpl()->SetHasPictureInPictureVideo(false);
   OnLeavingPictureInPicture(should_pause_video);

@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/toolbar/webui_pinned_toolbar_actions.h"
+#include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/common/chrome_features.h"
@@ -38,11 +39,6 @@
 
 namespace {
 
-WebUIToolbarWebView* GetWebUIToolbarWebView(Browser* browser) {
-  return BrowserView::GetBrowserViewForBrowser(browser)
-      ->toolbar_button_provider()
-      ->GetWebUIToolbarViewForTesting();
-}
 
 std::string GetPinnedButtonJS(
     toolbar_ui_api::mojom::PinnedToolbarAction action) {
@@ -91,9 +87,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewInteractiveTest,
                        LocationIconOpensPageInfo) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebUIToolbarWebViewId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kInstrumentedWebViewId);
-  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
-                                      kShouldDeferShowState);
-
+  WaitForInitialWebUIToolbar(browser());
   RunTestSequence(
       WaitForShow(kWebUIToolbarElementIdentifier),
       WithView(kWebUIToolbarElementIdentifier,
@@ -103,14 +97,6 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewInteractiveTest,
                }),
       InstrumentNonTabWebView(kWebUIToolbarWebViewId, kInstrumentedWebViewId,
                               /*wait_for_ready=*/true),
-      PollStateUntil(
-          kShouldDeferShowState,
-          [this]() {
-            auto* manager = InitialWebUIManager::From(browser());
-            CHECK(manager);
-            return manager->RequestDeferShow(base::DoNothing());
-          },
-          false),
       ExecuteJsAt(kWebUIToolbarWebViewId,
                   DeepQuery{"toolbar-app", "location-bar", "location-icon",
                             "#container"},
@@ -121,9 +107,8 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewInteractiveTest,
 IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewInteractiveTest, FocusReloadButton) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebUIToolbarWebViewId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kInstrumentedWebViewId);
-  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
-                                      kShouldDeferShowState);
 
+  WaitForInitialWebUIToolbar(browser());
   RunTestSequence(
       WaitForShow(kWebUIToolbarElementIdentifier),
       WithView(kWebUIToolbarElementIdentifier,
@@ -133,14 +118,6 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewInteractiveTest, FocusReloadButton) {
                }),
       InstrumentNonTabWebView(kWebUIToolbarWebViewId, kInstrumentedWebViewId,
                               /*wait_for_ready=*/true),
-      PollStateUntil(
-          kShouldDeferShowState,
-          [this]() {
-            auto* manager = InitialWebUIManager::From(browser());
-            CHECK(manager);
-            return manager->RequestDeferShow(base::DoNothing());
-          },
-          false),
       Do([this]() {
         browser()->command_controller()->ExecuteCommand(IDC_FOCUS_TOOLBAR);
       }),

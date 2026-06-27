@@ -27,8 +27,6 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_nudge_button.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/class_property.h"
@@ -53,23 +51,13 @@ namespace glic {
 
 namespace {
 
-const base::FeatureParam<bool> kAdjustMargins{
-    &features::kGlicButtonAltLabel, "glic-button-alt-label-adjust-margins",
-    true};
-
 gfx::Insets GetIconMargins(bool label_shown) {
   int left = 6;
-  int right = 4;
+  int right = 5;
 
   if (label_shown) {
     // Extra left margin if the label is shown.
     left += 2;
-  }
-
-  if (base::FeatureList::IsEnabled(features::kGlicButtonAltLabel) &&
-      kAdjustMargins.Get()) {
-    // TODO(crbug.com/485624752): Consolidate after launch.
-    right += 1;
   }
 
   return gfx::Insets().set_left_right(left, right);
@@ -78,15 +66,11 @@ gfx::Insets GetIconMargins(bool label_shown) {
 
 TabStripGlicButton::TabStripGlicButton(
     BrowserWindowInterface* browser_window_interface,
-    base::RepeatingClosure hovered_callback,
-    base::RepeatingClosure mouse_down_callback,
     base::RepeatingClosure expansion_animation_done_callback,
     const std::u16string& tooltip,
     PressedCallback pressed_callback,
     PressedCallback close_pressed_callback)
     : GlicButton<TabStripNudgeButton>(browser_window_interface,
-                                      hovered_callback,
-                                      mouse_down_callback,
                                       expansion_animation_done_callback,
                                       tooltip,
                                       kIconSize,
@@ -134,11 +118,7 @@ void TabStripGlicButton::ResetSplitButtonCornerStyling() {
 }
 
 void TabStripGlicButton::SetLabelMargins() {
-  int bottom = 0;
-  if (base::FeatureList::IsEnabled(features::kGlicButtonAltLabel) &&
-      kAdjustMargins.Get()) {
-    bottom += 1;
-  }
+  int bottom = 1;
 
   int right = kLabelRightMargin;
   if (!close_button()->GetVisible()) {

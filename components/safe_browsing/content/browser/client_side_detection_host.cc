@@ -1061,6 +1061,7 @@ void ClientSideDetectionHost::PrimaryPageChanged(content::Page& page) {
   last_request_type_ =
       ClientSideDetectionType::CLIENT_SIDE_DETECTION_TYPE_UNSPECIFIED;
   should_send_as_force_request_ = false;
+  clipboard_extracted_data_.reset();
 
   MaybeRunUserReportCallback();
 
@@ -1432,7 +1433,18 @@ void ClientSideDetectionHost::OnTextCopiedToClipboard(
     return;
   }
 
-  last_copied_text_ = copied_text;
+  if (kCSDClipboardCopyApiSuspiciousTokenFilter.Get()) {
+    ClipboardExtractedData extracted_data = ExtractClipboardData(copied_text);
+    if (extracted_data.suspicious_tokens().empty()) {
+      return;
+    }
+    clipboard_extracted_data_ =
+        std::make_unique<ClipboardExtractedData>(std::move(extracted_data));
+  } else {
+    last_copied_text_ = copied_text;
+    clipboard_extracted_data_.reset();
+  }
+
   MaybeStartPreClassification(ClientSideDetectionType::CLIPBOARD_COPY_API);
 }
 
@@ -1919,16 +1931,27 @@ void ClientSideDetectionHost::PhishingImageEmbeddingDone(
       base::StrCat({"SBClientPhishing.PhishingImageEmbeddingResult.",
                     request_type_name}),
       result);
+
+  // If the embedding was not possible due to an invalid document, then exit
+  // early without sending a ping since feature extraction is not possible.
+  if (result == mojom::PhishingImageEmbeddingResult::kInvalidURLFormatRequest ||
+      result == mojom::PhishingImageEmbeddingResult::kInvalidDocumentLoader) {
+    is_csd_running_ = false;
+    if (verdict->client_side_detection_type() ==
+        ClientSideDetectionType::USER_REPORT) {
+      MaybeRunUserReportCallback();
+    }
+    return;
+  }
+
   if (result == mojom::PhishingImageEmbeddingResult::kSuccess) {
     std::optional<ImageFeatureEmbedding> embedding;
     if (image_feature_embedding_wrapper.has_value()) {
       embedding = image_feature_embedding_wrapper->As<ImageFeatureEmbedding>();
     }
     if (embedding.has_value()) {
-      if (base::FeatureList::IsEnabled(kClientSideDetectionDeprecateDOMModel)) {
-        embedding->set_embedding_model_version(
-            csd_service_->GetImageEmbeddingModelVersion());
-      }
+      embedding->set_embedding_model_version(
+          csd_service_->GetImageEmbeddingModelVersion());
       *verdict->mutable_image_feature_embedding() =
           std::move(embedding.value());
       // Tier 2 and higher will add embedding metadata information because lower
@@ -2228,9 +2251,9 @@ void ClientSideDetectionHost::MaybeShowPhishingWarning(
           CreateForRenderFrameToken(
               primary_main_frame_id.child_id.value(),
               primary_main_frame->GetFrameToken().value());
-      if (!ui_manager_->IsAllowlisted(resource.url, resource.rfh_locator,
-                                      resource.navigation_id,
-                                      resource.threat_type)) {
+      if (!ui_manager_->IsAllowlisted(
+              resource.url, resource.rfh_locator, resource.navigation_id,
+              resource.threat_type, resource.threat_source)) {
         // We need to stop any pending navigations, otherwise the interstitial
         // might not get created properly.
         web_contents()->GetController().DiscardNonCommittedEntries();
@@ -2494,12 +2517,27 @@ void ClientSideDetectionHost::AddMiscellaneousMetadataToClientPhishingRequest(
       ClientSideDetectionType::CLIPBOARD_COPY_API) {
     if (base::FeatureList::IsEnabled(kClientSideDetectionClipboardCopyApi) &&
         kCSDClipboardCopyApiProcessPayload.Get()) {
-      *verdict->mutable_clipboard_extracted_data() =
-          ExtractClipboardData(last_copied_text_);
+      if (clipboard_extracted_data_) {
+        *verdict->mutable_clipboard_extracted_data() =
+            *clipboard_extracted_data_;
+      } else {
+        *verdict->mutable_clipboard_extracted_data() =
+            ExtractClipboardData(last_copied_text_);
+      }
     }
   }
 
   MaybeFillScreenshotData(verdict);
+
+  content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
+  // Check the frame id as a precaution against unexpected race conditions.
+  if (rfh && rfh->GetGlobalId() == current_outermost_main_frame_id_) {
+    const network::mojom::URLResponseHead* response_head =
+        rfh->GetLastResponseHead();
+    if (response_head && response_head->headers) {
+      verdict->set_http_response_code(response_head->headers->response_code());
+    }
+  }
 
   if (IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
     delegate_->AddReferrerChain(verdict, current_url_,

@@ -102,9 +102,13 @@ class ContentClassifier {
   // Resolves the relevance classifier value for UKM logging.
   int64_t GetRelevanceAsInt(std::optional<std::string_view> category) const;
 
-  // Called when the semantic classifier is created.
-  void OnSemanticClassifierCreated(
-      std::unique_ptr<ContentAnnotatorSemanticMatchClassifier> classifier);
+  // Called when the semantic classifier embeddings are ready.
+  void OnSemanticEmbeddingsReady(
+      SemanticMatchRulesMap rules,
+      std::vector<passage_embeddings::Embedding> embeddings,
+      passage_embeddings::ComputeEmbeddingsStatus status);
+
+  std::optional<passage_embeddings::Embedder::Job> semantic_classifier_job_;
 
   // Runs the title keyword classifier.
   void RunTitleKeywordClassifier(

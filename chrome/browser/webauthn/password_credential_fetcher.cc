@@ -13,6 +13,7 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
 #include "components/password_manager/core/browser/password_form_digest.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -76,20 +77,20 @@ void PasswordCredentialFetcher::UpdateDateLastUsed(
 
   for (const auto& match : form_fetcher_->GetBestMatches()) {
     if (match.username_value == username && match.password_value == password) {
-      PasswordForm updated_form = match;
+      PasswordForm updated_form = password_manager::ToPasswordForm(match);
       updated_form.date_last_used = base::Time::Now();
       if ((updated_form.in_store &
            password_manager::PasswordForm::Store::kProfileStore) !=
           password_manager::PasswordForm::Store::kNotSet) {
         if (auto* store = client->GetProfilePasswordStore()) {
-          store->UpdateLogin(updated_form);
+          store->UpdateLogin(password_manager::FromPasswordForm(updated_form));
         }
       }
       if ((updated_form.in_store &
            password_manager::PasswordForm::Store::kAccountStore) !=
           password_manager::PasswordForm::Store::kNotSet) {
         if (auto* store = client->GetAccountPasswordStore()) {
-          store->UpdateLogin(updated_form);
+          store->UpdateLogin(password_manager::FromPasswordForm(updated_form));
         }
       }
     }
@@ -109,8 +110,9 @@ void PasswordCredentialFetcher::OnFetchCompleted() {
   PasswordCredentials credentials;
   std::ranges::transform(form_fetcher_->GetBestMatches(),
                          std::back_inserter(credentials),
-                         [](const PasswordForm& form) {
-                           return std::make_unique<PasswordForm>(form);
+                         [](const password_manager::StoredCredential& cred) {
+                           return std::make_unique<PasswordForm>(
+                               password_manager::ToPasswordForm(cred));
                          });
   std::erase_if(credentials, [](const std::unique_ptr<PasswordForm>& form) {
     return form->IsFederatedCredential() || form->username_value.empty();

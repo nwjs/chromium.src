@@ -5,8 +5,8 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalBookmarksUrl;
 import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeBookmarksUrl;
-import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNonNativeBookmarksUrl;
 import static org.chromium.components.browser_ui.widget.ListItemBuilder.buildSimpleMenuItem;
 
 import android.app.Activity;
@@ -273,10 +273,7 @@ class BookmarkManagerMediator
                 @Override
                 public void onSelectionStateChange(List<BookmarkId> selectedBookmarks) {
                     clearHighlight();
-
-                    if (mIsSelectionEnabled != mSelectionDelegate.isSelectionEnabled()) {
-                        changeSelectionMode(mSelectionDelegate.isSelectionEnabled());
-                    }
+                    changeSelectionMode(mSelectionDelegate.isSelectionEnabled());
                 }
             };
 
@@ -966,7 +963,7 @@ class BookmarkManagerMediator
             // If a loading state is replaced by another loading state, do not notify this change.
             if (mNativePage != null) {
                 boolean replaceLastUrl =
-                        TextUtils.equals(mNativePage.getUrl(), getOriginalNonNativeBookmarksUrl())
+                        TextUtils.equals(mNativePage.getUrl(), getOriginalBookmarksUrl())
                                 || TextUtils.equals(
                                         mNativePage.getUrl(), getOriginalNativeBookmarksUrl());
                 mNativePage.onStateChange(state.mUrl, replaceLastUrl);
@@ -1452,13 +1449,11 @@ class BookmarkManagerMediator
                 mImprovedBookmarkRowCoordinator.createBasePropertyModel(bookmarkId);
         propertyModel.set(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY, bookmarkListEntry);
 
-        if (ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
-            // Include #isReorderable because Mobile bookmarks, Bookmarks bar, and Reading list
-            // should not be draggable.
-            boolean isDragEnabled =
-                    mDragStateDelegate.getDragEnabled() && isReorderable(bookmarkListEntry);
-            propertyModel.set(ImprovedBookmarkRowProperties.IS_DRAG_ENABLED, isDragEnabled);
-        }
+        // Include #isReorderable because Mobile bookmarks, Bookmarks bar, and Reading list
+        // should not be draggable.
+        boolean isDragEnabled =
+                mDragStateDelegate.getDragEnabled() && isReorderable(bookmarkListEntry);
+        propertyModel.set(ImprovedBookmarkRowProperties.IS_DRAG_ENABLED, isDragEnabled);
 
         // Menu
         propertyModel.set(

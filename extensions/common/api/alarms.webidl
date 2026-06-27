@@ -14,6 +14,9 @@ dictionary Alarm {
   // If not null, the alarm is a repeating alarm and will fire again in
   // <var>periodInMinutes</var> minutes.
   double periodInMinutes;
+
+  // Whether the alarm should persist across sessions (browser restarts).
+  required boolean persistAcrossSessions;
 };
 
 // TODO(mpcomplete): rename to CreateInfo when http://crbug.com/123073 is
@@ -35,6 +38,11 @@ dictionary AlarmCreateInfo {
   //
   // <!-- TODO: need minimum=0 -->
   double periodInMinutes;
+
+  // Whether the alarm should persist across sessions (browser restarts). In
+  // Chrome, this defaults to true to match historical behavior, but you should
+  // set this explicitly to maximize compatibility across browsers.
+  boolean persistAcrossSessions;
 };
 
 // Listener callback for the onAlarm event.
@@ -83,11 +91,11 @@ interface Alarms {
   // Retrieves details about the specified alarm.
   // |name|: The name of the alarm to get. Defaults to the empty string.
   // |PromiseValue|: alarm
-  [requiredCallback] static Promise<Alarm?> get(optional DOMString name);
+  static Promise<Alarm?> get(optional DOMString name);
 
   // Gets an array of all the alarms.
   // |PromiseValue|: alarms
-  [requiredCallback] static Promise<sequence<Alarm>> getAll();
+  static Promise<sequence<Alarm>> getAll();
 
   // Clears the alarm with the given name.
   // |name|: The name of the alarm to clear. Defaults to the empty string.

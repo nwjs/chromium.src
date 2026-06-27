@@ -26,6 +26,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -81,8 +82,8 @@ class DefaultHeaderImage : public NonAccessibleImageView {
     SetImage(ui::ImageModel::FromVectorIcon(
         GetNativeTheme()->preferred_color_scheme() ==
                 ui::NativeTheme::PreferredColorScheme::kDark
-            ? kSecurePaymentConfirmationHeaderDarkIcon
-            : kSecurePaymentConfirmationHeaderIcon,
+            ? kSecurePaymentConfirmationHeaderDarkCustomIcon
+            : kSecurePaymentConfirmationHeaderCustomIcon,
         ui::kColorDialogBackground));
   }
 };
@@ -116,6 +117,31 @@ void UpdateProgressBarVisiblity(views::BubbleFrameView* bubble_frame_view,
     bubble_frame_view->SetProgress(visible ? std::optional<double>(-1)
                                            : std::nullopt);
   }
+}
+
+gfx::Size GetHeaderLogoSize(const SkBitmap& bitmap) {
+  gfx::Size image_size(bitmap.width(), bitmap.height());
+  if (image_size.IsEmpty()) {
+    return gfx::Size();
+  }
+  float aspect_ratio =
+      static_cast<float>(image_size.width()) / image_size.height();
+  float max_aspect_ratio =
+      static_cast<float>(payments::kSecurePaymentConfirmationHeaderLogoWidth) /
+      payments::kSecurePaymentConfirmationHeaderLogoHeight;
+
+  int width;
+  int height;
+  if (aspect_ratio > max_aspect_ratio) {
+    // Width is the limiting factor.
+    width = payments::kSecurePaymentConfirmationHeaderLogoWidth;
+    height = image_size.height() * width / image_size.width();
+  } else {
+    // Height is the limiting factor.
+    height = payments::kSecurePaymentConfirmationHeaderLogoHeight;
+    width = image_size.width() * height / image_size.height();
+  }
+  return gfx::Size(std::max(1, width), std::max(1, height));
 }
 
 }  // namespace
@@ -265,7 +291,9 @@ void SecurePaymentConfirmationDialogView::OnModelUpdated() {
     }
     if (model_->instrument_icon()->drawsNothing()) {
       image_view->SetImage(ui::ImageModel::FromVectorIcon(
-          kCreditCardIcon, ui::kColorDialogForeground,
+          features::IsRoundedIconsEnabled() ? kCreditCardIcon
+                                            : kCreditCardOldIcon,
+          ui::kColorSysOnSurfaceSubtle,
           kSecurePaymentConfirmationIconDefaultWidthPx));
     }
   }
@@ -385,7 +413,10 @@ void SecurePaymentConfirmationDialogView::InitViews() {
       model_->merchant_origin().has_value()) {
     AddChildView(CreateNewRowView(
         ui::ImageModel::FromVectorIcon(
-            vector_icons::kStorefrontIcon, ui::kColorSysOnSurfaceSubtle,
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kStorefrontIcon
+                : vector_icons::kStorefrontOldIcon,
+            ui::kColorSysOnSurfaceSubtle,
             kSecurePaymentConfirmationIconDefaultWidthPx),
         DialogViewID::MERCHANT_ICON, model_->merchant_name().value(),
         DialogViewID::MERCHANT_VALUE, model_->merchant_origin().value(),
@@ -393,7 +424,10 @@ void SecurePaymentConfirmationDialogView::InitViews() {
   } else {
     AddChildView(CreateNewRowView(
         ui::ImageModel::FromVectorIcon(
-            vector_icons::kStorefrontIcon, ui::kColorSysOnSurfaceSubtle,
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kStorefrontIcon
+                : vector_icons::kStorefrontOldIcon,
+            ui::kColorSysOnSurfaceSubtle,
             kSecurePaymentConfirmationIconDefaultWidthPx),
         DialogViewID::MERCHANT_ICON,
         model_->merchant_name().value_or(
@@ -412,7 +446,9 @@ void SecurePaymentConfirmationDialogView::InitViews() {
   ui::ImageModel instrument_icon;
   if (model_->instrument_icon()->drawsNothing()) {
     instrument_icon = ui::ImageModel::FromVectorIcon(
-        kCreditCardIcon, ui::kColorSysOnSurfaceSubtle,
+        features::IsRoundedIconsEnabled() ? kCreditCardIcon
+                                          : kCreditCardOldIcon,
+        ui::kColorSysOnSurfaceSubtle,
         kSecurePaymentConfirmationIconDefaultWidthPx);
   } else {
     instrument_icon = ui::ImageModel::FromImageSkia(
@@ -429,7 +465,9 @@ void SecurePaymentConfirmationDialogView::InitViews() {
   // Total Row
   AddChildView(CreateNewRowView(
       ui::ImageModel::FromVectorIcon(
-          vector_icons::kPaymentsIcon, ui::kColorSysOnSurfaceSubtle,
+          features::IsRoundedIconsEnabled() ? vector_icons::kPaymentsIcon
+                                            : vector_icons::kPaymentsOldIcon,
+          ui::kColorSysOnSurfaceSubtle,
           kSecurePaymentConfirmationIconDefaultWidthPx),
       DialogViewID::TOTAL_ICON, model_->total_value(),
       DialogViewID::TOTAL_VALUE));
@@ -468,9 +506,7 @@ SecurePaymentConfirmationDialogView::CreateHeaderView() {
     logo->SetImage(
         ui::ImageModel::FromImageSkia(gfx::ImageSkia::CreateFrom1xBitmap(
             *model_->header_logos().at(0)->icon)));
-    logo->SetImageSize(
-        gfx::Size(payments::kSecurePaymentConfirmationHeaderLogoWidth,
-                  payments::kSecurePaymentConfirmationHeaderLogoHeight));
+    logo->SetImageSize(GetHeaderLogoSize(*model_->header_logos().at(0)->icon));
     logo->SetAccessibleName(model_->header_logos().at(0)->label);
 
     container->AddChildView(std::move(logo));
@@ -494,8 +530,7 @@ SecurePaymentConfirmationDialogView::CreateHeaderView() {
   left_logo->SetImage(ui::ImageModel::FromImageSkia(
       gfx::ImageSkia::CreateFrom1xBitmap(*model_->header_logos().at(0)->icon)));
   left_logo->SetImageSize(
-      gfx::Size(payments::kSecurePaymentConfirmationHeaderLogoWidth,
-                payments::kSecurePaymentConfirmationHeaderLogoHeight));
+      GetHeaderLogoSize(*model_->header_logos().at(0)->icon));
   left_logo->SetAccessibleName(model_->header_logos().at(0)->label);
 
   auto* right_logo_container =
@@ -514,8 +549,7 @@ SecurePaymentConfirmationDialogView::CreateHeaderView() {
   right_logo->SetImage(ui::ImageModel::FromImageSkia(
       gfx::ImageSkia::CreateFrom1xBitmap(*model_->header_logos().at(1)->icon)));
   right_logo->SetImageSize(
-      gfx::Size(payments::kSecurePaymentConfirmationHeaderLogoWidth,
-                payments::kSecurePaymentConfirmationHeaderLogoHeight));
+      GetHeaderLogoSize(*model_->header_logos().at(1)->icon));
   right_logo->SetAccessibleName(model_->header_logos().at(1)->label);
 
   return container;

@@ -24,6 +24,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/color/color_id.h"
+#include "ui/gfx/geometry/insets.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/widget/widget.h"
@@ -180,6 +181,12 @@ class OverlayBaseController : public content::WebContentsDelegate,
   // exist.
   void SetOverlayWebViewOpacity(float opacity);
 
+  // Detaches the overlay views and takes ownership to preserve state.
+  void PreserveOverlayViews();
+
+  // Returns the host view that the overlay should be attached to. Can be null.
+  views::View* GetHostView() const;
+
  protected:
   // Whether the side panel is showing.
   virtual bool IsResultsSidePanelShowing() = 0;
@@ -208,10 +215,7 @@ class OverlayBaseController : public content::WebContentsDelegate,
   virtual int GetToolResourceId() = 0;
 
   // Return the ID of the view we attach this overlay to.
-  virtual ui::ElementIdentifier GetViewContainerId() = 0;
-
-  // Return whether we should look up the view ID in the ContentsContainerView.
-  virtual bool UsesContentsContainerView() = 0;
+  virtual ui::ElementIdentifier GetViewContainerId() const = 0;
 
   // The side panel type.
   virtual SidePanelType GetSidePanelType() = 0;
@@ -242,15 +246,22 @@ class OverlayBaseController : public content::WebContentsDelegate,
   // Notification that the tab was foregrounded.
   virtual void NotifyTabWillEnterBackground() = 0;
 
-  struct PreselectionUIConfig {
-    int message_string_id = -1;
-    bool show_cancel_button = false;
-    // Only read if show_cancel_button is true.
-    std::optional<ui::ColorId> cancel_button_color = std::nullopt;
-    ui::ColorId bubble_background_color = ui::kUiColorsLast;
-    raw_ptr<const gfx::VectorIcon> icon = nullptr;
+ public:
+  // Public as used by LensPreselectionBubble.
+  struct CancelButtonConfig {
+    ui::ColorId color;
+    gfx::Insets padding;
+    gfx::Insets bubble_margins;
   };
 
+  struct PreselectionUIConfig {
+    int message_string_id = -1;
+    ui::ColorId bubble_background_color = ui::kUiColorsLast;
+    raw_ptr<const gfx::VectorIcon> icon = nullptr;
+    std::optional<CancelButtonConfig> cancel_button_config;
+  };
+
+ protected:
   // Returns the resources for the preselection bubble.
   virtual PreselectionUIConfig GetPreselectionBubbleConfig() = 0;
 
@@ -419,7 +430,7 @@ class OverlayBaseController : public content::WebContentsDelegate,
 
  private:
   // The anchor view to the preselection bubble. This anchor is an invisible
-  // sibling of the the `overlay_view_`, user to always keep the preselection
+  // sibling of the `overlay_view_`, user to always keep the preselection
   // bubble anchored to the top of the screen, while also maintaining focus
   // order.
   raw_ptr<views::View> preselection_widget_anchor_;
@@ -428,6 +439,12 @@ class OverlayBaseController : public content::WebContentsDelegate,
   // Used to observe the immersive mode pref on Mac, and the side panel
   // horizontal alignment pref.
   PrefChangeRegistrar pref_change_registrar_;
+
+  // Only used for the tab-scoped overlays. Holds the raw_ptr counterparts when
+  // the tab is backgrounded or hidden, preserving state.
+  std::unique_ptr<views::View> owned_preselection_widget_anchor_;
+  std::unique_ptr<views::View> owned_promo_anchor_;
+  std::unique_ptr<views::WebView> owned_overlay_web_view_;
 
   // --------------------Browser window scoped state: END---------------------
   // Must be the last member.

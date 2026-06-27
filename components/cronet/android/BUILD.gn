@@ -242,7 +242,8 @@ source_set("cronet_static") {
 
 _cronet_shared_lib_name = "cronet.$chrome_version_full"
 if (is_cronet_for_aosp_build) {
-  # We must have a unique name in Android builds to correctly collect afdo samples and improve
+  # We must have a unique name in Android builds to correctly collect afdo
+  # samples and improve
   # the performance of the library (https://source.android.com/docs/core/perf/autofdo).
   _cronet_shared_lib_name = "httpengine"
 }
@@ -446,6 +447,7 @@ cronet_impl_common_java_srcjar_deps = [
 cronet_impl_common_java_deps_to_package = [
   "//net/android:net_thread_stats_uid_java",
   "//components/cronet:request_context_config_java_proto",
+  "//url:url_java",
 ]
 
 # cronet_impl_common_java.jar - common Cronet code that is shared
@@ -473,8 +475,9 @@ android_library("cronet_impl_common_java") {
     _generated_impl_version_java,
   ]
 
-  # Adding deps here won't include those deps in the cronet_impl_common_java.jar.
-  # Please add to cronet_impl_common_java_deps_to_package instead.
+  # Adding deps here won't include those deps in the
+  # cronet_impl_common_java.jar. Please add to
+  # cronet_impl_common_java_deps_to_package instead.
   deps = [
     ":cronet_api_java",
     ":cronet_shared_java",
@@ -491,7 +494,8 @@ android_library("cronet_impl_common_java") {
   proguard_configs = [ "cronet_impl_common_proguard.cfg" ]
 }
 
-# cronet_impl_java_util_java.jar - Classes shared between Java Cronet implementations.
+# cronet_impl_java_util_java.jar - Classes shared between Java Cronet
+# implementations.
 android_library("cronet_impl_java_util_java") {
   sources = [
     "java/src/org/chromium/net/impl/JavaUploadDataSinkBase.java",
@@ -506,7 +510,8 @@ android_library("cronet_impl_java_util_java") {
   ]
 }
 
-# cronet_impl_platform_java.jar - Java platform based implementation of the Cronet engine.
+# cronet_impl_platform_java.jar - Java platform based implementation of the
+# Cronet engine.
 android_library("cronet_impl_platform_java") {
   sources = [
     "java/src/org/chromium/net/impl/InputStreamChannel.java",
@@ -597,7 +602,6 @@ cronet_impl_native_java_deps_to_package = [
   "//third_party/jni_zero:generate_jni_java",
   "//third_party/jni_zero:jni_zero_java",
   "//net/android:net_java",
-  "//url:url_java",
   "//net/log:net_log_capture_mode_java",
 ]
 
@@ -621,8 +625,9 @@ android_library("cronet_impl_native_java") {
     "java/src/org/chromium/net/impl/ProxyCallbackRequestImpl.java",
   ]
 
-  # Adding deps here won't include those deps in the cronet_impl_native_java.jar.
-  # Please add to cronet_impl_native_java_deps_to_package instead.
+  # Adding deps here won't include those deps in the
+  # cronet_impl_native_java.jar. Please add to
+  # cronet_impl_native_java_deps_to_package instead.
   deps = [
     ":base_feature_overrides_java_proto",
     ":cronet_api_java",
@@ -656,6 +661,10 @@ android_library("cronet_impl_native_sentinel_java") {
 # loaded from AOSP (only for Android U onwards)
 android_library("httpengine_native_provider_java") {
   sources = [
+    "java/src/org/chromium/net/AndroidProxy.java",
+    "java/src/org/chromium/net/AndroidProxyHttpConnectCallback.java",
+    "java/src/org/chromium/net/AndroidProxyHttpConnectCallbackRequest.java",
+    "java/src/org/chromium/net/AndroidProxyOptions.java",
     "java/src/org/chromium/net/impl/AndroidBidirectionalStreamCallbackWrapper.java",
     "java/src/org/chromium/net/impl/AndroidBidirectionalStreamWrapper.java",
     "java/src/org/chromium/net/impl/AndroidCallbackExceptionWrapper.java",
@@ -675,35 +684,6 @@ android_library("httpengine_native_provider_java") {
     "java/src/org/chromium/net/impl/CronetExceptionTranslationUtils.java",
     "java/src/org/chromium/net/impl/HttpEngineNativeProvider.java",
   ]
-
-  # Provide stubs for APIs that do not exist in Chromium yet.
-  #
-  # The Android SDK currently used in Chromium is not recent enough to know
-  # about the new HttpEngine proxy APIs. This means we can't build a proper
-  # AndroidProxyOptions wrapper in Chromium: the Android APIs it would need to
-  # reference, while wrapping, do not exist as far as Chromium is concerned.
-  # However, such code would build in the Android repo: that always contains the
-  # latest Android APIs, since they are developed there.
-  #
-  # This is not useful to actual users of HttpEngineNativeProvider, since they
-  # won't be receiving this code until Chromium can successfully compile it.
-  # Having said that, this is useful to testing: it allows the Cronet test
-  # suite (especially org.chromium.net.ProxyTest) to run against the new
-  # HttpEngine Proxy APIs when running within the Android repo, thus providing
-  # HttpEngine with test coverage.
-  #
-  # TODO(https://crbug.com/460408392): Clean this up once the new HttpEngine
-  # proxy APIs have made it to the Android SDK used in Chromium.
-  if (is_cronet_for_aosp_build) {
-    sources += [
-      "platform-only/org/chromium/net/AndroidProxy.java",
-      "platform-only/org/chromium/net/AndroidProxyHttpConnectCallback.java",
-      "platform-only/org/chromium/net/AndroidProxyHttpConnectCallbackRequest.java",
-      "platform-only/org/chromium/net/AndroidProxyOptions.java",
-    ]
-  } else {
-    sources += [ "java/src/org/chromium/net/AndroidProxyOptions.java" ]
-  }
 
   deps = [
     ":cronet_api_java",
@@ -987,11 +967,11 @@ template("cronet_package_apk") {
     proguard_enabled = true
 
     # Disable the trace_references check, which is an additional Chromium safety
-    # check that ensures the resulting DEX does not contain unresolved references.
-    # The reason why we disable this check is because it does not consider
-    # -dontwarn rules from ProGuard configs, and will therefore fail. Note that
-    # even with this check disabled, R8 itself will still check for unresolved
-    # references.
+    # check that ensures the resulting DEX does not contain unresolved
+    # references. The reason why we disable this check is because it does not
+    # consider -dontwarn rules from ProGuard configs, and will therefore fail.
+    # Note that even with this check disabled, R8 itself will still check for
+    # unresolved references.
     enable_proguard_checks = false
 
     if (use_jacoco_coverage) {
@@ -1322,12 +1302,13 @@ repackage_jars("repackage_native_impl") {
   output = _native_intermediate_jar_path
   deps =
       cronet_impl_native_java_deps_to_package + [ ":cronet_impl_native_java" ]
-  jar_excluded_patterns = _jar_excluded_patterns + [
-                            # This class is already in package_shared_java, which is always shipped as a
-                            # required dependency of this jar. Including it in this jar would cause
-                            # duplicate class errors.
-                            "org/chromium/base/metrics/ScopedSysTraceEvent.class",
-                          ]
+  jar_excluded_patterns =
+      _jar_excluded_patterns + [
+        # This class is already in package_shared_java, which is always shipped
+        # as a required dependency of this jar. Including it in this jar would
+        # cause duplicate class errors.
+        "org/chromium/base/metrics/ScopedSysTraceEvent.class",
+      ]
 }
 
 # Do not depend on this target directly. Use :repackage_native.
@@ -1435,11 +1416,13 @@ shared_library("cronet_tests") {
 android_resources("cronet_test_apk_resources") {
   testonly = true
   sources = [
-    # TODO(crbug.com/40283951): Modify quicroot.pem to become a build time copy of
+    # TODO(crbug.com/40283951): Modify quicroot.pem to become a build time copy
+    # of
     # net/data/ssl/certificates/cronet-quic-chain.pem.
     "test/res/raw/quicroot.pem",
 
-    # TODO(crbug.com/40283951): Modify root_ca_cert.pem to become a build time copy of
+    # TODO(crbug.com/40283951): Modify root_ca_cert.pem to become a build time
+    # copy of
     # net/data/ssl/certificates/root_ca_cert.pem.
     "test/res/raw/root_ca_cert.pem",
     "test/res/values/strings.xml",
@@ -1645,6 +1628,7 @@ android_library("cronet_javatests") {
     "test/javatests/src/org/chromium/net/ExperimentalOptionsTranslationTestUtil.java",
     "test/javatests/src/org/chromium/net/FileUtils.java",
     "test/javatests/src/org/chromium/net/GetStatusTest.java",
+    "test/javatests/src/org/chromium/net/HostnameTest.java",
     "test/javatests/src/org/chromium/net/LogcatCapture.java",
     "test/javatests/src/org/chromium/net/MetricsTestUtil.java",
     "test/javatests/src/org/chromium/net/MockCertVerifierTest.java",
@@ -1745,15 +1729,15 @@ cronet_instrumentation_test_apk("cronet_test_instrumentation_apk") {
 
   # Make sure not to depend on :cronet so we don't accidentally load it in the
   # tests, this is especially tricky because we manipulate a global state in the
-  # CronetLibraryLoader to load a different shared library, adding this assert_no_deps
-  # will ensure that there'll only be a single shared library and any mistake will be
-  # caught immediately when trying to load the libraries.
+  # CronetLibraryLoader to load a different shared library, adding this
+  # assert_no_deps will ensure that there'll only be a single shared library and
+  # any mistake will be caught immediately when trying to load the libraries.
   assert_no_deps = [ ":cronet" ]
 
-  # Never add a chromium only library to this list, if the library can only be found in
-  # chromium then add it to the repackage jars instead otherwise it will fail in google3
-  # but pass in Chromium. This means that only //third_party libraries can be listed in
-  # the deps.
+  # Never add a chromium only library to this list, if the library can only be
+  # found in chromium then add it to the repackage jars instead otherwise it
+  # will fail in google3 but pass in Chromium. This means that only
+  # //third_party libraries can be listed in the deps.
   deps = [
            ":cronet_combine_proguard_flags",
            ":cronet_test_apk_resources",
@@ -1768,17 +1752,20 @@ cronet_instrumentation_test_apk("cronet_test_instrumentation_apk") {
            ":package_test_java",
            ":repackage_native_java",
 
-           # This is used by base_test utility classes, proguard complains about missing classes
-           # but in reality, we don't even use those classes at all.
+           # This is used by base_test utility classes, proguard complains about
+           # missing classes but in reality, we don't even use those classes at
+           # all.
            "//third_party/android_deps:com_google_android_apps_common_testing_accessibility_framework_accessibility_test_framework_java",
 
-           # This is used by base_test utility classes, proguard complains about missing classes
-           # but in reality, we don't even use those classes at all.
+           # This is used by base_test utility classes, proguard complains about
+           # missing classes but in reality, we don't even use those classes at
+           # all.
            "//third_party/android_deps:espresso_java",
            "//third_party/android_sdk:android_test_mock_java",
 
-           # This is used by base_test utility classes, proguard complains about missing classes
-           # but in reality, we don't even use those classes at all.
+           # This is used by base_test utility classes, proguard complains about
+           # missing classes but in reality, we don't even use those classes at
+           # all.
            "//third_party/androidx:androidx_test_uiautomator_uiautomator_java",
            "//third_party/google-truth:google_truth_java",
            "//third_party/hamcrest:hamcrest_core_java",
@@ -1902,17 +1889,18 @@ cronet_instrumentation_test_apk("cronet_smoketests_apk") {
 
   # Make sure not to depend on :cronet so we don't accidentally load it in the
   # tests, this is especially tricky because we manipulate a global state in the
-  # CronetLibraryLoader to load a different shared library. The goal of the smoketest
-  # is to be as close as possible from the production version so if the testing shared
-  # library happened to be inside the APK then we might accidentally load it which will
-  # mask issues that will show up in production.
+  # CronetLibraryLoader to load a different shared library. The goal of the
+  # smoketest is to be as close as possible from the production version so if
+  # the testing shared library happened to be inside the APK then we might
+  # accidentally load it which will mask issues that will show up in production.
   assert_no_deps = [ ":cronet_tests" ]
   sources = cronet_smoketests_native_common_srcs +
             [ "test/smoketests/src/org/chromium/net/smoke/HttpTest.java" ]
   deps = [
            ":cronet_api_java",
 
-           # cronet_test_apk_java pulls all implementation of Cronet along with their proguard cfgs.
+           # cronet_test_apk_java pulls all implementation of Cronet along with
+           # their proguard cfgs.
            ":cronet_test_apk_java",
            ":cronet_test_apk_resources",
            "//base:base_java",
@@ -2285,8 +2273,8 @@ action("cronet_gn2bp_aosp_feedback_loop") {
               "//components/cronet/gn2bp/copy.bara.sky",
             ]
   deps = [
-    # This dependency exists to work around the issue of the gn2bp trybot skipping
-    # CLs that touch Cronet code but not gn2bp itself.
+    # This dependency exists to work around the issue of the gn2bp trybot
+    # skipping CLs that touch Cronet code but not gn2bp itself.
     # TODO(https://crbug.com/414789446): this is a hack. It forces the
     # bot to pointlessly build Cronet. Surely there is a cleaner way.
     # This is still prone to failure if we decide to run GN2BP against
@@ -2301,8 +2289,8 @@ action("cronet_gn2bp_aosp_feedback_loop") {
     # Android repo.
     #
     # This action is only used by bot environments. These automatically select
-    # the target Cronet channel in the Android repo based on the environment they
-    # are running in (see components/cronet/gn2bp/run_gn2bp.py's
+    # the target Cronet channel in the Android repo based on the environment
+    # they are running in (see components/cronet/gn2bp/run_gn2bp.py's
     # _pick_target_channel_for_bot_environment).
     "--wait-for-presubmit-verified",
     "--stamp",

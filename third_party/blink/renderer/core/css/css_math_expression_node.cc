@@ -3519,7 +3519,7 @@ CSSPrimitiveValue::UnitType CSSMathExpressionOperation::ResolvedUnitType()
           if (operands_[1]->Category() == kCalcNumber) {
             return operands_[0]->ResolvedUnitType();
           }
-          NOTREACHED();
+          return CSSPrimitiveValue::UnitType::kUnknown;
         }
         case CSSMathOperator::kAdd:
         case CSSMathOperator::kSubtract:
@@ -3749,6 +3749,9 @@ double CSSMathExpressionOperation::EvaluateOperator(
       CHECK_EQ(operands.size(), 3u);
       double progress_value =
           (operands[0] - operands[1]) / (operands[2] - operands[1]);
+      if (std::isnan(progress_value)) {
+        return NAN;
+      }
       return std::clamp(progress_value, 0., 1.);
     }
     case CSSMathOperator::kCalcSize: {
@@ -5040,6 +5043,12 @@ class CSSMathExpressionNodeParser {
       return nullptr;
     }
 
+    // Even though this is parsed iteratively, a flat sequence of operations
+    // (e.g., a * b * c * d) creates a deep expression tree. We track the
+    // depth of the resulting tree to avoid stack overflows during subsequent
+    // recursive tree processing.
+    int result_depth = state.depth + 1;
+
     while (!stream.AtEnd()) {
       CSSMathOperator math_operator = ParseCSSArithmeticOperator(stream.Peek());
       if (math_operator != CSSMathOperator::kMultiply &&
@@ -5059,6 +5068,19 @@ class CSSMathExpressionNodeParser {
 
       if (!result) {
         return nullptr;
+      }
+
+      if (result->IsOperation()) {
+        // Each new operation adds a level to the expression tree.
+        result_depth++;
+        if (result_depth > kMaxExpressionDepth) {
+          return nullptr;
+        }
+      } else {
+        // If the expression was simplified into a non-operation node (e.g. a
+        // numeric literal), the accumulated depth drops back down to the
+        // current term level.
+        result_depth = state.depth + 1;
       }
     }
 
@@ -5086,6 +5108,12 @@ class CSSMathExpressionNodeParser {
       return nullptr;
     }
 
+    // Even though this is parsed iteratively, a flat sequence of operations
+    // (e.g., a + b + c + d) creates a deep expression tree. We track the
+    // depth of the resulting tree to avoid stack overflows during subsequent
+    // recursive tree processing.
+    int result_depth = state.depth + 1;
+
     while (!stream.AtEnd()) {
       CSSMathOperator math_operator = ParseCSSArithmeticOperator(stream.Peek());
       if (math_operator != CSSMathOperator::kAdd &&
@@ -5112,6 +5140,19 @@ class CSSMathExpressionNodeParser {
 
       if (!result) {
         return nullptr;
+      }
+
+      if (result->IsOperation()) {
+        // Each new operation adds a level to the expression tree.
+        result_depth++;
+        if (result_depth > kMaxExpressionDepth) {
+          return nullptr;
+        }
+      } else {
+        // If the expression was simplified into a non-operation node (e.g. a
+        // numeric literal), the accumulated depth drops back down to the
+        // current term level.
+        result_depth = state.depth + 1;
       }
     }
 

@@ -8,6 +8,10 @@
 #include "base/component_export.h"
 #include "base/memory/raw_ptr.h"
 
+namespace gfx {
+class SlideAnimation;
+}  // namespace gfx
+
 namespace chromeos {
 
 class ImmersiveFullscreenController;
@@ -45,7 +49,11 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) ImmersiveFullscreenControllerTestApi {
 
   bool IsRevealLocked() const;
 
+  bool IsTopContainerPaintLocked() const;
+
   void EndAnimation();
+
+  const gfx::SlideAnimation* GetAnimation() const;
 
  private:
   raw_ptr<ImmersiveFullscreenController, DanglingUntriaged>

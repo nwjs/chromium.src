@@ -57,7 +57,7 @@ class ContentPasswordManagerDriver final
   void DidNavigate();
 
   // PasswordManagerDriver implementation.
-  int GetId() const override;
+  DriverId GetId() const override;
   gfx::RectF TransformToRootCoordinates(
       const gfx::RectF& bounds_in_frame_coordinates) override;
   void PropagateFillDataOnParsingCompletion(
@@ -125,6 +125,7 @@ class ContentPasswordManagerDriver final
   int GetFrameId() const override;
   const GURL& GetLastCommittedURL() const override;
   const url::Origin& GetLastCommittedOrigin() const override;
+  bool HasCrossOriginAncestor() const override;
   void AnnotateFieldsWithParsingResult(
       const autofill::ParsingResult& parsing_result) override;
   void CheckViewAreaVisible(autofill::FieldRendererId field_id,
@@ -213,7 +214,7 @@ class ContentPasswordManagerDriver final
   PasswordGenerationFrameHelper password_generation_helper_;
   PasswordAutofillManager password_autofill_manager_;
 
-  int id_;
+  DriverId id_;
 
   mojo::AssociatedRemote<autofill::mojom::PasswordAutofillAgent>
       password_autofill_agent_;

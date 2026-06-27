@@ -4,6 +4,17 @@
 
 import type {AnchorAlignment} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 
+export enum ContentPositionSource {
+  SELECTION = 0,
+  LINE_FOCUS = 1,
+}
+
+export interface ContentPosition {
+  node: Node;
+  offset: number;
+  source: ContentPositionSource;
+}
+
 export enum LineFocusType {
   NONE = 0,
   LINE = 1,
@@ -152,7 +163,6 @@ export interface SettingsPrefs {
   speechRate: number;
   font: string;
   highlightGranularity: number;
-  lineFocus: number;
   linksEnabled: boolean;
   imagesEnabled: boolean;
 }
@@ -163,7 +173,6 @@ export const DEFAULT_SETTINGS: SettingsPrefs = {
   speechRate: 0,
   font: '',
   highlightGranularity: 0,
-  lineFocus: 0,
   linksEnabled: false,
   imagesEnabled: false,
 };

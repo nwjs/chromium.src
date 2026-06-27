@@ -125,6 +125,9 @@
 // Returns matcher for the primary toolbar.
 + (id<GREYMatcher>)primaryToolbar;
 
+// Returns matcher for the secondary toolbar.
++ (id<GREYMatcher>)secondaryToolbar;
+
 // Returns matcher for a cancel button.
 + (id<GREYMatcher>)cancelButton;
 
@@ -200,6 +203,10 @@
 // Matcher for Tools menu button.
 + (id<GREYMatcher>)toolsMenuButton;
 
+// Matcher for Tools menu button on NTP, only active when ChromeNextIA is
+// enabled.
++ (id<GREYMatcher>)toolsMenuNTPButton;
+
 // Matcher for the New Tab button, which can be long-pressed for a menu.
 // (This method can't be named +newTabButton, because starting a class method
 // with 'new' implicitly treats it as a constructor).
@@ -213,6 +220,9 @@
 
 // Matcher for the tab Share button (either in the omnibox or the toolbar).
 + (id<GREYMatcher>)tabShareButton;
+
+// Matcher for the Share button in the overflow menu.
++ (id<GREYMatcher>)overflowMenuShareButton;
 
 // Matcher for show tabs button.
 + (id<GREYMatcher>)showTabsButton;

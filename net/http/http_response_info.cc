@@ -149,7 +149,11 @@ enum {
   RESPONSE_EXTRA_INFO_HAS_ORIGINAL_RESPONSE_TIME = 1 << 2,
 
   // This bit is set if the response has an encoded body size stored.
-  RESPONSE_EXTRA_INFO_HAS_ENCODED_BODY_SIZE = 1 << 3
+  RESPONSE_EXTRA_INFO_HAS_ENCODED_BODY_SIZE = 1 << 3,
+
+  // This bit is set if the zstd uncompressed body size is stored, indicating
+  // the response body on disk is zstd-compressed.
+  RESPONSE_EXTRA_INFO_HAS_ZSTD_UNCOMPRESSED_BODY_SIZE = 1 << 4,
 };
 
 HttpResponseInfo::HttpResponseInfo() = default;
@@ -386,7 +390,18 @@ bool HttpResponseInfo::InitFromPickle(base::PickleIterator iter,
     if (!iter.ReadInt64(&size)) {
       return false;
     }
-    encoded_body_size = size;
+    // Ignore obsolete negative values.
+    if (size >= 0) {
+      encoded_body_size = base::ByteSize(base::as_unsigned(size));
+    }
+  }
+
+  if (extra_flags & RESPONSE_EXTRA_INFO_HAS_ZSTD_UNCOMPRESSED_BODY_SIZE) {
+    int64_t size;
+    if (!iter.ReadInt64(&size) || size < 0) {
+      return false;  // Refuse malformed entries; do not silently degrade.
+    }
+    zstd_uncompressed_body_size = size;
   }
 
   return true;
@@ -395,6 +410,27 @@ bool HttpResponseInfo::InitFromPickle(base::PickleIterator iter,
 std::unique_ptr<base::Pickle> HttpResponseInfo::MakePickle(
     bool skip_transient_headers,
     bool response_truncated) const {
+  std::optional<int64_t> signed_body_size;
+  if (encoded_body_size.has_value()) {
+    signed_body_size = encoded_body_size->InBytes();
+  }
+  return MakePickleImpl(skip_transient_headers, response_truncated,
+                        signed_body_size);
+}
+
+std::unique_ptr<base::Pickle>
+HttpResponseInfo::MakePickleWithSignedBodySizeForTesting(
+    bool skip_transient_headers,
+    bool response_truncated,
+    int64_t signed_body_size) const {
+  return MakePickleImpl(skip_transient_headers, response_truncated,
+                        signed_body_size);
+}
+
+std::unique_ptr<base::Pickle> HttpResponseInfo::MakePickleImpl(
+    bool skip_transient_headers,
+    bool response_truncated,
+    std::optional<int64_t> signed_body_size) const {
   auto pickle = std::make_unique<base::Pickle>();
   // Pre-reserve memory for the Pickle contents to reduce allocations and
   // copies. This doesn't affect the size of the data that is written to disk.
@@ -450,8 +486,12 @@ std::unique_ptr<base::Pickle> HttpResponseInfo::MakePickle(
     extra_flags |= RESPONSE_EXTRA_INFO_HAS_PROXY_CHAIN;
   }
 
-  if (encoded_body_size.has_value()) {
+  if (signed_body_size.has_value()) {
     extra_flags |= RESPONSE_EXTRA_INFO_HAS_ENCODED_BODY_SIZE;
+  }
+
+  if (zstd_uncompressed_body_size.has_value()) {
+    extra_flags |= RESPONSE_EXTRA_INFO_HAS_ZSTD_UNCOMPRESSED_BODY_SIZE;
   }
 
   extra_flags |= RESPONSE_EXTRA_INFO_HAS_ORIGINAL_RESPONSE_TIME;
@@ -522,8 +562,12 @@ std::unique_ptr<base::Pickle> HttpResponseInfo::MakePickle(
     proxy_chain.Persist(pickle.get());
   }
 
-  if (encoded_body_size.has_value()) {
-    pickle->WriteInt64(encoded_body_size.value());
+  if (signed_body_size.has_value()) {
+    pickle->WriteInt64(signed_body_size.value());
+  }
+
+  if (zstd_uncompressed_body_size.has_value()) {
+    pickle->WriteInt64(zstd_uncompressed_body_size.value());
   }
 
   return pickle;

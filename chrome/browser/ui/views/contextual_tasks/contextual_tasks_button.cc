@@ -6,6 +6,8 @@
 
 #include <string>
 
+#include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
@@ -21,12 +23,15 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/branded_strings.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/prefs/pref_member.h"
 #include "components/prefs/pref_service.h"
@@ -38,12 +43,19 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/models/image_model.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_owner.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/skia_conversions.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/skia_paint_util.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/animation/animation_builder.h"
 #include "ui/views/painter.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
@@ -71,6 +83,12 @@ const float kTopLeftRadius = 5.0f;
 // Like the above, this radius corresponds to the button's bottom left corner.
 const float kBottomLeftRadius = 0.0f;
 
+// Margin to outset the background painted layer so the shadow is not clipped.
+const int kShadowOutset = 12;
+
+// Helper class to paint the contextual tasks button shadow. The general
+// ViewShadow class doesn't work for the contextual tasks button because the
+// button doesn't have a standard shape, and thus custom shadow logic.
 class ContextualTasksButtonBackgroundPainter : public views::Painter {
  public:
   ContextualTasksButtonBackgroundPainter(SkColor bg_color,
@@ -88,8 +106,8 @@ class ContextualTasksButtonBackgroundPainter : public views::Painter {
     const float scale = canvas->UndoDeviceScaleFactor();
 
     gfx::ShadowValues shadow;
-    constexpr int kOffset = 1;
-    constexpr int kBlur = 3;
+    constexpr int kOffset = 4;
+    constexpr int kBlur = 12;
     shadow.emplace_back(gfx::Vector2d(0, kOffset), kBlur, shadow_color_);
 
     cc::PaintFlags flags;
@@ -98,16 +116,19 @@ class ContextualTasksButtonBackgroundPainter : public views::Painter {
     flags.setStyle(cc::PaintFlags::kFill_Style);
     flags.setColor(bg_color_);
 
+    gfx::Rect button_rect(size);
+    button_rect.Inset(gfx::Insets(kShadowOutset));
+
     if (is_circle_shape_) {
-      gfx::Rect inset_rect(size);
+      gfx::Rect inset_rect = button_rect;
       inset_rect.Inset(gfx::Insets(kCircleShadowInset));
-      gfx::RectF fill_rect(gfx::ScaleToEnclosingRect(inset_rect, scale));
+      gfx::RectF fill_rect(gfx::ScaleToEnclosedRect(inset_rect, scale));
       gfx::PointF center = fill_rect.CenterPoint();
       float scaled_radius =
           std::min(fill_rect.width(), fill_rect.height()) / 2.0f;
       canvas->DrawCircle(center, scaled_radius, flags);
     } else {
-      gfx::Rect inset_rect(size);
+      gfx::Rect inset_rect = button_rect;
       inset_rect.Inset(gfx::Insets::TLBR(kPillShapeShadowInset, 0,
                                          kPillShapeShadowInset,
                                          kPillShapeShadowInset));
@@ -178,9 +199,19 @@ ContextualTasksButton::ContextualTasksButton(
                     nullptr,
                     nullptr),
       browser_window_interface_(browser_window_interface) {
+  SetPaintToLayer();
+  layer()->SetFillsBoundsOpaquely(false);
   SetProperty(views::kElementIdentifierKey, kContextualTasksToolbarButton);
   const std::u16string button_tooltip =
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      (contextual_tasks::kShowEntryPoint.Get() ==
+       contextual_tasks::EntryPointOption::kToolbarEphemeralBranded)
+          ? l10n_util::GetStringUTF16(
+                IDS_CONTEXTUAL_TASKS_ENTRY_POINT_TOOLTIP_V2)
+          : l10n_util::GetStringUTF16(IDS_CONTEXTUAL_TASKS_ENTRY_POINT_TOOLTIP);
+#else
       l10n_util::GetStringUTF16(IDS_CONTEXTUAL_TASKS_ENTRY_POINT_TOOLTIP);
+#endif
   GetViewAccessibility().SetName(button_tooltip);
   SetTooltipText(button_tooltip);
 
@@ -253,7 +284,11 @@ ContextualTasksButton::ContextualTasksButton(
   }
 }
 
-ContextualTasksButton::~ContextualTasksButton() = default;
+ContextualTasksButton::~ContextualTasksButton() {
+  if (drop_shadow_painted_layer_) {
+    views::View::RemoveLayerFromRegions(drop_shadow_painted_layer_->layer());
+  }
+}
 
 float ContextualTasksButton::GetCornerRadiusFor(
     ToolbarButton::Edge edge) const {
@@ -323,8 +358,8 @@ void ContextualTasksButton::OnSidePanelAlignmentChanged() {
 
     const gfx::VectorIcon& contextual_tasks_icon =
         pref_service->GetBoolean(prefs::kSidePanelHorizontalAlignment)
-            ? kDockToRightSparkIcon
-            : kDockToLeftSparkIcon;
+            ? kDockToRightSparkCustomIcon
+            : kDockToLeftSparkCustomIcon;
     SetVectorIcon(contextual_tasks_icon);
   }
 }
@@ -339,20 +374,7 @@ void ContextualTasksButton::UpdateColorsAndInsets() {
 
   const int button_size = GetLayoutConstant(LayoutConstant::kLocationBarHeight);
   SetPreferredSize(gfx::Size(button_size, button_size));
-
-  const gfx::VectorIcon& contextual_tasks_icon =
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      vector_icons::kGoogleGLogoIcon;
-#else
-      kBrowserLogoIcon;
-#endif
-
-  SetImageModel(
-      views::Button::STATE_NORMAL,
-      ui::ImageModel::FromVectorIcon(contextual_tasks_icon, ui::kColorIcon,
-                                     ShouldApplyCircularBackgroundShadow()
-                                         ? kGLogoCircularShapeIconSize
-                                         : kGLogoPillShapeIconSize));
+  SetImageModel(views::Button::STATE_NORMAL, GetButtonImage());
 
   const auto* color_provider = GetColorProvider();
   if (!color_provider) {
@@ -372,11 +394,37 @@ void ContextualTasksButton::UpdateColorsAndInsets() {
       *GetProperty(views::kInternalPaddingKey);
   SetLayoutInsets(insets);
 
-  SetBackground(views::CreateBackgroundFromPainter(
+  if (drop_shadow_painted_layer_) {
+    views::View::RemoveLayerFromRegions(drop_shadow_painted_layer_->layer());
+  }
+
+  auto contextual_tasks_button_background_painter =
       std::make_unique<ContextualTasksButtonBackgroundPainter>(
           color_provider->GetColor(kColorToolbar),
           color_provider->GetColor(kColorToolbarContextualTasksButtonShadow),
-          ShouldApplyCircularBackgroundShadow())));
+          ShouldApplyCircularBackgroundShadow());
+
+  drop_shadow_painted_layer_ = views::Painter::CreatePaintedLayer(
+      std::move(contextual_tasks_button_background_painter));
+  ui::Layer* const drop_shadow_layer = drop_shadow_painted_layer_->layer();
+  drop_shadow_layer->SetFillsBoundsOpaquely(false);
+
+  // Use the views version of AddLayerToRegion because the LabelButton already
+  // overrides AddLayerToRegion() to support painting labels. As a result, the
+  // unqualified version will result in the shadow being rendered incorrectly.
+  views::View::AddLayerToRegion(drop_shadow_layer, views::LayerRegion::kBelow);
+  UpdateDropShadowLayerBounds();
+}
+
+void ContextualTasksButton::OnViewLayerBoundsSet(views::View* observed_view) {
+  CHECK_EQ(observed_view, this);
+  ToolbarButton::OnViewLayerBoundsSet(observed_view);
+
+  // Update the position of the drop shadow layer to ensure that it is shown
+  // behind the ContextualTasks button.
+  if (drop_shadow_painted_layer_) {
+    UpdateDropShadowLayerBounds();
+  }
 }
 
 void ContextualTasksButton::OnShouldUpdateVisibility(bool should_show) {
@@ -426,16 +474,52 @@ void ContextualTasksButton::MaybeUpdateVisibility() {
     SetVisible(is_button_eligible && controller->ShouldShowEphemeralButton());
   } else if (contextual_tasks::kShowEntryPoint.Get() ==
              contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
-    auto* panel_controller =
-        contextual_tasks::ContextualTasksPanelController::From(
-            browser_window_interface_);
-    CHECK(panel_controller);
     ContextualTasksEphemeralButtonController* const controller =
         ContextualTasksEphemeralButtonController::From(
             browser_window_interface_);
-    SetVisible(!panel_controller->IsPanelOpenForContextualTask() &&
-               is_button_eligible && controller->ShouldShowEphemeralButton());
+    const bool was_visible = GetVisible();
+    SetVisible(is_button_eligible && controller->ShouldShowEphemeralButton());
+    if (!was_visible && GetVisible()) {
+      layer()->SetOpacity(0.0f);
+      drop_shadow_painted_layer_->layer()->SetOpacity(0.0f);
+      views::AnimationBuilder()
+          .Once()
+          .SetDuration(
+              base::Milliseconds(features::kSidePanelFlyoverDurationMs.Get()))
+          .SetOpacity(layer(), 1.0f)
+          .SetOpacity(drop_shadow_painted_layer_->layer(), 1.0f);
+    }
   }
+}
+
+void ContextualTasksButton::UpdateDropShadowLayerBounds() {
+  CHECK(drop_shadow_painted_layer_);
+  gfx::Rect layer_bounds = GetLocalBounds();
+  layer_bounds.Outset(kShadowOutset);
+  layer_bounds.Offset(layer()->bounds().OffsetFromOrigin());
+  drop_shadow_painted_layer_->layer()->SetBounds(layer_bounds);
+}
+
+ui::ImageModel ContextualTasksButton::GetButtonImage() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (contextual_tasks::kShowEntryPoint.Get() ==
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+    return ui::ImageModel::FromImageSkia(
+        *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+            IDR_GOOGLE_G_GRADIENT_16_ALT));
+  }
+#endif
+  const gfx::VectorIcon& contextual_tasks_icon =
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      vector_icons::kGoogleGLogoIcon;
+#else
+      features::IsRoundedIconsEnabled() ? kChromeProductIcon
+                                        : kBrowserLogoOldIcon;
+#endif
+  return ui::ImageModel::FromVectorIcon(contextual_tasks_icon, ui::kColorIcon,
+                                        ShouldApplyCircularBackgroundShadow()
+                                            ? kGLogoCircularShapeIconSize
+                                            : kGLogoPillShapeIconSize);
 }
 
 BEGIN_METADATA(ContextualTasksButton)

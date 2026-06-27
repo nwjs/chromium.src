@@ -24,6 +24,22 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidDumpForBadCompositedUiState);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kBackForwardTransitionsSameDocSharedImage);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBufferQueuePerRenderPass);
+
+// On Windows, this may interact badly with partial delegation and kBufferQueue,
+// causing issues in (at least) tests. Disabled for now on this platform, while
+// the underlying issue is investigated (whether it's test-only or not). Using a
+// constexpr rather than a feature to prevent accidental enablement on Windows.
+inline constexpr bool kAllowVizBufferQueueDiscardOnVisibilityChange =
+#if BUILDFLAG(IS_WIN)
+    false;
+#else
+    true;
+#endif
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kVizBufferQueueDiscardOnVisibilityChange);
+
+VIZ_COMMON_EXPORT bool ShouldDiscardVizBufferQueueOnVisibilityChange();
+
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDelegatedCompositing);
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -86,37 +102,23 @@ VIZ_COMMON_EXPORT extern const char kTargetForVSyncAnimation[];
 VIZ_COMMON_EXPORT extern const char kTargetForVSyncInteraction[];
 #endif
 
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kAckCopyOutputRequestEarlyForViewTransition);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kThrottleFrameSinksOnInteraction);
 VIZ_COMMON_EXPORT bool ShouldThrottleWhenInteractiveFrameSinks();
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kAllowForceMergeRenderPassWithRequireOverlayQuads);
+
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kOnBeginFrameThrottleVideo);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAdpf);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<std::string>
     kADPFSocManufacturerAllowlist;
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFRendererMain);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableAdpfEfficiencyMode);
-enum class AdpfEfficiencyMode {
-  // Never opts ADPF sessions into efficient scheduling (default).
-  kNever,
-  // Attempt to shift ADPF sessions between setPreferPowerEfficiency states,
-  // based on the current context.
-  kAdaptive,
-  // Always opt ADPF sessions into efficient scheduling whenever possible -
-  // costs considerable performance.
-  kAlwaysEfficient
-};
-extern const VIZ_COMMON_EXPORT base::FeatureParam<AdpfEfficiencyMode>
-    kAdpfEfficiencyModeParam;
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFSeparateRendererMainSession);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFWorkloadIncreaseOnPageLoad);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFWorkloadReset);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFScrollNoRendererMain);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFAsyncSetThreads);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSelectFutureFrameDeadline);
+#if BUILDFLAG(IS_ANDROID)
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseAndroidCustomFrameDeadlines);
+#endif
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDisplaySDRMaxLuminanceNits);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kHideDelegatedFrameHostMac);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEvictionUnlocksResources);
@@ -155,6 +157,8 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kFlingSchedulingImprovements);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRpdqFilterLookupOptimizations);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSharedMemoryVFPoolUseCorrectColorSpace);
 
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBypassOutdatedSurfaceActivation);
+
 VIZ_COMMON_EXPORT int DrawQuadSplitLimit();
 VIZ_COMMON_EXPORT bool IsRenderPassDrawQuadCullingOptimizationEnabled();
 VIZ_COMMON_EXPORT bool IsBackForwardTransitionsSameDocSharedImageEnabled();
@@ -192,8 +196,6 @@ VIZ_COMMON_EXPORT bool ShouldUseAdpfForSoc(std::string_view soc_allowlist,
                                            std::string_view soc);
 
 #endif  // BUILDFLAG(IS_ANDROID)
-
-VIZ_COMMON_EXPORT bool ShouldAckCOREarlyForViewTransition();
 
 }  // namespace features
 

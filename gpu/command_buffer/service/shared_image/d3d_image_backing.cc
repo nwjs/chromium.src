@@ -355,6 +355,7 @@ bool D3DImageBacking::PersistentGraphiteDawnAccess::BeginAccess(
     signaled_value = wait_fence->GetFenceValue();
     desc.fenceCount = 1;
     desc.fences = &shared_fence;
+    desc.signaledValueCount = 1;
     desc.signaledValues = &signaled_value;
   }
 
@@ -420,7 +421,7 @@ bool D3DImageBacking::PersistentGraphiteDawnAccess::WaitForDCompBeforeWrite(
   // concurrent dcomp texture access in the middle between the prior write
   // access and current write access.
 
-  // Sanity check that EndAccess() didn't forward prior fences because we din't
+  // Sanity check that EndAccess() didn't forward prior fences because we didn't
   // submit. There should be only one fence exported (owned by Dawn).
   CHECK_LE(end_state.fenceCount, 1u);
   return BeginAccess(end_state.initialized,
@@ -549,8 +550,10 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::CreateFromSwapChainBuffers(
     const GLFormatCaps& gl_format_caps) {
   DCHECK(format.is_single_plane());
   auto backing = base::WrapUnique(new D3DImageBacking(
-      mailbox, format, size, color_space, surface_origin, alpha_type, usage,
-      "SwapChainBuffer", std::move(back_buffer_texture),
+      mailbox,
+      SharedImageInfo(format, size, color_space, surface_origin, alpha_type,
+                      usage, "SwapChainBuffer"),
+      std::move(back_buffer_texture),
       /*dxgi_shared_handle_state=*/nullptr, gl_format_caps, GL_TEXTURE_2D,
       /*array_slice=*/0u));
   backing->swap_chain_ = std::move(swap_chain);
@@ -577,13 +580,7 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::CreateFromD3D12Buffer(
 // static
 std::unique_ptr<D3DImageBacking> D3DImageBacking::Create(
     const Mailbox& mailbox,
-    viz::SharedImageFormat format,
-    const gfx::Size& size,
-    const gfx::ColorSpace& color_space,
-    GrSurfaceOrigin surface_origin,
-    SkAlphaType alpha_type,
-    gpu::SharedImageUsageSet usage,
-    std::string debug_label,
+    const SharedImageInfo& si_info,
     Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
     scoped_refptr<DXGISharedHandleState> dxgi_shared_handle_state,
     const GLFormatCaps& gl_format_caps,
@@ -593,13 +590,12 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::Create(
     bool want_dcomp_texture,
     bool is_thread_safe,
     bool share_dxgi_handle_with_other_backings) {
-  const bool has_webgpu_usage = usage.HasAny(SHARED_IMAGE_USAGE_WEBGPU_READ |
-                                             SHARED_IMAGE_USAGE_WEBGPU_WRITE);
+  const bool has_webgpu_usage = si_info.usage.HasAny(
+      SHARED_IMAGE_USAGE_WEBGPU_READ | SHARED_IMAGE_USAGE_WEBGPU_WRITE);
   // DXGI shared handle is required for WebGPU/Dawn/D3D12 interop.
   CHECK(!has_webgpu_usage || dxgi_shared_handle_state);
   auto backing = base::WrapUnique(new D3DImageBacking(
-      mailbox, format, size, color_space, surface_origin, alpha_type, usage,
-      std::move(debug_label), std::move(d3d11_texture),
+      mailbox, si_info, std::move(d3d11_texture),
       std::move(dxgi_shared_handle_state), gl_format_caps, texture_target,
       array_slice, use_update_subresource1, want_dcomp_texture, is_thread_safe,
       share_dxgi_handle_with_other_backings));
@@ -608,13 +604,7 @@ std::unique_ptr<D3DImageBacking> D3DImageBacking::Create(
 
 D3DImageBacking::D3DImageBacking(
     const Mailbox& mailbox,
-    viz::SharedImageFormat format,
-    const gfx::Size& size,
-    const gfx::ColorSpace& color_space,
-    GrSurfaceOrigin surface_origin,
-    SkAlphaType alpha_type,
-    gpu::SharedImageUsageSet usage,
-    std::string debug_label,
+    const SharedImageInfo& si_info,
     Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture,
     scoped_refptr<DXGISharedHandleState> dxgi_shared_handle_state,
     const GLFormatCaps& gl_format_caps,
@@ -624,16 +614,11 @@ D3DImageBacking::D3DImageBacking(
     bool want_dcomp_texture,
     bool is_thread_safe,
     bool share_dxgi_handle_with_other_backings)
-    : ClearTrackingSharedImageBacking(mailbox,
-                                      format,
-                                      size,
-                                      color_space,
-                                      surface_origin,
-                                      alpha_type,
-                                      usage,
-                                      std::move(debug_label),
-                                      format.EstimatedSizeInBytes(size),
-                                      is_thread_safe),
+    : ClearTrackingSharedImageBacking(
+          mailbox,
+          si_info,
+          si_info.format.EstimatedSizeInBytes(si_info.size),
+          is_thread_safe),
       d3d11_texture_(std::move(d3d11_texture)),
       dxgi_shared_handle_state_(std::move(dxgi_shared_handle_state)),
       gl_format_caps_(gl_format_caps),
@@ -663,16 +648,17 @@ D3DImageBacking::D3DImageBacking(
     Microsoft::WRL::ComPtr<ID3D12Heap> d3d12_heap,
     std::unique_ptr<void, VirtualAllocAddressDeleter> d3d12_heap_memory,
     bool is_thread_safe)
-    : ClearTrackingSharedImageBacking(mailbox,
-                                      viz::SharedImageFormat(),
-                                      size,
-                                      gfx::ColorSpace(),
-                                      GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin,
-                                      SkAlphaType::kUnknown_SkAlphaType,
-                                      usage,
-                                      std::move(debug_label),
-                                      size.width(),
-                                      is_thread_safe),
+    : ClearTrackingSharedImageBacking(
+          mailbox,
+          SharedImageInfo(viz::SharedImageFormat(),
+                          size,
+                          gfx::ColorSpace(),
+                          GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin,
+                          SkAlphaType::kUnknown_SkAlphaType,
+                          usage,
+                          std::move(debug_label)),
+          size.width(),
+          is_thread_safe),
       d3d12_heap_memory_(std::move(d3d12_heap_memory)),
       d3d12_heap_(std::move(d3d12_heap)),
       d3d12_buffer_(std::move(d3d12_buffer)),
@@ -1153,7 +1139,7 @@ std::unique_ptr<VideoImageRepresentation> D3DImageBacking::ProduceVideo(
                                                        device, src_texture);
 }
 
-std::vector<scoped_refptr<gfx::D3DSharedFence>>
+std::optional<std::vector<scoped_refptr<gfx::D3DSharedFence>>>
 D3DImageBacking::GetPendingWaitFences(
     const Microsoft::WRL::ComPtr<ID3D11Device>& wait_d3d11_device,
     const wgpu::Device& wait_dawn_device,
@@ -1163,33 +1149,40 @@ D3DImageBacking::GetPendingWaitFences(
   // (i.e. scanout cases) means we always need to check for the presence of the
   // availability fence.
   if (!use_cross_device_fence_synchronization() && !dcomp_texture_) {
-    return {};
+    return std::vector<scoped_refptr<gfx::D3DSharedFence>>{};
   }
 
   // Lazily create and signal the D3D11 fence on the texture's original device
   // if not present and we're using the backing on another device.
-  auto& texture_device_fence = d3d11_signaled_fence_map_[texture_d3d11_device_];
+  auto it = d3d11_signaled_fence_map_.find(texture_d3d11_device_);
+  scoped_refptr<gfx::D3DSharedFence> texture_device_fence =
+      it != d3d11_signaled_fence_map_.end() ? it->second : nullptr;
+
   if (wait_d3d11_device != texture_d3d11_device_ && !texture_device_fence) {
     texture_device_fence =
         gfx::D3DSharedFence::CreateForD3D11(texture_d3d11_device_);
     if (!texture_device_fence) {
       LOG(ERROR) << "Failed to retrieve D3D11 signal fence";
-      return {};
+      return std::nullopt;
     }
     // Make D3D11 device wait for |write_fences_| since we'll replace it below.
     for (auto& fence : write_fences_) {
       if (!fence->WaitD3D11(texture_d3d11_device_)) {
         LOG(ERROR) << "Failed to wait for write fence";
-        return {};
+        return std::nullopt;
       }
     }
     if (!texture_device_fence->IncrementAndSignalD3D11()) {
       LOG(ERROR) << "Failed to signal D3D11 signal fence";
-      return {};
+      return std::nullopt;
     }
     // Store it in |write_fences_| so it's waited on for all subsequent access.
     write_fences_.clear();
     write_fences_.insert(texture_device_fence);
+
+    // Insert in the map only when everything succeeds.
+    d3d11_signaled_fence_map_.insert_or_assign(texture_d3d11_device_,
+                                               std::move(texture_device_fence));
   }
 
   // TODO(crbug.com/335003893): Investigate how to avoid passing any fences back
@@ -1314,11 +1307,15 @@ wgpu::Texture D3DImageBacking::BeginAccessDawn(
   CHECK(shared_texture_memory);
 
   // Defer clearing fences until later to handle Dawn failure to import texture.
-  std::vector<scoped_refptr<gfx::D3DSharedFence>> wait_fences =
+  auto wait_fences =
       GetPendingWaitFences(dawn_d3d11_device, device, write_access);
+  if (!wait_fences) {
+    LOG(ERROR) << "Failed to get pending wait fences";
+    return nullptr;
+  }
   std::vector<wgpu::SharedFence> shared_fences;
   std::vector<uint64_t> signaled_values;
-  for (auto& wait_fence : wait_fences) {
+  for (auto& wait_fence : *wait_fences) {
     // TODO(crbug.com/335003893): Look into caching the wgpu::SharedFence object
     // in gfx::D3DSharedFence.
     shared_fences.push_back(CreateDawnSharedFence(device, wait_fence));
@@ -1341,6 +1338,7 @@ wgpu::Texture D3DImageBacking::BeginAccessDawn(
   desc.concurrentRead = !write_access && is_clear;
   desc.fenceCount = shared_fences.size();
   desc.fences = shared_fences.data();
+  desc.signaledValueCount = signaled_values.size();
   desc.signaledValues = signaled_values.data();
   desc.nextInChain = &swapchain_begin_state;
 
@@ -1423,6 +1421,7 @@ void D3DImageBacking::EndAccessDawn(const wgpu::Device& device,
   // OK since we check for it explicitly below.
   wgpu::SharedTextureMemoryEndAccessState end_state = {};
   shared_texture_memory.EndAccess(texture.Get(), &end_state);
+  CHECK(end_state.fenceCount == end_state.signaledValueCount);
 
   D3DSharedFenceSet signaled_fences;
   if (use_cross_device_fence_synchronization()) {
@@ -1563,10 +1562,13 @@ bool D3DImageBacking::BeginAccessD3D12(
   auto unwrapped_d3d12_resource = EnsureD3D12Resource();
 
   // Defer clearing fences until later to handle failure to synchronize.
-  std::vector<scoped_refptr<gfx::D3DSharedFence>> wait_fences =
-      GetPendingWaitFences(d3d11on12_device, /*dawn_device=*/nullptr,
-                           write_access);
-  for (auto& wait_fence : wait_fences) {
+  auto wait_fences = GetPendingWaitFences(
+      d3d11on12_device, /*dawn_device=*/nullptr, write_access);
+  if (!wait_fences) {
+    LOG(ERROR) << "Failed to get pending wait fences";
+    return false;
+  }
+  for (auto& wait_fence : *wait_fences) {
     if (!wait_fence->WaitD3D11(d3d11on12_device)) {
       LOG(ERROR) << "Failed to wait for fence";
       return false;
@@ -1620,9 +1622,13 @@ bool D3DImageBacking::BeginAccessD3D11(
   }
 
   // Defer clearing fences until later to handle D3D11 failure to synchronize.
-  std::vector<scoped_refptr<gfx::D3DSharedFence>> wait_fences =
+  auto wait_fences =
       GetPendingWaitFences(d3d11_device, /*dawn_device=*/nullptr, write_access);
-  for (auto& wait_fence : wait_fences) {
+  if (!wait_fences) {
+    LOG(ERROR) << "Failed to get pending wait fences";
+    return false;
+  }
+  for (auto& wait_fence : *wait_fences) {
     if (!wait_fence->WaitD3D11(d3d11_device)) {
       LOG(ERROR) << "Failed to wait for fence";
       return false;
@@ -1864,6 +1870,7 @@ wgpu::Buffer D3DImageBacking::BeginAccessDawnBuffer(
   desc.initialized = true;
   desc.fenceCount = shared_fences.size();
   desc.fences = shared_fences.data();
+  desc.signaledValueCount = signaled_values.size();
   desc.signaledValues = signaled_values.data();
 
   wgpu::Buffer buffer =
@@ -1893,6 +1900,7 @@ void D3DImageBacking::EndAccessDawnBuffer(const wgpu::Device& device,
 
   wgpu::SharedBufferMemoryEndAccessState end_state = {};
   dawn_shared_buffer_memory_.EndAccess(buffer.Get(), &end_state);
+  CHECK(end_state.fenceCount == end_state.signaledValueCount);
 
   D3DSharedFenceSet signaled_fences;
   signaled_fences.reserve(end_state.fenceCount);

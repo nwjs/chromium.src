@@ -7,7 +7,7 @@
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/page_info/permission_toggle_row_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
@@ -134,11 +133,13 @@ class WebContentsFocusTracker : public FocusTracker,
 
  private:
   static bool IsWebContentsFocused(content::WebContents* web_contents) {
-    Browser* const browser = chrome::FindBrowserWithTab(web_contents);
+    BrowserWindowInterface* const browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents);
     if (!browser) {
       return false;
     }
-    if (browser->tab_strip_model()->GetActiveWebContents() != web_contents) {
+    if (browser->GetTabStripModel()->GetActiveWebContents() != web_contents) {
       return false;
     }
     return BrowserView::GetBrowserViewForBrowser(browser)

@@ -106,12 +106,8 @@
 
   UrlLoadingBrowserAgent* urlLoadingBrowserAgent =
       UrlLoadingBrowserAgent::FromBrowser(self.browser);
-  web::WebState::CreateParams params =
-      web::WebState::CreateParams(self.profile);
   _navigationMediator = [[ComposeboxNavigationMediator alloc]
-      initWithUrlLoadingBrowserAgent:urlLoadingBrowserAgent
-                      webStateParams:params];
-  _navigationMediator.consumer = _viewController;
+      initWithUrlLoadingBrowserAgent:urlLoadingBrowserAgent];
   _navigationMediator.delegate = self;
 
   if (experimental_flags::IsOmniboxDebuggingEnabled()) {
@@ -163,14 +159,19 @@
     return;
   }
 
+  [_viewController.view endEditing:YES];
   [_viewController.presentingViewController
       dismissViewControllerAnimated:YES
                          completion:dismissComplete];
 }
 
 - (void)stop {
-  [_viewController.presentingViewController dismissViewControllerAnimated:NO
-                                                               completion:nil];
+  if (!_viewController.isBeingDismissed) {
+    [_viewController.view endEditing:YES];
+    [_viewController.presentingViewController
+        dismissViewControllerAnimated:NO
+                           completion:nil];
+  }
   [self cleanup];
 }
 

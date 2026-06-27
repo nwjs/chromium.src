@@ -6,6 +6,7 @@
 
 #include <string_view>
 
+#include "base/byte_size.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/process/current_process.h"
@@ -116,7 +117,7 @@ class Interceptor : public network::mojom::URLLoaderClient,
   // Struct to hold the result of the decoding operation.
   struct DecodeResult {
     int net_err;
-    int64_t transferred_bytes;
+    base::ByteSize transferred_bytes;
   };
 
   // Starts the interception and decoding process.
@@ -195,9 +196,7 @@ class Interceptor : public network::mojom::URLLoaderClient,
 
   // network::mojom::URLLoader implementation
   void FollowRedirect(
-      const std::vector<std::string>& removed_headers,
-      const net::HttpRequestHeaders& modified_headers,
-      const net::HttpRequestHeaders& modified_cors_exempt_headers,
+      network::HttpRequestHeadersUpdateParams headers_update_params,
       const std::optional<GURL>& new_url) override {
     // Redirects should be handled before interception.
     NOTREACHED();
@@ -233,7 +232,7 @@ class Interceptor : public network::mojom::URLLoaderClient,
             network::URLLoaderCompletionStatus(decode_result_->net_err);
       } else {
         completion_status_->decoded_body_length =
-            decode_result_->transferred_bytes;
+            decode_result_->transferred_bytes.InBytes();
       }
     }
     destination_url_loader_client_->OnComplete(*completion_status_);

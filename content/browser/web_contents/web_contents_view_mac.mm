@@ -68,7 +68,7 @@ namespace {
 // stream.
 void PromiseWriterHelper(const DropData& drop_data, base::File file) {
   DCHECK(file.IsValid());
-  file.WriteAtCurrentPos(base::as_bytes(base::span(drop_data.file_contents)));
+  file.WriteAtCurrentPos(drop_data.file_contents);
 }
 
 WebContentsViewMac::RenderWidgetHostViewCreateFunction
@@ -647,10 +647,6 @@ bool WebContentsViewMac::DragPromisedFileTo(
         base::BindOnce(&PromiseWriterHelper, drop_data, std::move(file)));
   }
 
-  // The DragDownloadFile constructor may have altered the value of
-  // |*out_file_path| if, say, an existing file at the drop site has the same
-  // name. Return the actual name that was used to write the file.
-  *out_file_path = file_path;
   return true;
 }
 

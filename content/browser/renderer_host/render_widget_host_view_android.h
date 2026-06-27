@@ -90,7 +90,6 @@ class OverscrollControllerAndroid;
 class SelectionPopupController;
 class SynchronousCompositorHost;
 class SynchronousCompositorClient;
-class TextSuggestionHostAndroid;
 class TouchSelectionControllerClientManagerAndroid;
 class WebContentsAccessibilityAndroid;
 struct ContextMenuParams;
@@ -215,7 +214,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void RenderProcessGone() override;
   void ShowWithVisibility(PageVisibilityState page_visibility) final;
   void WasOccluded() override;
-  void WasUnOccluded() override;
   void Destroy() override;
   void UpdateTooltipUnderCursor(const std::u16string& tooltip_text) override;
   void UpdateTooltip(const std::u16string& tooltip_text) override;
@@ -367,13 +365,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   SelectionPopupController* selection_popup_controller() const {
     return selection_popup_controller_.get();
   }
-  void set_text_suggestion_host(
-      TextSuggestionHostAndroid* text_suggestion_host) {
-    text_suggestion_host_ = text_suggestion_host;
-  }
-  TextSuggestionHostAndroid* text_suggestion_host() const {
-    return text_suggestion_host_;
-  }
+
   void SetGestureListenerManager(GestureListenerManager* manager);
 
   // See
@@ -411,6 +403,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   }
 
   void OnOverscrollRefreshHandlerAvailable();
+  void ResetOverscrollController();
 
   // TextInputManager::Observer overrides.
   void OnUpdateTextInputStateCalled(TextInputManager* text_input_manager,
@@ -622,7 +615,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void ShowInternal();
   void HideInternal();
   void UpdateVisibility();
-  void SetViewVisibility(Visibility visibility);
+  bool VisibilityNeedsDrawing() const;
+  void TryUpdateVisibilities(Visibility new_view_visibility,
+                             PageVisibilityState new_page_visibility);
   void AttachLayers();
   void RemoveLayers();
 
@@ -698,7 +693,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   raw_ptr<ImeAdapterAndroid> ime_adapter_android_;
   raw_ptr<SelectionPopupController> selection_popup_controller_;
-  raw_ptr<TextSuggestionHostAndroid> text_suggestion_host_;
+
   raw_ptr<GestureListenerManager> gesture_listener_manager_;
 
   mutable ui::ViewAndroid view_;

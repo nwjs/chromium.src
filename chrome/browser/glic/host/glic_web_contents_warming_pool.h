@@ -15,6 +15,9 @@
 #include "base/timer/timer.h"
 
 class Profile;
+namespace content {
+class WebContents;
+}
 
 namespace glic {
 
@@ -27,6 +30,11 @@ class WebUIContentsContainer;
 // creating a WebContents in the background before it's actually needed.
 class GlicWebContentsWarmingPool {
  public:
+  enum class ClearReason {
+    kShutdown,
+    kMemoryPressure,
+  };
+
   explicit GlicWebContentsWarmingPool(Profile* profile);
   virtual ~GlicWebContentsWarmingPool();
 
@@ -38,7 +46,7 @@ class GlicWebContentsWarmingPool {
   // crashed, it will be replaced.
   void EnsurePreload();
   // Clears the warming pool and destroys any warmed WebContents.
-  void Clear();
+  void Clear(std::optional<ClearReason> reason);
 
   // LINT.IfChange(GlicWarmingPoolStatus)
   enum class WarmingPoolStatus {
@@ -62,6 +70,7 @@ class GlicWebContentsWarmingPool {
   bool HasWarmedContainerForTesting() const;
   base::OneShotTimer& GetDelayTimerForTesting() { return delay_timer_; }
   WebUIContentsContainer* GetWarmedContainerForTesting() const;
+  content::WebContents* GetWarmedWebContents() const;
 
  protected:
   class Metrics;

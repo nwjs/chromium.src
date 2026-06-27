@@ -19,10 +19,10 @@ namespace optimization_guide::features::internal {
 // to the user. Should only be enabled for experimental features that have not
 // graduated yet.
 BASE_DECLARE_FEATURE(kComposeSettingsVisibility);
-BASE_DECLARE_FEATURE(kTabOrganizationSettingsVisibility);
 BASE_DECLARE_FEATURE(kWallpaperSearchSettingsVisibility);
 BASE_DECLARE_FEATURE(kHistorySearchSettingsVisibility);
 BASE_DECLARE_FEATURE(kFindsSettingsVisibility);
+BASE_DECLARE_FEATURE(kContextualCueingSettingsVisibility);
 
 // Comma-separated list of performance classes (e.g. "3,4,5") accepted by
 // History Search. Use "*" if there is no performance class requirement.
@@ -33,12 +33,14 @@ extern const base::FeatureParam<std::string>
 // should not be enabled at the same time as their respective settings
 // visibility features.
 BASE_DECLARE_FEATURE(kComposeGraduated);
-BASE_DECLARE_FEATURE(kTabOrganizationGraduated);
 BASE_DECLARE_FEATURE(kWallpaperSearchGraduated);
 BASE_DECLARE_FEATURE(kFindsGraduated);
 
 // Feature for disabling the model execution user account capability check.
 BASE_DECLARE_FEATURE(kModelExecutionCapabilityDisable);
+
+// Feature flag to populate PrivateExecuteRequest instead of ExecuteRequest.
+BASE_DECLARE_FEATURE(kPrivateExecuteRequest);
 
 // Checks if the provided `feature` is graduated from experimental AI settings.
 bool IsGraduatedFeature(UserVisibleFeatureKey feature);

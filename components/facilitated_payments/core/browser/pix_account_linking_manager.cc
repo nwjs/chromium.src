@@ -16,13 +16,12 @@
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/facilitated_payments/core/browser/device_delegate.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
+#include "components/facilitated_payments/core/features/features.h"
 #include "components/facilitated_payments/core/metrics/facilitated_payments_metrics.h"
+#include "components/strike_database/strike_database.h"
 #include "url/origin.h"
 
 namespace payments::facilitated {
-
-// Delay before showing the account linking prompt.
-constexpr base::TimeDelta kShowPromptDelay = base::Seconds(3);
 
 PixAccountLinkingManager::PixAccountLinkingManager(
     FacilitatedPaymentsClient* client)
@@ -35,6 +34,22 @@ void PixAccountLinkingManager::MaybeShowPixAccountLinkingPrompt(
   // Reset to default state to prepare for a new account linking flow.
   Reset();
   pix_payment_page_origin_ = pix_payment_page_origin;
+
+  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
+    auto decision = strike_database->GetStrikeDatabaseDecision();
+    switch (decision) {
+      case PixAccountLinkingStrikeDatabase::kDoNotBlock:
+        break;
+      case PixAccountLinkingStrikeDatabase::kMaxStrikeLimitReached:
+        LogPixAccountLinkingFlowExitedReason(
+            PixAccountLinkingFlowExitedReason::kMaxStrikes);
+        return;
+      case PixAccountLinkingStrikeDatabase::kRequiredDelayNotPassed:
+        LogPixAccountLinkingFlowExitedReason(
+            PixAccountLinkingFlowExitedReason::kRequiredDelayNotPassed);
+        return;
+    }
+  }
 
   WalletEligibilityForPixAccountLinking wallet_eligibility =
       client_->GetDeviceDelegate()->IsPixAccountLinkingSupported();
@@ -134,12 +149,14 @@ void PixAccountLinkingManager::ShowPixAccountLinkingPromptIfEligible() {
     return;
   }
 
+  base::TimeDelta delay =
+      base::Seconds(kPixAccountLinkingNativeTriggerDelaySeconds.Get());
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(
           &PixAccountLinkingManager::ShowPixAccountLinkingPromptAfterDelay,
           weak_ptr_factory_.GetWeakPtr()),
-      kShowPromptDelay);
+      delay);
 }
 
 void PixAccountLinkingManager::ShowPixAccountLinkingPromptAfterDelay() {
@@ -147,7 +164,12 @@ void PixAccountLinkingManager::ShowPixAccountLinkingPromptAfterDelay() {
       base::BindRepeating(&PixAccountLinkingManager::OnUiScreenEvent,
                           weak_ptr_factory_.GetWeakPtr()));
   is_prompt_showing_ = true;
+  int strike_count = 0;
+  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
+    strike_count = strike_database->GetStrikes();
+  }
   client_->ShowPixAccountLinkingPrompt(
+      strike_count,
       base::BindOnce(&PixAccountLinkingManager::OnAccepted,
                      weak_ptr_factory_.GetWeakPtr()),
       base::BindOnce(&PixAccountLinkingManager::OnDeclined,
@@ -165,6 +187,10 @@ void PixAccountLinkingManager::DismissPrompt() {
 void PixAccountLinkingManager::OnAccepted() {
   LogPixAccountLinkingPromptAccepted();
   DismissPrompt();
+  // Clear strikes when user accepts the prompt.
+  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
+    strike_database->ClearStrikes();
+  }
   auto account_info =
       client_->GetPaymentsDataManager()->GetAccountInfoForPaymentsServer();
   if (!account_info.IsEmpty() && !account_info.email.empty()) {
@@ -177,8 +203,10 @@ void PixAccountLinkingManager::OnDeclined() {
   LogPixAccountLinkingFlowExitedReason(
       PixAccountLinkingFlowExitedReason::kUserDeclined);
   DismissPrompt();
-  client_->GetPaymentsDataManager()
-      ->SetFacilitatedPaymentsPixAccountLinkingUserPref(/* enabled= */ false);
+
+  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
+    strike_database->AddStrike();
+  }
 }
 
 void PixAccountLinkingManager::OnUiScreenEvent(UiEvent ui_event_type) {
@@ -223,6 +251,18 @@ void PixAccountLinkingManager::
   LogGetDetailsForCreatePaymentInstrumentResultAndLatency(
       is_eligible_for_pix_account_linking, base::TimeTicks::Now() - start_time);
   is_eligible_for_pix_account_linking_ = is_eligible_for_pix_account_linking;
+}
+
+PixAccountLinkingStrikeDatabase*
+PixAccountLinkingManager::GetOrCreateStrikeDatabase() {
+  if (!strike_database_) {
+    auto* strike_db_provider = client_->GetStrikeDatabase();
+    if (strike_db_provider) {
+      strike_database_ =
+          std::make_unique<PixAccountLinkingStrikeDatabase>(strike_db_provider);
+    }
+  }
+  return strike_database_.get();
 }
 
 }  // namespace payments::facilitated

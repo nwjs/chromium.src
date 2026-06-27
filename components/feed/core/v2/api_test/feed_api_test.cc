@@ -161,13 +161,6 @@ std::string DatastoreEntryToString(std::string_view key,
   return static_cast<std::string>(value);
 }
 
-TestUnreadContentObserver::TestUnreadContentObserver() = default;
-TestUnreadContentObserver::~TestUnreadContentObserver() = default;
-void TestUnreadContentObserver::HasUnreadContentChanged(
-    bool has_unread_content) {
-  calls.push_back(has_unread_content);
-}
-
 TestSurfaceBase::TestSurfaceBase(const StreamType& stream_type,
                                  FeedStream* stream)
     : stream_type_(stream_type) {
@@ -359,8 +352,6 @@ bool TestSurfaceBase::IsInitialLoadSpinnerUpdate(
 
 TestForYouSurface::TestForYouSurface(FeedStream* stream)
     : TestSurfaceBase(StreamType(StreamKind::kForYou), stream) {}
-TestWebFeedSurface::TestWebFeedSurface(FeedStream* stream)
-    : TestSurfaceBase(StreamType(StreamKind::kFollowing), stream) {}
 
 TestReliabilityLoggingBridge::TestReliabilityLoggingBridge() = default;
 TestReliabilityLoggingBridge::~TestReliabilityLoggingBridge() = default;
@@ -567,11 +558,6 @@ void DebugLogResponse(NetworkRequestType request_type,
           << api_path;
   if (request_type == UploadActionsDiscoverApi::kRequestType) {
     DebugLogApiResponse<UploadActionsDiscoverApi>(request_bytes, raw_response);
-  } else if (request_type == ListRecommendedWebFeedDiscoverApi::kRequestType) {
-    DebugLogApiResponse<ListRecommendedWebFeedDiscoverApi>(request_bytes,
-                                                           raw_response);
-  } else if (request_type == ListWebFeedsDiscoverApi::kRequestType) {
-    DebugLogApiResponse<ListWebFeedsDiscoverApi>(request_bytes, raw_response);
   }
 }
 
@@ -592,7 +578,6 @@ void TestFeedNetwork::SendDiscoverApiRequest(
 
   bool is_feed_query_request =
       request_type == NetworkRequestType::kFeedQuery ||
-      request_type == WebFeedListContentsDiscoverApi::kRequestType ||
       request_type == QueryInteractiveFeedDiscoverApi::kRequestType ||
       request_type == QueryBackgroundFeedDiscoverApi::kRequestType ||
       request_type == QueryNextPageDiscoverApi::kRequestType;
@@ -616,20 +601,6 @@ void TestFeedNetwork::SendDiscoverApiRequest(
         InjectApiResponse<UploadActionsDiscoverApi>(response_message);
         break;
       }
-      case ListRecommendedWebFeedDiscoverApi::kRequestType: {
-        feedwire::webfeed::ListRecommendedWebFeedsRequest request;
-        ASSERT_TRUE(request.ParseFromString(request_bytes));
-        feedwire::webfeed::ListRecommendedWebFeedsResponse response_message;
-        InjectResponse(response_message);
-        break;
-      }
-      case ListWebFeedsDiscoverApi::kRequestType: {
-        feedwire::webfeed::ListWebFeedsRequest request;
-        ASSERT_TRUE(request.ParseFromString(request_bytes));
-        feedwire::webfeed::ListWebFeedsResponse response_message;
-        InjectResponse(response_message);
-        break;
-      }
 
         // For FeedQuery requests, emulate a response. The status code of the
         // response is controlled by `error` and `http_status_code` fields.
@@ -637,11 +608,6 @@ void TestFeedNetwork::SendDiscoverApiRequest(
         // the time we want to inject a translated response for ease of
         // test-writing.
 
-      case WebFeedListContentsDiscoverApi::kRequestType: {
-        feedwire::Response response;
-        InjectApiResponse<WebFeedListContentsDiscoverApi>(response);
-        break;
-      }
       case QueryInteractiveFeedDiscoverApi::kRequestType: {
         feedwire::Response response;
         InjectApiResponse<QueryInteractiveFeedDiscoverApi>(response);
@@ -844,21 +810,20 @@ bool TestWireResponseTranslator::InjectedResponseConsumed() const {
 
 FakeRefreshTaskScheduler::FakeRefreshTaskScheduler() = default;
 FakeRefreshTaskScheduler::~FakeRefreshTaskScheduler() = default;
-void FakeRefreshTaskScheduler::EnsureScheduled(RefreshTaskId id,
-                                               base::TimeDelta run_time) {
-  scheduled_run_times[id] = run_time;
+void FakeRefreshTaskScheduler::EnsureScheduled(base::TimeDelta run_time) {
+  scheduled_run_time = run_time;
 }
-void FakeRefreshTaskScheduler::Cancel(RefreshTaskId id) {
-  canceled_tasks.insert(id);
+void FakeRefreshTaskScheduler::Cancel() {
+  canceled = true;
 }
-void FakeRefreshTaskScheduler::RefreshTaskComplete(RefreshTaskId id) {
-  completed_tasks.insert(id);
+void FakeRefreshTaskScheduler::RefreshTaskComplete() {
+  completed = true;
 }
 
 void FakeRefreshTaskScheduler::Clear() {
-  scheduled_run_times.clear();
-  canceled_tasks.clear();
-  completed_tasks.clear();
+  scheduled_run_time.reset();
+  canceled = false;
+  completed = false;
 }
 
 TestMetricsReporter::TestMetricsReporter(PrefService* prefs)
@@ -909,8 +874,6 @@ TestMetricsReporter::StreamMetrics& TestMetricsReporter::Stream(
     const StreamType& stream_type) {
   if (stream_type.IsForYou())
     return for_you;
-  if (stream_type.IsWebFeed())
-    return web_feed;
   ADD_FAILURE() << stream_type << " case not supported here";
   return for_you;
 }
@@ -927,9 +890,6 @@ void FeedApiTest::SetUp() {
 
   // Reset to default config, since tests can change it.
   Config config;
-  // Disable fetching of recommended web feeds at startup to
-  // avoid a delayed task in tests that don't need it.
-  config.fetch_web_feed_info_delay = base::TimeDelta();
   // `use_feed_query_requests` is a temporary option for
   // debugging, setting it to false tests the preferred endpoint.
   config.use_feed_query_requests = false;
@@ -1104,17 +1064,10 @@ void FeedApiTest::UploadActions(std::vector<feedwire::FeedAction> actions) {
   }
 }
 
-RefreshTaskId FeedStreamTestForAllStreamTypes::GetRefreshTaskId() const {
-  RefreshTaskId id;
-  CHECK(GetStreamType().GetRefreshTaskId(id));
-  return id;
-}
-
 void FeedStreamTestForAllStreamTypes::SetUp() {
   // Enable web feeds and inject a subscription so that we attempt to load
   // the web feed stream.
   FeedApiTest::SetUp();
-  network_.InjectListWebFeedsResponse({MakeWireWebFeed("cats")});
 }
 
 }  // namespace test

@@ -47,6 +47,7 @@
 #include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
 #include "cc/layers/texture_layer.h"
+#include "cc/trees/layer_tree_host.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/features.h"
@@ -225,41 +226,6 @@ class DisabledAccelerationCounterSupplement final
 const char DisabledAccelerationCounterSupplement::kSupplementName[] =
     "DisabledAccelerationCounterSupplement";
 
-// Tracks whether `transferToGPUTexture()` has been invoked on any canvas
-// element created within the associated Document.
-class TransferToGPUTextureInvokedSupplement final
-    : public GarbageCollected<TransferToGPUTextureInvokedSupplement>,
-      public Supplement<Document> {
- public:
-  static constexpr char kSupplementName[] =
-      "TransferToGPUTextureInvokedSupplement";
-
-  static TransferToGPUTextureInvokedSupplement& From(Document& d) {
-    TransferToGPUTextureInvokedSupplement* supplement =
-        Supplement<Document>::From<TransferToGPUTextureInvokedSupplement>(d);
-    if (!supplement) {
-      supplement =
-          MakeGarbageCollected<TransferToGPUTextureInvokedSupplement>(d);
-      ProvideTo(d, supplement);
-    }
-    return *supplement;
-  }
-
-  explicit TransferToGPUTextureInvokedSupplement(Document& d)
-      : Supplement<Document>(d) {}
-
-  void SetTransferToGPUTextureWasInvoked() {
-    transfer_to_gpu_texture_was_invoked_ = true;
-  }
-
-  bool TransferToGPUTextureWasInvoked() {
-    return transfer_to_gpu_texture_was_invoked_;
-  }
-
- private:
-  bool transfer_to_gpu_texture_was_invoked_ = false;
-};
-
 // viz::ReleaseCallback for CanvasResource
 void ReleaseCanvasResource(scoped_refptr<CanvasResource> canvas_resource,
                            const gpu::SyncToken& sync_token,
@@ -335,7 +301,6 @@ HTMLCanvasElement::HTMLCanvasElement(Document& document)
   // Create supplements now, as they may be needed at a
   // time when garbage collected objects can not be created.
   DisabledAccelerationCounterSupplement::From(GetDocument());
-  TransferToGPUTextureInvokedSupplement::From(GetDocument());
   GetDocument().IncrementNumberOfCanvases();
   auto* execution_context = GetExecutionContext();
   if (execution_context) {
@@ -666,7 +631,7 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
   if (!IsRenderingContext2D())
     SetNeedsCompositingUpdate();
 
-  is_opaque_ = SkAlphaTypeIsOpaque(GetRenderingContextAlphaType());
+  is_opaque_ = IsOpaque();
   if (cc_layer_) {
     cc_layer_->SetContentsOpaque(is_opaque_);
     cc_layer_->SetBlendBackgroundColor(!is_opaque_);
@@ -937,7 +902,17 @@ void HTMLCanvasElement::OnWidthOrHeightAssigned() {
 }
 
 void HTMLCanvasElement::ResetLayer() {
-  if (cc_layer_) {
+  if (!cc_layer_) {
+    return;
+  }
+
+  bool in_will_commit = false;
+  if (auto* host = cc_layer_->layer_tree_host()) {
+    in_will_commit = host->in_will_commit();
+  }
+
+  // In commit, we cannot modify cc::Layers, see: crbug.com/510426944.
+  if (!in_will_commit) {
     // Orphaning the layer is required to trigger the recreation of a new
     // layer in the case where destruction is caused by a canvas resize. Test:
     // virtual/gpu/fast/canvas/canvas-resize-after-paint-without-layout.html
@@ -951,18 +926,9 @@ DOMMatrix* HTMLCanvasElement::getElementTransform(
     const V8UnionElementOrElementImage* element_or_image,
     DOMMatrix* draw_transform,
     ExceptionState& exception_state) {
-  if (element_or_image->IsElement()) {
-    if (!VerifyDrawElementImageEligibility(element_or_image->GetAsElement(),
-                                           "getElementTransform",
-                                           exception_state)) {
-      return nullptr;
-    }
-  } else if (element_or_image->IsElementImage()) {
-    if (!element_or_image->GetAsElementImage()->PaintRecord()) {
-      exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                        "The ElementImage has been closed.");
-      return nullptr;
-    }
+  if (!VerifyDrawElementImageEligibility(
+          element_or_image, "getElementTransform", exception_state)) {
+    return nullptr;
   }
 
   const auto* paint_state = GetCanvasChildPaintState(element_or_image);
@@ -987,9 +953,10 @@ bool HTMLCanvasElement::VerifyDrawElementImageEligibility(
     return false;
   }
   if (element->parentElement() != this) {
-    exception_state.ThrowTypeError(
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
         "Only immediate children of the <canvas> element can be passed to " +
-        func_name + ".");
+            func_name + ".");
     return false;
   }
   if (!layoutSubtree()) {
@@ -997,6 +964,33 @@ bool HTMLCanvasElement::VerifyDrawElementImageEligibility(
         DOMExceptionCode::kInvalidStateError,
         func_name +
             " requires the canvas to have the layoutsubtree attribute.");
+    return false;
+  }
+  return true;
+}
+
+bool HTMLCanvasElement::VerifyDrawElementImageEligibility(
+    const V8UnionElementOrElementImage* element_or_image,
+    const String& func_name,
+    ExceptionState& exception_state) const {
+  if (element_or_image->IsElement()) {
+    return VerifyDrawElementImageEligibility(element_or_image->GetAsElement(),
+                                             func_name, exception_state);
+  }
+
+  const auto& record = element_or_image->GetAsElementImage()->PaintRecord();
+  if (!record) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The ElementImage has been closed.");
+    return false;
+  }
+
+  if (record->paint_state.canvas_node_id == kInvalidDOMNodeId ||
+      record->paint_state.canvas_node_id !=
+          const_cast<HTMLCanvasElement*>(this)->GetDomNodeId()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "The source was captured from a different canvas.");
     return false;
   }
   return true;
@@ -1060,8 +1054,7 @@ void HTMLCanvasElement::NotifyListenersCanvasChanged() {
             IsGpuMemoryBufferReadbackFromTextureEnabled());
   }
 
-  const bool context_color_is_opaque =
-      context_ && SkAlphaTypeIsOpaque(context_->GetAlphaType());
+  const bool context_color_is_opaque = IsOpaque();
 
   for (CanvasDrawListener* listener : listeners_) {
     if (!listener->NeedsNewFrame())
@@ -1213,7 +1206,7 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
     // `FlushRecording` might be a no-op if a flush already happened before.
     // Fortunately, the last flush recording was kept by the context.
     const std::optional<cc::PaintRecord>& last_recording =
-        RenderingContext()->GetLastRecordingForCanvas2D();
+        RenderingContext()->GetLastRecording();
     if (last_recording.has_value() &&
         filter_quality_ != cc::PaintFlags::FilterQuality::kNone) {
       context.Canvas()->save();
@@ -1964,7 +1957,7 @@ void HTMLCanvasElement::SetOffscreenCanvasResource(
 }
 
 bool HTMLCanvasElement::IsOpaque() const {
-  return context_ && !context_->CreationAttributes().alpha;
+  return RenderingContext() && RenderingContext()->IsOpaque();
 }
 
 bool HTMLCanvasElement::CreateLayer() {
@@ -2073,14 +2066,5 @@ RespectImageOrientationEnum HTMLCanvasElement::RespectImageOrientation() const {
   return LayoutObject::GetImageOrientation(GetLayoutObject());
 }
 
-void HTMLCanvasElement::SetTransferToGPUTextureWasInvoked() {
-  TransferToGPUTextureInvokedSupplement::From(GetDocument())
-      .SetTransferToGPUTextureWasInvoked();
-}
-
-bool HTMLCanvasElement::TransferToGPUTextureWasInvoked() {
-  return TransferToGPUTextureInvokedSupplement::From(GetDocument())
-      .TransferToGPUTextureWasInvoked();
-}
 
 }  // namespace blink

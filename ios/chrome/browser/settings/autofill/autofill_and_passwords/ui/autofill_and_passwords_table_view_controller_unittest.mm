@@ -49,11 +49,12 @@ TEST_F(AutofillAndPasswordsTableViewControllerTest, TestModel) {
   [view_controller setAutofillProfileEnabled:YES];
   [view_controller setIdentityDocsEnabled:YES];
   [view_controller setTravelInfoEnabled:NO];
+  [view_controller setShouldShowAutofillAIFeatures:YES];
 
   [view_controller loadModel];
 
   EXPECT_EQ(1, NumberOfSections());
-  EXPECT_EQ(5, NumberOfItemsInSection(0));
+  EXPECT_EQ(6, NumberOfItemsInSection(0));
 
   CheckDetailItemTextWithIds(IDS_IOS_PASSWORD_MANAGER, IDS_IOS_SETTING_ON, 0,
                              0);
@@ -65,6 +66,36 @@ TEST_F(AutofillAndPasswordsTableViewControllerTest, TestModel) {
                              IDS_IOS_SETTING_ON, 0, 3);
   CheckDetailItemTextWithIds(IDS_AUTOFILL_TRAVEL_TITLE, IDS_IOS_SETTING_OFF, 0,
                              4);
+  CheckTextCellTextAndDetailText(
+      l10n_util::GetNSString(IDS_IOS_SETTINGS_AUTOFILL_SETTINGS), nil, 0, 5);
+}
+
+TEST_F(AutofillAndPasswordsTableViewControllerTest,
+       TestIdentityDocsAndTravelInfoHidden) {
+  AutofillAndPasswordsTableViewController* view_controller =
+      base::apple::ObjCCastStrict<AutofillAndPasswordsTableViewController>(
+          controller());
+
+  [view_controller setPasswordsEnabled:YES];
+  [view_controller setAutofillCreditCardEnabled:NO];
+  [view_controller setAutofillProfileEnabled:YES];
+  [view_controller setIdentityDocsEnabled:YES];
+  [view_controller setTravelInfoEnabled:NO];
+  [view_controller setShouldShowAutofillAIFeatures:NO];
+
+  [view_controller loadModel];
+
+  EXPECT_EQ(1, NumberOfSections());
+  EXPECT_EQ(4, NumberOfItemsInSection(0));
+
+  CheckDetailItemTextWithIds(IDS_IOS_PASSWORD_MANAGER, IDS_IOS_SETTING_ON, 0,
+                             0);
+  CheckDetailItemTextWithIds(IDS_AUTOFILL_PAYMENTS_TITLE, IDS_IOS_SETTING_OFF,
+                             0, 1);
+  CheckDetailItemTextWithIds(IDS_AUTOFILL_CONTACT_INFO_TITLE,
+                             IDS_IOS_SETTING_ON, 0, 2);
+  CheckTextCellTextAndDetailText(
+      l10n_util::GetNSString(IDS_IOS_SETTINGS_AUTOFILL_SETTINGS), nil, 0, 3);
 }
 
 }  // namespace

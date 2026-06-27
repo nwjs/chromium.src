@@ -38,6 +38,11 @@ inline constexpr char kBrowserLockdownModeEnabled[] =
 // (serverID) and creation timestamp.
 inline constexpr char kBwgSessionMap[] = "ios.bwg.session_map";
 
+// Map of scene session IDs to booleans which indicates if a cobrowse session is
+// active.
+inline constexpr char kCobrowseSessionActiveMap[] =
+    "ios.cobrowse.session_active_map";
+
 // Number of times the "BWG" settings "new" IPH badge has been shown.
 // This is set to INT_MAX when the user visites the "BWG" settings page.
 inline constexpr char kBWGSettingsNewBadgeShownCount[] =
@@ -463,6 +468,17 @@ inline constexpr char kIosReadingListSettingsPromoAlreadySeen[] =
 inline constexpr char kIosReadingListSigninPromoDisplayedCount[] =
     "ios.reading_list.signin_promo_displayed_count";
 
+// Preference that holds a boolean indicating if the user has already dismissed
+// the sign-in promo in the autofill and passwords settings.
+inline constexpr char kIosSettingsAutofillAndPasswordsPromoAlreadySeen[] =
+    "ios.settings.autofill_and_passwords.promo_already_seen";
+
+// Integer to represent the number of times the sign-in promo has been displayed
+// in the autofill and passwords settings.
+inline constexpr char
+    kIosSettingsAutofillAndPasswordsSigninPromoDisplayedCount[] =
+        "ios.settings.autofill_and_passwords.signin_promo_displayed_count";
+
 // Preference that holds a boolean indicating whether the "Reading mode
 // available" message is shown.
 inline constexpr char kIosReaderModeShowAvailability[] =
@@ -476,6 +492,15 @@ inline constexpr char kLinkPreviewEnabled[] = "ios.link_preview_enabled";
 // Preference that stores the user's acceptance of Lens Overlay ToS.
 inline constexpr char kLensOverlayConditionsAccepted[] =
     "ios.lens_overlay_conditions_accepted";
+
+// List of completed tasks in the Level Up feature.
+inline constexpr char kLevelUpCompletedTasks[] = "level_up.completed_tasks";
+
+// Highest level achieved in the Level Up feature.
+inline constexpr char kLevelUpHighestLevel[] = "level_up.highest_level";
+
+// Whether the Level Up feature UI is enabled.
+inline constexpr char kLevelUpUIEnabled[] = "level_up.ui_enabled";
 
 // Preference that holds a boolean indicating whether the suggestions on the NTP
 // are enabled.
@@ -541,9 +566,6 @@ inline constexpr char kOverflowMenuActionsOrder[] =
 
 // Boolean that is true when Suggest support is enabled.
 inline constexpr char kSearchSuggestEnabled[] = "search.suggest_enabled";
-
-// Boolean that is true when the TabPickup feature is enabled.
-inline constexpr char kTabPickupEnabled[] = "ios.tab_pickup_enabled";
 
 // Boolean indicating if displaying price drops for shopping URLs on Tabs
 // in the Tab Switching UI is enabled.
@@ -639,6 +661,10 @@ inline constexpr char kLastBackgroundedTime[] = "ios.last_backgrounded_time";
 // `IdleTimeoutActions` policy is set to clear data as a user policy not a
 // browser policy.
 inline constexpr char kLastSigninTimestamp[] = "signin.last_signin_timestamp";
+
+// Timestamp tracking when a sign-out was triggered due to age mismatch.
+inline constexpr char kAgeMismatchSignoutTimestamp[] =
+    "ios.signin.age_mismatch_signout_timestamp";
 
 // Bool that represents whether iCloud backups are allowed by policy.
 inline constexpr char kAllowChromeDataInBackups[] =

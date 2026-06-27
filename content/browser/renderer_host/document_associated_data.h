@@ -12,6 +12,7 @@
 #include "base/containers/queue.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/safe_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -19,6 +20,7 @@
 #include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
 #include "content/browser/loader/keep_alive_url_loader_service.h"
+#include "content/common/content_export.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/confidence_level.mojom.h"
@@ -40,7 +42,7 @@ class RenderFrameHostImpl;
 // directly while consumers of RenderFrameHostImpl should store data via
 // GetDocumentUserData(). Please refer to the description at
 // content/public/browser/document_user_data.h for more details.
-class DocumentAssociatedData : public base::SupportsUserData {
+class CONTENT_EXPORT DocumentAssociatedData : public base::SupportsUserData {
  public:
   // Helper for looking up a RenderFrameHostImpl based on the DocumentToken.
   // Restricted to RenderFrameHostImpl, which performs additional security
@@ -144,14 +146,24 @@ class DocumentAssociatedData : public base::SupportsUserData {
   // Sets the network restrictions id. Should only be called when the document
   // is being committed. For more details see
   // NavigationRequest::network_restrictions_id_
-  void set_network_restrictions_id(
-      std::optional<base::UnguessableToken> network_restrictions_id) {
-    network_restrictions_id_ = network_restrictions_id;
-  }
+  void SetNetworkRestrictionsId(
+      std::optional<base::UnguessableToken> network_restrictions_id);
 
-  const std::optional<base::UnguessableToken>& network_restrictions_id() const {
-    return network_restrictions_id_;
-  }
+  // Shares the network restrictions id from another document (e.g. the
+  // creator's), incrementing the reference count. The nonce will only be
+  // cleared from the network service when the last document holding a
+  // reference is destroyed.
+  void ShareNetworkRestrictionsId(
+      scoped_refptr<base::RefCountedData<base::UnguessableToken>>
+          network_restrictions_id);
+
+  std::optional<base::UnguessableToken> NetworkRestrictionsId() const;
+
+  // Returns the shared ref-counted handle for the network restrictions id.
+  // Used internally for sharing the id between documents (e.g. initial empty
+  // documents inheriting from their creator).
+  const scoped_refptr<base::RefCountedData<base::UnguessableToken>>&
+  NetworkRestrictionsIdHandle() const;
 
   blink::mojom::ConfidenceLevel navigation_confidence() const {
     return confidence_level_;
@@ -223,7 +235,11 @@ class DocumentAssociatedData : public base::SupportsUserData {
       services_;
   scoped_refptr<NavigationOrDocumentHandle> navigation_or_document_handle_;
   std::optional<base::UnguessableToken> devtools_navigation_token_;
-  std::optional<base::UnguessableToken> network_restrictions_id_;
+  // Ref-counted to allow safe sharing between documents (e.g. initial empty
+  // documents inherit the creator's id). The nonce is only cleared from the
+  // network service when the last document holding a reference is destroyed.
+  scoped_refptr<base::RefCountedData<base::UnguessableToken>>
+      network_restrictions_id_;
   blink::mojom::ConfidenceLevel confidence_level_ =
       blink::mojom::ConfidenceLevel::kHigh;
   base::WeakPtr<KeepAliveURLLoaderService::FactoryContext>

@@ -8,6 +8,7 @@
 #include <string_view>
 #include <utility>
 
+#include "ash/strings/grit/ash_strings.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/number_formatting.h"
@@ -15,13 +16,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/notifications/passphrase_textfield.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
 #include "ui/events/event.h"
@@ -187,7 +188,9 @@ void RequestSystemProxyCredentialsView::Init() {
       error_container->AddChildView(std::make_unique<views::ImageView>());
   constexpr int kIconSize = 18;
   error_icon->SetImage(ui::ImageModel::FromVectorIcon(
-      vector_icons::kInfoOutlineIcon, ui::kColorAlertHighSeverity, kIconSize));
+      ::features::IsRoundedIconsEnabled() ? vector_icons::kInfoIcon
+                                          : vector_icons::kInfoOutlineOldIcon,
+      ui::kColorAlertHighSeverity, kIconSize));
   error_icon->SetImageSize(gfx::Size(kIconSize, kIconSize));
   error_icon->SetVisible(show_error_label_);
 

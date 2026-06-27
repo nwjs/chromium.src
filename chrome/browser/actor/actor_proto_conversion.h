@@ -11,10 +11,10 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/safe_ref.h"
 #include "base/types/expected.h"
-#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
+#include "components/actor/core/aggregated_journal.h"
 #include "components/actor/public/mojom/actor_types.mojom-forward.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
@@ -42,8 +42,9 @@ using ToolRequestList = std::vector<std::unique_ptr<ToolRequest>>;
 // Result type returned from the BuildToolRequest functions below. Aliased for
 // convenience. on failure, the error value contains the index of the action in
 // the list that failed to convert.
-using BuildToolRequestResult =
-    base::expected<ToolRequestList, size_t /*index_of_failed_action*/>;
+using BuildToolRequestResult = base::expected<
+    ToolRequestList,
+    std::pair<size_t /*index_of_failed_action*/, mojom::ActionResultCode>>;
 
 // Builds a vector of ToolRequests usable for ActorKeyedService::PerformActions
 // out of the given proto::Actions proto. If an action failed to convert,
@@ -141,7 +142,7 @@ CreateActorJournalFetchPageProgressListener(
     const GURL& url,
     TaskId task_id);
 
-std::string ToBase64(const optimization_guide::proto::Actions& actions);
+std::string ToBase64(const google::protobuf::MessageLite& proto);
 
 std::optional<mojom::ActionResultCode> MaybeGetErrorCodeForTab(
     tabs::TabInterface* tab);

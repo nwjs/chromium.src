@@ -27,6 +27,7 @@
 #import "ios/chrome/browser/autofill/model/ios_wallet_pass_access_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/strike_database_factory.h"
+#import "ios/chrome/browser/backend_promo/model/backend_promo_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_undo_service_factory.h"
@@ -101,6 +102,7 @@
 #import "ios/chrome/browser/language/model/url_language_histogram_factory.h"
 #import "ios/chrome/browser/language_detection/model/language_detection_model_loader_service_ios_factory.h"
 #import "ios/chrome/browser/language_detection/model/language_detection_model_service_factory.h"
+#import "ios/chrome/browser/level_up/model/level_up_service_factory.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service_factory.h"
 #import "ios/chrome/browser/metrics/model/bookmark_model_metrics_service_factory.h"
 #import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
@@ -127,8 +129,6 @@
 #import "ios/chrome/browser/passwords/model/ios_password_requirements_service_factory.h"
 #import "ios/chrome/browser/passwords/model/password_manager_log_router_factory.h"
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
-#import "ios/chrome/browser/plus_addresses/model/plus_address_service_factory.h"
-#import "ios/chrome/browser/plus_addresses/model/plus_address_setting_service_factory.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service_factory.h"
 #import "ios/chrome/browser/policy/model/reporting/cloud_profile_reporting_service_factory_ios.h"
 #import "ios/chrome/browser/policy_url_blocking/model/policy_url_blocking_service_factory.h"
@@ -178,6 +178,7 @@
 #import "ios/chrome/browser/signin/model/signin_metrics_service_factory.h"
 #import "ios/chrome/browser/signin/model/signin_profile_info_updater_factory.h"
 #import "ios/chrome/browser/signin/model/trusted_vault/trusted_vault_client_backend_factory.h"
+#import "ios/chrome/browser/subscription_eligibility/model/subscription_eligibility_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/child_account_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/family_link_settings_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/list_family_members_service_factory.h"
@@ -289,6 +290,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   AcceptLanguagesServiceFactory::GetInstance();
   AppStoreBundleServiceFactory::GetInstance();
   AuthenticationServiceFactory::GetInstance();
+  BackendPromoServiceFactory::GetInstance();
   BackgroundDownloadServiceFactory::GetInstance();
   BookmarkModelMetricsServiceFactory::GetInstance();
   BreadcrumbManagerKeyedServiceFactory::GetInstance();
@@ -323,6 +325,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   HomeBackgroundCustomizationServiceFactory::GetInstance();
   HomeBackgroundImageServiceFactory::GetInstance();
   NtpBackgroundServiceFactory::GetInstance();
+  LevelUpServiceFactory::GetInstance();
   HttpsUpgradeServiceFactory::GetInstance();
   IdentityManagerFactory::GetInstance();
   ImageFetcherServiceFactory::GetInstance();
@@ -377,8 +380,6 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   PageImageServiceFactory::GetInstance();
   PageContentCacheServiceFactory::GetInstance();
   PhotosServiceFactory::GetInstance();
-  PlusAddressServiceFactory::GetInstance();
-  PlusAddressSettingServiceFactory::GetInstance();
   PolicyBlocklistServiceFactory::GetInstance();
   PowerBookmarkServiceFactory::GetInstance();
   PriceInsightsModelFactory::GetInstance();
@@ -403,6 +404,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   SigninProfileInfoUpdaterFactory::GetInstance();
   SupervisedUserMetricsServiceFactory::GetInstance();
   SupervisedUserServiceFactory::GetInstance();
+  SubscriptionEligibilityServiceFactory::GetInstance();
   SyncInvalidationsServiceFactory::GetInstance();
   SyncServiceFactory::GetInstance();
   TabGroupServiceFactory::GetInstance();

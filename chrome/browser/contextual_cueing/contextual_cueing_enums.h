@@ -68,7 +68,15 @@ enum class ContextualCueingDecision {
   kUserOptedOut = 25,
   // The cue couldn't be shown because it is disabled by enterprise policy.
   kDisabledByEnterprisePolicy = 26,
-  kMaxValue = kDisabledByEnterprisePolicy,
+  // The cue couldn't be shown because the user is subject to age restrictions.
+  kAgeRestrictionEnforced = 27,
+  // No cue could be shown because the model execution response contained no cue
+  // data.
+  kNoCues = 28,
+  // The cue couldn't be shown because not enough time has passed since the
+  // last cue was clicked.
+  kNotEnoughTimeSinceLastClick = 29,
+  kMaxValue = kNotEnoughTimeSinceLastClick,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_cueing/enums.xml:ContextualCueingDecision)
 
@@ -81,6 +89,15 @@ enum class ContextualCueingInteraction {
   kMaxValue = kCueSuggestionsSettings,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_cueing/enums.xml:ContextualCueingInteraction)
+
+// LINT.IfChange(CueFormFactor)
+enum class CueFormFactor {
+  kIcon = 0,
+  kChip = 1,
+  kAnchoredMessage = 2,
+  kMaxValue = kAnchoredMessage,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_cueing/enums.xml:CueFormFactor)
 
 }  // namespace contextual_cueing
 

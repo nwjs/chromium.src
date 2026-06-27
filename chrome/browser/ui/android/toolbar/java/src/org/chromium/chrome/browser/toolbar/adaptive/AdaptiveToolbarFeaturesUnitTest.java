@@ -8,7 +8,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -29,15 +28,15 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.actor.ActorKeyedService;
-import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
-import org.chromium.chrome.browser.actor.ActorTask;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicEnablingJni;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.components.prefs.PrefService;
+import org.chromium.components.user_prefs.UserPrefs;
 
 /** Unit tests for {@link AdaptiveToolbarFeatures}. */
 @Config(manifest = Config.NONE)
@@ -46,8 +45,8 @@ public class AdaptiveToolbarFeaturesUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Profile mProfile;
-    @Mock private ActorKeyedService mActorKeyedService;
     @Mock private GlicEnabling.Natives mGlicEnablingJniMock;
+    @Mock private PrefService mPrefService;
 
     private Context mContext;
 
@@ -55,46 +54,14 @@ public class AdaptiveToolbarFeaturesUnitTest {
     public void setUp() {
         GlicEnablingJni.setInstanceForTesting(mGlicEnablingJniMock);
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
+        UserPrefs.setPrefServiceForTesting(mPrefService);
         mContext = ApplicationProvider.getApplicationContext();
-        ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
     }
 
     @After
     public void tearDown() {
         ChromeSharedPreferences.getInstance().removeKey(ChromePreferenceKeys.GLIC_PROMO_ACCEPTED);
-    }
-
-    @Test
-    @SmallTest
-    @DisableFeatures(ChromeFeatureList.GLIC)
-    public void testShouldForciblyShowGlicButton_FeatureDisabled() {
-        assertFalse(AdaptiveToolbarFeatures.shouldForciblyShowGlicButton(mContext, mProfile));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.GLIC)
-    public void testShouldForciblyShowGlicButton_NoActiveTask() {
-        when(mActorKeyedService.getCurrentActiveTask()).thenReturn(null);
-        assertFalse(AdaptiveToolbarFeatures.shouldForciblyShowGlicButton(mContext, mProfile));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.GLIC)
-    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
-    public void testShouldForciblyShowGlicButton_WithActiveTask() {
-        when(mActorKeyedService.getCurrentActiveTask()).thenReturn(mock(ActorTask.class));
-        assertTrue(AdaptiveToolbarFeatures.shouldForciblyShowGlicButton(mContext, mProfile));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures({ChromeFeatureList.GLIC, ChromeFeatureList.ANDROID_BOTTOM_BAR})
-    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
-    public void testShouldForciblyShowGlicButton_BottomBarEnabled() {
-        when(mActorKeyedService.getCurrentActiveTask()).thenReturn(mock(ActorTask.class));
-        assertFalse(AdaptiveToolbarFeatures.shouldForciblyShowGlicButton(mContext, mProfile));
     }
 
     @Test
@@ -118,5 +85,21 @@ public class AdaptiveToolbarFeaturesUnitTest {
         assertEquals(
                 AdaptiveToolbarButtonVariant.SHARE,
                 AdaptiveToolbarFeatures.getDefaultButtonVariant(mContext, mProfile));
+    }
+
+    @Test
+    @SmallTest
+    public void testIsTranslateEnabled_ManagedAndDisabled() {
+        when(mPrefService.isManagedPreference(Pref.OFFER_TRANSLATE_ENABLED)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.OFFER_TRANSLATE_ENABLED)).thenReturn(false);
+        assertFalse(AdaptiveToolbarFeatures.isTranslateEnabled(mProfile));
+    }
+
+    @Test
+    @SmallTest
+    public void testIsTranslateEnabled_UserModifiedAndDisabled() {
+        when(mPrefService.isManagedPreference(Pref.OFFER_TRANSLATE_ENABLED)).thenReturn(false);
+        when(mPrefService.getBoolean(Pref.OFFER_TRANSLATE_ENABLED)).thenReturn(false);
+        assertTrue(AdaptiveToolbarFeatures.isTranslateEnabled(mProfile));
     }
 }

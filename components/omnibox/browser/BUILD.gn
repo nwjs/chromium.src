@@ -27,72 +27,112 @@ aggregate_vector_icons("omnibox_vector_icons") {
   icon_directory = "vector_icons"
 
   sources = [
-    "answer_calculator.icon",
-    "answer_currency.icon",
-    "answer_currency_chrome_refresh.icon",
+    "answer_calculator_old.icon",
+    "answer_currency_chrome_refresh_old.icon",
+    "answer_currency_old.icon",
     "answer_default.icon",
-    "answer_dictionary.icon",
-    "answer_dictionary_chrome_refresh.icon",
-    "answer_finance.icon",
-    "answer_finance_chrome_refresh.icon",
-    "answer_sunrise.icon",
-    "answer_sunrise_chrome_refresh.icon",
-    "answer_translation.icon",
-    "answer_translation_chrome_refresh.icon",
-    "bookmark.icon",
-    "bookmark_chrome_refresh.icon",
-    "calculator.icon",
-    "calculator_chrome_refresh.icon",
-    "clear.icon",
-    "dino_cr2023.icon",
-    "drive_docs.icon",
-    "drive_folder.icon",
-    "drive_forms.icon",
-    "drive_image.icon",
-    "drive_logo.icon",
-    "drive_pdf.icon",
-    "drive_sheets.icon",
-    "drive_slides.icon",
-    "drive_video.icon",
-    "enterprise.icon",
-    "extension_app.icon",
-    "find_in_page_chrome_refresh.icon",
-    "http.icon",
-    "http_chrome_refresh.icon",
-    "incognito_cr2023.icon",
+    "answer_dictionary_chrome_refresh_old.icon",
+    "answer_dictionary_old.icon",
+    "answer_finance_chrome_refresh_old.icon",
+    "answer_finance_old.icon",
+    "answer_sunrise_chrome_refresh_old.icon",
+    "answer_sunrise_old.icon",
+    "answer_translation_chrome_refresh_old.icon",
+    "answer_translation_old.icon",
+    "autorenew.icon",
+    "backspace_filled.icon",
+    "book.icon",
+    "bookmark_chrome_refresh_old.icon",
+    "bookmark_old.icon",
+    "calculator_chrome_refresh_old.icon",
+    "calculator_old.icon",
+    "chrome_product.icon",
+    "clear_old.icon",
+    "conversion_path.icon",
+    "dino_cr2023_old.icon",
+    "domain.icon",
+    "drive_docs_custom.icon",
+    "drive_folder_custom.icon",
+    "drive_forms_custom.icon",
+    "drive_image_custom.icon",
+    "drive_logo_custom.icon",
+    "drive_pdf_custom.icon",
+    "drive_sheets_custom.icon",
+    "drive_slides_custom.icon",
+    "drive_video_custom.icon",
+    "enterprise_old.icon",
+    "equal.icon",
+    "extension_app_old.icon",
+    "extension_filled.icon",
+    "find_in_page.icon",
+    "find_in_page_chrome_refresh_old.icon",
+    "http_chrome_refresh_old.icon",
+    "http_old.icon",
+    "incognito.icon",
+    "incognito_cr2023_old.icon",
+    "info.icon",
     "install_desktop.icon",
-    "journeys.icon",
-    "journeys_chrome_refresh.icon",
+    "install_desktop_old.icon",
+    "journeys_chrome_refresh_old.icon",
+    "journeys_old.icon",
     "notes_spark.icon",
-    "offline_pin.icon",
-    "page_chrome_refresh.icon",
-    "price_tracking_disabled.icon",
-    "product.icon",
-    "product_chrome_refresh.icon",
-    "reply_rotated180.icon",
+    "notes_spark_old.icon",
+    "notification_add.icon",
+    "offline_dino.icon",
+    "offline_pin_filled.icon",
+    "offline_pin_old.icon",
+    "page_chrome_refresh_old.icon",
+    "page_info.icon",
+    "price_tracking_disabled_old.icon",
+    "product_chrome_refresh_old.icon",
+    "product_old.icon",
+    "public.icon",
+    "reply_rotated180_custom.icon",
     "search_spark.icon",
-    "secure_page_info_chrome_refresh.icon",
-    "share_chrome_refresh.icon",
+    "search_spark_old.icon",
+    "secure_page_info_chrome_refresh_old.icon",
+    "share.icon",
+    "share_chrome_refresh_old.icon",
     "spark.icon",
-    "star_active_chrome_refresh.icon",
-    "star_chrome_refresh.icon",
+    "star.icon",
+    "star_active_chrome_refresh_old.icon",
+    "star_chrome_refresh_old.icon",
+    "star_filled.icon",
+    "stars_filled.icon",
     "subdirectory_arrow_right.icon",
+    "subdirectory_arrow_right_old.icon",
     "summarize_auto.icon",
-    "switch.icon",
-    "switch_cr2023.icon",
-    "trending_up_chrome_refresh.icon",
+    "summarize_auto_old.icon",
+    "swap_vert.icon",
+    "switch_cr2023_old.icon",
+    "switch_old.icon",
+    "tab.icon",
+    "translate.icon",
+    "trending_up.icon",
+    "trending_up_chrome_refresh_old.icon",
+    "wb_sunny.icon",
+    "wb_sunny_filled.icon",
   ]
 
   if (is_mac) {
-    sources += [ "share_mac_chrome_refresh.icon" ]
+    sources += [
+      "ios_share.icon",
+      "share_mac_chrome_refresh_old.icon",
+    ]
   }
 
   if (is_win) {
-    sources += [ "share_win_chrome_refresh.icon" ]
+    sources += [
+      "share_win_chrome_refresh_old.icon",
+      "share_windows.icon",
+    ]
   }
 
   if (is_linux) {
-    sources += [ "share_linux_chrome_refresh.icon" ]
+    sources += [
+      "send.icon",
+      "share_linux_chrome_refresh_old.icon",
+    ]
   }
 }
 
@@ -114,6 +154,8 @@ static_library("browser") {
   sources = [
     "actions/contextual_search_action.cc",
     "actions/contextual_search_action.h",
+    "actions/cross_device_tab_action.cc",
+    "actions/cross_device_tab_action.h",
     "actions/omnibox_action.cc",
     "actions/omnibox_action.h",
     "actions/omnibox_action_concepts.h",
@@ -185,6 +227,8 @@ static_library("browser") {
     "clipboard_provider.h",
     "contextual_search_provider.cc",
     "contextual_search_provider.h",
+    "cross_device_tab_provider.cc",
+    "cross_device_tab_provider.h",
     "document_provider.cc",
     "document_provider.h",
     "document_suggestions_service.cc",
@@ -381,6 +425,7 @@ static_library("browser") {
     "//components/signin/public/identity_manager",
     "//components/strings",
     "//components/sync",
+    "//components/sync_sessions",
     "//components/url_formatter",
     "//components/variations",
     "//components/variations/net",
@@ -420,7 +465,8 @@ static_library("browser") {
     deps += [ "//components/keep_alive_registry" ]
   }
 
-  # GeolocationHeaderService is not supported on iOS due to dependencies on //content
+  # GeolocationHeaderService is not supported on iOS due to dependencies on
+  # //content
   if (!is_ios) {
     deps += [ "//ui/base/clipboard" ]
     public_deps += [
@@ -612,7 +658,6 @@ if (is_android) {
       "android/java/src/org/chromium/components/omnibox/ToolModeUtils.java",
       "android/java/src/org/chromium/components/omnibox/action/OmniboxAction.java",
       "android/java/src/org/chromium/components/omnibox/action/OmniboxActionDelegate.java",
-      "android/java/src/org/chromium/components/omnibox/action/OmniboxActionFactory.java",
       "android/java/src/org/chromium/components/omnibox/suggestions/OmniboxSuggestionUiType.java",
     ]
 
@@ -704,6 +749,7 @@ if (is_android) {
       "actions/omnibox_action_concepts.h",
       "actions/omnibox_action_in_suggest.cc",
       "actions/omnibox_pedal_concepts.h",
+      "autocomplete_enums.h",
       "autocomplete_match.h",
       "autocomplete_match_type.h",
       "most_visited_sites_provider.cc",
@@ -713,10 +759,10 @@ if (is_android) {
 
   generate_jni("jni_headers") {
     sources = [
+      "//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/suggestions/action/OmniboxActionFactory.java",
       "android/java/src/org/chromium/components/omnibox/AutocompleteMatch.java",
       "android/java/src/org/chromium/components/omnibox/AutocompleteResult.java",
       "android/java/src/org/chromium/components/omnibox/action/OmniboxAction.java",
-      "android/java/src/org/chromium/components/omnibox/action/OmniboxActionFactory.java",
     ]
   }
 }
@@ -843,6 +889,7 @@ source_set("unit_tests") {
     "calculator_provider_unittest.cc",
     "clipboard_provider_unittest.cc",
     "contextual_search_provider_unittest.cc",
+    "cross_device_tab_provider_unittest.cc",
     "document_provider_unittest.cc",
     "document_suggestions_service_unittest.cc",
     "enterprise_search_aggregator_provider_unittest.cc",
@@ -933,6 +980,7 @@ source_set("unit_tests") {
     "//components/signin/public/identity_manager:test_support",
     "//components/strings",
     "//components/sync_preferences:test_support",
+    "//components/sync_sessions:test_support",
     "//components/ukm:test_support",
     "//components/url_formatter",
     "//components/variations",
@@ -959,7 +1007,8 @@ source_set("unit_tests") {
     ]
   }
 
-  # GeolocationHeaderService is not supported on iOS due to dependencies on //content
+  # GeolocationHeaderService is not supported on iOS due to dependencies on
+  # //content
   if (!is_ios) {
     sources += [
       "geolocation_header_service_unittest.cc",
@@ -1032,7 +1081,7 @@ fuzzer_test("search_suggestion_parser_fuzzer") {
 
 mojom("mojo_bindings") {
   sources = [ "omnibox.mojom" ]
-  if ((!is_android && !is_ios) || enable_webui_ntp) {
+  if (!is_ios) {
     sources += [ "searchbox.mojom" ]
   }
 

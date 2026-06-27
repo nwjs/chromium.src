@@ -85,7 +85,6 @@ import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
-import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.ViewportInsets;
 import org.chromium.ui.base.WindowAndroid;
@@ -112,9 +111,6 @@ class ManualFillingMediator
                 BackPressHandler {
     private static final int MINIMAL_AVAILABLE_VERTICAL_SPACE = 128; // in DP.
     private static final int MINIMAL_AVAILABLE_HORIZONTAL_SPACE = 180; // in DP.
-    private static final int MIN_WINDOW_HEIGHT_FOR_UNDOCKED_BAR_DP = 480;
-    private static final int MIN_WINDOW_WIDTH_FOR_UNDOCKED_BAR_DP = 600;
-    private static final int EXPANDED_WINDOW_WIDTH_FOR_UNDOCKED_BAR_DP = 840;
     private static final float MAXIMUM_BAR_WIDTH_PERCENTAGE = 0.7f;
 
     private final SparseArray<AccessorySheetTabCoordinator> mSheets = new SparseArray<>();
@@ -663,20 +659,8 @@ class ManualFillingMediator
     }
 
     public boolean isLargeFormFactor() {
-        int windowWidthDp = mActivity.getResources().getConfiguration().screenWidthDp;
-        int windowHeightDp = mActivity.getResources().getConfiguration().screenHeightDp;
-        boolean isPhysicalKeyboardConnected =
-                DeviceInput.supportsAlphabeticKeyboard()
-                        && !isSoftKeyboardShowing(getContentView());
-
-        if (windowWidthDp > EXPANDED_WINDOW_WIDTH_FOR_UNDOCKED_BAR_DP) {
-            return windowHeightDp > MIN_WINDOW_HEIGHT_FOR_UNDOCKED_BAR_DP
-                    || isPhysicalKeyboardConnected;
-        }
-
-        return windowWidthDp > MIN_WINDOW_WIDTH_FOR_UNDOCKED_BAR_DP
-                && windowHeightDp > MIN_WINDOW_HEIGHT_FOR_UNDOCKED_BAR_DP
-                && isPhysicalKeyboardConnected;
+        return KeyboardAccessoryUtils.isLargeFormFactor(
+                mActivity, mWindowAndroid.getKeyboardDelegate());
     }
 
     private void enforceStateProperties(@KeyboardExtensionState int extensionState) {
@@ -804,12 +788,13 @@ class ManualFillingMediator
             Runnable declinedCallback) {
         mConfirmationDialogDismissHandler =
                 mActionConfirmationDialog.show(
-                        new ConfirmationDialogParams(mActivity)
+                        new ConfirmationDialogParams.Builder(mActivity)
                                 .withTitle(title)
                                 .withDescription(message)
                                 .withPositiveButton(confirmButtonText)
                                 .withNegativeButton(R.string.cancel)
-                                .withSupportStopShowing(false),
+                                .withSupportStopShowing(false)
+                                .build(),
                         (handler, result, stopShowing) ->
                                 onConfirmationDialogInteracted(
                                         result, confirmedCallback, declinedCallback));
@@ -861,7 +846,7 @@ class ManualFillingMediator
 
     private @Px int getBarWithNotchHeightPx() {
         Resources resources = mActivity.getResources();
-        return resources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign)
+        return resources.getDimensionPixelSize(R.dimen.keyboard_accessory_height)
                 + resources.getDimensionPixelSize(R.dimen.keyboard_accessory_notch_height);
     }
 
@@ -1243,15 +1228,13 @@ class ManualFillingMediator
     }
 
     private @Px int getBarHeightWithoutShadow() {
-        return mActivity
-                .getResources()
-                .getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign);
+        return mActivity.getResources().getDimensionPixelSize(R.dimen.keyboard_accessory_height);
     }
 
     private @Px int getHeaderHeight() {
         return mActivity
                 .getResources()
-                .getDimensionPixelSize(R.dimen.keyboard_accessory_height_with_shadow_redesign);
+                .getDimensionPixelSize(R.dimen.keyboard_accessory_height_with_shadow);
     }
 
     private @Px int getIdealSheetHeight() {

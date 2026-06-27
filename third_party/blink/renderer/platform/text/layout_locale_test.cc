@@ -185,15 +185,16 @@ TEST(LayoutLocaleTest, BreakKeyword) {
         LayoutLocale::CreateForTesting(AtomicString(test.locale));
     EXPECT_EQ(test.expected,
               locale->LocaleWithBreakKeyword(test.strictness, test.use_phrase))
-        << UNSAFE_TODO(String::Format(
-               "'%s' with line-break %d, phrase=%d should be '%s'", test.locale,
-               static_cast<int>(test.strictness),
-               static_cast<int>(test.use_phrase), test.expected));
+        << "'" << (test.locale ? test.locale : "(null)") << "' with line-break "
+        << static_cast<int>(test.strictness)
+        << ", phrase=" << static_cast<int>(test.use_phrase) << " should be '"
+        << (test.expected ? test.expected : "(null)") << "'";
   }
 }
 
 TEST(LayoutLocaleTest, GetQuotesData) {
   auto enQuotes = (QuotesData::Create(0x201c, 0x201d, 0x2018, 0x2019));
+  auto deQuotes = (QuotesData::Create(0x201e, 0x201c, 0x201a, 0x2018));
   auto frQuotes = (QuotesData::Create(0xab, 0xbb, 0xab, 0xbb));
   auto frCAQuotes = (QuotesData::Create(0xab, 0xbb, 0x201d, 0x201c));
   struct {
@@ -202,8 +203,9 @@ TEST(LayoutLocaleTest, GetQuotesData) {
   } tests[] = {
       {nullptr, nullptr},    // no match
       {"loc-DNE", nullptr},  // no match
-      {"en", enQuotes},      {"fr", frQuotes},
-      {"fr-CA", frCAQuotes}, {"fr-DNE", frQuotes},  // use fr
+      {"en", enQuotes},         {"fr", frQuotes},
+      {"fr-CA", frCAQuotes},    {"fr-DNE", frQuotes},  // use fr
+      {"DE-LATN-DE", deQuotes},
   };
   for (const auto& test : tests) {
     scoped_refptr<LayoutLocale> locale =

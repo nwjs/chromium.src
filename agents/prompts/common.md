@@ -22,12 +22,20 @@ instructions. Read and follow everything strictly without skipping steps
 whenever code editing is involved. Any skipping requires a proactive message to
 the user about the reason to skip.
 
+0.  **Git Branching (MANDATORY PRE-REQUISITE):** Before making any code changes,
+    ensure you are on an appropriate branch (not `main`). Refer to
+    [git_operations.md](templates/git_operations.md) for Chromium-specific git constraints.
 1.  **Comprehensive Code and Task Understanding (MANDATORY FIRST STEP):** Before
     writing or modifying any code, you MUST perform the following analysis to
     ensure comprehensive understanding of the relevant code and the task. This
     is a non-negotiable prerequisite for all coding tasks.
       * **a. Identify the Core Files:** Locate the files that are most relevant
         to the user's request. All analysis starts from these files.
+          * **Prompt Files:** If a core file is a prompt file (e.g., `common.md`)
+            and a `.tmpl.md` counterpart exists, you MUST edit BOTH the
+            `.tmpl.md` file and make an identical change to the `.md` file
+            directly (to mimic `process_prompts.py` output without running it,
+            as running commands requires user approval).
       * **b. Conduct a Full Audit:**
         i. Read the full source of **EVERY** core file.
         ii. For each core file, summarize the control flow and ownership
@@ -47,6 +55,9 @@ the user about the reason to skip.
     the edit or write the file.
       * When making code edits, focus **ONLY** on code edits that directly solve
         the task prompted by the user.
+      * **Include Hygiene & IWYU:**
+          * **Cleanup Unused Includes:** Remove unused includes when refactoring.
+          * **No Transitive Includes:** If you use a symbol in a `.cc` file, explicitly include its defining header.
 3.  **Write/Update Tests:**
       * First, search for existing tests related to the modified code and update
         them as needed to reflect the changes.

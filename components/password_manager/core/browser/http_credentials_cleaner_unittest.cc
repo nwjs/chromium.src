@@ -11,6 +11,7 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -143,7 +144,7 @@ TEST_P(HttpCredentialCleanerTest, ReportHttpMigrationMetrics) {
   static const std::array<std::u16string, 2> password = {u"pass0", u"pass1"};
 
   base::test::TaskEnvironment task_environment;
-  store_->Init(/*affiliated_match_helper=*/nullptr);
+  store_->Init();
   TestCase test = GetParam();
   SCOPED_TRACE(testing::Message()
                << "is_hsts_enabled=" << test.is_hsts_enabled
@@ -160,7 +161,7 @@ TEST_P(HttpCredentialCleanerTest, ReportHttpMigrationMetrics) {
   http_form.scheme = test.http_form_scheme;
   http_form.username_value = username[1];
   http_form.password_value = password[1];
-  store_->AddLogin(http_form);
+  store_->AddLogin(password_manager::FromPasswordForm(http_form));
 
   PasswordForm https_form;
   https_form.url = GURL("https://example.org/");
@@ -173,7 +174,7 @@ TEST_P(HttpCredentialCleanerTest, ReportHttpMigrationMetrics) {
                              ? PasswordForm::Scheme::kHtml
                              : PasswordForm::Scheme::kBasic);
   }
-  store_->AddLogin(https_form);
+  store_->AddLogin(password_manager::FromPasswordForm(https_form));
 
   auto request_context = net::CreateTestURLRequestContextBuilder()->Build();
   mojo::Remote<network::mojom::NetworkContext> network_context_remote;
@@ -253,7 +254,7 @@ TEST(HttpCredentialCleaner, StartCleanUpTest) {
 
     base::test::TaskEnvironment task_environment;
     auto password_store = base::MakeRefCounted<TestPasswordStore>();
-    password_store->Init(/*affiliated_match_helper=*/nullptr);
+    password_store->Init();
 
     double last_time =
         (base::Time::Now() - base::Minutes(10)).InSecondsFSinceUnixEpoch();

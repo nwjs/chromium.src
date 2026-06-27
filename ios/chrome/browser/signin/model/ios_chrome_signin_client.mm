@@ -6,7 +6,6 @@
 
 #import "base/strings/utf_string_conversions.h"
 #import "components/metrics/metrics_service.h"
-#import "components/plus_addresses/core/common/features.h"
 #import "components/signin/ios/browser/wait_for_network_callback_helper_ios.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
@@ -27,11 +26,7 @@ class IOSChromeOAuthConsumerRegistry : public signin::OAuthConsumerRegistry {
  protected:
   signin::OAuthConsumer GetOAuthConsumerForEnterprisePlusAddress()
       const override {
-    CHECK(base::FeatureList::IsEnabled(
-        plus_addresses::features::kPlusAddressesEnabled));
-    return signin::OAuthConsumer(
-        signin::oauth_consumer_name::kEnterprisePlusAddressName,
-        {plus_addresses::features::kEnterprisePlusAddressOAuthScope.Get()});
+    NOTREACHED();
   }
 
   signin::OAuthConsumer GetOAuthConsumerForGlicUserStatus() const override {
@@ -39,6 +34,14 @@ class IOSChromeOAuthConsumerRegistry : public signin::OAuthConsumerRegistry {
   }
 
   signin::OAuthConsumer GetOAuthConsumerForGlicInvokeApi() const override {
+    NOTREACHED();
+  }
+
+  signin::OAuthConsumer GetOAuthConsumerForSkillsService() const override {
+    NOTREACHED();
+  }
+
+  signin::OAuthConsumer GetOAuthConsumerForContextualTasks() const override {
     NOTREACHED();
   }
 

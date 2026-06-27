@@ -15,6 +15,7 @@
 #include "base/sequence_checker.h"
 #include "base/sync_socket.h"
 #include "base/timer/timer.h"
+#include "base/unguessable_token.h"
 #include "media/mojo/mojom/audio_data_pipe.mojom.h"
 #include "media/mojo/mojom/audio_logging.mojom.h"
 #include "media/mojo/mojom/audio_output_stream.mojom.h"
@@ -29,6 +30,7 @@
 #include "services/audio/loopback_coordinator.h"
 #include "services/audio/output_controller.h"
 #include "services/audio/sync_reader.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace base {
 class UnguessableToken;
@@ -124,6 +126,8 @@ class OutputStream final : public media::mojom::AudioOutputStream,
 
   SEQUENCE_CHECKER(owning_sequence_);
 
+  const base::UnguessableToken id_;
+
   base::CancelableSyncSocket foreign_socket_;
   DeleteCallback delete_callback_;
   mojo::Receiver<AudioOutputStream> receiver_;
@@ -145,6 +149,7 @@ class OutputStream final : public media::mojom::AudioOutputStream,
   // reports changes to OnAudibleStateChanged().
   std::unique_ptr<AudibilityHelper> audibility_helper_;
 
+  const perfetto::NamedTrack trace_track_;
   base::WeakPtrFactory<OutputStream> weak_factory_{this};
 };
 

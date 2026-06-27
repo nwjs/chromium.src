@@ -12,6 +12,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/skills/skills_glic_mojom_util.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
@@ -133,8 +134,9 @@ std::unique_ptr<KeyedService> SkillsInteractiveUiTestBase::CreateSkillsService(
     content::BrowserContext* context) {
   Profile* profile = Profile::FromBrowserContext(context);
   return std::make_unique<skills::SkillsServiceImpl>(
+      profile->GetPrefs(),
       OptimizationGuideKeyedServiceFactory::GetForProfile(profile),
-      chrome::GetChannel(),
+      IdentityManagerFactory::GetForProfile(profile), chrome::GetChannel(),
       DataTypeStoreServiceFactory::GetForProfile(profile)->GetStoreFactory(),
       base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
           &test_url_loader_factory_));
@@ -145,10 +147,8 @@ SkillsInteractiveUiTestBase::UpdateContextualSkillPreviews(
     std::vector<glic::mojom::SkillPreviewPtr> contextual_skill_previews) {
   return Steps(Do([this, contextual_skill_previews =
                              std::move(contextual_skill_previews)]() mutable {
-    glic_service()
-        ->GetInstanceForTab(browser()->GetActiveTabInterface())
-        ->host()
-        .NotifyContextualSkillsChanged(std::move(contextual_skill_previews));
+    GetGlicInstanceImpl()->host().NotifyContextualSkillsChanged(
+        std::move(contextual_skill_previews));
   }));
 }
 

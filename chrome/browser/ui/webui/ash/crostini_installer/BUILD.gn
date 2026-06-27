@@ -18,7 +18,7 @@ static_library("crostini_installer") {
 
   deps = [
     "//ash/public/cpp",
-    "//chrome/app:generated_resources",
+    "//ash/strings",
     "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser:resources",
     "//chrome/browser/ash/crostini:crostini_installer_types_mojom",

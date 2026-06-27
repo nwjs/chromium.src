@@ -1563,7 +1563,8 @@ bool WebMediaPlayerImpl::DidLoadingProgress() {
 
 void WebMediaPlayerImpl::Paint(cc::PaintCanvas* canvas,
                                const gfx::Rect& rect,
-                               const cc::PaintFlags& flags) {
+                               const cc::PaintFlags& flags,
+                               bool force_pixel_readback) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   TRACE_EVENT0("media", "WebMediaPlayerImpl:paint");
 
@@ -1577,6 +1578,7 @@ void WebMediaPlayerImpl::Paint(cc::PaintCanvas* canvas,
   paint_params.dest_rect = gfx::RectF(rect);
   paint_params.transformation =
       pipeline_metadata_.video_decoder_config.video_transformation();
+  paint_params.force_pixel_readback = force_pixel_readback;
 
   video_renderer_.Paint(video_frame, canvas, flags, paint_params,
                         raster_context_provider_.get());
@@ -1745,11 +1747,12 @@ UrlData::CacheMode TranslateCacheMode(bool always_disable,
 void WebMediaPlayerImpl::GetUrlData(
     const GURL& gurl,
     media::DataSource::CacheMode cache_mode,
+    media::DataSource::EncodingMode encoding_mode,
     base::OnceCallback<void(scoped_refptr<UrlData>)> cb) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   auto url_data = url_index_->GetByUrl(
       KURL(gurl), static_cast<UrlData::CorsMode>(cors_mode_),
-      TranslateCacheMode(is_cache_disabled_, cache_mode));
+      TranslateCacheMode(is_cache_disabled_, cache_mode), encoding_mode);
   std::move(cb).Run(std::move(url_data));
 }
 
@@ -1802,6 +1805,8 @@ void WebMediaPlayerImpl::SetCdmInternal(WebContentDecryptionModule* cdm) {
   // OnEncryptedMediaInitData().
   cdm_config_ = web_cdm->GetCdmConfig();
   DCHECK(!cdm_config_->key_system.empty());
+
+  client_->OnCdmAttached(cdm_config_.value());
 
   media_log_->SetProperty<MediaLogProperty::kSetCdm>(cdm_config_.value());
 

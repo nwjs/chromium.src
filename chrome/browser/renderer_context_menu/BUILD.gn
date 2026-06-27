@@ -67,6 +67,7 @@ source_set("impl") {
     ":renderer_context_menu",
     "//base",
     "//chrome/browser/app_mode",
+    "//chrome/common:url_constants",
     "//components/renderer_context_menu",
     "//content/public/browser",
     "//extensions/buildflags",
@@ -75,6 +76,7 @@ source_set("impl") {
   if (!is_android) {
     public += [
       "accessibility_labels_menu_observer.h",
+      "dictation_menu_observer.h",
       "link_to_text_menu_observer.h",
       "spelling_menu_observer.h",
     ]
@@ -82,6 +84,9 @@ source_set("impl") {
     sources += [
       "accessibility_labels_bubble_model.cc",
       "accessibility_labels_menu_observer.cc",
+      "context_menu_content_type_read_anything.cc",
+      "context_menu_content_type_read_anything.h",
+      "dictation_menu_observer.cc",
       "link_to_text_menu_observer.cc",
       "render_view_context_menu.cc",
       "spelling_bubble_model.cc",
@@ -101,6 +106,7 @@ source_set("impl") {
       "//chrome/browser/compose",
       "//chrome/browser/custom_handlers",
       "//chrome/browser/devtools",
+      "//chrome/browser/dictation",
       "//chrome/browser/glic",
       "//chrome/browser/glic/browser_ui",
       "//chrome/browser/glic/public:features",
@@ -116,6 +122,7 @@ source_set("impl") {
       "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_io_data",
+      "//chrome/browser/reading_list",
       "//chrome/browser/search_engines",
       "//chrome/browser/send_tab_to_self",
       "//chrome/browser/sharing/click_to_call",
@@ -169,7 +176,6 @@ source_set("impl") {
     public += [ "read_write_card_observer.h" ]
     sources += [ "read_write_card_observer.cc" ]
     deps += [
-      "//ash/webui/system_apps/public:system_web_app_type",
       "//chrome/browser/ash/arc:arc_util",
       "//chrome/browser/ash/arc/intent_helper",
       "//chrome/browser/ash/boca/on_task",
@@ -180,6 +186,7 @@ source_set("impl") {
       "//chrome/browser/ui/ash/read_write_cards:read_write_cards_manager",
       "//chrome/browser/ui/ash/system_web_apps",
       "//chrome/browser/ui/webui/ash/system_web_dialog",
+      "//chromeos/ash/components/system_web_apps:system_web_app_type",
       "//chromeos/ash/experiences/system_web_apps/types",
       "//components/session_manager/core",
     ]
@@ -299,7 +306,9 @@ if (!is_android) {
       "//chrome/browser/password_manager",
       "//chrome/browser/prefs",
       "//chrome/browser/search_engines",
+      "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/side_panel:test_support",
       "//chrome/browser/user_education",
       "//chrome/test:test_support",
       "//components/proxy_config",
@@ -398,6 +407,7 @@ if (!is_android) {
       "//base/test:test_support",
       "//chrome/app:command_ids",
       "//chrome/browser",
+      "//chrome/browser:chrome_content_browser_client",
       "//chrome/browser/custom_handlers",
       "//chrome/browser/enterprise/data_controls:test_support",
       "//chrome/browser/glic",

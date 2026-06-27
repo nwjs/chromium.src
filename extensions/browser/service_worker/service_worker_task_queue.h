@@ -243,6 +243,8 @@ class ServiceWorkerTaskQueue
   // content::ServiceWorkerContextObserverSynchronous:
   void OnRegistrationStoredSync(int64_t registration_id,
                                 const GURL& scope) override;
+  void OnRegistrationDeletedSync(int64_t registration_id,
+                                 const GURL& scope) override;
   void OnReportConsoleMessageSync(
       content::ChildProcessId render_process_id,
       int64_t version_id,
@@ -328,12 +330,19 @@ class ServiceWorkerTaskQueue
     // `extension_id` has been registered in the //content layer. It is always
     // called, even if the registration request fails.
     virtual void OnWorkerRegistered(const ExtensionId& extension_id) {}
+
+    // Called when a service worker registration is delayed because there is a
+    // pending unregistration for the same extension.
+    virtual void OnWorkerRegistrationDelayed(const ExtensionId& extension_id) {}
   };
 
   static void SetObserverForTest(TestObserver* observer);
 
   void AddPendingTaskForContextForTesting(PendingTask&& pending_task,
                                           const SequencedContextId& context_id);
+
+  void SetRegisteredServiceWorkerInfoForTesting(const ExtensionId& extension_id,
+                                                const base::Version& version);
 
   size_t GetNumPendingTasksForTest(const LazyContextId& lazy_context_id);
 

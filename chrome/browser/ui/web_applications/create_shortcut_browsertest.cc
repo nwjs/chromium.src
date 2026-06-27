@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include <initializer_list>
-#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -26,6 +25,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
@@ -41,6 +41,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/webapps/browser/features.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
@@ -76,15 +77,25 @@ namespace web_app {
 // On ChromeOS, the Create Shortcut dialog creates DIY apps.
 class CreateShortcutBrowserTest : public WebAppBrowserTestBase {
  public:
-  CreateShortcutBrowserTest() = default;
+  CreateShortcutBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        ::features::kWebAppInstallDialog);
+  }
   webapps::AppId InstallDiyAppForCurrentUrl(bool open_as_window = false) {
-    SetAutoAcceptWebAppDialogForTesting(true, open_as_window);
     WebAppTestInstallObserver observer(profile());
     observer.BeginListening();
-    CHECK(chrome::ExecuteCommand(browser(), IDC_CREATE_SHORTCUT));
-    webapps::AppId app_id = observer.Wait();
-    SetAutoAcceptWebAppDialogForTesting(false, false);
-    return app_id;
+    {
+      std::unique_ptr<web_app::test::ScopedAutoCheckChromeOsOpenInWindow>
+          auto_check;
+      if (open_as_window) {
+        auto_check = std::make_unique<
+            web_app::test::ScopedAutoCheckChromeOsOpenInWindow>();
+      }
+      web_app::test::ScopedAutoAcceptCreateShortcutDialog auto_accept;
+      CHECK(chrome::ExecuteCommand(browser(), IDC_CREATE_SHORTCUT));
+      webapps::AppId app_id = observer.Wait();
+      return app_id;
+    }
   }
 
   // Start URL points to `PageWithDifferentStartUrlManifestStartUrl`.
@@ -109,9 +120,8 @@ class CreateShortcutBrowserTest : public WebAppBrowserTestBase {
     return provider->sync_bridge_unsafe();
   }
 
-#if !BUILDFLAG(IS_CHROMEOS)
+ private:
   base::test::ScopedFeatureList scoped_feature_list_;
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 };
 
 IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
@@ -336,7 +346,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest, UseHostWhenTitleIsUrl) {
           app_id, {icon_size::k128}, IconPurpose::ANY, future.GetCallback());
 
   IconMetadataFromDisk icon_metadata = future.Take();
-  SizeToBitmap icon_bitmaps = std::move(icon_metadata.icons_map);
+  OrderedSizeToBitmap icon_bitmaps = std::move(icon_metadata.icons_map);
   auto icon_it = icon_bitmaps.find(icon_size::k128);
   ASSERT_TRUE(icon_it != icon_bitmaps.end());
   SkBitmap bitmap = icon_it->second;

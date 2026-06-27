@@ -89,9 +89,12 @@ INSTANTIATE_PAINT_TEST_SUITE_P(PaintAndRasterInvalidationTest);
 class ScopedEnablePaintInvalidationTracing {
  public:
   ScopedEnablePaintInvalidationTracing() {
-    trace_event::EnableTracing(TRACE_DISABLED_BY_DEFAULT("blink.invalidation"));
+    trace_event::EnableTracingForTesting(
+        TRACE_DISABLED_BY_DEFAULT("blink.invalidation"));
   }
-  ~ScopedEnablePaintInvalidationTracing() { trace_event::DisableTracing(); }
+  ~ScopedEnablePaintInvalidationTracing() {
+    trace_event::DisableTracingForTesting();
+  }
 };
 
 TEST_P(PaintAndRasterInvalidationTest, TrackingForTracing) {
@@ -871,6 +874,26 @@ TEST_P(PaintAndRasterInvalidationTest, SVGWithFilterNoOpStyleUpdate) {
       <rect width="100" height="100" style="filter: url(#f)"/>
     </svg>
   )HTML");
+
+  GetDocument().View()->SetTracksRasterInvalidations(true);
+  GetDocument().body()->setAttribute(html_names::kStyleAttr,
+                                     AtomicString("--x: 42"));
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(GetRasterInvalidationTracking()->HasInvalidations());
+  GetDocument().View()->SetTracksRasterInvalidations(false);
+}
+
+TEST_P(PaintAndRasterInvalidationTest, SVGWithMultipleFiltersNoOpStyleUpdate) {
+  SetBodyInnerHTML(R"HTML(
+    <svg>
+      <filter id="f">
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
+      <rect width="100" height="100" style="filter: url(#f) blur(0px)"/>
+    </svg>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
 
   GetDocument().View()->SetTracksRasterInvalidations(true);
   GetDocument().body()->setAttribute(html_names::kStyleAttr,

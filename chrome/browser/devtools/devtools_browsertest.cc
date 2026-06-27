@@ -327,6 +327,15 @@ class DevToolsTest : public PlatformBrowserTest {
  public:
   DevToolsTest() : window_(nullptr) {}
 
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    PlatformBrowserTest::SetUpCommandLine(command_line);
+#if BUILDFLAG(IS_ANDROID)
+    // Disable the first-run experience (FRE) to prevent FirstRunActivity from
+    // being launched when launching a new activity.
+    command_line->AppendSwitch("disable-fre");
+#endif
+  }
+
   void SetUpOnMainThread() override {
     // A number of tests expect favicon requests to succeed - otherwise, they'll
     // generate console errors.
@@ -1328,8 +1337,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
   EXPECT_EQ(extensions_instance->GetProcess(),
             data_frame_rfh->GetSiteInstance()->GetProcess());
 
-  EXPECT_EQ(web_url.GetHost(),
-            web_frame_rfh->GetSiteInstance()->GetSiteURL().GetHost());
+  EXPECT_EQ(web_url.GetHost(), web_frame_rfh->GetSiteInstance()
+                                   ->GetSecurityPrincipal()
+                                   .GetHost());
   EXPECT_NE(devtools_instance, web_frame_rfh->GetSiteInstance());
   EXPECT_NE(extensions_instance, web_frame_rfh->GetSiteInstance());
 
@@ -1347,8 +1357,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
   web_frame_rfh = ChildFrameAt(panel_frame_rfh, 2);
 
   EXPECT_EQ(about_blank_url, web_frame_rfh->GetLastCommittedURL());
-  EXPECT_EQ(web_url.GetHost(),
-            web_frame_rfh->GetSiteInstance()->GetSiteURL().GetHost());
+  EXPECT_EQ(web_url.GetHost(), web_frame_rfh->GetSiteInstance()
+                                   ->GetSecurityPrincipal()
+                                   .GetHost());
   EXPECT_NE(devtools_instance, web_frame_rfh->GetSiteInstance());
   EXPECT_NE(extensions_instance, web_frame_rfh->GetSiteInstance());
 
@@ -1445,8 +1456,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
             devtools_extension_devtools_page_rfh->GetSiteInstance());
   EXPECT_EQ(extensions_instance,
             devtools_sidebar_pane_extension_rfh->GetSiteInstance());
-  EXPECT_EQ(web_url.GetHost(),
-            http_iframe_rfh->GetSiteInstance()->GetSiteURL().GetHost());
+  EXPECT_EQ(web_url.GetHost(), http_iframe_rfh->GetSiteInstance()
+                                   ->GetSecurityPrincipal()
+                                   .GetHost());
   EXPECT_NE(devtools_instance, http_iframe_rfh->GetSiteInstance());
   EXPECT_NE(extensions_instance, http_iframe_rfh->GetSiteInstance());
 }
@@ -1520,8 +1532,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
   EXPECT_TRUE(devtools_instance->GetSecurityPrincipal().SchemeIs(
       content::kChromeDevToolsScheme));
   EXPECT_NE(devtools_instance, extensions_instance);
-  EXPECT_EQ(web_url.GetHost(),
-            http_iframe_rfh->GetSiteInstance()->GetSiteURL().GetHost());
+  EXPECT_EQ(web_url.GetHost(), http_iframe_rfh->GetSiteInstance()
+                                   ->GetSecurityPrincipal()
+                                   .GetHost());
   EXPECT_NE(devtools_instance, http_iframe_rfh->GetSiteInstance());
   EXPECT_NE(extensions_instance, http_iframe_rfh->GetSiteInstance());
 }
@@ -1593,7 +1606,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
   EXPECT_EQ(extensions_instance,
             devtools_extension_panel_rfh->GetSiteInstance());
   EXPECT_EQ(non_dt_extension_test_url.DeprecatedGetOriginAsURL(),
-            non_devtools_extension_rfh->GetSiteInstance()->GetSiteURL());
+            non_devtools_extension_rfh->GetSiteInstance()
+                ->GetSecurityPrincipal()
+                .GetDeprecatedSiteURL());
   EXPECT_NE(devtools_instance, non_devtools_extension_rfh->GetSiteInstance());
   EXPECT_NE(extensions_instance, non_devtools_extension_rfh->GetSiteInstance());
 }
@@ -2362,14 +2377,21 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestPauseWhenLoadingDevTools) {
 }
 
 // Tests network timing.
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestNetworkTiming) {
+// TODO(crbug.com/40218872): Enable this flaky test. This is flaky on Android
+// build.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_TestNetworkTiming DISABLED_TestNetworkTiming
+#else
+#define MAYBE_TestNetworkTiming TestNetworkTiming
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestNetworkTiming) {
   RunTest("testNetworkTiming", kSlowTestPage);
 }
 
 // Tests network size.
 // TODO(crbug/40218872): Enable this flaky test. This is flaky on Linux debug
-// build. See also: https://crrev.com/c/2772698
-#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+// build and Android build. See also: https://crrev.com/c/2772698
+#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG)) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_TestNetworkSize DISABLED_TestNetworkSize
 #else
 #define MAYBE_TestNetworkSize TestNetworkSize
@@ -2380,8 +2402,8 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestNetworkSize) {
 
 // Tests raw headers text.
 // TODO(crbug.com/40218872): Enable this flaky test. This is flaky on Linux
-// debug build.
-#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+// debug build and Android build.
+#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG)) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_TestNetworkSyncSize DISABLED_TestNetworkSyncSize
 #else
 #define MAYBE_TestNetworkSyncSize TestNetworkSyncSize

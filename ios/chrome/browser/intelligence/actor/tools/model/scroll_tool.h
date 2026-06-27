@@ -37,6 +37,7 @@ class ScrollTool : public WebActorTool {
   // ActorTool:
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
+  ToolType GetToolType() const override;
 
  private:
   ScrollTool(const optimization_guide::proto::ScrollAction& action,

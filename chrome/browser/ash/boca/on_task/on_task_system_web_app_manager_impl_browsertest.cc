@@ -6,7 +6,6 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/system/privacy_hub/camera_privacy_switch_controller.h"
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -25,12 +24,15 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/boca/on_task/on_task_session_manager.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/ui/wm/window_util.h"
+#include "components/policy/core/browser/url_list/url_list_policy_pref_names.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/test/browser_test.h"
@@ -506,8 +508,10 @@ IN_PROC_BROWSER_TEST_F(OnTaskSystemWebAppManagerImplBrowserTest,
   EXPECT_FALSE(chromeos::wm::CanFloatWindow(
       boca_app_browser->window()->GetNativeWindow()));
   EXPECT_EQ(boca_app_browser->tab_strip_model()->count(), 1);
-  EXPECT_FALSE(boca_app_browser->ShouldRunUnloadListenerBeforeClosing(
-      boca_app_browser->tab_strip_model()->GetActiveWebContents()));
+  EXPECT_FALSE(
+      UnloadController::From(boca_app_browser)
+          ->ShouldRunUnloadListenerBeforeClosing(
+              boca_app_browser->tab_strip_model()->GetActiveWebContents()));
 }
 
 IN_PROC_BROWSER_TEST_F(OnTaskSystemWebAppManagerImplBrowserTest,
@@ -533,8 +537,10 @@ IN_PROC_BROWSER_TEST_F(OnTaskSystemWebAppManagerImplBrowserTest,
   EXPECT_TRUE(
       OnTaskLockedController::From(boca_app_browser)->is_locked_for_on_task());
   EXPECT_EQ(boca_app_browser->tab_strip_model()->count(), 2);
-  EXPECT_FALSE(boca_app_browser->ShouldRunUnloadListenerBeforeClosing(
-      boca_app_browser->tab_strip_model()->GetActiveWebContents()));
+  EXPECT_FALSE(
+      UnloadController::From(boca_app_browser)
+          ->ShouldRunUnloadListenerBeforeClosing(
+              boca_app_browser->tab_strip_model()->GetActiveWebContents()));
 }
 
 IN_PROC_BROWSER_TEST_F(OnTaskSystemWebAppManagerImplBrowserTest,

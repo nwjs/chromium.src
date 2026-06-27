@@ -11,8 +11,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
@@ -40,8 +42,11 @@ BackForwardButton::BackForwardButton(Direction direction,
   SetTriggerableEventFlags(ui::EF_LEFT_MOUSE_BUTTON |
                            ui::EF_MIDDLE_MOUSE_BUTTON);
   if (direction == Direction::kBack) {
-    SetVectorIcons(vector_icons::kBackArrowChromeRefreshIcon,
-                   kBackArrowTouchIcon);
+    SetVectorIcons(features::IsRoundedIconsEnabled()
+                       ? vector_icons::kArrowBackIcon
+                       : vector_icons::kBackArrowChromeRefreshOldIcon,
+                   features::IsRoundedIconsEnabled() ? kArrowBackIcon
+                                                     : kBackArrowTouchOldIcon);
     SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_BACK));
     GetViewAccessibility().SetName(l10n_util::GetStringUTF16(IDS_ACCNAME_BACK));
     GetViewAccessibility().SetDescription(
@@ -50,8 +55,12 @@ BackForwardButton::BackForwardButton(Direction direction,
     SetProperty(views::kElementIdentifierKey, kToolbarBackButtonElementId);
     set_menu_identifier(kToolbarBackButtonMenuElementId);
   } else {
-    SetVectorIcons(vector_icons::kForwardArrowChromeRefreshIcon,
-                   kForwardArrowTouchIcon);
+    SetVectorIcons(features::IsRoundedIconsEnabled()
+                       ? vector_icons::kArrowForwardIcon
+                       : vector_icons::kForwardArrowChromeRefreshOldIcon,
+                   features::IsRoundedIconsEnabled()
+                       ? kArrowForwardIcon
+                       : kForwardArrowTouchOldIcon);
     SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_FORWARD));
     GetViewAccessibility().SetName(
         l10n_util::GetStringUTF16(IDS_ACCNAME_FORWARD));
@@ -135,6 +144,27 @@ void BackForwardButton::OnMouseEntered(const ui::MouseEvent& event) {
   }
 
   ToolbarButton::OnMouseEntered(event);
+}
+
+bool BackForwardButton::OnMousePressed(const ui::MouseEvent& event) {
+  const bool play_animation = features::IsToolbarGlowUpEnabled() &&
+                              !ui::TouchUiController::Get()->touch_ui() &&
+                              event.IsLeftMouseButton();
+
+  if (play_animation) {
+    views::SingleAnimatedImageContainer::AnimationConfig config{
+        .direction =
+            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+        .end_behavior =
+            views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset};
+    animated_image_container().PlayAnimation(
+        {direction_ == Direction::kBack ? IDR_BACK_ARROW_LOTTIE
+                                        : IDR_FORWARD_ARROW_LOTTIE,
+         GetForegroundColor(GetState())},
+        config);
+  }
+
+  return ToolbarButton::OnMousePressed(event);
 }
 
 bool BackForwardButton::ShouldShowInkdropAfterIphInteraction() {

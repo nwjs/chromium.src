@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
+import("//build/config/chromeos/args.gni")
 
 assert(is_chromeos)
 
@@ -46,7 +46,6 @@ static_library("accessibility") {
     "//chrome/browser/ui/aura/accessibility",
     "//chrome/common",
     "//chrome/common:constants",
-    "//chromeos/ash/components/audio/public/cpp/sounds",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/upstart",
     "//chromeos/ash/components/language_packs",
@@ -66,6 +65,7 @@ static_library("accessibility") {
     "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
     "//extensions/common:mojom",
     "//services/accessibility:buildflags",
+    "//services/audio/public/cpp",
     "//ui/base/interaction",
     "//ui/content_accelerators",
     "//ui/events/ash",
@@ -201,6 +201,7 @@ source_set("browser_tests") {
     "//ash/app_list/model:app_list_model",
     "//base",
     "//chrome/app:command_ids",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/accessibility",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/ash/accessibility/live_caption:browser_tests",

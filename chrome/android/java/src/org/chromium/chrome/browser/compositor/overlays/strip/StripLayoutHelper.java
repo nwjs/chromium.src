@@ -41,7 +41,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
 
 import org.chromium.base.DeviceInfo;
@@ -61,6 +60,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
+import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerHost;
@@ -85,6 +85,7 @@ import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.layouts.SceneOverlay;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
@@ -103,8 +104,7 @@ import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorUtil;
 import org.chromium.chrome.browser.tabmodel.TabGroupColorUtils;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterObserver;
+import org.chromium.chrome.browser.tabmodel.TabGroupObserver;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallback;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -134,10 +134,12 @@ import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_group_sync.TriggerSource;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.accessibility.AccessibilityState;
+import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.util.MotionEventUtils;
+import org.chromium.ui.util.StyleUtils;
 import org.chromium.ui.widget.RectProvider;
 
 import java.util.ArrayList;
@@ -194,11 +196,10 @@ public class StripLayoutHelper
     static final float FADE_FULL_OPACITY_THRESHOLD_DP = 24.f;
 
     // Values adapt based on whether the device is desktop or tablet.
-    private static final boolean IS_DESKTOP_DENSITY = StripLayoutUtils.shouldApplyMoreDensity();
     private static final float NEW_TAB_BUTTON_CLICK_SLOP_DP =
             (BUTTON_TOUCH_TARGET_SIZE_DP - BUTTON_BACKGROUND_SIZE_DP) / 2;
     private static final float NEW_TAB_BUTTON_WITH_STRIP_BUTTON_PADDING =
-            IS_DESKTOP_DENSITY ? 24.f : 8.f;
+            StyleUtils.shouldApplyDesktopDensity() ? 24.f : 8.f;
 
     private static final int MESSAGE_UPDATE_SPINNER = 1;
     private static final int MESSAGE_HOVER_CARD = 2;
@@ -230,9 +231,9 @@ public class StripLayoutHelper
     @VisibleForTesting static final int MIN_HOVER_CARD_DELAY_MS = 300;
     private static final int SHOW_HOVER_CARD_WITHOUT_DELAY_TIME_BUFFER = 300;
 
-    // An observer that is notified of changes to a {@link TabGroupModelFilter} object.
-    private final TabGroupModelFilterObserver mTabGroupModelFilterObserver =
-            new TabGroupModelFilterObserver() {
+    // An observer that is notified of changes to a {@link TabModel} object.
+    private final TabGroupObserver mTabGroupObserver =
+            new TabGroupObserver() {
                 @Nullable Token mSourceTabGroupId;
 
                 @Override
@@ -287,8 +288,8 @@ public class StripLayoutHelper
                     boolean removedHiddenLastTabInGroup =
                             groupIdToHide != null
                                     && groupIdToHide.equals(mSourceTabGroupId)
-                                    && mTabGroupModelFilter != null
-                                    && !mTabGroupModelFilter.tabGroupExists(mSourceTabGroupId);
+                                    && mModel != null
+                                    && !mModel.tabGroupExists(mSourceTabGroupId);
 
                     // Skip if the rebuild will be handled elsewhere after reaching a "proper" tab
                     // state, such as confirming the group deletion.
@@ -312,7 +313,7 @@ public class StripLayoutHelper
                 }
 
                 @Override
-                public void didCreateNewGroup(Tab destinationTab, TabGroupModelFilter filter) {
+                public void didCreateNewGroup(Tab destinationTab, TabModel tabModel) {
                     rebuildStripViews();
                 }
 
@@ -494,7 +495,6 @@ public class StripLayoutHelper
 
     // Set after native initialization
     private @MonotonicNonNull TabModel mModel;
-    private @MonotonicNonNull TabGroupModelFilter mTabGroupModelFilter;
     private @MonotonicNonNull TabCreator mTabCreator;
     private @MonotonicNonNull TabStripIphController mTabStripIphController; // IPH on tab strip.
 
@@ -503,6 +503,7 @@ public class StripLayoutHelper
 
     private final BottomSheetController mBottomSheetController;
     private final MonotonicObservableSupplier<ShareDelegate> mShareDelegateSupplier;
+    private final Supplier<TabBookmarker> mTabBookmarkerSupplier;
 
     private final TabGroupListBottomSheetCoordinatorFactory
             mTabGroupListBottomSheetCoordinatorFactory;
@@ -670,6 +671,7 @@ public class StripLayoutHelper
     // time.
     private @MonotonicNonNull TabStripContextMenuCoordinator mTabStripContextMenuCoordinator;
     private final SnackbarManager mSnackbarManager;
+    private final @Nullable ActivityResultTracker mActivityResultTracker;
 
     // Tab group share.
     // These are set if shouldEnableGroupSharing() is true.
@@ -730,9 +732,11 @@ public class StripLayoutHelper
      * @param multiInstanceManager The {@link MultiInstanceManager} used to move tabs to other
      *     windows.
      * @param shareDelegateSupplier Supplies {@link ShareDelegate} to share tab URLs.
+     * @param tabBookmarkerSupplier Supplies {@link TabBookmarker} to add/edit bookmarks.
      * @param tabGroupListBottomSheetCoordinatorFactory The factory used to create the {@link
      *     TabGroupListBottomSheetCoordinator}.
      * @param snackbarManager The {@link SnackbarManager} used to show snackbar UI.
+     * @param activityResultTracker The {@link ActivityResultTracker}.
      */
     public StripLayoutHelper(
             Context context,
@@ -752,8 +756,10 @@ public class StripLayoutHelper
             BottomSheetController bottomSheetController,
             MultiInstanceManager multiInstanceManager,
             MonotonicObservableSupplier<ShareDelegate> shareDelegateSupplier,
+            Supplier<TabBookmarker> tabBookmarkerSupplier,
             TabGroupListBottomSheetCoordinatorFactory tabGroupListBottomSheetCoordinatorFactory,
-            SnackbarManager snackbarManager) {
+            SnackbarManager snackbarManager,
+            @Nullable ActivityResultTracker activityResultTracker) {
         mGroupTitleDrawXOffset = TAB_OVERLAP_WIDTH_DP - FOLIO_FOOT_LENGTH_DP;
         mGroupTitleOverlapWidth = FOLIO_FOOT_LENGTH_DP - mGroupTitleDrawXOffset;
         mNewTabButtonWidth = BUTTON_BACKGROUND_SIZE_DP;
@@ -767,8 +773,10 @@ public class StripLayoutHelper
         mBottomSheetController = bottomSheetController;
         mMultiInstanceManager = multiInstanceManager;
         mShareDelegateSupplier = shareDelegateSupplier;
+        mTabBookmarkerSupplier = tabBookmarkerSupplier;
         mTabGroupListBottomSheetCoordinatorFactory = tabGroupListBottomSheetCoordinatorFactory;
         mSnackbarManager = snackbarManager;
+        mActivityResultTracker = activityResultTracker;
         mScrollDelegate = new ScrollDelegate(context);
 
         // Use toolbar menu button padding to align NTB with menu button.
@@ -848,7 +856,7 @@ public class StripLayoutHelper
 
         // No pressed state color change for new tab button icon.
         int iconTint = incognito ? R.color.modern_white : R.color.default_icon_color_tint_list;
-        int iconColor = AppCompatResources.getColorStateList(context, iconTint).getDefaultColor();
+        int iconColor = context.getColorStateList(iconTint).getDefaultColor();
         mNewTabButton.setTint(iconColor);
 
         // y-offset  = lowered tab container + (tab container size - bg size)/2 -
@@ -875,9 +883,9 @@ public class StripLayoutHelper
                 });
 
         if (!mIncognito
-                && (ChromeFeatureList.sGlic.isEnabled()
+                && (GlicEnabling.isEnabledByFlags()
                         || ChromeFeatureList.sContextualTasks.isEnabled())) {
-            mStripTabUnderlineManager = new StripTabUnderlineManager(this);
+            mStripTabUnderlineManager = new StripTabUnderlineManager(this, windowAndroid);
         }
 
         mIsFirstLayoutPass = true;
@@ -898,9 +906,10 @@ public class StripLayoutHelper
             mDataSharingService.removeObserver(mDataSharingObserver);
             mDataSharingService = null;
         }
-        if (mTabGroupModelFilter != null) {
-            mTabGroupModelFilter.removeTabGroupObserver(mTabGroupModelFilterObserver);
-            mTabGroupModelFilter = null;
+        if (mModel != null) {
+            mModel.removeTabGroupObserver(mTabGroupObserver);
+            mModel.removeObserver(mTabModelObserver);
+            mModel = null;
         }
         if (mTabGroupContextMenuCoordinator != null) {
             mTabGroupContextMenuCoordinator.destroy();
@@ -921,10 +930,6 @@ public class StripLayoutHelper
         if (mTabStripContextMenuCoordinator != null) {
             mTabStripContextMenuCoordinator.destroy();
             mTabStripContextMenuCoordinator = null;
-        }
-        if (mModel != null) {
-            mModel.removeObserver(mTabModelObserver);
-            mModel = null;
         }
         if (mStripTabUnderlineManager != null) {
             mStripTabUnderlineManager.destroy();
@@ -1292,7 +1297,8 @@ public class StripLayoutHelper
     }
 
     /**
-     * Sets the {@link TabModel} that this {@link StripLayoutHelper} will visually represent.
+     * Sets the {@link TabModel} that this {@link StripLayoutHelper} will visually represent and
+     * access for tab group state.
      *
      * @param model The {@link TabModel} to visually represent.
      * @param tabCreator The {@link TabCreator}, used to create new tabs.
@@ -1301,6 +1307,9 @@ public class StripLayoutHelper
      */
     public void setTabModel(TabModel model, TabCreator tabCreator, boolean tabStateInitialized) {
         if (mModel == model) return;
+        if (mModel != null) {
+            mModel.removeTabGroupObserver(mTabGroupObserver);
+        }
         mModel = model;
         mTabCreator = tabCreator;
         mTabStateInitialized = tabStateInitialized;
@@ -1317,6 +1326,7 @@ public class StripLayoutHelper
                     PLACEHOLDER_VISIBLE_DURATION_HISTOGRAM_NAME, 0L);
 
             rebuildStripTabs(/* deferAnimations= */ false);
+            registerTabsWithUnderlineManager();
             finishAnimationsAndCloseDyingTabs();
             computeAndUpdateTabWidth(/* animate= */ false, /* deferAnimations= */ false);
         }
@@ -1324,78 +1334,13 @@ public class StripLayoutHelper
             tabSelected(LayoutManagerImpl.time(), getSelectedTabId(), Tab.INVALID_TAB_ID);
         }
         mModel.addObserver(mTabModelObserver);
-    }
+        mModel.addTabGroupObserver(mTabGroupObserver);
 
-    /** Called to notify that the tab state has been initialized. */
-    protected void onTabStateInitialized() {
-        mTabStateInitialized = true;
-        assumeNonNull(mModel);
-
-        if (mPlaceholderStripReady) {
-            int numLeftoverPlaceholders = 0;
-            for (int i = 0; i < mStripTabs.length; i++) {
-                StripLayoutTab stripTab = mStripTabs[i];
-                if (stripTab.getIsPlaceholder()) numLeftoverPlaceholders++;
-                Tab tab = mModel.getTabById(stripTab.getTabId());
-                if (tab != null) {
-                    boolean isPinned = tab.getIsPinned();
-                    if (isPinned) {
-                        stripTab.setIsPinned(true);
-                        float targetFaviconOffsetX = calculateTabFaviconOffsetX(stripTab);
-                        stripTab.setPinnedTabFaviconOffsetX(targetFaviconOffsetX);
-                    }
-                }
-            }
-            mPinnedTabsBoundarySupplier.set(getPinnedTabsBoundary());
-
-            RecordHistogram.recordCount1000Histogram(
-                    PLACEHOLDER_LEFTOVER_TABS_HISTOGRAM_NAME, numLeftoverPlaceholders);
-            RecordHistogram.recordCount1000Histogram(
-                    PLACEHOLDER_TABS_CREATED_DURING_RESTORE_HISTOGRAM_NAME,
-                    mTabsCreatedDuringRestore);
-            RecordHistogram.recordCount1000Histogram(
-                    PLACEHOLDER_TABS_NEEDED_DURING_RESTORE_HISTOGRAM_NAME,
-                    mPlaceholdersNeededDuringRestore);
-            RecordHistogram.deprecatedRecordMediumTimesHistogram(
-                    PLACEHOLDER_VISIBLE_DURATION_HISTOGRAM_NAME,
-                    SystemClock.uptimeMillis() - mPlaceholderCreationTime);
-        }
-
-        // Recreate the StripLayoutTabs from the TabModel, now that all of the real Tabs have been
-        // restored. This will reuse valid tabs, discard invalid tabs, and correct tab orders.
-        rebuildStripTabs(/* deferAnimations= */ false);
-        // Backfill existing tabs to StripTabUnderlineManager
-        if (mStripTabUnderlineManager != null) {
-            for (int i = 0; i < mModel.getCount(); i++) {
-                Tab tab = mModel.getTabAt(i);
-                if (tab != null) {
-                    mStripTabUnderlineManager.registerTab(tab);
-                }
-            }
-        }
-        if (getSelectedTabId() != Tab.INVALID_TAB_ID) {
-            tabSelected(LayoutManagerImpl.time(), getSelectedTabId(), Tab.INVALID_TAB_ID);
-        }
-    }
-
-    /**
-     * Sets the {@link TabGroupModelFilter} that will access the internal tab group state.
-     *
-     * @param tabGroupModelFilter The {@link TabGroupModelFilter}.
-     */
-    public void setTabGroupModelFilter(TabGroupModelFilter tabGroupModelFilter) {
-        if (mTabGroupModelFilter != null) {
-            mTabGroupModelFilter.removeTabGroupObserver(mTabGroupModelFilterObserver);
-        }
-
-        mTabGroupModelFilter = tabGroupModelFilter;
-        mTabGroupModelFilter.addTabGroupObserver(mTabGroupModelFilterObserver);
-
-        Profile profile = tabGroupModelFilter.getTabModel().getProfile();
+        Profile profile = mModel.getProfile();
         mReorderDelegate.initialize(
                 /* animationHost= */ this,
                 /* stripUpdateDelegate= */ this,
-                mTabGroupModelFilter,
+                mModel,
                 mScrollDelegate,
                 mTabStripDragHandler,
                 mActionConfirmationManager,
@@ -1477,10 +1422,7 @@ public class StripLayoutHelper
 
         // Prepare to show tab strip IPH for tab group sync and share notification bubble. Skip
         // initialization if testing value has been set.
-        if (mTabStripIphController == null
-                && !mIncognito
-                && mModel != null
-                && mModel.getProfile() != null) {
+        if (mTabStripIphController == null && !mIncognito && mModel.getProfile() != null) {
             Profile modelProfile = mModel.getProfile();
             UserEducationHelper userEducationHelper =
                     new UserEducationHelper(
@@ -1497,10 +1439,64 @@ public class StripLayoutHelper
         rebuildStripViews();
     }
 
+    /** Called to notify that the tab state has been initialized. */
+    protected void onTabStateInitialized() {
+        mTabStateInitialized = true;
+        assumeNonNull(mModel);
+
+        if (mPlaceholderStripReady) {
+            int numLeftoverPlaceholders = 0;
+            for (int i = 0; i < mStripTabs.length; i++) {
+                StripLayoutTab stripTab = mStripTabs[i];
+                if (stripTab.getIsPlaceholder()) numLeftoverPlaceholders++;
+                Tab tab = mModel.getTabById(stripTab.getTabId());
+                if (tab != null) {
+                    boolean isPinned = tab.getIsPinned();
+                    if (isPinned) {
+                        stripTab.setIsPinned(true);
+                        float targetFaviconOffsetX = calculateTabFaviconOffsetX(stripTab);
+                        stripTab.setPinnedTabFaviconOffsetX(targetFaviconOffsetX);
+                    }
+                }
+            }
+            mPinnedTabsBoundarySupplier.set(getPinnedTabsBoundary());
+
+            RecordHistogram.recordCount1000Histogram(
+                    PLACEHOLDER_LEFTOVER_TABS_HISTOGRAM_NAME, numLeftoverPlaceholders);
+            RecordHistogram.recordCount1000Histogram(
+                    PLACEHOLDER_TABS_CREATED_DURING_RESTORE_HISTOGRAM_NAME,
+                    mTabsCreatedDuringRestore);
+            RecordHistogram.recordCount1000Histogram(
+                    PLACEHOLDER_TABS_NEEDED_DURING_RESTORE_HISTOGRAM_NAME,
+                    mPlaceholdersNeededDuringRestore);
+            RecordHistogram.deprecatedRecordMediumTimesHistogram(
+                    PLACEHOLDER_VISIBLE_DURATION_HISTOGRAM_NAME,
+                    SystemClock.uptimeMillis() - mPlaceholderCreationTime);
+        }
+
+        // Recreate the StripLayoutTabs from the TabModel, now that all of the real Tabs have been
+        // restored. This will reuse valid tabs, discard invalid tabs, and correct tab orders.
+        rebuildStripTabs(/* deferAnimations= */ false);
+        registerTabsWithUnderlineManager();
+        if (getSelectedTabId() != Tab.INVALID_TAB_ID) {
+            tabSelected(LayoutManagerImpl.time(), getSelectedTabId(), Tab.INVALID_TAB_ID);
+        }
+    }
+
+    private void registerTabsWithUnderlineManager() {
+        if (mStripTabUnderlineManager == null || mModel == null) return;
+        for (int i = 0; i < mModel.getCount(); i++) {
+            Tab tab = mModel.getTabAt(i);
+            if (tab != null) {
+                mStripTabUnderlineManager.registerTab(tab);
+            }
+        }
+    }
+
     @EnsuresNonNullIf("mTabGroupSyncService")
     private boolean shouldEnableGroupSharing() {
-        if (mTabGroupModelFilter == null) return false;
-        Profile profile = mTabGroupModelFilter.getTabModel().getProfile();
+        if (mModel == null) return false;
+        Profile profile = mModel.getProfile();
         if (profile == null || profile.isOffTheRecord() || mTabGroupSyncService == null) {
             return false;
         }
@@ -1509,8 +1505,8 @@ public class StripLayoutHelper
         return collaborationService.getServiceStatus().isAllowedToJoin();
     }
 
-    TabGroupModelFilterObserver getTabGroupModelFilterObserverForTesting() {
-        return mTabGroupModelFilterObserver;
+    TabGroupObserver getTabGroupObserverForTesting() {
+        return mTabGroupObserver;
     }
 
     /**
@@ -1525,7 +1521,7 @@ public class StripLayoutHelper
     }
 
     private void updateTitleCacheForInit() {
-        if (mTabGroupModelFilter == null || mLayerTitleCache == null) return;
+        if (mModel == null || mLayerTitleCache == null) return;
 
         for (int i = 0; i < mStripGroupTitles.length; ++i) {
             final StripLayoutGroupTitle groupTitle = mStripGroupTitles[i];
@@ -1715,10 +1711,10 @@ public class StripLayoutHelper
 
         Tab tab = getTabById(id);
         if (tab != null
-                && mTabGroupModelFilter != null
+                && mModel != null
                 && tab.getTabGroupId() != null
-                && mTabGroupModelFilter.getTabGroupCollapsed(tab.getTabGroupId())) {
-            mTabGroupModelFilter.deleteTabGroupCollapsed(tab.getTabGroupId());
+                && mModel.getTabGroupCollapsed(tab.getTabGroupId())) {
+            mModel.deleteTabGroupCollapsed(tab.getTabGroupId());
         }
 
         if (!mReorderDelegate.getInReorderMode()) {
@@ -1858,11 +1854,9 @@ public class StripLayoutHelper
             }
             Token tabGroupId = tab.getTabGroupId();
             updateGroupTextAndSharedState(tabGroupId);
-            if (tabGroupId != null
-                    && mTabGroupModelFilter != null
-                    && mTabGroupModelFilter.getTabGroupCollapsed(tabGroupId)) {
+            if (tabGroupId != null && mModel != null && mModel.getTabGroupCollapsed(tabGroupId)) {
                 if (selected) {
-                    mTabGroupModelFilter.deleteTabGroupCollapsed(tabGroupId);
+                    mModel.deleteTabGroupCollapsed(tabGroupId);
                 } else {
                     collapsed = true;
                 }
@@ -1900,7 +1894,7 @@ public class StripLayoutHelper
             mQueuedIphList.add(
                     () ->
                             attemptToShowTabStripIph(
-                                    /* groupTitle */ null,
+                                    /* groupTitle= */ null,
                                     stripTab,
                                     IphType.TAB_TEARING_XR,
                                     /* enableSnoozeMode= */ true));
@@ -2412,12 +2406,11 @@ public class StripLayoutHelper
      */
     private void showTabGroupContextMenu(
             @Nullable StripLayoutGroupTitle groupTitle, boolean shouldWaitForUpdate) {
-        if (mModel == null || mTabGroupModelFilter == null) return;
+        if (mModel == null) return;
         if (mTabGroupContextMenuCoordinator == null) {
             mTabGroupContextMenuCoordinator =
                     TabGroupContextMenuCoordinator.createContextMenuCoordinator(
                             mModel,
-                            mTabGroupModelFilter,
                             mMultiInstanceManager,
                             mWindowAndroid,
                             mDataSharingTabManager,
@@ -2471,7 +2464,7 @@ public class StripLayoutHelper
     }
 
     private void showTabContextMenu(List<Integer> tabIds, StripLayoutTab anchorTab) {
-        if (mModel == null || mTabGroupModelFilter == null) return;
+        if (mModel == null) return;
         if (mTabContextMenuCoordinator == null) {
             TabGroupCreationCallback tabGroupCreationCallback =
                     (newTabGroupId) ->
@@ -2481,10 +2474,10 @@ public class StripLayoutHelper
                 mTabGroupListBottomSheetCoordinator =
                         mTabGroupListBottomSheetCoordinatorFactory.create(
                                 mContext,
-                                assumeNonNull(mTabGroupModelFilter.getTabModel().getProfile()),
+                                assumeNonNull(mModel.getProfile()),
                                 tabGroupCreationCallback,
                                 /* tabMovedCallback= */ null,
-                                mTabGroupModelFilter,
+                                mModel,
                                 mBottomSheetController,
                                 /* supportsShowNewGroup= */ true,
                                 /* destroyOnHide= */ false);
@@ -2492,13 +2485,13 @@ public class StripLayoutHelper
             mTabContextMenuCoordinator =
                     TabContextMenuCoordinator.createContextMenuCoordinator(
                             () -> mModel,
-                            mTabGroupModelFilter,
                             mTabGroupListBottomSheetCoordinator,
                             tabGroupCreationCallback,
                             mMultiInstanceManager,
                             mShareDelegateSupplier,
                             mWindowAndroid,
                             assertNonNull(mWindowAndroid.getActivity().get()),
+                            mTabBookmarkerSupplier,
                             (ids, toLeft) -> {
                                 // Don't use anchorTab here, since that will be the anchor of the
                                 // first-opened tab context menu (it won't change when a new context
@@ -2510,7 +2503,10 @@ public class StripLayoutHelper
                                         mStripTabs,
                                         assumeNonNull(findTabById(ids.getAnchorTabId())),
                                         toLeft);
-                            });
+                            },
+                            mSnackbarManager,
+                            mActivityResultTracker,
+                            mWindowAndroid.getModalDialogManager());
         }
         RectProvider anchorRectProvider = new RectProvider();
         anchorTab.getAnchorRect(anchorRectProvider.getRect());
@@ -2618,14 +2614,12 @@ public class StripLayoutHelper
      * @param groupTitle The group title to update with the shared tab group state.
      */
     private void updateSharedTabGroup(String collaborationId, StripLayoutGroupTitle groupTitle) {
-        if (mTabGroupModelFilter == null) return;
+        if (mModel == null) return;
         // Setup tab bubbler used for showing notification bubbles for shared tab groups.
         if (groupTitle.getTabBubbler() == null) {
             TabBubbler tabBubbler =
                     new TabBubbler(
-                            assumeNonNull(mTabGroupModelFilter.getTabModel().getProfile()),
-                            this,
-                            mGroupIdToHideSupplier);
+                            assumeNonNull(mModel.getProfile()), this, mGroupIdToHideSupplier);
             groupTitle.setTabBubbler(tabBubbler);
         }
 
@@ -3210,17 +3204,12 @@ public class StripLayoutHelper
 
     private List<Integer> getMultiSelectedTabIds() {
         StripLayoutUtils.recordTabMultiSelectionTabCount(mModel);
-        List<Integer> multiSelectedTabs = new ArrayList<>();
-        if (mModel == null) return multiSelectedTabs;
-        for (StripLayoutTab stripTab : mStripTabs) {
-            if (mModel.isTabMultiSelected(stripTab.getTabId())) {
-                multiSelectedTabs.add(stripTab.getTabId());
-            }
-        }
-        assert multiSelectedTabs.size() == mModel.getMultiSelectedTabsCount()
+        if (mModel == null) return new ArrayList<>();
+        List<Integer> multiSelectedTabIds = mModel.getOrderedMultiSelectedTabIds();
+        assert multiSelectedTabIds.size() == mModel.getMultiSelectedTabsCount()
                 : "Count of multi selected tabs don't match.";
-        assert multiSelectedTabs.size() >= 2 : "Too few tabs in multi selection";
-        return multiSelectedTabs;
+        assert multiSelectedTabIds.size() >= 2 : "Too few tabs in multi selection";
+        return multiSelectedTabIds;
     }
 
     /**
@@ -3315,11 +3304,8 @@ public class StripLayoutHelper
                 // If part of a tab group, expand the tab group.
                 if (tab == null) return;
                 Token tabGroupId = tab.getTabGroupId();
-                if (tabGroupId != null
-                        && !tabGroupIds.contains(tabGroupId)
-                        && mTabGroupModelFilter != null) {
-                    mTabGroupModelFilter.setTabGroupCollapsed(
-                            tabGroupId, false, /* animate= */ true);
+                if (tabGroupId != null && !tabGroupIds.contains(tabGroupId) && mModel != null) {
+                    mModel.setTabGroupCollapsed(tabGroupId, false, /* animate= */ true);
                     tabGroupIds.add(tabGroupId);
                 }
             }
@@ -3419,13 +3405,13 @@ public class StripLayoutHelper
     }
 
     private void handleGroupTitleClick(StripLayoutGroupTitle groupTitle) {
-        if (groupTitle == null || mTabGroupModelFilter == null) return;
+        if (groupTitle == null || mModel == null) return;
 
         Token tabGroupId = groupTitle.getTabGroupId();
-        boolean isCollapsed = mTabGroupModelFilter.getTabGroupCollapsed(tabGroupId);
+        boolean isCollapsed = mModel.getTabGroupCollapsed(tabGroupId);
         assert isCollapsed == groupTitle.isCollapsed();
 
-        mTabGroupModelFilter.setTabGroupCollapsed(tabGroupId, !isCollapsed, /* animate= */ true);
+        mModel.setTabGroupCollapsed(tabGroupId, !isCollapsed, /* animate= */ true);
         RecordHistogram.recordBooleanHistogram("Android.TabStrip.TabGroupCollapsed", !isCollapsed);
     }
 
@@ -3460,7 +3446,7 @@ public class StripLayoutHelper
     @VisibleForTesting
     void handleCloseButtonClick(StripLayoutTab tab, int motionEventButtonState) {
         // Invalid if the TabModel/Filter are not ready.
-        if (mModel == null || mTabGroupModelFilter == null) return;
+        if (mModel == null) return;
 
         // Check if the tab is valid and not already closing.
         if (tab.isDying() || tab.getTabId() == Tab.INVALID_TAB_ID) return;
@@ -3510,7 +3496,7 @@ public class StripLayoutHelper
             paramsBuilder.recommendedNextTab(mModel.getTabAt(nextIndex));
         }
 
-        TabRemover tabRemover = mTabGroupModelFilter.getTabModel().getTabRemover();
+        TabRemover tabRemover = mModel.getTabRemover();
         tabRemover.closeTabs(paramsBuilder.build(), /* allowDialog= */ true, listener);
     }
 
@@ -3813,9 +3799,7 @@ public class StripLayoutHelper
 
         // 2. Retrieve the grouped tabs and append the tab titles.
         List<Tab> relatedTabs =
-                mTabGroupModelFilter == null
-                        ? List.of()
-                        : mTabGroupModelFilter.getTabsInGroup(groupTitle.getTabGroupId());
+                mModel == null ? List.of() : mModel.getTabsInGroup(groupTitle.getTabGroupId());
         int relatedTabsCount = relatedTabs.size();
         if (relatedTabsCount > 0) {
             final String contentDescriptionSeparator = " - ";
@@ -3964,15 +3948,15 @@ public class StripLayoutHelper
      * be expanded.
      */
     protected void expandGroupOnGtsExit() {
-        if (mTabGroupModelFilter == null) return;
+        if (mModel == null) return;
         StripLayoutTab selectedTab = getSelectedStripTab();
         if (selectedTab == null) {
             return;
         }
         Tab tab = getTabById(selectedTab.getTabId());
         Token tabGroupId = tab != null ? tab.getTabGroupId() : null;
-        if (tabGroupId != null && mTabGroupModelFilter.getTabGroupCollapsed(tabGroupId)) {
-            mTabGroupModelFilter.deleteTabGroupCollapsed(tabGroupId);
+        if (tabGroupId != null && mModel.getTabGroupCollapsed(tabGroupId)) {
+            mModel.deleteTabGroupCollapsed(tabGroupId);
         }
     }
 
@@ -4077,8 +4061,8 @@ public class StripLayoutHelper
     }
 
     private void updateGroupTitleTint(StripLayoutGroupTitle groupTitle) {
-        if (mTabGroupModelFilter == null) return;
-        int colorId = mTabGroupModelFilter.getTabGroupColor(groupTitle.getTabGroupId());
+        if (mModel == null) return;
+        int colorId = mModel.getTabGroupColor(groupTitle.getTabGroupId());
         // If the color is invalid, temporarily assign a default placeholder color.
         if (colorId == TabGroupColorUtils.INVALID_COLOR_ID) colorId = TabGroupColorId.GREY;
         updateGroupTitleTint(groupTitle, colorId);
@@ -4099,8 +4083,8 @@ public class StripLayoutHelper
 
     private void updateGroupTextAndSharedState(@Nullable StripLayoutGroupTitle groupTitle) {
         if (groupTitle == null
-                || mTabGroupModelFilter == null
-                || !mTabGroupModelFilter.tabGroupExists(groupTitle.getTabGroupId())) {
+                || mModel == null
+                || !mModel.tabGroupExists(groupTitle.getTabGroupId())) {
             return;
         }
         updateGroupTextAndSharedStateUnchecked(groupTitle);
@@ -4115,7 +4099,7 @@ public class StripLayoutHelper
      * @param groupTitle The {@link StripLayoutGroupTitle} that we're update the title text for.
      */
     private void updateGroupTextAndSharedStateUnchecked(StripLayoutGroupTitle groupTitle) {
-        if (mLayerTitleCache == null || mTabGroupModelFilter == null) return;
+        if (mLayerTitleCache == null || mModel == null) return;
 
         // Ignore updates for closing group indicators. This prevents assertion errors from using
         // stale group properties.
@@ -4124,7 +4108,7 @@ public class StripLayoutHelper
         // 1. Update indicator text and width.
         String titleText =
                 TabGroupTitleUtils.getDisplayableTitle(
-                        mContext, mTabGroupModelFilter, groupTitle.getTabGroupId());
+                        mContext, mModel, groupTitle.getTabGroupId());
         int widthPx = mLayerTitleCache.getTitleWidth(mIncognito, titleText);
         float widthDp = widthPx / mContext.getResources().getDisplayMetrics().density;
         float oldWidth = groupTitle.getWidth();
@@ -4193,7 +4177,7 @@ public class StripLayoutHelper
 
     @VisibleForTesting
     void rebuildStripViews() {
-        if (mTabGroupModelFilter != null && mTabStateInitialized) {
+        if (mModel != null && mTabStateInitialized) {
             copyTabsWithGroupTitles();
             buildBottomIndicator();
         } else {
@@ -4226,19 +4210,19 @@ public class StripLayoutHelper
 
     /**
      * Returns the tab group count. Should only be called when rebuilding the tab strip, as we've
-     * previously seen {@link TabGroupModelFilter#getTabGroupCount()} be incorrect on startup. That
-     * said, other call-sites should use the aforementioned TabGroupModelFilter method if possible.
+     * previously seen {@link TabModel#getTabGroupCount()} be incorrect on startup. That said, other
+     * call-sites should use the aforementioned TabModel method if possible.
      * TODO(crbug.com/454960178): Investigate if this is still needed.
      */
     private int getTabGroupCount() {
-        if (mModel == null || mTabGroupModelFilter == null) return 0;
+        if (mModel == null) return 0;
 
         Set<Token> groupIds = new HashSet<>();
 
         for (int i = 0; i < mStripTabs.length; ++i) {
             final StripLayoutTab stripTab = mStripTabs[i];
             final Tab tab = mModel.getTabByIdChecked(stripTab.getTabId());
-            if (mTabGroupModelFilter.isTabInTabGroup(tab)) groupIds.add(tab.getTabGroupId());
+            if (mModel.isTabInTabGroup(tab)) groupIds.add(tab.getTabGroupId());
         }
 
         Token tabGroupIdToHide = mGroupIdToHideSupplier.get();
@@ -4256,7 +4240,7 @@ public class StripLayoutHelper
     }
 
     private void buildBottomIndicator() {
-        if (mStripTabs.length == 0 || mTabResizeAnimRunning || mTabGroupModelFilter == null) {
+        if (mStripTabs.length == 0 || mTabResizeAnimRunning || mModel == null) {
             return;
         }
         for (int i = 0; i < mStripGroupTitles.length; i++) {
@@ -4271,7 +4255,7 @@ public class StripLayoutHelper
             float bottomIndicatorWidth =
                     StripLayoutUtils.calculateBottomIndicatorWidth(
                             groupTitle,
-                            StripLayoutUtils.getNumOfTabsInGroup(mTabGroupModelFilter, groupTitle),
+                            StripLayoutUtils.getNumOfTabsInGroup(mModel, groupTitle),
                             getEffectiveTabWidth(/* isPinned= */ false));
 
             // Update the bottom indicator width.
@@ -4283,14 +4267,14 @@ public class StripLayoutHelper
 
     private void copyTabsWithGroupTitles() {
         if (mStripTabs.length == 0) return;
-        if (mTabGroupModelFilter == null) return;
+        if (mModel == null) return;
 
         int numGroups = getTabGroupCount();
 
         // If we have tab group to hide due to running tab group delete dialog, then skip the tab
         // group when rebuilding StripViews.
         if (mGroupIdToHideSupplier.get() != null) {
-            if (mTabGroupModelFilter.tabGroupExists(mGroupIdToHideSupplier.get())) {
+            if (mModel.tabGroupExists(mGroupIdToHideSupplier.get())) {
                 if (numGroups > 0) numGroups--;
             } else {
                 assert false : "Rebuilding tab strip with a nonexistent group ID to hide.";
@@ -4310,7 +4294,7 @@ public class StripLayoutHelper
         int viewIndex = 0;
         // First view will be tab group title if first tab is grouped.
         Tab firstTab = assumeNonNull(getTabById(mStripTabs[0].getTabId()));
-        if (mTabGroupModelFilter.isTabInTabGroup(firstTab)) {
+        if (mModel.isTabInTabGroup(firstTab)) {
             Token tabGroupId = firstTab.getTabGroupId();
             assert tabGroupId != null;
             StripLayoutGroupTitle groupTitle = findOrCreateGroupTitle(tabGroupId);
@@ -4331,7 +4315,7 @@ public class StripLayoutHelper
             Tab currTab = assumeNonNull(getTabById(stripTab.getTabId()));
             Tab nextTab = assumeNonNull(getTabById(mStripTabs[i + 1].getTabId()));
             Token nextTabGroupId = nextTab.getTabGroupId();
-            boolean nextTabInGroup = mTabGroupModelFilter.isTabInTabGroup(nextTab);
+            boolean nextTabInGroup = mModel.isTabInTabGroup(nextTab);
             boolean areRelatedTabs =
                     nextTabInGroup
                             ? assumeNonNull(nextTabGroupId).equals(currTab.getTabGroupId())
@@ -4370,8 +4354,7 @@ public class StripLayoutHelper
         if (mStripGroupTitles.length != oldGroupCount) {
             for (int i = 0; i < mStripGroupTitles.length; ++i) {
                 final StripLayoutGroupTitle groupTitle = mStripGroupTitles[i];
-                boolean isCollapsed =
-                        mTabGroupModelFilter.getTabGroupCollapsed(groupTitle.getTabGroupId());
+                boolean isCollapsed = mModel.getTabGroupCollapsed(groupTitle.getTabGroupId());
                 updateTabGroupCollapsed(groupTitle, isCollapsed, false);
             }
             finishAnimationsAndCloseDyingTabs();
@@ -5025,8 +5008,8 @@ public class StripLayoutHelper
         // temporarily hidden while delete dialog is showing.
         Tab tab = getTabById(stripLayoutTab.getTabId());
         if (tab == null
-                || mTabGroupModelFilter == null
-                || !mTabGroupModelFilter.isTabInTabGroup(tab)
+                || mModel == null
+                || !mModel.isTabInTabGroup(tab)
                 || assumeNonNull(tab.getTabGroupId()).equals(mGroupIdToHideSupplier.get())) {
             return false;
         }

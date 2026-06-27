@@ -56,9 +56,8 @@
 #include "third_party/blink/renderer/modules/webcodecs/video_frame_init_util.h"
 #include "third_party/blink/renderer/modules/webcodecs/video_frame_rect_util.h"
 #include "third_party/blink/renderer/platform/geometry/geometry_hash_traits.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_non2d_snapshot_provider_bitmap.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/skia/sk_image_info_hash.h"
@@ -322,37 +321,40 @@ class CachedVideoFramePool : public GarbageCollected<CachedVideoFramePool>,
 const char CachedVideoFramePool::kSupplementName[] = "CachedVideoFramePool";
 const base::TimeDelta CachedVideoFramePool::kIdleTimeout = base::Seconds(10);
 
-class CanvasSnapshotProviderCache
-    : public GarbageCollected<CanvasSnapshotProviderCache>,
+class CanvasNon2DResourceProviderCache
+    : public GarbageCollected<CanvasNon2DResourceProviderCache>,
       public Supplement<ExecutionContext>,
       public ExecutionContextLifecycleStateObserver {
  public:
   static const char kSupplementName[];
 
-  static CanvasSnapshotProviderCache& From(ExecutionContext& context) {
-    CanvasSnapshotProviderCache* supplement =
-        Supplement<ExecutionContext>::From<CanvasSnapshotProviderCache>(
+  static CanvasNon2DResourceProviderCache& From(ExecutionContext& context) {
+    CanvasNon2DResourceProviderCache* supplement =
+        Supplement<ExecutionContext>::From<CanvasNon2DResourceProviderCache>(
             context);
     if (!supplement) {
-      supplement = MakeGarbageCollected<CanvasSnapshotProviderCache>(context);
+      supplement =
+          MakeGarbageCollected<CanvasNon2DResourceProviderCache>(context);
       Supplement<ExecutionContext>::ProvideTo(context, supplement);
     }
     return *supplement;
   }
-  CanvasSnapshotProviderCache& operator=(const CanvasSnapshotProviderCache&) =
-      delete;
+  CanvasNon2DResourceProviderCache& operator=(
+      const CanvasNon2DResourceProviderCache&) = delete;
 
-  explicit CanvasSnapshotProviderCache(ExecutionContext& context)
+  explicit CanvasNon2DResourceProviderCache(ExecutionContext& context)
       : Supplement<ExecutionContext>(context),
         ExecutionContextLifecycleStateObserver(&context) {
     UpdateStateIfNeeded();
   }
-  ~CanvasSnapshotProviderCache() override = default;
+  ~CanvasNon2DResourceProviderCache() override = default;
 
   // Disallow copy and assign.
-  CanvasSnapshotProviderCache(const CanvasSnapshotProviderCache&) = delete;
+  CanvasNon2DResourceProviderCache(const CanvasNon2DResourceProviderCache&) =
+      delete;
 
-  CanvasSnapshotProvider* CreateProvider(const media::VideoFrame& frame) {
+  CanvasNon2DResourceProviderSharedImage* CreateProvider(
+      const media::VideoFrame& frame) {
     if (providers_.empty()) {
       PostMonitoringTask();
     }
@@ -362,7 +364,8 @@ class CanvasSnapshotProviderCache
     auto required_provider_info =
         CreateSnapshotProviderInfoForVideoFrame(frame);
     for (const auto& provider : providers_) {
-      if (required_provider_info.Matches(*provider)) {
+      if (provider->IsValid() &&
+          required_provider_info.Matches(provider->GetInfo())) {
         return provider.get();
       }
     }
@@ -371,17 +374,13 @@ class CanvasSnapshotProviderCache
       providers_.clear();
     }
 
-    std::unique_ptr<CanvasSnapshotProvider> provider;
-    if (ShouldCreateAcceleratedImages(GetRasterContextProvider().get())) {
-      provider = CanvasNon2DResourceProviderSharedImage::Create(
-          required_provider_info.size, required_provider_info.format,
-          required_provider_info.alpha_type, required_provider_info.color_space,
-          SharedGpuContext::ContextProviderWrapper(),
-          gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
-    } else {
-      provider =
-          CanvasNon2DSnapshotProviderBitmap::Create(required_provider_info);
-    }
+    std::unique_ptr<CanvasNon2DResourceProviderSharedImage> provider =
+        CanvasNon2DResourceProviderSharedImage::Create(
+            required_provider_info.size, required_provider_info.format,
+            required_provider_info.alpha_type,
+            required_provider_info.color_space,
+            SharedGpuContext::ContextProviderWrapper(),
+            gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
 
     if (!provider) {
       return nullptr;
@@ -418,7 +417,7 @@ class CanvasSnapshotProviderCache
     task_handle_ = PostDelayedCancellableTask(
         *GetSupplementable()->GetTaskRunner(TaskType::kInternalMedia),
         FROM_HERE,
-        BindOnce(&CanvasSnapshotProviderCache::PurgeIdleFramePool,
+        BindOnce(&CanvasNon2DResourceProviderCache::PurgeIdleFramePool,
                  WrapWeakPersistent(this)),
         kIdleTimeout);
   }
@@ -431,15 +430,15 @@ class CanvasSnapshotProviderCache
     PostMonitoringTask();
   }
 
-  Vector<std::unique_ptr<CanvasSnapshotProvider>> providers_;
+  Vector<std::unique_ptr<CanvasNon2DResourceProviderSharedImage>> providers_;
   base::TimeTicks last_access_time_;
   TaskHandle task_handle_;
 };
 
 // static -- defined out of line to satisfy link time requirements.
-const char CanvasSnapshotProviderCache::kSupplementName[] =
-    "CanvasSnapshotProviderCache";
-const base::TimeDelta CanvasSnapshotProviderCache::kIdleTimeout =
+const char CanvasNon2DResourceProviderCache::kSupplementName[] =
+    "CanvasNon2DResourceProviderCache";
+const base::TimeDelta CanvasNon2DResourceProviderCache::kIdleTimeout =
     base::Seconds(10);
 
 std::optional<media::VideoPixelFormat> CopyToFormat(
@@ -1359,8 +1358,9 @@ VideoFrame::CopyToPromise VideoFrame::CopyToAsync(
           resolver->Reject();
         }
       };
-  auto done_cb = BindOnce(readback_done_handler, std::move(contents),
-                          WrapPersistent(resolver), dest_layout);
+  auto done_cb =
+      BindOnce(readback_done_handler, std::move(contents),
+               MakeUnwrappingCrossThreadHandle(resolver), dest_layout);
 
   auto buffer = AsSpan<uint8_t>(destination);
   background_readback->ReadbackTextureBackedFrameToBuffer(
@@ -1543,35 +1543,24 @@ ImageBitmapSourceStatus VideoFrame::CheckUsability() const {
   return base::ok();
 }
 
-// Killswitch guarding WebCodecs not caching the SkSurface used for
-// VideoFrame->StaticBitmapImage software draws.
-BASE_FEATURE(kWebCodecsDrawCacheSkSurface, base::FEATURE_DISABLED_BY_DEFAULT);
-
 scoped_refptr<StaticBitmapImage> VideoFrame::CreateImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame) {
   auto* execution_context =
       ExecutionContext::From(v8::Isolate::GetCurrent()->GetCurrentContext());
-  auto& provider_cache = CanvasSnapshotProviderCache::From(*execution_context);
+  auto& provider_cache =
+      CanvasNon2DResourceProviderCache::From(*execution_context);
+
+  if (!ShouldCreateAcceleratedImages(GetRasterContextProvider().get())) {
+    return CreateUnacceleratedImageFromVideoFrame(
+        frame, CreateSnapshotProviderInfoForVideoFrame(*frame));
+  }
 
   auto* snapshot_provider = provider_cache.CreateProvider(*frame);
   if (!snapshot_provider) {
     return nullptr;
   }
 
-  if (snapshot_provider->IsExternalBitmapProvider()) {
-    auto* snapshot_provider_bitmap =
-        static_cast<CanvasNon2DSnapshotProviderBitmap*>(snapshot_provider);
-    sk_sp<SkSurface> draw_surface =
-        base::FeatureList::IsEnabled(kWebCodecsDrawCacheSkSurface)
-            ? snapshot_provider_bitmap->GetCachedSurface()
-            : nullptr;
-    return CreateUnacceleratedImageFromVideoFrame(
-        frame, snapshot_provider_bitmap->Info(), draw_surface);
-  }
-
-  return CreateAcceleratedImageFromVideoFrame(
-      frame,
-      static_cast<CanvasNon2DResourceProviderSharedImage*>(snapshot_provider));
+  return CreateAcceleratedImageFromVideoFrame(frame, snapshot_provider);
 }
 
 ScriptPromise<ImageBitmap> VideoFrame::CreateImageBitmap(

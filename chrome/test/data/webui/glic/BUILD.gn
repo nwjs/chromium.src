@@ -94,7 +94,10 @@ copy("test_client_api_deps") {
 }
 
 copy("test_glic_deps") {
-  sources = [ "$root_gen_dir/chrome/browser/resources/glic/tsc/observable.js" ]
+  sources = [
+    "$root_gen_dir/chrome/browser/resources/glic/tsc/observable.js",
+    "$root_gen_dir/chrome/browser/resources/glic/tsc/task_queue.js",
+  ]
   outputs = [ "$out_dir/{{source_file_part}}" ]
   deps = [ "//chrome/browser/resources/glic:build_ts" ]
 }
@@ -107,6 +110,7 @@ if (!is_android) {
       "unit_tests/glic_api_host_test.ts",
       "unit_tests/glic_api_client_test.ts",
       "unit_tests/observable_test.ts",
+      "unit_tests/post_message_transport_test.ts",
       "unit_tests/test_helpers.ts",
       "unit_tests/webview_test.ts",
     ]

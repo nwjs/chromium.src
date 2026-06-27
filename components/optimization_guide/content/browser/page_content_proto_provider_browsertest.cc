@@ -17,18 +17,16 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
-#include "components/optimization_guide/content/browser/mock_autofill_annotations_provider.h"
 #include "components/optimization_guide/content/browser/mock_media_transcript_provider.h"
 #include "components/optimization_guide/content/browser/no_response_ai_page_content_agent.h"
-#include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
-#include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/render_frame_host.h"
@@ -36,6 +34,7 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
@@ -298,62 +297,6 @@ void SimulateMouseClickAt(content::RenderWidgetHost* rwh, gfx::PointF point) {
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) &&
         // !BUILDFLAG(IS_FUCHSIA)
 
-class RecordingFetchPageProgressListener final
-    : public page_content_annotations::FetchPageProgressListener {
- public:
-  RecordingFetchPageProgressListener() = default;
-  ~RecordingFetchPageProgressListener() override = default;
-
-  void BeginScreenshot() override { screenshot_started_ = true; }
-
-  void ScreenshotCaptured(const SkBitmap& bitmap) override {
-    // Keep the raw bitmap so the test can compare pixels before redaction.
-    captured_bitmap_ = bitmap;
-  }
-
-  void ScreenshotRedacted(const SkBitmap& bitmap) override {
-    // Keep the final bitmap so the test can verify the redaction paint.
-    redacted_bitmap_ = bitmap;
-  }
-
-  void EndScreenshot(std::optional<std::string> error) override {
-    screenshot_finished_ = true;
-    screenshot_error_ = std::move(error);
-  }
-
-  void BeginAPC() override { apc_started_ = true; }
-
-  void EndAPC(std::optional<std::string> error) override {
-    apc_finished_ = true;
-    apc_error_ = std::move(error);
-  }
-
-  bool screenshot_started() const { return screenshot_started_; }
-  bool screenshot_finished() const { return screenshot_finished_; }
-  bool apc_started() const { return apc_started_; }
-  bool apc_finished() const { return apc_finished_; }
-  const std::optional<SkBitmap>& captured_bitmap() const {
-    return captured_bitmap_;
-  }
-  const std::optional<SkBitmap>& redacted_bitmap() const {
-    return redacted_bitmap_;
-  }
-  const std::optional<std::string>& screenshot_error() const {
-    return screenshot_error_;
-  }
-  const std::optional<std::string>& apc_error() const { return apc_error_; }
-
- private:
-  bool screenshot_started_ = false;
-  bool screenshot_finished_ = false;
-  bool apc_started_ = false;
-  bool apc_finished_ = false;
-  std::optional<SkBitmap> captured_bitmap_;
-  std::optional<SkBitmap> redacted_bitmap_;
-  std::optional<std::string> screenshot_error_;
-  std::optional<std::string> apc_error_;
-};
-
 class PageContentProtoProviderBrowserTest : public content::ContentBrowserTest {
  public:
   PageContentProtoProviderBrowserTest() = default;
@@ -459,20 +402,6 @@ class PageContentProtoProviderBrowserTest : public content::ContentBrowserTest {
   std::optional<AIPageContentResultOrError> page_content_;
   blink::mojom::PageMetadataPtr metadata_;
   base::flat_map<std::string, content::WeakDocumentPtr> document_identifiers_;
-};
-
-class PageContentProtoProviderBrowserTestOtpRedaction
-    : public PageContentProtoProviderBrowserTest {
- public:
-  PageContentProtoProviderBrowserTestOtpRedaction() {
-    feature_list_.InitWithFeatures(
-        {features::kAnnotatedPageContentWithAutofillAnnotations,
-         features::kAnnotatedPageContentAutofillOtpRedactions},
-        {});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, BasicDefault) {
@@ -710,6 +639,44 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, ForLabel) {
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       GeometryIncludesCssPosition) {
+  ASSERT_TRUE(content::NavigateToURL(web_contents(),
+                                     https_server()->GetURL("/simple.html")));
+  ASSERT_TRUE(content::ExecJs(
+      web_contents()->GetPrimaryMainFrame(),
+      "document.body.innerHTML = "
+      "'<button id=\"fixed\" "
+      "style=\"position: fixed; top: 0; left: 0\">Action</button>';"));
+
+  // Actionable mode populates geometry for interactive elements.
+  LoadData(GetActionableAIPageContentOptions());
+
+  const auto* button = FindFirstNodeWithAttributeType(
+      page_content().root_node(), proto::CONTENT_ATTRIBUTE_FORM_CONTROL);
+  ASSERT_TRUE(button);
+  ASSERT_TRUE(button->content_attributes().has_geometry());
+  // The browser-visible proto should preserve the renderer's computed value.
+  EXPECT_EQ(button->content_attributes().geometry().css_position(),
+            proto::CSS_POSITION_FIXED);
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       FrameDefaultLineHeight) {
+  ASSERT_TRUE(content::NavigateToURL(web_contents(),
+                                     https_server()->GetURL("/simple.html")));
+  ASSERT_TRUE(content::ExecJs(web_contents()->GetPrimaryMainFrame(),
+                              "document.documentElement.style.cssText = "
+                              "'font-size: 10px; line-height: 26px';"));
+
+  // Load through the browser provider so the test covers renderer extraction,
+  // Mojo transport, and Mojo-to-proto conversion together.
+  LoadData();
+
+  // This exact CSS value should survive the full frame-data provider path.
+  EXPECT_EQ(page_content().main_frame_data().default_line_height_px(), 26);
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
                        ClickabilityReason) {
   LoadPage(https_server()->GetURL("/clickability_reason.html"),
            GetActionableAIPageContentOptions());
@@ -888,6 +855,34 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AnchoredOffscreenAbsolutePopupLosesInteractionInfo) {
+  // The page models an absolute popup parked at left: -9999px where it cannot
+  // be reached by scrolling.
+  LoadPage(https_server()->GetURL("/anchored_offscreen_absolute_popup.html"),
+           nullptr);
+
+  LoadData(GetActionableAIPageContentOptions());
+
+  const auto& root = ActionableContentRootNode();
+  const auto* trigger = FindFirstNodeWithAttributeTypeAndTextSubstring(
+      root, optimization_guide::proto::CONTENT_ATTRIBUTE_FORM_CONTROL,
+      "Choose size");
+  ASSERT_TRUE(trigger);
+  ASSERT_TRUE(trigger->content_attributes().has_interaction_info());
+
+  const auto* size_option = FindFirstNodeWithAttributeTypeAndTextSubstring(
+      root, optimization_guide::proto::CONTENT_ATTRIBUTE_FORM_CONTROL,
+      "Size 6.5");
+  ASSERT_TRUE(size_option);
+
+  // The hidden option still exists in the DOM, but APC should stop presenting
+  // it as directly actionable because scrolling cannot bring it on screen.
+  const auto& option_geometry = size_option->content_attributes().geometry();
+  EXPECT_LT(option_geometry.outer_bounding_box().x(), 0);
+  EXPECT_FALSE(size_option->content_attributes().has_interaction_info());
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
                        AIPageContentNoGeometry) {
   LoadPage(https_server()->GetURL("/simple.html"), nullptr);
 
@@ -921,9 +916,8 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
 
   ASSERT_TRUE(image_node.content_attributes().has_image_data());
   const auto& image_data = image_node.content_attributes().image_data();
-  // TODO(crbug.com/382558422): Propagate image source URLs, this should be
-  // a.com.
-  EXPECT_TRUE(image_data.security_origin().value().empty());
+  EXPECT_TRUE(image_data.security_origin().opaque());
+  EXPECT_FALSE(image_data.security_origin().value().empty());
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, SVG) {
@@ -957,8 +951,13 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, Video) {
   ASSERT_TRUE(video_node.content_attributes().has_video_data());
   EXPECT_EQ(video_node.content_attributes().attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_VIDEO);
+
+  GURL video_url = https_server()->GetURL("/video.mp4");
   EXPECT_EQ(video_node.content_attributes().video_data().url(),
-            https_server()->GetURL("/video.mp4").spec());
+            video_url.spec());
+  AssertValidOrigin(
+      video_node.content_attributes().video_data().security_origin(),
+      url::Origin::Create(video_url));
 }
 
 namespace {
@@ -977,10 +976,11 @@ std::string GetFilePathWithHostAndPortReplacement(
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
                        AIPageContentCrossOriginImage) {
+  GURL cross_origin_url = https_server()->GetURL("b.com", "/");
   // Add a "replace_text=" query param that the test server will use to replace
   // the string "REPLACE_WITH_HOST_AND_PORT" in the destination page.
   net::HostPortPair host_port_pair =
-      net::HostPortPair::FromURL(https_server()->GetURL("b.com", "/"));
+      net::HostPortPair::FromURL(cross_origin_url);
   std::string replacement_path = GetFilePathWithHostAndPortReplacement(
       "/cross_origin_image.html", host_port_pair);
 
@@ -991,9 +991,68 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
 
   ASSERT_TRUE(image_node.content_attributes().has_image_data());
   const auto& image_data = image_node.content_attributes().image_data();
-  // TODO(crbug.com/382558422): Propagate image source URLs, this should be
-  // b.com.
-  EXPECT_TRUE(image_data.security_origin().value().empty());
+  AssertValidOrigin(image_data.security_origin(),
+                    url::Origin::Create(cross_origin_url));
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AIPageContentImageWithAboutBlank) {
+  ASSERT_TRUE(content::NavigateToURL(
+      web_contents(),
+      https_server()->GetURL("a.com", "/cross_origin_image.html")));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(),
+                              "const img = document.getElementById('image');"
+                              "img.src = 'about:blank';"));
+
+  {
+    base::test::TestFuture<bool> future;
+    web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetRenderWidgetHost()
+        ->InsertVisualStateCallback(future.GetCallback());
+    ASSERT_TRUE(future.Wait()) << "Timeout waiting for syncing with renderer";
+  }
+
+  LoadData();
+
+  ASSERT_EQ(page_content().root_node().children_nodes().size(), 1);
+  const auto& image_node = page_content().root_node().children_nodes().at(0);
+
+  ASSERT_TRUE(image_node.content_attributes().has_image_data());
+  const auto& image_data = image_node.content_attributes().image_data();
+  AssertValidOrigin(image_data.security_origin(),
+                    url::Origin::Create(https_server()->GetURL("a.com", "/")));
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AIPageContentVideoWithAboutBlank) {
+  ASSERT_TRUE(content::NavigateToURL(
+      web_contents(), https_server()->GetURL("a.com", "/video.html")));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(),
+                              "const video = document.querySelector('video');"
+                              "video.src = 'about:blank';"));
+
+  {
+    base::test::TestFuture<bool> future;
+    web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetRenderWidgetHost()
+        ->InsertVisualStateCallback(future.GetCallback());
+    ASSERT_TRUE(future.Wait()) << "Timeout waiting for syncing with renderer";
+  }
+
+  LoadData();
+
+  ASSERT_EQ(page_content().root_node().children_nodes().size(), 1);
+  const auto& video_node = page_content().root_node().children_nodes().at(0);
+
+  ASSERT_TRUE(video_node.content_attributes().has_video_data());
+  const auto& video_data = video_node.content_attributes().video_data();
+  EXPECT_EQ(video_data.url(), "about:blank");
+  AssertValidOrigin(video_data.security_origin(),
+                    url::Origin::Create(https_server()->GetURL("a.com", "/")));
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
@@ -2226,108 +2285,6 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
             https_server()->GetURL("/relative/next").spec());
 }
 
-IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestOtpRedaction,
-                       OtpScreenshotRedaction) {
-  LoadPage(https_server()->GetURL("/otp_redaction.html"), nullptr);
-
-  // Use a mock provider so the test stays focused on screenshot redaction.
-  auto provider =
-      std::make_unique<testing::NiceMock<MockAutofillAnnotationsProvider>>();
-  AutofillFieldMetadata otp_metadata;
-  otp_metadata.coarse_field_type =
-      proto::COARSE_AUTOFILL_FIELD_TYPE_UNSUPPORTED;
-  otp_metadata.section_id = 7u;
-  otp_metadata.redaction_reason =
-      AutofillFieldRedactionReason::kShouldRedactForOtp;
-  EXPECT_CALL(*provider, GetAutofillFieldData)
-      .WillRepeatedly(testing::Return(otp_metadata));
-  AutofillAnnotationsProvider::SetFor(web_contents(), std::move(provider));
-
-  auto progress_listener =
-      std::make_unique<RecordingFetchPageProgressListener>();
-  RecordingFetchPageProgressListener* const progress_listener_ptr =
-      progress_listener.get();
-  page_content_annotations::PageContextFetcher fetcher(
-      base::BindRepeating(
-          [](content::BrowserContext*)
-              -> page_content_annotations::PageContentScreenshotService* {
-            ADD_FAILURE()
-                << "Viewport-only screenshot fetches should not use paint "
-                   "preview.";
-            return nullptr;
-          }),
-      std::move(progress_listener));
-
-  page_content_annotations::FetchPageContextOptions options;
-  auto screenshot_options =
-      page_content_annotations::ScreenshotOptions::ViewportOnly(
-          /*paint_preview_options=*/std::nullopt,
-          /*screenshot_collection_options=*/std::nullopt);
-  screenshot_options.set_redaction_color_for_testing(SkColors::kRed);
-  options.screenshot_options = screenshot_options;
-  options.annotated_page_content_options = GetAIPageContentOptions();
-
-  base::test::TestFuture<
-      page_content_annotations::FetchPageContextResultCallbackArg>
-      future;
-  fetcher.FetchStart(*web_contents(), options, future.GetCallback());
-
-  page_content_annotations::FetchPageContextResultCallbackArg callback_result =
-      future.Take();
-  ASSERT_TRUE(callback_result.has_value()) << callback_result.error().message;
-
-  std::unique_ptr<page_content_annotations::FetchPageContextResult> result =
-      std::move(callback_result.value());
-  ASSERT_TRUE(result->screenshot_result.has_value())
-      << result->screenshot_result.error();
-  ASSERT_TRUE(result->annotated_page_content_result.has_value())
-      << result->annotated_page_content_result.error();
-
-  // The page only has one field, so there should be one clear redaction box.
-  const auto& annotated_page_content =
-      result->annotated_page_content_result.value();
-  ASSERT_EQ(annotated_page_content.visible_bounding_boxes_for_redaction.size(),
-            1u);
-  const gfx::Rect& redaction_rect =
-      annotated_page_content.visible_bounding_boxes_for_redaction.front();
-  const gfx::Point sample_point = redaction_rect.CenterPoint();
-
-  ASSERT_TRUE(progress_listener_ptr->screenshot_started());
-  ASSERT_TRUE(progress_listener_ptr->screenshot_finished());
-  ASSERT_TRUE(progress_listener_ptr->apc_started());
-  ASSERT_TRUE(progress_listener_ptr->apc_finished());
-  EXPECT_FALSE(progress_listener_ptr->screenshot_error().has_value());
-  EXPECT_FALSE(progress_listener_ptr->apc_error().has_value());
-  ASSERT_TRUE(progress_listener_ptr->captured_bitmap().has_value());
-  ASSERT_TRUE(progress_listener_ptr->redacted_bitmap().has_value());
-
-  const auto* form_control_node =
-      FindFirstNodeWithAttributeType(annotated_page_content.proto.root_node(),
-                                     proto::CONTENT_ATTRIBUTE_FORM_CONTROL);
-  ASSERT_NE(form_control_node, nullptr);
-  ASSERT_TRUE(form_control_node->content_attributes().has_form_control_data());
-  EXPECT_EQ(form_control_node->content_attributes()
-                .form_control_data()
-                .redaction_decision(),
-            proto::REDACTION_DECISION_REDACTED_IS_OTP);
-
-  const SkBitmap& captured_bitmap =
-      progress_listener_ptr->captured_bitmap().value();
-  const SkBitmap& redacted_bitmap =
-      progress_listener_ptr->redacted_bitmap().value();
-  ASSERT_GE(sample_point.x(), 0);
-  ASSERT_GE(sample_point.y(), 0);
-  ASSERT_LT(sample_point.x(), captured_bitmap.width());
-  ASSERT_LT(sample_point.y(), captured_bitmap.height());
-  ASSERT_LT(sample_point.x(), redacted_bitmap.width());
-  ASSERT_LT(sample_point.y(), redacted_bitmap.height());
-
-  // Compare the same pixel before and after painting the OTP redaction box.
-  EXPECT_NE(captured_bitmap.getColor(sample_point.x(), sample_point.y()),
-            SK_ColorRED);
-  EXPECT_EQ(redacted_bitmap.getColor(sample_point.x(), sample_point.y()),
-            SK_ColorRED);
-}
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
                        FragmentVisibleBoundingBoxes) {
@@ -3102,6 +3059,9 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
 
   const auto& iframe_data = iframe.content_attributes().iframe_data();
   EXPECT_TRUE(iframe_data.has_frame_data());
+  // The renderer still sends minimal frame data when display lock blocks the
+  // iframe subtree, and browser conversion requires a positive line height.
+  EXPECT_GT(iframe_data.frame_data().default_line_height_px(), 0);
 
   // Children should be empty due to display lock blocking traversal.
   EXPECT_EQ(iframe.children_nodes().size(), 0);
@@ -3284,6 +3244,128 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestNoTimeouts,
   EXPECT_EQ(c_frame.children_nodes_size(), 0);
   EXPECT_FALSE(c_frame.content_attributes().is_ad_related());
 }
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       DuplicationMetrics) {
+  base::HistogramTester tester;
+
+  LoadPage(https_server()->GetURL("a.com", "/simple.html"), nullptr);
+
+  constexpr char kConcurrencyMetric[] =
+      "OptimizationGuide.AIPageContent.ExtractionConcurrency";
+  constexpr char kActiveCountMetric[] =
+      "OptimizationGuide.AIPageContent.ActiveRequestCount";
+  constexpr char kTimeSinceLastMetric[] =
+      "OptimizationGuide.AIPageContent.TimeSinceLastExtraction";
+
+  // 1. Verify kNoActiveExtraction and 0 active count on first request
+  {
+    base::test::TestFuture<AIPageContentResultOrError> future;
+    GetAIPageContent(web_contents(), GetAIPageContentOptions(),
+                     future.GetCallback());
+    EXPECT_TRUE(future.Wait());
+    tester.ExpectUniqueSample(kConcurrencyMetric, 0,
+                              1);  // kNoActiveExtraction = 0
+    tester.ExpectUniqueSample(kActiveCountMetric, 0, 1);
+  }
+
+  // 2. Verify TimeSinceLastExtraction on subsequent request
+  {
+    base::test::TestFuture<AIPageContentResultOrError> future;
+    GetAIPageContent(web_contents(), GetAIPageContentOptions(),
+                     future.GetCallback());
+    EXPECT_TRUE(future.Wait());
+    tester.ExpectTotalCount(kTimeSinceLastMetric, 1);
+  }
+
+  // 3. Verify concurrency detection on simultaneous requests
+  {
+    base::test::TestFuture<AIPageContentResultOrError> future1;
+    base::test::TestFuture<AIPageContentResultOrError> future2;
+    GetAIPageContent(web_contents(), GetAIPageContentOptions(),
+                     future1.GetCallback());
+    GetAIPageContent(web_contents(), GetAIPageContentOptions(),
+                     future2.GetCallback());
+    EXPECT_TRUE(future1.Wait());
+    EXPECT_TRUE(future2.Wait());
+
+    // Expect overall 4 extractions:
+    // - 1st: kNoActiveExtraction (Active count = 0)
+    // - 2nd: kNoActiveExtraction (Active count = 0)
+    // - 3rd (from parallel): kNoActiveExtraction (Active count = 0)
+    // - 4th (from parallel): kActiveExtractionWithMatchingOptions (Active count
+    // = 1)
+    tester.ExpectBucketCount(kConcurrencyMetric, 0,
+                             3);  // kNoActiveExtraction = 0
+    tester.ExpectBucketCount(kConcurrencyMetric, 1,
+                             1);  // kActiveExtractionWithMatchingOptions = 1
+    tester.ExpectBucketCount(kActiveCountMetric, 0, 3);
+    tester.ExpectBucketCount(kActiveCountMetric, 1, 1);
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, NavigationMetrics) {
+  base::HistogramTester tester;
+  // Disable BackForwardCache so that the Page object is destroyed when
+  // navigating away, which immediately flushes destructor-based metrics
+  // like `ExtractionsPerPage`.
+  content::DisableBackForwardCacheForTesting(
+      web_contents(), content::BackForwardCache::TEST_REQUIRES_NO_CACHING);
+
+  constexpr char kBetweenNavsMetric[] =
+      "OptimizationGuide.AIPageContent.ExtractionsBetweenNavigations";
+  constexpr char kPerPageMetric[] =
+      "OptimizationGuide.AIPageContent.ExtractionsPerPage";
+
+  // LoadPage automatically triggers 1 extraction.
+  LoadPage(https_server()->GetURL("a.com", "/simple.html"));
+
+  // Same-document navigation flushes the first segment (1 extraction).
+  GURL same_doc_url = https_server()->GetURL("a.com", "/simple.html#hash");
+  content::NavigateToURLBlockUntilNavigationsComplete(web_contents(),
+                                                      same_doc_url, 1);
+  tester.ExpectUniqueSample(kBetweenNavsMetric, 1, 1);
+
+  // Run 2 more extractions in this new same-doc segment.
+  LoadData();
+  LoadData();
+
+  // Cross-document navigation destroys the Page, flushing:
+  // 1. The remaining segment metric (2 extractions).
+  // 2. The total cumulative page extractions (3 extractions).
+  LoadPage(https_server()->GetURL("a.com", "/relative_path.html"), nullptr);
+
+  tester.ExpectBucketCount(kBetweenNavsMetric, 1, 1);
+  tester.ExpectBucketCount(kBetweenNavsMetric, 2, 1);
+  tester.ExpectTotalCount(kBetweenNavsMetric, 2);
+
+  tester.ExpectUniqueSample(kPerPageMetric, 3, 1);
+}
+
+// Popups may be rendered as native OS-level widgets on Android and Apple OSs.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_APPLE)
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       HiddenPopupsIgnored) {
+  LoadPage(https_server()->GetURL("/open_popup.html"));
+
+  content::ShowPopupWidgetWaiter new_popup_waiter(
+      web_contents(), web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(content::ExecJs(
+      web_contents(), "document.getElementById('select_input').showPicker();"));
+  new_popup_waiter.Wait();
+
+  // Verify initially that the popup is detected since it's showing.
+  LoadData(GetActionableAIPageContentOptions());
+  ASSERT_TRUE(page_content().has_popup_window());
+
+  // Hide the web contents to simulate hiding the popup and verify it is no
+  // longer verified/allowed as a popup.
+  web_contents()->WasHidden();
+
+  LoadData(GetActionableAIPageContentOptions());
+  EXPECT_FALSE(page_content().has_popup_window());
+}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_APPLE)
 
 }  // namespace
 

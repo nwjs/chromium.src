@@ -37,9 +37,9 @@ dmblack@google.com
 angusmclean@google.com
 dmblack@google.com
 # ash
+achuith@chromium.org
 tby@chromium.org
 jimmyxgong@chromium.org
-michelefan@chromium.org
 junis@google.com
 # ash_growth
 wutao@chromium.com
@@ -90,18 +90,17 @@ koretadaniel@chromium.org
 # chromeos_hps
 chadduffin@chromium.org
 crisrael@google.com
-jorgelo@chromium.org
 julietlevesque@google.com
 khorimoto@chromium.org
 tby@chromium.org
 jimmyxgong@chromium.org
 gavinwill@chromium.org
 # chromeos
+achuith@chromium.org
 chadduffin@chromium.org
 crisrael@google.com
 enlightened@chromium.org
 jiajunz@google.com
-jorgelo@chromium.org
 julietlevesque@google.com
 khorimoto@chromium.org
 nikhilcn@google.com
@@ -148,7 +147,6 @@ bhartmire@google.com
 drmasquatch@google.com
 uekawa@chromium.org
 # cryptohome
-jorgelo@chromium.org
 hcyang@google.com
 # custom_tabs
 eirage@chromium.org
@@ -188,6 +186,7 @@ jackshira@google.com
 julietlevesque@google.com
 dclasson@google.com
 # feature_engagement
+mschillaci@google.com
 nyquist@chromium.org
 shaktisahu@chromium.org
 dfried@chromium.org
@@ -228,6 +227,8 @@ treib@chromium.org
 dmblack@google.com
 # image
 schenney@chromium.org
+# indigo
+baranerf@google.com
 # input
 shend@chromium.org
 # interstitial
@@ -247,8 +248,6 @@ mcrouse@chromium.org
 nyquist@chromium.org
 # local
 tby@chromium.org
-# login
-jorgelo@chromium.org
 # mac
 avi@chromium.org
 mek@chromium.org
@@ -339,7 +338,6 @@ koretadaniel@chromium.org
 # password
 ioanap@chromium.org
 mamir@chromium.org
-vasilii@chromium.org
 vsemeniuk@google.com
 drubery@chromium.org
 thefrog@chromium.org
@@ -358,6 +356,8 @@ joenotcharles@google.com
 andypaicu@chromium.org
 ravjit@chromium.org
 hempjudith@google.com
+# personal_context
+sophiechang@chromium.org
 # phonehub
 crisrael@google.com
 hansberry@chromium.org
@@ -487,7 +487,7 @@ joenotcharles@google.com
 olivierli@chromium.org
 dfried@chromium.org
 dljames@chromium.org
-#toasts
+# toasts
 agale@chromium.org
 # translate
 perrier@chromium.org

@@ -15,6 +15,7 @@
 #include "components/metrics/dwa/dwa_recorder.h"
 #include "components/metrics/dwa/dwa_service.h"
 #include "components/metrics/enabled_state_provider.h"
+#include "components/metrics/metrics_reporting_choice_service.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_service_client.h"
 #include "components/metrics/metrics_state_manager.h"
@@ -50,6 +51,22 @@ MetricsServicesManager::GetSyntheticTrialRegistry() {
         std::make_unique<variations::SyntheticTrialRegistry>();
   }
   return synthetic_trial_registry_.get();
+}
+
+metrics::MetricsReportingChoiceService*
+MetricsServicesManager::GetMetricsReportingChoiceService() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  if (!metrics_reporting_choice_service_) {
+    metrics_reporting_choice_service_ =
+        std::make_unique<metrics::MetricsReportingChoiceService>(
+            client_->GetLocalState());
+    metrics_reporting_choice_service_subscription_ =
+        metrics_reporting_choice_service_
+            ->AddOnMetricsReportingLevelChangedCallback(base::BindRepeating(
+                &MetricsServicesManager::OnMetricsReportingLevelChanged,
+                base::Unretained(this)));
+  }
+  return metrics_reporting_choice_service_.get();
 }
 
 metrics::MetricsService* MetricsServicesManager::GetMetricsService() {
@@ -242,6 +259,33 @@ void MetricsServicesManager::LoadingStateChanged(bool is_loading) {
   GetMetricsServiceClient()->LoadingStateChanged(is_loading);
   if (is_loading) {
     GetMetricsService()->OnPageLoadStarted();
+  }
+}
+
+void MetricsServicesManager::OnMetricsReportingLevelChanged() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  PrefService* local_state = client_->GetLocalState();
+  if (metrics::MetricsReportingChoiceService::
+          ShouldUseMetricsConsentRestructure(local_state)) {
+    // Purging is also handled by MetricsServicesManager::UpdatePermissions()
+    // but since it's legacy code and works with binary state
+    // (enabled/disabled), the case it misses is doing a purge when going from
+    // kAdvanced to kBasic.
+    if (!metrics::MetricsReportingChoiceService::
+            IsAdvancedMetricsReportingEnabled(local_state)) {
+      ukm::UkmService* ukm = GetUkmService();
+      if (ukm) {
+        ukm->Purge();
+        ukm->ResetClientState(ukm::ResetReason::kUpdatePermissions);
+      }
+      metrics::dwa::DwaService* dwa_service = GetDwaService();
+      if (dwa_service) {
+        dwa_service->Purge();
+      }
+    }
+
+    // Signal service manager to enable/disable UKM/DWA based on new states.
+    UpdateRunningServices();
   }
 }
 

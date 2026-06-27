@@ -41,7 +41,7 @@ class Animation;
 class CSSStyleSheet;
 class ContainerNode;
 class CustomElementRegistry;
-class DOMSelection;
+class DomSelection;
 class Document;
 class Element;
 class HTMLMapElement;
@@ -75,7 +75,7 @@ class CORE_EXPORT TreeScope : public GarbageCollectedMixin {
   V8ObservableArrayCSSStyleSheet* adoptedStyleSheets() {
     return &EnsureAdoptedStyleSheets();
   }
-  DOMSelection* getSelection() { return GetSelection(); }
+  DomSelection* getSelection() { return GetSelection(); }
   HeapVector<Member<Animation>> getAnimations();
   Element* elementFromPoint(double x, double y) {
     return ElementFromPoint(x, y);
@@ -127,7 +127,7 @@ class CORE_EXPORT TreeScope : public GarbageCollectedMixin {
   HeapVector<Member<Element>> ElementsFromPoint(double x, double y) const;
   HeapVector<Member<Element>> ElementsFromHitTestResult(HitTestResult&) const;
 
-  DOMSelection* GetSelection() const;
+  DomSelection* GetSelection() const;
 
   Node& Retarget(const Node& target) const;
   Element& Retarget(const Element& target) const;
@@ -183,8 +183,6 @@ class CORE_EXPORT TreeScope : public GarbageCollectedMixin {
   }
   V8ObservableArrayCSSStyleSheet& EnsureAdoptedStyleSheets();
   bool HasAdoptedStyleSheets() const;
-  void ReplaceAdoptedStyleSheet(CSSStyleSheet& old_sheet,
-                                CSSStyleSheet& new_sheet);
   void AppendAdoptedStyleSheets(HeapVector<Member<CSSStyleSheet>>&&);
   void SetAdoptedStyleSheetsForTesting(HeapVector<Member<CSSStyleSheet>>);
   void ClearAdoptedStyleSheets();
@@ -236,7 +234,7 @@ class CORE_EXPORT TreeScope : public GarbageCollectedMixin {
 
   Member<ScopedStyleResolver> scoped_style_resolver_;
 
-  mutable Member<DOMSelection> selection_;
+  mutable Member<DomSelection> selection_;
 
   RadioButtonGroupScope radio_button_group_scope_;
 

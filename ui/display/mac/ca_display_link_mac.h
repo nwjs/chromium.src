@@ -6,8 +6,6 @@
 
 #import <CoreGraphics/CGDirectDisplay.h>
 
-#include <set>
-
 #include "base/functional/callback.h"
 #include "base/time/time.h"
 #include "ui/display/mac/display_link_mac.h"
@@ -19,7 +17,8 @@ class DISPLAY_EXPORT CADisplayLinkMac : public DisplayLinkMac {
  public:
   // Create a CADisplayLinkMac for the specified display.
   static scoped_refptr<DisplayLinkMac> GetForDisplay(
-      CGDirectDisplayID display_id);
+      CGDirectDisplayID display_id,
+      bool in_gpu_process);
 
   // DisplayLinkMac implementation
   std::unique_ptr<VSyncCallbackMac> RegisterCallback(
@@ -35,11 +34,11 @@ class DISPLAY_EXPORT CADisplayLinkMac : public DisplayLinkMac {
   base::TimeTicks GetCurrentTime() const override;
 
   // DisplayLinkMac implementation:
-  bool NotifyEventAndCheckValidity(int64_t display_id) override;
+  bool NotifyEventAndCheckValidity() override;
 
   // Returns true if CADisplayLink is still working in the GPU process for the
   // specified display.
-  static bool IsValidInGpuProcess(int64_t display_id);
+  static bool IsValidInGpuProcess(CGDirectDisplayID display_id);
 
  private:
   explicit CADisplayLinkMac(CGDirectDisplayID display_id);
@@ -53,6 +52,13 @@ class DISPLAY_EXPORT CADisplayLinkMac : public DisplayLinkMac {
 
   // CADisplayLink callback from ObjCState.display_link.
   void Step();
+
+  // Ensures that the Viz.ExternalBeginFrameSourceMac.DisplayLink.Create2
+  // histogram is recorded only once per display within
+  // CADisplayLinkMac::GetForDisplay().
+  static void TryRecordDisplayLinkCreation(CGDirectDisplayID display_id,
+                                           bool success,
+                                           bool in_gpu_process);
 
   const CGDirectDisplayID display_id_;
   std::unique_ptr<ObjCState> objc_state_;

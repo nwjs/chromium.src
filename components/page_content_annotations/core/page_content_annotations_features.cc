@@ -5,9 +5,12 @@
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
@@ -115,11 +118,21 @@ BASE_FEATURE(kExtractRelatedSearchesFromPrefetchedZPSResponse,
 BASE_FEATURE(kAnnotatedPageContentExtraction,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAnnotatedPageContentExtractionOnHideFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPageContentExtractionAllowOnDemandWithoutObservers,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAnnotatedPageContentNonSalientFiltering,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAnnotatedPageContentPDFTextExtraction,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<size_t> kMaxPDFTextExtractionByteSizeParam{
+    &kAnnotatedPageContentPDFTextExtraction, "max_text_byte_size",
+    1048576};  // 1MB
 
 const base::FeatureParam<bool> kAnnotatedPageContentExcludeAdRelatedParam{
     &kAnnotatedPageContentNonSalientFiltering, "exclude_ad_related", false};
@@ -161,6 +174,13 @@ const base::FeatureParam<base::TimeDelta> kObservationDelayTimeout{
 
 const base::FeatureParam<base::TimeDelta> kObservationDelayLcp{
     &kPageSettledMonitor, "observation-delay-lcp", base::Seconds(1)};
+
+BASE_FEATURE(kPageContentExtractionUsingPageSettledMonitor,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta> kPageSettledCaptureDelay{
+    &kPageContentExtractionUsingPageSettledMonitor, "capture_delay",
+    base::TimeDelta()};
 
 BASE_FEATURE(kPageSettledMonitorExcludeAdFrameLoading,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -262,7 +282,7 @@ size_t PageContentAnnotationsValidationBatchSize() {
 
 base::TimeDelta PageContentAnnotationBatchSizeTimeoutDuration() {
   return base::Seconds(GetFieldTrialParamByFeatureAsInt(
-      kPageContentAnnotations, "batch_annotations_timeout_seconds", 30));
+      kPageContentAnnotations, "batch_annotations_timeout_seconds", 1));
 }
 
 size_t MaxVisitAnnotationCacheSize() {
@@ -293,6 +313,14 @@ std::string AnnotatedPageContentMode() {
   return kAnnotatedPageContentMode.Get();
 }
 
+uint32_t MaxPDFTextExtractionByteSize() {
+  size_t limit = kMaxPDFTextExtractionByteSizeParam.Get();
+  return base::IsValueInRangeForNumericType<uint32_t>(limit)
+             ? static_cast<uint32_t>(limit)
+             : static_cast<uint32_t>(
+                   kMaxPDFTextExtractionByteSizeParam.default_value);
+}
+
 bool ShouldAnnotatedPageContentExcludeAdRelated() {
   return base::FeatureList::IsEnabled(
              kAnnotatedPageContentNonSalientFiltering) &&
@@ -308,6 +336,10 @@ PageContentExtractionTriggeringMode GetPageContentExtractionTriggeringMode() {
     return PageContentExtractionTriggeringMode::kOnLoadAndHidden;
   }
   return PageContentExtractionTriggeringMode::kOnLoad;
+}
+
+base::TimeDelta GetPageSettledCaptureDelay() {
+  return kPageSettledCaptureDelay.Get();
 }
 
 bool IsSupportedLocaleForFeature(

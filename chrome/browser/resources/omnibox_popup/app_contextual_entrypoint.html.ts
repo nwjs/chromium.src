@@ -16,18 +16,12 @@ export function getHtml(this: OmniboxPopupAppElement) {
     <cr-composebox-contextual-entrypoint-button id="context"
         class="upload-button"
         .inputState="${this.inputState_}"
+        .applyContextButtonBackground="${this.applyContextButtonBackground_}"
+        .isOblongShape="${this.isOblongShape_}"
         ?show-suggestion-label="${this.showContextButtonSuggestionLabel_}"
-        ?lens-chip-shown="${this.isLensChipShown_}"
         @context-menu-entrypoint-click="${this.onContextMenuEntrypointClick_}">
     </cr-composebox-contextual-entrypoint-button>
   `}
-  ${this.isContentSharingEnabled_ && this.computeShowRecentTabChip_() ? html`
-    <composebox-recent-tab-chip id="recentTabChip"
-        class="upload-button contextual-chip"
-        .recentTab="${this.recentTabForChip_!}"
-        @add-tab-context="${this.onAddTabContext_}">
-    </composebox-recent-tab-chip>
-  ` : nothing}
   ${this.isLensChipShown_ ? html`
     <cr-composebox-lens-search id="lensSearchChip"
         class="upload-button contextual-chip"

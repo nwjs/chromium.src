@@ -97,6 +97,7 @@
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/default_handlers.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/embedded_test_server/expectation_handler.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
@@ -924,6 +925,105 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // there should be no beforeunload dialog.
   shell()->LoadURL(GURL("about:blank"));
   EXPECT_TRUE(WaitForLoadStop(web_contents()));
+
+  web_contents()->SetDelegate(nullptr);
+}
+
+// Tests that CouldDisplayBeforeUnloadDialog() correctly tracks both the
+// presence of a beforeunload handler and sticky user activation.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       CouldDisplayBeforeUnloadDialog) {
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
+  RenderFrameHostImpl* rfh = root_frame_host();
+
+  // Disable the hang monitor to avoid races, but do not trigger user activation
+  // yet as we need to test the state without activation first.
+  PrepContentsForBeforeUnloadTest(web_contents(),
+                                  /*trigger_user_activation=*/false);
+
+  // 1. Initially false (no handler, no activation).
+  EXPECT_FALSE(rfh->CouldDisplayBeforeUnloadDialog());
+
+  // 2. Add handler without user gesture, still false (no activation).
+  ASSERT_TRUE(ExecJs(rfh, "window.onbeforeunload = () => 'x';",
+                     EXECUTE_SCRIPT_NO_USER_GESTURE));
+  EXPECT_FALSE(rfh->CouldDisplayBeforeUnloadDialog());
+
+  // 3. Provide user activation, should be true.
+  rfh->ActivateUserActivation(
+      blink::mojom::UserActivationNotificationType::kTest);
+  EXPECT_TRUE(rfh->CouldDisplayBeforeUnloadDialog());
+
+  // 4. Remove handler, should be false again.
+  ASSERT_TRUE(ExecJs(rfh, "window.onbeforeunload = null;",
+                     EXECUTE_SCRIPT_NO_USER_GESTURE));
+  EXPECT_FALSE(rfh->CouldDisplayBeforeUnloadDialog());
+
+  // 5. Re-add handler, should be true (activation is sticky).
+  ASSERT_TRUE(ExecJs(rfh, "window.onbeforeunload = () => 'x';",
+                     EXECUTE_SCRIPT_NO_USER_GESTURE));
+  EXPECT_TRUE(rfh->CouldDisplayBeforeUnloadDialog());
+
+  // 6. Cleanup: Remove handler to allow navigation without a dialog.
+  ASSERT_TRUE(ExecJs(rfh, "window.onbeforeunload = null;",
+                     EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  // 7. Navigate away, should be false (activation reset for new document).
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/title2.html")));
+  rfh = root_frame_host();
+
+  // Disable the hang monitor for the new document as well.
+  PrepContentsForBeforeUnloadTest(web_contents(),
+                                  /*trigger_user_activation=*/false);
+  EXPECT_FALSE(rfh->CouldDisplayBeforeUnloadDialog());
+}
+
+class RenderFrameHostImplUserActivationBeforeUnloadBrowserTest
+    : public RenderFrameHostImplBrowserTest {
+ public:
+  RenderFrameHostImplUserActivationBeforeUnloadBrowserTest() {
+    feature_list_.InitAndEnableFeature(
+        features::kEnforceUserActivationForBeforeUnload);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Tests that the browser process blocks a beforeunload dialog if the frame
+// does not have user activation, even if requested by the renderer.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplUserActivationBeforeUnloadBrowserTest,
+                       BeforeUnloadDialogBlockedByBrowserActivationCheck) {
+  TestJavaScriptDialogManager dialog_manager;
+  web_contents()->SetDelegate(&dialog_manager);
+
+  EXPECT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
+  RenderFrameHostImpl* rfh = root_frame_host();
+
+  // Disable the hang monitor to avoid races.
+  PrepContentsForBeforeUnloadTest(web_contents(),
+                                  /*trigger_user_activation=*/false);
+
+  // Add handler without user gesture.
+  ASSERT_TRUE(ExecJs(rfh, "window.onbeforeunload = () => 'x';",
+                     EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  // Call RunBeforeUnloadConfirm directly, bypassing renderer checks.
+  bool callback_ran = false;
+  rfh->RunBeforeUnloadConfirm(true,
+                              base::BindLambdaForTesting([&](bool success) {
+                                EXPECT_TRUE(success);
+                                callback_ran = true;
+                              }));
+
+  // Verify the callback was called synchronously.
+  EXPECT_TRUE(callback_ran);
+
+  // Verify no dialog was shown because browser-side check blocked it.
+  EXPECT_EQ(0, dialog_manager.num_beforeunload_dialogs_seen());
 
   web_contents()->SetDelegate(nullptr);
 }
@@ -5818,8 +5918,9 @@ IN_PROC_BROWSER_TEST_F(ContentBrowserTest, LoadingStateResetOnNavigation) {
 
 IN_PROC_BROWSER_TEST_F(ContentBrowserTest,
                        LoadingStateIsNotResetOnFailedNavigation) {
-  net::test_server::ControllableHttpResponse document2_response(
-      embedded_test_server(), "/document2");
+  net::test_server::ExpectationHandler handler(embedded_test_server());
+  handler.OnRequest("/document2")
+      .RespondWith(net::HTTP_NO_CONTENT, "text/html; charset=utf-8", "");
 
   EXPECT_TRUE(embedded_test_server()->Start());
   GURL url1(embedded_test_server()->GetURL("/title1.html"));
@@ -5845,12 +5946,6 @@ IN_PROC_BROWSER_TEST_F(ContentBrowserTest,
   shell()->LoadURL(url2);
   EXPECT_TRUE(navigation_manager.WaitForRequestStart());
   navigation_manager.ResumeNavigation();
-  document2_response.WaitForRequest();
-
-  document2_response.Send(
-      "HTTP/1.1 204 No Content\r\n"
-      "Content-Type: text/html; charset=utf-8\r\n"
-      "\r\n");
   ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
 
   EXPECT_TRUE(rfhi->IsDOMContentLoaded());
@@ -8085,6 +8180,90 @@ IN_PROC_BROWSER_TEST_F(
   // Navigation completes.
   EXPECT_FALSE(delegate->is_loading_values()[1]);
   EXPECT_FALSE(delegate->did_show_loading_ui_values()[1]);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    RenderFrameHostImplBrowserTest,
+    NavigationApiInterceptsRendererInitiatedSameDocumentRepeated) {
+  GURL main_url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  ASSERT_TRUE(NavigateToURL(shell(), main_url));
+
+  std::unique_ptr<ShouldShowLoadingUIDelegate> delegate =
+      std::make_unique<ShouldShowLoadingUIDelegate>();
+  web_contents()->SetDelegate(delegate.get());
+
+  EXPECT_TRUE(ExecJs(web_contents(), R"(
+      (async () => {
+        navigation.onnavigate = e =>
+            e.intercept({handler: () => new Promise(r => setTimeout(r, 100))});
+        await navigation.navigate('#one').finished;
+        await navigation.navigate('#two').finished;
+      })();
+  )"));
+
+  EXPECT_THAT(delegate->is_loading_values(),
+              testing::ElementsAre(
+                  // First navigation: '#one'.
+                  true,   // Start renderer-initiated same-document navigation.
+                  true,   // Delayed commit requests visible loading UI.
+                  false,  // Navigation completes.
+
+                  // Second navigation: '#two'.
+                  true,  // Start renderer-initiated same-document navigation.
+                  true,  // Delayed commit requests visible loading UI.
+                  false  // Navigation completes.
+                  ));
+
+  EXPECT_THAT(delegate->did_show_loading_ui_values(),
+              testing::ElementsAre(
+                  // First navigation: '#one'.
+                  false,  // Start renderer-initiated same-document navigation.
+                  true,   // Delayed commit requests visible loading UI.
+                  false,  // Navigation completes.
+
+                  // Second navigation: '#two'.
+                  false,  // Start renderer-initiated same-document navigation.
+                  true,   // Delayed commit requests visible loading UI.
+                  false   // Navigation completes.
+                  ));
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       NavigationApiInterceptedPushStateAbortStopsLoading) {
+  GURL main_url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  ASSERT_TRUE(NavigateToURL(shell(), main_url));
+
+  std::unique_ptr<ShouldShowLoadingUIDelegate> delegate =
+      std::make_unique<ShouldShowLoadingUIDelegate>();
+  web_contents()->SetDelegate(delegate.get());
+
+  EXPECT_TRUE(ExecJs(web_contents(), R"(
+      window.onunhandledrejection = e => e.preventDefault();
+      navigation.addEventListener('navigate', event => {
+        event.intercept({
+          precommitHandler() {
+            return new Promise((resolve, reject) => {
+              const timer = setTimeout(resolve, 1000);
+              event.signal.addEventListener('abort', () => {
+                clearTimeout(timer);
+                reject(event.signal.reason);
+              });
+            });
+          },
+        });
+      }, {once: true});
+
+      history.pushState(null, null, '?p=1');
+      setTimeout(() => history.pushState(null, null, '?p=2'), 100);
+      new Promise(resolve => setTimeout(resolve, 200));
+  )"));
+
+  EXPECT_FALSE(web_contents()->IsLoading());
+  EXPECT_EQ(main_url.Resolve("/title1.html?p=2"),
+            web_contents()->GetLastCommittedURL());
+  ASSERT_FALSE(delegate->is_loading_values().empty());
+  EXPECT_FALSE(delegate->is_loading_values().back());
+  EXPECT_FALSE(delegate->did_show_loading_ui_values().back());
 }
 
 // Ensure that navigating with a frame tree of A(B(A)) results in the right

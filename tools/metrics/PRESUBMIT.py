@@ -10,6 +10,8 @@ for more details on the presubmit API built into gcl.
 import os
 import sys
 from pathlib import Path
+import enum
+import tempfile
 from typing import Iterable, Any, Type, List, Dict
 
 # PRESUBMIT infrastructure doesn't guarantee that the cwd() will be on
@@ -21,6 +23,18 @@ sys.path.append('.')
 import setup_modules  # pylint: disable=unused-import
 
 sys.path.remove('.')
+
+import chromium_src.tools.metrics.common.presubmit_util as presubmit_caching_support
+import chromium_src.tools.metrics.common.path_util as path_util
+
+
+class MetricsPresubmitCheckType(enum.Enum):
+  PYTHON_ISSUES = 1
+  XML_ISSUES = 2
+
+
+_CACHE_DIR_PATH = os.path.join(tempfile.gettempdir(), 'metrics_presubmit_cache')
+
 
 import chromium_src.tools.metrics.python_support.tests_helpers as tests_helpers
 import chromium_src.tools.metrics.python_support.mypy_helpers as mypy_helpers
@@ -39,12 +53,7 @@ Please add the missing files to BUILD.gn:
 """
 
 
-def _ThisDirPath(input_api: Type) -> Path:
-  return Path(input_api.PresubmitLocalPath())
 
-
-def _ChromiumSrcPath(input_api: Type) -> Path:
-  return _ThisDirPath(input_api).joinpath('..').joinpath('..').resolve()
 
 
 def _RunSelectedTests(
@@ -57,7 +66,7 @@ def _RunSelectedTests(
   return input_api.RunTests([
       input_api.Command(name=t.file_path,
                         cmd=t.cmd,
-                        kwargs={'cwd': _ChromiumSrcPath(input_api)},
+                        kwargs={'cwd': path_util.CHROMIUM_SRC_PATH},
                         message=output_api.PresubmitError) for t in test_scripts
   ])
 
@@ -78,7 +87,7 @@ def _ReportMissingBuildFileReferences(output_api: Type) -> Iterable[Any]:
 
 def _ReportMyPyErrors(input_api: Type, output_api: Type) -> Iterable[Any]:
   my_py_issues = mypy_helpers.run_mypy_and_filter_irrelevant(
-      input_api.PresubmitLocalPath())
+      str(path_util.METRICS_TOOLS_PATH))
   return [output_api.PresubmitError(i) for i in my_py_issues]
 
 
@@ -93,7 +102,7 @@ def _ReportIssuesWithScripts(input_api: Type, output_api: Type,
 
   print(f"Running {len(scripts_to_test)} affected scripts to check them.")
   commands_failed = script_checker.check_scripts(
-      scripts_to_test, cwd=str(_ChromiumSrcPath(input_api)))
+      scripts_to_test, cwd=str(path_util.CHROMIUM_SRC_PATH))
   return [
       output_api.PresubmitError(res.error_message()) for res in commands_failed
   ]
@@ -124,8 +133,8 @@ def _ReportPythonIssues(input_api: Type, output_api: Type) -> Iterable[Any]:
     return
 
   deps_graph = dependency_solver.scan_directory_dependencies(
-      input_api.PresubmitLocalPath(),
-      report_relative_to=str(_ChromiumSrcPath(input_api)))
+      str(path_util.METRICS_TOOLS_PATH),
+      report_relative_to=str(path_util.CHROMIUM_SRC_PATH))
 
   yield from _ReportMissingBuildFileReferences(output_api)
   yield from _ReportMyPyErrors(input_api, output_api)
@@ -136,6 +145,13 @@ def _ReportPythonIssues(input_api: Type, output_api: Type) -> Iterable[Any]:
                                     absolute_paths_of_affected_files,
                                     deps_graph)
 
+
+def _ReportPythonIssuesList(input_api, output_api):
+  return list(_ReportPythonIssues(input_api, output_api))
+
+
+def _ReportXmlIssuesList(input_api, output_api):
+  return list(_ReportXmlIssues(input_api, output_api))
 
 def _ReportEnumXmlIssues(input_api: Type, output_api: Type,
                          affected_files: List[str]) -> Iterable[Any]:
@@ -148,7 +164,7 @@ def _ReportEnumXmlIssues(input_api: Type, output_api: Type,
   testable_script = tests_helpers.TestableScript.CreatePythonScript(
       Path('tools/metrics/ukm/validate_format.py'), ['--presubmit'])
   commands_failed = script_checker.check_scripts(
-      [testable_script], cwd=str(_ChromiumSrcPath(input_api)))
+      [testable_script], cwd=str(path_util.CHROMIUM_SRC_PATH))
 
   if not commands_failed:
     return
@@ -178,10 +194,40 @@ def _ReportXmlIssues(input_api: Type, output_api: Type) -> Iterable[Any]:
                                   absolute_paths_of_affected_files)
 
 
+def _CheckNoManualSysPathManipulation(input_api: Any,
+                                      output_api: Any) -> List[Any]:
+  """Checks that no manual sys.path manipulation is done in tools/metrics."""
+  results = []
+  sys_path_pattern = input_api.re.compile(
+      r'sys\.path\.(append|insert|extend)\(|sys\.path\s*\+?=')
+
+  python_files = lambda f: f.LocalPath().endswith('.py')
+  for affected_file in input_api.AffectedSourceFiles(python_files):
+    filepath = affected_file.LocalPath()
+    if 'setup_modules' in filepath or input_api.os_path.basename(
+        filepath) == 'PRESUBMIT.py':
+      continue
+    for line_number, line in affected_file.ChangedContents():
+      if sys_path_pattern.search(line):
+        results.append(
+            output_api.PresubmitError(
+                f'{filepath}:{line_number} uses manual sys.path manipulation. '
+                f'Use setup_modules instead.'))
+  return results
+
+
 def CheckChange(input_api: Type, output_api: Type):
   problems: List[Any] = []
-  problems.extend(_ReportPythonIssues(input_api, output_api))
-  problems.extend(_ReportXmlIssues(input_api, output_api))
+  problems.extend(_CheckNoManualSysPathManipulation(input_api, output_api))
+  problems.extend(
+      presubmit_caching_support.RunCheckWithCache(
+          _ReportPythonIssuesList,
+          MetricsPresubmitCheckType.PYTHON_ISSUES.value, input_api, output_api,
+          _CACHE_DIR_PATH))
+  problems.extend(
+      presubmit_caching_support.RunCheckWithCache(
+          _ReportXmlIssuesList, MetricsPresubmitCheckType.XML_ISSUES.value,
+          input_api, output_api, _CACHE_DIR_PATH))
   return problems
 
 

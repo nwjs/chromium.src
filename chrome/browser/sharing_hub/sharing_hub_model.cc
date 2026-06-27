@@ -29,6 +29,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia_rep.h"
@@ -96,35 +97,45 @@ void SharingHubModel::PopulateFirstPartyActions() {
 
   first_party_action_list_.emplace_back(
       IDC_COPY_URL, l10n_util::GetStringUTF16(IDS_SHARING_HUB_COPY_LINK_LABEL),
-      &kCopyIcon, "SharingHubDesktop.CopyURLSelected", IDS_LINK_COPIED);
+      &(features::IsRoundedIconsEnabled() ? kContentCopyIcon : kCopyOldIcon),
+      "SharingHubDesktop.CopyURLSelected", IDS_LINK_COPIED);
 
   if (DesktopScreenshotsFeatureEnabled(context_)) {
     first_party_action_list_.emplace_back(
         IDC_SHARING_HUB_SCREENSHOT,
         l10n_util::GetStringUTF16(IDS_SHARING_HUB_SCREENSHOT_LABEL),
-        &kSharingHubScreenshotIcon, "SharingHubDesktop.ScreenshotSelected", 0);
+        &(features::IsRoundedIconsEnabled() ? kScreenshotRegionIcon
+                                            : kSharingHubScreenshotOldIcon),
+        "SharingHubDesktop.ScreenshotSelected", 0);
   }
 
   first_party_action_list_.emplace_back(
       IDC_SEND_TAB_TO_SELF, l10n_util::GetStringUTF16(IDS_SEND_TAB_TO_SELF),
-      &kDevicesIcon, "SharingHubDesktop.SendTabToSelfSelected", 0);
+      &(features::IsRoundedIconsEnabled()   ? kDevicesIcon
+        : features::IsRoundedIconsEnabled() ? vector_icons::kDevicesIcon
+                                            : kDevicesOldIcon),
+      "SharingHubDesktop.SendTabToSelfSelected", 0);
 
   first_party_action_list_.emplace_back(
       IDC_QRCODE_GENERATOR,
       l10n_util::GetStringUTF16(IDS_SHARING_HUB_GENERATE_QR_CODE_LABEL),
-      &kQrcodeGeneratorIcon, "SharingHubDesktop.QRCodeSelected", 0);
+      &kQrcodeGeneratorCustomIcon, "SharingHubDesktop.QRCodeSelected", 0);
 
   if (media_router::MediaRouterEnabled(context_)) {
     first_party_action_list_.emplace_back(
         IDC_ROUTE_MEDIA,
         l10n_util::GetStringUTF16(IDS_SHARING_HUB_MEDIA_ROUTER_LABEL),
-        &vector_icons::kMediaRouterIdleIcon, "SharingHubDesktop.CastSelected",
-        0);
+        &(features::IsRoundedIconsEnabled()
+              ? vector_icons::kCastIcon
+              : vector_icons::kMediaRouterIdleOldIcon),
+        "SharingHubDesktop.CastSelected", 0);
   }
 
   first_party_action_list_.emplace_back(
       IDC_SAVE_PAGE, l10n_util::GetStringUTF16(IDS_SHARING_HUB_SAVE_PAGE_LABEL),
-      &kSavePageIcon, "SharingHubDesktop.SavePageSelected", 0);
+      &(features::IsRoundedIconsEnabled() ? kSystemUpdateAltIcon
+                                          : kSavePageOldIcon),
+      "SharingHubDesktop.SavePageSelected", 0);
 }
 
 }  // namespace sharing_hub

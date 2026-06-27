@@ -19,9 +19,11 @@
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/core/common/policy_map.h"
@@ -125,7 +127,7 @@ class SelectTypeAndMigrateLocalDataItemsWhenActiveTest : public SyncTest {
   extensions::ExtensionId SaveLocalExtension() {
     return SyncExtensionHelper::GetInstance()->InstallExtension(
         GetProfile(0), "simple_with_file",
-        extensions::Manifest::TYPE_EXTENSION);
+        extensions::Manifest::Type::kExtension);
   }
 
   std::vector<const AutofillProfile*> GetLocalAddresses() {
@@ -214,7 +216,8 @@ IN_PROC_BROWSER_TEST_F(SelectTypeAndMigrateLocalDataItemsWhenActiveTest,
   ASSERT_TRUE(SetupClients());
 
   // Set up a locally saved password.
-  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(password());
+  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(
+      password_manager::FromPasswordForm(password()));
   ASSERT_EQ(1u, GetLocalPasswords().size());
 
   SignInAndEnableBookmarks();
@@ -279,9 +282,10 @@ IN_PROC_BROWSER_TEST_F(SelectTypeAndMigrateLocalDataItemsWhenActiveTest,
   // Set up two locally saved passwords.
   PasswordForm second_password =
       CreateTestPasswordForm(1, PasswordForm::Store::kProfileStore);
-  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(password());
   passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(
-      second_password);
+      password_manager::FromPasswordForm(password()));
+  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(
+      password_manager::FromPasswordForm(second_password));
   ASSERT_EQ(2u, GetLocalPasswords().size());
 
   SignInAndEnableBookmarks();
@@ -309,7 +313,8 @@ IN_PROC_BROWSER_TEST_F(SelectTypeAndMigrateLocalDataItemsWhenActiveTest,
       GetFakeServer());
 
   // Set up a locally saved password.
-  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(password());
+  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(
+      password_manager::FromPasswordForm(password()));
   ASSERT_EQ(1u, GetLocalPasswords().size());
 
   SignInAndEnableBookmarks();
@@ -346,7 +351,8 @@ IN_PROC_BROWSER_TEST_F(SelectTypeAndMigrateLocalDataItemsWhenActiveTest,
       GetFakeServer());
 
   // Set up a locally saved password.
-  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(password());
+  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(
+      password_manager::FromPasswordForm(password()));
   ASSERT_EQ(1u, GetLocalPasswords().size());
 
   SignInAndEnableBookmarks();
@@ -445,7 +451,8 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(SetupClients());
 
   // Set up a locally saved password.
-  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(password());
+  passwords_helper::GetProfilePasswordStoreInterface(0)->AddLogin(
+      password_manager::FromPasswordForm(password()));
   ASSERT_EQ(1u, GetLocalPasswords().size());
 
   // Disable passwords via the kSyncTypesListDisabled policy.

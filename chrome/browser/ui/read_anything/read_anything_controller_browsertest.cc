@@ -4,15 +4,18 @@
 
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 
+#include "base/functional/callback_helpers.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_immersive_web_view.h"
@@ -32,21 +35,29 @@
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/find_result_waiter.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/blocked_content/popup_blocker_tab_helper.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/page_load_metrics/browser/page_load_metrics_test_waiter.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/hit_test_region_observer.h"
+#include "content/public/test/pwn_open_url_helper.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/test/views_test_utils.h"
@@ -55,7 +66,9 @@ class MockReadAnythingLifecycleObserver : public ReadAnythingLifecycleObserver {
  public:
   MOCK_METHOD(void,
               Activate,
-              (bool active, std::optional<ReadAnythingOpenTrigger>),
+              (bool active,
+               std::optional<ReadAnythingOpenTrigger>,
+               std::optional<base::TimeDelta>),
               (override));
   MOCK_METHOD(void, OnDestroyed, (), (override));
   MOCK_METHOD(void, OnReadingModePresenterChanged, (), (override));
@@ -204,9 +217,8 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
   controller->AddObserver(&observer);
 
   base::RunLoop run_loop;
-  EXPECT_CALL(observer, Activate(true, testing::_)).WillOnce([&run_loop]() {
-    run_loop.Quit();
-  });
+  EXPECT_CALL(observer, Activate(true, testing::_, testing::_))
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
 
   controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
   run_loop.Run();
@@ -226,25 +238,22 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
 
   // 1. Show Immersive UI (first time)
   base::RunLoop run_loop_1;
-  EXPECT_CALL(observer, Activate(true, testing::_)).WillOnce([&run_loop_1]() {
-    run_loop_1.Quit();
-  });
+  EXPECT_CALL(observer, Activate(true, testing::_, testing::_))
+      .WillOnce([&run_loop_1]() { run_loop_1.Quit(); });
   controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
   run_loop_1.Run();
 
   // 2. Close Immersive UI
   base::RunLoop run_loop_2;
-  EXPECT_CALL(observer, Activate(false, testing::_)).WillOnce([&run_loop_2]() {
-    run_loop_2.Quit();
-  });
+  EXPECT_CALL(observer, Activate(false, testing::_, testing::_))
+      .WillOnce([&run_loop_2]() { run_loop_2.Quit(); });
   controller->CloseImmersiveUI(ReadAnythingCloseReason::kClosedByUser);
   run_loop_2.Run();
 
   // 3. Show Immersive UI (second time - reuse WebUI)
   base::RunLoop run_loop_3;
-  EXPECT_CALL(observer, Activate(true, testing::_)).WillOnce([&run_loop_3]() {
-    run_loop_3.Quit();
-  });
+  EXPECT_CALL(observer, Activate(true, testing::_, testing::_))
+      .WillOnce([&run_loop_3]() { run_loop_3.Quit(); });
   controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
   run_loop_3.Run();
 
@@ -267,9 +276,42 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
 
   // Close it
   base::RunLoop run_loop;
-  EXPECT_CALL(observer, Activate(false, testing::_)).WillOnce([&run_loop]() {
-    run_loop.Quit();
-  });
+  EXPECT_CALL(observer, Activate(false, testing::_, testing::_))
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
+  controller->CloseImmersiveUI(ReadAnythingCloseReason::kClosedByUser);
+  run_loop.Run();
+
+  // Cleanup
+  controller->RemoveObserver(&observer);
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       CloseImmersiveUI_NotifiesObserversWithDuration) {
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  ASSERT_TRUE(tab);
+  auto* controller = ReadAnythingController::From(tab);
+  ASSERT_TRUE(controller);
+
+  MockReadAnythingLifecycleObserver observer;
+  controller->AddObserver(&observer);
+
+  base::RunLoop show_loop;
+  EXPECT_CALL(observer, Activate(true, testing::_, testing::_))
+      .WillOnce([&show_loop]() { show_loop.Quit(); });
+
+  // Show it first
+  controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  show_loop.Run();
+
+  // Close it
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer, Activate(false, testing::_, testing::_))
+      .WillOnce([&run_loop](
+                    bool active, std::optional<ReadAnythingOpenTrigger> trigger,
+                    std::optional<base::TimeDelta> completed_session_duration) {
+        EXPECT_TRUE(completed_session_duration.has_value());
+        run_loop.Quit();
+      });
   controller->CloseImmersiveUI(ReadAnythingCloseReason::kClosedByUser);
   run_loop.Run();
 
@@ -731,6 +773,54 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
 
   // 5. Verify the FindTabHelper successfully received the forwarded reply.
   EXPECT_EQ(2, observer.number_of_matches());
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       FindBarTarget_UpdatesOnSplitViewFocusChange) {
+  // Setup split view
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  content::WaitForLoadStop(tab_strip_model->GetWebContentsAt(1));
+  ASSERT_TRUE(tab_strip_model->IsContextMenuCommandEnabled(
+      0, TabStripModel::CommandAddToSplit));
+  tab_strip_model->ExecuteContextMenuCommand(0,
+                                             TabStripModel::CommandAddToSplit);
+  ASSERT_EQ(1, tab_strip_model->active_index());
+
+  // Switch to Tab A and open IRM
+  tab_strip_model->ActivateTabAt(0);
+  tabs::TabInterface* tab_a = tab_strip_model->GetActiveTab();
+  auto* controller_a = ReadAnythingController::From(tab_a);
+  controller_a->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  AwaitAndAssertOverlayVisibility(/*visible=*/true);
+
+  // Open FindBar explicitly
+  FindBarController* find_bar_controller =
+      browser()->GetFeatures().GetFindBarController();
+  ASSERT_TRUE(find_bar_controller);
+  find_bar_controller->Show();
+
+  // Verify FindBar targets IRM on Tab A
+  EXPECT_EQ(find_bar_controller->web_contents(), GetImmersiveWebContents());
+  EXPECT_TRUE(find_bar_controller->find_bar()->IsFindBarVisible());
+
+  // Activate Tab B
+  tab_strip_model->ActivateTabAt(1);
+
+  // Verify find bar controller targets the Tab B main webcontents.
+  EXPECT_EQ(find_bar_controller->web_contents(),
+            tab_strip_model->GetActiveTab()->GetContents());
+
+  // Activate Tab A again
+  tab_strip_model->ActivateTabAt(0);
+
+  AwaitAndAssertOverlayVisibilityForTab(/*tab_index=*/0, /*visible=*/true);
+
+  // Verify find bar controller correctly targets the IRM WebContents again.
+  EXPECT_EQ(find_bar_controller->web_contents(), GetImmersiveWebContents());
+
+  // Verify that the FindBar remains visible.
+  EXPECT_TRUE(find_bar_controller->find_bar()->IsFindBarVisible());
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
@@ -1387,7 +1477,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
             ReadAnythingController::PresentationState::kInImmersiveOverlay);
 
   // Toggle Presentation
-  controller->TogglePresentation();
+  controller->TogglePresentation(/*is_user_initiated=*/true);
 
   // Verify Immersive UI is closed and Side Panel is open
   AssertOverlayVisibility(/*visible=*/false);
@@ -1417,7 +1507,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
             ReadAnythingController::PresentationState::kInSidePanel);
 
   // Toggle Presentation
-  controller->TogglePresentation();
+  controller->TogglePresentation(/*is_user_initiated=*/true);
 
   // Verify Side Panel is closed and Immersive UI is open
   ASSERT_TRUE(base::test::RunUntil([&]() {
@@ -1447,7 +1537,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
             ReadAnythingController::PresentationState::kInSidePanel);
 
   // Toggle Presentation
-  controller->TogglePresentation();
+  controller->TogglePresentation(/*is_user_initiated=*/true);
 
   // Verify still closed
   AssertOverlayVisibility(/*visible=*/false);
@@ -1794,6 +1884,148 @@ IN_PROC_BROWSER_TEST_F(
   histogram_tester.ExpectUniqueSample(
       "Accessibility.ReadAnything.SidePanelTriggeredByEmptyState",
       ReadAnythingOpenTrigger::kOmniboxChip, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       OpenURLFromTab_InImmersiveMode_OpensNewTab) {
+  // Navigate to a page to have content to select.
+  GURL url(embedded_test_server()->GetURL("/simple.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  // Get controller.
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  ASSERT_TRUE(tab);
+  auto* controller = ReadAnythingController::From(tab);
+  ASSERT_TRUE(controller);
+
+  // Show immersive reading mode.
+  controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  AwaitAndAssertOverlayVisibility(/*visible=*/true);
+
+  // Get the immersive web contents.
+  content::WebContents* immersive_web_contents = GetImmersiveWebContents();
+  ASSERT_TRUE(immersive_web_contents);
+
+  // Wait for the web contents to be ready.
+  EXPECT_TRUE(content::WaitForLoadStop(immersive_web_contents));
+
+  // Simulate selecting text.
+  ASSERT_TRUE(content::ExecJs(immersive_web_contents,
+                              "const p = document.createElement('p');"
+                              "p.textContent = 'test';"
+                              "document.body.appendChild(p);"
+                              "const range = document.createRange();"
+                              "range.selectNodeContents(p);"
+                              "const selection = window.getSelection();"
+                              "selection.removeAllRanges();"
+                              "selection.addRange(range);"));
+
+  // Simulate "Search Google for" action.
+  content::ContextMenuParams params;
+  params.page_url = GURL("http://example.com");
+  params.selection_text = u"test";
+
+  TestRenderViewContextMenu menu(*immersive_web_contents->GetPrimaryMainFrame(),
+                                 params);
+  menu.Init();
+
+  // Add a waiter for the new tab.
+  ui_test_utils::TabAddedWaiter tab_waiter(browser());
+  menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SEARCHWEBFOR, 0);
+  tab_waiter.Wait();
+
+  // Verify the new tab was opened with the correct search args.
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  content::WebContents* new_tab =
+      browser()->tab_strip_model()->GetWebContentsAt(1);
+
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(browser()->profile());
+  const TemplateURL* default_provider =
+      template_url_service->GetDefaultSearchProvider();
+  ASSERT_TRUE(default_provider);
+  TemplateURLRef::SearchTermsArgs search_args(u"test");
+  GURL expected_url(default_provider->url_ref().ReplaceSearchTerms(
+      search_args, template_url_service->search_terms_data()));
+
+  EXPECT_EQ(expected_url, new_tab->GetURL());
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       OpenURLFromTab_BlocksProhibitedSchemes) {
+  // 1. Check Immersive mode.
+  GURL url(embedded_test_server()->GetURL("/simple.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  ASSERT_TRUE(tab);
+  auto* controller = ReadAnythingController::From(tab);
+  ASSERT_TRUE(controller);
+
+  controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  AwaitAndAssertOverlayVisibility(/*visible=*/true);
+
+  content::WebContents* immersive_contents = GetImmersiveWebContents();
+  ASSERT_TRUE(immersive_contents);
+  content::WebContentsDelegate* immersive_delegate =
+      immersive_contents->GetDelegate();
+  ASSERT_TRUE(immersive_delegate);
+
+  int initial_tab_count = browser()->tab_strip_model()->count();
+
+  content::OpenURLParams chrome_params(
+      GURL("chrome://settings/"), content::Referrer(),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK,
+      false);
+  EXPECT_EQ(nullptr, immersive_delegate->OpenURLFromTab(
+                         immersive_contents, chrome_params, base::DoNothing()));
+  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
+
+  content::OpenURLParams file_params(GURL("file:///etc/passwd"),
+                                     content::Referrer(),
+                                     WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                                     ui::PAGE_TRANSITION_LINK, false);
+  EXPECT_EQ(nullptr, immersive_delegate->OpenURLFromTab(
+                         immersive_contents, file_params, base::DoNothing()));
+  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
+
+  content::OpenURLParams js_params(GURL("javascript:alert(1)"),
+                                   content::Referrer(),
+                                   WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                                   ui::PAGE_TRANSITION_LINK, false);
+  EXPECT_EQ(nullptr, immersive_delegate->OpenURLFromTab(
+                         immersive_contents, js_params, base::DoNothing()));
+  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
+
+  controller->CloseImmersiveUI(ReadAnythingCloseReason::kClosedByUser);
+  AssertOverlayVisibility(/*visible=*/false);
+
+  // 2. Check Side Panel mode.
+  controller->ShowSidePanelUI(SidePanelOpenTrigger::kAppMenu);
+  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_ui->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kReadAnything));
+  }));
+
+  content::WebContents* side_panel_contents = GetSidePanelWebContents();
+  ASSERT_TRUE(side_panel_contents);
+  content::WebContentsDelegate* side_panel_delegate =
+      side_panel_contents->GetDelegate();
+  ASSERT_TRUE(side_panel_delegate);
+
+  EXPECT_EQ(nullptr,
+            side_panel_delegate->OpenURLFromTab(
+                side_panel_contents, chrome_params, base::DoNothing()));
+  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
+
+  EXPECT_EQ(nullptr, side_panel_delegate->OpenURLFromTab(
+                         side_panel_contents, file_params, base::DoNothing()));
+  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
+
+  EXPECT_EQ(nullptr, side_panel_delegate->OpenURLFromTab(
+                         side_panel_contents, js_params, base::DoNothing()));
+  EXPECT_EQ(initial_tab_count, browser()->tab_strip_model()->count());
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -2393,7 +2625,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
       read_anything::mojom::ReadAnythingPresentationState::kInImmersiveOverlay);
 
   // 3. Toggle to Side Panel.
-  controller->TogglePresentation();
+  controller->TogglePresentation(/*is_user_initiated= */ true);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return side_panel_ui->IsSidePanelEntryShowing(
         SidePanelEntryKey(SidePanelEntryId::kReadAnything));
@@ -2427,7 +2659,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
             read_anything::mojom::ReadAnythingPresentationState::kInSidePanel);
 
   // 8. Toggle back to Immersive.
-  controller->TogglePresentation();
+  controller->TogglePresentation(/*is_user_initiated=*/true);
   AwaitAndAssertOverlayVisibility(/*visible=*/true);
   EXPECT_EQ(
       controller->GetPresentationState(),
@@ -2554,4 +2786,194 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
   EXPECT_EQ(
       controller->GetPresentationState(),
       read_anything::mojom::ReadAnythingPresentationState::kInImmersiveOverlay);
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       CompromisedIRMRendererBypassesPopupBlocker) {
+  // User navigates to an attacker page and opens IRM on it.
+  GURL attacker_page = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), attacker_page));
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  auto* controller = ReadAnythingController::From(tab);
+  CHECK(controller);
+  controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  AwaitAndAssertOverlayVisibility(true);
+  content::WebContents* irm_contents = GetImmersiveWebContents();
+  CHECK(irm_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(irm_contents));
+  content::RenderFrameHost* irm_rfh = irm_contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(irm_rfh);
+  // Verify the exploit precondition: the IRM frame has a WebUI controller. This
+  // causes Navigator::RequestOpenURL to force is_renderer_initiated=false,
+  // making the downstream navigation pipeline trust the spoofed user gesture.
+  ASSERT_NE(nullptr, irm_rfh->GetWebUI());
+
+  const int tabs_before = browser()->tab_strip_model()->count();
+  ASSERT_EQ(1, tabs_before);
+
+  // Simulate a compromised renderer sending OpenURL IPCs with a spoofed user
+  // gesture. We primarily use NEW_BACKGROUND_TAB to ensure the WebUI remains
+  // foregrounded and attached while we simulate multiple rapid requests, and
+  // finish with one NEW_FOREGROUND_TAB to show both dispositions are handled.
+  // Our OpenURLFromTab delegate should evaluate the request against the lack
+  // of actual transient user activation, strip the spoofed gesture, and cause
+  // the popup blocker to block the requests.
+  GURL popup_target = embedded_test_server()->GetURL("/title2.html");
+  constexpr int kSpam = 3;
+  for (int i = 0; i < kSpam; ++i) {
+    WindowOpenDisposition d = (i < kSpam - 1)
+                                  ? WindowOpenDisposition::NEW_BACKGROUND_TAB
+                                  : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    content::PwnOpenURLWithDisposition(irm_rfh, popup_target, d,
+                                       /*user_gesture=*/true);
+  }
+
+  EXPECT_EQ(tabs_before, browser()->tab_strip_model()->count());
+
+  // Assert the popups were explicitly caught and blocked.
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+  EXPECT_EQ(static_cast<size_t>(kSpam), popup_blocker->GetBlockedPopupsCount());
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       CompromisedIRMRendererNavigatesActiveTab) {
+  GURL attacker_page = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), attacker_page));
+  content::WebContents* active_tab =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_EQ(attacker_page, active_tab->GetLastCommittedURL());
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  auto* controller = ReadAnythingController::From(tab);
+  CHECK(controller);
+  controller->ShowImmersiveUI(ReadAnythingOpenTrigger::kOmniboxChip);
+  AwaitAndAssertOverlayVisibility(true);
+  content::WebContents* irm_contents = GetImmersiveWebContents();
+  CHECK(irm_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(irm_contents));
+  content::RenderFrameHost* irm_rfh = irm_contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(irm_rfh);
+
+  GURL evil_target = embedded_test_server()->GetURL("/title2.html");
+  ASSERT_NE(evil_target, active_tab->GetLastCommittedURL());
+
+  // Simulate a compromised renderer sending an OpenURL IPC with a spoofed user
+  // gesture and a CURRENT_TAB disposition to hijack the active tab.
+  content::PwnOpenURLWithDisposition(irm_rfh, evil_target,
+                                     WindowOpenDisposition::CURRENT_TAB,
+                                     /*user_gesture=*/true);
+
+  // The active tab was not hijacked. The navigation was converted to a
+  // popup and blocked.
+  EXPECT_EQ(attacker_page, active_tab->GetLastCommittedURL());
+
+  auto* popup_blocker =
+      blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
+  ASSERT_TRUE(popup_blocker);
+  EXPECT_EQ(1u, popup_blocker->GetBlockedPopupsCount());
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       CompromisedSidePanelRendererBypassesPopupBlocker) {
+  // Precondition: user navigates to an attacker page and opens the side panel
+  // on it.
+  GURL attacker_page = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), attacker_page));
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  auto* controller = ReadAnythingController::From(tab);
+  CHECK(controller);
+
+  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  controller->ShowSidePanelUI(SidePanelOpenTrigger::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_ui->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kReadAnything));
+  }));
+  content::WebContents* side_panel_contents = GetSidePanelWebContents();
+  CHECK(side_panel_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(side_panel_contents));
+  content::RenderFrameHost* side_panel_rfh =
+      side_panel_contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(side_panel_rfh);
+
+  // Verify the exploit precondition: the side panel frame has a WebUI
+  // controller. This causes Navigator::RequestOpenURL to force
+  // is_renderer_initiated=false, making the downstream navigation pipeline
+  // trust the spoofed user gesture.
+  ASSERT_NE(nullptr, side_panel_rfh->GetWebUI());
+
+  const int tabs_before = browser()->tab_strip_model()->count();
+  ASSERT_EQ(1, tabs_before);
+
+  // Simulate a compromised renderer sending OpenURL IPCs with a spoofed user
+  // gesture. We primarily use NEW_BACKGROUND_TAB to ensure the WebUI remains
+  // foregrounded and attached while we simulate multiple rapid requests, and
+  // finish with one NEW_FOREGROUND_TAB to show both dispositions are handled.
+  // Our OpenURLFromTab delegate should evaluate the request against the lack
+  // of actual transient user activation, strip the spoofed gesture, and cause
+  // the popup blocker to block the requests.
+  GURL popup_target = embedded_test_server()->GetURL("/title2.html");
+  constexpr int kSpam = 3;
+  for (int i = 0; i < kSpam; ++i) {
+    WindowOpenDisposition d = (i < kSpam - 1)
+                                  ? WindowOpenDisposition::NEW_BACKGROUND_TAB
+                                  : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    content::PwnOpenURLWithDisposition(side_panel_rfh, popup_target, d,
+                                       /*user_gesture=*/true);
+  }
+
+  const int tabs_after = browser()->tab_strip_model()->count();
+  EXPECT_EQ(tabs_before, tabs_after);
+
+  // Assert the popups were explicitly caught and blocked.
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+  EXPECT_EQ(static_cast<size_t>(kSpam), popup_blocker->GetBlockedPopupsCount());
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingControllerBrowserTest,
+                       CompromisedSidePanelRendererNavigatesActiveTab) {
+  GURL attacker_page = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), attacker_page));
+  content::WebContents* active_tab =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_EQ(attacker_page, active_tab->GetLastCommittedURL());
+
+  tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+  auto* controller = ReadAnythingController::From(tab);
+  CHECK(controller);
+
+  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  controller->ShowSidePanelUI(SidePanelOpenTrigger::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_ui->IsSidePanelEntryShowing(
+        SidePanelEntryKey(SidePanelEntryId::kReadAnything));
+  }));
+  content::WebContents* side_panel_contents = GetSidePanelWebContents();
+  CHECK(side_panel_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(side_panel_contents));
+  content::RenderFrameHost* side_panel_rfh =
+      side_panel_contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(side_panel_rfh);
+
+  GURL evil_target = embedded_test_server()->GetURL("/title2.html");
+  ASSERT_NE(evil_target, active_tab->GetLastCommittedURL());
+
+  // Simulate a compromised renderer sending an OpenURL IPC with a spoofed user
+  // gesture and a CURRENT_TAB disposition to hijack the active tab.
+  content::PwnOpenURLWithDisposition(side_panel_rfh, evil_target,
+                                     WindowOpenDisposition::CURRENT_TAB,
+                                     /*user_gesture=*/true);
+
+  // The active tab was not hijacked. The navigation was converted to a
+  // popup and blocked.
+  EXPECT_EQ(attacker_page, active_tab->GetLastCommittedURL());
+
+  auto* popup_blocker =
+      blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
+  ASSERT_TRUE(popup_blocker);
+  EXPECT_EQ(1u, popup_blocker->GetBlockedPopupsCount());
 }

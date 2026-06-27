@@ -12,12 +12,12 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/journal_details_builder.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -25,39 +25,16 @@
 #include "ui/shell_dialogs/select_file_policy.h"
 #include "ui/shell_dialogs/selected_file_info.h"
 
-namespace {
-std::string ToString(actor::mojom::JournalEntryType type) {
-  switch (type) {
-    case actor::mojom::JournalEntryType::kBegin:
-      return "Begin";
-    case actor::mojom::JournalEntryType::kEnd:
-      return "End";
-    case actor::mojom::JournalEntryType::kInstant:
-      return "Instant";
-  }
-  NOTREACHED();
-}
-std::string ToString(uint64_t track_uuid, actor::TaskId task_id) {
-  if (actor::MakeFrontEndTrackUUID(task_id) == track_uuid) {
-    return "FrontEnd";
-  } else if (actor::MakeBrowserTrackUUID(task_id) == track_uuid) {
-    return "Browser";
-  } else if (actor::MakeRendererTrackUUID(task_id) == track_uuid) {
-    return "Renderer";
-  } else {
-    return base::NumberToString(track_uuid);
-  }
-}
 
-}  // namespace
 
 ActorInternalsUIHandler::ActorInternalsUIHandler(
     content::WebContents* web_contents,
     mojo::PendingRemote<actor_internals::mojom::Page> page,
     mojo::PendingReceiver<actor_internals::mojom::PageHandler> receiver)
-    : web_contents_(web_contents),
-      remote_(std::move(page)),
-      receiver_(this, std::move(receiver)) {
+    : web_contents_(web_contents) {
+  handler_ = std::make_unique<actor_internals::ActorInternalsHandler>(
+      std::move(page), std::move(receiver), this);
+
   auto* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   auto& journal = actor::ActorKeyedService::Get(profile)->GetJournal();
@@ -82,10 +59,12 @@ void ActorInternalsUIHandler::WillAddJournalEntry(
     details[detail->key] = detail->value;
   }
 
-  remote_->JournalEntryAdded(actor_internals::mojom::JournalEntry::New(
-      entry.url, entry.data->event, ToString(entry.data->type),
+  handler_->OnJournalEntryAdded(actor_internals::mojom::JournalEntry::New(
+      entry.url, entry.data->event,
+      std::string(actor::JournalEntryTypeToString(entry.data->type)),
       std::move(details), entry.data->timestamp, entry.data->task_id.value(),
-      ToString(entry.data->track_uuid, entry.data->task_id), entry.screenshot));
+      actor::TrackToString(entry.data->track_uuid, entry.data->task_id),
+      entry.screenshot));
 }
 
 void ActorInternalsUIHandler::StartLogging() {

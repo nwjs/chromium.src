@@ -18,6 +18,7 @@
 class PrefService;
 class WebStateList;
 class GeminiService;
+class GeminiBrowserAgent;
 
 namespace feature_engagement {
 class Tracker;
@@ -31,6 +32,7 @@ class Tracker;
                              tracker:(feature_engagement::Tracker*)tracker
                          prefService:(PrefService*)prefService
                        geminiService:(GeminiService*)geminiService
+                  geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
 
     NS_DESIGNATED_INITIALIZER;
 
@@ -47,6 +49,9 @@ class Tracker;
     entrypointHelpHandler;
 // The command handler for contextual sheet commands.
 @property(nonatomic, weak) id<ContextualSheetCommands> contextualSheetHandler;
+
+// Whether this location bar is currently active or not.
+@property(nonatomic, assign) BOOL active;
 
 // Cleans up mediator properties and variables.
 - (void)disconnect;

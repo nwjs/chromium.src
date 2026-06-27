@@ -77,6 +77,7 @@ namespace content {
 class BackForwardCacheCanStoreDocumentResult;
 class BackForwardCacheCanStoreTreeResult;
 class BrowserContext;
+class DedicatedWorkerHost;
 class DevToolsAgentHostImpl;
 class FencedFrame;
 class FrameTree;
@@ -220,6 +221,10 @@ void OnNavigationRequestFailed(
 // `rfh` would be the RenderFrameHost for that iframe's document.
 void OnNavigationEntryMarkedSkippable(const GURL& url,
                                       RenderFrameHostImpl* rfh);
+
+// Reports a DevTools issue when a back UI navigation would skip a history
+// entry that is tagged as an ad. `rfh` is the main frame of the pre-skip page.
+void OnBackUINavigationWouldSkipAd(RenderFrameHostImpl* rfh);
 
 // Logs fetch keepalive requests proxied via browser to Network panel.
 //
@@ -480,6 +485,7 @@ void OnServiceWorkerMainScriptRequestWillBeSent(
 // worker main script. Used for DedicatedWorker and SharedWorker.
 void OnWorkerMainScriptRequestWillBeSent(
     RenderFrameHostImpl& ancestor_frame_host,
+    DedicatedWorkerHost* creator_worker,
     const base::UnguessableToken& worker_token,
     network::ResourceRequest& request);
 

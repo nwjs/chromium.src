@@ -5,7 +5,13 @@
 #include "components/autofill/core/browser/filling/form_autofill_history.h"
 
 #include <algorithm>
+#include <list>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "base/containers/span.h"
 #include "base/types/pass_key.h"
 #include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_field.h"
@@ -75,8 +81,7 @@ void FormAutofillHistory::AddFormFillingEntry(
                 FieldFillingEntry(
                     field->value(),
                     field->is_autofilled_according_to_renderer(),
-                    autofill_field->field_modifiers(
-                        base::PassKey<FormAutofillHistory>()),
+                    autofill_field->field_modifiers(/*pass_key=*/{}),
                     autofill_field->autofill_source_profile_guid(),
                     autofill_field->autofilled_type(),
                     autofill_field->filling_product(),

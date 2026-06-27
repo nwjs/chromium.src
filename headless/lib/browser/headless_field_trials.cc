@@ -71,9 +71,6 @@ class HeadlessVariationsServiceClient
     return false;
   }
   bool IsEnterprise() override { return false; }
-
-  void RemoveGoogleGroupsFromPrefsForDeletedProfiles(
-      PrefService* local_state) override {}
 };
 
 }  // namespace

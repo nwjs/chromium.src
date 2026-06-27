@@ -445,7 +445,8 @@ public class SettingsSearchCoordinator
                             public void onPanelOpened(View panel) {
                                 if (mUseMultiColumn) return;
 
-                                mMultiColumnSettings.getMainSettings().saveListState();
+                                var mainSettings = mMultiColumnSettings.getMainSettings();
+                                if (mainSettings != null) mainSettings.saveListState();
                                 showUiInSingleColumn(searchBox, /* show= */ false);
                                 disableBackgroundTalkbackNavigation();
                             }
@@ -454,7 +455,8 @@ public class SettingsSearchCoordinator
                             public void onPanelClosed(View panel) {
                                 if (mUseMultiColumn) return;
 
-                                mMultiColumnSettings.getMainSettings().restoreListState();
+                                var mainSettings = mMultiColumnSettings.getMainSettings();
+                                if (mainSettings != null) mainSettings.restoreListState();
 
                                 // The detail panel can be force-closed immediately after we enter
                                 // the search state + open the detail pane. Because
@@ -548,6 +550,8 @@ public class SettingsSearchCoordinator
     }
 
     private void observeFragmentForVisibilityChange() {
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        searchBox.setVisibility(View.VISIBLE);
         getSettingsFragmentManager()
                 .registerFragmentLifecycleCallbacks(
                         new FragmentManager.FragmentLifecycleCallbacks() {
@@ -555,6 +559,7 @@ public class SettingsSearchCoordinator
                             public void onFragmentResumed(FragmentManager fm, Fragment f) {
                                 View searchBox = mActivity.findViewById(R.id.search_box);
                                 if (f instanceof MainSettings) {
+                                    if (searchBox.getVisibility() == View.VISIBLE) return;
                                     showUiInSingleColumn(searchBox, true);
                                 } else if (f instanceof PreferenceFragmentCompat) {
                                     showUiInSingleColumn(searchBox, false);
@@ -1046,7 +1051,7 @@ public class SettingsSearchCoordinator
                     int minWidePadding = getPixelSize(R.dimen.settings_wide_display_min_padding);
                     int margin =
                             ViewResizerUtil.computePaddingForWideDisplay(
-                                    mActivity, searchBox, minWidePadding);
+                                    mActivity, /* view= */ null, minWidePadding);
                     boolean isOnWideScreen =
                             margin > minWidePadding
                                     || DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);

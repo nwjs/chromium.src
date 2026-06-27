@@ -183,6 +183,9 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
         mojom::ConsoleMessageLevel::kWarning, message));
     return;
   }
+  if (RuntimeEnabledFeatures::FileColorPickerConsumeActivationEnabled()) {
+    LocalFrame::ConsumeTransientUserActivation(document.GetFrame());
+  }
 
   OpenPopupView();
   event.SetDefaultHandled();
@@ -474,7 +477,10 @@ bool FileInputType::SetFiles(FileList* files) {
 }
 
 void FileInputType::SetFilesAndDispatchEvents(FileList* files) {
-  if (SetFiles(files)) {
+  bool force = force_change_event_;
+  force_change_event_ = false;
+
+  if (SetFiles(files) || force) {
     // This call may cause destruction of this instance.
     // input instance is safe since it is ref-counted.
     GetElement().DispatchInputEvent();
@@ -501,12 +507,27 @@ void FileInputType::FilesChosen(FileChooserFileInfoList files,
     }
     ++i;
   }
+  if (RuntimeEnabledFeatures::FilePickerEventsFixEnabled() &&
+      HasConnectedFileChooser()) {
+    force_change_event_ = true;
+  }
   if (!will_be_destroyed_) {
     SetFilesAndDispatchEvents(
         CreateFileList(*GetElement().GetExecutionContext(), files, base_dir));
   }
   if (HasConnectedFileChooser())
     DisconnectFileChooser();
+
+  GetElement().PseudoStateChanged(CSSSelector::kPseudoOpen);
+}
+
+void FileInputType::FileChooserCanceled() {
+  if (!will_be_destroyed_) {
+    GetElement().DispatchCancelEvent();
+  }
+  if (HasConnectedFileChooser()) {
+    DisconnectFileChooser();
+  }
 
   GetElement().PseudoStateChanged(CSSSelector::kPseudoOpen);
 }

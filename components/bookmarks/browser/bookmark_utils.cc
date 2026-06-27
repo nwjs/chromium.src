@@ -28,6 +28,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/browser/scoped_group_bookmark_actions.h"
+#include "components/bookmarks/common/bookmark_bar_visibility_state.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
@@ -222,7 +223,7 @@ std::vector<const BookmarkNode*> GetMostRecentlyModifiedUserFolders(
             : n2->date_folder_modified();
 
     // If no node has been modified more recently, choose a default folder.
-    return t1 == t2 ? (n1 == default_node || n2 != default_node) : (t1 > t2);
+    return t1 == t2 ? (n1 == default_node && n2 != default_node) : (t1 > t2);
   };
 
   std::ranges::stable_sort(nodes, more_recently_modified);
@@ -451,6 +452,12 @@ bool DoesBookmarkContainWords(const std::u16string& title,
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
       prefs::kShowBookmarkBar, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  // `BookmarkBarVisibilityState::kOnlyShowOnNtp` is equivalent to
+  // `kShowBookmarkBar` set to false.
+  registry->RegisterIntegerPref(
+      prefs::kBookmarkBarVisibilityState,
+      static_cast<int>(BookmarkBarVisibilityState::kOnlyShowOnNtp),
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(prefs::kEditBookmarksEnabled, true);
   registry->RegisterBooleanPref(

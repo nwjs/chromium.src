@@ -280,16 +280,16 @@ void TableView::Init(ui::TableModel* model,
                      TableType table_type,
                      bool single_selection) {
   hover_layer_.SetBounds(gfx::Rect(0, 0, 1, 1));
+  hover_layer_.SetName("TableView/Hover");
+
   SetColumns(columns);
   SetTableType(table_type);
   SetSingleSelection(single_selection);
   SetModel(model);
 
-  // MacOS Table View uses alternating row colors, which is not color compatible
-  // with the hover layer color.
-#if !BUILDFLAG(IS_MAC)
-  SetMouseHoveringEnabled(true);
-#endif
+  // TODO(crbug.com/517186137): Move mouse hover_layer_ to a separate child view
+  // which will disable the paint clipping optimization, and revert back to
+  // layer clipping.
 }
 
 // TODO(sky): this doesn't support arbitrarily changing the model, rename this
@@ -1338,7 +1338,9 @@ void TableView::DrawString(gfx::Canvas* canvas,
     render_text->SetFontList(font_list_);
   }
 
-  UpdateRenderText(gfx::Rect(text_bounds), text, flags, color,
+  gfx::ElideBehavior elide_behavior =
+      visible_columns_[col].column.elide_behavior;
+  UpdateRenderText(gfx::Rect(text_bounds), text, flags, color, elide_behavior,
                    render_text.get());
   render_text->Draw(canvas);
 }
@@ -1348,10 +1350,12 @@ void TableView::UpdateRenderText(const gfx::Rect& rect,
                                  const std::u16string& text,
                                  int flags,
                                  SkColor color,
+                                 gfx::ElideBehavior elide_behavior,
                                  gfx::RenderText* render_text) {
   render_text->SetText(text);
   render_text->SetCursorEnabled(false);
   render_text->SetDisplayRect(rect);
+  render_text->SetElideBehavior(elide_behavior);
 
   // Set the text alignment explicitly based on the directionality of the UI,
   // if not specified.

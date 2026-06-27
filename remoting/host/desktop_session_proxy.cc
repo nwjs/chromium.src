@@ -13,6 +13,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -24,6 +25,8 @@
 #include "build/build_config.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "remoting/base/capabilities.h"
+#include "remoting/base/fifo_buffer.h"
+#include "remoting/base/ipc_fifo_buffer.h"
 #include "remoting/host/audio_injector.h"
 #include "remoting/host/client_session.h"
 #include "remoting/host/client_session_control.h"
@@ -44,6 +47,7 @@
 #include "remoting/proto/audio.pb.h"
 #include "remoting/proto/control.pb.h"
 #include "remoting/proto/event.pb.h"
+#include "remoting/protocol/audio_sample_info.h"
 #include "remoting/protocol/capability_names.h"
 #include "remoting/protocol/desktop_capturer_proxy.h"
 #include "third_party/webrtc/modules/desktop_capture/mouse_cursor.h"
@@ -335,6 +339,9 @@ void DesktopSessionProxy::DetachFromDesktop() {
   // We don't reset |is_url_forwarder_set_up_callback_| here since the request
   // can come in before the DetachFromDesktop-AttachToDesktop sequence.
 
+  should_start_audio_injector_ = false;
+  pending_audio_reader_.reset();
+
   // Notify interested folks that the IPC has been disconnected.
   disconnect_handlers_.Notify();
 
@@ -368,7 +375,17 @@ void DesktopSessionProxy::OnDesktopSessionAgentStarted(
   }
 
   if (should_start_audio_injector_) {
-    desktop_session_control_->StartAudioInjector();
+    DoStartAudioInjector();
+  }
+
+  if (pending_audio_sample_info_) {
+    base::OnceCallback<void(bool)> done =
+        pending_audio_format_ack_callback_
+            ? std::move(pending_audio_format_ack_callback_)
+            : base::DoNothing();
+    desktop_session_control_->SetAudioInjectorSampleInfo(
+        *pending_audio_sample_info_, std::move(done));
+    pending_audio_sample_info_.reset();
   }
 
   if (client_session_events_) {
@@ -562,21 +579,38 @@ void DesktopSessionProxy::ExecuteAction(
   }
 }
 
-void DesktopSessionProxy::StartAudioInjector() {
+void DesktopSessionProxy::StartAudioInjector(
+    std::unique_ptr<IpcFifoBufferReader> audio_reader) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  pending_audio_reader_ = std::move(audio_reader);
   should_start_audio_injector_ = true;
   if (desktop_session_control_) {
-    desktop_session_control_->StartAudioInjector();
+    DoStartAudioInjector();
   }
 }
 
-void DesktopSessionProxy::InjectAudioPacket(
-    std::unique_ptr<AudioPacket> packet) {
+void DesktopSessionProxy::DoStartAudioInjector() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(desktop_session_control_);
+  DCHECK(pending_audio_reader_);
 
+  desktop_session_control_->StartAudioInjector(
+      std::move(pending_audio_reader_));
+}
+
+void DesktopSessionProxy::SetAudioInjectorSampleInfo(
+    const protocol::AudioSampleInfo& info,
+    base::OnceCallback<void(bool)> done) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (desktop_session_control_) {
-    desktop_session_control_->InjectAudioPacket(std::move(packet));
+    desktop_session_control_->SetAudioInjectorSampleInfo(info, std::move(done));
+  } else {
+    if (pending_audio_format_ack_callback_) {
+      std::move(pending_audio_format_ack_callback_).Run(false);
+    }
+    pending_audio_sample_info_ = info;
+    pending_audio_format_ack_callback_ = std::move(done);
   }
 }
 

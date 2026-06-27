@@ -249,12 +249,10 @@ class CORE_EXPORT HTMLCanvasElement final
   // CanvasResourceProvider::Delegate implementation
   void NotifyGpuContextLost() override;
   bool IsPrinting() const override;
-  bool TransferToGPUTextureWasInvoked() override;
 
   // CanvasRenderingContextHost implementation
   bool ShouldAccelerate2dContext() const override;
   bool LowLatencyEnabled() const override;
-  void SetTransferToGPUTextureWasInvoked() override;
   UkmParameters GetUkmParameters() override;
   void SetNeedsCompositingUpdate() override;
 
@@ -356,6 +354,11 @@ class CORE_EXPORT HTMLCanvasElement final
   bool VerifyDrawElementImageEligibility(Element* element,
                                          const String& func_name,
                                          ExceptionState& exception_state) const;
+
+  bool VerifyDrawElementImageEligibility(
+      const V8UnionElementOrElementImage* element,
+      const String& func_name,
+      ExceptionState& exception_state) const;
 
   ElementImage* captureElementImage(Element* element, ExceptionState&);
 

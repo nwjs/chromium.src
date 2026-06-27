@@ -119,6 +119,7 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kDriveFilePickerIos:
     case AccessPoint::kCollaborationShareTabGroup:
     case AccessPoint::kGlicLaunchButton:
+    case AccessPoint::kIndigo:
     case AccessPoint::kHistoryPage:
     case AccessPoint::kCollaborationJoinTabGroup:
     case AccessPoint::kHistorySyncOptinExpansionPillOnStartup:
@@ -143,8 +144,12 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kAvatarPillExpandPromo:
     case AccessPoint::kSearchAIModeBubble:
     case AccessPoint::kIosAppBar:
+    case AccessPoint::kIosGeminiButtonToolbar:
     case AccessPoint::kIosPageActionMenu:
     case AccessPoint::kSettingsAutofillAndPasswords:
+    case AccessPoint::kDeepLinkDefault:
+    case AccessPoint::kAgeMismatchSignout:
+    case AccessPoint::kOverflowMenu:
       return access_point;
   }
 
@@ -581,6 +586,8 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kIosChromeWebView:
     case AccessPoint::kAshChromeSessionManager:
     case AccessPoint::kAshUserSessionManager:
+    case AccessPoint::kDeepLinkDefault:
+    case AccessPoint::kAgeMismatchSignout:
       NOTREACHED() << "Access point " << static_cast<int>(access_point)
                    << " is not supposed to log signin user actions.";
     case AccessPoint::kCollaborationShareTabGroup:
@@ -683,6 +690,9 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromGlicLaunchButton"));
       break;
+    case AccessPoint::kIndigo:
+      base::RecordAction(base::UserMetricsAction("Signin_Signin_FromIndigo"));
+      break;
     case AccessPoint::kHistorySyncOptinExpansionPillOnStartup:
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromHistorySyncOptinExpansionPillOnStartup"));
@@ -731,6 +741,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromIOSAppBar"));
       break;
+    case AccessPoint::kIosGeminiButtonToolbar:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromIOSGeminiButtonToolbar"));
+      break;
     case AccessPoint::kIosPageActionMenu:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromPageActionMenu"));
@@ -738,6 +752,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kSettingsAutofillAndPasswords:
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromSettingsAutofillAndPasswords"));
+      break;
+    case AccessPoint::kOverflowMenu:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromOverflowMenu"));
       break;
   }
 }
@@ -871,9 +889,17 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromIOSAppBar"));
       break;
+    case AccessPoint::kIosGeminiButtonToolbar:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Impression_FromIOSGeminiButtonToolbar"));
+      break;
     case AccessPoint::kSettingsAutofillAndPasswords:
       base::RecordAction(base::UserMetricsAction(
           "Signin_Impression_FromSettingsAutofillAndPasswords"));
+      break;
+    case AccessPoint::kOverflowMenu:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Impression_FromOverflowMenu"));
       break;
     case AccessPoint::kExtensions:
     case AccessPoint::kMachineLogon:
@@ -903,6 +929,7 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kDriveFilePickerIos:
     case AccessPoint::kCollaborationShareTabGroup:
     case AccessPoint::kGlicLaunchButton:
+    case AccessPoint::kIndigo:
     case AccessPoint::kHistoryPage:
     case AccessPoint::kCollaborationJoinTabGroup:
     case AccessPoint::kHistorySyncOptinExpansionPillOnStartup:
@@ -922,6 +949,8 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kAshChromeSessionManager:
     case AccessPoint::kAvatarPillExpandPromo:
     case AccessPoint::kIosPageActionMenu:
+    case AccessPoint::kDeepLinkDefault:
+    case AccessPoint::kAgeMismatchSignout:
       NOTREACHED() << "Signin_Impression_From* user actions are not recorded "
                       "for access point "
                    << static_cast<int>(access_point);

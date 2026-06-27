@@ -37,6 +37,11 @@ const base::FeatureParam<std::string> kPixAccountLinkingNativePromptVariant{
 const base::FeatureParam<int> kPixAccountLinkingNativeTriggerDelaySeconds{
     &kEnablePixAccountLinkingNative, "trigger_delay_seconds", 3};
 
+// TODO: Replace with a public YouTube link for production to guarantee access.
+const base::FeatureParam<std::string> kVideoUrlOnPrompt{
+    &kEnablePixAccountLinkingNative, "video_url_on_prompt",
+    "https://support.google.com/wallet/answer/14616353?hl=en"};
+
 // When enabled, static qr code will be supported for pix pay flow.
 BASE_FEATURE(kEnableStaticQrCodeForPix, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -45,7 +50,7 @@ BASE_FEATURE(kEnableStaticQrCodeForPix, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableIframeForPix, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, Pix code detection will be supported in Chrome Custom Tabs.
-BASE_FEATURE(kEnablePixInCct, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnablePixInCct, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, Chrome will offer to pay with eWallet accounts if a payment
 // link is detected.
@@ -55,6 +60,11 @@ BASE_FEATURE(kEwalletPayments, base::FEATURE_ENABLED_BY_DEFAULT);
 // detected. Users can choose the payment app they want to
 // use and be redirected to the chosen app to complete the payment flow.
 BASE_FEATURE(kFacilitatedPaymentsEnableA2APayment,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, Chrome will receive and cache eWallet creation options from
+// Chrome Sync.
+BASE_FEATURE(kEnableEwalletNewAccountLinking,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 

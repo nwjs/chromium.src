@@ -31,7 +31,7 @@ class OmniboxPopupHandlerTest : public ChromeRenderViewHostTestHarness {
     omnibox_popup_ui_ = std::make_unique<OmniboxPopupUI>(&web_ui_);
     handler_ = std::make_unique<OmniboxPopupHandler>(
         mojo::PendingReceiver<omnibox_popup::mojom::PageHandler>(),
-        page_.BindAndGetRemote());
+        page_.BindAndGetRemote(), web_contents());
     embedder_ = std::make_unique<TestEmbedder>();
     handler_->set_embedder(embedder_->GetWeakPtr());
   }
@@ -61,6 +61,13 @@ TEST_F(OmniboxPopupHandlerTest, OnShow) {
 TEST_F(OmniboxPopupHandlerTest, ShowContextMenu) {
   handler_->ShowContextMenu(gfx::Point());
   EXPECT_TRUE(embedder_->context_menu_shown());
+}
+
+TEST_F(OmniboxPopupHandlerTest, SetInputText) {
+  std::string test_text = "test input";
+  EXPECT_CALL(page_, SetInputText(test_text));
+  handler_->SetInputText(test_text);
+  page_.FlushForTesting();
 }
 
 }  // namespace

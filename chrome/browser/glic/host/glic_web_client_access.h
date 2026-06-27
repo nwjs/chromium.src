@@ -13,10 +13,6 @@
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "url/origin.h"
 
-namespace actor {
-class AutofillSelectionDialogEventHandler;
-}
-
 namespace glic {
 
 // Access to the glic web client, from outside of the WebUI handler.
@@ -49,34 +45,10 @@ class GlicWebClientAccess {
   // Informs the web client that additional context is available.
   virtual void NotifyAdditionalContext(mojom::AdditionalContextPtr context) = 0;
 
-  virtual void RequestToShowCredentialSelectionDialog(
-      actor::TaskId task_id,
-      const base::flat_map<std::string, gfx::Image>& icons,
-      const std::vector<actor_login::Credential>& credentials,
-      actor::ActorTaskDelegate::CredentialSelectedCallback callback) = 0;
-  virtual void RequestToShowUserConfirmationDialog(
-      actor::TaskId task_id,
-      const url::Origin& navigation_origin,
-      bool for_blocklisted_origin,
-      actor::ActorTaskDelegate::UserConfirmationDialogCallback callback) = 0;
-  virtual void RequestToConfirmNavigation(
-      actor::TaskId task_id,
-      const url::Origin& navigation_origin,
-      actor::ActorTaskDelegate::NavigationConfirmationCallback callback) = 0;
-  virtual void RequestToShowAutofillSuggestionsDialog(
-      actor::TaskId task_id,
-      std::vector<autofill::ActorFormFillingRequest> requests,
-      base::WeakPtr<actor::AutofillSelectionDialogEventHandler> event_handler,
-      actor::ActorTaskDelegate::AutofillSuggestionSelectedCallback
-          callback) = 0;
-
   virtual void FloatingPanelCanAttachChanged(bool can_attach) = 0;
 
   // Informs the web client that an actor task list row was clicked.
   virtual void NotifyActorTaskListRowClicked(int32_t task_id) = 0;
-
-  // Informs the web client that the skill to invoke is updated.
-  virtual void NotifySkillToInvokeChanged(mojom::SkillPtr skill) = 0;
 
   // Informs the web client that the list of context skills has changed.
   virtual void NotifyContextualSkillPreviewsChanged(

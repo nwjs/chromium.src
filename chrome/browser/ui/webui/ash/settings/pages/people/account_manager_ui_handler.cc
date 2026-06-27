@@ -9,10 +9,10 @@
 #include "ash/constants/notifier_catalogs.h"
 #include "ash/public/cpp/system/toast_data.h"
 #include "ash/public/cpp/system/toast_manager.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -23,13 +23,14 @@
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ash/account_manager/account_migration_welcome_dialog.h"
-#include "chrome/browser/ui/webui/signin/ash/inline_login_dialog.h"
-#include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "components/account_manager_core/account_manager_facade.h"
+#include "components/account_manager_core/account_manager_metrics.h"
+#include "components/account_manager_core/chromeos/account_manager_mojo_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "components/user_manager/user.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -87,6 +88,45 @@ void ShowToast(const std::string& id,
                ToastCatalogName catalog_name,
                const std::u16string& message) {
   ToastManager::Get()->Show(ToastData(id, catalog_name, message));
+}
+
+crosapi::AccountManagerMojoService& GetAccountManagerMojoServiceForSettings(
+    content::BrowserContext* browser_context) {
+  CHECK(browser_context);
+
+  crosapi::AccountManagerMojoService* account_manager_mojo_service =
+      AccountManagerFactory::Get()->GetAccountManagerMojoService(
+          browser_context->GetPath().value());
+  CHECK(account_manager_mojo_service);
+  return *account_manager_mojo_service;
+}
+
+void ShowSettingsAddAccountDialog(content::BrowserContext* browser_context) {
+  crosapi::AccountManagerMojoService& account_manager_mojo_service =
+      GetAccountManagerMojoServiceForSettings(browser_context);
+
+  crosapi::mojom::AccountAdditionOptionsPtr options =
+      crosapi::mojom::AccountAdditionOptions::New();
+  options->is_available_in_arc = true;
+  options->show_arc_availability_picker = false;
+
+  // TODO(b/365741912, b/365902693): Route Settings add-account through the
+  // replacement Account Manager dialog path once it exists.
+  account_manager_mojo_service.ShowAddAccountDialog(
+      account_manager::AccountAdditionSource::kSettingsAddAccountButton,
+      std::move(options), base::DoNothing());
+}
+
+void ShowSettingsAccountReauthDialog(content::BrowserContext* browser_context,
+                                     const std::string& email) {
+  crosapi::AccountManagerMojoService& account_manager_mojo_service =
+      GetAccountManagerMojoServiceForSettings(browser_context);
+
+  // TODO(b/365741912, b/365902693): Route Settings reauth through the
+  // replacement Account Manager dialog path once it exists.
+  account_manager_mojo_service.ShowReauthAccountDialog(
+      account_manager::AccountAdditionSource::kSettingsReauthAccountButton,
+      email, base::DoNothing());
 }
 
 class AccountBuilder {
@@ -359,11 +399,7 @@ base::ListValue AccountManagerUIHandler::GetSecondaryGaiaAccounts(
 
 void AccountManagerUIHandler::HandleAddAccount(const base::ListValue& args) {
   AllowJavascript();
-  AccountManagerFactory::Get()
-      ->GetAccountManagerFacade(profile_->GetPath().value())
-      ->ShowAddAccountDialog(
-          account_manager::AccountManagerFacade::AccountAdditionSource::
-              kSettingsAddAccountButton);
+  ShowSettingsAddAccountDialog(profile_);
 }
 
 void AccountManagerUIHandler::HandleReauthenticateAccount(
@@ -373,12 +409,7 @@ void AccountManagerUIHandler::HandleReauthenticateAccount(
   CHECK(!args.empty());
   const std::string& account_email = args[0].GetString();
 
-  AccountManagerFactory::Get()
-      ->GetAccountManagerFacade(profile_->GetPath().value())
-      ->ShowReauthAccountDialog(
-          account_manager::AccountManagerFacade::AccountAdditionSource::
-              kSettingsReauthAccountButton,
-          account_email, base::DoNothing());
+  ShowSettingsAccountReauthDialog(profile_, account_email);
 }
 
 void AccountManagerUIHandler::HandleMigrateAccount(

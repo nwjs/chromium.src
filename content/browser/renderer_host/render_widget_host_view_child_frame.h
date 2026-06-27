@@ -42,6 +42,10 @@
 #include "third_party/blink/public/mojom/webshare/webshare.mojom.h"
 #endif  // BUILDFLAG(IS_MAC)
 
+namespace ui {
+class Compositor;
+}
+
 namespace content {
 class FrameConnector;
 class RenderWidgetHost;
@@ -94,7 +98,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void EnsureSurfaceSynchronizedForWebTest() override;
   void Hide() override;
   bool IsShowing() override;
-  void WasUnOccluded() override;
   void WasOccluded() override;
   gfx::Rect GetViewBounds() override;
   gfx::Size GetVisibleViewportSize() override;
@@ -104,6 +107,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   gfx::NativeViewAccessible GetNativeViewAccessible() override;
   bool IsPointerLocked() override;
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
+  ui::Compositor* GetCompositor() override;
 
   // RenderWidgetHostViewBase implementation.
 #if BUILDFLAG(IS_ANDROID)
@@ -118,6 +122,12 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
       blink::mojom::DragEventSourceInfoPtr event_info) override;
 #endif
   RenderWidgetHostViewBase* GetRootView() override;
+#if BUILDFLAG(IS_WIN)
+  bool ShouldInitiateStylusWriting() override;
+  void OnStartStylusWriting() override;
+  void OnEditElementFocusedForStylusWriting(
+      blink::mojom::StylusWritingFocusResultPtr focus_result) override;
+#endif  // BUILDFLAG(IS_WIN)
   uint32_t GetCaptureSequenceNumber() const override;
   gfx::Size GetCompositorViewportPixelSize() override;
   void InitAsPopup(RenderWidgetHostView* parent_host_view,
@@ -243,6 +253,9 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 
   RenderWidgetHostViewBase* GetRootRenderWidgetHostView() const;
 
+  // Shows the view.
+  void Show();
+
  protected:
   friend class RenderWidgetHostView;
   friend class RenderWidgetHostViewChildFrameTest;
@@ -295,8 +308,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
     return weak_factory_.GetWeakPtr();
   }
 
-  ui::Compositor* GetCompositor() override;
-
   void SetInputHelperForTesting(
       std::unique_ptr<input::ChildFrameInputHelper> input_helper) {
     input_helper_ = std::move(input_helper);
@@ -313,6 +324,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
       HiddenOOPIFWillNotGenerateCompositorFramesAfterNavigation);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest,
                            SubframeVisibleAfterRenderViewBecomesSwappedOut);
+  FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostInputEventRouterTest,
+                           BubbleScrollEventNullSafetyDuringTeardown);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostInputEventRouterTest,
                            FilteredGestureDoesntInterruptBubbling);
   friend class RenderWidgetHostViewChildFrameTest;
@@ -360,6 +373,15 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   // will typically not notice and will not transmit a full complement of
   // properties.
   bool initial_properties_sent_ = false;
+
+#if BUILDFLAG(IS_WIN)
+  // Callback registered with the root view for handling the TSF
+  // FocusHandwritingTarget response. Converts the screen rect to child frame
+  // local coordinates and forwards to this view's host.
+  void OnFocusHandwritingTarget(
+      const gfx::Rect& focus_screen_rect_in_dips,
+      const gfx::Size& tolerance_screen_distance_in_dips);
+#endif  // BUILDFLAG(IS_WIN)
 
   base::WeakPtrFactory<RenderWidgetHostViewChildFrame> weak_factory_{this};
 };

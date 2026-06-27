@@ -350,7 +350,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     self.encryptionItem.accessoryView = nil;
   }
   self.encryptionItem.accessibilityTraits |= UIAccessibilityTraitButton;
-  [self updateEncryptionItem:NO];
+  [self updateEncryptionItemWithNotifyConsumer:NO];
   [model addItem:self.encryptionItem
       toSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
 
@@ -402,9 +402,9 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
       toSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
 }
 
-// Updates encryption item, and notifies the consumer if `notifyConsumer` is set
-// to YES.
-- (void)updateEncryptionItem:(BOOL)notifyConsumer {
+// Updates encryption item. If `notifyConsumer` is YES, the consumer is
+// notified about model changes.
+- (void)updateEncryptionItemWithNotifyConsumer:(BOOL)notifyConsumer {
   if (!self.accountStateSignedIn) {
     return;
   }
@@ -448,7 +448,9 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   return footerItem;
 }
 
-- (void)updateSignOutSection {
+// Updates the sign-out section. If `notifyConsumer` is YES, the consumer is
+// notified about model changes.
+- (void)updateSignOutSectionWithNotifyConsumer:(BOOL)notifyConsumer {
   TableViewModel* model = self.consumer.tableViewModel;
   BOOL hasSignOutSection =
       [model hasSectionForSectionIdentifier:ManageAndSignOutSectionIdentifier];
@@ -460,10 +462,12 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   if (!hasSignOutSection) {
     [self loadManageAccountsSection];
     [self loadSwitchAccountAndSignOutSection];
-    NSUInteger sectionIndex =
-        [model sectionForSectionIdentifier:ManageAndSignOutSectionIdentifier];
-    [self.consumer insertSections:[NSIndexSet indexSetWithIndex:sectionIndex]
-                     rowAnimation:NO];
+    if (notifyConsumer) {
+      NSUInteger sectionIndex =
+          [model sectionForSectionIdentifier:ManageAndSignOutSectionIdentifier];
+      [self.consumer insertSections:[NSIndexSet indexSetWithIndex:sectionIndex]
+                       rowAnimation:NO];
+    }
   }
 }
 
@@ -669,9 +673,9 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   [self updateBatchUploadSectionWithNotifyConsumer:YES firstLoad:firstLoad];
 }
 
-// Deletes the batch upload section and notifies the consumer about model
-// changes.
-- (void)removeBatchUploadSection {
+// Deletes the batch upload section. If `notifyConsumer` is YES, the consumer
+// is notified about model changes.
+- (void)removeBatchUploadSectionNotifyConsumer:(BOOL)notifyConsumer {
   TableViewModel* model = self.consumer.tableViewModel;
   if (![model hasSectionForSectionIdentifier:BatchUploadSectionIdentifier]) {
     return;
@@ -681,9 +685,11 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   [model removeSectionWithIdentifier:BatchUploadSectionIdentifier];
   self.batchUploadItem = nil;
 
-  // Remove the batch upload section from the table view model.
-  NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
-  [self.consumer deleteSections:indexSet rowAnimation:YES];
+  if (notifyConsumer) {
+    // Remove the batch upload section from the table view.
+    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
+    [self.consumer deleteSections:indexSet rowAnimation:YES];
+  }
 }
 
 // Updates the batch upload section according to data already fetched.
@@ -696,7 +702,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   // there is no local data to offer the batch upload.
   if (self.syncErrorItem || self.isSyncDisabledByAdministrator ||
       (!_localPasswordsToUpload && !_localItemsToUpload)) {
-    [self removeBatchUploadSection];
+    [self removeBatchUploadSectionNotifyConsumer:notifyConsummer];
     return;
   }
 
@@ -1023,11 +1029,14 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     [self.commandHandler closeManageSyncSettings];
     return;
   }
-  [self updateSyncErrorsSection:YES];
-  [self updateBatchUploadSectionWithNotifyConsumer:YES firstLoad:NO];
-  [self updateSyncItemsNotifyConsumer:YES];
-  [self updateEncryptionItem:YES];
-  [self updateSignOutSection];
+  // Update the model without notifying the consumer, then reload atomically
+  // to avoid UIKit querying stale index paths during section animations.
+  [self updateSyncErrorsSectionWithNotifyConsumer:NO];
+  [self updateBatchUploadSectionWithNotifyConsumer:NO firstLoad:NO];
+  [self updateSyncItemsNotifyConsumer:NO];
+  [self updateEncryptionItemWithNotifyConsumer:NO];
+  [self updateSignOutSectionWithNotifyConsumer:NO];
+  [self.consumer reloadTableData];
   [self fetchLocalDataDescriptionsForBatchUploadWithFirstLoad:NO];
 }
 
@@ -1038,10 +1047,12 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
       _chromeAccountManagerService->GetIdentityOnDeviceWithGaiaID(info.gaia);
   if ([_signedInIdentity isEqual:identity]) {
     [self updatePrimaryAccountDetails];
-    [self updateSyncItemsNotifyConsumer:YES];
-    [self updateSyncErrorsSection:YES];
-    [self updateBatchUploadSectionWithNotifyConsumer:YES firstLoad:NO];
-    [self updateEncryptionItem:YES];
+    // Update the model without notifying the consumer, then reload atomically.
+    [self updateSyncItemsNotifyConsumer:NO];
+    [self updateSyncErrorsSectionWithNotifyConsumer:NO];
+    [self updateBatchUploadSectionWithNotifyConsumer:NO firstLoad:NO];
+    [self updateEncryptionItemWithNotifyConsumer:NO];
+    [self.consumer reloadTableData];
     [self fetchLocalDataDescriptionsForBatchUploadWithFirstLoad:NO];
   }
 }
@@ -1208,82 +1219,75 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   // The `self.consumer.tableViewModel` will be reset prior to this method.
   // Ignore any previous value the `self.syncErrorItem` may have contained.
   self.syncErrorItem = nil;
-  [self updateSyncErrorsSection:NO];
+  [self updateSyncErrorsSectionWithNotifyConsumer:NO];
 }
 
 // Updates the sync errors section. If `notifyConsumer` is YES, the consumer is
 // notified about model changes.
-- (void)updateSyncErrorsSection:(BOOL)notifyConsumer {
+- (void)updateSyncErrorsSectionWithNotifyConsumer:(BOOL)notifyConsumer {
   if (!self.accountStateSignedIn) {
     return;
   }
-  // Checks if the sync setup service state has changed from the saved state in
-  // the table view model.
   std::optional<SyncSettingsItemType> type = [self syncErrorItemType];
   if (![self needsErrorSectionUpdate:type]) {
     return;
   }
 
   TableViewModel* model = self.consumer.tableViewModel;
-  // There is no sync error now, but there previously was an error.
-  if (!type.has_value()) {
-    [self removeSyncErrorsSection:notifyConsumer];
-    return;
-  }
+  BOOL errorSectionPreviouslyExisted =
+      [model hasSectionForSectionIdentifier:SyncErrorsSectionIdentifier];
+  BOOL hasErrorNow = type.has_value();
 
-  // There is an error now and there might be a previous error.
-  BOOL errorSectionAlreadyExists = self.syncErrorItem;
+  // The section is only displayed for user-actionable errors. Enterprise policy
+  // errors (`SyncDisabledByAdministratorErrorItemType`) do not show an error
+  // banner section.
+  BOOL showErrorSectionNow =
+      hasErrorNow && (type.value() != SyncDisabledByAdministratorErrorItemType);
 
-  if (errorSectionAlreadyExists) {
-    // As the previous error might not have a message item in case it is
-    // SyncDisabledByAdministratorError, clear the whole section instead of
-    // updating it's items.
-    errorSectionAlreadyExists = NO;
-    [self removeSyncErrorsSection:notifyConsumer];
-  }
-
-  if (GetAccountErrorUIInfo(_syncService) == nil) {
-    // In some transient states like in SyncService::TransportState::PAUSED,
-    // GetAccountErrorUIInfo returns nil and thus will not be able to fetch the
-    // current error data. In this case, do not update/add the error item.
-    return;
-  }
-
-  // Create the new sync error item.
-  DCHECK(type.has_value());
-  if (type.value() == SyncDisabledByAdministratorErrorItemType) {
-    self.syncErrorItem = [self createSyncDisabledByAdministratorErrorItem];
-  } else {
-    // For signed in users, the sync error item will be displayed as a button.
-    self.syncErrorItem =
-        [self createSyncErrorButtonItemWithItemType:type.value()
-                                      buttonLabelID:GetAccountErrorUIInfo(
-                                                        _syncService)
-                                                        .buttonLabelID
-                                          messageID:GetAccountErrorUIInfo(
-                                                        _syncService)
-                                                        .messageID];
-  }
-
-  NSInteger syncErrorSectionIndex = 0;
-  if (!errorSectionAlreadyExists) {
-    if (type.value() != SyncDisabledByAdministratorErrorItemType) {
-      [model insertSectionWithIdentifier:SyncErrorsSectionIdentifier
-                                 atIndex:syncErrorSectionIndex];
-      // For signed in users, the sync error item will be preceded by a
-      // descriptive message item.
-      [model addItem:[self createSyncErrorMessageItem:GetAccountErrorUIInfo(
-                                                          _syncService)
-                                                          .messageID]
-          toSectionWithIdentifier:SyncErrorsSectionIdentifier];
-      [model addItem:self.syncErrorItem
-          toSectionWithIdentifier:SyncErrorsSectionIdentifier];
+  // 1. Handle cases where the error section should not be displayed or needs to
+  // be removed.
+  if (!showErrorSectionNow) {
+    if (errorSectionPreviouslyExisted) {
+      [self removeSyncErrorsSection:notifyConsumer];
     }
+      self.syncErrorItem = nil;
+    return;
   }
 
+  // 2. Fetch UI configuration info for the current sync error.
+  AccountErrorUIInfo* errorUIInfo = GetAccountErrorUIInfo(_syncService);
+  if (errorUIInfo == nil) {
+    if (errorSectionPreviouslyExisted) {
+      [self removeSyncErrorsSection:notifyConsumer];
+    } else {
+      self.syncErrorItem = nil;
+    }
+    return;
+  }
+
+  // 3. Prepare the table section structure.
+  if (errorSectionPreviouslyExisted) {
+    [model deleteAllItemsFromSectionWithIdentifier:SyncErrorsSectionIdentifier];
+  } else {
+    [model insertSectionWithIdentifier:SyncErrorsSectionIdentifier atIndex:0];
+  }
+
+  // 4. Construct and populate the error message and actionable button items.
+  self.syncErrorItem =
+      [self createSyncErrorButtonItemWithItemType:type.value()
+                                    buttonLabelID:errorUIInfo.buttonLabelID
+                                        messageID:errorUIInfo.messageID];
+  [model addItem:[self createSyncErrorMessageItem:errorUIInfo.messageID]
+      toSectionWithIdentifier:SyncErrorsSectionIdentifier];
+  [model addItem:self.syncErrorItem
+      toSectionWithIdentifier:SyncErrorsSectionIdentifier];
+
+  // 5. Batch notify the consumer of the collection updates.
   if (notifyConsumer) {
-    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:syncErrorSectionIndex];
-    if (errorSectionAlreadyExists) {
+    NSInteger sectionIndex =
+        [model sectionForSectionIdentifier:SyncErrorsSectionIdentifier];
+    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
+    if (errorSectionPreviouslyExisted) {
       [self.consumer reloadSections:indexSet];
     } else {
       [self.consumer insertSections:indexSet rowAnimation:NO];
@@ -1324,25 +1328,12 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
 
 // Returns whether the error state has changed since the last update.
 - (BOOL)needsErrorSectionUpdate:(std::optional<SyncSettingsItemType>)type {
-  BOOL hasError = type.has_value();
-  return (hasError && !self.syncErrorItem) ||
-         (!hasError && self.syncErrorItem) ||
-         (hasError && self.syncErrorItem &&
+  BOOL shouldDisplayError =
+      type.has_value() && (type != SyncDisabledByAdministratorErrorItemType);
+  return (shouldDisplayError && !self.syncErrorItem) ||
+         (!shouldDisplayError && self.syncErrorItem) ||
+         (shouldDisplayError && self.syncErrorItem &&
           type.value() != self.syncErrorItem.type);
-}
-
-// Returns an item to show to the user the sync cannot be turned on for an
-// enterprise policy reason.
-- (TableViewItem*)createSyncDisabledByAdministratorErrorItem {
-  TableViewImageItem* item = [[TableViewImageItem alloc]
-      initWithType:SyncDisabledByAdministratorErrorItemType];
-  item.image = SymbolWithPalette(CustomSettingsRootSymbol(kEnterpriseSymbol),
-                                 @[ [UIColor colorNamed:kStaticGrey600Color] ]);
-  item.title = GetNSString(
-      IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_DISABLBED_BY_ADMINISTRATOR_TITLE);
-  item.enabled = NO;
-  item.textColor = [UIColor colorNamed:kTextSecondaryColor];
-  return item;
 }
 
 // Returns YES if the given type is managed by policies (i.e. is not syncable)

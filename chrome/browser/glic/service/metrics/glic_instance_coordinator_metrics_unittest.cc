@@ -8,11 +8,16 @@
 #include <vector>
 
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "chrome/browser/glic/glic_metrics.h"
+#include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/test_support/mock_glic_instance.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/testing_pref_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -23,27 +28,59 @@ using ::testing::Return;
 
 class MockDataProvider : public GlicInstanceCoordinatorMetrics::DataProvider {
  public:
-  MOCK_METHOD(std::vector<GlicInstance*>, GetInstances, (), (override));
+  MOCK_METHOD(
+      std::vector<
+          GlicInstanceCoordinatorMetrics::DataProvider::InstanceWebContents>,
+      GetAllUnhibernatedWebContents,
+      (),
+      (override));
+  MOCK_METHOD(int, GetVisibleInstanceCount, (), (const, override));
+  MOCK_METHOD(std::vector<glic::mojom::ConversationInfoPtr>,
+              GetRecentlyActiveConversations,
+              (size_t),
+              (override));
 };
 
 class GlicInstanceCoordinatorMetricsTest : public testing::Test {
  public:
   void SetUp() override {
-    metrics_ = std::make_unique<GlicInstanceCoordinatorMetrics>(&provider_);
+    pref_service_.registry()->RegisterBooleanPref(prefs::kGlicPinnedToTabstrip,
+                                                  true);
+    metrics_ = std::make_unique<GlicInstanceCoordinatorMetrics>(&provider_,
+                                                                &pref_service_);
   }
 
  protected:
+  std::unique_ptr<MockGlicInstance> CreateMockInstance(
+      const std::optional<std::string>& conversation_id) {
+    auto instance = std::make_unique<MockGlicInstance>();
+    EXPECT_CALL(*instance, conversation_id())
+        .WillRepeatedly(testing::Return(conversation_id));
+    return instance;
+  }
+
+  std::vector<glic::mojom::ConversationInfoPtr> CreateRecentConversationList(
+      const std::vector<std::string>& ids) {
+    std::vector<glic::mojom::ConversationInfoPtr> result;
+    for (const auto& id : ids) {
+      auto info = glic::mojom::ConversationInfo::New();
+      info->conversation_id = id;
+      result.push_back(std::move(info));
+    }
+    return result;
+  }
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::HistogramTester histogram_tester_;
+  TestingPrefServiceSimple pref_service_;
   testing::NiceMock<MockDataProvider> provider_;
   std::unique_ptr<GlicInstanceCoordinatorMetrics> metrics_;
 };
 
 TEST_F(GlicInstanceCoordinatorMetricsTest,
        NoConcurrentVisibility_ZeroInstances) {
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(Return(std::vector<GlicInstance*>{}));
+  EXPECT_CALL(provider_, GetVisibleInstanceCount())
+      .WillRepeatedly(testing::Return(0));
   metrics_->OnInstanceVisibilityChanged();
   histogram_tester_.ExpectTotalCount("Glic.ConcurrentVisibility.Duration", 0);
   histogram_tester_.ExpectTotalCount("Glic.ConcurrentVisibility.PeakCount", 0);
@@ -51,9 +88,8 @@ TEST_F(GlicInstanceCoordinatorMetricsTest,
 
 TEST_F(GlicInstanceCoordinatorMetricsTest, NoConcurrentVisibility_OneInstance) {
   MockGlicInstance instance1;
-  EXPECT_CALL(instance1, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(Return(std::vector<GlicInstance*>{&instance1}));
+  EXPECT_CALL(provider_, GetVisibleInstanceCount())
+      .WillRepeatedly(testing::Return(1));
 
   metrics_->OnInstanceVisibilityChanged();
   histogram_tester_.ExpectTotalCount("Glic.ConcurrentVisibility.Duration", 0);
@@ -63,19 +99,16 @@ TEST_F(GlicInstanceCoordinatorMetricsTest, NoConcurrentVisibility_OneInstance) {
 TEST_F(GlicInstanceCoordinatorMetricsTest, ConcurrentVisibility_TwoInstances) {
   MockGlicInstance instance1;
   MockGlicInstance instance2;
-  EXPECT_CALL(instance1, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(instance2, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(
-          Return(std::vector<GlicInstance*>{&instance1, &instance2}));
+  EXPECT_CALL(provider_, GetVisibleInstanceCount())
+      .WillOnce(testing::Return(2));
 
   // Start concurrent visibility
   metrics_->OnInstanceVisibilityChanged();
 
   task_environment_.FastForwardBy(base::Seconds(10));
 
-  // End concurrent visibility by hiding one
-  EXPECT_CALL(instance2, IsShowing()).WillRepeatedly(Return(false));
+  EXPECT_CALL(provider_, GetVisibleInstanceCount())
+      .WillOnce(testing::Return(1));
   metrics_->OnInstanceVisibilityChanged();
 
   histogram_tester_.ExpectUniqueTimeSample("Glic.ConcurrentVisibility.Duration",
@@ -90,24 +123,23 @@ TEST_F(GlicInstanceCoordinatorMetricsTest, ConcurrentVisibility_PeakCount) {
   MockGlicInstance instance3;
 
   // Start with 2 visible
-  EXPECT_CALL(instance1, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(instance2, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(instance3, IsShowing()).WillRepeatedly(Return(false));
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(Return(
-          std::vector<GlicInstance*>{&instance1, &instance2, &instance3}));
+  EXPECT_CALL(provider_, GetVisibleInstanceCount())
+      .WillOnce(testing::Return(2))
+      .WillOnce(testing::Return(3))
+      .WillOnce(testing::Return(2))
+      .WillOnce(testing::Return(1));
   metrics_->OnInstanceVisibilityChanged();
 
   // Increase to 3 visible
-  EXPECT_CALL(instance3, IsShowing()).WillRepeatedly(Return(true));
+
   metrics_->OnInstanceVisibilityChanged();
 
   // Decrease back to 2 visible
-  EXPECT_CALL(instance3, IsShowing()).WillRepeatedly(Return(false));
+
   metrics_->OnInstanceVisibilityChanged();
 
   // End concurrent visibility (go to 1 visible)
-  EXPECT_CALL(instance2, IsShowing()).WillRepeatedly(Return(false));
+
   metrics_->OnInstanceVisibilityChanged();
 
   histogram_tester_.ExpectUniqueSample("Glic.ConcurrentVisibility.PeakCount", 3,
@@ -118,11 +150,8 @@ TEST_F(GlicInstanceCoordinatorMetricsTest,
        ConcurrentVisibility_DestructorEndsPeriod) {
   MockGlicInstance instance1;
   MockGlicInstance instance2;
-  EXPECT_CALL(instance1, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(instance2, IsShowing()).WillRepeatedly(Return(true));
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(
-          Return(std::vector<GlicInstance*>{&instance1, &instance2}));
+  EXPECT_CALL(provider_, GetVisibleInstanceCount())
+      .WillRepeatedly(testing::Return(2));
 
   // Start concurrent visibility
   metrics_->OnInstanceVisibilityChanged();
@@ -138,56 +167,36 @@ TEST_F(GlicInstanceCoordinatorMetricsTest,
 }
 
 TEST_F(GlicInstanceCoordinatorMetricsTest, SwitchConversation_New) {
-  MockGlicInstance instance1;
-  EXPECT_CALL(instance1, conversation_id())
-      .WillRepeatedly(Return(std::string("A")));
-  EXPECT_CALL(instance1, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now()));
+  auto instance1 = CreateMockInstance("A");
 
-  // Setup DataProvider to return instance1
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(Return(std::vector<GlicInstance*>{&instance1}));
+  EXPECT_CALL(provider_, GetRecentlyActiveConversations(2))
+      .WillRepeatedly(testing::Return(
+          testing::ByMove(CreateRecentConversationList({"A"}))));
 
-  MockGlicInstance instanceNew;
-  EXPECT_CALL(instanceNew, conversation_id())
-      .WillRepeatedly(Return(std::nullopt));
+  auto instanceNew = CreateMockInstance(std::nullopt);
 
   // instance1 is active
   metrics_->RecordSwitchConversationTarget(
-      std::nullopt, instanceNew.conversation_id(), &instance1);
+      std::nullopt, instanceNew->conversation_id(), instance1.get());
   histogram_tester_.ExpectUniqueSample(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kStartNewConversation, 1);
 }
 
 TEST_F(GlicInstanceCoordinatorMetricsTest, SwitchConversation_Existing) {
-  MockGlicInstance instance1;
-  EXPECT_CALL(instance1, conversation_id())
-      .WillRepeatedly(Return(std::string("A")));
-  EXPECT_CALL(instance1, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now()));
+  auto instance1 = CreateMockInstance("A");
+  auto instance2 = CreateMockInstance("B");
+  auto instance3 = CreateMockInstance("C");
 
-  MockGlicInstance instance2;
-  EXPECT_CALL(instance2, conversation_id())
-      .WillRepeatedly(Return(std::string("B")));
-  EXPECT_CALL(instance2, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now() - base::Seconds(10)));
-
-  MockGlicInstance instance3;
-  EXPECT_CALL(instance3, conversation_id())
-      .WillRepeatedly(Return(std::string("C")));
-  EXPECT_CALL(instance3, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now() - base::Seconds(5)));
-
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(Return(
-          std::vector<GlicInstance*>{&instance1, &instance2, &instance3}));
+  EXPECT_CALL(provider_, GetRecentlyActiveConversations(2))
+      .WillRepeatedly(testing::Return(
+          testing::ByMove(CreateRecentConversationList({"C", "B"}))));
 
   // instance3 ("C") is more recent than instance2 ("B").
   // So last active (excluding instance1) is "C".
   // We request "B".
-  metrics_->RecordSwitchConversationTarget("B", instance2.conversation_id(),
-                                           &instance1);
+  metrics_->RecordSwitchConversationTarget("B", instance2->conversation_id(),
+                                           instance1.get());
   histogram_tester_.ExpectUniqueSample(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kSwitchedToExistingInstance, 1);
@@ -195,94 +204,61 @@ TEST_F(GlicInstanceCoordinatorMetricsTest, SwitchConversation_Existing) {
 
 TEST_F(GlicInstanceCoordinatorMetricsTest,
        SwitchConversation_OtherExistingNoInstance) {
-  MockGlicInstance instance1;
-  EXPECT_CALL(instance1, conversation_id())
-      .WillRepeatedly(Return(std::string("A")));
-  EXPECT_CALL(instance1, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now()));
+  auto instance1 = CreateMockInstance("A");
+  auto instance2 = CreateMockInstance(std::nullopt);
 
-  MockGlicInstance instance2;
-  // Instance 2 does not yet have the conversation B.
-  EXPECT_CALL(instance2, conversation_id())
-      .WillRepeatedly(Return(std::nullopt));
+  EXPECT_CALL(provider_, GetRecentlyActiveConversations(2))
+      .WillRepeatedly(testing::Return(
+          testing::ByMove(CreateRecentConversationList({"A"}))));
 
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(
-          Return(std::vector<GlicInstance*>{&instance1, &instance2}));
-
-  metrics_->RecordSwitchConversationTarget("B", instance2.conversation_id(),
-                                           &instance1);
+  metrics_->RecordSwitchConversationTarget("B", instance2->conversation_id(),
+                                           instance1.get());
   histogram_tester_.ExpectUniqueSample(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kSwitchedToNewInstance, 1);
 }
 
 TEST_F(GlicInstanceCoordinatorMetricsTest, SwitchConversation_Resume) {
-  MockGlicInstance instance1;
-  EXPECT_CALL(instance1, conversation_id())
-      .WillRepeatedly(Return(std::string("A")));
-  EXPECT_CALL(instance1, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now() - base::Seconds(10)));
+  auto instance1 = CreateMockInstance("A");
+  auto instanceNew = CreateMockInstance(std::nullopt);
 
-  MockGlicInstance instanceNew;
-  EXPECT_CALL(instanceNew, conversation_id())
-      .WillRepeatedly(Return(std::nullopt));
-
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(
-          Return(std::vector<GlicInstance*>{&instance1, &instanceNew}));
+  EXPECT_CALL(provider_, GetRecentlyActiveConversations(2))
+      .WillRepeatedly(testing::Return(
+          testing::ByMove(CreateRecentConversationList({"A"}))));
 
   // 1. Initial state A (simulated by timestamps)
   // 2. User clicks "New Conversation".
   metrics_->RecordSwitchConversationTarget(
-      std::nullopt, instanceNew.conversation_id(), &instance1);
+      std::nullopt, instanceNew->conversation_id(), instance1.get());
   histogram_tester_.ExpectBucketCount(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kStartNewConversation, 1);
 
   // 3. User is now on "New". Activation changed (simulated by making New more
   // recent).
-  EXPECT_CALL(instanceNew, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now()));
 
   // 4. User clicks back to "A".
-  metrics_->RecordSwitchConversationTarget("A", instance1.conversation_id(),
-                                           &instanceNew);
+  metrics_->RecordSwitchConversationTarget("A", instance1->conversation_id(),
+                                           instanceNew.get());
   histogram_tester_.ExpectBucketCount(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kSwitchedToLastActive, 1);
 }
 
 TEST_F(GlicInstanceCoordinatorMetricsTest, SwitchConversation_NewToOther) {
-  MockGlicInstance instance1;
-  EXPECT_CALL(instance1, conversation_id())
-      .WillRepeatedly(Return(std::string("A")));
-  // Make instance1 ("A") the most recent one.
-  EXPECT_CALL(instance1, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now() - base::Seconds(5)));
+  auto instance1 = CreateMockInstance("A");
+  auto instanceNew = CreateMockInstance(std::nullopt);
+  auto instance2 = CreateMockInstance("B");
 
-  MockGlicInstance instanceNew;
-  EXPECT_CALL(instanceNew, conversation_id())
-      .WillRepeatedly(Return(std::nullopt));
-  // instanceNew is the current active one (implicitly, as we pass it to the
-  // method).
-
-  MockGlicInstance instance2;
-  EXPECT_CALL(instance2, conversation_id())
-      .WillRepeatedly(Return(std::string("B")));
-  // instance2 ("B") is older than instance1.
-  EXPECT_CALL(instance2, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now() - base::Seconds(10)));
-
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(Return(
-          std::vector<GlicInstance*>{&instance1, &instanceNew, &instance2}));
+  EXPECT_CALL(provider_, GetRecentlyActiveConversations(2))
+      .WillRepeatedly(testing::Return(
+          testing::ByMove(CreateRecentConversationList({"A", "B"}))));
 
   // Switching from New (active) to B (target).
   // Most recent (excluding New) is A (instance1).
   // Requested B != A.
-  metrics_->RecordSwitchConversationTarget("B", instance2.conversation_id(),
-                                           &instanceNew);
+  metrics_->RecordSwitchConversationTarget("B", instance2->conversation_id(),
+                                           instanceNew.get());
   histogram_tester_.ExpectUniqueSample(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kSwitchedToExistingInstance, 1);
@@ -290,29 +266,40 @@ TEST_F(GlicInstanceCoordinatorMetricsTest, SwitchConversation_NewToOther) {
 
 TEST_F(GlicInstanceCoordinatorMetricsTest,
        SwitchConversation_InstanceSwitchResume) {
-  MockGlicInstance instance1;
-  EXPECT_CALL(instance1, conversation_id())
-      .WillRepeatedly(Return(std::string("A")));
-  EXPECT_CALL(instance1, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now() - base::Seconds(10)));
+  auto instance1 = CreateMockInstance("A");
+  auto instance2 = CreateMockInstance("B");
 
-  MockGlicInstance instance2;
-  EXPECT_CALL(instance2, conversation_id())
-      .WillRepeatedly(Return(std::string("B")));
-  // User switches windows to instance 2 (which has B).
-  EXPECT_CALL(instance2, GetLastActivationTimestamp())
-      .WillRepeatedly(Return(base::Time::Now()));
-
-  EXPECT_CALL(provider_, GetInstances())
-      .WillRepeatedly(
-          Return(std::vector<GlicInstance*>{&instance1, &instance2}));
+  EXPECT_CALL(provider_, GetRecentlyActiveConversations(2))
+      .WillRepeatedly(testing::Return(
+          testing::ByMove(CreateRecentConversationList({"B", "A"}))));
 
   // User switches conversation back to A.
-  metrics_->RecordSwitchConversationTarget("A", instance1.conversation_id(),
-                                           &instance2);
+  metrics_->RecordSwitchConversationTarget("A", instance1->conversation_id(),
+                                           instance2.get());
   histogram_tester_.ExpectUniqueSample(
       "Glic.Interaction.SwitchConversationTarget",
       GlicSwitchConversationTarget::kSwitchedToLastActive, 1);
+}
+
+TEST_F(GlicInstanceCoordinatorMetricsTest,
+       PinningPreferenceChangesRecordActions) {
+  base::UserActionTester user_action_tester;
+
+  // The preference is registered with default 'true'. Setting it to 'false'
+  // should log a transition to Unpinned.
+  pref_service_.SetBoolean(prefs::kGlicPinnedToTabstrip, false);
+  EXPECT_EQ(user_action_tester.GetActionCount("Glic.Unpinned"), 1);
+  EXPECT_EQ(user_action_tester.GetActionCount("Glic.Pinned"), 0);
+
+  // Redundant setting to same value should not log new actions.
+  pref_service_.SetBoolean(prefs::kGlicPinnedToTabstrip, false);
+  EXPECT_EQ(user_action_tester.GetActionCount("Glic.Unpinned"), 1);
+  EXPECT_EQ(user_action_tester.GetActionCount("Glic.Pinned"), 0);
+
+  // Setting back to 'true' should log a transition to Pinned.
+  pref_service_.SetBoolean(prefs::kGlicPinnedToTabstrip, true);
+  EXPECT_EQ(user_action_tester.GetActionCount("Glic.Unpinned"), 1);
+  EXPECT_EQ(user_action_tester.GetActionCount("Glic.Pinned"), 1);
 }
 
 }  // namespace

@@ -210,6 +210,11 @@ class GPU_GLES2_EXPORT SharedImageFactory {
       gfx::GpuMemoryBufferType gmb_type,
       std::optional<SharedImageAccessStream> stream,
       const AccessParams* params);
+
+  // Returns the factory with the given type. This is used for lazy allocation
+  // of backings for CompoundImageBacking.
+  SharedImageBackingFactory* GetFactoryByType(SharedImageBackingType type);
+
   void LogGetFactoryFailed(gpu::SharedImageUsageSet usage,
                            viz::SharedImageFormat format,
                            gfx::GpuMemoryBufferType gmb_type,
@@ -281,9 +286,12 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
       const Mailbox& mailbox);
   std::unique_ptr<GLTexturePassthroughImageRepresentation>
   ProduceGLTexturePassthrough(const Mailbox& mailbox);
+  // If `required_usages` is not empty then the backing must have all the
+  // required usages in order to create a representation.
   std::unique_ptr<SkiaImageRepresentation> ProduceSkia(
       const Mailbox& mailbox,
-      scoped_refptr<SharedContextState> context_State);
+      scoped_refptr<SharedContextState> context_state,
+      SharedImageUsageSet required_usages = {});
   std::unique_ptr<DawnImageRepresentation> ProduceDawn(
       const Mailbox& mailbox,
       const wgpu::Device& device,
@@ -295,8 +303,6 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
       const wgpu::Device& device,
       wgpu::BackendType backend_type,
       scoped_refptr<SharedContextState> context_state);
-  std::unique_ptr<WebNNTensorRepresentation> ProduceWebNNTensor(
-      const Mailbox& mailbox);
   std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
       const Mailbox& mailbox);
   std::unique_ptr<MemoryImageRepresentation> ProduceMemory(

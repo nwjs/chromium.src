@@ -139,7 +139,7 @@ QueryContextualizer::QueryContextualizer(ContextualTasksService* service,
 QueryContextualizer::~QueryContextualizer() = default;
 
 // static
-std::vector<GURL> QueryContextualizer::ExtractUrlsFromQuery(
+std::vector<std::string> QueryContextualizer::ExtractUrlsFromQuery(
     const std::string& query_text) {
   re2::StringPiece input(query_text);
   std::string url_str;
@@ -151,19 +151,71 @@ std::vector<GURL> QueryContextualizer::ExtractUrlsFromQuery(
   static const base::NoDestructor<re2::RE2> url_regex(
       R"((?i)((?:(?:https?|ftp)://|www\.)[\w#$&%'()*+,\-./:;!=?@\[\]_`{|}~]+))");
 
-  std::vector<GURL> extracted_urls;
+  // Use a GURL set to deduplicate URLs, but keep the URLs stored as strings to
+  // prevent them from being modified by URL canonicalization.
+  std::vector<std::string> extracted_urls;
   base::flat_set<GURL> seen_urls;
 
   while (RE2::FindAndConsume(&input, *url_regex, &url_str)) {
-    GURL url;
-    if (base::StartsWith(url_str, "www.",
-                         base::CompareCase::INSENSITIVE_ASCII)) {
-      url = GURL("http://" + url_str);
+    std::string original_match = url_str;
+
+    auto make_full_url = [](const std::string& str) {
+      if (base::StartsWith(str, "www.", base::CompareCase::INSENSITIVE_ASCII)) {
+        return "http://" + str;
+      }
+      return str;
+    };
+
+    auto is_gurl_valid_and_has_clean_host = [](const GURL& g) {
+      if (!g.is_valid()) {
+        return false;
+      }
+      std::string_view host = g.host();
+      // DNS hostnames must not contain these punctuation marks, which are
+      // commonly sentence/list separators.
+      const char kInvalidHostChars[] = ",;:?!";
+      if (host.find_first_of(kInvalidHostChars) != std::string_view::npos) {
+        return false;
+      }
+      // A trailing dot in hostname (absolute DNS root) is technically valid
+      // but in query text it is almost always a sentence period.
+      if (!host.empty() && host.back() == '.') {
+        return false;
+      }
+      return true;
+    };
+
+    std::optional<std::string> best_url;
+
+    // 1. Check the original match
+    std::string full_url = make_full_url(original_match);
+    GURL gurl(full_url);
+    if (is_gurl_valid_and_has_clean_host(gurl)) {
+      best_url = full_url;
     } else {
-      url = GURL(url_str);
+      // 2. If original is not valid, try trimming
+      const char kTrimChars[] = ",.;:?!";
+      std::string trimmed_match = original_match;
+      size_t last_good_pos = trimmed_match.find_last_not_of(kTrimChars);
+
+      if (last_good_pos != std::string::npos) {
+        trimmed_match.resize(last_good_pos + 1);
+
+        if (trimmed_match != original_match) {
+          std::string full_trimmed_url = make_full_url(trimmed_match);
+          GURL trimmed_gurl(full_trimmed_url);
+          if (is_gurl_valid_and_has_clean_host(trimmed_gurl)) {
+            best_url = full_trimmed_url;
+          }
+        }
+      }
     }
-    if (url.is_valid() && seen_urls.insert(url).second) {
-      extracted_urls.push_back(url);
+
+    if (best_url) {
+      GURL final_gurl(*best_url);
+      if (seen_urls.insert(final_gurl).second) {
+        extracted_urls.push_back(*best_url);
+      }
     }
   }
   return extracted_urls;
@@ -314,7 +366,7 @@ void QueryContextualizer::OnContextRetrieved(
 
   // Extract URLs from the query text and start upload flows for them.
   if (lens::features::IsLensSendUrlsInComposeboxesEnabled()) {
-    std::vector<GURL> extracted_urls = ExtractUrlsFromQuery(query_text);
+    std::vector<std::string> extracted_urls = ExtractUrlsFromQuery(query_text);
 
     // Create the session handle if it did not already exist and there are URLs
     // to upload.
@@ -332,7 +384,7 @@ void QueryContextualizer::OnContextRetrieved(
     }
 
     if (session_handle) {
-      for (const GURL& url : extracted_urls) {
+      for (const std::string& url : extracted_urls) {
         auto context_token = session_handle->CreateContextToken();
         if (upload_tracker) {
           upload_tracker->AddToken(context_token);

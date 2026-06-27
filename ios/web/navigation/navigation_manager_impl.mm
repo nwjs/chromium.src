@@ -376,7 +376,8 @@ void NavigationManagerImpl::AddPendingItem(
 
   bool is_form_post =
       is_post_navigation &&
-      (navigation_type & ui::PageTransition::PAGE_TRANSITION_FORM_SUBMIT);
+      ui::PageTransitionCoreTypeIs(
+          navigation_type, ui::PageTransition::PAGE_TRANSITION_FORM_SUBMIT);
   if (proxy.backForwardList.currentItem && isCurrentURLSameAsPending &&
       !is_form_post && !is_error_navigation) {
     pending_item_index_ = web_view_cache_.GetCurrentItemIndex();
@@ -1493,12 +1494,14 @@ const GURL& NavigationManagerImpl::WKWebViewCache::GetVisibleWebViewOriginURL()
     // Retain the url to reduce the number of calls to `proxy.URL` which may be
     // very expensive after being called hundreds of time for one navigation.
     NSURL* url = proxy.URL;
-    if (![cached_visible_host_nsstring_ isEqualToString:url.host] ||
+    if (![cached_visible_port_nsnumber_ isEqual:url.port] ||
+        ![cached_visible_host_nsstring_ isEqualToString:url.host] ||
         ![cached_visible_scheme_nsstring_ isEqualToString:url.scheme]) {
       cached_visible_origin_url_ =
           net::GURLWithNSURL(url).DeprecatedGetOriginAsURL();
       cached_visible_host_nsstring_ = url.host;
       cached_visible_scheme_nsstring_ = url.scheme;
+      cached_visible_port_nsnumber_ = url.port;
     }
     return cached_visible_origin_url_;
   }

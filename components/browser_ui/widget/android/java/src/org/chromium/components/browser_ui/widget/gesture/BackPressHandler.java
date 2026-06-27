@@ -32,17 +32,16 @@ public interface BackPressHandler {
         Type.TEXT_BUBBLE,
         Type.XR_DELEGATE,
         Type.SCENE_OVERLAY,
-        Type.ACTOR_OVERLAY,
-        // Deprecated: Type.START_SURFACE,
         Type.SELECTION_POPUP,
         Type.MANUAL_FILLING,
         Type.TAB_MODAL_HANDLER,
         Type.FULLSCREEN,
         Type.HUB,
-        // Deprecated: Type.TAB_SWITCHER,
         Type.CLOSE_WATCHER,
         Type.FIND_TOOLBAR,
         Type.LOCATION_BAR,
+        Type.REALBOX,
+        Type.ACTOR_OVERLAY,
         Type.BOTTOM_CONTROLS,
         Type.TAB_HISTORY,
         Type.BOTTOM_SHEET,
@@ -51,7 +50,8 @@ public interface BackPressHandler {
         Type.ARCHIVED_TABS_DIALOG,
         Type.NATIVE_PAGE,
         Type.CANCEL_TAB_STRIP_DRAG,
-        Type.CANCEL_TAB_SWITCHER_DRAG
+        Type.CANCEL_TAB_SWITCHER_DRAG,
+        Type.FUSEBOX_POPUP
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface Type {
@@ -59,19 +59,19 @@ public interface BackPressHandler {
         int XR_DELEGATE = 1;
         int SCENE_OVERLAY = 2;
         int BOTTOM_SHEET = 3;
-        int CANCEL_TAB_SWITCHER_DRAG = 4;
-        int ACTOR_OVERLAY = 5;
-        // Deprecated: int START_SURFACE = 5;
+        int FUSEBOX_POPUP = 4;
+        int CANCEL_TAB_SWITCHER_DRAG = 5;
         // The archived tabs dialog is shown on top of the hub, so it must take priority.
         int ARCHIVED_TABS_DIALOG = 6;
         int HUB = 7;
-        // Deprecated: int TAB_SWITCHER = 8;
         // Fullscreen must be before selection popup. crbug.com/1454817.
-        int FULLSCREEN = 9;
-        int SELECTION_POPUP = 10;
-        int MANUAL_FILLING = 11;
-        int CANCEL_TAB_STRIP_DRAG = 12;
-        int LOCATION_BAR = 14;
+        int FULLSCREEN = 8;
+        int SELECTION_POPUP = 9;
+        int MANUAL_FILLING = 10;
+        int CANCEL_TAB_STRIP_DRAG = 11;
+        int LOCATION_BAR = 12;
+        int REALBOX = 13;
+        int ACTOR_OVERLAY = 14;
         int TAB_MODAL_HANDLER = 15;
         int CLOSE_WATCHER = 16;
         int FIND_TOOLBAR = 17;
@@ -84,12 +84,7 @@ public interface BackPressHandler {
     }
 
     /** Result of back press handling. */
-    @IntDef({
-        BackPressResult.SUCCESS,
-        BackPressResult.FAILURE,
-        BackPressResult.UNKNOWN,
-        BackPressResult.IGNORED
-    })
+    @IntDef({BackPressResult.SUCCESS, BackPressResult.FAILURE, BackPressResult.UNKNOWN})
     @Retention(RetentionPolicy.SOURCE)
     @interface BackPressResult {
         // Successfully intercept the back press and does something to handle the back press,
@@ -101,9 +96,6 @@ public interface BackPressHandler {
         int FAILURE = 1;
         // Do not use unless it is not possible to verify if the back press was correctly handled.
         int UNKNOWN = 2;
-        // When nothing is expected to occur, such as trying to navigate forward with no forward
-        // history.
-        int IGNORED = 3;
         int NUM_TYPES = UNKNOWN + 1;
     }
 
@@ -140,11 +132,11 @@ public interface BackPressHandler {
     }
 
     /**
-     * A {@link MonotonicObservableSupplier <Boolean>} which notifies of whether the implementer wants to
-     * intercept the back gesture.
+     * A {@link MonotonicObservableSupplier <Boolean>} which notifies of whether the implementer
+     * wants to intercept the back gesture.
      *
-     * @return An {@link MonotonicObservableSupplier <Boolean>} which yields true if the implementer wants to
-     *     intercept the back gesture; otherwise, it should yield false to prevent {@link
+     * @return An {@link MonotonicObservableSupplier <Boolean>} which yields true if the implementer
+     *     wants to intercept the back gesture; otherwise, it should yield false to prevent {@link
      *     #handleBackPress()} from being called.
      */
     default NonNullObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {

@@ -51,9 +51,11 @@ class UrlLoadingBrowserAgent : public BrowserUserData<UrlLoadingBrowserAgent> {
   void SetDelegate(id<URLLoadingDelegate> delegate);
 
   // Adds an interceptor for the given URL.
-  // Requires that no interceptor is already registered for `url`.
-  void AddInterceptor(const GURL& url,
-                      std::unique_ptr<URLInterceptor> interceptor);
+  // Returns false if an interceptor overlapping with `url` is already
+  // registered.
+  [[nodiscard]] bool AddInterceptor(
+      const GURL& url,
+      std::unique_ptr<URLInterceptor> interceptor);
 
   // Removes the interceptor for the given URL.
   void RemoveInterceptor(const GURL& url);
@@ -71,6 +73,9 @@ class UrlLoadingBrowserAgent : public BrowserUserData<UrlLoadingBrowserAgent> {
   // be realized and belong to the same Browser as this agent.
   void LoadUrlInTab(const UrlLoadParams& params,
                     web::WebState* target_web_state);
+
+  // Provides a weak pointer to this instance.
+  base::WeakPtr<UrlLoadingBrowserAgent> AsWeakPtr();
 
  private:
   friend class BrowserUserData<UrlLoadingBrowserAgent>;

@@ -144,6 +144,10 @@ class AlgorithmImplementation {
                              base::span<const uint8_t> ciphertext,
                              std::vector<uint8_t>* out_shared_secret) const;
 
+  virtual Status GetPublicKey(const blink::WebCryptoKey& key,
+                              blink::WebCryptoKeyUsageMask usages,
+                              blink::WebCryptoKey* public_key) const;
+
   // Returns true if the operation and algorithm are supported.
   //
   // This function need only check for the specific operations where parameters
@@ -174,14 +178,10 @@ class AlgorithmImplementation {
   //     and be able to survive future migrations to crypto libraries)
   //   * Work for all keys (including ones marked as non-extractable).
   //   * Gracefully handle invalid inputs
-  //
-  // Tests to verify structured cloning are available in:
-  //   LayoutTests/crypto/clone-*.html
 
-  // Note that SerializeKeyForClone() is not virtual because all
-  // implementations end up doing the same thing.
-  Status SerializeKeyForClone(const blink::WebCryptoKey& key,
-                              std::vector<uint8_t>* key_data) const;
+  // Serializes key data for Blink.
+  virtual Status SerializeKeyForClone(const blink::WebCryptoKey& key,
+                                      std::vector<uint8_t>* key_data) const;
 
   // Deserializes key data from Blink (used for structured cloning).
   //

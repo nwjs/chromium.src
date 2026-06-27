@@ -4,12 +4,16 @@
 
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
 
+#import "base/json/json_reader.h"
 #import "base/memory/raw_ptr.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/enterprise/connectors/core/common.h"
+#import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "ios/chrome/browser/drive/model/upload_task.h"
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/scan_decision_helper.h"
 #import "ios/chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
@@ -20,6 +24,7 @@
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
+#import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/test/fakes/fake_enterprise_commands_handler.h"
 #import "ios/components/enterprise/analysis/features.h"
 #import "ios/web/public/test/fakes/fake_download_task.h"
@@ -34,6 +39,17 @@ namespace {
 // Constants for configuring a fake download task.
 const char kTestUrl[] = "https://chromium.test/download.txt";
 const char kTestMimeType[] = "text/html";
+
+// Default analysis settings JSON for testing.
+constexpr char kWildcardAnalysisSettingsPref[] = R"([
+  {
+    "service_provider": "google",
+    "enable": [
+      {"url_list": ["*"], "tags": ["dlp", "malware"]}
+    ],
+    "block_until_verdict": 1
+  }
+])";
 
 }  // namespace
 
@@ -65,12 +81,31 @@ class DriveTabHelperTest : public PlatformTest {
     browser_->GetWebStateList()->InsertWebState(
         std::move(web_state),
         WebStateList::InsertionParams::Automatic().Activate(true));
+    web_state_->WasShown();
 
     download_task_ =
         std::make_unique<web::FakeDownloadTask>(GURL(kTestUrl), kTestMimeType);
     download_task_->SetWebState(web_state_);
+
+    SystemIdentityManager* system_identity_manager =
+        GetApplicationContext()->GetSystemIdentityManager();
+    FakeSystemIdentityManager* fake_system_identity_manager =
+        FakeSystemIdentityManager::FromSystemIdentityManager(
+            system_identity_manager);
+    fake_system_identity_manager->AddIdentity(
+        [FakeSystemIdentity fakeIdentity1]);
+
     DriveTabHelper::CreateForWebState(web_state_);
     helper_ = DriveTabHelper::FromWebState(web_state_);
+  }
+
+  // Enables the file download connector by setting the appropriate pref.
+  void EnableConnector() {
+    profile_->GetTestingPrefService()->Set(
+        AnalysisConnectorPref(
+            enterprise_connectors::AnalysisConnector::FILE_DOWNLOADED),
+        *base::JSONReader::Read(kWildcardAnalysisSettingsPref,
+                                base::JSON_PARSE_RFC));
   }
 
  public:
@@ -155,8 +190,14 @@ TEST_F(DriveTabHelperTest, UploadStartsDirectlyWhenFeatureDisabled) {
 // Tests that when scanning is ENABLED and result is SUCCESS, the upload
 // proceeds.
 TEST_F(DriveTabHelperTest, ScanningSuccessStartsUpload) {
+  scoped_feature_list_.InitAndEnableFeature(
+      enterprise_connectors::kEnableFileDownloadConnectorIOS);
+  EnableConnector();
   FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   helper_->AddDownloadToSaveToDrive(download_task_.get(), identity);
+
+  // Start the task to set the response path.
+  download_task_->Start(base::FilePath("/tmp/test"));
 
   UploadTask* upload_task =
       helper_->GetUploadTaskForDownload(download_task_.get());
@@ -165,6 +206,9 @@ TEST_F(DriveTabHelperTest, ScanningSuccessStartsUpload) {
   enterprise_connectors::RequestHandlerResult result;
   result.final_result =
       enterprise_connectors::FinalContentAnalysisResult::SUCCESS;
+
+  // Simulate completion of the download task.
+  download_task_->SetDone(true);
 
   enterprise_connectors::HandleScanDecision(
       web_state_->GetWeakPtr(), enterprise_connectors::TriggerType::kSavePrompt,
@@ -235,4 +279,34 @@ TEST_F(DriveTabHelperTest, ScanningFailureTriggersSnackbarAndCancels) {
 
   // The upload task should be cleared.
   EXPECT_EQ(nullptr, helper_->GetUploadTaskForDownload(download_task_.get()));
+}
+
+// Tests that if the identity is removed from the device before calling
+// `MaybeUploadDownloadToDrive`, the upload task fails.
+TEST_F(DriveTabHelperTest, UploadFailsIfIdentityRemovedBeforeStart) {
+  FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
+  helper_->AddDownloadToSaveToDrive(download_task_.get(), identity);
+
+  UploadTask* upload_task =
+      helper_->GetUploadTaskForDownload(download_task_.get());
+  ASSERT_NE(nullptr, upload_task);
+  EXPECT_EQ(UploadTask::State::kNotStarted, upload_task->GetState());
+
+  // Remove the identity from the system identity manager.
+  SystemIdentityManager* system_identity_manager =
+      GetApplicationContext()->GetSystemIdentityManager();
+  FakeSystemIdentityManager* fake_system_identity_manager =
+      FakeSystemIdentityManager::FromSystemIdentityManager(
+          system_identity_manager);
+  fake_system_identity_manager->ForgetIdentityFromOtherApplication(identity);
+
+  // Wait for the asynchronous forget operation in fake manager to complete.
+  fake_system_identity_manager->WaitForServiceCallbacksToComplete();
+
+  // Simulate completion of the download task (initializes
+  // files_request_handler_).
+  download_task_->SetDone(true);
+
+  // Upload should have failed and not be resumable.
+  EXPECT_EQ(UploadTask::State::kFailedNotResumable, upload_task->GetState());
 }

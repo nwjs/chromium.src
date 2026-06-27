@@ -16,6 +16,7 @@
 #include "components/password_manager/core/browser/actor_login/test/actor_login_test_util.h"
 #include "components/password_manager/core/browser/actor_login/test/mock_actor_login_permission_service.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/sync/test/test_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -40,14 +41,14 @@ class MockObserver : public ActorLoginPermissionsManager::Observer {
   MOCK_METHOD(void, OnPermissionsChanged, (), (override));
 };
 
-
-PasswordForm CreateApprovedForm(const std::string& signon_realm,
-                                const std::u16string& username) {
-  PasswordForm form =
-      CreateSavedPasswordForm(GURL(signon_realm), username, u"password");
-  form.actor_login_approved = true;
-  form.in_store = PasswordForm::Store::kProfileStore;
-  return form;
+password_manager::StoredCredential CreateApprovedForm(
+    const std::string& signon_realm,
+    const std::u16string& username) {
+  password_manager::StoredCredential cred = password_manager::FromPasswordForm(
+      CreateSavedPasswordForm(GURL(signon_realm), username, u"password"));
+  cred.actor_login_approved = true;
+  cred.in_store = PasswordForm::Store::kProfileStore;
+  return cred;
 }
 
 }  // namespace
@@ -56,8 +57,8 @@ class ActorLoginPermissionsManagerTest : public testing::Test {
  public:
   void SetUp() override {
     test_sync_service_.SetSignedIn(signin::ConsentLevel::kSync);
-    profile_store_->Init(/*affiliated_match_helper=*/nullptr);
-    account_store_->Init(/*affiliated_match_helper=*/nullptr);
+    profile_store_->Init();
+    account_store_->Init();
     ON_CALL(actor_login_permission_service_, ListAllPermissions)
         .WillByDefault(base::test::RunOnceCallbackRepeatedly<0>(
             std::vector<FederatedPermission>()));
@@ -422,12 +423,12 @@ class ActorLoginPermissionsManagerInitializationTest : public ::testing::Test {
     profile_store_ = base::MakeRefCounted<password_manager::PasswordStore>(
         std::make_unique<password_manager::FakePasswordStoreBackend>(
             IsAccountStore(false), profile_store_backend_runner()));
-    profile_store_->Init(/*affiliated_match_helper=*/nullptr);
+    profile_store_->Init();
 
     account_store_ = base::MakeRefCounted<password_manager::PasswordStore>(
         std::make_unique<password_manager::FakePasswordStoreBackend>(
             IsAccountStore(true), account_store_backend_runner()));
-    account_store_->Init(/*affiliated_match_helper=*/nullptr);
+    account_store_->Init();
 
     ON_CALL(actor_login_permission_service(), ListAllPermissions)
         .WillByDefault(base::test::RunOnceCallbackRepeatedly<0>(

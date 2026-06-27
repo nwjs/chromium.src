@@ -23,10 +23,6 @@
 namespace base::android {
 class MemoryPurgeManagerAndroid;
 
-// TODO(thiabaud): Remove these once we fix the include in about/flags
-BASE_EXPORT BASE_DECLARE_FEATURE(kShouldFreezeSelf);
-BASE_EXPORT BASE_DECLARE_FEATURE(kUseRunningCompact);
-
 // Starting from Android U, apps are frozen shortly after being backgrounded
 // (with some exceptions). This causes some background tasks for reclaiming
 // resources in Chrome to not be run until Chrome is foregrounded again (which
@@ -65,6 +61,11 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
       const base::Location& from_here,
       OnceCallback<void(MemoryReductionTaskContext)> task,
       base::TimeDelta delay) LOCKS_EXCLUDED(lock());
+
+  static void PostOnFreezeTask(
+      scoped_refptr<base::SequencedTaskRunner> task_runner,
+      const base::Location& from_here,
+      OnceClosure task) LOCKS_EXCLUDED(lock());
 
   class PreFreezeMetric {
    public:
@@ -112,7 +113,7 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
       LOCKS_EXCLUDED(lock());
 
   static void SetSupportsModernTrimForTesting(bool is_supported);
-  static void ClearMetricsForTesting() LOCKS_EXCLUDED(lock());
+  static void ResetForTesting() LOCKS_EXCLUDED(lock());
   size_t GetNumberOfPendingBackgroundTasksForTesting() const
       LOCKS_EXCLUDED(lock());
   size_t GetNumberOfKnownMetricsForTesting() const LOCKS_EXCLUDED(lock());
@@ -128,6 +129,22 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
   static bool SupportsModernTrim();
   static bool ShouldUseModernTrim();
   static bool IsTrimMemoryBackgroundCritical();
+
+  class Delegate {
+   public:
+    virtual ~Delegate() = default;
+    virtual bool ShouldThawPreFrozenProcess() const = 0;
+  };
+
+  static void SetDelegate(std::unique_ptr<Delegate> delegate)
+      LOCKS_EXCLUDED(lock());
+
+  // Returns true if the process is currently in a pre-frozen state.
+  // Resets the state to false if it detects the process is no longer cached.
+  static bool GetAndUpdatePreFrozenState() LOCKS_EXCLUDED(lock());
+
+  // Forces the pre-frozen state for testing.
+  static void SetForcePreFrozenForTesting(bool force) LOCKS_EXCLUDED(lock());
 
  private:
   friend class base::NoDestructor<PreFreezeBackgroundMemoryTrimmer>;
@@ -159,6 +176,11 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
         OnceCallback<void(MemoryReductionTaskContext)> task,
         base::TimeDelta delay);
 
+    static std::unique_ptr<BackgroundTask> CreateOnFreezeTask(
+        scoped_refptr<base::SequencedTaskRunner> task_runner,
+        const base::Location& from_here,
+        OnceClosure task);
+
     explicit BackgroundTask(
         scoped_refptr<base::SequencedTaskRunner> task_runner);
     ~BackgroundTask();
@@ -182,6 +204,9 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
     base::DelayedTaskHandle GUARDED_BY_CONTEXT(sequence_checker_) task_handle_;
 
     OnceCallback<void(MemoryReductionTaskContext)> task_;
+    // If true, the task has no delayed fallback and should only run when
+    // a pre-freeze signal is received.
+    bool is_freeze_only_ = false;
     SEQUENCE_CHECKER(sequence_checker_);
   };
 
@@ -201,7 +226,6 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
   void UnregisterBackgroundTaskInternal(BackgroundTask*) LOCKS_EXCLUDED(lock());
 
   static void RegisterPrivateMemoryFootprintMetric() LOCKS_EXCLUDED(lock());
-  void RegisterPrivateMemoryFootprintMetricInternal() LOCKS_EXCLUDED(lock());
 
   void PostDelayedBackgroundTaskInternal(
       scoped_refptr<base::SequencedTaskRunner> task_runner,
@@ -213,6 +237,10 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
       const base::Location& from_here,
       OnceCallback<void(MemoryReductionTaskContext)> task,
       base::TimeDelta delay) LOCKS_EXCLUDED(lock());
+  void PostOnFreezeTaskModern(
+      scoped_refptr<base::SequencedTaskRunner> task_runner,
+      const base::Location& from_here,
+      OnceClosure task) LOCKS_EXCLUDED(lock());
   BackgroundTask* PostDelayedBackgroundTaskModernHelper(
       scoped_refptr<base::SequencedTaskRunner> task_runner,
       const base::Location& from_here,
@@ -236,6 +264,15 @@ class BASE_EXPORT PreFreezeBackgroundMemoryTrimmer {
   // |values_before_| should be empty.
   std::vector<std::optional<ByteSize>> values_before_ GUARDED_BY(lock());
   bool supports_modern_trim_;
+  // True if the process has received a pre-freeze signal and has not yet
+  // been thawed.
+  bool is_pre_frozen_ GUARDED_BY(lock()) = false;
+  bool force_pre_frozen_for_testing_ GUARDED_BY(lock()) = false;
+  // Incremented every time a pre-freeze event occurs. Used to detect and
+  // prevent race conditions where a new pre-freeze event happens while a
+  // thread is checking the thaw status.
+  size_t pre_freeze_generation_ GUARDED_BY(lock()) = 0;
+  std::unique_ptr<Delegate> delegate_ GUARDED_BY(lock());
 };
 
 }  // namespace base::android

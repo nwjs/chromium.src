@@ -58,7 +58,7 @@ export {SettingsAiInfoCardElement} from './ai_page/ai_info_card.js';
 export {SettingsAiLoggingInfoBullet} from './ai_page/ai_logging_info_bullet.js';
 export {SettingsAiPageElement} from './ai_page/ai_page.js';
 export {SettingsAiPageIndexElement} from './ai_page/ai_page_index.js';
-export {ModelExecutionEnterprisePolicyValue} from './ai_page/constants.js';
+export {ChromeSuggestionsSettingsValue, ModelExecutionEnterprisePolicyValue} from './ai_page/constants.js';
 export {AppearanceBrowserProxyImpl} from './appearance_page/appearance_browser_proxy.js';
 export type {AppearanceBrowserProxy} from './appearance_page/appearance_browser_proxy.js';
 export {SettingsAppearancePageElement, SystemTheme} from './appearance_page/appearance_page.js';
@@ -98,17 +98,15 @@ export {pageVisibility, resetPageVisibilityForTesting} from './page_visibility.j
 export type {PrivacyPageVisibility} from './page_visibility.js';
 // <if expr="is_chromeos">
 export {AccountManagerBrowserProxyImpl} from './people_page/account_manager_browser_proxy.js';
-export type {AccountManagerBrowserProxy} from './people_page/account_manager_browser_proxy.js';
+export type {Account, AccountManagerBrowserProxy} from './people_page/account_manager_browser_proxy.js';
 // </if>
 export {SettingsPeoplePageElement} from './people_page/people_page.js';
 export {SettingsPeoplePageIndexElement} from './people_page/people_page_index.js';
-// <if expr="not is_chromeos">
 export {SettingsSyncAccountControlElement} from './people_page/sync_account_control.js';
-// </if>
 export {BATTERY_SAVER_MODE_PREF, SettingsBatteryPageElement} from './performance_page/battery_page.js';
 export {MEMORY_SAVER_MODE_AGGRESSIVENESS_PREF, MEMORY_SAVER_MODE_PREF, SettingsMemoryPageElement} from './performance_page/memory_page.js';
 export {PerformanceBrowserProxyImpl} from './performance_page/performance_browser_proxy.js';
-export type {PerformanceBrowserProxy} from './performance_page/performance_browser_proxy.js';
+export type {CpuPerformanceInfo, PerformanceBrowserProxy} from './performance_page/performance_browser_proxy.js';
 export {BatterySaverModeState, MemorySaverModeAggressiveness, MemorySaverModeExceptionListAction, MemorySaverModeState, PerformanceMetricsProxyImpl} from './performance_page/performance_metrics_proxy.js';
 export type {PerformanceMetricsProxy} from './performance_page/performance_metrics_proxy.js';
 export {DISCARD_RING_PREF, PERFORMANCE_INTERVENTION_NOTIFICATION_PREF, SettingsPerformancePageElement} from './performance_page/performance_page.js';

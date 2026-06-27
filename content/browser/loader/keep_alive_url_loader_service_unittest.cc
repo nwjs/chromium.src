@@ -225,9 +225,7 @@ class ConfigurableURLLoaderThrottle final : public blink::URLLoaderThrottle {
       net::RedirectInfo* redirect_info,
       const network::mojom::URLResponseHead& /* response_head */,
       bool* defer,
-      std::vector<std::string>* /* to_be_removed_headers */,
-      net::HttpRequestHeaders* /* modified_headers */,
-      net::HttpRequestHeaders* /* modified_cors_exempt_headers */) override {
+      network::HttpRequestHeadersUpdateParams* headers_update_params) override {
     will_redirect_request_called_ = true;
     *defer = deferring_;
     if (canceling_before_redirect_) {
@@ -870,10 +868,11 @@ TEST_F(KeepAliveURLLoaderServiceTest,
       GetLastPendingRequest()->test_url_loader->follow_redirect_params();
   EXPECT_THAT(params, SizeIs(1));
   EXPECT_EQ(params[0].new_url, std::nullopt);
-  EXPECT_THAT(params[0].removed_headers,
+  EXPECT_THAT(params[0].headers_update_params.removed_headers,
               ElementsAre(net::HttpRequestHeaders::kAuthorization));
-  EXPECT_TRUE(params[0].modified_headers.IsEmpty());
-  EXPECT_TRUE(params[0].modified_cors_exempt_headers.IsEmpty());
+  EXPECT_TRUE(params[0].headers_update_params.modified_headers.IsEmpty());
+  EXPECT_TRUE(
+      params[0].headers_update_params.modified_cors_exempt_headers.IsEmpty());
 }
 
 TEST_F(KeepAliveURLLoaderServiceTest,

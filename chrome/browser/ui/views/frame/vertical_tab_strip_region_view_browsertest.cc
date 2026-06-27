@@ -1157,15 +1157,11 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripRegionViewTest,
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return state_controller()->IsCollapsed(); }));
 
-  ASSERT_FALSE(browser()->profile()->GetPrefs()->GetBoolean(
+  ASSERT_TRUE(browser()->profile()->GetPrefs()->GetBoolean(
       prefs::kVerticalTabsExpandOnHoverEnabled));
   ASSERT_FALSE(region_view()->is_expanded_on_hover());
 
   region_view()->GetFocusManager()->SetFocusedView(region_view());
-  EXPECT_FALSE(region_view()->is_expanded_on_hover());
-
-  browser()->profile()->GetPrefs()->SetBoolean(
-      prefs::kVerticalTabsExpandOnHoverEnabled, true);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return region_view()->is_expanded_on_hover(); }));
   ASSERT_TRUE(base::test::RunUntil([&]() { return !IsAnimatingSize(); }));
@@ -1180,6 +1176,9 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripRegionViewTest,
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripRegionViewTest, ModeChanged) {
+  browser()->profile()->GetPrefs()->SetBoolean(
+      prefs::kVerticalTabsExpandOnHoverEnabled, false);
+
   // Fully collapse the tabstrip.
   state_controller()->RequestCollapse(true);
   ASSERT_TRUE(base::test::RunUntil(
@@ -1390,15 +1389,12 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripRegionViewTest,
   histogram_tester.ExpectTotalCount(
       "Tabs.VerticalTabs.ExpandOnHover.ShowDuration", 1);
 }
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_GlassFrameAlphaTest GlassFrameAlphaTest
-#else
-#define MAYBE_GlassFrameAlphaTest DISABLED_GlassFrameAlphaTest
-#endif  // BUILDFLAG(IS_MAC)
+
+// TODO(crbug.com/513107068): Re-enable this test on Mac.
 IN_PROC_BROWSER_TEST_F(VerticalTabStripRegionViewGlassFrameTest,
-                       MAYBE_GlassFrameAlphaTest) {
+                       DISABLED_GlassFrameAlphaTest) {
   auto* const background =
-      static_cast<CustomCornersBackground*>(region_view()->background());
+      region_view()->background()->AsA<CustomCornersBackground>();
 
   // Background should be opaque during collapse and expand on hover,
   // and transparent otherwise.

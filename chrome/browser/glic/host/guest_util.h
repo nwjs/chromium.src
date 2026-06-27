@@ -6,6 +6,8 @@
 #define CHROME_BROWSER_GLIC_HOST_GUEST_UTIL_H_
 
 #include "base/feature_list.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
+#include "ui/base/device_form_factor.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -14,7 +16,7 @@ class BrowserContext;
 class RenderFrameHost;
 class RenderProcessHost;
 class WebContents;
-}
+}  // namespace content
 
 namespace glic {
 
@@ -40,6 +42,9 @@ GURL MaybeAddMultiInstanceParameter(const GURL& guest_url);
 // Returns true if `web_contents` contains the Glic WebUI application.
 bool IsGlicWebUI(const content::WebContents* web_contents);
 
+// Returns true if `web_contents` is the Glic guest WebContents.
+bool IsGlicGuest(content::WebContents* web_contents);
+
 // Returns true if `process_host` is either the Glic FRE WebUI or the Glic
 // main WebUI.
 bool IsProcessHostForGlic(content::RenderProcessHost* process_host);
@@ -56,10 +61,14 @@ bool OnGuestAdded(content::WebContents* guest_contents);
 bool IsMediaRequestFromGlic(content::BrowserContext* browser_context,
                             const std::string& request_id);
 
-// Returns all Glic guest WebContents for the given browser context.
-std::vector<content::WebContents*> GetAllGlicGuestWebContentsForTesting(
-    content::BrowserContext* browser_context);
+// Identifies Glic processes.
+void MarkProcessAsGlic(content::RenderProcessHost* rph);
 
+// Instantiates Glic WebUI metadata on a WebContents.
+void CreateGlicWebUiData(content::WebContents* webui_contents);
+
+// Returns Glic form factor mapping for the given device form factor.
+mojom::FormFactor GetGlicFormFactor(ui::DeviceFormFactor form_factor);
 }  // namespace glic
 
 #endif  // CHROME_BROWSER_GLIC_HOST_GUEST_UTIL_H_

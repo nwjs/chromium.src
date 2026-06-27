@@ -43,8 +43,11 @@ using ::content_settings::CookieControlsUtil;
 const ui::ImageModel GetThirdPartyCookiesIcon(
     bool third_party_cookies_enabled) {
   return PageInfoViewFactory::GetImageModel(
-      third_party_cookies_enabled ? views::kEyeRefreshIcon
-                                  : views::kEyeCrossedRefreshIcon);
+      third_party_cookies_enabled         ? features::IsRoundedIconsEnabled()
+                                                ? views::kVisibilityIcon
+                                                : views::kEyeRefreshOldIcon
+      : features::IsRoundedIconsEnabled() ? views::kVisibilityOffIcon
+                                          : views::kEyeCrossedRefreshOldIcon);
 }
 
 class ThirdPartyCookieLabelWrapper : public views::BoxLayoutView {
@@ -418,12 +421,17 @@ void PageInfoCookiesContentView::InitRwsButton(bool is_managed) {
           base::BindRepeating(
               &PageInfoCookiesContentView::RwsSettingsButtonClicked,
               base::Unretained(this)),
-          PageInfoViewFactory::GetImageModel(vector_icons::kTenancyIcon),
+          PageInfoViewFactory::GetImageModel(
+              features::IsRoundedIconsEnabled()
+                  ? vector_icons::kTenancyFilledIcon
+                  : vector_icons::kTenancyOldIcon),
           l10n_util::GetStringUTF16(IDS_PAGE_INFO_COOKIES),
           /*secondary_text=*/u" ", PageInfoViewFactory::GetLaunchIcon(),
-          is_managed
-              ? PageInfoViewFactory::GetImageModel(vector_icons::kBusinessIcon)
-              : ui::ImageModel()));
+          is_managed ? PageInfoViewFactory::GetImageModel(
+                           features::IsRoundedIconsEnabled()
+                               ? vector_icons::kDomainIcon
+                               : vector_icons::kBusinessOldIcon)
+                     : ui::ImageModel()));
   rws_button_->SetID(
       PageInfoViewFactory::VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_RWS_SETTINGS);
   rws_button_->SetTooltipText(
@@ -472,8 +480,9 @@ void PageInfoCookiesContentView::AddThirdPartyCookiesContainer() {
       std::make_unique<RichControlsContainerView>());
   third_party_cookies_row_->SetTitle(l10n_util::GetStringUTF16(
       IDS_PAGE_INFO_COOKIES_THIRD_PARTY_COOKIES_LABEL));
-  third_party_cookies_row_->SetIcon(
-      PageInfoViewFactory::GetImageModel(views::kEyeCrossedRefreshIcon));
+  third_party_cookies_row_->SetIcon(PageInfoViewFactory::GetImageModel(
+      features::IsRoundedIconsEnabled() ? views::kVisibilityOffIcon
+                                        : views::kEyeCrossedRefreshOldIcon));
   third_party_cookies_row_->SetTitleTextStyleAndColor(
       views::style::STYLE_BODY_3_MEDIUM, kColorPageInfoForeground);
 
@@ -524,8 +533,9 @@ void PageInfoCookiesContentView::MaybeAddSyncDisclaimer() {
       std::make_unique<NonAccessibleImageView>());
   const int icon_size = GetLayoutConstant(LayoutConstant::kPageInfoIconSize);
   cookies_sync_icon_->SetImageSize({icon_size, icon_size});
-  cookies_sync_icon_->SetImage(
-      PageInfoViewFactory::GetImageModel(vector_icons::kBusinessIcon));
+  cookies_sync_icon_->SetImage(PageInfoViewFactory::GetImageModel(
+      features::IsRoundedIconsEnabled() ? vector_icons::kDomainIcon
+                                        : vector_icons::kBusinessOldIcon));
 
   // Add the description.
   cookies_sync_description_ = cookies_sync_container_->AddChildView(

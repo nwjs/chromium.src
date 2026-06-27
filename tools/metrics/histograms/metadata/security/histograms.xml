@@ -34,7 +34,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="OSCrypt.AppBoundEncryption.SupportLevel"
-    enum="AppBoundEncryptionSupportLevel" expires_after="2026-09-06">
+    enum="AppBoundEncryptionSupportLevel" expires_after="2026-11-15">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -56,7 +56,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AppBoundProvider.Decrypt.ResultLastError"
-    enum="WinGetLastError" expires_after="2026-09-06">
+    enum="WinGetLastError" expires_after="2026-11-15">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -106,7 +106,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AsyncInitialization.Time" units="ms"
-    expires_after="2026-09-20">
+    expires_after="2026-11-22">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -119,8 +119,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OSCrypt.BackendUsage" enum="LinuxPasswordStoreUsage"
     expires_after="2026-08-09">
-  <owner>vasilii@chromium.org</owner>
   <owner>mamir@chromium.org</owner>
+  <owner>chrome-password-manager-metrics-alerts@google.com</owner>
   <summary>
     The backend selected for this user and whether it was initialised
     successfully.
@@ -140,7 +140,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.EncryptionPrefixVersion"
-    enum="EncryptionPrefixVersion" expires_after="2026-06-28">
+    enum="EncryptionPrefixVersion" expires_after="2027-06-28">
   <owner>wfh@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -196,17 +196,6 @@ chromium-metrics-reviews@google.com.
     <variant name="SessionFailure"/>
     <variant name="UnlockFailed"/>
   </token>
-</histogram>
-
-<histogram name="OSCrypt.Linux.DecryptedWithEmptyKey" enum="Boolean"
-    expires_after="2026-06-30">
-  <owner>thestig@chromium.org</owner>
-  <owner>wfh@chromium.org</owner>
-  <summary>
-    True, iff the data was not decryptable with the stored encryption key, but
-    was decryptable with a key generated from an empty string. This is emitted
-    every time OSCrypt attempts to decrypt a value.
-  </summary>
 </histogram>
 
 <histogram name="OSCrypt.Mac.FindGenericPasswordError"
@@ -446,7 +435,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.InterstitialReason"
-    enum="HttpsFirstModeInterstitialReason" expires_after="2026-08-30">
+    enum="HttpsFirstModeInterstitialReason" expires_after="2026-11-01">
   <owner>meacer@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -456,18 +445,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.NavigationEvent"
-    enum="HttpsFirstModeNavigationEvent" expires_after="2025-12-21">
+    enum="HttpsFirstModeNavigationEvent" expires_after="2027-04-01">
   <owner>cthomp@chromium.org</owner>
-  <owner>trusty-transport@chromium.org</owner>
+  <owner>chrome-swan@google.com</owner>
   <summary>
     Events for navigations that are upgraded from HTTP to HTTPS by HTTPS-First
     Mode. Recorded for eligible navigations (HTTP main frame navigations that
     are not allowlisted), if the profile is opted in to HTTPS-First Mode.
+
+    Note: This histogram was expired from 2025-12-21 through 2026-05-13.
   </summary>
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.SettingChanged2"
-    enum="HttpsFirstModeSetting" expires_after="2026-07-05">
+    enum="HttpsFirstModeSetting" expires_after="2026-11-01">
   <owner>cthomp@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -495,7 +486,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.SettingEnabledAtStartup2"
-    enum="HttpsFirstModeSetting" expires_after="2026-09-06">
+    enum="HttpsFirstModeSetting" expires_after="2026-11-15">
   <owner>cthomp@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -563,8 +554,31 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Security.iOS.KeychainMigration.Result"
+    enum="IOSKeychainMigrationResult" expires_after="2026-10-20">
+  <owner>marq@chromium.org</owner>
+  <owner>bling-flags@google.com</owner>
+  <summary>
+    Tracks whether a keychain item required accessibility migration and if the
+    migration attempt succeeded. Migration is needed if the item currently has
+    kSecAttrAccessibleWhenUnlocked but should have
+    kSecAttrAccessibleAfterFirstUnlock. Recorded on iOS only, after a migration
+    attempt has finished.
+  </summary>
+</histogram>
+
+<histogram name="Security.iOS.KeychainMigration.UserStatus"
+    enum="IOSKeychainMigrationUserStatus" expires_after="2026-10-20">
+  <owner>marq@chromium.org</owner>
+  <owner>bling-flags@google.com</owner>
+  <summary>
+    Tracks the overall migration status of the keychain for a user. Recorded
+    once per cold start on iOS.
+  </summary>
+</histogram>
+
 <histogram name="Security.NavigationRequestSecurityLevel"
-    enum="NavigationRequestSecurityLevel" expires_after="2026-09-06">
+    enum="NavigationRequestSecurityLevel" expires_after="2026-11-15">
   <owner>jdeblasio@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -590,7 +604,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.AboutThisSiteInteraction"
-    enum="AboutThisSiteInteraction" expires_after="2026-09-06">
+    enum="AboutThisSiteInteraction" expires_after="2026-11-15">
   <owner>dullweber@chromium.org</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <summary>
@@ -747,7 +761,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PrivateNetworkAccess.CheckResult"
-    enum="LocalNetworkAccessCheckResult" expires_after="2026-09-06">
+    enum="LocalNetworkAccessCheckResult" expires_after="2026-11-15">
   <owner>hchao@chromium.org</owner>
   <owner>clamy@chromium.org</owner>
   <owner>cthomp@chromium.org</owner>
@@ -865,17 +879,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the high-water-mark of the number of pending reporters in the SCT
     auditing cache. Recorded on a timer hourly, if SCT auditing is enabled.
-  </summary>
-</histogram>
-
-<histogram name="Security.SCTAuditing.OptIn.ReportSampled" enum="Boolean"
-    expires_after="2024-05-26">
-  <owner>cthomp@chromium.org</owner>
-  <owner>trusty-transport@chromium.org</owner>
-  <summary>
-    Records whether a report was sampled to be sent to Safe Browsing. Recorded
-    for each new report seen by the SCT auditing cache that was not
-    deduplicated.
   </summary>
 </histogram>
 
@@ -1163,7 +1166,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.IsSitePerProcessOrStricter.AndroidDesktop"
-    enum="Boolean" expires_after="2026-08-28">
+    enum="Boolean" expires_after="2026-11-01">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>wenz@chromium.org</owner>
@@ -1190,7 +1193,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.MissedReuseOpportunity.Found.MainFrame"
-    enum="Boolean" expires_after="2026-09-20">
+    enum="Boolean" expires_after="2026-11-22">
   <owner>aattar@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>
@@ -1202,7 +1205,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.MissedReuseOpportunity.Found.Subframe"
-    enum="Boolean" expires_after="2026-09-20">
+    enum="Boolean" expires_after="2026-11-22">
   <owner>aattar@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>
@@ -1284,7 +1287,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="SiteIsolation.ReusePendingOrCommittedSite.TimeSinceReusableProcessDestroyed.MainFrame2"
-    units="ms" expires_after="2026-09-20">
+    units="ms" expires_after="2026-11-22">
   <owner>aattar@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>

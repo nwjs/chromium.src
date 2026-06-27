@@ -72,6 +72,7 @@
 <translation id="1577977504532381335">ពិនិត្យមើលគោលការណ៍អ្នកគ្រប់គ្រង</translation>
 <translation id="158849752021629804">ត្រូវការបណ្តាញនៅតាមផ្ទះ</translation>
 <translation id="1589128298353575783"><ph name="NUMBER_OF_PB" /> PB</translation>
+<translation id="1593594475886691512">កំពុងសម្អាត...</translation>
 <translation id="1601786938618212857">Zip</translation>
 <translation id="1620510694547887537">កាមេរ៉ា</translation>
 <translation id="162175252992296058">ភាសាព័រទុយហ្កាល់​ដែលប្រើ​ក្ដារចុច​អាមេរិកអន្តរជាតិ</translation>
@@ -149,6 +150,7 @@
 <translation id="2142680004883808240">ភាសារុស្ស៊ី​ដែលប្រើ​ក្ដារចុចតាម​សូរសព្ទ YaZHert</translation>
 <translation id="2143778271340628265">ការតំឡើងប្រូកស៊ីដោយខ្លូនឯង</translation>
 <translation id="2148716181193084225">ថ្ងៃនេះ</translation>
+<translation id="2148756636027685713">ការសម្អាតបានបញ្ចប់</translation>
 <translation id="2161573825856688200">គម្រោង Google</translation>
 <translation id="2163152940313951844">តួអក្សរ​មិនត្រឹមត្រូវ៖ <ph name="CHARACTER_NAME" /></translation>
 <translation id="2178056538281447670">Microsoft 365</translation>
@@ -216,6 +218,7 @@
 <translation id="2653059201992392941">អ្នកអាចព្យាយាមបាន <ph name="RETRIES" /> ដងទៀត។</translation>
 <translation id="2663066752008346276">ភាសា​ភូមា/មីយ៉ាន់ម៉ា​ដែលប្រើ​ក្ដារចុច​មីយ៉ានសាន</translation>
 <translation id="2664412712123763093">ទីតាំង​ឯកសារ</translation>
+<translation id="2665919335226618153">អូយ ទក់! មានកំហុសឆ្គងកំឡុងពេលសម្អាត។</translation>
 <translation id="2672394942808662069">ពហុភាសាកាណាដា</translation>
 <translation id="2707357721402813583">អៀរឡង់</translation>
 <translation id="2708477391501452176">BÉPO បារាំង</translation>
@@ -228,6 +231,7 @@
 <translation id="2735623501230989521">ផ្ដល់ការអនុញ្ញាតឱ្យ Parallels Desktop ចូលប្រើឯកសារ​នៅក្នុងថត <ph name="FOLDER_NAME" /></translation>
 <translation id="2764206540577097904">អ្នកបានប្រើទំហំផ្ទុក Google Workspace បុគ្គលរបស់អ្នកអស់ហើយ។</translation>
 <translation id="2771816809568414714">ឈីស</translation>
+<translation id="2783909841122647548">លែងអាច​ដំឡើង​កញ្ចប់ Debian បាន​ទៀតហើយ។ <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
 <translation id="2802583107108007218">ស្វែងយល់បន្ថែម​អំពី​ការរឹតបន្តឹងទាំងនេះ</translation>
 <translation id="2803375539583399270">បញ្ចូលកូដ PIN</translation>
 <translation id="2817444452774702982">ហ្សកហ្ស៊ី</translation>
@@ -289,6 +293,7 @@
 <translation id="3293023191599135697">មិនអាច​ប្រើ​បណ្ដាញ WEP បាន​ទេ</translation>
 <translation id="3295006446256079333">ឧបករណ៍ផ្ទុកនេះ</translation>
 <translation id="3295357220137379386">ឧបករណ៍​កំពុង​ជាប់រវល់</translation>
+<translation id="3305389145870741612">ដំណើរការសម្អាតអាចចំណាយពេលបន្តិច។ សូមរង់ចាំ។</translation>
 <translation id="3307875152560779385">ភាសា​អ៊ុយក្រែន</translation>
 <translation id="3326821416087822643">កំពុងបង្ហាប់ <ph name="FILE_NAME" />...</translation>
 <translation id="3335337277364016868">ឆ្នាំដែល​បានថត</translation>
@@ -585,6 +590,7 @@
 <translation id="5580591966435005537">ម៉ាស៊ីននិម្មិត</translation>
 <translation id="5583640892426849032">Backspace</translation>
 <translation id="5583664733673201137">សញ្ញាវណ្ណយុត្តមានទទឹងពេញ</translation>
+<translation id="5585912436068747822">ការសម្អាតបានបរាជ័យ</translation>
 <translation id="5596627076506792578">ជម្រើសច្រើនទៀត</translation>
 <translation id="5602622065581044566">ភាសាប៊ុលហ្ការី​ដែលប្រើ​ក្ដារចុច​តាម​សូរសព្ទ</translation>
 <translation id="5604409170937514933">ស៊ុយអែត</translation>
@@ -671,6 +677,7 @@
 <translation id="6220423280121890987">ភាសាពុនចាប៊ី</translation>
 <translation id="6224240818060029162">ភាសា​ដាណឺម៉ាក</translation>
 <translation id="6224253798271602650">សម្អាត <ph name="DRIVE_NAME" /></translation>
+<translation id="6224481128663248237">ការសម្អាតបានបញ្ចប់ដោយជោគជ័យ!</translation>
 <translation id="6241349547798190358">ភាសា​ហូឡង់ (បែលហ្ស៊ិក)</translation>
 <translation id="6267547857941397424">បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, កម្លាំង​រលកសញ្ញា <ph name="SIGNAL_STRENGTH" />%, ថ្មទូរសព្ទ <ph name="BATTERY_STATUS" />%, ភ្ជាប់</translation>
 <translation id="6269630227984243955">ភាសា​ម៉ាឡេ</translation>

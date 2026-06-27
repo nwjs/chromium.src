@@ -35,7 +35,6 @@
 #include "components/supervised_user/core/common/buildflags.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "extensions/browser/api/declarative_net_request/utils.h"
-#include "extensions/browser/api/web_request/extension_web_request_event_router.h"
 #include "extensions/browser/app_sorting.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/blocklist_state.h"
@@ -2194,6 +2193,8 @@ ExtensionPrefs::ExtensionPrefs(
 
   CleanUpCdpInstalledExtensions();
 
+  CleanUpDuplicateSubEventFilters();
+
 #if BUILDFLAG(IS_CHROMEOS)
   ApplyPendingUpdates();
 #endif
@@ -2497,7 +2498,6 @@ void ExtensionPrefs::FinishExtensionInfoPrefs(
   extension_dict->Remove(EventRouter::kRegisteredServiceWorkerEvents);
   extension_dict->Remove(EventRouter::kFilteredEvents);
   extension_dict->Remove(EventRouter::kFilteredServiceWorkerEvents);
-  extension_dict->Remove(WebRequestEventRouter::kFilteredLazyListeners);
   extension_dict->Remove(kPrefHasStartedServiceWorker);
 
   // FYI, all code below here races on sudden shutdown because |extension_dict|,
@@ -2627,6 +2627,40 @@ void ExtensionPrefs::CleanUpCdpInstalledExtensions() {
   }
 }
 
+void ExtensionPrefs::CleanUpDuplicateSubEventFilters() {
+  const base::DictValue& extensions = prefs_->GetDict(pref_names::kExtensions);
+  for (const auto [extension_id, _] : extensions) {
+    if (!crx_file::id_util::IdIsValid(extension_id)) {
+      continue;
+    }
+    for (auto* pref_key : {EventRouter::kFilteredEvents,
+                           EventRouter::kFilteredServiceWorkerEvents}) {
+      ScopedDictionaryUpdate update(this, extension_id, pref_key);
+      auto filtered_events = update.Get();
+      if (!filtered_events) {
+        continue;
+      }
+      std::vector<std::pair<std::string, base::ListValue>> replacements;
+      for (const auto [event_name, value] : *filtered_events->AsConstDict()) {
+        if (EventRouter::IsSubEventName(event_name) && value.is_list()) {
+          const auto& filter_list = value.GetList();
+          if (filter_list.size() > 1) {
+            // Keep only the last filter, which represents the most recent
+            // registration (matching `EventRouter::AddFilterToEvent`'s
+            // overwrite semantics).
+            base::ListValue replacement_list;
+            replacement_list.Append(filter_list.back().Clone());
+            replacements.emplace_back(event_name, std::move(replacement_list));
+          }
+        }
+      }
+      for (auto& [name, list] : replacements) {
+        filtered_events->SetKey(name, base::Value(std::move(list)));
+      }
+    }
+  }
+}
+
 void ExtensionPrefs::MigrateObsoleteExtensionPrefs() {
   const base::DictValue& extensions_dictionary =
       prefs_->GetDict(pref_names::kExtensions);
@@ -2639,6 +2673,12 @@ void ExtensionPrefs::MigrateObsoleteExtensionPrefs() {
 
       // Added 2025-08.
       "state",
+
+      // Added 2026-05.
+      "mv2_deprecation_warning_ack",
+
+      // Added 2026-05.
+      "web_request.filtered_lazy_listeners",
   };
 
   for (auto key_value : extensions_dictionary) {

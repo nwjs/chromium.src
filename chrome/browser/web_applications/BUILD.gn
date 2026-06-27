@@ -92,6 +92,8 @@ source_set("web_applications") {
     "commands/web_app_uninstall_command.h",
     "commands/web_install_from_url_command.cc",
     "commands/web_install_from_url_command.h",
+    "custom_icon_fetcher.cc",
+    "custom_icon_fetcher.h",
     "daily_metrics_helper.cc",
     "daily_metrics_helper.h",
     "extension_status_utils.h",
@@ -397,6 +399,7 @@ source_set("web_applications") {
     "web_app_install_params.h",
     "web_app_install_utils.cc",
     "web_app_install_utils.h",
+    "web_app_launch_params_holder.h",
     "web_app_launch_queue_delegate_impl.cc",
     "web_app_launch_queue_delegate_impl.h",
     "web_app_logging.cc",
@@ -581,6 +584,7 @@ source_set("web_applications") {
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/favicon",
+    "//chrome/browser/image_decoder",
     "//chrome/browser/metrics",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
@@ -634,6 +638,7 @@ source_set("web_applications") {
     "//services/network/public/cpp",
     "//services/preferences/public/cpp",
     "//skia",
+    "//third_party/abseil-cpp:absl",
     "//third_party/blink/public/common",
     "//ui/base",
     "//ui/base/idle",
@@ -697,12 +702,15 @@ source_set("web_applications") {
     ]
   }
 
+  if (is_linux) {
+    deps += [ "//chrome/browser:shell_integration_linux" ]
+  }
+
   if (is_chromeos) {
     deps += [
       "//ash",
       "//ash/constants",
       "//ash/public/cpp",
-      "//ash/webui/system_apps/public:system_web_app_type",
       "//chrome/browser/ash/app_mode/isolated_web_app:policy_util",
       "//chrome/browser/ash/drive",
       "//chrome/browser/ash/policy/core",
@@ -717,6 +725,7 @@ source_set("web_applications") {
       "//chromeos/ash/components/policy/system_features_disable_list",
       "//chromeos/ash/components/report:utils",
       "//chromeos/ash/components/settings",
+      "//chromeos/ash/components/system_web_apps:system_web_app_type",
       "//chromeos/ash/experiences/arc:arc_base",
       "//chromeos/ash/experiences/system_web_apps/types",
       "//chromeos/components/kiosk",
@@ -745,8 +754,8 @@ source_set("web_applications") {
 
 source_set("sub_apps_service") {
   sources = [
-    "sub_apps_service_impl.cc",
-    "sub_apps_service_impl.h",
+    "sub_apps/sub_apps_service_impl.cc",
+    "sub_apps/sub_apps_service_impl.h",
   ]
 
   deps = [
@@ -874,6 +883,7 @@ source_set("web_applications_test_support") {
   ]
 
   public_deps = [
+    "//chrome/browser/ui:web_app_dialog_test_support",
     "//chrome/browser/web_applications/isolated_web_apps/key_distribution/proto",
     "//components/webapps/common:mojo_bindings",
   ]
@@ -970,6 +980,7 @@ source_set("web_applications_unit_tests") {
   sources = [
     "commands/add_validated_origin_associations_command_unittest.cc",
     "commands/app_migration_data_read_command_unittest.cc",
+    "commands/app_update_data_read_command_unittest.cc",
     "commands/apply_manifest_migration_command_unittest.cc",
     "commands/apply_pending_manifest_update_command_unittest.cc",
     "commands/clear_browsing_data_command_unittest.cc",
@@ -1213,6 +1224,10 @@ source_set("web_applications_unit_tests") {
     deps += [ "//components/services/app_service" ]
   }
 
+  if (is_linux) {
+    deps += [ "//chrome/browser:shell_integration_linux" ]
+  }
+
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
   # enable the diagnostic by removing this line.
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
@@ -1276,7 +1291,6 @@ source_set("web_applications_browser_tests") {
     "isolated_web_apps/policy/isolated_web_app_policy_manager_browsertest.cc",
     "isolated_web_apps/unframed_browsertest.cc",
     "isolated_web_apps/update/isolated_web_app_update_manager_browsertest.cc",
-    "isolated_web_apps/update/sub_app_update_browsertest.cc",
     "navigation_capturing_browser_navigator_browsertest.cc",
     "navigation_capturing_forced_off_browsertest.cc",
     "policy/pre_redirection_url_observer_browsertest.cc",
@@ -1285,8 +1299,9 @@ source_set("web_applications_browser_tests") {
     "preinstalled_web_apps_browsertest.cc",
     "replace_migration_suggested_app_browsertest.cc",
     "sampling_metrics_provider_browsertest.cc",
-    "sub_apps_permissions_policy_browsertest.cc",
-    "sub_apps_service_impl_browsertest.cc",
+    "sub_apps/sub_app_update_browsertest.cc",
+    "sub_apps/sub_apps_permissions_policy_browsertest.cc",
+    "sub_apps/sub_apps_service_impl_browsertest.cc",
     "user_uninstalled_preinstalled_web_app_prefs_browsertest.cc",
     "web_app_audio_focus_browsertest.cc",
     "web_app_automation_browsertest.cc",
@@ -1319,7 +1334,7 @@ source_set("web_applications_browser_tests") {
       "isolated_web_apps/isolated_web_app_device_attributes_browsertest.cc",
       "isolated_web_apps/isolated_web_app_managed_configuration_api_browsertest.cc",
       "isolated_web_apps/policy/isolated_web_app_cache_browsertest.cc",
-      "sub_apps_admin_policy_browsertest.cc",
+      "sub_apps/sub_apps_admin_policy_browsertest.cc",
       "web_app_run_on_os_login_manager_browsertest.cc",
     ]
   }
@@ -1347,6 +1362,8 @@ source_set("web_applications_browser_tests") {
     ":web_applications_test_support",
     "//base",
     "//chrome/app:command_ids",
+    "//chrome/browser:browser_process_platform_part",
+    "//chrome/browser:chrome_browser_main",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service:app_registry_cache_waiter",
     "//chrome/browser/apps/app_service:test_support",
@@ -1423,6 +1440,10 @@ source_set("web_applications_browser_tests") {
       "//chrome/browser/apps/app_shim",
       "//components/system_media_controls",
     ]
+  }
+
+  if (is_linux) {
+    deps += [ "//chrome/browser:shell_integration_linux" ]
   }
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and

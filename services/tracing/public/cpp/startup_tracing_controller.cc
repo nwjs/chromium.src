@@ -26,6 +26,7 @@
 #include "base/thread_annotations.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/trace_event/typed_macros.h"
+#include "build/blink_buildflags.h"
 #include "build/build_config.h"
 #include "components/tracing/common/tracing_switches.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_config.h"
@@ -81,7 +82,7 @@ class StartupTracingController::BackgroundTracer {
         output_file_(output_file),
         output_format_(output_format),
         on_tracing_finished_(std::move(default_finished_callback)) {
-#if BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(USE_BLINK)
     tracing_session_ =
         perfetto::Tracing::NewTrace(perfetto::BackendType::kInProcessBackend);
 #else
@@ -423,7 +424,7 @@ base::FilePath StartupTracingController::GetOutputPath() {
     base::FilePath result =
         command_line->GetSwitchValuePath(switches::kTraceStartupFile);
     if (result.empty()) {
-      return BasenameToPath("chrometrace.log");
+      return BasenameToPath("chrome.pftrace");
     }
     return result;
   }
@@ -431,9 +432,9 @@ base::FilePath StartupTracingController::GetOutputPath() {
   base::FilePath result =
       command_line->GetSwitchValuePath(switches::kEnableTracingOutput);
   if (result.empty() && command_line->HasSwitch(switches::kTraceStartup)) {
-    // If --trace-startup is present, return chrometrace.log for backwards
+    // If --trace-startup is present, return chrome.pftrace for backwards
     // compatibility.
-    return BasenameToPath("chrometrace.log");
+    return BasenameToPath("chrome.pftrace");
   }
 
   // If a non-directory path is specified, use it.
@@ -443,7 +444,7 @@ base::FilePath StartupTracingController::GetOutputPath() {
 
   std::string_view basename = GetGlobalDefaultBasename();
   if (basename.empty()) {
-    basename = "chrometrace.log";
+    basename = "chrome.pftrace";
   }
 
   // If a non-empty directory is specified, use it.

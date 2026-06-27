@@ -323,8 +323,8 @@ class AccountTrackerServiceTest : public testing::Test {
   void SimulateIssueAccessTokenPersistentError(AccountKey account_key) {
     fake_oauth2_token_service_.IssueErrorForAllPendingRequestsForAccount(
         AccountKeyToAccountId(account_key),
-        GoogleServiceAuthError(
-            GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+        GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+            GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
   }
 
   std::string GenerateValidTokenInfoResponse(AccountKey account_key) {
@@ -351,6 +351,10 @@ class AccountTrackerServiceTest : public testing::Test {
   void ReturnAccountImageFetchSuccess(AccountKey account_key);
   void ReturnAccountImageFetchFailure(AccountKey account_key);
   void ReturnAccountCapabilitiesFetchSuccess(AccountKey account_key);
+  void UpdateAccountCapabilities(AccountKey account_key,
+                                 const AccountCapabilities& capabilities);
+  void CompleteAccountCapabilitiesFetchWithoutCapabilities(
+      AccountKey account_key);
   void SimulateParentalSupervisionCheckComplete(
       AccountKey account_key,
       bool is_subject_to_parental_controls);
@@ -394,17 +398,13 @@ class AccountTrackerServiceTest : public testing::Test {
                              AccountTrackerService::MIGRATION_NOT_STARTED);
 #endif
 
-    account_tracker_ = std::make_unique<AccountTrackerService>();
-    account_fetcher_ = std::make_unique<AccountFetcherService>();
-
-    // Register callbacks before initialisation to allow the tests to check the
-    // events that are triggered during the initialisation.
+    account_tracker_ = std::make_unique<AccountTrackerService>(&pref_service_,
+                                                               std::move(path));
     account_tracker_->SetOnAccountUpdatedCallback(base::BindRepeating(
         &AccountTrackerServiceTest::OnAccountUpdated, base::Unretained(this)));
     account_tracker_->SetOnAccountRemovedCallback(base::BindRepeating(
         &AccountTrackerServiceTest::OnAccountRemoved, base::Unretained(this)));
-
-    account_tracker_->Initialize(&pref_service_, std::move(path));
+    account_fetcher_ = std::make_unique<AccountFetcherService>();
     auto account_fetcher_factory = std::make_unique<FakeAccountFetcherFactory>(
         *token_service(), *signin_client());
     fake_account_fetcher_factory_ = account_fetcher_factory.get();
@@ -492,6 +492,23 @@ void AccountTrackerServiceTest::ReturnAccountCapabilitiesFetchSuccess(
       AccountKeyToAccountCapability(account_key));
   fake_account_fetcher_factory_->CompleteAccountCapabilitiesFetch(
       AccountKeyToAccountId(account_key), capabilities);
+}
+
+void AccountTrackerServiceTest::UpdateAccountCapabilities(
+    AccountKey account_key,
+    const AccountCapabilities& capabilities) {
+  IssueAccessToken(account_key);
+  fake_account_fetcher_factory_->UpdateAccountCapabilities(
+      AccountKeyToAccountId(account_key), capabilities);
+}
+
+void AccountTrackerServiceTest::
+    CompleteAccountCapabilitiesFetchWithoutCapabilities(
+        AccountKey account_key) {
+  IssueAccessToken(account_key);
+  fake_account_fetcher_factory_
+      ->CompleteAccountCapabilitiesFetchWithoutCapabilities(
+          AccountKeyToAccountId(account_key));
 }
 
 void AccountTrackerServiceTest::SimulateParentalSupervisionCheckComplete(
@@ -731,6 +748,35 @@ TEST_F(AccountTrackerServiceTest,
   EXPECT_TRUE(account_fetcher()->AreAllAccountCapabilitiesFetched());
 }
 
+TEST_F(AccountTrackerServiceTest,
+       TokenAvailable_AccountCapabilitiesMultiPhase) {
+  SimulateTokenAvailable(kAccountKeyAlpha);
+  EXPECT_FALSE(account_fetcher()->AreAllAccountCapabilitiesFetched());
+
+  ReturnAccountInfoFetchSuccess(kAccountKeyAlpha);
+  ClearAccountTrackerEvents();
+
+  // Phase 1: update capabilities but do not complete fetch.
+  AccountCapabilities capabilities;
+  AccountCapabilitiesTestMutator mutator(&capabilities);
+  mutator.set_can_fetch_family_member_info(true);
+
+  UpdateAccountCapabilities(kAccountKeyAlpha, capabilities);
+
+  // The capabilities should be updated in AccountTrackerService, but
+  // AreAllAccountCapabilitiesFetched() should still be false because the
+  // fetcher is not complete/destroyed.
+  EXPECT_FALSE(account_fetcher()->AreAllAccountCapabilitiesFetched());
+  AccountInfo account_info = account_tracker()->GetAccountInfo(
+      AccountKeyToAccountId(kAccountKeyAlpha));
+  EXPECT_EQ(account_info.capabilities.can_fetch_family_member_info(),
+            signin::Tribool::kTrue);
+
+  // Phase 2: complete the fetch.
+  CompleteAccountCapabilitiesFetchWithoutCapabilities(kAccountKeyAlpha);
+  EXPECT_TRUE(account_fetcher()->AreAllAccountCapabilitiesFetched());
+}
+
 TEST_F(AccountTrackerServiceTest, TokenAvailableTwice_UserInfoOnce) {
   SimulateTokenAvailable(kAccountKeyAlpha);
   ReturnAccountInfoFetchSuccess(kAccountKeyAlpha);
@@ -946,14 +992,13 @@ TEST_F(AccountTrackerServiceTest, Persistence) {
   ClearAccountTrackerEvents();
   ResetAccountTrackerWithPersistence(scoped_user_data_dir.GetPath());
 
-  EXPECT_TRUE(CheckAccountTrackerEvents({
-      TrackingEvent(UPDATED, AccountKeyToAccountId(kAccountKeyAlpha),
-                    AccountKeyToGaiaId(kAccountKeyAlpha),
-                    AccountKeyToEmail(kAccountKeyAlpha)),
-      TrackingEvent(UPDATED, AccountKeyToAccountId(kAccountKeyBeta),
-                    AccountKeyToGaiaId(kAccountKeyBeta),
-                    AccountKeyToEmail(kAccountKeyBeta)),
-  }));
+  std::vector<AccountInfo> infos = account_tracker()->GetAccounts();
+  ASSERT_EQ(2u, infos.size());
+  CheckAccountDetails(kAccountKeyAlpha, infos[0]);
+  CheckAccountDetails(kAccountKeyBeta, infos[1]);
+  CheckAccountCapabilities(kAccountKeyAlpha, infos[0]);
+  CheckAccountCapabilities(kAccountKeyBeta, infos[1]);
+
   // Wait until all account images are loaded.
   task_environment_.RunUntilIdle();
   EXPECT_TRUE(CheckAccountTrackerEvents({
@@ -964,13 +1009,6 @@ TEST_F(AccountTrackerServiceTest, Persistence) {
                     AccountKeyToGaiaId(kAccountKeyBeta),
                     AccountKeyToEmail(kAccountKeyBeta)),
   }));
-
-  std::vector<AccountInfo> infos = account_tracker()->GetAccounts();
-  ASSERT_EQ(2u, infos.size());
-  CheckAccountDetails(kAccountKeyAlpha, infos[0]);
-  CheckAccountDetails(kAccountKeyBeta, infos[1]);
-  CheckAccountCapabilities(kAccountKeyAlpha, infos[0]);
-  CheckAccountCapabilities(kAccountKeyBeta, infos[1]);
 
   // Remove an account.
   // This will allow testing removal as well as child accounts which is only
@@ -1193,11 +1231,6 @@ TEST_F(AccountTrackerServiceTest, UpgradeToFullAccountInfo) {
   ClearAccountTrackerEvents();
   ResetAccountTrackerNetworkDisabled();
 
-  EXPECT_TRUE(CheckAccountTrackerEvents({
-      TrackingEvent(UPDATED, AccountKeyToAccountId(kAccountKeyIncomplete),
-                    AccountKeyToGaiaId(kAccountKeyIncomplete),
-                    AccountKeyToEmail(kAccountKeyIncomplete)),
-  }));
 
   // Enabling network fetches shouldn't cause any actual fetch since the
   // AccountInfos loaded from prefs should be valid.

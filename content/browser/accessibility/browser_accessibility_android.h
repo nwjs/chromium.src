@@ -121,6 +121,7 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   bool IsChildOfLeaf() const override;
   bool IsLeaf() const override;
   bool IsLeafConsideringChildren() const;
+  bool HasFocusableChild() const;
 
   std::u16string GetBrailleLabel() const;
   std::u16string GetBrailleRoleDescription() const;
@@ -321,6 +322,8 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   // Returns a list of Android IDs that were set on the node using
   // aria-labelledby.
   const std::vector<int> GetLabelledByAndroidIds() const;
+
+  void EraseLeafCacheDataForNode();
 
  protected:
   BrowserAccessibilityAndroid(ui::BrowserAccessibilityManager* manager,

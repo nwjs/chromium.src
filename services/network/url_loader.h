@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/component_export.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -196,9 +197,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
 
   // mojom::URLLoader implementation:
   void FollowRedirect(
-      const std::vector<std::string>& removed_headers,
-      const net::HttpRequestHeaders& modified_headers,
-      const net::HttpRequestHeaders& modified_cors_exempt_headers,
+      network::HttpRequestHeadersUpdateParams headers_update_params,
       const std::optional<GURL>& new_url) override;
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override;
@@ -253,11 +252,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       mojo::PendingRemote<mojom::SSLPrivateKey> ssl_private_key) override;
   void ContinueWithoutCertificate() override;
   void CancelRequest() override;
-
-  // Cancel the request because network revocation was triggered.
-  void CancelRequestIfNonceMatchesAndUrlNotExempted(
-      const base::UnguessableToken& nonce,
-      const std::set<GURL>& exemptions);
 
   // Called when the browser process responds to a request for platform-specific
   // local network permission. If the user granted the permission, this will
@@ -518,9 +512,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   void ReportFlaggedResponseCookies(bool call_cookie_observer);
   void StartReading();
 
-  // Whether `force_ignore_site_for_cookies` should be set on net::URLRequest.
-  bool ShouldForceIgnoreSiteForCookies(const ResourceRequest& request);
-
   mojom::DevToolsObserver* GetDevToolsObserver() const;
   mojom::CookieAccessObserver* GetCookieAccessObserver() const;
 
@@ -592,7 +583,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   mojo::Receiver<mojom::ClientCertificateResponder>
       client_cert_responder_receiver_{this};
   MaybeSyncURLLoaderClient url_loader_client_;
-  int64_t total_written_bytes_ = 0;
+  base::ByteSize total_written_bytes_;
 
   mojo::ScopedDataPipeProducerHandle response_body_stream_;
   scoped_refptr<NetToMojoPendingBuffer> pending_write_;

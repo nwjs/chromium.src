@@ -66,14 +66,16 @@ component_updater::OnDemandUpdater::Priority GetOnDemandUpdatePriority() {
 // Tells whether the component is supported on a particular platform wrt to
 // the feature flags.
 bool IsComponentSupported() {
-  // kIwaKeyDistributionComponent feature flag is somewhat useless without
-  // features::kIsolatedWebApps. On ChromeOS, it's kept separately for the time
-  // being as a kill switch and will be retired shortly; on Mac/Linux, the
-  // component logic is not fully supported, so it has to be kept separated from
-  // the main IWA feature.
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_CHROMEOS)
+  return true;
+#elif BUILDFLAG(IS_WIN)
+  // Key Distribution component is necessary for full IWAs support as it
+  // involves the IWA allowlist necessary to install IWAs in prod...
   return base::FeatureList::IsEnabled(features::kIsolatedWebApps);
-#elif BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#elif BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  // ...however, on Mac/Linux, the component logic is not fully supported. A
+  // separate flag enables developing and testing both: IWAs and the component
+  // separately on these systems.
   return base::FeatureList::IsEnabled(
       component_updater::kIwaKeyDistributionComponent);
 #else
@@ -94,15 +96,9 @@ bool IsOnDemandUpdateSupported() {
 
 namespace component_updater {
 
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-BASE_FEATURE(kIwaKeyDistributionComponent,
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else   // !BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // !BUILDFLAG(IS_CHROMEOS)
-);
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kIwaKeyDistributionComponent, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 IwaKeyDistributionComponentInstallerPolicy::
     IwaKeyDistributionComponentInstallerPolicy() {
@@ -140,7 +136,13 @@ bool IwaKeyDistributionComponentInstallerPolicy::VerifyInstallation(
 
 bool IwaKeyDistributionComponentInstallerPolicy::
     SupportsGroupPolicyEnabledComponentUpdates() const {
-  return true;
+  // Returning `false` here means that updates to this component cannot be
+  // disabled by the `ComponentUpdatesEnabled` policy. This exemption is
+  // warranted for IWA key distribution because this component is essential for
+  // securely installing and managing only legitimate Isolated Web Apps.
+  // The component is data-only (not executable code) and includes crucial
+  // allowlist, blocklist and key rotation information.
+  return false;
 }
 
 bool IwaKeyDistributionComponentInstallerPolicy::RequiresNetworkEncryption()

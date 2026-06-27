@@ -386,12 +386,8 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
                 new PartialCustomTabHandleStrategy(
                         mActivity, this::isFullHeight, () -> mStatus, this);
         toolbar.setHandleStrategy(mHandleStrategy);
-        if (ChromeFeatureList.sCctToolbarRefactor.isEnabled()) {
-            assumeNonNull(toolbarButtonsCoordinator);
-            toolbarButtonsCoordinator.setMinimizeButtonEnabled(false);
-        } else {
-            toolbar.setMinimizeButtonEnabled(false);
-        }
+        assumeNonNull(toolbarButtonsCoordinator);
+        toolbarButtonsCoordinator.setMinimizeButtonEnabled(false);
         CustomTabDragBar dragBar = mActivity.findViewById(R.id.drag_bar);
         dragBar.setHandleStrategy(mHandleStrategy);
         View dragHandle = mActivity.findViewById(R.id.drag_handle);
@@ -601,7 +597,7 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
 
     private void updateDragBarVisibility() {
         updateDragBarVisibility(
-                /*dragHandlebarVisibility*/ isFixedHeight() ? View.GONE : View.VISIBLE);
+                /* dragHandlebarVisibility= */ isFixedHeight() ? View.GONE : View.VISIBLE);
     }
 
     @Override

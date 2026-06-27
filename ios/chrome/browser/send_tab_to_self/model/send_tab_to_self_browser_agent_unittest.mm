@@ -14,11 +14,14 @@
 #import "components/send_tab_to_self/send_tab_to_self_entry.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/send_tab_to_self_sync_service.h"
+#import "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/test/fakes/fake_navigation_manager.h"
@@ -27,6 +30,7 @@
 #import "net/base/apple/url_conversions.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
 #import "url/gurl.h"
 
 using send_tab_to_self::FakeSendTabToSelfModel;
@@ -34,33 +38,6 @@ using send_tab_to_self::SendTabToSelfEntry;
 
 namespace {
 
-// TODO (crbug/974040): Move TestSendTabToSelfSyncService to components and
-// reuse in both ios/chrome and chrome tests
-class TestSendTabToSelfSyncService
-    : public send_tab_to_self::SendTabToSelfSyncService {
- public:
-  TestSendTabToSelfSyncService()
-      : model_(std::make_unique<FakeSendTabToSelfModel>()) {}
-  ~TestSendTabToSelfSyncService() override = default;
-
-  static std::unique_ptr<KeyedService> Build(ProfileIOS* profile) {
-    return std::make_unique<TestSendTabToSelfSyncService>();
-  }
-
-  send_tab_to_self::SendTabToSelfModel* GetSendTabToSelfModel() override {
-    return model_.get();
-  }
-
-  base::WeakPtr<syncer::DataTypeControllerDelegate> GetControllerDelegate()
-      override {
-    return nullptr;
-  }
-
-  FakeSendTabToSelfModel* GetModel() { return model_.get(); }
-
- private:
-  std::unique_ptr<FakeSendTabToSelfModel> model_;
-};
 
 class SendTabToSelfBrowserAgentTest : public PlatformTest {
  public:
@@ -68,10 +45,19 @@ class SendTabToSelfBrowserAgentTest : public PlatformTest {
     TestProfileIOS::Builder test_profile_builder;
     test_profile_builder.AddTestingFactory(
         SendTabToSelfSyncServiceFactory::GetInstance(),
-        base::BindRepeating(&::TestSendTabToSelfSyncService::Build));
+        base::BindRepeating(
+            [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+              return std::make_unique<
+                  send_tab_to_self::StubSendTabToSelfSyncService>();
+            }));
 
     profile_ = std::move(test_profile_builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
+    mock_scene_commands_ =
+        [OCMockObject mockForProtocol:@protocol(SceneCommands)];
+    [browser_->GetCommandDispatcher()
+        startDispatchingToTarget:mock_scene_commands_
+                     forProtocol:@protocol(SceneCommands)];
     SendTabToSelfBrowserAgent::CreateForBrowser(browser_.get());
     agent_ = SendTabToSelfBrowserAgent::FromBrowser(browser_.get());
     model_ = static_cast<FakeSendTabToSelfModel*>(
@@ -119,6 +105,7 @@ class SendTabToSelfBrowserAgentTest : public PlatformTest {
 
   // All infobar managers created during tests, for ease of clean-up.
   std::vector<infobars::InfoBarManager*> infobar_managers_;
+  id mock_scene_commands_;
 };
 
 TEST_F(SendTabToSelfBrowserAgentTest, TestRemoteAddSimple) {

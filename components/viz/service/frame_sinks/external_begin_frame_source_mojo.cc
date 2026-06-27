@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
+#include "mojo/public/cpp/bindings/message.h"
 
 namespace viz {
 
@@ -26,15 +27,17 @@ ExternalBeginFrameSourceMojo::ExternalBeginFrameSourceMojo(
 
 ExternalBeginFrameSourceMojo::~ExternalBeginFrameSourceMojo() {
   frame_sink_manager_->RemoveObserver(this);
-  DCHECK(!display_);
+  CHECK(!display_);
 }
 
 void ExternalBeginFrameSourceMojo::IssueExternalBeginFrame(
     const BeginFrameArgs& args,
     bool force,
     base::OnceCallback<void(const BeginFrameAck&)> callback) {
-  DCHECK(!pending_frame_callback_) << "Got overlapping IssueExternalBeginFrame";
-  DCHECK(pending_frame_sinks_.empty());
+  if (pending_frame_callback_ || !pending_frame_sinks_.empty()) {
+    mojo::ReportBadMessage("Got overlapping IssueExternalBeginFrame");
+    return;
+  }
   original_source_id_ = args.frame_id.source_id;
 
   OnBeginFrame(args);
@@ -47,7 +50,7 @@ void ExternalBeginFrameSourceMojo::IssueExternalBeginFrame(
   // Ensure that Display will receive the BeginFrame (as a missed one), even
   // if it doesn't currently need it. This way, we ensure that
   // OnDisplayDidFinishFrame will be called for this BeginFrame.
-  DCHECK(display_);
+  CHECK(display_);
   display_->SetNeedsOneBeginFrame(args);
   MaybeProduceFrameCallback();
 }
@@ -76,16 +79,18 @@ void ExternalBeginFrameSourceMojo::OnDestroyedCompositorFrameSink(
 void ExternalBeginFrameSourceMojo::OnFrameSinkDidBeginFrame(
     const FrameSinkId& sink_id,
     const BeginFrameArgs& args) {
-  if (args.frame_id.source_id != original_source_id_)
+  if (!original_source_id_ || args.frame_id.source_id != *original_source_id_) {
     return;
+  }
   pending_frame_sinks_.insert(sink_id);
 }
 
 void ExternalBeginFrameSourceMojo::OnFrameSinkDidFinishFrame(
     const FrameSinkId& sink_id,
     const BeginFrameArgs& args) {
-  if (args.frame_id.source_id != original_source_id_)
+  if (!original_source_id_ || args.frame_id.source_id != *original_source_id_) {
     return;
+  }
   pending_frame_sinks_.erase(sink_id);
   MaybeProduceFrameCallback();
 }
@@ -135,7 +140,7 @@ void ExternalBeginFrameSourceMojo::OnDisplayDidFinishFrame(
   if (!pending_frame_callback_)
     return;
   if (!pending_frame_sinks_.empty()) {
-    DCHECK(!pending_ack_);
+    CHECK(!pending_ack_);
     pending_ack_ = ack;
     return;
   }

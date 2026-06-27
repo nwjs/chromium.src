@@ -4,26 +4,31 @@
 
 #include "components/autofill/core/browser/suggestions/addresses/address_suggestion_generator.h"
 
+#include <stddef.h>
+
 #include <algorithm>
-#include <functional>
+#include <iterator>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/containers/extend.h"
+#include "base/containers/flat_map.h"
 #include "base/containers/map_util.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
-#include "base/debug/crash_logging.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
+#include "base/functional/callback.h"
+#include "base/functional/function_ref.h"
 #include "base/i18n/case_conversion.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/notreached.h"
-#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -41,14 +46,15 @@
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/addresses/field_filling_address_util.h"
+#include "components/autofill/core/browser/filling/field_filling_skip_reason.h"
 #include "components/autofill/core/browser/filling/form_filler.h"
-#include "components/autofill/core/browser/form_parsing/address_field_parser.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/geo/address_i18n.h"
 #include "components/autofill/core/browser/geo/phone_number_i18n.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/strike_databases/addresses/address_on_typing_suggestion_strike_database.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_generator.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -60,19 +66,20 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
-#include "components/autofill/core/common/autofill_util.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/logging/log_macros.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
+#include "components/autofill/core/common/signatures.h"
+#include "components/autofill/core/common/unique_ids.h"
 #include "components/feature_engagement/public/feature_constants.h"
-#include "components/grit/components_scaled_resources.h"
+#include "components/signin/public/base/consent_level.h"
 #include "components/strings/grit/components_strings.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_data.h"
 #include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_formatter.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-#include "ui/native_theme/native_theme.h"  // nogncheck
 #endif
 
 namespace autofill {
@@ -534,37 +541,6 @@ std::vector<AutofillProfile> GetProfilesToSuggest(
     });
     CHECK(!profiles_to_suggest.empty());
   }
-  // TODO(crbug.com/393114125): Change to use `AutofillField::field_modifiers_`
-  // after launching `kAutofillFixIsAutofilled`.
-  if (trigger_field.is_autofilled_according_to_renderer() &&
-      profiles_to_suggest.size() > 1) {
-    // This is just a simulation of the logic behind the feature flag in order
-    // to understand the reason behind the CHECK failure. Profiles are copied so
-    // that the ones used for suggestions are not modified and the branch
-    // effectively remains a functional no-op.
-    std::vector<ProfileWithText> profiles_to_suggest_copy = profiles_to_suggest;
-    const size_t size_before_filter = profiles_to_suggest.size();
-    std::erase_if(profiles_to_suggest_copy,
-                  [&](const ProfileWithText& profile) {
-                    return trigger_field.value() == profile.text;
-                  });
-    if (profiles_to_suggest_copy.empty()) {
-      SCOPED_CRASH_KEY_NUMBER("Autofill", "field_types_size",
-                              field_types.size());
-      SCOPED_CRASH_KEY_NUMBER("Autofill", "field_types_contains",
-                              field_types.contains(trigger_field_type));
-      SCOPED_CRASH_KEY_NUMBER("Autofill", "trigger_field_type",
-                              std::to_underlying(trigger_field_type));
-      SCOPED_CRASH_KEY_NUMBER("Autofill", "size_before_filter",
-                              size_before_filter);
-      SCOPED_CRASH_KEY_NUMBER("Autofill", "trigger_field_value_size",
-                              trigger_field.value().size());
-      SCOPED_CRASH_KEY_NUMBER(
-          "Autofill", "trigger_field_form_ctrl_type",
-          std::to_underlying(trigger_field.form_control_type()));
-      base::debug::DumpWithoutCrashing();
-    }
-  }
 
   // Do not show more than `kMaxDisplayedAddressSuggestions` suggestions since
   // it would result in poor UX.
@@ -701,10 +677,19 @@ SuggestionType GetSuggestionType(FormFieldData trigger_field) {
 std::vector<AddressOnTypingSuggestionData>
 MaybeFetchAddressOnTypingSuggestionData(
     const AddressDataManager& address_data_manager,
-    const FormFieldData& trigger_field) {
+    const FormFieldData& trigger_field,
+    const AutofillField* trigger_autofill_field) {
   if (!trigger_field.should_autocomplete() ||
       !base::FeatureList::IsEnabled(
           features::kAutofillAddressSuggestionsOnTyping)) {
+    return {};
+  }
+
+  const bool is_classified =
+      trigger_autofill_field &&
+      trigger_autofill_field->Type().GetAddressType() != UNKNOWN_TYPE;
+  if (is_classified &&
+      features::kAutofillOnTypingAllowOnlyOnUnclassifiedFields.Get()) {
     return {};
   }
 
@@ -869,15 +854,67 @@ std::vector<Suggestion> GenerateAddressSuggestions(
   return suggestions;
 }
 
+// Returns a vector of `AutofillProfile`s that will be suggested on a
+// `trigger_field` in a `form`. Can be empty if there is no data available for
+// filling or the filling conditions were not met.
+std::vector<AutofillProfile> MaybeFetchRegularAddressSuggestionData(
+    const FormData& form,
+    const FormFieldData& trigger_field,
+    const FormStructure* form_structure,
+    const AutofillField* trigger_autofill_field,
+    AutofillClient& client,
+    FieldTypeSet field_types) {
+  if (!form_structure || !trigger_autofill_field) {
+    return {};
+  }
+  if (trigger_autofill_field->Type().GetAddressType() == UNKNOWN_TYPE) {
+    return {};
+  }
+  if (SuppressSuggestionsForAutocompleteUnrecognizedField(
+          *trigger_autofill_field, GetAcUnrecognizedBehavior(client))) {
+    return {};
+  }
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  bool should_suppress =
+      client.GetPersonalDataManager()
+          .address_data_manager()
+          .AreAddressSuggestionsBlocked(
+              CalculateFormSignature(form),
+              CalculateFieldSignatureForField(trigger_field), form.url());
+  base::UmaHistogramBoolean("Autofill.Suggestion.StrikeSuppression.Address",
+                            should_suppress);
+  if (should_suppress &&
+      !base::FeatureList::IsEnabled(
+          features::debug::kAutofillDisableSuggestionStrikeDatabase)) {
+    if (LogManager* log_manager = client.GetCurrentLogManager()) {
+      LOG_AF(log_manager) << LoggingScope::kFilling
+                          << LogMessage::kSuggestionSuppressed
+                          << " Reason: strike limit reached.";
+    }
+    // If the user already reached the strike limit on this particular field,
+    // address suggestions are suppressed.
+    return {};
+  }
+#endif
+
+  std::vector<AutofillProfile> profiles_to_suggest = GetProfilesToSuggest(
+      client.GetPersonalDataManager().address_data_manager(), trigger_field,
+      trigger_autofill_field->Type().GetAddressType(), field_types);
+
+  // Add devtools test addresses if it exists. A test addresses will
+  // exist if devtools is open and therefore test addresses were set.
+  base::Extend(profiles_to_suggest, client.GetTestAddresses());
+  return profiles_to_suggest;
+}
+
 }  // namespace
 
 std::vector<Suggestion> GetSuggestionsOnTypingForProfile(
-    const AutofillClient& client,
+    AutofillClient& client,
     const FormData& form,
     const FormFieldData& trigger_field) {
   std::vector<Suggestion> suggestions;
   AddressSuggestionGenerator address_suggestion_generator(
-      /*log_manager=*/nullptr,
       // AddressOnTyping suggestions do not depend on the trigger source.
       /*trigger_source=*/
       mojom::AutofillSuggestionTriggerSource::kUnspecified);
@@ -945,9 +982,8 @@ bool ContainsProfileSuggestionWithRecordType(
 }
 
 AddressSuggestionGenerator::AddressSuggestionGenerator(
-    LogManager* log_manager,
     AutofillSuggestionTriggerSource trigger_source)
-    : log_manager_(log_manager), trigger_source_(trigger_source) {}
+    : trigger_source_(trigger_source) {}
 
 AddressSuggestionGenerator::~AddressSuggestionGenerator() = default;
 
@@ -956,7 +992,7 @@ void AddressSuggestionGenerator::GenerateSuggestions(
     const FormFieldData& trigger_field,
     const FormStructure* form_structure,
     const AutofillField* trigger_autofill_field,
-    const AutofillClient& client,
+    AutofillClient& client,
     base::OnceCallback<void(ReturnedSuggestions)> callback) {
   GenerateSuggestions(
       form, trigger_field, form_structure, trigger_autofill_field, client,
@@ -970,7 +1006,7 @@ void AddressSuggestionGenerator::GenerateSuggestions(
     const FormFieldData& trigger_field,
     const FormStructure* form_structure,
     const AutofillField* trigger_autofill_field,
-    const AutofillClient& client,
+    AutofillClient& client,
     base::FunctionRef<void(ReturnedSuggestions)> callback) {
   FieldTypeSet field_types = [&]() -> FieldTypeSet {
     if (!form_structure || !trigger_autofill_field) {
@@ -1018,7 +1054,7 @@ void AddressSuggestionGenerator::GenerateSuggestions(
   if (std::vector<AddressOnTypingSuggestionData> addresses_to_suggest =
           MaybeFetchAddressOnTypingSuggestionData(
               client.GetPersonalDataManager().address_data_manager(),
-              trigger_field);
+              trigger_field, trigger_autofill_field);
       !addresses_to_suggest.empty()) {
     callback({SuggestionDataSource::kAddressOnTyping,
               GenerateAddressOnTypingSuggestions(addresses_to_suggest)});
@@ -1026,57 +1062,6 @@ void AddressSuggestionGenerator::GenerateSuggestions(
   }
 
   callback({SuggestionDataSource::kAddress, {}});
-}
-
-std::vector<AutofillProfile>
-AddressSuggestionGenerator::MaybeFetchRegularAddressSuggestionData(
-    const FormData& form,
-    const FormFieldData& trigger_field,
-    const FormStructure* form_structure,
-    const AutofillField* trigger_autofill_field,
-    const AutofillClient& client,
-    FieldTypeSet field_types) {
-  if (!form_structure || !trigger_autofill_field) {
-    return {};
-  }
-  if (trigger_autofill_field->Type().GetAddressType() == UNKNOWN_TYPE) {
-    return {};
-  }
-  if (SuppressSuggestionsForAutocompleteUnrecognizedField(
-          *trigger_autofill_field, GetAcUnrecognizedBehavior(client))) {
-    return {};
-  }
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  bool should_suppress =
-      client.GetPersonalDataManager()
-          .address_data_manager()
-          .AreAddressSuggestionsBlocked(
-              CalculateFormSignature(form),
-              CalculateFieldSignatureForField(trigger_field), form.url());
-  base::UmaHistogramBoolean("Autofill.Suggestion.StrikeSuppression.Address",
-                            should_suppress);
-  if (should_suppress &&
-      !base::FeatureList::IsEnabled(
-          features::debug::kAutofillDisableSuggestionStrikeDatabase)) {
-    if (log_manager_) {
-      LOG_AF(log_manager_) << LoggingScope::kFilling
-                           << LogMessage::kSuggestionSuppressed
-                           << " Reason: strike limit reached.";
-    }
-    // If the user already reached the strike limit on this particular field,
-    // address suggestions are suppressed.
-    return {};
-  }
-#endif
-
-  std::vector<AutofillProfile> profiles_to_suggest = GetProfilesToSuggest(
-      client.GetPersonalDataManager().address_data_manager(), trigger_field,
-      trigger_autofill_field->Type().GetAddressType(), field_types);
-
-  // Add devtools test addresses if it exists. A test addresses will
-  // exist if devtools is open and therefore test addresses were set.
-  base::Extend(profiles_to_suggest, client.GetTestAddresses());
-  return profiles_to_suggest;
 }
 
 }  // namespace autofill

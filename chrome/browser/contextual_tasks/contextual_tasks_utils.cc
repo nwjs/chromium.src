@@ -5,24 +5,47 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 
 #include "base/containers/flat_set.h"
+#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_host.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_interface.h"
 #include "chrome/browser/contextual_tasks/site_exclusion_detail.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/prefs.h"
+#include "components/omnibox/browser/location_bar_model_util.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "content/public/browser/web_ui_controller.h"
+#include "content/public/common/url_constants.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "ui/base/device_form_factor.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/contextual_tasks/android/contextual_tasks_panel_host_android.h"
+#include "chrome/browser/contextual_tasks/android/contextual_tasks_panel_host_desktop_android.h"
+#else
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_host_desktop.h"
+#endif
 
 namespace contextual_tasks {
+
+bool IsContextualTasksUrl(const GURL& url) {
+  return url.scheme() == content::kChromeUIScheme &&
+         url.host() == chrome::kChromeUIContextualTasksHost;
+}
 
 std::unique_ptr<
     contextual_search::ContextualSearchContextController::ConfigParams>
@@ -210,6 +233,44 @@ void SendInjectedInputRemovedUpdate(
           InjectedInputUpdatePayload_UpdateType_REMOVED);
 
   web_ui_interface->PostMessageToWebview(client_to_aim_message);
+}
+
+bool ShouldShowSidePanel() {
+#if BUILDFLAG(IS_ANDROID)
+  bool is_tablet_or_desktop =
+      (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ||
+       ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_DESKTOP);
+  return is_tablet_or_desktop &&
+         !base::FeatureList::IsEnabled(
+             kContextualTasksOverrideShowBottomSheetOnLargeScreen);
+#else
+  return true;
+#endif
+}
+
+GURL GetContextualTasksFunctionalURL(content::WebContents* web_contents) {
+  auto* ui = GetWebUiInterface(web_contents);
+  return ui ? ui->GetInnerFrameUrl() : GURL();
+}
+
+GURL GetContextualTasksDisplayURL(content::WebContents* web_contents) {
+  GURL inner_frame_url = GetContextualTasksFunctionalURL(web_contents);
+  return location_bar_model::GetContextualTasksDisplayURL(inner_frame_url);
+}
+
+// static
+std::unique_ptr<ContextualTasksPanelHost> ContextualTasksPanelHost::Create(
+    BrowserWindowInterface* browser_window) {
+#if BUILDFLAG(IS_ANDROID)
+  if (ShouldShowSidePanel()) {
+    return std::make_unique<ContextualTasksPanelHostDesktopAndroid>(
+        browser_window);
+  } else {
+    return std::make_unique<ContextualTasksPanelHostAndroid>(browser_window);
+  }
+#else
+  return std::make_unique<ContextualTasksPanelHostDesktop>(browser_window);
+#endif
 }
 
 }  // namespace contextual_tasks

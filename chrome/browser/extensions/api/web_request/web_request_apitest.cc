@@ -77,6 +77,8 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/service_worker_context.h"
+#include "content/public/browser/service_worker_running_info.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/webui_config_map.h"
@@ -262,7 +264,8 @@ class EventRouterInterceptorForStopListenerRemoval
  protected:
   // mojom::EventRouter:
   void RemoveListenerForServiceWorker(
-      mojom::EventListenerPtr event_listener) override {
+      mojom::EventListenerPtr event_listener,
+      mojom::ServiceWorkerContextPtr service_worker_context) override {
     // Don't call the real `EventRouter::RemoveListenerForServiceWorker()`
     // method to simulate that the worker never finishing stopping and informing
     // the browser to remove the listener.
@@ -6890,7 +6893,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   // A single webRequest listener should be registered.
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Stop the service worker.
@@ -6904,7 +6907,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   // inactive listener.
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Navigate to block.example. The request should be blocked by the extension.
@@ -6977,9 +6980,9 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                     profile(), "webRequest.onBeforeRequest"));
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onHeadersReceived"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onHeadersReceived"));
 
   // Navigate to block.example. The worker will start, and register the
@@ -7004,9 +7007,9 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                     profile(), "webRequest.onBeforeRequest"));
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onHeadersReceived"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onHeadersReceived"));
 
   // Navigate to block.example. The worker will start, but NOT register the
@@ -7088,7 +7091,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   // A single listener should be registered.
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Navigate to a URL. The request should be seen by the extension.
@@ -7116,7 +7119,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   // inactive listener.
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   {
@@ -7136,30 +7139,17 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   // The inactive listener should have been reactivated...
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // ... and the extension should have seen the request.
   EXPECT_EQ(2, get_request_count());
 }
 
-class ManifestV3WebRequestApiTestWithEventRouterPersistence
-    : public ManifestV3WebRequestApiTest {
- public:
-  ManifestV3WebRequestApiTestWithEventRouterPersistence() {
-    scoped_feature_list_.InitAndEnableFeature(
-        extensions_features::kWebRequestPersistFilteredEventsViaEventRouter);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-// Test that, when the `kWebRequestPersistFilteredEventsViaEventRouter` feature
-// flag is enabled, adding a listener right after an extension has been
-// unloaded, but before its renderer has been shut down, doesn't cause a CHECK
-// failure in WebRequestAPI. Regression test for https://crbug.com/479841044.
-IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTestWithEventRouterPersistence,
+// Test that adding a listener right after an extension has been unloaded, but
+// before its renderer has been shut down, doesn't cause a CHECK failure in
+// WebRequestAPI. Regression test for https://crbug.com/479841044.
+IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                        DontCrashOnExtensionUnload) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   static constexpr char kManifest[] =
@@ -7262,7 +7252,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // An extension with a non-blocking listener that registers the first
@@ -7302,7 +7292,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(2u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Stop the non-blocking extension's service worker, making its listener
@@ -7317,7 +7307,7 @@ IN_PROC_BROWSER_TEST_F(
   // listener (non-blocking).
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Stop the blocking extension's service worker too.
@@ -7335,7 +7325,7 @@ IN_PROC_BROWSER_TEST_F(
 // overwritten by a listener with a different filter in a previous run)
 // does not cause a crash. Regression test for crbug.com/508602546.
 IN_PROC_BROWSER_TEST_F(
-    ManifestV3WebRequestApiTestWithEventRouterPersistence,
+    ManifestV3WebRequestApiTest,
     ServiceWorkerWithWebRequest_RemoveStaleListenerDoesNotCrash) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   static constexpr char kManifest[] =
@@ -7460,7 +7450,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   browsertest_util::StopServiceWorkerForExtensionGlobalScope(profile(),
@@ -7471,7 +7461,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   DisableExtension(extension->id());
@@ -7479,7 +7469,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 }
 
@@ -7522,7 +7512,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   // the service worker is active).
   EXPECT_EQ(2u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Manually remove one of the listeners. This should result in the listener
@@ -7541,7 +7531,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
 
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Navigate to a page and verify that only the second listener fires.
@@ -7632,7 +7622,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   {
@@ -7743,7 +7733,7 @@ IN_PROC_BROWSER_TEST_F(
 
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   {
@@ -8166,7 +8156,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, AsyncListenerRegistration) {
   // A single webRequest listener should be registered.
   EXPECT_EQ(1u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   const GURL url =
@@ -8191,7 +8181,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, AsyncListenerRegistration) {
   // inactive listener.
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
-  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCountForTesting(
+  EXPECT_EQ(1u, web_request_router()->GetInactiveListenerCount(
                     profile(), "webRequest.onBeforeRequest"));
 
   // Reset the "will register" listener. However, we'll never reply this time,
@@ -8218,6 +8208,132 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, AsyncListenerRegistration) {
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // uses ui_test_utils
+
+class ManifestV3WebRequestServiceWorkerAutoPreloadTest
+    : public ManifestV3WebRequestApiTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  ManifestV3WebRequestServiceWorkerAutoPreloadTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        features::kOptimizeWebRequestProxyForServiceWorkerAutoPreload,
+        GetParam());
+  }
+  ~ManifestV3WebRequestServiceWorkerAutoPreloadTest() override = default;
+
+  static std::string DescribeParams(
+      const testing::TestParamInfo<ParamType>& info) {
+    return base::StrCat({"Optimization", info.param ? "Enabled" : "Disabled"});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /* no prefix */,
+    ManifestV3WebRequestServiceWorkerAutoPreloadTest,
+    testing::Bool(),
+    ManifestV3WebRequestServiceWorkerAutoPreloadTest::DescribeParams);
+
+IN_PROC_BROWSER_TEST_P(ManifestV3WebRequestServiceWorkerAutoPreloadTest,
+                       WebRequestOnErrorOccurredNavigation) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  static constexpr char kManifest[] =
+      R"({
+           "name": "MV3 WebRequest onErrorOccurred",
+           "version": "0.1",
+           "manifest_version": 3,
+           "permissions": ["webRequest"],
+           "host_permissions": ["<all_urls>"],
+           "background": {"service_worker": "background.js"}
+         })";
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.webRequest.onErrorOccurred.addListener(
+             (details) => {
+               chrome.test.sendMessage('unexpected_error');
+             },
+             {urls: ['<all_urls>']});
+         chrome.webRequest.onBeforeRequest.addListener(
+             (details) => {
+               if (details.url.includes('sync_signal')) {
+                 chrome.test.sendMessage('sync_complete');
+               }
+             }, {urls: ['<all_urls>']});
+         chrome.test.sendMessage('ready');)";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
+
+  ExtensionTestMessageListener ready_listener("ready");
+  ExtensionTestMessageListener error_listener("unexpected_error");
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
+
+  // Navigate to sw_register.html on localhost (secure context).
+  const GURL sw_register_url = embedded_test_server()->GetURL(
+      "localhost", "/web_apps/simple_isolated_app/sw_register.html");
+  content::WebContents* web_contents = GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+
+  {
+    content::TestNavigationObserver nav_observer(web_contents);
+    ASSERT_TRUE(NavigateToURL(web_contents, sw_register_url));
+    ASSERT_TRUE(nav_observer.last_navigation_succeeded());
+  }
+
+  EXPECT_EQ("SW_REGISTERED",
+            content::EvalJs(web_contents, "window.swActivationPromise"));
+
+  content::StoragePartition* storage_partition =
+      web_contents->GetPrimaryMainFrame()->GetStoragePartition();
+  content::ServiceWorkerContext* sw_context =
+      storage_partition->GetServiceWorkerContext();
+
+  const blink::StorageKey& sw_storage_key =
+      web_contents->GetPrimaryMainFrame()->GetStorageKey();
+  GURL sw_scope = sw_storage_key.origin().GetURL().Resolve(
+      "/web_apps/simple_isolated_app/sw/");
+
+  // ServiceWorkerAutoPreload only operates during the Service Worker startup
+  // phase. We must ensure the Service Worker is completely stopped before
+  // triggering navigation. Since JavaScript cannot reliably trigger a
+  // force-stop and synchronize with the browser, we use the C++ side helper.
+  ASSERT_TRUE(extensions::service_worker_test_utils::StopServiceWorkerForScope(
+      sw_context, sw_scope, sw_storage_key));
+
+  // Now navigate to sw scope.
+  const GURL sw_scope_url = embedded_test_server()->GetURL(
+      "localhost", "/web_apps/simple_isolated_app/sw/index.html");
+
+  {
+    content::TestNavigationObserver nav_observer(web_contents);
+    ASSERT_TRUE(NavigateToURL(web_contents, sw_scope_url));
+    ASSERT_TRUE(nav_observer.last_navigation_succeeded());
+  }
+
+  EXPECT_EQ("SW Scope Page", content::EvalJs(web_contents, "document.title"));
+
+  // Flush the extension's event queue to prevent false positives.
+  // Because network cancellation and IPC dispatch are asynchronous, the test
+  // could complete and pass before a failing error event reaches the listener.
+  // We trigger a 'sync_signal' fetch (which the page's sw.js is configured
+  // to pass through to the network). Waiting for the extension's
+  // onBeforeRequest listener to intercept it guarantees that all prior events
+  // in the IPC queue have been processed by the test harness before we check
+  // error_listener.
+  {
+    ExtensionTestMessageListener sync_listener("sync_complete");
+    ASSERT_TRUE(content::ExecJs(web_contents, "fetch('?sync_signal=1');"));
+    ASSERT_TRUE(sync_listener.WaitUntilSatisfied());
+  }
+
+  // Ensure no unexpected error message was received.
+  EXPECT_FALSE(error_listener.was_satisfied());
+}
+
 // Tests behavior when a service worker is stopped while processing an event.
 IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                        ServiceWorkerGoesAwayWhileHandlingRequest) {
@@ -8603,11 +8719,15 @@ class URLLoaderFactoriesResetWaiter : public WebRequestAPI::TestObserver {
     url_loader_factory_reset_runloop_.Run();
   }
 
+  int reset_count() const { return reset_count_; }
+
  private:
   void OnDidResetURLLoaderFactories() override {
+    ++reset_count_;
     url_loader_factory_reset_runloop_.Quit();
   }
 
+  int reset_count_ = 0;
   base::RunLoop url_loader_factory_reset_runloop_;
 };
 
@@ -8705,6 +8825,62 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   will_receive_listener.Reply("go");
   url_loader_factories_reset_waiter.WaitForResetURLLoaderFactoriesCalled();
   registration_observer.WaitForRegistrationStored();
+}
+
+// Tests that URLLoaderFactories are reset only on transitions of
+// MayHaveProxies(): when the first relevant extension loads and when the last
+// one unloads, but not on intermediate load/unload events.
+IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
+                       ResetURLLoaderFactoriesOnMayHaveProxiesTransitions) {
+  // Skip if the proxy is forced since factories won't be reset in that case.
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kForceWebRequestProxyForTest)) {
+    return;
+  }
+
+  auto make_extension_dir = [](const char* name) {
+    static constexpr char kManifestTemplate[] =
+        R"({
+             "name": "%s",
+             "manifest_version": 3,
+             "version": "0.1",
+             "permissions": ["webRequest"],
+             "background": {"service_worker": "background.js"}
+           })";
+    auto dir = std::make_unique<TestExtensionDir>();
+    dir->WriteManifest(base::StringPrintf(kManifestTemplate, name));
+    dir->WriteFile(FILE_PATH_LITERAL("background.js"), "");
+    return dir;
+  };
+
+  std::unique_ptr<TestExtensionDir> dir_a = make_extension_dir("ExtensionA");
+  std::unique_ptr<TestExtensionDir> dir_b = make_extension_dir("ExtensionB");
+
+  URLLoaderFactoriesResetWaiter waiter;
+
+  // Loading the first extension transitions MayHaveProxies() from false to
+  // true, triggering a reset.
+  const Extension* extension_a = LoadExtension(dir_a->UnpackedPath());
+  ASSERT_TRUE(extension_a);
+  ExtensionId id_a = extension_a->id();
+  EXPECT_EQ(1, waiter.reset_count());
+
+  // Loading a second extension keeps MayHaveProxies() true, so no reset.
+  const Extension* extension_b = LoadExtension(dir_b->UnpackedPath());
+  ASSERT_TRUE(extension_b);
+  ExtensionId id_b = extension_b->id();
+  EXPECT_EQ(1, waiter.reset_count());
+
+  // Unloading one of two relevant extensions keeps MayHaveProxies() true, so
+  // no reset.
+  UninstallExtension(id_a);
+  EXPECT_EQ(1, waiter.reset_count());
+
+  // Unloading the last relevant extension transitions MayHaveProxies() from
+  // true to false, which must also trigger a reset so stale proxying
+  // factories are torn down.
+  UninstallExtension(id_b);
+  EXPECT_EQ(2, waiter.reset_count());
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)

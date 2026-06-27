@@ -14,6 +14,8 @@
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
@@ -28,6 +30,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/variations/synthetic_trials.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition.h"
@@ -46,6 +49,8 @@ std::string InvocationSourceToString(
   switch (source) {
     case api::glic_private::InvocationSource::kUniversalCart:
       return "INVOCATION_SOURCE_UNIVERSAL_CART";
+    case api::glic_private::InvocationSource::kPromotionPage:
+      return "INVOCATION_SOURCE_PROMOTION_PAGE";
     case api::glic_private::InvocationSource::kUnknown:
       return "INVOCATION_SOURCE_UNKNOWN";
     case api::glic_private::InvocationSource::kNone:
@@ -56,6 +61,9 @@ std::string InvocationSourceToString(
 constexpr char kPromptId[] = "promptId";
 constexpr char kInvocationSource[] = "invocationSource";
 constexpr char kPrompt[] = "prompt";
+constexpr char kGlicApiInvokeSyntheticFieldTrialName[] =
+    "GlicApiInvokeSyntheticFieldTrial";
+constexpr char kUniversalCartGroupName[] = "UniversalCart";
 
 using PromptCallback =
     base::OnceCallback<void(extensions::api::glic_private::ErrorCode,
@@ -131,6 +139,10 @@ api::glic_private::ProfileReadyState ConvertProfileReadyState(
       return api::glic_private::ProfileReadyState::kIneligible;
     case glic::mojom::ProfileReadyState::kDisabledByAdmin:
       return api::glic_private::ProfileReadyState::kDisabledByAdmin;
+    case glic::mojom::ProfileReadyState::kLocationMismatch:
+      return api::glic_private::ProfileReadyState::kLocationMismatch;
+    case glic::mojom::ProfileReadyState::kIneligibleAccount:
+      return api::glic_private::ProfileReadyState::kIneligibleAccount;
   }
 }
 
@@ -153,6 +165,9 @@ api::glic_private::ProfileState CreateProfileState(Profile* profile) {
   state.actuation_allowed =
       base::FeatureList::IsEnabled(features::kGlicActor) && glic_service &&
       glic_service->actor_policy_checker().CanActOnWeb();
+
+  state.user_enable_actuation_on_web =
+      glic_service && glic_service->enabling().GetUserEnabledActuationOnWeb();
 
   return state;
 }
@@ -336,6 +351,13 @@ ExtensionFunction::ResponseAction GlicPrivateInvokeFunction::Run() {
       api::glic_private::Invoke::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
+  if (params->details.invocation_source ==
+      api::glic_private::InvocationSource::kUniversalCart) {
+    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+        kGlicApiInvokeSyntheticFieldTrialName, kUniversalCartGroupName,
+        variations::SyntheticTrialAnnotationMode::kCurrentLog);
+  }
+
   Profile* profile = Profile::FromBrowserContext(browser_context());
 
   api::glic_private::ProfileState profile_state = CreateProfileState(profile);
@@ -376,25 +398,32 @@ ExtensionFunction::ResponseAction GlicPrivateInvokeFunction::Run() {
       glic::mojom::InvocationSource::kUnsupported;
   glic::mojom::FeatureMode feature_mode =
       glic::mojom::FeatureMode::kUnspecified;
+  bool is_valid_source =
+      params->details.invocation_source ==
+          api::glic_private::InvocationSource::kUniversalCart ||
+      params->details.invocation_source ==
+          api::glic_private::InvocationSource::kPromotionPage;
+
+  if (is_valid_source &&
+      !base::FeatureList::IsEnabled(
+          extensions_features::kApiGlicAccessFromGoogleWebpage)) {
+    return RespondNow(GetPromptResponseValueAndLog(
+        extensions::api::glic_private::ErrorCode::kLocalGlicNotEnabled));
+  }
+
   switch (params->details.invocation_source) {
     case api::glic_private::InvocationSource::kUniversalCart:
-      if (!base::FeatureList::IsEnabled(
-              extensions_features::kApiGlicAccessFromGoogleWebpage)) {
-        return RespondNow(GetPromptResponseValueAndLog(
-            extensions::api::glic_private::ErrorCode::kLocalGlicNotEnabled));
-      }
       source = glic::mojom::InvocationSource::kUniversalCart;
       feature_mode = glic::mojom::FeatureMode::kUniversalCart;
+      break;
+    case api::glic_private::InvocationSource::kPromotionPage:
+      source = glic::mojom::InvocationSource::kPromotionPage;
+      feature_mode = glic::mojom::FeatureMode::kPromotionPage;
       break;
     default:
       return RespondNow(GetPromptResponseValueAndLog(
           extensions::api::glic_private::ErrorCode::
               kLocalInvalidInvocationSource));
-  }
-
-  if (params->details.prompt_id.empty()) {
-    return RespondNow(GetPromptResponseValueAndLog(
-        extensions::api::glic_private::ErrorCode::kLocalMissingPromptId));
   }
 
   glic::GlicInvokeOptions options{source};
@@ -404,7 +433,27 @@ ExtensionFunction::ResponseAction GlicPrivateInvokeFunction::Run() {
 
   bool in_new_tab = params->details.in_new_tab.value_or(false);
 
-  GetPromptFromId(*profile, params->details.prompt_id,
+  if (!params->details.prompt_id || params->details.prompt_id->empty()) {
+    // Promotion page invocations do not require a prompt ID. We skip
+    // fetching the prompt from the server and proceed directly, passing nullopt
+    // for the prompt.
+    if (params->details.invocation_source ==
+        api::glic_private::InvocationSource::kPromotionPage) {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&GlicPrivateInvokeFunction::OnPromptRetrieved, this,
+                         std::move(options), in_new_tab,
+                         params->details.document_id,
+                         extensions::api::glic_private::ErrorCode::kNone,
+                         /*prompt=*/std::nullopt));
+      return RespondLater();
+    } else {
+      return RespondNow(GetPromptResponseValueAndLog(
+          extensions::api::glic_private::ErrorCode::kLocalMissingPromptId));
+    }
+  }
+
+  GetPromptFromId(*profile, *params->details.prompt_id,
                   InvocationSourceToString(params->details.invocation_source),
                   base::BindOnce(&GlicPrivateInvokeFunction::OnPromptRetrieved,
                                  this, std::move(options), in_new_tab,
@@ -428,7 +477,9 @@ void GlicPrivateInvokeFunction::OnPromptRetrieved(
     return;
   }
 
-  options.prompts.push_back(std::move(*prompt));
+  if (prompt && !prompt->empty()) {
+    options.prompts.push_back(std::move(*prompt));
+  }
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
 
@@ -465,8 +516,10 @@ void GlicPrivateInvokeFunction::OnPromptRetrieved(
       open_in_foreground = false;
     } else if (disposition == extensions_features::GlicOpenNewTabDisposition::
                                   kForegroundIfNotConsented) {
-      open_in_foreground =
-          !CreateProfileState(profile).is_enabled_and_consented;
+      api::glic_private::ProfileState profile_state =
+          CreateProfileState(profile);
+      open_in_foreground = !profile_state.is_enabled_and_consented ||
+                           !profile_state.user_enable_actuation_on_web;
     }
     options.target.surface = glic::NewTab(
         tab_interface->GetBrowserWindowInterface(), open_in_foreground);
@@ -485,6 +538,28 @@ void GlicPrivateInvokeFunction::OnPromptRetrieved(
 
   Respond(GetPromptResponseValueAndLog(
       extensions::api::glic_private::ErrorCode::kNone));
+}
+
+GlicPrivateHasConversationFunction::GlicPrivateHasConversationFunction() =
+    default;
+GlicPrivateHasConversationFunction::~GlicPrivateHasConversationFunction() =
+    default;
+
+ExtensionFunction::ResponseAction GlicPrivateHasConversationFunction::Run() {
+  std::optional<api::glic_private::HasConversation::Params> params =
+      api::glic_private::HasConversation::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  glic::GlicKeyedService* glic_service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile,
+                                                         /*create=*/true);
+  CHECK(glic_service);
+
+  return RespondNow(
+      ArgumentList(api::glic_private::HasConversation::Results::Create(
+          glic_service->instance_coordinator().IsConversationPresent(
+              params->conversation_id))));
 }
 
 }  // namespace extensions

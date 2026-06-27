@@ -4,10 +4,11 @@
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {BrowserProxy} from './browser_proxy.js';
 import {getCss} from './contexts_viewer.css.js';
 import {getHtml} from './contexts_viewer.html.js';
-import type {WebNNContextIntrospectionDetails} from './webnn_service_introspection.mojom-webui.js';
+import {browserProxyFactory} from './webnn_internals.mojom-webui.js';
+import type {BrowserProxy} from './webnn_internals.mojom-webui.js';
+import type {WebNNContextIntrospectionDetails, WebNNExecutionProviderDetails} from './webnn_service_introspection.mojom-webui.js';
 
 export class WebnnInternalsContextsViewerElement extends CrLitElement {
   static get is() {
@@ -29,10 +30,13 @@ export class WebnnInternalsContextsViewerElement extends CrLitElement {
   }
 
   private listenerIds_: number[] = [];
-  protected accessor contexts_:
-      Array<{contextId: string, contextBackend: string}> = [];
+  protected accessor contexts_: Array<{
+    contextId: string,
+    contextBackend: string,
+    executionProviders: WebNNExecutionProviderDetails[],
+  }> = [];
 
-  private proxy_: BrowserProxy = BrowserProxy.getInstance();
+  private proxy_: BrowserProxy = browserProxyFactory.getInstance();
 
   override connectedCallback() {
     super.connectedCallback();
@@ -48,10 +52,12 @@ export class WebnnInternalsContextsViewerElement extends CrLitElement {
 
   private onUpdateExistingContexts_(
       contexts: WebNNContextIntrospectionDetails[]) {
-    this.contexts_ = contexts.map(context => ({
-                                    contextId: context.contextId.toString(),
-                                    contextBackend: context.contextBackend,
-                                  }));
+    this.contexts_ =
+        contexts.map(context => ({
+                       contextId: context.contextId.toString(),
+                       contextBackend: context.contextBackend,
+                       executionProviders: context.executionProviders,
+                     }));
   }
 
   override disconnectedCallback() {

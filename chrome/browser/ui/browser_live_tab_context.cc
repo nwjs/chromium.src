@@ -46,8 +46,10 @@
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_group.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/session_storage_namespace.h"
@@ -182,6 +184,11 @@ std::optional<tab_groups::TabGroupId> BrowserLiveTabContext::GetTabGroupForTab(
   return tab_strip_model_->GetTabGroupForTab(index);
 }
 
+std::optional<split_tabs::SplitTabId> BrowserLiveTabContext::GetSplitForTab(
+    int index) const {
+  return tab_strip_model_->GetSplitForTab(index);
+}
+
 const tab_groups::TabGroupVisualData*
 BrowserLiveTabContext::GetVisualDataForGroup(
     const tab_groups::TabGroupId& group) const {
@@ -190,6 +197,16 @@ BrowserLiveTabContext::GetVisualDataForGroup(
   TabGroup* tab_group = group_model->GetTabGroup(group);
   CHECK(tab_group);
   return tab_group->visual_data();
+}
+
+const split_tabs::SplitTabVisualData*
+BrowserLiveTabContext::GetVisualDataForSplit(
+    const split_tabs::SplitTabId& split_id) const {
+  if (!tab_strip_model_->ContainsSplit(split_id)) {
+    return nullptr;
+  }
+  auto* split_data = tab_strip_model_->GetSplitData(split_id);
+  return split_data ? split_data->visual_data() : nullptr;
 }
 
 const std::optional<base::Uuid>
@@ -376,6 +393,28 @@ sessions::LiveTab* BrowserLiveTabContext::ReplaceRestoredTab(
       storage_namespace, tab.user_agent_override, tab.extra_data,
       false /* from_session_restore */);
   return sessions::ContentLiveTab::GetOrCreateForWebContents(web_contents);
+}
+
+void BrowserLiveTabContext::ReconstructSplit(
+    sessions::LiveTab* leading_tab,
+    sessions::LiveTab* trailing_tab,
+    split_tabs::SplitTabId split_id,
+    const split_tabs::SplitTabVisualData& visual_data) {
+  auto* leading_content_tab =
+      static_cast<sessions::ContentLiveTab*>(leading_tab);
+  auto* trailing_content_tab =
+      static_cast<sessions::ContentLiveTab*>(trailing_tab);
+
+  const int leading_index = tab_strip_model_->GetIndexOfWebContents(
+      &leading_content_tab->GetWebContents());
+  const int trailing_index = tab_strip_model_->GetIndexOfWebContents(
+      &trailing_content_tab->GetWebContents());
+
+  if (leading_index != TabStripModel::kNoTab &&
+      trailing_index != TabStripModel::kNoTab) {
+    tab_strip_model_->RestoreSplit(split_id, {leading_index, trailing_index},
+                                   visual_data);
+  }
 }
 
 void BrowserLiveTabContext::CloseTab() {

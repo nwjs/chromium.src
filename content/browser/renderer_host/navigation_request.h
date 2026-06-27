@@ -76,12 +76,14 @@
 #include "services/network/public/cpp/content_security_policy/csp_context.h"
 #include "services/network/public/mojom/blocked_by_response_reason.mojom-shared.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
+#include "services/network/public/mojom/declarative_performance_observer.mojom-forward.h"
 #include "services/network/public/mojom/shared_dictionary_access_observer.mojom.h"
 #include "services/network/public/mojom/trust_token_access_observer.mojom-shared.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_context.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/confidence_level.mojom.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom-forward.h"
 #include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom.h"
 #include "third_party/blink/public/mojom/loader/mixed_content.mojom-forward.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom-forward.h"
@@ -336,6 +338,7 @@ class CONTENT_EXPORT NavigationRequest
       bool is_same_document,
       const GURL& url,
       const url::Origin& origin,
+      const std::optional<url::Origin>& initiator_origin,
       const std::optional<GURL>& initiator_base_url,
       const net::IsolationInfo& isolation_info_for_subresources,
       blink::mojom::ReferrerPtr referrer,
@@ -437,6 +440,8 @@ class CONTENT_EXPORT NavigationRequest
   const blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr&
   GetLCPPNavigationHint() override;
   const net::HttpResponseHeaders* GetResponseHeaders() override;
+  const network::mojom::DeclarativePerformanceObserverPolicy*
+  GetDeclarativePerformanceObserverPolicy() override;
   net::HttpConnectionInfo GetConnectionInfo() override;
   const std::optional<net::SSLInfo>& GetSSLInfo() override;
   const std::optional<net::AuthChallengeInfo>& GetAuthChallengeInfo() override;
@@ -514,6 +519,8 @@ class CONTENT_EXPORT NavigationRequest
   bool NeedsUrlLoader() override;
   bool IsInitialWebUISyncNavigation() override;
   bool IsInitialWebUINavigation() override;
+  bool IsPageActivation() const override;
+  bool IsNavigatingFromInitialEmptyDocument() const override;
   // End of NavigationHandle implementation.
 
   // Returns a perfetto Track that represents this navigation, nested under the
@@ -591,7 +598,7 @@ class CONTENT_EXPORT NavigationRequest
 
   NavigationState state() const { return state_; }
 
-  FrameTreeNode* frame_tree_node() const { return frame_tree_node_; }
+  FrameTreeNode* frame_tree_node() const { return frame_tree_node_.get(); }
 
   bool is_synchronous_renderer_commit() const {
     return is_synchronous_renderer_commit_;
@@ -1077,10 +1084,6 @@ class CONTENT_EXPORT NavigationRequest
   // committed entry.
   const GURL& GetPreviousMainFrameURL() const;
 
-  // Whether this navigation is activating an existing page (e.g. served from
-  // the BackForwardCache or Prerender)
-  bool IsPageActivation() const override;
-
   // Returns whether the navigation type is a restore navigation.
   bool IsRestore() const;
 
@@ -1222,6 +1225,21 @@ class CONTENT_EXPORT NavigationRequest
       base::WeakPtr<KeepAliveURLLoaderService::FactoryContext> factory_context);
   void SetFetchLaterLoaderFactoryContextForTesting(
       base::WeakPtr<KeepAliveURLLoaderService::FactoryContext> factory_context);
+
+  // Outcome of Content Security Policy Embedded Enforcement (CSPEE).
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(NavigationCSPEmbeddedEnforcementOutcome)
+  enum class NavigationCSPEmbeddedEnforcementOutcome {
+    kAllowLocalScheme = 0,
+    kAllowAllowCSPFromHeader = 1,
+    kAllowSubsumes = 2,
+    kBlock = 3,
+    kAllowMHTML = 4,
+    kMaxValue = kAllowMHTML,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/enums.xml:NavigationCSPEmbeddedEnforcementOutcome)
 
   // Helper for logging crash keys related to a NavigationRequest (e.g.
   // "navigation_request_url", "navigation_request_initiator", and
@@ -1823,9 +1841,21 @@ class CONTENT_EXPORT NavigationRequest
     before_unload_execution_mode_ = mode;
   }
 
+  void set_activation_beacon_url(const GURL& url) {
+    activation_beacon_url_ = url;
+  }
+
  private:
   friend class NavigationRequestTest;
   FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest, SanitizeRedirectsForCommit);
+  FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest,
+                           SanitizeRedirectsForCommitRelativeLocation);
+  FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest,
+                           SanitizeRedirectsForCommitNonStandardRelative);
+  FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest,
+                           SanitizeRedirectsForCommitHostlessNonStandard);
+  FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest,
+                           SanitizeRedirectsForCommitErrorPage);
   FRIEND_TEST_ALL_PREFIXES(NavigationRequestTest,
                            ShouldRecordNavigationTimelineUkmForChromeUI);
 
@@ -2127,6 +2157,7 @@ class CONTENT_EXPORT NavigationRequest
   // the 'csp' attribute should be installed into the child. This might also
   // block it and display an error page instead.
   void SetupCSPEmbeddedEnforcement();
+
   enum class CSPEmbeddedEnforcementResult {
     ALLOW_RESPONSE,
     BLOCK_RESPONSE,
@@ -2287,14 +2318,6 @@ class CONTENT_EXPORT NavigationRequest
 
   void StopCommitTimeout();
   void RestartCommitTimeout();
-
-  std::vector<std::string> TakeRemovedRequestHeaders() {
-    return std::move(removed_request_headers_);
-  }
-
-  net::HttpRequestHeaders TakeModifiedRequestHeaders() {
-    return std::move(modified_request_headers_);
-  }
 
   // Returns true if the contents of |common_params_| requires
   // |source_site_instance_| to be set. This is used to ensure that data: and
@@ -2591,10 +2614,10 @@ class CONTENT_EXPORT NavigationRequest
   // this protects against.
   void ValidateCommitOrigin(const url::Origin& origin_to_commit);
 
-  // Never null. The pointee node owns this navigation request instance.
-  // This field is not a raw_ptr because of incompatibilities with tracing
-  // (TRACE_EVENT*), perfetto::TracedDictionary::Add and gmock/EXPECT_THAT.
-  RAW_PTR_EXCLUSION FrameTreeNode* const frame_tree_node_;
+  // Never null, and intended to outlive this NavigationRequest. Initially, this
+  // NavigationRequest instance is owned by this FrameTreeNode, until ownership
+  // is transferred to the committing RenderFrameHost.
+  raw_ptr<FrameTreeNode> const frame_tree_node_;
 
   // Returns true if navigation timeline UKMs should be recorded.
   // This is also used in `MaybeRecordTraceEventsAndHistograms()`, which should
@@ -2606,6 +2629,16 @@ class CONTENT_EXPORT NavigationRequest
   // resources were generated from a different origin with the given origin.
   // This is because we disallow cross origin view transitions.
   void UpdateViewTransitionStateForDestinationOrigin(const url::Origin& origin);
+
+  // Shared implementation of
+  // AddResourceTimingEntryForFailedSubframeNavigation() and
+  // MaybeAddResourceTimingEntryForCancelledNavigation(). `completion_time` is
+  // the timestamp when the navigation finished or was cancelled, and
+  // `resource_lengths` is the amount of data received, or nullptr if the
+  // navigation was cancelled before starting to read data.
+  void AddResourceTimingEntryForFailedSubframeNavigation(
+      base::TimeTicks completion_time,
+      blink::mojom::SubframeResourceLengthsPtr resource_lengths);
 
   // Used for short-lived NavigationRequest created at DidCommit time for the
   // purpose of committing navigation that were not driven by the browser
@@ -2999,11 +3032,7 @@ class CONTENT_EXPORT NavigationRequest
   // start, the headers will be applied to the initial network request. When
   // modified during a redirect, the headers will be applied to the redirected
   // request.
-  net::HttpRequestHeaders modified_request_headers_;
-
-  // Set of headers to remove during the redirect phase. This can only be
-  // modified during the redirect phase.
-  std::vector<std::string> removed_request_headers_;
+  network::HttpRequestHeadersUpdateParams headers_update_params_;
 
   // The RenderFrameHost that is being restored from the back/forward cache.
   // This can be null if this navigation is not restoring a page from the
@@ -3112,7 +3141,7 @@ class CONTENT_EXPORT NavigationRequest
   // navigation.
   CrossOriginOpenerPolicyStatus coop_status_{this};
 
-#if DCHECK_IS_ON()
+#if !BUILDFLAG(IS_ANDROID)
   bool is_safe_to_delete_ = true;
 #endif
 
@@ -3656,6 +3685,14 @@ class CONTENT_EXPORT NavigationRequest
   // ContentSubresourceFilterThrottleManager currently relies on the throttle to
   // be alive during the callback to work.
   bool is_destructing_ = false;
+
+  // Set to true if this navigation is trying to navigate away from an initial
+  // WebUI page (and is not itself a valid initial WebUI navigation). Such
+  // navigations are invalid and should be cancelled in BeginNavigation().
+  bool should_cancel_on_leaving_initial_webui_ = false;
+
+  // The resolved and validated full URL for the activation beacon.
+  GURL activation_beacon_url_;
 
   base::WeakPtrFactory<NavigationRequest> weak_factory_{this};
 };

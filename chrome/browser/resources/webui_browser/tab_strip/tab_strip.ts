@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import './tab.js';
+import './tab_group.js';
 import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/icons.html.js';
@@ -12,7 +13,7 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {TabStripService} from '/tab_strip_api/tab_strip_api.mojom-webui.js';
 import type {TabStripServiceRemote} from '/tab_strip_api/tab_strip_api.mojom-webui.js';
-import type {Container, Tab as TabData, TabCreatedContainer, TabGroupVisualData} from '/tab_strip_api/tab_strip_api_data_model.mojom-webui.js';
+import type {Container, Tab, TabCreatedContainer, TabGroup} from '/tab_strip_api/tab_strip_api_data_model.mojom-webui.js';
 import {OnDataChangedEventFieldTags, whichOnDataChangedEvent} from '/tab_strip_api/tab_strip_api_events.mojom-webui.js';
 import type {OnCollectionCreatedEvent, OnDataChangedEvent, OnNodeMovedEvent, OnNodesClosedEvent, OnTabsCreatedEvent} from '/tab_strip_api/tab_strip_api_events.mojom-webui.js';
 import type {NodeId} from '/tab_strip_api/tab_strip_api_types.mojom-webui.js';
@@ -20,9 +21,14 @@ import {TabStripObservation} from '/tab_strip_api/tab_strip_observation.js';
 import type {TabStripObserver} from '/tab_strip_api/tab_strip_observer.js';
 
 import type {TabActivated, TabAdded, TabClosed, TabUpdated} from './events.js';
+import type {TabGroupItem, TabItem, TabStripItem} from './items.js';
 import type {TabElement} from './tab.js';
+import {TabDragDelegate} from './tab_drag_delegate.js';
+import type {TabDragHost} from './tab_drag_host.js';
 import {getCss} from './tab_strip.css.js';
 import {getHtml} from './tab_strip.html.js';
+
+export type {TabGroupItem, TabItem, TabStripItem};
 
 export interface TabStripElement {
   $: {
@@ -30,7 +36,35 @@ export interface TabStripElement {
   };
 }
 
-export class TabStripElement extends CrLitElement implements TabStripObserver {
+class TabStripItemFactory {
+  static create(child: Container): TabStripItem|null {
+    const data = child.data;
+    if (data.tab) {
+      return {
+        type: 'tab',
+        id: data.tab.id,
+        tabData: data.tab,
+      };
+    } else if (data.tabGroup) {
+      return {
+        type: 'group',
+        id: data.tabGroup.id,
+        groupData: data.tabGroup.data,
+      };
+    }
+
+    // These are valid parts of the tree but do not produce a UI item.
+    if (child.children) {
+      return null;
+    }
+
+    // If a node has no item data and no children, it is malformed.
+    assert(false, 'TabStripItemFactory: encountered an invalid container node');
+  }
+}
+
+export class TabStripElement extends CrLitElement implements TabStripObserver,
+                                                             TabDragHost {
   static get is() {
     return 'webui-browser-tab-strip';
   }
@@ -45,7 +79,7 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
 
   static override get properties() {
     return {
-      tabs_: {
+      items_: {
         type: Array,
       },
       activeTab_: {
@@ -59,12 +93,13 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
     };
   }
 
-  protected accessor tabs_: TabData[] = [];
+  protected accessor items_: TabStripItem[] = [];
   protected accessor activeTab_: string = '';
   protected accessor dragInProgress_ = false;
 
   private readonly tabStripService_: TabStripServiceRemote;
   private tabStripObservation_: TabStripObservation|undefined;
+  private dragDelegate_ = new TabDragDelegate(this);
 
   constructor() {
     super();
@@ -81,26 +116,44 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
 
   private async loadTabStripModel_(observation: TabStripObservation) {
     const tabSnapshot = await this.tabStripService_.getTabs();
-    const tabStrip = tabSnapshot.tabStrip;
-    const processContainer = (container: Container) => {
-      if (!container || !container.children) {
-        return;
-      }
-      container.children.forEach((containerElement: Container, _: number) => {
-        if (containerElement.data.tab) {
-          this.addTab(containerElement.data.tab);
-        } else {
-          processContainer(containerElement);
+    const items = this.processModelContainer_(tabSnapshot.tabStrip);
+    this.setItems_(items);
+
+    // Process initial tabs to identify the active tab and fire tab-added
+    // events.
+    for (const item of items) {
+      if (item.type === 'tab') {
+        if (item.tabData.isActive) {
+          this.setActiveTab_(item.id);
         }
-      });
-    };
-    processContainer(tabStrip);
+        this.fire<TabAdded>('tab-added', {
+          id: item.id,
+          isActive: item.tabData.isActive,
+        });
+      }
+    }
 
     // Now initial state is processed, start listening to events.
     observation.bind(tabSnapshot.stream.handle);
 
     // The initial data load should contain at least one active tab.
-    assert(this.activeTab_ !== '');
+    assert(this.activeTab_ !== '', 'initial snapshot contains no active tab');
+  }
+
+  private processModelContainer_(container: Container): TabStripItem[] {
+    if (!container || !container.children) {
+      return [];
+    }
+
+    return container.children.flatMap(child => {
+      const subItems = this.processModelContainer_(child);
+      const item = TabStripItemFactory.create(child);
+
+      if (item) {
+        return [item, ...subItems];
+      }
+      return subItems;
+    });
   }
 
   override disconnectedCallback() {
@@ -118,19 +171,43 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
 
   onNodesClosed(nodesClosedEvent: OnNodesClosedEvent) {
     nodesClosedEvent.nodeIds.forEach(nodeId => {
-      this.removeTab(nodeId);
+      this.removeItem(nodeId);
     });
+  }
+
+  override update(changedProperties: PropertyValues<this>) {
+    super.update(changedProperties);
+    this.dragDelegate_.onUpdate();
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
-    for (let i = 0; i < this.tabs_.length; ++i) {
-      const tab = this.tabs_[i]!;
-      const tabShouldBeActive = tab.id === this.activeTab_;
-      const activationChanged = tab.isActive !== tabShouldBeActive;
-      if (activationChanged) {
-        this.tabs_[i] = {...tab, isActive: tabShouldBeActive};
+
+    if (changedProperties.has('activeTab_' as keyof TabStripElement)) {
+      this.syncTabActiveStates_();
+    }
+  }
+
+  private syncTabActiveStates_() {
+    let hasChanges = false;
+    const updatedItems = [...this.items_];
+    for (let i = 0; i < updatedItems.length; ++i) {
+      const item = updatedItems[i]!;
+      const shouldBeActive = item.id === this.activeTab_;
+
+      if (item.type !== 'tab' || item.tabData.isActive === shouldBeActive) {
+        continue;
       }
+
+      updatedItems[i] = {
+        ...item,
+        tabData: {...item.tabData, isActive: shouldBeActive},
+      };
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
+      this.setItems_(updatedItems);
     }
   }
 
@@ -144,20 +221,16 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
     const tag = whichOnDataChangedEvent(onDataChangedEvent);
     switch (tag) {
       case OnDataChangedEventFieldTags.TAB:
-        const tab = onDataChangedEvent.tab!.data;
-        this.updateTab(tab);
-        if (tab.isActive) {
-          this.activeTab_ = tab.id;
-        }
+        this.updateTab(onDataChangedEvent.tab!.data);
         break;
       case OnDataChangedEventFieldTags.TAB_GROUP:
-        const tabGroup = onDataChangedEvent.tabGroup!.data;
-        this.setTabGroupVisualData(tabGroup.id, tabGroup.data);
+        this.updateTabGroup(onDataChangedEvent.tabGroup!.data);
         break;
       case OnDataChangedEventFieldTags.SPLIT_TAB:
         throw new Error('unimplemented type: splitTab');
       default:
-        assertNotReachedCase(tag);
+        assertNotReachedCase(
+            tag, `Received unknown OnDataChangedEvent tag: ${tag}`);
     }
   }
 
@@ -167,11 +240,18 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
 
   // End TabStripObserver impl:
 
-  private addTab(tab: TabData) {
-    this.tabs_.push(tab);
-    this.requestUpdate();
+  private addTab(tab: Tab) {
+    this.setItems_([
+      ...this.items_,
+      {
+        type: 'tab',
+        id: tab.id,
+        tabData: tab,
+      },
+    ]);
+
     if (tab.isActive) {
-      this.activeTab_ = tab.id;
+      this.setActiveTab_(tab.id);
     }
 
     this.fire<TabAdded>('tab-added', {
@@ -184,46 +264,98 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
     this.tabStripService_.closeNodes([e.detail.id]);
   }
 
-  private activateTab(tabId: NodeId) {
-    const targetActive = this.tabs_.find(tab => tab.id === tabId);
-    if (!targetActive) {
+  protected activateTab(tabId: NodeId) {
+    const item = this.findItem_<TabItem>(tabId, 'tab');
+    if (!item) {
       return;
     }
 
-    this.activeTab_ = tabId;
-    targetActive.isActive = true;
+    this.setActiveTab_(tabId);
     this.tabStripService_.activateTab(tabId);
-    this.requestUpdate();
-    this.fire<TabActivated>('tab-activated', targetActive);
+    this.fire<TabActivated>('tab-activated', item.tabData);
   }
 
   // TODO(webium): implement this.
   // private setTabGroupForTab(/*tabId*/ _: NodeId, /*groupId*/ _2?: NodeId) {
   //}
 
-  private setTabGroupVisualData(_: string, _2: TabGroupVisualData) {
-    // TODO(webium): implement this.
-  }
-
-  private updateTab(tabData: TabData) {
-    const targetIdx = this.tabs_.findIndex(tab => tab.id === tabData.id);
-    if (targetIdx === -1) {
-      return;
+  private updateTabGroup(group: TabGroup) {
+    const groupItem = this.findItem_<TabGroupItem>(group.id, 'group');
+    if (groupItem) {
+      this.updateItem_(
+          group.id, 'group', {...groupItem, groupData: group.data});
     }
-
-    this.tabs_[targetIdx] = tabData;
-    // Needed to get the tab element to refresh with the updated data.
-    this.requestUpdate();
-    this.fire<TabUpdated>('tab-updated', tabData);
   }
 
-  private removeTab(tabId: NodeId) {
-    this.tabs_ = this.tabs_.filter(tab => tab.id !== tabId);
-    this.fire<TabClosed>('tab-closed', tabId);
+  private updateTab(tab: Tab) {
+    const updated = this.updateItem_(tab.id, 'tab', {
+      type: 'tab',
+      id: tab.id,
+      tabData: tab,
+    });
+
+    if (updated) {
+      if (tab.isActive) {
+        this.setActiveTab_(tab.id);
+      }
+      this.fire<TabUpdated>('tab-updated', tab);
+    }
+  }
+
+  private removeItem(id: NodeId) {
+    const itemToRemove = this.findItem_<TabStripItem>(id);
+    this.setItems_(this.items_.filter(item => item.id !== id));
+
+    if (itemToRemove && itemToRemove.type === 'tab') {
+      this.fire<TabClosed>('tab-closed', id);
+    }
   }
 
   protected onNewTabButtonClick_() {
     this.tabStripService_.createTabAt(null, null);
+  }
+
+  // Utility helpers:
+  private findItemIndex_(id: string, type?: 'tab'|'group'): number {
+    return this.items_.findIndex(
+        item => item.id === id && (!type || item.type === type));
+  }
+
+  private findItem_<T extends TabStripItem>(id: string, type?: T['type']): T
+      |undefined {
+    return this.items_.find(
+               item => item.id === id && (!type || item.type === type)) as T |
+        undefined;
+  }
+
+  protected getTabElement_(id: string): TabElement|null {
+    return this.shadowRoot.querySelector<TabElement>(
+        `webui-browser-tab#${this.tabIdToDomId(id)}`);
+  }
+
+  private setActiveTab_(id: string) {
+    this.activeTab_ = id;
+  }
+
+  protected setItems_(items: TabStripItem[]) {
+    this.items_ = items;
+  }
+
+  private updateItemAt_(index: number, item: TabStripItem) {
+    const newItems = [...this.items_];
+    newItems[index] = item;
+    this.setItems_(newItems);
+  }
+
+  private updateItem_(id: string, type: 'tab'|'group', newItem: TabStripItem):
+      boolean {
+    const index = this.findItemIndex_(id, type);
+    if (index === -1) {
+      return false;
+    }
+
+    this.updateItemAt_(index, newItem);
+    return true;
   }
 
   // Tab IDs contain ":" characters which are not valid when used as DOM node
@@ -233,167 +365,42 @@ export class TabStripElement extends CrLitElement implements TabStripObserver {
     return 'id_' + id.replaceAll(':', '_');
   }
 
-  // TODO(webium): Move drag logic out into its own session object or
-  // controller.
+  // TabDragHost impl:
 
-  // Drag experience variables.
-  private lastMouseEvent: MouseEvent|null = null;
-  // The initial relative position of the left edge of the dragged element to
-  // the cursor. This is used to maintain the relative positioing throughout
-  // the drag session.
-  private mouseXOffset = 0;
+  get itemsForDrag() {
+    return this.items_;
+  }
 
-  // Out of bounds dragOffset.
-  private outOfBoundsDragX = 0;
-  private outOfBoundsDragY = 0;
+  getTabElementForDrag(id: string) {
+    return this.getTabElement_(id);
+  }
 
-  // Set during drag events.
-  private draggedTabId = '';
+  setItemsForDrag(items: TabStripItem[]) {
+    this.setItems_(items);
+  }
+
+  activateTabForDrag(id: string) {
+    this.activateTab(id);
+  }
+
+  setDragInProgressForDrag(value: boolean) {
+    this.dragInProgress_ = value;
+  }
+
+  setTabStripNoDrag(noDrag: boolean) {
+    this.$.tabstrip.classList.toggle('nodrag', noDrag);
+  }
 
   dragMouseDown(e: MouseEvent) {
-    e = e || window.event;
-    e.preventDefault();
-    const path = e.composedPath();
-    const tabElement =
-        path.find(
-            el => el instanceof Element &&
-                el.localName === 'webui-browser-tab') as TabElement |
-        null;
-    if (tabElement) {
-      this.draggedTabId = tabElement.data.id;
-      this.dragInProgress_ = true;
-      this.outOfBoundsDragX = e.clientX;
-      this.outOfBoundsDragY = e.clientY;
-      this.$.tabstrip.classList.add('nodrag');
-      this.activateTab(this.draggedTabId);
-      this.lastMouseEvent = e;
-      this.mouseXOffset = e.clientX - tabElement.getBoundingClientRect().left;
-    }
-  }
-
-  closeDragElement() {
-    if (!this.dragInProgress_) {
-      return;
-    }
-
-    this.lastMouseEvent = null;
-
-    this.getDraggedElement().style.transform = '';
-    this.draggedTabId = '';
-    this.mouseXOffset = 0;
-    this.lastMouseEvent = null;
-
-    this.$.tabstrip.classList.remove('nodrag');
-    this.dragInProgress_ = false;
-  }
-
-  // This is necessary to recompute the position of the dragged element
-  // relative to the cursor before a repaint. If we do not do this, users may
-  // observe a flicker when slowly dragging the element.
-  override update(changedProperties: PropertyValues<this>) {
-    super.update(changedProperties);
-    if (this.dragInProgress_) {
-      assert(this.lastMouseEvent);
-      for (const element of this.shadowRoot.querySelectorAll(
-               'webui-browser-tab')) {
-        // Containers may be reused and rebound to different data during drag.
-        // We need to reset the position for all tab elements and retarget the
-        // container holding the tab that's being dragged.
-        element.style.transform = '';
-      }
-      this.moveElementToCursor(this.lastMouseEvent.clientX);
-    }
-  }
-
-  private getDraggedElement(): TabElement {
-    assert(this.dragInProgress_ && this.draggedTabId);
-    const element = this.shadowRoot.querySelector<TabElement>(
-        `webui-browser-tab#${this.tabIdToDomId(this.draggedTabId)}`);
-    assert(element);
-    return element;
+    this.dragDelegate_.onMouseDown(e);
   }
 
   elementDrag(e: MouseEvent) {
-    e = e || window.event;
-    e.preventDefault();
-    if (!this.dragInProgress_) {
-      return;
-    }
-    this.lastMouseEvent = e;
-
-    // Move the tab to its new position relative to the current cursor position.
-    this.moveElementToCursor(e.clientX);
-    const dragElementRect = this.getDraggedElement().getBoundingClientRect();
-
-    // Now we will test the positioning after the DOM has been laid out.
-    const index = this.tabs_.findIndex(tab => {
-      return tab.id === this.draggedTabId;
-    });
-    assert(index !== -1);
-    // Test for swap forward case.
-    if (this.tabs_[index - 1]) {
-      const targetIdx = index - 1;
-      const targetId = this.tabIdToDomId(this.tabs_[targetIdx]!.id);
-      const target = this.shadowRoot.querySelector<TabElement>(
-          `webui-browser-tab#${targetId}`);
-      assert(target);
-      const targetMidpoint = target.getBoundingClientRect().left +
-          (target.getBoundingClientRect().width / 2);
-      if (dragElementRect.left < targetMidpoint) {
-        [this.tabs_[index], this.tabs_[targetIdx]] =
-            [this.tabs_[targetIdx]!, this.tabs_[index]!];
-        this.tabs_ = [...this.tabs_];
-      }
-    }
-    // Test for swap backward case.
-    if (this.tabs_[index + 1]) {
-      const targetIdx = index + 1;
-      const targetId = this.tabIdToDomId(this.tabs_[targetIdx]!.id);
-      const target = this.shadowRoot.querySelector<TabElement>(
-          `webui-browser-tab#${targetId}`);
-      assert(target);
-      const targetMidpoint = target.getBoundingClientRect().left +
-          (target.getBoundingClientRect().width / 2);
-      if (dragElementRect.right > targetMidpoint) {
-        [this.tabs_[index], this.tabs_[targetIdx]] =
-            [this.tabs_[targetIdx]!, this.tabs_[index]!];
-        this.tabs_ = [...this.tabs_];
-      }
-    }
-
-    // Check if tab is being dragged outside of bounds +/- artificial margins.
-    if (e.clientX < this.getBoundingClientRect().left ||
-        e.clientX >= this.getBoundingClientRect().right - 1 ||
-        e.clientY < this.getBoundingClientRect().top ||
-        e.clientY > this.getBoundingClientRect().bottom + 10) {
-      this.outOfBoundsHandler(this.draggedTabId);
-    }
+    this.dragDelegate_.onMouseMove(e);
   }
 
-  // Moves the dragged element to its relative position to the cursor at the
-  // start of the drag.
-  private moveElementToCursor(mouseClientX: number) {
-    assert(this.dragInProgress_);
-
-    const tabElement = this.getDraggedElement();
-    // Using the mouse cursor as a frame of reference, compute where the tab
-    // element needs to be to maintain the same relative position at the
-    // start of the drag.
-    // First we reset the transformation so we know where the element should
-    // be.
-    tabElement.style.transform = '';
-    const deltaX = mouseClientX - tabElement.getBoundingClientRect().left -
-        this.mouseXOffset;
-    tabElement.style.transform = `translateX(${deltaX}px)`;
-  }
-
-  private outOfBoundsHandler(tabId: NodeId) {
-    this.fire('tab-drag-out-of-bounds', {
-      tabId: tabId,
-      drag_offset_x: this.outOfBoundsDragX,
-      drag_offset_y: this.outOfBoundsDragY,
-    });
-    this.closeDragElement();
+  closeDragElement() {
+    this.dragDelegate_.onMouseUp();
   }
 }
 

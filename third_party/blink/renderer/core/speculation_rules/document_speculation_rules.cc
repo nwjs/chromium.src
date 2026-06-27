@@ -608,6 +608,7 @@ void DocumentSpeculationRules::Trace(Visitor* visitor) const {
   visitor->Trace(stale_links_);
   visitor->Trace(elements_blocking_child_style_recalc_);
   visitor->Trace(selectors_);
+  visitor->Trace(sent_candidates_);
 }
 
 mojom::blink::SpeculationHost* DocumentSpeculationRules::GetHost() {
@@ -746,6 +747,18 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
       base::checked_cast<wtf_size_t>(last.begin() - candidates.begin()));
 
   probe::SpeculationCandidatesUpdated(document, candidates);
+
+  // Accumulate candidates for the SpeculationMeasurement API.
+  // Candidates are never removed.
+  for (SpeculationCandidate* candidate : candidates) {
+    bool already_tracked =
+        std::ranges::any_of(sent_candidates_, [&](const auto& existing) {
+          return existing->IsSimilarFromAuthorPerspective(*candidate);
+        });
+    if (!already_tracked) {
+      sent_candidates_.push_back(candidate);
+    }
+  }
 
   using SpeculationEagerness = blink::mojom::SpeculationEagerness;
   base::EnumSet<SpeculationEagerness, SpeculationEagerness::kMinValue,

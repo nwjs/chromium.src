@@ -12,8 +12,8 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/loader/fetch/cross_origin_attribute_value.h"
-#include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
 
@@ -25,21 +25,26 @@ class PreloadData final : public ScriptWrappable {
 
  public:
   PreloadData(const KURL& url,
-              ResourceType resource_type,
+              const String& as,
               CrossOriginAttributeValue crossorigin,
+              bool early_hints,
               std::optional<base::TimeTicks> used_time);
 
   String url() const { return url_.GetString(); }
-  String as() const;
+  const String& as() const { return as_; }
   V8CrossOriginMode crossorigin() const;
-  std::optional<double> used(ScriptState*) const;
+  bool earlyHints() const { return early_hints_; }
+  std::optional<double> used(ScriptState* script_state) const;
 
   void Trace(Visitor*) const override;
 
  private:
   const KURL url_;
-  const ResourceType resource_type_;
+  const String as_;
   const CrossOriginAttributeValue crossorigin_;
+  const bool early_hints_;
+  // Monotonic time when the preload was used, or nullopt if unused.
+  // Converted to a coarsened DOMHighResTimeStamp on access.
   const std::optional<base::TimeTicks> used_time_;
 };
 

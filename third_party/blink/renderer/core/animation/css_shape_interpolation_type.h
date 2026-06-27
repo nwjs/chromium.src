@@ -27,8 +27,13 @@ class CSSShapeInterpolationType : public CSSInterpolationType {
   static CORE_EXPORT bool IsShapeNonInterpolableValue(
       const NonInterpolableValue*);
 
+  // Returns true if the shape non-interpolable value contains arc segments,
+  // which produce variable conic weights in the resulting SkPath and cannot
+  // be reliably interpolated on the compositor.
+  static CORE_EXPORT bool HasArcSegments(const NonInterpolableValue*);
+
   static CORE_EXPORT BasicShape* CreateShape(const InterpolableValue&,
-                                             const NonInterpolableValue*,
+                                             const NonInterpolableValue&,
                                              const CSSToLengthConversionData&);
 
   static InterpolationValue MaybeConvertCSSValue(
@@ -36,7 +41,7 @@ class CSSShapeInterpolationType : public CSSInterpolationType {
       const CSSProperty& property,
       std::optional<GeometryBox> geometry_box,
       std::optional<CoordBox> coord_box,
-      std::optional<CSSBoxType> css_box = std::nullopt);
+      std::optional<ShapeBox> css_box = std::nullopt);
   static InterpolationValue MaybeConvertBasicShape(const BasicShape* shape,
                                                    const CSSProperty& property,
                                                    double zoom,

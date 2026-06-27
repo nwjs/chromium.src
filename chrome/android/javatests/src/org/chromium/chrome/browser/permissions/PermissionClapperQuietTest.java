@@ -72,11 +72,11 @@ public class PermissionClapperQuietTest {
             @PermissionTestRule.PromptAction int action, int times) {
         return HistogramWatcher.newBuilder()
                 .expectIntRecordTimes(
-                        "Permissions.Prompt.Notifications.LocationBarLeftClapperQuietIcon.Action",
+                        "Permissions.Prompt.Notifications.LocationBarLeftQuietIcon.Action",
                         action,
                         times)
                 .expectIntRecordTimes(
-                        "Permissions.Action.WithDisposition.LocationBarLeftClapperQuietIcon",
+                        "Permissions.Action.WithDisposition.LocationBarLeftQuietIcon",
                         action,
                         times)
                 .build();
@@ -88,10 +88,8 @@ public class PermissionClapperQuietTest {
 
     private HistogramWatcher expectNoClapperQuietRecords() {
         return HistogramWatcher.newBuilder()
-                .expectNoRecords(
-                        "Permissions.Prompt.Notifications.LocationBarLeftClapperQuietIcon.Action")
-                .expectNoRecords(
-                        "Permissions.Action.WithDisposition.LocationBarLeftClapperQuietIcon")
+                .expectNoRecords("Permissions.Prompt.Notifications.LocationBarLeftQuietIcon.Action")
+                .expectNoRecords("Permissions.Action.WithDisposition.LocationBarLeftQuietIcon")
                 .build();
     }
 
@@ -717,9 +715,9 @@ public class PermissionClapperQuietTest {
         onViewWaiting(withText(PermissionTestRule.CLAPPER_PAGE_INFO_SUBSCRIBE_BUTTON_TEXT_ID))
                 .perform(click());
 
-        // Verify that the permission was NOT granted (because the request was preempted).
+        // Verify that the permission was granted.
         mPermissionRule.checkPermissionSettingForOrigin(
-                ContentSettingsType.NOTIFICATIONS, ContentSetting.ASK, PAGE_URL);
+                ContentSettingsType.NOTIFICATIONS, ContentSetting.ALLOW, PAGE_URL);
 
         // Verify no crash.
         histogramWatcher.assertExpected();
@@ -727,11 +725,12 @@ public class PermissionClapperQuietTest {
         // Cleanup
         pressBack();
         mPermissionRule.waitForPageInfoClose();
+        // Close the microphone permission prompt.
         PermissionTestRule.replyToDialog(
                 PermissionTestRule.PromptDecision.DENY, mPermissionRule.getActivity());
 
         mPermissionRule.checkPermissionSettingForOrigin(
-                ContentSettingsType.NOTIFICATIONS, ContentSetting.ASK, PAGE_URL);
+                ContentSettingsType.NOTIFICATIONS, ContentSetting.ALLOW, PAGE_URL);
     }
 
     @Test

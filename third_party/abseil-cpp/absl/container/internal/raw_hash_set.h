@@ -225,6 +225,10 @@
 #include <ranges>  // NOLINT(build/c++20)
 #endif
 
+#ifdef __BMI2__
+#include <bmi2intrin.h>
+#endif  // __BMI2__
+
 namespace absl {
 ABSL_NAMESPACE_BEGIN
 namespace container_internal {
@@ -301,57 +305,6 @@ void CopyAlloc(AllocType& lhs, AllocType& rhs,
 template <typename AllocType>
 void CopyAlloc(AllocType&, AllocType&, std::false_type /* propagate_alloc */) {}
 
-// The state for a probe sequence.
-//
-// Currently, the sequence is a triangular progression of the form
-//
-//   p(i) := Width * (i^2 + i)/2 + hash (mod mask + 1)
-//
-// The use of `Width` ensures that each probe step does not overlap groups;
-// the sequence effectively outputs the addresses of *groups* (although not
-// necessarily aligned to any boundary). The `Group` machinery allows us
-// to check an entire group with minimal branching.
-//
-// Wrapping around at `mask + 1` is important, but not for the obvious reason.
-// As described above, the first few entries of the control byte array
-// are mirrored at the end of the array, which `Group` will find and use
-// for selecting candidates. However, when those candidates' slots are
-// actually inspected, there are no corresponding slots for the cloned bytes,
-// so we need to make sure we've treated those offsets as "wrapping around".
-//
-// It turns out that this probe sequence visits every group exactly once if the
-// number of groups is a power of two, since (i^2+i)/2 is a bijection in
-// Z/(2^m). See https://en.wikipedia.org/wiki/Quadratic_probing
-template <size_t Width>
-class probe_seq {
- public:
-  // Creates a new probe sequence using `hash` as the initial value of the
-  // sequence and `mask` (usually the capacity of the table) as the mask to
-  // apply to each value in the progression.
-  probe_seq(size_t hash, size_t mask) {
-    ABSL_SWISSTABLE_ASSERT(((mask + 1) & mask) == 0 && "not a mask");
-    mask_ = mask;
-    offset_ = hash & mask_;
-  }
-
-  // The offset within the table, i.e., the value `p(i)` above.
-  size_t offset() const { return offset_; }
-  size_t offset(size_t i) const { return (offset_ + i) & mask_; }
-
-  void next() {
-    index_ += Width;
-    offset_ += index_;
-    offset_ &= mask_;
-  }
-  // 0-based probe index, a multiple of `Width`.
-  size_t index() const { return index_; }
-
- private:
-  size_t mask_;
-  size_t offset_;
-  size_t index_ = 0;
-};
-
 template <class ContainerKey, class Hash, class Eq>
 struct RequireUsableKey {
   template <class PassedKey, class... Args>
@@ -409,6 +362,8 @@ inline bool IsEmptyGeneration(const GenerationType* generation) {
 // - In order to prevent user code from depending on iteration order for small
 //   tables, we would need to randomize the iteration order somehow.
 constexpr size_t SooCapacity() { return 1; }
+// Maximum capacity of a table where we don't need to hash any keys.
+constexpr size_t MaxSmallCapacity() { return 1; }
 // Sentinel type to indicate SOO CommonFields construction.
 struct soo_tag_t {};
 // Sentinel type to indicate SOO CommonFields construction with full size.
@@ -426,7 +381,9 @@ struct no_seed_empty_tag_t {};
 constexpr bool IsValidCapacity(size_t n) { return ((n + 1) & n) == 0 && n > 0; }
 
 // Whether a table is small enough that we don't need to hash any keys.
-constexpr bool IsSmallCapacity(size_t capacity) { return capacity <= 1; }
+constexpr bool IsSmallCapacity(size_t capacity) {
+  return capacity <= MaxSmallCapacity();
+}
 
 // Converts `n` into the next valid capacity, per `IsValidCapacity`.
 constexpr size_t NormalizeCapacity(size_t n) {
@@ -493,6 +450,14 @@ constexpr size_t SizeToCapacity(size_t size) {
   return (~size_t{}) >> leading_zeros;
 }
 
+// The mode we store capacity in the table.
+enum HashtableCapacityStorageMode {
+  // Capacity stored as size_t as a full number.
+  kCapacityByValue,
+  // Capacity stored as uint8_t as log2, i.e. capacity = 2^capacity_ - 1.
+  kCapacityByLog,
+};
+
 // The number of slots in the backing array. This is always 2^N-1 for an
 // integer N.
 // NOTE: this class exists to simplify experiments with different ways to store
@@ -502,44 +467,90 @@ constexpr size_t SizeToCapacity(size_t size) {
 // 2^N-1), and (b) storing 2^N as the most significant bit of size_ and storing
 // size in the low bits. Both of these experiments were regressions, presumably
 // because we need capacity to do find operations.
-class HashtableCapacity {
+template <HashtableCapacityStorageMode StorageMode>
+class HashtableCapacityImpl {
+  using IntType =
+      std::conditional_t<StorageMode == kCapacityByValue, size_t, uint8_t>;
+
  public:
-  static constexpr HashtableCapacity CreateDestroyed() {
-    return HashtableCapacity(kDestroyed);
+  static constexpr HashtableCapacityImpl CreateDestroyed() {
+    return HashtableCapacityImpl(kDestroyed);
   }
-  static constexpr HashtableCapacity CreateReentrance() {
-    return HashtableCapacity(kReentrance);
+  static constexpr HashtableCapacityImpl CreateReentrance() {
+    return HashtableCapacityImpl(kReentrance);
   }
-  static constexpr HashtableCapacity CreateMovedFrom() {
-    return HashtableCapacity(kMovedFrom);
+  static constexpr HashtableCapacityImpl CreateMovedFrom() {
+    return HashtableCapacityImpl(kMovedFrom);
   }
-  static constexpr HashtableCapacity CreateSelfMovedFrom() {
-    return HashtableCapacity(kSelfMovedFrom);
+  static constexpr HashtableCapacityImpl CreateSelfMovedFrom() {
+    return HashtableCapacityImpl(kSelfMovedFrom);
   }
 
-  explicit HashtableCapacity(uninitialized_tag_t) {}
-  explicit constexpr HashtableCapacity(size_t capacity) : capacity_(capacity) {
+  explicit HashtableCapacityImpl(uninitialized_tag_t) {}
+  explicit constexpr HashtableCapacityImpl(size_t capacity)
+      : capacity_data_(static_cast<IntType>(
+            StorageMode == kCapacityByValue ? capacity
+                                            : TrailingZeros(capacity + 1))) {
     ABSL_SWISSTABLE_ASSERT(capacity == 0 || IsValidCapacity(capacity));
   }
 
-  constexpr bool IsValid() const { return capacity_ <= kAboveMaxValidCapacity; }
+  // Creates capacity from the value that was returned by `ToRawData()`.
+  // This is needed to use bitfield for capacity.
+  // At least on Windows combination uint8_t and uint64_t bitfield in one struct
+  // is not optimized by compiler.
+  static HashtableCapacityImpl FromRawData(uint64_t capacity) {
+    auto cap = HashtableCapacityImpl(uninitialized_tag_t{});
+    cap.capacity_data_ = static_cast<IntType>(capacity);
+    return cap;
+  }
+  IntType ToRawData() const { return capacity_data_; }
 
-  constexpr bool IsDestroyed() const { return capacity_ == kDestroyed; }
-  constexpr bool IsReentrance() const { return capacity_ == kReentrance; }
+  constexpr bool IsValid() const {
+    return capacity_data_ <= kAboveMaxValidCapacity;
+  }
+
+  constexpr bool IsDestroyed() const { return capacity_data_ == kDestroyed; }
+  constexpr bool IsReentrance() const { return capacity_data_ == kReentrance; }
   // Returns true if the table is moved-from including self moved-from.
-  constexpr bool IsMovedFrom() const { return capacity_ >= kMovedFrom; }
-  constexpr bool IsSelfMovedFrom() const { return capacity_ == kSelfMovedFrom; }
+  constexpr bool IsMovedFrom() const { return capacity_data_ >= kMovedFrom; }
+  constexpr bool IsSelfMovedFrom() const {
+    return capacity_data_ == kSelfMovedFrom;
+  }
 
   constexpr size_t capacity() const {
     ABSL_SWISSTABLE_ASSERT(IsValid());
-    return capacity_;
+    return StorageMode == kCapacityByValue ? capacity_data_
+                                           : (size_t{1} << capacity_data_) - 1;
+  }
+
+  constexpr bool is_small() const {
+    // Small tables have capacity 0 or 1. This expression is valid for both
+    // capacity storage modes.
+    // Comparing capacity_data_ directly leads to a better generated code.
+    // One byte comparison is used before computing the capacity in order to
+    // detect small tables faster for critical path.
+    static_assert(MaxSmallCapacity() == 1);
+    return capacity_data_ <= 1;
+  }
+
+  constexpr size_t mask(size_t value) const {
+#ifdef __BMI2__
+    if constexpr (StorageMode == kCapacityByLog) {
+      if constexpr (sizeof(size_t) == 8) {
+        return _bzhi_u64(value, capacity_data_);
+      } else {
+        return _bzhi_u32(value, capacity_data_);
+      }
+    }
+#endif  // __BMI2__
+    return value & capacity();
   }
 
  private:
   // We use these sentinel capacity values in debug mode to indicate different
   // classes of bugs.
-  enum InvalidCapacity : size_t {
-    kAboveMaxValidCapacity = ~size_t{} - 100,
+  enum InvalidCapacity : IntType {
+    kAboveMaxValidCapacity = (std::numeric_limits<IntType>::max)() - 100,
     kReentrance,
     kDestroyed,
 
@@ -548,60 +559,86 @@ class HashtableCapacity {
     kSelfMovedFrom,
   };
 
-  explicit constexpr HashtableCapacity(InvalidCapacity capacity)
-      : capacity_(capacity) {
-    ABSL_SWISSTABLE_ASSERT(capacity_ > kAboveMaxValidCapacity);
+  explicit constexpr HashtableCapacityImpl(InvalidCapacity capacity)
+      : capacity_data_(capacity) {
+    ABSL_SWISSTABLE_ASSERT(capacity_data_ > kAboveMaxValidCapacity);
   }
 
-  size_t capacity_;
+  // Capacity is stored as a value or as a log2 depending on `StorageMode`.
+  IntType capacity_data_;
 };
+
+template <HashtableCapacityStorageMode StorageMode>
+class HashtableInlineDataImpl;
+
+// Returns next per-table seed.
+uint16_t NextHashTableSeed();
 
 // Per table hash salt. This gets mixed into H1 to randomize iteration order
 // per-table.
 // The seed is needed to ensure non-determinism of iteration order.
-class PerTableSeed {
+template <typename StorageType>
+class PerTableSeedImpl {
  public:
+  using IntType = StorageType;
+
   // The number of bits in the seed.
   // It is big enough to ensure non-determinism of iteration order.
   // We store the seed inside a uint64_t together with size and other metadata.
-  // Using 16 bits allows us to save one `and` instruction in H1 (we use
+  // Using 8 or 16 bits allows us to save one `and` instruction in H1 (we use
   // zero-extended move instead of mov+and). When absl::Hash is inlined, it can
   // also have lower latency knowing that the high bits of the seed are zero.
-  static constexpr size_t kBitCount = 16;
+  static constexpr size_t kBitCount = sizeof(IntType) * 8;
+
+  // We need to use a constant seed when the table is sampled so that sampled
+  // hashes use the same seed and can e.g. identify stuck bits accurately.
+  static constexpr IntType kSampledSeed = static_cast<IntType>(~IntType{0});
 
   // Returns the seed for the table.
   size_t seed() const { return seed_; }
 
  private:
-  friend class HashtableInlineData;
-  explicit PerTableSeed(uint16_t seed) : seed_(seed) {}
+  template <HashtableCapacityStorageMode StorageMode>
+  friend class HashtableInlineDataImpl;
 
-  // The most significant bit of the seed is always 1 when there is a non-zero
-  // seed. This way, when sign-extended the seed has non-zero high bits.
-  const uint16_t seed_;
+  explicit PerTableSeedImpl(uint64_t seed)
+      : seed_(static_cast<IntType>(seed)) {}
+
+  const IntType seed_;
 };
 
 // Capacity, size and also has additionally
 // 1) one bit that stores whether we have infoz.
 // 2) PerTableSeed::kBitCount bits for the seed. (For SOO tables, the lowest
 //    bit of the seed is repurposed to track if sampling has been tried).
-class HashtableInlineData {
+template <HashtableCapacityStorageMode StorageMode>
+class HashtableInlineDataImpl {
  public:
-  static constexpr size_t kSizeBitCount = 64 - PerTableSeed::kBitCount - 1;
+  static constexpr HashtableCapacityStorageMode kStorageMode = StorageMode;
+  using PerTableSeed = PerTableSeedImpl<
+      std::conditional_t<StorageMode == kCapacityByValue, uint16_t, uint8_t>>;
+  using HashtableCapacity = HashtableCapacityImpl<StorageMode>;
+  static constexpr size_t kSizeBitCount =
+      StorageMode == kCapacityByValue
+          ? 64 - PerTableSeed::kBitCount - 1
+          : 64 - PerTableSeed::kBitCount - sizeof(HashtableCapacity) * 8 - 1;
 
-  explicit HashtableInlineData(uninitialized_tag_t)
-      : capacity_(uninitialized_tag_t{}) {}
-  explicit HashtableInlineData(HashtableCapacity capacity, no_seed_empty_tag_t)
-      : capacity_(capacity), data_(0) {}
-  HashtableInlineData(HashtableCapacity capacity, full_soo_tag_t,
-                      bool has_tried_sampling)
-      : capacity_(capacity),
+  explicit HashtableInlineDataImpl(uninitialized_tag_t) {}
+  explicit HashtableInlineDataImpl(HashtableCapacity capacity,
+                                   no_seed_empty_tag_t)
+      : capacity_internal_(capacity.ToRawData()), data_(0) {}
+  HashtableInlineDataImpl(HashtableCapacity capacity, full_soo_tag_t,
+                          bool has_tried_sampling)
+      : capacity_internal_(capacity.ToRawData()),
         data_(kSizeOneNoMetadata |
               (has_tried_sampling ? kSooHasTriedSamplingMask : 0)) {}
 
-  size_t capacity() const { return capacity_.capacity(); }
-  HashtableCapacity maybe_invalid_capacity() const { return capacity_; }
-  void set_capacity(HashtableCapacity c) { capacity_ = c; }
+  HashtableCapacity capacity() const {
+    return HashtableCapacity::FromRawData(capacity_internal_);
+  }
+  bool is_small() const { return capacity().is_small(); }
+
+  void set_capacity(HashtableCapacity c) { capacity_internal_ = c.ToRawData(); }
   void set_capacity(size_t c) { set_capacity(HashtableCapacity(c)); }
 
   // Returns actual size of the table.
@@ -623,23 +660,23 @@ class HashtableInlineData {
   void set_soo_has_tried_sampling() { data_ |= kSooHasTriedSamplingMask; }
 
   // Sets the size, but keeps all the metadata bits.
-  void set_size_keep_metadata(size_t size) {
+  void set_size(size_t size) {
     data_ =
         (data_ & kMetadataMask) | (static_cast<uint64_t>(size) << kSizeShift);
   }
 
-  PerTableSeed seed() const {
-    return PerTableSeed(static_cast<size_t>(data_) & kSeedMask);
-  }
+  PerTableSeed seed() const { return PerTableSeed(data_ & kSeedMask); }
 
-  void generate_new_seed() { set_seed(NextSeed()); }
+  void generate_new_seed() {
+    set_seed(static_cast<typename PerTableSeed::IntType>(NextHashTableSeed()));
+  }
 
   // We need to use a constant seed when the table is sampled so that sampled
   // hashes use the same seed and can e.g. identify stuck bits accurately.
-  void set_sampled_seed() { set_seed((std::numeric_limits<uint16_t>::max)()); }
+  void set_sampled_seed() { set_seed(PerTableSeed::kSampledSeed); }
 
   bool is_sampled_seed() const {
-    return (data_ & kSeedMask) == (std::numeric_limits<uint16_t>::max)();
+    return seed().seed() == PerTableSeed::kSampledSeed;
   }
 
   // Returns true if the table has infoz.
@@ -652,16 +689,16 @@ class HashtableInlineData {
 
   void set_no_seed_for_testing() { data_ &= ~kSeedMask; }
 
-  // Returns next per-table seed.
-  static uint16_t NextSeed();
-
  private:
-  void set_seed(uint16_t seed) { data_ = (data_ & ~kSeedMask) | seed; }
-  // Bit layout of `data_`:
-  // [63 ... 17] (47 bits) : size
-  // [16]        (1 bit)   : has_infoz
-  // [15 ...  0] (16 bits) : seed
-  static constexpr size_t kSizeShift = 64 - kSizeBitCount;
+  // Bit layout of `data_` from MSB to LSB:
+  // (47 bits)      : size
+  // (1 bit)        : has_infoz
+  // (16 or 8 bits) : seed
+  // We don't split these components of `data_` into separate bit field elements
+  // because we get worse generated code that way.
+  static constexpr size_t kDataBitCount =
+      PerTableSeed::kBitCount + 1 + kSizeBitCount;
+  static constexpr size_t kSizeShift = kDataBitCount - kSizeBitCount;
   static constexpr uint64_t kSizeOneNoMetadata = uint64_t{1} << kSizeShift;
   static constexpr uint64_t kMetadataMask = kSizeOneNoMetadata - 1;
   static constexpr uint64_t kSeedMask =
@@ -671,10 +708,33 @@ class HashtableInlineData {
   // For SOO tables, the seed is unused, and bit 0 is repurposed to track
   // whether the table has already queried should_sample_soo().
   static constexpr uint64_t kSooHasTriedSamplingMask = 1;
-  HashtableCapacity capacity_;
-  // Stores the size and metadata bits. See above for layout.
-  uint64_t data_;
+
+  void set_seed(typename PerTableSeed::IntType seed) {
+    data_ = (data_ & ~kSeedMask) | seed;
+  }
+
+  uint64_t capacity_internal_ : sizeof(HashtableCapacity) * 8;
+  uint64_t data_ : kDataBitCount;
 };
+
+static_assert(
+    sizeof(HashtableInlineDataImpl<kCapacityByValue>::HashtableCapacity) ==
+    sizeof(size_t));
+// NOTE: some platforms have this size to be equal to 12 for two reasons:
+// 1) alignof(uint64_t) == 4.
+// 2) sizeof(size_t) == sizeof(HashtableCapacityImpl<kCapacityByValue>) == 4.
+static_assert(sizeof(HashtableInlineDataImpl<kCapacityByValue>) <= 16);
+static_assert(
+    sizeof(HashtableInlineDataImpl<kCapacityByLog>::HashtableCapacity) == 1);
+static_assert(sizeof(HashtableInlineDataImpl<kCapacityByLog>) == 8);
+
+#ifndef ABSL_SWISSTABLE_INTERNAL_ENABLE_CAPACITY_BY_LOG
+using HashtableInlineData = HashtableInlineDataImpl<kCapacityByValue>;
+#else
+using HashtableInlineData = HashtableInlineDataImpl<kCapacityByLog>;
+#endif  // ABSL_SWISSTABLE_INTERNAL_ENABLE_CAPACITY_BY_LOG
+using PerTableSeed = HashtableInlineData::PerTableSeed;
+using HashtableCapacity = HashtableInlineData::HashtableCapacity;
 
 // H1 is just the low bits of the hash.
 inline size_t H1(size_t hash) { return hash; }
@@ -1111,14 +1171,14 @@ class CommonFields : public CommonFieldsGenerationInfo {
   // The number of filled slots.
   size_t size() const { return inline_data_.size(); }
   // Sets the size to zero, but keeps hashinfoz bit and seed.
-  void set_size_to_zero() { inline_data_.set_size_keep_metadata(0); }
+  void set_size_to_zero() { inline_data_.set_size(0); }
   void set_empty_soo() {
     AssertInSooMode();
-    inline_data_.set_size_keep_metadata(0);
+    inline_data_.set_size(0);
   }
   void set_full_soo() {
     AssertInSooMode();
-    inline_data_.set_size_keep_metadata(1);
+    inline_data_.set_size(1);
   }
   void increment_size() {
     ABSL_SWISSTABLE_ASSERT(size() < capacity());
@@ -1156,16 +1216,22 @@ class CommonFields : public CommonFieldsGenerationInfo {
   }
   void set_no_seed_for_testing() { inline_data_.set_no_seed_for_testing(); }
 
-  // The total number of available slots.
-  size_t capacity() const { return inline_data_.capacity(); }
+  HashtableCapacity capacity_impl() const {
+    HashtableCapacity cap = inline_data_.capacity();
+    ABSL_SWISSTABLE_ASSERT(cap.IsValid());
+    return cap;
+  }
+  size_t capacity() const { return capacity_impl().capacity(); }
+  // We have a separate alias for callsites in which the capacity may be
+  // invalid.
   HashtableCapacity maybe_invalid_capacity() const {
-    return inline_data_.maybe_invalid_capacity();
+    return inline_data_.capacity();
   }
   void set_capacity(HashtableCapacity c) { inline_data_.set_capacity(c); }
   void set_capacity(size_t c) {
     set_capacity(HashtableCapacity(c));
   }
-  bool is_small() const { return IsSmallCapacity(capacity()); }
+  bool is_small() const { return inline_data_.is_small(); }
 
   // The number of slots we can still fill without needing to rehash.
   // This is stored in the heap allocation before the control bytes.
@@ -1313,6 +1379,26 @@ constexpr bool SwisstableDebugEnabled() {
 #endif
 }
 
+// Dereferences `ptr`. The function is named in order to provide a helpful error
+// message when users see crashing stack traces. Note that this function is not
+// guaranteed to crash when `ptr` is invalid if sanitizer mode is not enabled.
+template <typename T>
+T CrashIfIteratorIsInvalid(const T* ptr) {
+  // If the following line(s) crash, then it's likely that `ptr` is from a
+  // backing array that has been deallocated. If you see a crash here, it likely
+  // means that you are comparing an invalid iterator from a table that has
+  // rehashed, moved, or been destroyed. In such cases, it is often helpful to
+  // reproduce the issue with --config=asan and (assuming there's a crash here)
+  // examine the corresponding deallocation stack trace.
+  T ret = *ptr;
+  // Force a read with inline asm to make sure that a crash happens here, rather
+  // than later when the value is used.
+#ifdef __clang__
+  asm("" : "+r"(ret));
+#endif
+  return ret;
+}
+
 inline void AssertIsFull(const ctrl_t* ctrl, GenerationType generation,
                          const GenerationType* generation_ptr,
                          const char* operation) {
@@ -1330,20 +1416,21 @@ inline void AssertIsFull(const ctrl_t* ctrl, GenerationType generation,
                  operation);
   }
   if (SwisstableGenerationsEnabled()) {
-    if (ABSL_PREDICT_FALSE(generation != *generation_ptr)) {
+    if (ABSL_PREDICT_FALSE(generation !=
+                           CrashIfIteratorIsInvalid(generation_ptr))) {
       ABSL_RAW_LOG(FATAL,
                    "%s called on invalid iterator. The table could have "
                    "rehashed or moved since this iterator was initialized.",
                    operation);
     }
-    if (ABSL_PREDICT_FALSE(!IsFull(*ctrl))) {
+    if (ABSL_PREDICT_FALSE(!IsFull(CrashIfIteratorIsInvalid(ctrl)))) {
       ABSL_RAW_LOG(
           FATAL,
           "%s called on invalid iterator. The element was likely erased.",
           operation);
     }
   } else {
-    if (ABSL_PREDICT_FALSE(!IsFull(*ctrl))) {
+    if (ABSL_PREDICT_FALSE(!IsFull(CrashIfIteratorIsInvalid(ctrl)))) {
       ABSL_RAW_LOG(
           FATAL,
           "%s called on invalid iterator. The element might have been erased "
@@ -1360,12 +1447,19 @@ inline void AssertIsValidForComparison(const ctrl_t* ctrl,
                                        const GenerationType* generation_ptr) {
   if (!SwisstableDebugEnabled()) return;
   const bool ctrl_is_valid_for_comparison =
-      ctrl == nullptr || ctrl == DefaultIterControl() || IsFull(*ctrl);
+      ctrl == nullptr || ctrl == DefaultIterControl() ||
+      IsFull(CrashIfIteratorIsInvalid(ctrl));
   if (SwisstableGenerationsEnabled()) {
-    if (ABSL_PREDICT_FALSE(generation != *generation_ptr)) {
-      ABSL_RAW_LOG(FATAL,
-                   "Invalid iterator comparison. The table could have rehashed "
-                   "or moved since this iterator was initialized.");
+    if (ABSL_PREDICT_FALSE(generation !=
+                           CrashIfIteratorIsInvalid(generation_ptr))) {
+      // Note: in the case of a rehash, we would expect to see a sanitizer crash
+      // in CrashIfIteratorIsInvalid so this assertion will only catch moved
+      // table cases, unless we're using a custom allocator that does not
+      // deallocate the old backing array (e.g. an arena allocator).
+      ABSL_RAW_LOG(
+          FATAL,
+          "Invalid iterator comparison. The table was likely moved (or "
+          "possibly rehashed) since this iterator was initialized.");
     }
     if (ABSL_PREDICT_FALSE(!ctrl_is_valid_for_comparison)) {
       ABSL_RAW_LOG(
@@ -1469,15 +1563,64 @@ constexpr bool is_single_group(size_t capacity) {
   return capacity <= Group::kWidth;
 }
 
+// The state for a probe sequence.
+//
+// Currently, the sequence is a triangular progression of the form
+//
+//   p(i) := Width * (i^2 + i)/2 + hash (mod mask + 1)
+//
+// The use of `Width` ensures that each probe step does not overlap groups;
+// the sequence effectively outputs the addresses of *groups* (although not
+// necessarily aligned to any boundary). The `Group` machinery allows us
+// to check an entire group with minimal branching.
+//
+// Wrapping around at `mask + 1` is important, but not for the obvious reason.
+// As described above, the first few entries of the control byte array
+// are mirrored at the end of the array, which `Group` will find and use
+// for selecting candidates. However, when those candidates' slots are
+// actually inspected, there are no corresponding slots for the cloned bytes,
+// so we need to make sure we've treated those offsets as "wrapping around".
+//
+// It turns out that this probe sequence visits every group exactly once if the
+// number of groups is a power of two, since (i^2+i)/2 is a bijection in
+// Z/(2^m). See https://en.wikipedia.org/wiki/Quadratic_probing
+template <size_t Width>
+class probe_seq {
+ public:
+  // Creates a new probe sequence using `hash` as the initial value of the
+  // sequence and `capacity` as the mask to apply to each value in the
+  // progression.
+  probe_seq(HashtableCapacity capacity, size_t hash)
+      : capacity_(capacity), offset_(capacity.mask(hash)) {}
+
+  // The offset within the table, i.e., the value `p(i)` above.
+  size_t offset() const { return offset_; }
+  size_t offset(size_t i) const { return capacity_.mask(offset_ + i); }
+
+  void next() {
+    index_ += Width;
+    offset_ += index_;
+    offset_ = capacity_.mask(offset_);
+  }
+  // 0-based probe index, a multiple of `Width`.
+  size_t index() const { return index_; }
+
+ private:
+  HashtableCapacity capacity_;
+  size_t offset_;
+  size_t index_ = 0;
+};
+
 // Begins a probing operation on `common.control`, using `hash`.
-inline probe_seq<Group::kWidth> probe_h1(size_t capacity, size_t h1) {
-  return probe_seq<Group::kWidth>(h1, capacity);
+inline probe_seq<Group::kWidth> probe_h1(HashtableCapacity capacity,
+                                         size_t h1) {
+  return probe_seq<Group::kWidth>(capacity, h1);
 }
-inline probe_seq<Group::kWidth> probe(size_t capacity, size_t hash) {
+inline probe_seq<Group::kWidth> probe(HashtableCapacity capacity, size_t hash) {
   return probe_h1(capacity, H1(hash));
 }
 inline probe_seq<Group::kWidth> probe(const CommonFields& common, size_t hash) {
-  return probe(common.capacity(), hash);
+  return probe(common.capacity_impl(), hash);
 }
 
 constexpr size_t kProbedElementIndexSentinel = ~size_t{};
@@ -1909,9 +2052,9 @@ class raw_hash_set {
   using value_type = typename PolicyTraits::value_type;
   using reference = value_type&;
   using const_reference = const value_type&;
-  using pointer = typename absl::allocator_traits<
+  using pointer = typename std::allocator_traits<
       allocator_type>::template rebind_traits<value_type>::pointer;
-  using const_pointer = typename absl::allocator_traits<
+  using const_pointer = typename std::allocator_traits<
       allocator_type>::template rebind_traits<value_type>::const_pointer;
 
  private:
@@ -1975,15 +2118,15 @@ class raw_hash_set {
   static_assert(sizeof(key_hash_result) >= sizeof(size_t),
                 "`Hash::operator()` should return a `size_t`");
 
-  using AllocTraits = absl::allocator_traits<allocator_type>;
-  using SlotAlloc = typename absl::allocator_traits<
+  using AllocTraits = std::allocator_traits<allocator_type>;
+  using SlotAlloc = typename std::allocator_traits<
       allocator_type>::template rebind_alloc<slot_type>;
   // People are often sloppy with the exact type of their allocator (sometimes
   // it has an extra const or is missing the pair, but rebinds made it work
   // anyway).
   using CharAlloc =
-      typename absl::allocator_traits<Alloc>::template rebind_alloc<char>;
-  using SlotAllocTraits = typename absl::allocator_traits<
+      typename std::allocator_traits<Alloc>::template rebind_alloc<char>;
+  using SlotAllocTraits = typename std::allocator_traits<
       allocator_type>::template rebind_traits<slot_type>;
 
   static_assert(std::is_lvalue_reference<reference>::value,

@@ -20,6 +20,7 @@
 #include "components/mirroring/mojom/resource_provider.mojom.h"
 #include "components/mirroring/mojom/session_observer.mojom.h"
 #include "components/mirroring/mojom/session_parameters.mojom.h"
+#include "components/mirroring/service/audio_capturing_callback.h"
 #include "components/mirroring/service/media_remoter.h"
 #include "components/mirroring/service/mirror_settings.h"
 #include "components/mirroring/service/mirroring_gpu_factories_factory.h"
@@ -134,6 +135,12 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
       override;
   void RequestRemotingStreaming() override;
   void RestartMirroringStreaming() override;
+  std::unique_ptr<media::mojom::RemotingDataStreamSender>
+  CreateRemotingDataStreamSender(
+      bool is_audio,
+      mojo::ScopedDataPipeConsumerHandle pipe,
+      mojo::PendingReceiver<media::mojom::RemotingDataStreamSender> receiver,
+      base::OnceClosure error_callback) override;
 
   void SwitchSourceTab();
 
@@ -147,7 +154,7 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   friend class OpenscreenSessionHostTest;
   FRIEND_TEST_ALL_PREFIXES(OpenscreenSessionHostTest, ChangeTargetPlayoutDelay);
   FRIEND_TEST_ALL_PREFIXES(OpenscreenSessionHostTest, UpdateBandwidthEstimate);
-  class AudioCapturingCallback;
+
   using SupportedProfiles = media::VideoEncodeAccelerator::SupportedProfiles;
 
   // Called when the GPU is either set up or determined to be unavailable due
@@ -313,6 +320,7 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   // video codec configurations.
   std::optional<media::cast::FrameSenderConfig> last_offered_audio_config_;
   std::vector<media::cast::FrameSenderConfig> last_offered_video_configs_;
+  bool offering_fallback_codecs_ = false;
 
   // Created after OFFER/ANSWER exchange succeeds.
   std::unique_ptr<AudioRtpStream> audio_stream_;
@@ -347,6 +355,23 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   // capabilities response arrives.
   std::unique_ptr<MediaRemoter> media_remoter_;
 
+  // Stored between OnNegotiated() and CreateRemotingDataStreamSender() calls
+  // during a remoting session.
+  struct RemotingStreamData {
+    RemotingStreamData(
+        std::unique_ptr<openscreen::cast::Sender> audio_sender,
+        std::unique_ptr<openscreen::cast::Sender> video_sender,
+        std::optional<media::cast::FrameSenderConfig> audio_config,
+        std::optional<media::cast::FrameSenderConfig> video_config);
+    ~RemotingStreamData();
+
+    std::unique_ptr<openscreen::cast::Sender> audio_sender;
+    std::unique_ptr<openscreen::cast::Sender> video_sender;
+    std::optional<media::cast::FrameSenderConfig> audio_config;
+    std::optional<media::cast::FrameSenderConfig> video_config;
+  };
+  std::unique_ptr<RemotingStreamData> remoting_stream_data_;
+
   // GPU specific properties, used to indicate whether HW encoding should be
   // used and to help initialize it if enabled.
   std::unique_ptr<viz::Gpu> gpu_;
@@ -379,9 +404,6 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   // before timeout. The timer is stopped when Remoting session successfully
   // starts.
   base::OneShotTimer remote_playback_start_timer_;
-  // Records the time when the streaming session is started and `media_remoter_`
-  // is initialized.
-  std::optional<base::Time> remote_playback_start_time_;
 
   // An optional stats client for fetching quality statistics from an Openscreen
   // casting session.

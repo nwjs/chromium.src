@@ -202,11 +202,6 @@ class BLINK_EXPORT WebDocument : public WebNode {
   // Returns the referrer for this document.
   WebString OutgoingReferrer() const;
 
-  // (Experimental) Initiates Link Preview for `url`.
-  //
-  // It is intended to be used in WebLinkPreviewTriggerer.
-  void InitiatePreview(const WebURL& url);
-
   void SnapshotAccessibilityTree(
       size_t max_nodes,
       base::TimeDelta timeout,
@@ -233,6 +228,7 @@ class BLINK_EXPORT WebDocument : public WebNode {
   using CrossDocumentScriptToolResultCallback =
       base::OnceCallback<void(WebString)>;
   void GetCrossDocumentScriptToolResult(
+      const base::UnguessableToken& invocation_id,
       CrossDocumentScriptToolResultCallback result_callback);
 
   // Cancels a script tool with the given execution ID.

@@ -16,6 +16,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/with_feature_override.h"
 #include "components/autofill/content/renderer/synchronous_form_cache.h"
 #include "components/autofill/content/renderer/test_utils.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -70,7 +71,11 @@ using ::testing::Values;
 struct AutofillFieldUtilCase {
   std::string_view description;
   std::string_view html;
+  // The expected value with kAutofillBetterLocalHeuristicPlaceholderSupport
+  // disabled
   std::u16string_view expected_label;
+  // The expected value with the above feature enabled
+  std::u16string_view better_placeholder_support_expected_label;
 };
 
 // An <input> with a label placed on top of it (usually used as a placeholder
@@ -85,13 +90,13 @@ const char* kPoorMansPlaceholderFullOverlap = R"(
       height: 20px;
     }
   </style>
-  <input id=target class=fixed_position_and_size>
-  <span class=fixed_position_and_size>label</span>
+  <input id=target class=fixed_position_and_size value="value"/>
+  <span class=fixed_position_and_size>poor man's placeholder</span>
 )";
 
 // The <input> element partially overlaps the label (placeholder) but the label
 // is not fully contained in the <input> element. This is a common case for
-// placeholders that moph into a minified version when the user focuses an
+// placeholders that morph into a minified version when the user focuses an
 // <input> element.
 const char* kPoorMansPlaceholderPartialOverlap = R"(
   <style>
@@ -110,8 +115,8 @@ const char* kPoorMansPlaceholderPartialOverlap = R"(
       height: 20px;
     }
   </style>
-  <input id=target class=fixed_position_and_size>
-  <span class=overlapping_position_and_size>label</span>
+  <input id=target class=fixed_position_and_size value="value"/>
+  <span class=overlapping_position_and_size>placeholder</span>
 )";
 
 // The <input> element touches the next element vertically but does not overlap.
@@ -176,6 +181,36 @@ const char* kPoorMansPlaceholderNoHorizontalContainment = R"(
   </style>
   <input id=target class=fixed_position_and_size>
   <span class=overlapping_position_and_size>not a label</span>
+  )";
+
+const char* kPlaceholderAndPoorMansPlaceholder =
+    R"(
+    <style>
+      .fixed_position_and_size {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100px;
+        height: 20px;
+      }
+    </style>
+    <input id=target class=fixed_position_and_size placeholder="placeholder"/>
+    <span class=fixed_position_and_size>poor man's placeholder</span>
+  )";
+
+const char* kInvalidPlaceholderAndPoorMansPlaceholder =
+    R"(
+    <style>
+      .fixed_position_and_size {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100px;
+        height: 20px;
+      }
+    </style>
+    <input id=target class=fixed_position_and_size placeholder="+- "/>
+    <span class=fixed_position_and_size>poor man's placeholder</span>
 )";
 
 auto HasRendererIdOf(const WebFormElement& e) {
@@ -489,114 +524,259 @@ TEST_F(FormAutofillUtilsTest, FindChildTextSkipElementTest) {
   }
 }
 
-TEST_F(FormAutofillUtilsTest, InferLabelForElementTest) {
-  static const AutofillFieldUtilCase test_cases[] = {
-      {"DIV table test 1", R"(
+// TODO(crbug.com/430258039) Simplify the parametrized fixture and adapt test
+// cases once the feature is launched.
+template <typename TestCaseStruct>
+class FormAutofillUtilsParameterizedTest
+    : public FormAutofillUtilsTest,
+      public testing::WithParamInterface<std::tuple<bool, TestCaseStruct>> {
+ public:
+  FormAutofillUtilsParameterizedTest() {
+    feature_override_.InitWithFeatureState(
+        features::kAutofillBetterLocalHeuristicPlaceholderSupport,
+        BetterPlaceholderSupportEnabled());
+  }
+
+ protected:
+  bool BetterPlaceholderSupportEnabled() {
+    return std::get<0>(this->GetParam());
+  }
+
+  TestCaseStruct TestCase() { return std::get<1>(this->GetParam()); }
+
+ private:
+  base::test::ScopedFeatureList feature_override_;
+};
+
+using InferLabelForElementParameterizedTest =
+    FormAutofillUtilsParameterizedTest<AutofillFieldUtilCase>;
+
+const AutofillFieldUtilCase kInferLabelForElementTestCases[] = {
+    {"DIV_table_test_1", R"(
        <div>
          <div>label</div><div><input id=target></div>
        </div>)",
-       u"label"},
-      {"DIV table test 2", R"(
+     u"label", u"label"},
+    {"DIV_table_test_2", R"(
        <div>
          <div>label</div>
          <div>should be skipped<input></div>
          <div><input id=target></div>
        </div>)",
-       u"label"},
-      {"DIV table test 3", R"(
+     u"label", u"label"},
+    {"DIV_table_test_3", R"(
        <div>
          <div>should be skipped<input></div>
          <div>label</div>
          <div><input id=target></div>
        </div>)",
-       u"label"},
-      {"DIV table test 4", R"(
+     u"label", u"label"},
+    {"DIV_table_test_4", R"(
        <div>
          <div>should be skipped<input></div>
          label
          <div><input id=target></div>
        </div>)",
-       u"label"},
-      {"DIV table test 5",
-       "<div>"
-       "<div>label<div><input id='target'/></div>behind</div>"
-       "</div>",
-       u"label"},
-      {"DIV table test 6", R"(
+     u"label", u"label"},
+    {"DIV_table_test_5",
+     "<div>"
+     "<div>label<div><input id='target'/></div>behind</div>"
+     "</div>",
+     u"label", u"label"},
+    {"DIV_table_test_6", R"(
        <div>
          label
          <div>*</div>
          <div><input id='target'></div>
        </div>)",
-       u"label"},
-      {"Infer from next sibling",
-       "<input id='target' type='checkbox'>hello <b>world</b>", u"hello world"},
-      {"Poor man's placeholder", kPoorMansPlaceholderFullOverlap, u"label"},
-      {"Poor man's placeholder partial overlap",
-       kPoorMansPlaceholderPartialOverlap, u"label"},
-      {"Poor man's placeholder no overlap", kPoorMansPlaceholderNoOverlap, u""},
-      {"Poor man's placeholder no overlap 2", kPoorMansPlaceholderNoOverlap2,
-       u""},
-      {"Poor man's placeholder: possibly an error message",
-       kPoorMansPlaceholderPossiblyErrorMessage, u""},
-      {"Poor man's placeholder: no horizontal containment",
-       kPoorMansPlaceholderNoHorizontalContainment, u""}};
-  for (auto test_case : test_cases) {
-    SCOPED_TRACE(test_case.description);
-    LoadHTML(test_case.html);
-    WebFormControlElement form_target =
-        GetFormControlElementById(GetDocument(), "target");
-    std::vector<FormFieldData> fields(1);
-    InferLabelForElementsForTesting(
-        std::to_array<WebFormControlElement>({form_target}), fields);
-    EXPECT_EQ(fields.front().label(), test_case.expected_label);
+     u"label", u"label"},
+    {"Infer_from_next_sibling",
+     "<input id='target' type='checkbox'>hello <b>world</b>", u"hello world",
+     u"hello world"},
+    // With better placeholder support, poor man's placeholder will no longer
+    // be considered a label. The label will be instead based on the value
+    // attribute that is available.
+    {"Poor_mans_placeholder", kPoorMansPlaceholderFullOverlap,
+     u"poor man's placeholder", u"value"},
+    // Same as above, label will be based on value attribute.
+    {"Poor_mans_placeholder_partial_overlap",
+     kPoorMansPlaceholderPartialOverlap, u"placeholder", u"value"},
+    {"Poor_mans_placeholder_no_overlap", kPoorMansPlaceholderNoOverlap, u"",
+     u""},
+    {"Poor_mans_placeholder_no_overlap_2", kPoorMansPlaceholderNoOverlap2, u"",
+     u""},
+    {"Poor_mans_placeholder_possibly_an_error_message",
+     kPoorMansPlaceholderPossiblyErrorMessage, u"", u""},
+    {"Poor_mans_placeholder_no_horizontal_containment",
+     kPoorMansPlaceholderNoHorizontalContainment, u"", u""}};
+
+TEST_P(InferLabelForElementParameterizedTest, InferLabelForElementTest) {
+  const AutofillFieldUtilCase& test_case = TestCase();
+
+  std::u16string_view expected_label;
+  if (BetterPlaceholderSupportEnabled()) {
+    expected_label = test_case.better_placeholder_support_expected_label;
+  } else {
+    expected_label = test_case.expected_label;
   }
+
+  LoadHTML(test_case.html);
+  WebFormControlElement form_target =
+      GetFormControlElementById(GetDocument(), "target");
+  std::vector<FormFieldData> fields(1);
+  InferLabelForElementsForTesting(
+      std::to_array<WebFormControlElement>({form_target}), fields);
+  EXPECT_EQ(fields.front().label(), expected_label);
 }
 
-TEST_F(FormAutofillUtilsTest, InferLabelSourceTest) {
-  struct AutofillFieldLabelSourceCase {
-    const char* html;
-    const FormFieldData::LabelSource label_source;
-  };
-  static const AutofillFieldLabelSourceCase test_cases[] = {
-      {"<div><div>label</div><div><input id='target'/></div></div>",
-       FormFieldData::LabelSource::kDivTable},
-      {"<label>label</label><input id='target'/>",
-       FormFieldData::LabelSource::kLabelTag},
-      {"<b>l</b><strong>a</strong>bel<input id='target'/>",
-       FormFieldData::LabelSource::kCombined},
-      {"<p><b>l</b><strong>a</strong>bel</p><input id='target'/>",
-       FormFieldData::LabelSource::kPTag},
-      {"<input id='target' placeholder='label'/>",
-       FormFieldData::LabelSource::kPlaceHolder},
-      {"<input id='target' aria-label='label'/>",
-       FormFieldData::LabelSource::kAriaLabel},
-      {"<input id='target' value='label'/>",
-       FormFieldData::LabelSource::kValue},
-      // In the next test, the text node is picked up on the way up the DOM-tree
-      // by the div extraction logic.
-      {"<li>label<div><input id='target'/></div></li>",
-       FormFieldData::LabelSource::kDivTable},
-      {"<li><span>label</span><div><input id='target'/></div></li>",
-       FormFieldData::LabelSource::kLiTag},
-      {"<table><tr><td>label</td><td><input id='target'/></td></tr></table>",
-       FormFieldData::LabelSource::kTdTag},
-      {"<dl><dt>label</dt><dd><input id='target'></dd></dl>",
-       FormFieldData::LabelSource::kDdTag},
-      {kPoorMansPlaceholderFullOverlap,
-       FormFieldData::LabelSource::kOverlayingLabel}};
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    InferLabelForElementParameterizedTest,
+    testing::Combine(testing::Bool(),
+                     testing::ValuesIn(kInferLabelForElementTestCases)),
+    [](const testing::TestParamInfo<std::tuple<bool, AutofillFieldUtilCase>>&
+           info) {
+      const bool feature_enabled = std::get<0>(info.param);
+      const AutofillFieldUtilCase& test_case = std::get<1>(info.param);
+      return base::StrCat({test_case.description, feature_enabled
+                                                      ? "_FeatureEnabled"
+                                                      : "_FeatureDisabled"});
+    });
 
-  for (auto test_case : test_cases) {
-    SCOPED_TRACE(testing::Message() << test_case.label_source);
-    LoadHTML(test_case.html);
-    WebFormControlElement form_target =
-        GetFormControlElementById(GetDocument(), "target");
-    std::vector<FormFieldData> fields(1);
-    InferLabelForElementsForTesting(
-        std::to_array<WebFormControlElement>({form_target}), fields);
-    EXPECT_EQ(fields.front().label_source(), test_case.label_source);
+struct AutofillFieldLabelSourceCase {
+  std::string_view description;
+  std::string_view html;
+  const FormFieldData::LabelSource label_source;
+  const FormFieldData::LabelSource better_placeholder_support_source;
+};
+
+using InferLabelSourceParameterizedTest =
+    FormAutofillUtilsParameterizedTest<AutofillFieldLabelSourceCase>;
+
+const AutofillFieldLabelSourceCase kInferLabelSourceTestCases[] = {
+    {"DivTable", "<div><div>label</div><div><input id='target'/></div></div>",
+     FormFieldData::LabelSource::kDivTable,
+     FormFieldData::LabelSource::kDivTable},
+    {"LabelTag", "<label>label</label><input id='target'/>",
+     FormFieldData::LabelSource::kLabelTag,
+     FormFieldData::LabelSource::kLabelTag},
+    {"Combined", "<b>l</b><strong>a</strong>bel<input id='target'/>",
+     FormFieldData::LabelSource::kCombined,
+     FormFieldData::LabelSource::kCombined},
+    {"PTag", "<p><b>l</b><strong>a</strong>bel</p><input id='target'/>",
+     FormFieldData::LabelSource::kPTag, FormFieldData::LabelSource::kPTag},
+    {"PlaceholderAndAriaLabel",
+     "<input id='target' placeholder='label' aria-label='label'/>",
+     FormFieldData::LabelSource::kPlaceHolder,
+     FormFieldData::LabelSource::kAriaLabel},
+    {"AriaLabel", "<input id='target' aria-label='label'/>",
+     FormFieldData::LabelSource::kAriaLabel,
+     FormFieldData::LabelSource::kAriaLabel},
+    {"Value", "<input id='target' value='label'/>",
+     FormFieldData::LabelSource::kValue, FormFieldData::LabelSource::kValue},
+    // In the next test, the text node is picked up on the way up the DOM-tree
+    // by the div extraction logic.
+    {"LiTagWithDivTable", "<li>label<div><input id='target'/></div></li>",
+     FormFieldData::LabelSource::kDivTable,
+     FormFieldData::LabelSource::kDivTable},
+    {"LiTag", "<li><span>label</span><div><input id='target'/></div></li>",
+     FormFieldData::LabelSource::kLiTag, FormFieldData::LabelSource::kLiTag},
+    {"TdTag",
+     "<table><tr><td>label</td><td><input id='target'/></td></tr></table>",
+     FormFieldData::LabelSource::kTdTag, FormFieldData::LabelSource::kTdTag},
+    {"DdTag", "<dl><dt>label</dt><dd><input id='target'></dd></dl>",
+     FormFieldData::LabelSource::kDdTag, FormFieldData::LabelSource::kDdTag},
+    {"OverlayingLabel", kPoorMansPlaceholderFullOverlap,
+     FormFieldData::LabelSource::kOverlayingLabel,
+     FormFieldData::LabelSource::kValue}};
+
+TEST_P(InferLabelSourceParameterizedTest, InferLabelSourceTest) {
+  const AutofillFieldLabelSourceCase& test_case = TestCase();
+
+  FormFieldData::LabelSource expected_label_source;
+  if (BetterPlaceholderSupportEnabled()) {
+    expected_label_source = test_case.better_placeholder_support_source;
+  } else {
+    expected_label_source = test_case.label_source;
   }
+
+  LoadHTML(test_case.html);
+  WebFormControlElement form_target =
+      GetFormControlElementById(GetDocument(), "target");
+  std::vector<FormFieldData> fields(1);
+  InferLabelForElementsForTesting(
+      std::to_array<WebFormControlElement>({form_target}), fields);
+  EXPECT_EQ(fields.front().label_source(), expected_label_source);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    InferLabelSourceParameterizedTest,
+    testing::Combine(testing::Bool(),
+                     testing::ValuesIn(kInferLabelSourceTestCases)),
+    [](const testing::TestParamInfo<
+        std::tuple<bool, AutofillFieldLabelSourceCase>>& info) {
+      const bool feature_enabled = std::get<0>(info.param);
+      const AutofillFieldLabelSourceCase& test_case = std::get<1>(info.param);
+      return base::StrCat({test_case.description, feature_enabled
+                                                      ? "_FeatureEnabled"
+                                                      : "_FeatureDisabled"});
+    });
+
+struct AutofillFieldPlaceholderCase {
+  std::string_view description;
+  std::string_view html;
+  std::u16string_view expected_placeholder;
+  std::u16string_view better_placeholder_support_expected_placeholder;
+};
+
+using InferPlaceholderParameterizedTest =
+    FormAutofillUtilsParameterizedTest<AutofillFieldPlaceholderCase>;
+
+static const AutofillFieldPlaceholderCase kInferPlaceholderTestCases[] = {
+    {"Placeholder_present", kPlaceholderAndPoorMansPlaceholder, u"placeholder",
+     u"placeholder"},
+    {"Invalid_placeholder", kInvalidPlaceholderAndPoorMansPlaceholder, u"+- ",
+     u"poor man's placeholder"},
+    {"Placeholder_missing", kPoorMansPlaceholderFullOverlap, u"",
+     u"poor man's placeholder"},
+};
+
+TEST_P(InferPlaceholderParameterizedTest, InferPlaceholderForElementTest) {
+  const AutofillFieldPlaceholderCase& test_case = TestCase();
+
+  std::u16string_view expected_placeholder;
+  if (BetterPlaceholderSupportEnabled()) {
+    expected_placeholder =
+        test_case.better_placeholder_support_expected_placeholder;
+  } else {
+    expected_placeholder = test_case.expected_placeholder;
+  }
+
+  LoadHTML(test_case.html);
+  WebFormControlElement form_target =
+      GetFormControlElementById(GetDocument(), "target");
+
+  FormFieldData field;
+  WebFormControlElementToFormFieldForTesting(blink::WebFormElement(),
+                                             form_target, nullptr, &field);
+
+  EXPECT_EQ(field.placeholder(), expected_placeholder);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    InferPlaceholderParameterizedTest,
+    testing::Combine(testing::Bool(),
+                     testing::ValuesIn(kInferPlaceholderTestCases)),
+    [](const testing::TestParamInfo<
+        std::tuple<bool, AutofillFieldPlaceholderCase>>& info) {
+      const bool feature_enabled = std::get<0>(info.param);
+      const AutofillFieldPlaceholderCase& test_case = std::get<1>(info.param);
+      return base::StrCat({test_case.description, feature_enabled
+                                                      ? "_FeatureEnabled"
+                                                      : "_FeatureDisabled"});
+    });
 
 TEST_F(FormAutofillUtilsTest, GetButtonTitles) {
   constexpr char kHtml[] =
@@ -1119,6 +1299,47 @@ TEST_F(FormAutofillUtilsTest,
                                   Property(&FormData::fields,
                                            ElementsAre(HasRendererIdOf(t)))),
                             _)));
+}
+
+// Tests the fallback mechanism where FindFormAndFieldForFormControlElement()
+// constructs a form with a single field if it is unable to extract the form
+// containing a control element.
+TEST_F(FormAutofillUtilsTest,
+       FindFormAndFieldForFormControlElement_FallbackOnFailure) {
+  auto AddElementToForm = [this](const char* element) {
+    std::string js = base::StringPrintf(
+        "document.forms[0].appendChild(document.createElement('%s'))", element);
+    ExecuteJavaScriptForTests(js);
+  };
+
+  // Create a form with too many fields so that extraction fails.
+  LoadHTML(R"(<html><body><form id='f'><input id='i0'/></form>)");
+  for (size_t i = 0; i < kMaxExtractableFields; ++i) {
+    AddElementToForm("input");
+  }
+
+  WebDocument doc = GetDocument();
+  WebFormElement form_element = GetFormElementById(doc, "f");
+  WebFormControlElement control_element = GetFormControlElementById(doc, "i0");
+
+  std::optional<std::pair<FormData, raw_ref<const FormFieldData>>>
+      form_and_field = form_util::FindFormAndFieldForFormControlElement(
+          control_element, field_data_manager(), kCallTimerStateDummy,
+          /*button_titles_cache=*/nullptr,
+          /*form_cache=*/{});
+
+  ASSERT_TRUE(form_and_field);
+  const FormData& fallback_form = form_and_field->first;
+
+  // The fallback form should represent the owning form, so its `FormRendererId`
+  // should match `form_element`'s renderer ID, and the form's only field's
+  // `FieldRendererId` should match `control_element`'s renderer ID.
+  EXPECT_EQ(fallback_form.renderer_id(),
+            form_util::GetFormRendererId(form_element));
+  EXPECT_NE(fallback_form.renderer_id(), FormRendererId());
+  EXPECT_EQ(fallback_form.fields().size(), 1u);
+  EXPECT_EQ(fallback_form.fields()[0].renderer_id(),
+            form_util::GetFieldRendererId(control_element));
 }
 
 // Tests the visibility detection of iframes.

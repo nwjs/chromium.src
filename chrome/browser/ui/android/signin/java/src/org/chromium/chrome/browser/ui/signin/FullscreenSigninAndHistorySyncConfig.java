@@ -34,6 +34,9 @@ public final class FullscreenSigninAndHistorySyncConfig {
         private final String mHistorySyncSubtitle;
         private @HistorySyncConfig.OptInMode int mHistoryOptInMode =
                 HistorySyncConfig.OptInMode.OPTIONAL;
+        private @Nullable String mSelectedAccountEmail;
+        private @SigninAndHistorySyncCoordinator.SigninFlow int mSigninFlow =
+                SigninAndHistorySyncCoordinator.SigninFlow.DEFAULT_SIGNIN;
 
         public Builder(
                 String signinTitle,
@@ -67,6 +70,16 @@ public final class FullscreenSigninAndHistorySyncConfig {
             return this;
         }
 
+        public Builder selectedAccountEmail(@Nullable String selectedAccountEmail) {
+            mSelectedAccountEmail = selectedAccountEmail;
+            return this;
+        }
+
+        public Builder signinFlow(@SigninAndHistorySyncCoordinator.SigninFlow int signinFlow) {
+            mSigninFlow = signinFlow;
+            return this;
+        }
+
         public FullscreenSigninAndHistorySyncConfig build() {
             final FullscreenSigninConfig signinConfig =
                     new FullscreenSigninConfig(
@@ -75,7 +88,9 @@ public final class FullscreenSigninAndHistorySyncConfig {
                             /* dismissText= */ mSigninDismissText,
                             /* logoId= */ mSigninLogoId,
                             /* shouldDisableSignin= */ mShouldDisableSignin,
-                            /* surveyType= */ null);
+                            /* surveyType= */ null,
+                            /* selectedAccountEmail= */ mSelectedAccountEmail,
+                            /* signinFlow= */ mSigninFlow);
             final HistorySyncConfig historySyncConfig =
                     new HistorySyncConfig(
                             /* title= */ mHistorySyncTitle, /* subtitle= */ mHistorySyncSubtitle);

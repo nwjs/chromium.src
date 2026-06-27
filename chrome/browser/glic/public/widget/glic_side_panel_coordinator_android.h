@@ -9,9 +9,16 @@
 #include "base/callback_list.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/tab_bottom_sheet_bridge.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "components/tabs/public/tab_interface.h"
+
+class BrowserWindowInterface;
+
+namespace context_sharing {
+class CoBrowseViewsBridge;
+}
 
 namespace glic {
 
@@ -34,6 +41,7 @@ class GlicSidePanelCoordinatorAndroid
       base::RepeatingCallback<void(State state)> callback) override;
   int GetPreferredWidth() override;
   bool IsGlicSidePanelActive() override;
+  void SuppressBottomSheetForTesting(bool suppress);
 
   // context_sharing::TabBottomSheetBridge::Observer:
   void OnClosed() override;
@@ -46,6 +54,7 @@ class GlicSidePanelCoordinatorAndroid
   void OnTabWillDeactivate(tabs::TabInterface* tab);
   void OnTabWillDetach(tabs::TabInterface* tab,
                        tabs::TabInterface::DetachReason detach_reason);
+  base::android::ScopedJavaLocalRef<jobject> CreateBottomSheetContentProvider();
 
   State state_ = State::kClosed;
   base::RepeatingCallbackList<void(State)> state_callbacks_;
@@ -54,7 +63,9 @@ class GlicSidePanelCoordinatorAndroid
   base::CallbackListSubscription did_activate_subscription_;
   base::CallbackListSubscription will_deactivate_subscription_;
   base::CallbackListSubscription will_detach_subscription_;
-  std::unique_ptr<context_sharing::TabBottomSheetBridge> bridge_;
+  std::unique_ptr<context_sharing::CoBrowseViewsBridge> views_bridge_;
+  std::unique_ptr<context_sharing::TabBottomSheetBridge>
+      tab_bottom_sheet_bridge_;
 };
 
 }  // namespace glic

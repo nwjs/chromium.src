@@ -50,7 +50,8 @@ rootWebArea
 ++++++meter
 ++++++navigation
 ++++++note
-++++++listBoxOption
+++++++listBox
+++++++++listBoxOption
 ++++++paragraph
 ++++++progressIndicator
 ++++++radioButton
@@ -81,4 +82,5 @@ rootWebArea
 ++++++tooltip
 ++++++tree
 ++++++treeGrid
-++++++treeItem expanded
+++++++tree
+++++++++treeItem expanded

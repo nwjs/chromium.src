@@ -23,7 +23,6 @@
 #include "ui/views/view_utils.h"
 
 class BrowserView;
-class SidePanelAnimationPerfReporter;
 
 class SidePanel : public views::AccessiblePaneView,
                   public views::ResizeAreaDelegate {
@@ -47,6 +46,8 @@ class SidePanel : public views::AccessiblePaneView,
   bool ShouldRestrictMaxWidth() const;
   void UpdateWidthOnEntryChanged();
   void UpdateSidePanelWidthPref(const std::string& panel_id, int width);
+  void UpdateHorizontalAlignment(
+      std::optional<SidePanelEntryId> entry_id = std::nullopt);
   double GetAnimationValue() const;
   gfx::RoundedCornersF background_radii() const { return background_radii_; }
   void SetBackgroundRadii(const gfx::RoundedCornersF& radii);
@@ -113,9 +114,6 @@ class SidePanel : public views::AccessiblePaneView,
   // and resets the animation.
   void ResetSidePanelAnimationContent();
 
-  void SetActiveEntryUsesDefaultHorizontalAlignment(
-      bool use_default_horizontal_alignment);
-
   // This is the parent view for the contents of the side panel.
   views::View* GetContentParentView();
 
@@ -131,8 +129,6 @@ class SidePanel : public views::AccessiblePaneView,
 
   bool ShouldShowAnimation() const;
   void AnnounceResize();
-
-  void UpdateHorizontalAlignment();
 
   // views::View:
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
@@ -169,12 +165,6 @@ class SidePanel : public views::AccessiblePaneView,
 
   gfx::RoundedCornersF background_radii_;
 
-  // When false, the side panel's should align to the opposite side of what it
-  // typically would based on the alignment pref and panel type. This is special
-  // case behavior that should be removed when toolbar and content height side
-  // panels are unified.
-  bool use_default_horizontal_alignment_ = true;
-
   // Keeps track of the side the side panel will appear on (left or right).
   HorizontalAlignment horizontal_alignment_;
 
@@ -186,16 +176,8 @@ class SidePanel : public views::AccessiblePaneView,
   // Subscription for animation updates.
   base::CallbackListSubscription animation_subscription_;
 
-  // Animation perf reporter.
-  std::unique_ptr<SidePanelAnimationPerfReporter> animation_perf_reporter_;
-
   // Cache of recent animation values.
   std::map<BrowserAnimationSequence, double> last_animation_values_;
-
-  // Starting point for opening animations. This is updated any time the side
-  // panel animates other than during the open animation, so that if a close is
-  // interrupted, the open animation starts from there.
-  double open_starting_point_ = 0.0;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_SIDE_PANEL_H_

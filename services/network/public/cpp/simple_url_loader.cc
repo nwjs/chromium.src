@@ -1914,22 +1914,22 @@ void SimpleURLLoaderImpl::OnReceiveRedirect(
     return;
   }
 
+  network::HttpRequestHeadersUpdateParams headers_update_params;
   std::vector<std::string> removed_headers;
   if (on_redirect_callback_) {
     base::WeakPtr<SimpleURLLoaderImpl> weak_this =
         weak_ptr_factory_.GetWeakPtr();
     GURL url_before_redirect = final_url_;
     on_redirect_callback_.Run(url_before_redirect, redirect_info,
-                              *response_head, &removed_headers);
+                              *response_head,
+                              &headers_update_params.removed_headers);
     // If deleted by the callback, bail now.
     if (!weak_this)
       return;
   }
 
   final_url_ = redirect_info.new_url;
-  url_loader_->FollowRedirect(removed_headers, {} /* modified_headers */,
-                              {} /* modified_cors_exempt_headers */,
-                              {} /* new_url */);
+  url_loader_->FollowRedirect(std::move(headers_update_params), std::nullopt);
 }
 
 void SimpleURLLoaderImpl::OnTransferSizeUpdated(int32_t transfer_size_diff) {
@@ -2022,24 +2022,24 @@ void SimpleURLLoaderImpl::MaybeComplete() {
     return;
   }
 
+  const std::optional<int64_t> decoded_body_length =
+      request_state_->completion_status
+          ? std::make_optional<int64_t>(
+                request_state_->completion_status->decoded_body_length)
+          : std::nullopt;
+
   // If the URLLoader didn't supply a data pipe because we set the
   // ReadAndDiscardBody option, then we don't yet have a value for
   // `received_body_size`, so just set it to the size reported by URLLoader.
   if (request_state_->received_body_size == kReceivedBodySizeUnknown) {
-    request_state_->received_body_size =
-        request_state_->completion_status
-            ? request_state_->completion_status->decoded_body_length
-            : 0;
+    request_state_->received_body_size = decoded_body_length.value_or(0);
   }
 
   // When OnCompleted sees a success result, still need to report an error if
   // the size isn't what was expected.
-  if (request_state_->net_error == net::OK &&
-      request_state_->completion_status &&
-      request_state_->completion_status->decoded_body_length !=
-          request_state_->received_body_size) {
-    if (request_state_->completion_status->decoded_body_length >
-        request_state_->received_body_size) {
+  if (request_state_->net_error == net::OK && decoded_body_length.has_value() &&
+      decoded_body_length.value() != request_state_->received_body_size) {
+    if (decoded_body_length.value() > request_state_->received_body_size) {
       // The body pipe was closed before it received the entire body.
       request_state_->net_error = net::ERR_FAILED;
       request_state_->completion_status = std::nullopt;

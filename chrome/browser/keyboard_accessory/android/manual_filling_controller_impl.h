@@ -26,6 +26,7 @@ class PaymentMethodAccessoryController;
 }  // namespace autofill
 
 class AffiliatedPlusProfilesCache;
+class AtMemoryAccessoryController;
 class PasswordAccessoryController;
 
 // Use ManualFillingController::GetOrCreate to obtain instances of this class.
@@ -66,6 +67,7 @@ class ManualFillingControllerImpl
       base::OnceCallback<void(autofill::AccessorySheetData)> callback) override;
 
   gfx::NativeView container_view() const override;
+  bool IsLargeFormFactor() const override;
 
   // Returns a weak pointer for this object.
   base::WeakPtr<ManualFillingController> AsWeakPtr();
@@ -79,6 +81,7 @@ class ManualFillingControllerImpl
       base::WeakPtr<autofill::AddressAccessoryController> address_controller,
       base::WeakPtr<autofill::PaymentMethodAccessoryController>
           payment_method_controller,
+      base::WeakPtr<AtMemoryAccessoryController> at_memory_controller,
       std::unique_ptr<ManualFillingViewInterface> test_view);
 
 #if defined(UNIT_TEST)
@@ -113,6 +116,7 @@ class ManualFillingControllerImpl
       base::WeakPtr<autofill::AddressAccessoryController> address_controller,
       base::WeakPtr<autofill::PaymentMethodAccessoryController>
           payment_method_controller,
+      base::WeakPtr<AtMemoryAccessoryController> at_memory_controller,
       std::unique_ptr<ManualFillingViewInterface> view);
 
   // Creates the plus profiles cache if the feature flag is enabled and all its
@@ -165,6 +169,7 @@ class ManualFillingControllerImpl
   base::WeakPtr<autofill::AddressAccessoryController> address_controller_;
   base::WeakPtr<autofill::PaymentMethodAccessoryController>
       payment_method_controller_;
+  base::WeakPtr<AtMemoryAccessoryController> at_memory_controller_;
 
   // This cache is initialized if the manual fallback feature flag is enabled
   // and its dependencies are not null. The cached plus providers are accessed

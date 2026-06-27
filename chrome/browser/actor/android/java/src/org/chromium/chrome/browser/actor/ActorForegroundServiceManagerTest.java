@@ -11,7 +11,11 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
@@ -36,7 +40,9 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link ActorForegroundServiceManager}. */
@@ -152,8 +158,9 @@ public class ActorForegroundServiceManagerTest {
         stopCallback.waitForOnly();
 
         assertFalse("Service should be unbound after delay.", mManager.isServiceBoundForTesting());
-        verify(mServiceController).stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_DETACH);
+        verify(mServiceController).stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_REMOVE);
         verify(mServiceController).unbindService();
+        verify(mNotificationService).repostNotification(1);
     }
 
     @Test
@@ -185,7 +192,7 @@ public class ActorForegroundServiceManagerTest {
 
     @Test
     public void testProfileManagement() {
-        org.mockito.Mockito.reset(mKeyedService);
+        reset(mKeyedService);
         ActorForegroundServiceManager.initialize();
         ProfileManager.onProfileAdded(mProfile);
         ShadowLooper.idleMainLooper();
@@ -195,5 +202,113 @@ public class ActorForegroundServiceManagerTest {
 
         ProfileManager.onProfileDestroyed(mProfile);
         verify(mKeyedService, atLeastOnce()).removeObserver(mManager);
+    }
+
+    @Test
+    public void testRedundantUpdatesSkipped() {
+        mManager.setKeyedServiceForTesting(mKeyedService);
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        ShadowLooper.idleMainLooper();
+
+        // First call should trigger startOrUpdateForegroundService
+        verify(mServiceController)
+                .startOrUpdateForegroundService(eq(1), eq(mNotification), anyInt(), anyBoolean());
+
+        clearInvocations(mServiceController);
+        when(mServiceController.isConnected()).thenReturn(true);
+
+        // Second call with same notification should NOT trigger startOrUpdateForegroundService
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        ShadowLooper.idleMainLooper();
+        verify(mServiceController, never())
+                .startOrUpdateForegroundService(anyInt(), any(), anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void testOnTaskStateChanged_PinsCorrectNotification() {
+        mManager.setKeyedServiceForTesting(mKeyedService);
+
+        // Initial state
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        ShadowLooper.idleMainLooper();
+        verify(mServiceController)
+                .startOrUpdateForegroundService(eq(1), eq(mNotification), anyInt(), anyBoolean());
+
+        // Update to another task
+        reset(mServiceController);
+        when(mServiceController.isConnected()).thenReturn(true);
+        ActorTask task2 = mock(ActorTask.class);
+        when(task2.getId()).thenReturn(2);
+        when(mKeyedService.getTask(2)).thenReturn(task2);
+        when(mKeyedService.getCurrentActiveTask()).thenReturn(task2);
+        Notification notification2 = mock(Notification.class);
+        when(mNotificationService.getForegroundNotification(eq(task2), anyBoolean()))
+                .thenReturn(notification2);
+
+        mManager.onTaskStateChanged(2, ActorTaskState.ACTING);
+        ShadowLooper.idleMainLooper();
+
+        // Should update to task 2's notification
+        verify(mServiceController)
+                .startOrUpdateForegroundService(eq(2), eq(notification2), eq(1), eq(true));
+    }
+
+    @Test
+    public void testOnPiPToTabTransition_UpdateForegroundServiceSkipped() {
+        mManager.setKeyedServiceForTesting(mKeyedService);
+
+        when(mServiceController.isActivityVisibleForTabs(any())).thenReturn(false);
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        ShadowLooper.idleMainLooper();
+
+        verify(mServiceController)
+                .startOrUpdateForegroundService(eq(1), eq(mNotification), anyInt(), anyBoolean());
+
+        clearInvocations(mServiceController);
+        when(mServiceController.isConnected()).thenReturn(true);
+
+        when(mServiceController.isActivityVisibleForTabs(any())).thenReturn(true);
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        ShadowLooper.idleMainLooper();
+
+        // Should skip updating foreground service when notification state doesn't change.
+        verify(mServiceController, never())
+                .startOrUpdateForegroundService(anyInt(), any(), anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void testOnAndroidTaskRemoved_StopsActiveTasks() {
+        mManager.setKeyedServiceForTesting(mKeyedService);
+
+        // Setup multiple tasks in the service source of truth
+        ActorTask task1 = mTask; // ID 1
+        ActorTask task2 = org.mockito.Mockito.mock(ActorTask.class);
+        when(task2.getId()).thenReturn(2);
+
+        List<ActorTask> activeTasks = new ArrayList<>();
+        activeTasks.add(task1);
+        activeTasks.add(task2);
+        when(mKeyedService.getActiveTasks()).thenReturn(activeTasks);
+
+        // Add to manager's local state to ensure it gets cleared
+        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
+        assertTrue("Service should be bound.", mManager.isServiceBoundForTesting());
+
+        // Process the post in startAndBindService to ensure mPinnedNotificationId is set
+        ShadowLooper.idleMainLooper();
+
+        // Trigger onAndroidTaskRemoved
+        mManager.onAndroidTaskRemoved();
+
+        // Verify stopTask was called for all tasks returned by the service
+        verify(mKeyedService).stopTask(1, StoppedReason.SHUTDOWN);
+        verify(mKeyedService).stopTask(2, StoppedReason.SHUTDOWN);
+
+        // Verify standard stop and unbind logic was called
+        verify(mServiceController).stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_REMOVE);
+        verify(mServiceController).unbindService();
+        verify(mNotificationService).repostNotification(1);
+
+        assertFalse("Service state should be reset.", mManager.isServiceBoundForTesting());
     }
 }

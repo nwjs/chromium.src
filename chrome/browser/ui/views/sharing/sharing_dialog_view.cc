@@ -10,7 +10,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/views/accessibility/theme_tracking_non_accessible_image_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
@@ -27,6 +26,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -97,11 +97,14 @@ const gfx::VectorIcon& GetIconType(
     const syncer::DeviceInfo::FormFactor& device_form_factor) {
   switch (device_form_factor) {
     case syncer::DeviceInfo::FormFactor::kPhone:
-      return kHardwareSmartphoneIcon;
+      return features::IsRoundedIconsEnabled() ? kMobileIcon
+                                               : kHardwareSmartphoneOldIcon;
     case syncer::DeviceInfo::FormFactor::kTablet:
-      return kTabletIcon;
+      return features::IsRoundedIconsEnabled() ? kTabletFilledIcon
+                                               : kTabletOldIcon;
     default:
-      return kHardwareComputerIcon;
+      return features::IsRoundedIconsEnabled() ? kComputerCustomIcon
+                                               : kHardwareComputerOldIcon;
   }
 }
 

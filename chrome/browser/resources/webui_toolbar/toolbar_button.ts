@@ -5,7 +5,7 @@
 import {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 import {isMac} from 'chrome://resources/js/platform.js';
 
-import {ClickDispositionFlag} from './browser_proxy.js';
+import {EventDispositionFlag} from './browser_proxy.js';
 import {TimerHelper} from './timer_helper.js';
 
 export const BUTTON_LEFT = 0;
@@ -13,7 +13,7 @@ export const BUTTON_MIDDLE = 1;
 export const BUTTON_RIGHT = 2;
 
 
-export interface GetClickDispositionFlagsOptions {
+export interface GetEventDispositionFlagsOptions {
   ignoreCtrlKey?: boolean;
   ignoreShiftKey?: boolean;
 }
@@ -88,20 +88,14 @@ export class PressHandler {
   private onLongPress_: (source: MenuSourceType) => void;
   private onShortPress_: (e: MouseEvent) => void;
 
-  // Whether to treat Mac Ctrl+LeftClick as a context menu trigger (long press)
-  // instead of a short press. This is standard behavior for most buttons,
-  // but some (like reload) need it disabled to handle Ctrl+Click differently.
-  private enableMacContextClick_: boolean;
   private contextMenuState_: ContextMenuState|null = null;
 
   constructor(
       onLongPress: (source: MenuSourceType) => void,
       onShortPress: (e: MouseEvent) => void,
-      enableMacContextClick: boolean = true,
       enableContextMenu: boolean = true) {
     this.onLongPress_ = onLongPress;
     this.onShortPress_ = onShortPress;
-    this.enableMacContextClick_ = enableMacContextClick;
     if (enableContextMenu) {
       this.contextMenuState_ = {
         isListening: false,
@@ -168,8 +162,7 @@ export class PressHandler {
       return;
     }
 
-    if (this.enableMacContextClick_ && isMac && e.button === BUTTON_LEFT &&
-        e.ctrlKey) {
+    if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
       this.onLongPress_(getContextMenuSourceType(e));
       return;
     }
@@ -229,11 +222,8 @@ export class PressHandler {
       return;
     }
 
-    const isMacCtrlClick = this.enableMacContextClick_ && isMac &&
-        e.button === BUTTON_LEFT && e.ctrlKey;
-
     // If it's Ctrl+LeftClick on Mac, skip the rest.
-    if (isMacCtrlClick) {
+    if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
       this.resetContextMenuState_();
       return;
     }
@@ -261,9 +251,7 @@ export class PressHandler {
   onContextmenu = (e: PointerEvent) => {
     e.preventDefault();
     // If it's a Mac Ctrl+LeftClick, the browser natively fires a contextmenu
-    // event. If `enableMacContextClick_` is true, we already showed the menu in
-    // pointerdown. If `enableMacContextClick_` is false, we want it to act as a
-    // normal click, not a context menu. In both cases, we MUST suppress the
+    // event. We already showed the menu in pointerdown. We MUST suppress the
     // native contextmenu event.
     if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
       return;
@@ -304,10 +292,7 @@ export function getClickSourceType(e: Event): MenuSourceType {
 // * others -> mouse
 export function getContextMenuSourceType(e: Event): MenuSourceType {
   if (e instanceof PointerEvent) {
-    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
-      return MenuSourceType.kTouch;
-    }
-    return MenuSourceType.kMouse;
+    return getClickSourceType(e);
   }
   if (e instanceof MouseEvent && e.button === BUTTON_LEFT) {
     // Mac Ctrl+Click (ctrlKey + button 0) should be Mouse for context menu.
@@ -319,24 +304,29 @@ export function getContextMenuSourceType(e: Event): MenuSourceType {
   return MenuSourceType.kMouse;
 }
 
-export function getClickDispositionFlags(
-    e: MouseEvent,
-    options: GetClickDispositionFlagsOptions = {}): ClickDispositionFlag[] {
-  const flags: ClickDispositionFlag[] = [];
-  if (e.button === BUTTON_MIDDLE) {
-    flags.push(ClickDispositionFlag.kMiddleMouseButton);
+export function getEventDispositionFlags(
+    e: MouseEvent|KeyboardEvent,
+    options: GetEventDispositionFlagsOptions = {}): EventDispositionFlag[] {
+  const flags: EventDispositionFlag[] = [];
+  if (e instanceof MouseEvent) {
+    if (e.button === BUTTON_MIDDLE) {
+      flags.push(EventDispositionFlag.kMiddleMouseButton);
+    }
   }
   if (e.altKey) {
-    flags.push(ClickDispositionFlag.kAltKeyDown);
+    flags.push(EventDispositionFlag.kAltKeyDown);
   }
   if (e.ctrlKey && !options.ignoreCtrlKey) {
-    flags.push(ClickDispositionFlag.kControlKeyDown);
+    flags.push(EventDispositionFlag.kControlKeyDown);
   }
   if (e.metaKey) {
-    flags.push(ClickDispositionFlag.kMetaKeyDown);
+    flags.push(EventDispositionFlag.kMetaKeyDown);
   }
   if (e.shiftKey && !options.ignoreShiftKey) {
-    flags.push(ClickDispositionFlag.kShiftKeyDown);
+    flags.push(EventDispositionFlag.kShiftKeyDown);
+  }
+  if (e.getModifierState('AltGraph')) {
+    flags.push(EventDispositionFlag.kAltGrKeyDown);
   }
   return flags;
 }

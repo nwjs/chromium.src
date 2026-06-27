@@ -40,6 +40,7 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_save_manager_impl.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/password_manager/core/browser/possible_username_data.h"
 #include "components/password_manager/core/browser/stub_form_saver.h"
@@ -158,7 +159,8 @@ void ManagePasswordsTest::SetupManagingPasswords(
   std::vector<password_manager::PasswordForm> forms = {password_form_,
                                                        federated_form};
   GetController()->OnPasswordAutofilled(
-      forms, embedded_test_server()->GetOrigin(), {});
+      password_manager::FromPasswordForms(forms),
+      embedded_test_server()->GetOrigin(), {});
 }
 
 void ManagePasswordsTest::SetupPendingPassword() {
@@ -186,7 +188,7 @@ void ManagePasswordsTest::SetupSafeState() {
   scoped_refptr<password_manager::PasswordStoreInterface> password_store =
       ProfilePasswordStoreFactory::GetForProfile(
           browser()->profile(), ServiceAccessType::IMPLICIT_ACCESS);
-  password_store->AddLogin(password_form_);
+  password_store->AddLogin(password_manager::FromPasswordForm(password_form_));
   GetController()->SavePassword(password_form_.username_value,
                                 password_form_.password_value);
   GetController()->OnBubbleHidden();
@@ -208,8 +210,8 @@ void ManagePasswordsTest::SetupMoreToFixState() {
   to_be_fixed.signon_realm = "https://somesite.com/";
   to_be_fixed.password_issues.insert({password_manager::InsecureType::kLeaked,
                                       password_manager::InsecurityMetadata()});
-  password_store->AddLogin(to_be_fixed);
-  password_store->AddLogin(password_form_);
+  password_store->AddLogin(password_manager::FromPasswordForm(to_be_fixed));
+  password_store->AddLogin(password_manager::FromPasswordForm(password_form_));
   SetupPendingPassword();
   GetController()->SavePassword(password_form_.username_value,
                                 password_form_.password_value);
@@ -225,12 +227,16 @@ void ManagePasswordsTest::SetupMovingPasswords() {
       testing::NiceMock<password_manager::MockPasswordFormManagerForUI>>();
   password_manager::MockPasswordFormManagerForUI* form_manager_ptr =
       form_manager.get();
-  std::vector<password_manager::PasswordForm> best_matches = {*test_form()};
-  EXPECT_CALL(*form_manager, GetBestMatches).WillOnce(Return(best_matches));
+  best_matches_ = password_manager::FromPasswordForms(
+      std::vector<password_manager::PasswordForm>{*test_form()});
+  EXPECT_CALL(*form_manager, GetBestMatches)
+      .WillOnce(Return(
+          base::span<const password_manager::StoredCredential>(best_matches_)));
   ON_CALL(*form_manager, GetPendingCredentials)
       .WillByDefault(ReturnRef(*test_form()));
   ON_CALL(*form_manager, GetFederatedMatches)
-      .WillByDefault(Return(std::vector<password_manager::PasswordForm>{}));
+      .WillByDefault(
+          Return(base::span<const password_manager::StoredCredential>()));
   ON_CALL(*form_manager, GetURL).WillByDefault(ReturnRef(test_form()->url));
   GetController()->OnShowMoveToAccountBubble(std::move(form_manager));
   // Clearing the mock here ensures that |GetBestMatches| won't be called with a

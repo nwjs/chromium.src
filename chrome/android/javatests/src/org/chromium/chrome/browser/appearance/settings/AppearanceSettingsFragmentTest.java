@@ -33,14 +33,14 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 
 import org.chromium.base.Callback;
-import org.chromium.base.FeatureOverrides;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
-import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.night_mode.NightModeMetrics.ThemeSettingsEntry;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
@@ -49,13 +49,11 @@ import org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
 import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.browser_ui.settings.BlankUiTestActivitySettingsTestRule;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
-import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefChangeRegistrar.PrefObserver;
 import org.chromium.components.prefs.PrefChangeRegistrarJni;
@@ -70,6 +68,8 @@ import java.util.Set;
 /** Tests for {@link AppearanceSettingsFragment}. */
 @Batch(Batch.PER_CLASS)
 @RunWith(ChromeJUnit4ClassRunner.class)
+@EnableFeatures(ChromeFeatureList.ANDROID_BOOKMARK_BAR + ":show_bookmark_bar/true")
+@DisableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_V2)
 public class AppearanceSettingsFragmentTest {
 
     @Rule
@@ -82,7 +82,6 @@ public class AppearanceSettingsFragmentTest {
     @Mock private PrefService mPrefService;
     @Mock private Profile mProfile;
     @Mock private UserPrefs.Natives mUserPrefsJni;
-    @Mock private Tracker mTracker;
 
     private Set<PrefObserver> mBookmarkBarSettingObserverCache;
     private SettableNonNullObservableSupplier<Boolean> mBookmarkBarSettingSupplier;
@@ -92,8 +91,6 @@ public class AppearanceSettingsFragmentTest {
     @UiThreadTest
     public void setUp() {
         // Set up mocks.
-        TrackerFactory.setTrackerForTests(mTracker);
-        ProfileManager.setLastUsedProfileForTesting(mProfile);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
         when(mUserPrefsJni.get(mProfile)).thenReturn(mPrefService);
 
@@ -121,12 +118,6 @@ public class AppearanceSettingsFragmentTest {
         doAnswer(runCallbackWithValueAtIndex(mBookmarkBarSettingSupplier::set, 1))
                 .when(mPrefService)
                 .setBoolean(eq(Pref.SHOW_BOOKMARK_BAR), anyBoolean());
-
-        // Explicitly override FeatureParam for consistency.
-        FeatureOverrides.Builder overrides = FeatureOverrides.newBuilder();
-        overrides =
-                overrides.param(ChromeFeatureList.ANDROID_BOOKMARK_BAR, "show_bookmark_bar", true);
-        overrides.apply();
     }
 
     @AfterClass
@@ -191,7 +182,7 @@ public class AppearanceSettingsFragmentTest {
 
     @Test
     @SmallTest
-    @Restriction(DeviceFormFactor.PHONE_OR_TABLET) // https://crbug.com/481444857
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testBookmarkBarPreferenceUpdatesSettingWhenChanged_NonDesktop() {
         BookmarkBarUtils.setDeviceBookmarkBarCompatibleForTesting(true);
         launchSettings();
@@ -212,7 +203,7 @@ public class AppearanceSettingsFragmentTest {
 
     @Test
     @SmallTest
-    @Restriction(DeviceFormFactor.PHONE_OR_TABLET) // https://crbug.com/481444857
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testBookmarkBarPreferenceIsUpdatedWhenSettingChanges_NonDesktop() {
         BookmarkBarUtils.setDeviceBookmarkBarCompatibleForTesting(true);
         launchSettings();

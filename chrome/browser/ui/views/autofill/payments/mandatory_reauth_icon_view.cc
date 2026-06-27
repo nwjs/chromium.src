@@ -14,10 +14,10 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/autofill/payments/mandatory_reauth_confirmation_bubble_view.h"
 #include "chrome/browser/ui/views/autofill/payments/mandatory_reauth_opt_in_bubble_view.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view_class_properties.h"
@@ -72,7 +72,8 @@ void MandatoryReauthIconView::OnExecuting(
     PageActionIconView::ExecuteSource execute_source) {}
 
 const gfx::VectorIcon& MandatoryReauthIconView::GetVectorIcon() const {
-  return kCreditCardChromeRefreshIcon;
+  return ::features::IsRoundedIconsEnabled() ? kCreditCardIcon
+                                             : kCreditCardChromeRefreshOldIcon;
 }
 
 MandatoryReauthBubbleController* MandatoryReauthIconView::GetController()

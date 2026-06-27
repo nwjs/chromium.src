@@ -72,7 +72,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/browser/extension_util.h"
-#include "extensions/browser/manifest_v2_experiment_manager.h"
 #include "extensions/browser/mock_external_provider.h"
 #include "extensions/browser/permissions/permissions_test_util.h"
 #include "extensions/browser/permissions/permissions_updater.h"
@@ -772,8 +771,11 @@ TEST_F(DeveloperPrivateApiUnitTest,
                            /*expected_default_value=*/false);
 
   TestExtensionPrefSetting(
-      base::BindRepeating(&HasPrefsPermission, &util::IsIncognitoEnabled,
-                          profile(), id),
+      base::BindRepeating(
+          &HasPrefsPermission,
+          static_cast<bool (*)(const ExtensionId&, content::BrowserContext*)>(
+              &util::IsIncognitoEnabled),
+          profile(), id),
       "incognitoAccess", id, /*expected_default_value=*/false);
   TestExtensionPrefSetting(
       base::BindRepeating(&HasPrefsPermission, &util::AllowFileAccess,
@@ -3414,151 +3416,6 @@ TEST_F(DeveloperPrivateApiSupervisedUserUnitTest,
         function.get(), "[]", profile());
     EXPECT_THAT(error, testing::HasSubstr("Child account"));
 }
-
-// Test suite for cases where the user is in the  MV2 deprecation "warning"
-// experiment phase.
-class DeveloperPrivateApiWithMV2DeprecationWarningUnitTest
-    : public DeveloperPrivateApiUnitTest {
- public:
-  DeveloperPrivateApiWithMV2DeprecationWarningUnitTest() {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{
-            extensions_features::kExtensionManifestV2Disabled,
-            extensions_features::kExtensionManifestV2Unsupported});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Test suite for cases where the user is in the  MV2 deprecation "disabled"
-// experiment phase.
-class DeveloperPrivateApiWithMV2DeprecationDisabledUnitTest
-    : public DeveloperPrivateApiUnitTest {
- public:
-  DeveloperPrivateApiWithMV2DeprecationDisabledUnitTest() {
-    feature_list_.InitWithFeatures(
-        {extensions_features::kExtensionManifestV2Disabled},
-        {extensions_features::kExtensionManifestV2Unsupported});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Extension of manifest version 2 is not supported on Android.
-#if !BUILDFLAG(IS_ANDROID)
-TEST_F(DeveloperPrivateApiWithMV2DeprecationWarningUnitTest,
-       TestAcknowledgingAnExtension) {
-  // Add an extension that is affected by the MV2 deprecation.
-  scoped_refptr<const Extension> extension =
-      ExtensionBuilder("ext").SetManifestVersion(2).Build();
-  registrar()->AddExtension(extension.get());
-
-  ManifestV2ExperimentManager* experiment_manager =
-      ManifestV2ExperimentManager::Get(browser_context());
-  EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
-  EXPECT_FALSE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
-
-  base::ListValue args;
-  args.Append(extension->id());
-
-  // Dismiss the extension's notice.
-  auto dismiss_notice_function = base::MakeRefCounted<
-      api::DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction>();
-  dismiss_notice_function->set_source_context_type(mojom::ContextType::kWebUi);
-  EXPECT_TRUE(RunFunction(dismiss_notice_function, args));
-
-  // Extension's notice should be marked as acknowledged.
-  EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
-  EXPECT_TRUE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
-}
-
-TEST_F(DeveloperPrivateApiWithMV2DeprecationWarningUnitTest,
-       TestAcknowledgingANonAffectedExtension) {
-  // Add an extension that is not affected by the MV2 deprecation.
-  scoped_refptr<const Extension> extension = ExtensionBuilder("ext").Build();
-  registrar()->AddExtension(extension.get());
-
-  std::string args = base::StringPrintf(R"(["%s"])", extension->id().c_str());
-  auto dismiss_notice_function = base::MakeRefCounted<
-      api::DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction>();
-  dismiss_notice_function->set_source_context_type(mojom::ContextType::kWebUi);
-
-  // Cannot dismiss an extension's notice whe the extension is not affected by
-  // the MV2 deprecation.
-  std::string error = api_test_utils::RunFunctionAndReturnError(
-      dismiss_notice_function, args, profile());
-  EXPECT_EQ(error,
-            ErrorUtils::FormatErrorMessage(
-                "Extension with ID '*' is not affected by the MV2 deprecation.",
-                extension->id()));
-
-  // Extension notice should not be marked as acknowledged.
-  ManifestV2ExperimentManager* experiment_manager =
-      ManifestV2ExperimentManager::Get(browser_context());
-  EXPECT_FALSE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
-
-TEST_F(DeveloperPrivateApiWithMV2DeprecationWarningUnitTest,
-       TestAcknowledgingNoticeGlobally) {
-  ManifestV2ExperimentManager* experiment_manager =
-      ManifestV2ExperimentManager::Get(browser_context());
-  EXPECT_FALSE(experiment_manager->DidUserAcknowledgeNoticeGlobally());
-
-  auto update_profile_function = base::MakeRefCounted<
-      api::DeveloperPrivateUpdateProfileConfigurationFunction>();
-  update_profile_function->set_source_context_type(mojom::ContextType::kWebUi);
-
-  base::ListValue args;
-  args.Append(base::DictValue().Set("isMv2DeprecationNoticeDismissed", true));
-  EXPECT_TRUE(RunFunction(update_profile_function, args));
-
-  EXPECT_TRUE(experiment_manager->DidUserAcknowledgeNoticeGlobally());
-}
-
-// Extension of manifest version 2 is not supported on Android.
-#if !BUILDFLAG(IS_ANDROID)
-TEST_F(DeveloperPrivateApiWithMV2DeprecationDisabledUnitTest,
-       TestAcknowledgingAnExtension) {
-  // Add an extension that is affected by the MV2 deprecation.
-  scoped_refptr<const Extension> extension =
-      ExtensionBuilder("ext").SetManifestVersion(2).Build();
-  registrar()->AddExtension(extension.get());
-
-  ManifestV2ExperimentManager* experiment_manager =
-      ManifestV2ExperimentManager::Get(browser_context());
-  EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
-  EXPECT_FALSE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
-
-  base::ListValue args;
-  args.Append(extension->id());
-
-  // Call the dismiss notice function, and cancel the dismissal.
-  auto dismiss_notice_function = base::MakeRefCounted<
-      api::DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction>();
-  dismiss_notice_function->set_source_context_type(mojom::ContextType::kWebUi);
-  dismiss_notice_function->accept_bubble_for_testing(false);
-  EXPECT_TRUE(RunFunction(dismiss_notice_function, args));
-
-  // Extension notice should NOT be marked as acknowledged.
-  EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
-  EXPECT_FALSE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
-
-  // Call the dismiss notice function, and accept the dismissal.
-  dismiss_notice_function = base::MakeRefCounted<
-      api::DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction>();
-  dismiss_notice_function->set_source_context_type(mojom::ContextType::kWebUi);
-  dismiss_notice_function->accept_bubble_for_testing(true);
-  EXPECT_TRUE(RunFunction(dismiss_notice_function, args));
-
-  // Extension's notice should be marked as acknowledged.
-  EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
-  EXPECT_TRUE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Signing into transport mode and Sign outs are not supported for ChromeOS
 // hence DeveloperPrivateApiTransportModeUnitTest is not run for ChromeOS.

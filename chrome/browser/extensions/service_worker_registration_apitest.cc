@@ -102,6 +102,8 @@ class ExtensionRegistrationAndUnregistrationWaiter
     WaitForWorkerUnregistrationAttemptCompleted();
   }
 
+  bool registration_delayed() const { return registration_delayed_; }
+
  private:
   void WaitForWorkerUnregistrationAttemptCompleted() {
     SCOPED_TRACE("Waiting for worker unregistration attempt to complete");
@@ -120,9 +122,16 @@ class ExtensionRegistrationAndUnregistrationWaiter
     }
   }
 
+  void OnWorkerRegistrationDelayed(const ExtensionId& extension_id) override {
+    if (extension_id == expected_extension_id_) {
+      registration_delayed_ = true;
+    }
+  }
+
   const ExtensionId expected_extension_id_;
   base::RunLoop registration_attempt_runloop;
   base::RunLoop unregistration_attempt_runloop;
+  bool registration_delayed_ = false;
 };
 
 }  // namespace
@@ -461,7 +470,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerRegistrationApiTest,
   const Extension* extension = nullptr;
   {
     ExtensionTestMessageListener listener("v1 ready");
-    extension = InstallExtension(crx_v1, 1);
+    extension = InstallExtensionWithPermissionsGranted(crx_v1, 1);
     ASSERT_TRUE(listener.WaitUntilSatisfied());
   }
 
@@ -921,10 +930,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerRegistrationApiTest, ExtensionReinstall) {
               GetServiceWorkerRegistrationState(*reinstalled_extension));
   }
 
-  CheckBooleanHistogramCounts(
-      "Extensions.ServiceWorkerBackground."
-      "WorkerRegistrationRetryForUnregistrationAttemptsResult",
-      /*true_count=*/1, /*false_count=*/0, histogram_tester);
+  EXPECT_TRUE(registration_waiter2.registration_delayed());
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -1005,7 +1011,8 @@ IN_PROC_BROWSER_TEST_F(
   const Extension* extension_v1 = nullptr;
   {
     ExtensionTestMessageListener v1_install_listener_("v1 installed");
-    extension_v1 = InstallExtension(crx_v1_path, /*expected_change=*/1);
+    extension_v1 = InstallExtensionWithPermissionsGranted(
+        crx_v1_path, /*expected_change=*/1);
     SCOPED_TRACE("waiting for version 1 of the extension to install");
     ASSERT_TRUE(v1_install_listener_.WaitUntilSatisfied());
     ASSERT_EQ("1", extension_v1->version().GetString());

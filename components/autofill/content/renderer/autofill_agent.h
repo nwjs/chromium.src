@@ -46,6 +46,7 @@
 #include "third_party/blink/public/web/web_form_control_element.h"
 #include "third_party/blink/public/web/web_form_element.h"
 #include "third_party/blink/public/web/web_input_element.h"
+#include "third_party/blink/public/web/web_local_frame_observer.h"
 #include "ui/accessibility/ax_mode.h"
 
 namespace blink {
@@ -134,9 +135,32 @@ class AutofillAgent : public content::RenderFrameObserver,
         BUILDFLAG(IS_ANDROID)};
   };
 
-  // PasswordAutofillAgent is guaranteed to outlive AutofillAgent.
-  // PasswordGenerationAgent and AutofillAssistantAgent may be nullptr. If they
-  // are not, then they are also guaranteed to outlive AutofillAgent.
+  class EmailVerificationObserver : public blink::WebLocalFrameObserver {
+   public:
+    explicit EmailVerificationObserver(AutofillAgent* agent);
+    ~EmailVerificationObserver() override;
+    void StoreEmailVerificationToken(FieldRendererId email_field_id,
+                                     const std::string& email,
+                                     FieldRendererId token_field_id,
+                                     const std::string& token);
+    // blink::WebLocalFrameObserver:
+    void WillSendSubmitEvent(const blink::WebFormElement& form) override;
+    void OnFrameDetached() override {}
+    void Reset() { email_verification_tokens_.clear(); }
+
+   private:
+    struct TokenInfo {
+      std::string token;
+      FieldRendererId email_field_id;
+      std::string email;
+    };
+
+    const raw_ptr<AutofillAgent> agent_;
+    base::flat_map<FieldRendererId, TokenInfo> email_verification_tokens_;
+  };
+
+  // `PasswordAutofillAgent` and `PasswordGenerationAgent` may be `nullptr`. If
+  // they are not, then they are also guaranteed to outlive `AutofillAgent`.
   AutofillAgent(
       content::RenderFrame* render_frame,
       std::unique_ptr<PasswordAutofillAgent> password_autofill_agent,
@@ -222,9 +246,10 @@ class AutofillAgent : public content::RenderFrameObserver,
   void GetPotentialLastFourCombinationsForStandaloneCvc(
       base::OnceCallback<void(const std::vector<std::string>&)>
           potential_matches) override;
-  void DispatchEmailVerifiedEvent(
-      FieldRendererId field_id,
-      const std::string& presentation_token) override;
+  void SendEmailVerificationToken(FieldRendererId email_field_id,
+                                  const std::string& email,
+                                  FieldRendererId token_field_id,
+                                  const std::string& token) override;
 
   // Fires Mojo messages for a given form submission.
   void FireHostSubmitEvents(const FormData& form_data,
@@ -341,6 +366,8 @@ class AutofillAgent : public content::RenderFrameObserver,
       const blink::WebFormControlElement& element) override;
   void FormElementReset(const blink::WebFormElement& form) override;
   void PasswordFieldReset(const blink::WebInputElement& element) override;
+  bool IsAutofillableElement(
+      const blink::WebFormControlElement& element) const override;
   void OnDevToolsSessionConnectionChanged(bool attached) override;
   void EmitFormIssuesToDevtools() override;
 
@@ -372,7 +399,9 @@ class AutofillAgent : public content::RenderFrameObserver,
   // implications due to the frequency of selectionchange events.
   void OnInactivityTimerFired(FieldRendererId field_id);
 
-  void DidChangeScrollOffsetImpl(FieldRendererId element_id);
+  // Handles scroll offset changes asynchronously because layout may still be
+  // updating while the scroll signal is dispatched.
+  void DidChangeScrollOffsetImpl();
 
   // At least on Android, multiple AskForValuesToFill() events may be fired in
   // short succession. Since getting the event handling right in AutofillAgent
@@ -573,6 +602,8 @@ class AutofillAgent : public content::RenderFrameObserver,
   } input_warnings_;
 
   const bool replace_form_element_observer_ = false;
+
+  EmailVerificationObserver email_verification_observer_;
 
   base::WeakPtrFactory<AutofillAgent> weak_ptr_factory_{this};
 };

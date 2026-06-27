@@ -2555,7 +2555,7 @@ Called by update_extension_histograms.py.-->
   <int value="1649" label="LOGIN_NOTIFYEXTERNALLOGOUTDONE"/>
   <int value="1650"
       label="DELETED_PASSWORDSPRIVATE_RECORDCHANGEPASSWORDFLOWSTARTED"/>
-  <int value="1651" label="ENTERPRISEREPORTINGPRIVATE_ENQUEUERECORD"/>
+  <int value="1651" label="DELETED_ENTERPRISEREPORTINGPRIVATE_ENQUEUERECORD"/>
   <int value="1652" label="FILEMANAGERPRIVATE_SENDFEEDBACK"/>
   <int value="1653" label="DECLARATIVENETREQUEST_TESTMATCHOUTCOME"/>
   <int value="1654" label="FILEMANAGERPRIVATE_CANCELMOUNTING"/>
@@ -2816,7 +2816,7 @@ Called by update_extension_histograms.py.-->
   <int value="1893"
       label="DELETED_PASSWORDSPRIVATE_DELETEALLPASSWORDMANAGERDATA"/>
   <int value="1894"
-      label="DEVELOPERPRIVATE_DISMISSMV2DEPRECATIONNOTICEFOREXTENSION"/>
+      label="DELETED_DEVELOPERPRIVATE_DISMISSMV2DEPRECATIONNOTICEFOREXTENSION"/>
   <int value="1895" label="AUTOTESTPRIVATE_STARTOVERDRAWTRACKING"/>
   <int value="1896" label="AUTOTESTPRIVATE_STOPOVERDRAWTRACKING"/>
   <int value="1897" label="ACCESSIBILITY_PRIVATE_SCROLLATPOINT"/>
@@ -2903,6 +2903,11 @@ Called by update_extension_histograms.py.-->
   <int value="1965" label="MIMEHANDLER_GETSTREAMINFO"/>
   <int value="1966" label="INDIGOPRIVATE_GETORIGINALIMAGE"/>
   <int value="1967" label="INDIGOPRIVATE_GETREPLACEMENTIMAGE"/>
+  <int value="1968" label="OFFSCREEN_HASDOCUMENT"/>
+  <int value="1969" label="MIMEHANDLER_ABORTANDFALLBACKTONATIVEHANDLER"/>
+  <int value="1970" label="MIMEHANDLER_SETMIMEHANDLEROPTIONS"/>
+  <int value="1971" label="MIMEHANDLER_GETMIMEHANDLEROPTIONS"/>
+  <int value="1972" label="GLICPRIVATE_HASCONVERSATION"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->
@@ -3643,6 +3648,20 @@ Called by update_extension_permission.py.-->
   <int value="1" label="Keep new settings"/>
   <int value="2" label="Dialog dismissed"/>
   <int value="3" label="Dialog closed without user action"/>
+</enum>
+
+<enum name="TabsRemoveActionType">
+  <int value="0" label="kOtherRemovals"/>
+  <int value="1" label="kDSERemovalsWithoutUserGesture"/>
+  <int value="2" label="kDSERemovalsWithUserGesture"/>
+  <int value="3" label="kDSERemovalsAfterLandingOnSERP"/>
+</enum>
+
+<enum name="TabsUpdateActionType">
+  <int value="0" label="kOtherUpdates"/>
+  <int value="1" label="kDSERedirectsWithoutUserGesture"/>
+  <int value="2" label="kDSERedirectsWithUserGesture"/>
+  <int value="3" label="kDSERedirectsAfterLandingOnSERP"/>
 </enum>
 
 <enum name="UpdateDynamicRulesStatus">

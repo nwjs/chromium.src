@@ -380,11 +380,6 @@ _ANDROID_NEGATIVE_FILTER['chromedriver_webview_shell'] = (
     ]
 )
 
-# TODO(https://crbug.com/40804030): Remove this when updated to use MV3.
-_DISABLE_MV2_EXPERIMENTS_SWITCH = (
-    'disable-features=ExtensionManifestV2Disabled,' +
-        'ExtensionManifestV2Unsupported')
-
 def _GetChromePathList(driver_path, platform):
   path_mapping = {
     'linux': [os.path.join(driver_path, 'chrome')],
@@ -6504,6 +6499,52 @@ class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
                 'return arguments[0] === window.frames[0]',
                 frame)
 
+  def testAlertDoesntCrashBrowser(self):
+    # Regression test for crbug.com/502206631.
+    # It ensures that ExecuteAlertCommand doesn't cause a use-after-free
+    # crash when a prerender activation swap detaches the web view.
+    self._http_server.SetDataForPath('/inner.html',
+      b'<html><body><h1>Prerendered Page</h1></body></html>')
+    self._http_server.SetDataForPath('/prerender_uaf.html',
+      bytes('''<!DOCTYPE html>
+<html>
+<head>
+  <script>
+    const script = document.createElement('script');
+    script.type = 'speculationrules';
+    script.innerText = JSON.stringify({
+      "prerender": [{"source": "list", "urls": ["/inner.html"]}]
+    });
+    document.head.append(script);
+  </script>
+</head>
+<body>
+  <a id="link" href="/inner.html">navigate</a>
+  <script>
+    window._triggerPrerenderSwap = function() {
+      setTimeout(() => {
+        document.getElementById('link').click();
+        const start = Date.now();
+        while (Date.now() - start < 3000);
+      }, 100);
+    };
+  </script>
+</body>
+</html>''', 'utf-8'))
+
+    driver = self.CreateDriver()
+    try:
+      driver.Load(self.GetHttpUrlForFile('/prerender_uaf.html'))
+      time.sleep(1)
+      driver.ExecuteScript('window._triggerPrerenderSwap();')
+      time.sleep(0.15)
+      try:
+        driver.GetAlertMessage()
+      except Exception:
+        pass
+    finally:
+      pass
+
 
 class ChromeDriverPageLoadTimeoutTest(ChromeDriverBaseTestWithWebServer):
 
@@ -7025,26 +7066,21 @@ class ChromeExtensionsCapabilityTest(ChromeDriverBaseTestWithWebServer):
     crx_2 = os.path.join(_TEST_DATA_DIR, 'ext_test_2.crx')
     self.CreateDriver(
         chrome_extensions=[self._PackExtension(crx_1),
-                           self._PackExtension(crx_2)],
-        chrome_switches=[_DISABLE_MV2_EXPERIMENTS_SWITCH])
+                           self._PackExtension(crx_2)])
 
   def testExtensionsInstallZip(self):
     """Checks that chromedriver can take the extensions in zip format."""
     zip_1 = os.path.join(_TEST_DATA_DIR, 'ext_test_1.zip')
     self.CreateDriver(
-        chrome_extensions=[self._PackExtension(zip_1)],
-        chrome_switches=[_DISABLE_MV2_EXPERIMENTS_SWITCH])
+        chrome_extensions=[self._PackExtension(zip_1)])
 
   def testCanInspectExtensionWindows(self):
-    crx_unpacked = os.path.join(_TEST_DATA_DIR, 'extv2_new_window')
+    crx_unpacked = os.path.join(_TEST_DATA_DIR, 'extv3_new_window')
     # This test exercises inspection of extension created new window.
     # Extension created regular windows/tabs, unlike background_page, is not
     # considered an extension target.
     driver = self.CreateDriver(
-        chrome_switches=[
-          _DISABLE_MV2_EXPERIMENTS_SWITCH,
-          'load-extension=' + crx_unpacked
-        ])
+        chrome_switches=['load-extension=' + crx_unpacked])
 
     # Wait for extension window to be open.
     self.WaitForCondition(lambda: len(driver.GetWindowHandles()) > 1)
@@ -7079,48 +7115,6 @@ class ChromeExtensionsCapabilityTest(ChromeDriverBaseTestWithWebServer):
         return
     self.fail("couldn't find extension-created window")
 
-  def testCanInspectBackgroundPage(self):
-    crx = os.path.join(_TEST_DATA_DIR, 'ext_bg_page.crx')
-    # This test exercises inspection of an extension background page, which
-    # is only valid for manifest V2 extensions. Explicitly disable the
-    # experiment that disallows MV2 extensions.
-    # This test can be removed entirely when support for MV2 extensions is
-    # removed.
-    driver = self.CreateDriver(
-        # Chrome Extension inspection requires enableExtensionTargets = True.
-        experimental_options={'enableExtensionTargets': True},
-        chrome_extensions=[self._PackExtension(crx)],
-        chrome_switches=[_DISABLE_MV2_EXPERIMENTS_SWITCH])
-    handles = driver.GetWindowHandles()
-    for handle in handles:
-      driver.SwitchToWindow(handle)
-      if driver.GetCurrentUrl() == 'chrome-extension://' \
-          'nibbphkelpaohebejnbojjalikodckih/_generated_background_page.html':
-        self.assertEqual(42, driver.ExecuteScript('return magic;'))
-        return
-    self.fail("couldn't find generated background page for test extension")
-
-  def testCanInspectExtensionTargetsWithMigratedSwitch(self):
-    crx = os.path.join(_TEST_DATA_DIR, 'ext_bg_page.crx')
-    # Chrome Extension inspection requires enableExtensionTargets = True.
-    # We migrate experimental_options={'windowTypes': ['background_page']} to
-    # the new chrome option.
-    # This test exercises inspection of an extension background page, which
-    # is only valid for manifest V2 extensions. Explicitly disable the
-    # experiment that disallows MV2 extensions.
-    driver = self.CreateDriver(
-        chrome_extensions=[self._PackExtension(crx)],
-        experimental_options={'windowTypes': ['background_page']},
-        chrome_switches=[_DISABLE_MV2_EXPERIMENTS_SWITCH])
-    handles = driver.GetWindowHandles()
-    for handle in handles:
-      driver.SwitchToWindow(handle)
-      if driver.GetCurrentUrl() == 'chrome-extension://' \
-          'nibbphkelpaohebejnbojjalikodckih/_generated_background_page.html':
-        self.assertEqual(42, driver.ExecuteScript('return magic;'))
-        return
-    self.fail("couldn't find generated background page for test extension")
-
   def testIFrameWithExtensionsSource(self):
     crx_path = os.path.join(_TEST_DATA_DIR, 'frames_extension.crx')
     driver = self.CreateDriver(
@@ -7140,10 +7134,7 @@ class ChromeExtensionsCapabilityTest(ChromeDriverBaseTestWithWebServer):
     # the extension's content script's one.
     extension_path = os.path.join(_TEST_DATA_DIR, 'all_frames')
     driver = self.CreateDriver(
-        chrome_switches=[
-            'load-extension=%s' % extension_path,
-            _DISABLE_MV2_EXPERIMENTS_SWITCH
-        ])
+        chrome_switches=['load-extension=%s' % extension_path])
     driver.Load(
         ChromeDriverTest._http_server.GetUrl() + '/chromedriver/container.html')
     driver.SwitchToMainFrame()
@@ -9736,50 +9727,41 @@ class ComputePressureSpecificTest(ChromeDriverBaseTestWithWebServer):
         self._driver.UpdateVirtualPressureSource,
         'invalid_type',
         'nominal',
-        0.2,
     )
 
-  def testUpdateVirtualPressureSourceWithInvalidState(self):
+  def testUpdateVirtualPressureSourceWithInvalidSample(self):
     self.assertRaisesRegex(
         chromedriver.InvalidArgument,
         'invalid argument: Invalid pressure state: invalid_sample',
         self._driver.UpdateVirtualPressureSource,
         'cpu',
         'invalid_sample',
-        0.2,
     )
 
-  def testUpdateVirtualPressureSourceWithoutStateAndEstimate(self):
+  def testUpdateVirtualPressureSourceWithoutSample(self):
     self.assertRaisesRegex(
         Exception,
-        "UpdateVirtualPressureSource\(\) missing 2 required " +
-        "positional arguments: 'sample' and 'own_contribution_estimate'",
+        "UpdateVirtualPressureSource\(\) missing 1 required " +
+        "positional argument: 'sample'",
         self._driver.UpdateVirtualPressureSource,
         'cpu',
     )
 
-  def testUpdateVirtualPressureSourceWithoutEstimate(self):
-    self.assertRaisesRegex(
-        Exception,
-        "UpdateVirtualPressureSource\(\) missing 1 required " +
-        "positional argument: 'own_contribution_estimate'",
-        self._driver.UpdateVirtualPressureSource,
-        'cpu', 'nominal',
-    )
-
-  def testUpdateVirtualPressureSourceWithNonStringState(self):
+  def testUpdateVirtualPressureSourceWithNonStringSample(self):
     self.assertRaisesRegex(
         chromedriver.InvalidArgument,
         "invalid argument: 'sample' must be a string",
         self._driver.UpdateVirtualPressureSource,
-        'cpu', 42, 0.3,)
+        "cpu",
+        42,
+    )
 
   def testUpdateVirtualPressureSourceWithoutOverriding(self):
     self.assertRaisesRegex(
         Exception,
         'invalid argument: The specified pressure source is not being '
         'overridden',
-        self._driver.UpdateVirtualPressureSource, 'cpu', 'nominal', 0.3,)
+        self._driver.UpdateVirtualPressureSource, 'cpu', 'nominal')
 
   def testRemoveVirtualPressureSourceWithInvalidType(self):
     self.assertRaisesRegex(
@@ -9825,7 +9807,7 @@ class ComputePressureSpecificTest(ChromeDriverBaseTestWithWebServer):
     states_length = 1
 
     for state in pressure_states:
-      self._driver.UpdateVirtualPressureSource(source, state, 0.3,)
+      self._driver.UpdateVirtualPressureSource(source, state)
       self.assertTrue(
           self.WaitForCondition(lambda: self._driver.ExecuteScript(
               'return states.length === arguments[0]', states_length)))
@@ -9842,7 +9824,7 @@ class ComputePressureSpecificTest(ChromeDriverBaseTestWithWebServer):
     self._driver.ExecuteAsyncScript(
         'const done = arguments[0]; addPressureObserver().then(done)')
 
-    self._driver.UpdateVirtualPressureSource(source, 'serious', 0.3,)
+    self._driver.UpdateVirtualPressureSource(source, 'serious')
     self.assertTrue(
         self.WaitForCondition(lambda: self._driver.ExecuteScript(
             'return states.at(-1) === "serious"')))
@@ -9851,7 +9833,7 @@ class ComputePressureSpecificTest(ChromeDriverBaseTestWithWebServer):
         Exception,
         'invalid argument: The specified pressure source is not being '
         'overridden',
-        self._driver.UpdateVirtualPressureSource, source, 'nominal', 0.3,)
+        self._driver.UpdateVirtualPressureSource, source, 'nominal')
 
 class AutoOpenDevtoolsTests(ChromeDriverBaseTestWithWebServer):
   def setUp(self):
@@ -10073,12 +10055,12 @@ class ProtectedAudienceSpecificTest(ChromeDriverBaseTestWithWebServer):
       <body>
       <script>
         async function doJoin() {
-          navigator.joinAdInterestGroup({
+          return navigator.joinAdInterestGroup({
             'owner': 'https://owner.test/',
             'name': 'testing',
             'biddingLogicURL': 'https://owner.test/generateBid.js',
             'ads': [{renderURL: 'https://ad.example.com/ad.html'}],
-            }, 3600000)
+            }, 3600000);
         }
       </script>
       </body>
@@ -10107,14 +10089,24 @@ class ProtectedAudienceSpecificTest(ChromeDriverBaseTestWithWebServer):
     self.chrome_switches = ['host-resolver-rules=MAP *:443 127.0.0.1:%s' % port,
             'privacy-sandbox-enrollment-overrides=https://owner.test/',
             'force-reporting-destination-attested',  # needed for headless shell
-            'enable-features=OverridePrivacySandboxSettingsLocalTesting']
+            'disable-features=PrivacySandboxAdPrivacyUxDeprecation']
     self._driver = self.CreateDriver(
         accept_insecure_certs=True,
-        chrome_switches=self.chrome_switches)
+        chrome_switches=self.chrome_switches,
+        logging_prefs={'browser': 'ALL'},
+        experimental_options={'prefs': {
+            'privacy_sandbox.m1.fledge_enabled': True,
+            'privacy_sandbox.m1.topics_enabled': True,
+            'privacy_sandbox.m1.ad_measurement_enabled': True,
+            'privacy_sandbox.m1.consent_decision_made': True,
+            'privacy_sandbox.m1.eea_notice_acknowledged': True,
+            'privacy_sandbox.m1.row_notice_acknowledged': True,
+            'privacy_sandbox.m1.restricted_notice_acknowledged': True,
+        }})
 
   def testSetProtectedAudienceKAnonymity(self):
     self._driver.Load('https://owner.test/join.html')
-    self._driver.ExecuteScript('doJoin()')
+    self._driver.ExecuteScript('return doJoin()')
 
     bid_key = ('AdBid\nhttps://owner.test/\nhttps://owner.test/generateBid.js'
                '\nhttps://ad.example.com/ad.html')

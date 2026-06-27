@@ -69,6 +69,7 @@
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/streams/readable_stream.h"
 #include "third_party/blink/renderer/core/streams/writable_stream.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
@@ -93,6 +94,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 #if BUILDFLAG(ENABLE_LIBAOM)
 #include "media/video/av1_video_encoder.h"
@@ -292,7 +294,8 @@ VideoEncoderTraits::ParsedConfig* ParseConfigStatic(
           : media::VideoEncoder::LatencyMode::Realtime;
 
   if (config->hasContentHint()) {
-    if (config->contentHint() == "detail" || config->contentHint() == "text") {
+    if (config->contentHint() == "detail" ||
+        config->contentHint() == keywords::kText) {
       result->options.content_hint = media::VideoEncoder::ContentHint::Screen;
     } else if (config->contentHint() == "motion") {
       result->options.content_hint = media::VideoEncoder::ContentHint::Camera;
@@ -358,7 +361,7 @@ VideoEncoderTraits::ParsedConfig* ParseConfigStatic(
       result->options.scalability_mode = media::SVCScalabilityMode::kL1T2;
     } else if (config->scalabilityMode() == "L1T3") {
       result->options.scalability_mode = media::SVCScalabilityMode::kL1T3;
-    } else if (config->scalabilityMode() == "manual") {
+    } else if (config->scalabilityMode() == keywords::kManual) {
       result->options.manual_reference_buffer_control = true;
     } else {
       result->not_supported_error_message =
@@ -992,9 +995,10 @@ bool VideoEncoder::StartReadback(scoped_refptr<media::VideoFrame> frame,
                               CrossThreadBindOnce(metadata_fix_lambda, frame))
                               .Then(std::move(pool_result_cb));
 
-    TRACE_EVENT_BEGIN("media", "CopyRGBATextureToVideoFrame",
-                      perfetto::Track::FromPointer(this), "timestamp",
-                      frame->timestamp());
+    TRACE_EVENT_BEGIN(
+        "media", "CopyRGBATextureToVideoFrame",
+        perfetto::NamedTrack::FromPointer("blink::VideoEncoder", this),
+        "timestamp", frame->timestamp());
     if (accelerated_frame_pool_->CopyRGBATextureToVideoFrame(
             frame->coded_size(), frame->shared_image(),
             frame->acquire_sync_token(), gfx::ColorSpace::CreateREC709(),
@@ -1002,8 +1006,9 @@ bool VideoEncoder::StartReadback(scoped_refptr<media::VideoFrame> frame,
       return true;
     }
 
-    TRACE_EVENT_END("media", /*CopyRGBATextureToVideoFrame*/
-                    perfetto::Track::FromPointer(this));
+    TRACE_EVENT_END(
+        "media", /*CopyRGBATextureToVideoFrame*/
+        perfetto::NamedTrack::FromPointer("blink::VideoEncoder", this));
 
     // Error occurred, fall through to normal readback path below.
     disable_accelerated_frame_pool_ = true;
@@ -1113,9 +1118,11 @@ void VideoEncoder::ProcessEncode(Request* request) {
     // resolve synchronously.
     blocking_request_in_progress_ = request;
 
-    auto readback_done_callback = blink::BindOnce(
-        &VideoEncoder::OnReadbackDone, WrapWeakPersistent(this),
-        WrapPersistent(request), frame, std::move(encode_done_callback));
+    auto readback_done_callback =
+        blink::BindOnce(&VideoEncoder::OnReadbackDone,
+                        MakeUnwrappingCrossThreadWeakHandle(this),
+                        MakeUnwrappingCrossThreadHandle(request), frame,
+                        std::move(encode_done_callback));
 
     if (StartReadback(std::move(frame), std::move(readback_done_callback))) {
       request->input->close();
@@ -1242,8 +1249,9 @@ void VideoEncoder::OnReadbackDone(
     scoped_refptr<media::VideoFrame> txt_frame,
     media::VideoEncoder::EncoderStatusCB done_callback,
     scoped_refptr<media::VideoFrame> result_frame) {
-  TRACE_EVENT_END("media", /*CopyRGBATextureToVideoFrame*/
-                  perfetto::Track::FromPointer(this));
+  TRACE_EVENT_END(
+      "media", /*CopyRGBATextureToVideoFrame*/
+      perfetto::NamedTrack::FromPointer("blink::VideoEncoder", this));
   if (reset_count_ != request->reset_count) {
     return;
   }
@@ -1753,7 +1761,8 @@ ScriptPromise<VideoEncoderSupport> VideoEncoder::isConfigSupported(
           script_state);
   auto promise = resolver->Promise();
   auto find_any_callback = HeapBarrierCallback<VideoEncoderSupport>(
-      num_callbacks, BindOnce(&FindAnySupported, WrapPersistent(resolver)));
+      num_callbacks,
+      BindOnce(&FindAnySupported, MakeUnwrappingCrossThreadHandle(resolver)));
 
   if (parsed_config->hw_pref != HardwarePreference::kPreferSoftware ||
       media::MayHaveAndAllowSelectOSSoftwareEncoder(parsed_config->codec)) {

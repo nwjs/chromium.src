@@ -34,6 +34,7 @@
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/site_instance.h"
@@ -119,8 +120,8 @@ ContentPasswordManagerDriver::ContentPasswordManagerDriver(
           autofill::ContentAutofillClient::FromWebContents(
               content::WebContents::FromRenderFrameHost(render_frame_host)),
           client) {
-  static unsigned next_free_id = 0;
-  id_ = next_free_id++;
+  static DriverId::Generator id_generator;
+  id_ = id_generator.GenerateNextId();
 
   render_frame_host_->GetRemoteAssociatedInterfaces()->GetInterface(
       &password_autofill_agent_);
@@ -171,7 +172,7 @@ void ContentPasswordManagerDriver::DidNavigate() {
   }
 }
 
-int ContentPasswordManagerDriver::GetId() const {
+DriverId ContentPasswordManagerDriver::GetId() const {
   return id_;
 }
 
@@ -424,6 +425,20 @@ const GURL& ContentPasswordManagerDriver::GetLastCommittedURL() const {
 const url::Origin& ContentPasswordManagerDriver::GetLastCommittedOrigin()
     const {
   return render_frame_host_->GetLastCommittedOrigin();
+}
+
+bool ContentPasswordManagerDriver::HasCrossOriginAncestor() const {
+  content::RenderFrameHost* parent =
+      render_frame_host_->GetParentOrOuterDocument();
+  const url::Origin& target_origin =
+      render_frame_host_->GetLastCommittedOrigin();
+  while (parent) {
+    if (!parent->GetLastCommittedOrigin().IsSameOriginWith(target_origin)) {
+      return true;
+    }
+    parent = parent->GetParentOrOuterDocument();
+  }
+  return false;
 }
 
 void ContentPasswordManagerDriver::CheckViewAreaVisible(

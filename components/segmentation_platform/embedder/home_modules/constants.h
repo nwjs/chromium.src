@@ -62,12 +62,13 @@ const char kCountOfClearingBrowsingDataThroughQuickDelete[] =
 const char kQuickDeletePromoShownCount[] = "quick_delete_shown_count";
 const char kIsEligibleToHistoryOptIn[] = "is_eligible_to_history_opt_in";
 const char kHistorySyncPromoShownCount[] = "history_sync_promo_shown_count";
-const char kIsEligibleToTipsOptIn[] = "is_eligible_to_tips_opt_in";
-const char kTipsNotificationsPromoShownCount[] =
-    "tips_notifications_promo_shown_count";
 const char kNtpThemePromoShownCount[] = "ntp_theme_promo_shown_count";
 const char kSupportCustomizedNtpTheme[] = "support_customized_ntp_theme";
 const char kHasCustomizedNtpBackground[] = "has_customized_ntp_background";
+const char kHasThemeTipBottomSheetBeenShown[] =
+    "has_theme_tip_bottom_sheet_been_shown";
+const char kThemeTipBottomSheetShownCount[] =
+    "theme_tip_bottom_sheet_shown_count";
 
 const char kAuxiliarySearchAvailable[] = "auxiliary_search_available";
 
@@ -113,7 +114,6 @@ inline constexpr char kTabGroupPromo[] = "TabGroupPromo";
 inline constexpr char kTabGroupSyncPromo[] = "TabGroupSyncPromo";
 inline constexpr char kQuickDeletePromo[] = "QuickDeletePromo";
 inline constexpr char kHistorySyncPromo[] = "HistorySyncPromo";
-inline constexpr char kTipsNotificationsPromo[] = "TipsNotificationsPromo";
 inline constexpr char kNtpThemePromo[] = "NtpThemePromo";
 
 // General limits for emphemeral android modules.

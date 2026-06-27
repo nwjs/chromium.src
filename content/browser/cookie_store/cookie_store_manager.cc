@@ -39,6 +39,29 @@ namespace {
 // ServiceWorkerStorage user data key for cookie change subscriptions.
 const char kSubscriptionsUserKey[] = "cookie_store_subscriptions";
 
+void OnFindRegistrationById(
+    const blink::StorageKey& storage_key,
+    mojo::ReportBadMessageCallback bad_message_callback,
+    blink::mojom::CookieStore::GetSubscriptionsCallback callback,
+    std::vector<blink::mojom::CookieChangeSubscriptionPtr> mojo_subscriptions,
+    blink::ServiceWorkerStatusCode find_status,
+    scoped_refptr<ServiceWorkerRegistration> registration) {
+  if (find_status != blink::ServiceWorkerStatusCode::kOk) {
+    std::move(bad_message_callback).Run("Invalid service worker registration");
+    std::move(callback).Run(
+        std::vector<blink::mojom::CookieChangeSubscriptionPtr>(), false);
+    return;
+  }
+  DCHECK(registration);
+  if (registration->key() != storage_key) {
+    std::move(bad_message_callback).Run("Invalid service worker");
+    std::move(callback).Run(
+        std::vector<blink::mojom::CookieChangeSubscriptionPtr>(), false);
+    return;
+  }
+  std::move(callback).Run(std::move(mojo_subscriptions), true);
+}
+
 }  // namespace
 
 CookieStoreManager::CookieStoreManager(
@@ -232,9 +255,10 @@ void CookieStoreManager::AddSubscriptions(
     auto new_subscription = std::make_unique<CookieChangeSubscription>(
         std::move(mojo_subscription), service_worker_registration->id());
 
-    auto existing_subscription_it = std::ranges::find(
-        subscriptions, *new_subscription,
-        &std::unique_ptr<CookieChangeSubscription>::operator*);
+    auto existing_subscription_it = std::ranges::find_if(
+        subscriptions, [&new_subscription](const auto& sub) {
+          return *sub == *new_subscription;
+        });
     if (existing_subscription_it == subscriptions.end())
       subscriptions.push_back(std::move(new_subscription));
   }
@@ -330,9 +354,10 @@ void CookieStoreManager::RemoveSubscriptions(
   }
 
   for (auto& subscription : all_subscriptions) {
-    auto target_subscription_it = std::ranges::find(
-        target_subscriptions, *subscription,
-        &std::unique_ptr<CookieChangeSubscription>::operator*);
+    auto target_subscription_it = std::ranges::find_if(
+        target_subscriptions,
+        [&subscription](const auto& sub) { return *sub == *subscription; });
+
     if (target_subscription_it == target_subscriptions.end()) {
       // The subscription is not marked for deletion.
       live_subscriptions.push_back(std::move(subscription));
@@ -384,23 +409,19 @@ void CookieStoreManager::GetSubscriptions(
     return;
   }
 
-  const GURL& first_url = it->second[0]->url();
 #if DCHECK_IS_ON()
+  const GURL& first_url = it->second[0]->url();
   for (const auto& subscription : it->second) {
     DCHECK(url::IsSameOriginWith(first_url, subscription->url()))
         << "Service worker's change subscriptions don't have the same origin";
   }
 #endif  // DCHECK_IS_ON()
 
-  if (!storage_key.origin().IsSameOriginWith(first_url)) {
-    std::move(bad_message_callback).Run("Invalid service worker");
-    std::move(callback).Run(
-        std::vector<blink::mojom::CookieChangeSubscriptionPtr>(), false);
-    return;
-  }
-
-  std::move(callback).Run(CookieChangeSubscription::ToMojoVector(it->second),
-                          true);
+  service_worker_context_->FindReadyRegistrationForIdOnly(
+      service_worker_registration_id,
+      base::BindOnce(&OnFindRegistrationById, storage_key,
+                     std::move(bad_message_callback), std::move(callback),
+                     CookieChangeSubscription::ToMojoVector(it->second)));
 }
 
 void CookieStoreManager::StoreSubscriptions(

@@ -15,6 +15,7 @@
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/webui/boca_ui/boca_util.h"
+#include "ash/webui/boca_ui/mojom/boca.mojom-shared.h"
 #include "ash/webui/boca_ui/mojom/boca.mojom.h"
 #include "ash/webui/boca_ui/provider/classroom_page_handler_impl.h"
 #include "ash/webui/boca_ui/provider/content_settings_handler.h"
@@ -38,6 +39,7 @@
 #include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/boca_session_manager.h"
 #include "chromeos/ash/components/boca/boca_session_util.h"
+#include "chromeos/ash/components/boca/gemini/gemini_status_fetcher.h"
 #include "chromeos/ash/components/boca/on_task/on_task_system_web_app_manager.h"
 #include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
@@ -68,6 +70,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_frame.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "url/origin.h"
 
 namespace ash::boca {
 
@@ -89,6 +92,40 @@ std::string GetReceiverName(std::string receiver_id,
   return receiver_name ? *receiver_name : "";
 }
 
+std::optional<mojom::UrlType> ConvertUrlTypeProtoToMojom(
+    ::boca::UrlType url_type_proto) {
+  switch (url_type_proto) {
+    case ::boca::URL_TYPE_GEMINI_REGULAR:
+      return mojom::UrlType::kGeminiRegular;
+    case ::boca::URL_TYPE_GEMINI_GUIDED_LEARNING:
+      return mojom::UrlType::kGeminiGuidedLearning;
+    default:
+      return std::nullopt;
+  }
+}
+
+::boca::UrlType ConvertUrlTypeMojomToProto(mojom::UrlType url_type) {
+  switch (url_type) {
+    case mojom::UrlType::kGeminiRegular:
+      return ::boca::URL_TYPE_GEMINI_REGULAR;
+    case mojom::UrlType::kGeminiGuidedLearning:
+      return ::boca::URL_TYPE_GEMINI_GUIDED_LEARNING;
+  }
+  return ::boca::URL_TYPE_UNSPECIFIED;
+}
+
+mojom::GeminiEnablementState ConvertGeminiEnablementStateProtoToMojom(
+    ::boca::GeminiEnablementState state) {
+  switch (state) {
+    case ::boca::GEMINI_ENABLEMENT_STATE_ENABLED:
+      return mojom::GeminiEnablementState::kEnabled;
+    case ::boca::GEMINI_ENABLEMENT_STATE_DISABLED:
+      return mojom::GeminiEnablementState::kDisabled;
+    default:
+      return mojom::GeminiEnablementState::kUnknown;
+  }
+}
+
 std::unique_ptr<::boca::OnTaskConfig> OnTaskConfigMojomToProto(
     const mojom::OnTaskConfigPtr& config) {
   auto on_task_config = std::make_unique<::boca::OnTaskConfig>();
@@ -103,6 +140,10 @@ std::unique_ptr<::boca::OnTaskConfig> OnTaskConfigMojomToProto(
     content_config->set_favicon_url(item->tab->favicon.spec());
     content_config->mutable_locked_navigation_options()->set_navigation_type(
         ::boca::LockedNavigationOptions::NavigationType(item->navigation_type));
+    if (item->tab->url_type.has_value()) {
+      content_config->set_url_type(
+          ConvertUrlTypeMojomToProto(item->tab->url_type.value()));
+    }
   }
   return on_task_config;
 }
@@ -159,7 +200,8 @@ mojom::ConfigPtr SessionConfigProtoToMojom(
     for (auto tab : session_on_task_config.active_bundle().content_configs()) {
       tabs.push_back(mojom::ControlledTab::New(
           mojom::TabInfo::New(std::nullopt, tab.title(), GURL(tab.url()),
-                              GURL(tab.favicon_url())),
+                              GURL(tab.favicon_url()),
+                              ConvertUrlTypeProtoToMojom(tab.url_type())),
           mojom::NavigationType(
               tab.locked_navigation_options().navigation_type())));
     }
@@ -232,7 +274,9 @@ std::vector<mojom::IdentifiedActivityPtr> SessionActivityProtoToMojom(
                         student_status_detail, device_active, active_tab,
                         /*is_caption_enabled=*/false,
                         /*is_hand_raised=*/false, mojom::JoinMethod::kRoster,
-                        connection_code));
+                        connection_code,
+                        ConvertGeminiEnablementStateProtoToMojom(
+                            item.second.gemini_enablement_state())));
     result.push_back(std::move(identity_ptr));
   }
   return result;
@@ -288,19 +332,25 @@ mojom::CrdConnectionState GetMojomCrdConnectionState(CrdConnectionState state) {
   NOTREACHED();
 }
 
+bool IsValidReceiverId(const std::string& receiver_id) {
+  return receiver_id.find_first_of("/\\.?#%") == std::string::npos;
+}
+
 }  // namespace
 
 BocaAppHandler::BocaAppHandler(
     mojo::PendingReceiver<boca::mojom::PageHandler> receiver,
-    mojo::PendingRemote<boca::mojom::Page> remote,
+    mojo::PendingRemote<mojom::Page> remote,
     content::WebUI* web_ui,
     std::unique_ptr<ClassroomPageHandlerImpl> classroom_client_impl,
     std::unique_ptr<ContentSettingsHandler> content_settings_handler,
+    std::unique_ptr<TabInfoCollector> tab_info_collector,
     OnTaskSystemWebAppManager* system_web_app_manager,
     SessionClientImpl* session_client_impl,
+    std::unique_ptr<GeminiStatusFetcher> gemini_status_fetcher,
     bool is_producer)
     : is_producer_(is_producer),
-      tab_info_collector_(web_ui, is_producer),
+      tab_info_collector_(std::move(tab_info_collector)),
       class_room_page_handler_(std::move(classroom_client_impl)),
       content_settings_handler_(std::move(content_settings_handler)),
       receiver_(this, std::move(receiver)),
@@ -308,7 +358,8 @@ BocaAppHandler::BocaAppHandler(
       system_web_app_manager_(system_web_app_manager),
       session_client_impl_(session_client_impl),
       web_ui_(web_ui),
-      session_manager_(BocaAppClient::Get()->GetSessionManager()) {
+      session_manager_(BocaAppClient::Get()->GetSessionManager()),
+      gemini_status_fetcher_(std::move(gemini_status_fetcher)) {
   auto* user = ash::BrowserContextHelper::Get()->GetUserByBrowserContext(
       web_ui->GetWebContents()->GetBrowserContext());
   user_identity_.set_email(user->GetAccountId().GetUserEmail());
@@ -351,7 +402,12 @@ BocaAppHandler::~BocaAppHandler() {
 }
 
 void BocaAppHandler::GetWindowsTabsList(GetWindowsTabsListCallback callback) {
-  tab_info_collector_.GetWindowTabInfo(std::move(callback));
+  std::move(callback).Run(GetWindowTabInfoSync());
+}
+
+std::vector<mojom::WindowPtr> BocaAppHandler::GetWindowTabInfoSync() {
+  return tab_info_collector_->GetWindowTabInfo(base::BindRepeating(
+      &BocaAppHandler::GetTabUrlType, base::Unretained(this)));
 }
 
 void BocaAppHandler::ListCourses(ListCoursesCallback callback) {
@@ -709,6 +765,46 @@ void BocaAppHandler::SetSitePermission(const std::string& url,
                                        mojom::Permission permission,
                                        mojom::PermissionSetting setting,
                                        SetSitePermissionCallback callback) {
+  if (is_producer_) {
+    receiver_.ReportBadMessage("SetSitePermission called by producer.");
+    std::move(callback).Run(false);
+    return;
+  }
+
+  GURL request_gurl(url);
+  if (!request_gurl.is_valid()) {
+    std::move(callback).Run(false);
+    return;
+  }
+  url::Origin request_origin = url::Origin::Create(request_gurl);
+
+  // For consumers, `GetWindowTabInfoSync` should only return the single window
+  // containing the Boca app (and its tabs).
+  std::vector<mojom::WindowPtr> windows = GetWindowTabInfoSync();
+  if (windows.size() != 1) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  bool is_allowed = false;
+  for (const auto& window : windows) {
+    for (const auto& tab : window->tab_list) {
+      if (url::Origin::Create(tab->url).IsSameOriginWith(request_origin)) {
+        is_allowed = true;
+        break;
+      }
+    }
+    if (is_allowed) {
+      break;
+    }
+  }
+
+  if (!is_allowed) {
+    receiver_.ReportBadMessage("Unauthorized site permission request.");
+    std::move(callback).Run(false);
+    return;
+  }
+
   const bool success = content_settings_handler_->SetContentSettingForOrigin(
       url, permission, setting);
   std::move(callback).Run(success);
@@ -734,6 +830,17 @@ void BocaAppHandler::StartSpotlight(const std::string& crd_connection_code,
                                     StartSpotlightCallback callback) {
   if (!ash::features::IsBocaSpotlightRobotRequesterEnabled()) {
     std::move(callback).Run();
+    return;
+  }
+  if (!is_producer_) {
+    receiver_.ReportBadMessage(
+        "StartSpotlight without active producer session");
+    return;
+  }
+  auto* session = GetSessionManager()->GetCurrentSession();
+  if (!session || !IsActiveSession(session->session_id())) {
+    std::move(callback).Run();
+    return;
   }
   GetSessionManager()->StartCrdClient(
       crd_connection_code,
@@ -751,6 +858,10 @@ void BocaAppHandler::PresentStudentScreen(
     mojom::IdentityPtr student,
     const std::string& receiver_id,
     PresentStudentScreenCallback callback) {
+  if (!IsValidReceiverId(receiver_id)) {
+    receiver_.ReportBadMessage("Invalid receiver_id.");
+    return;
+  }
   auto* session = GetSessionManager()->GetCurrentSession();
   if (!session || !IsActiveSession(session->session_id())) {
     LOG(ERROR) << "[Boca] unexpected call to present student screen - no "
@@ -803,6 +914,10 @@ void BocaAppHandler::StopPresentingStudentScreen(
 
 void BocaAppHandler::PresentOwnScreen(const std::string& receiver_id,
                                       PresentOwnScreenCallback callback) {
+  if (!IsValidReceiverId(receiver_id)) {
+    receiver_.ReportBadMessage("Invalid receiver_id.");
+    return;
+  }
   auto* session = GetSessionManager()->GetCurrentSession();
   bool is_session_active = session && IsActiveSession(session->session_id());
   if (!teacher_screen_presenter()) {
@@ -838,6 +953,22 @@ void BocaAppHandler::StopPresentingOwnScreen(
     return;
   }
   teacher_screen_presenter()->Stop(std::move(callback));
+}
+
+void BocaAppHandler::GetGeminiStatus(GetGeminiStatusCallback callback) {
+  if (gemini_status_fetcher_) {
+    auto record_and_run_callback = base::BindOnce(
+        [](GetGeminiStatusCallback cb, bool enabled) {
+          ash::boca::RecordTeacherGetGeminiStatusEnabled(enabled);
+          std::move(cb).Run(enabled);
+        },
+        std::move(callback));
+    gemini_status_fetcher_->GetStatus(std::move(record_and_run_callback));
+  } else {
+    LOG(ERROR)
+        << "Gemini status fetcher not available, fallback to default value";
+    std::move(callback).Run(true);
+  }
 }
 
 void BocaAppHandler::OnStudentActivityUpdated(
@@ -1472,6 +1603,14 @@ TeacherScreenPresenter* BocaAppHandler::teacher_screen_presenter() {
 
 StudentScreenPresenter* BocaAppHandler::student_screen_presenter() {
   return GetSessionManager()->GetStudentScreenPresenter();
+}
+
+std::optional<mojom::UrlType> BocaAppHandler::GetTabUrlType(int32_t tab_id) {
+  std::optional<::boca::UrlType> url_type_proto =
+      GetSessionManager()->GetTabUrlType(tab_id);
+  return url_type_proto.has_value()
+             ? ConvertUrlTypeProtoToMojom(url_type_proto.value())
+             : std::nullopt;
 }
 
 }  // namespace ash::boca

@@ -74,8 +74,11 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManagerSupplier;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabbed_mode.TabbedRootUiCoordinator;
@@ -97,7 +100,7 @@ import org.chromium.chrome.test.util.NewTabPageTestUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.net.test.EmbeddedTestServer;
@@ -240,7 +243,7 @@ public class ToolbarTest {
         ToolbarManager toolbarManager = mActivity.getToolbarManager();
         ScrimManager scrimManager = mActivity.getRootUiCoordinatorForTesting().getScrimManager();
         scrimManager.disableAnimationForTesting(true);
-        OmniboxFeatures.setHasDesktopExperienceForTesting(false);
+        OmniboxCapabilities.setHasDesktopExperienceForTesting(false);
 
         assertNull("The scrim should be null.", scrimManager.getViewForTesting());
         assertFalse(
@@ -307,6 +310,7 @@ public class ToolbarTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @DisabledTest(message = "crbug.com/507245181")
     public void testNtpOmniboxFocusAndUnfocusWithHardwareKeyboardConnected() {
         // Simulate availability of a hardware keyboard.
         mActivity.getResources().getConfiguration().keyboard = Configuration.KEYBOARD_QWERTY;
@@ -662,6 +666,7 @@ public class ToolbarTest {
     @EnableFeatures({
         ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT_EXPERIMENTAL + ":open_adjacently/false"
     })
+    @DisableFeatures(ChromeFeatureList.HOME_BUTTON_REMOVAL)
     @ImportantFormFactors(DeviceFormFactor.TABLET_OR_DESKTOP)
     public void testHomeButton_loadsNtpOnSameTab() {
         WebPageStation webPage = mPage;
@@ -685,6 +690,49 @@ public class ToolbarTest {
                                         .initFrom(incognitoWebPage)
                                         .build());
         incognitoNtp.homeButtonElement.checkPresent();
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    public void testHomeButtonVisibility_KeepOnNtp() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ChromeSharedPreferences.getInstance()
+                            .writeBoolean(ChromePreferenceKeys.HOMEPAGE_ENABLED, true);
+                });
+
+        // Verify that the home button is NOT visible on a regular web page.
+        onView(withId(R.id.home_button)).check(matches(Matchers.not(isDisplayed())));
+
+        // Navigate to NTP.
+        RegularNewTabPageStation ntp = mPage.openNewTabFast();
+
+        // Verify that the home button IS visible on NTP.
+        onView(withId(R.id.home_button)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    public void testHomeButtonVisibility_KeepOnNtp_Toggle() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    HomepageManager.getInstance().setPrefHomepageEnabled(false);
+                });
+
+        onView(withId(R.id.home_button)).check(matches(Matchers.not(isDisplayed())));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    HomepageManager.getInstance().setPrefHomepageEnabled(true);
+                });
+
+        onView(withId(R.id.home_button)).check(matches(Matchers.not(isDisplayed())));
+
+        RegularNewTabPageStation ntp = mPage.openNewTabFast();
+
+        onView(withId(R.id.home_button)).check(matches(isDisplayed()));
     }
 
     @Test

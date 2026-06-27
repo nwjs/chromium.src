@@ -938,6 +938,10 @@ TEST_F(AIPageContentAgentTest, Image) {
   CheckImageNode(image_node, "missing");
   CheckGeometry(image_node, gfx::Rect(-20, -10, 30, 40),
                 gfx::Rect(0, 0, 10, 30));
+  ASSERT_TRUE(image_node.content_attributes->image_info);
+  ASSERT_TRUE(image_node.content_attributes->image_info->source_origin);
+  EXPECT_TRUE(
+      image_node.content_attributes->image_info->source_origin->IsOpaque());
 }
 
 TEST_F(AIPageContentAgentTest, ImageWithAriaLabel) {
@@ -1038,6 +1042,9 @@ TEST_F(AIPageContentAgentTest, Video) {
   ASSERT_TRUE(video1.content_attributes->video_data);
   EXPECT_EQ(video1.content_attributes->video_data->url,
             blink::KURL("https://example.com/video.mp4"));
+  ASSERT_TRUE(video1.content_attributes->video_data->source_origin);
+  EXPECT_EQ(video1.content_attributes->video_data->source_origin->ToString(),
+            "https://example.com");
 
   const auto& video2 = *root.children_nodes[1];
   EXPECT_EQ(video2.content_attributes->attribute_type,
@@ -1046,6 +1053,9 @@ TEST_F(AIPageContentAgentTest, Video) {
   EXPECT_EQ(
       video2.content_attributes->video_data->url,
       blink::KURL("https://example.com/video.mp4?param1=value1&param2=value2"));
+  ASSERT_TRUE(video2.content_attributes->video_data->source_origin);
+  EXPECT_EQ(video2.content_attributes->video_data->source_origin->ToString(),
+            "https://example.com");
 }
 
 TEST_F(AIPageContentAgentTest, Headings) {
@@ -2330,6 +2340,11 @@ TEST_F(AIPageContentAgentTest, ContentVisibilityHiddenIframeActionable) {
   ASSERT_TRUE(iframe_node.content_attributes->iframe_data->content);
   EXPECT_TRUE(iframe_node.content_attributes->iframe_data->content
                   ->is_local_frame_data());
+  // Display-locked iframes still provide frame data for browser conversion.
+  EXPECT_GT(iframe_node.content_attributes->iframe_data->content
+                ->get_local_frame_data()
+                ->default_line_height_px,
+            0u);
 
   const auto& visible_text_node = *root.children_nodes[1];
   CheckTextNode(visible_text_node, "  visible text");
@@ -2945,6 +2960,68 @@ TEST_F(AIPageContentAgentTest, NativeReadOnlyTextInput) {
   ASSERT_TRUE(input);
   CheckFormControlNode(*input, mojom::blink::FormControlType::kInputText);
   EXPECT_TRUE(input->content_attributes->form_control_data->is_readonly);
+}
+
+TEST_F(AIPageContentAgentTest, FrameDefaultLineHeightUsesCssPixels) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<html style='font-size: 10px; line-height: 24px; zoom: 2'>"
+      "<body>"
+      // CSS zoom scales layout values internally, so this verifies APC reports
+      // the author-facing CSS px value rather than the zoomed layout value.
+      "  <input id='input' type='text' "
+      "style='font-size: 10px'>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContent();
+
+  const auto* input = FindNodeBySelector("#input");
+  ASSERT_TRUE(input);
+  CheckFormControlNode(*input, mojom::blink::FormControlType::kInputText);
+  // The default line height is frame data because popups are frame-owned.
+  EXPECT_EQ(Content()->frame_data->default_line_height_px, 24u);
+}
+
+TEST_F(AIPageContentAgentTest,
+       FrameDefaultLineHeightFallsBackWithoutDocumentElementLayoutObject) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<html style='display: none'>"
+      "<body>"
+      // The <html> element has no LayoutObject when it is display:none.
+      // APC should still emit frame data instead of crashing the renderer.
+      "  <input id='input' type='text'>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContent();
+
+  ASSERT_TRUE(Content()->frame_data);
+  // Without a <html> LayoutObject, APC uses a fixed fallback row size.
+  EXPECT_EQ(Content()->frame_data->default_line_height_px, 12u);
+}
+
+TEST_F(AIPageContentAgentTest,
+       FrameDefaultLineHeightFallsBackWithoutDocumentElement) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<html>"
+      "<body>"
+      "  <input id='input' type='text'>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+  Document* document = helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  ASSERT_TRUE(document);
+  ASSERT_TRUE(document->documentElement());
+  // APC can still serialize from the frame LayoutView after script removes
+  // the document element, but no author line-height source remains.
+  document->documentElement()->remove();
+
+  GetAIPageContent();
+
+  ASSERT_TRUE(Content()->frame_data);
+  EXPECT_EQ(Content()->frame_data->default_line_height_px, 12u);
 }
 
 TEST_F(AIPageContentAgentTest, AriaCheckedDoesNotOverrideNativeCheckbox) {
@@ -6827,6 +6904,36 @@ TEST_F(AIPageContentAgentTest, InlineBlockFixedDescendantKeepsGeometry) {
   EXPECT_EQ(geometry.outer_bounding_box, geometry.visible_bounding_box);
 }
 
+TEST_F(AIPageContentAgentTest, GeometryIncludesCssPosition) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <style>
+        body { margin: 0; font: 10px/10px Ahem; }
+        #fixed {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 50px;
+          height: 10px;
+        }
+      </style>
+      <body>
+        <button id="fixed">Action</button>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://example.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* fixed_node = FindNodeBySelector("#fixed");
+  ASSERT_TRUE(fixed_node);
+  ASSERT_TRUE(fixed_node->content_attributes);
+  ASSERT_TRUE(fixed_node->content_attributes->geometry);
+  // A fixed control should carry its computed CSS position alongside geometry.
+  EXPECT_EQ(fixed_node->content_attributes->geometry->css_position,
+            mojom::blink::AIPageContentCssPosition::kFixed);
+}
+
 TEST_F(AIPageContentAgentTest, TableTextClippedByScrollerBeforeScroll) {
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
@@ -7293,8 +7400,8 @@ TEST_F(AIPageContentAgentTestZOrder, HitTestElementsOffscreen) {
 }
 
 TEST_F(AIPageContentAgentTestZOrder, HitTestElementsOffscreenFeatureDisabled) {
-  ScopedAIPageContentAnchoredOffscreenNonActionabilityForTest scoped_feature(
-      false);
+  ScopedAIPageContentAnchoredFixedOffscreenNonActionabilityForTest
+      scoped_feature(false);
 
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
@@ -7311,6 +7418,92 @@ TEST_F(AIPageContentAgentTestZOrder, HitTestElementsOffscreenFeatureDisabled) {
   // serializes actionability for the offscreen fixed node.
   const auto& p1 = *root.children_nodes.at(0);
   ASSERT_TRUE(p1.content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsNestedScrollerOffscreenFeaturesDisabled) {
+  ScopedAIPageContentAnchoredFixedOffscreenNonActionabilityForTest
+      scoped_fixed_feature(false);
+  ScopedAIPageContentAnchoredNonFixedOffscreenNonActionabilityForTest
+      scoped_non_fixed_feature(false);
+
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: relative;">
+          <p id="target" style="cursor: pointer; position: absolute; left: -9999px; top: 100px;">Text 1</p>
+          <div style="height: 1000px;"></div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  // Overflow-container state is tracked during traversal even when the
+  // actionability gates are off. With both gates disabled, APC should keep the
+  // older behavior and leave this offscreen nested-scroller target actionable.
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  ASSERT_TRUE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsFixedScrollableAncestorKeepsOffscreenChildActionable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body style='margin: 0;'>"
+      "  <div id='dialog' style='position: fixed; inset: 0;'>"
+      "    <div id='scroller' style='height: 100px; overflow-y: auto;'>"
+      "      <div style='height: 1200px;'></div>"
+      "      <button id='target'>Bottom action</button>"
+      "    </div>"
+      "  </div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  // The button is below the current scrollport inside the fixed dialog, but it
+  // is still reachable by scrolling #scroller. APC should keep it actionable so
+  // downstream clients can scroll the ancestor before clicking the button.
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  ASSERT_TRUE(target->content_attributes->node_interaction_info);
+
+  const auto& interaction_info =
+      *target->content_attributes->node_interaction_info;
+  EXPECT_FALSE(interaction_info.clickability_reasons.empty());
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsFixedScrollerEscapesUnreachableAncestorScroller) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body style='margin: 0;'>"
+      "  <div id='outer-scroller' style='overflow: auto; width: 200px;"
+      "      height: 200px; position: absolute; left: -9999px; top: 0;'>"
+      "    <div id='fixed-scroller' style='position: fixed; overflow: auto;"
+      "        width: 100px; height: 100px; left: 10px; top: 10px;'>"
+      "      <p id='target' style='cursor: pointer;'>Text 1</p>"
+      "      <div style='height: 200px;'></div>"
+      "    </div>"
+      "  </div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  // The fixed scroller escapes the offscreen ancestor scroller and is visible
+  // in the viewport. Its target should not inherit the ancestor's unreachable
+  // overflow state.
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  ASSERT_TRUE(target->content_attributes->node_interaction_info);
+
+  const auto& interaction_info =
+      *target->content_attributes->node_interaction_info;
+  EXPECT_FALSE(interaction_info.clickability_reasons.empty());
 }
 
 TEST_F(AIPageContentAgentTestZOrder,
@@ -7509,6 +7702,311 @@ TEST_F(AIPageContentAgentTestZOrder,
   const auto& interaction_info =
       *target_node->content_attributes->node_interaction_info;
   EXPECT_FALSE(interaction_info.clickability_reasons.empty());
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsNestedScrollerAbsoluteReachable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: relative;">
+          <div style="height: 2000px;">
+            <p id="target" style="cursor: pointer; position: absolute; left: 0; top: 1500px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  Document* document = helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  ASSERT_TRUE(document);
+  Element* scroller = document->getElementById(AtomicString("scroller"));
+  ASSERT_TRUE(scroller);
+  scroller->setScrollTop(1000);
+
+  LocalFrameView* view = document->View();
+  ASSERT_TRUE(view);
+  test::RunPendingTasks();
+  view->UpdateAllLifecyclePhasesForTest();
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  ASSERT_TRUE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsNestedScrollerAbsoluteReachableWhenScrolledPast) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: relative;">
+          <div style="height: 2000px;">
+            <p id="target" style="cursor: pointer; position: absolute; left: 0; top: 200px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  Document* document = helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  ASSERT_TRUE(document);
+  Element* scroller = document->getElementById(AtomicString("scroller"));
+  ASSERT_TRUE(scroller);
+  // The target is above the scroller's current viewport, but the user can
+  // scroll the container back to it.
+  scroller->setScrollTop(1000);
+
+  LocalFrameView* view = document->View();
+  ASSERT_TRUE(view);
+  test::RunPendingTasks();
+  view->UpdateAllLifecyclePhasesForTest();
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  ASSERT_TRUE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsFixedNestedScrollerAbsoluteReachable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: fixed; left: 0; top: 0;">
+          <div style="height: 2000px; position: relative;">
+            <p id="target" style="cursor: pointer; position: absolute; left: 0; top: 1500px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  // The fixed container is visible, so the user can scroll it to the target.
+  ASSERT_TRUE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsFixedChildOfScrollerNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: relative;">
+          <div style="height: 2000px;">
+            <p id="target" style="cursor: pointer; position: fixed; left: 0; top: 1500px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  // The target is fixed to the viewport, so scrolling its DOM scroller cannot
+  // bring it into view.
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsNestedScrollerAbsoluteNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: relative;">
+          <div style="height: 2000px;">
+            <p id="target" style="cursor: pointer; position: absolute; left: -9999px; top: 100px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsOverflowHiddenAbsoluteNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="clipper" style="overflow: hidden; width: 200px; height: 200px; position: relative;">
+          <div style="height: 2000px;">
+            <p id="target" style="cursor: pointer; position: absolute; left: 0; top: 1500px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  // `overflow: hidden` clips the target, but the user cannot scroll the
+  // clipper.
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsOffscreenScrollerSelfNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="cursor: pointer; overflow: auto; width: 200px; height: 200px; position: absolute; left: -9999px; top: 0;">
+          <div style="height: 2000px;">Text 1</div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* scroller = FindNodeBySelector("#scroller");
+  ASSERT_TRUE(scroller);
+  // A scroller must be reachable through its parent before it can be
+  // actionable.
+  EXPECT_FALSE(scroller->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsOffscreenNestedScrollerAbsoluteNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: absolute; left: -9999px; top: 0;">
+          <div style="height: 2000px; position: relative;">
+            <p id="target" style="cursor: pointer; position: absolute; left: 0; top: 100px;">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  // A child cannot be reached when its nearest scroller is itself offscreen.
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsOffscreenScrollerIframeChildNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px; position: absolute; left: -9999px; top: 0;">
+          <iframe id="target-frame"
+                  src="about:blank"
+                  style="border: 0; width: 200px; height: 200px;"></iframe>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  Document* document = helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  ASSERT_TRUE(document);
+  auto* iframe_element = DynamicTo<HTMLIFrameElement>(
+      document->getElementById(AtomicString("target-frame")));
+  ASSERT_TRUE(iframe_element);
+  auto* child_frame = DynamicTo<LocalFrame>(iframe_element->ContentFrame());
+  ASSERT_TRUE(child_frame);
+  Document* child_document = child_frame->GetDocument();
+  ASSERT_TRUE(child_document);
+  ASSERT_TRUE(child_document->body());
+
+  child_document->body()->SetInnerHTMLWithoutTrustedTypes(
+      "<body style='margin: 0;'>"
+      "  <button id='target'>Text 1</button>"
+      "</body>");
+
+  LocalFrameView* child_view = child_document->View();
+  ASSERT_TRUE(child_view);
+  test::RunPendingTasks();
+  child_view->UpdateAllLifecyclePhasesForTest();
+
+  Element* target_element =
+      child_document->getElementById(AtomicString("target"));
+  ASSERT_TRUE(target_element);
+  const DOMNodeId target_dom_node_id = DOMNodeIds::IdForNode(target_element);
+  ASSERT_GT(target_dom_node_id, kInvalidDOMNodeId);
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target_node = FindNodeByDomNodeId(target_dom_node_id);
+  ASSERT_TRUE(target_node);
+  // The iframe is inside an unreachable scroller, so its child cannot be
+  // directly actionable in this APC snapshot.
+  EXPECT_FALSE(target_node->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder, HitTestElementsStaticNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <p id='target' style='cursor:pointer; transform: translate(-9999px, "
+      "-9999px);'>"
+      "    Text 1"
+      "  </p>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder,
+       HitTestElementsNestedScrollerStaticNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body style="margin: 0;">
+        <div id="scroller" style="overflow: auto; width: 200px; height: 200px;">
+          <div style="height: 2000px;">
+            <p id="target" style="cursor: pointer; transform: translate(-9999px, -9999px);">Text 1</p>
+          </div>
+        </div>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
+}
+
+TEST_F(AIPageContentAgentTestZOrder, HitTestElementsRelativeNegativeTrap) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <p id='target' style='cursor:pointer; position:relative; "
+      "left:-9999px; top:0;'>"
+      "    Text 1"
+      "  </p>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto* target = FindNodeBySelector("#target");
+  ASSERT_TRUE(target);
+  EXPECT_FALSE(target->content_attributes->node_interaction_info);
 }
 
 TEST_F(AIPageContentAgentTestZOrder,

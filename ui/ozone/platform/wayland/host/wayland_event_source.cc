@@ -391,8 +391,11 @@ void WaylandEventSource::OnPointerButtonEvent(
     return;
   }
 
-  WaylandWindow* prev_focused_window =
-      window_manager_->GetCurrentPointerFocusedWindow();
+  // Dispatching the event may delete the previously focused window.
+  base::WeakPtr<WaylandWindow> prev_focused_window =
+      window_manager_->GetCurrentPointerFocusedWindow()
+          ? window_manager_->GetCurrentPointerFocusedWindow()->AsWeakPtr()
+          : nullptr;
   if (window) {
     window_manager_->SetPointerFocusedWindow(window);
   }
@@ -430,10 +433,11 @@ void WaylandEventSource::OnPointerButtonEvent(
   }
 }
 
-void WaylandEventSource::OnPointerButtonEventInternal(WaylandWindow* window,
-                                                      EventType type) {
+void WaylandEventSource::OnPointerButtonEventInternal(
+    base::WeakPtr<WaylandWindow> window,
+    EventType type) {
   if (window) {
-    window_manager_->SetPointerFocusedWindow(window);
+    window_manager_->SetPointerFocusedWindow(window.get());
   }
 }
 
@@ -584,9 +588,15 @@ void WaylandEventSource::OnTabletToolProximityIn(WaylandWindow* window,
                                                  const PointerDetails& details,
                                                  base::TimeTicks time) {
   WaylandWindow* old_focus = tablet_tool_focused_window_.get();
+  base::WeakPtr<WaylandWindow> window_weak = window->AsWeakPtr();
   if (old_focus && old_focus != window) {
     OnTabletToolProximityOut(time);
   }
+
+  if (!window_weak) {
+    return;
+  }
+
   tablet_tool_focused_window_ = window->AsWeakPtr();
   tablet_tool_location_ = location;
 
@@ -951,12 +961,16 @@ void WaylandEventSource::ReleasePressedPointerButtons(
     return;
   }
 
+  // Dispatching the event may delete the window.
+  base::WeakPtr<WaylandWindow> window_weak =
+      window ? window->AsWeakPtr() : nullptr;
   for (const auto& [button, name] : kMouseButtonToStringMap) {
     if (button & pointer_flags_) {
       VLOG(1) << "Synthesizing pointer release for: " << name;
       TRACE_EVENT_INSTANT("wayland.debug", "SynthesizePointerRelease", "button",
                           name);
-      OnPointerButtonEvent(EventType::kMouseReleased, button, timestamp, window,
+      OnPointerButtonEvent(EventType::kMouseReleased, button, timestamp,
+                           window_weak.get(),
                            wl::EventDispatchPolicy::kImmediate,
                            /*allow_release_of_unpressed_button=*/false,
                            /*is_synthesized=*/true);

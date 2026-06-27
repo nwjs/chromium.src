@@ -7,17 +7,23 @@ package org.chromium.chrome.browser.multiwindow;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.INVALID_WINDOW_ID;
 
+import android.graphics.Rect;
+
 import org.chromium.base.TimeUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceDataProto.InstanceData;
 import org.chromium.chrome.browser.preferences.MultiInstancePreferenceKeys;
 import org.chromium.chrome.browser.tabmodel.SupportedProfileType;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -30,6 +36,15 @@ import java.util.regex.Pattern;
  */
 @NullMarked
 class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
+    private static class InstanceDataWithId {
+        private final int mId;
+        private final InstanceData mInstanceData;
+
+        private InstanceDataWithId(int id, InstanceData instanceData) {
+            mId = id;
+            mInstanceData = instanceData;
+        }
+    }
 
     static Set<Integer> readAllInstanceIds() {
         // We arbitrarily choose to use the lastAccessedTime map to extract persisted instance ids
@@ -111,6 +126,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeClosureTime(int instanceId) {
+        if (!hasInstance(instanceId)) return;
         long time = TimeUtils.currentTimeMillis();
         if (sData != null) {
             putInstance(instanceId, getInstanceFromProto(instanceId).setClosureTime(time));
@@ -155,6 +171,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeTaskId(int instanceId, int taskId) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(instanceId, getInstanceFromProto(instanceId).setTaskId(taskId));
         } else {
@@ -190,6 +207,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeTabCount(int instanceId, int normalTabCount, int incognitoTabCount) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(
                     instanceId,
@@ -211,6 +229,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeTabCountForRelaunchSync(int instanceId, int tabCount) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(
                     instanceId, getInstanceFromProto(instanceId).setTabCountForRelaunch(tabCount));
@@ -228,6 +247,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeActiveTabUrl(int instanceId, String url) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(instanceId, getInstanceFromProto(instanceId).setActiveTabUrl(url));
         } else {
@@ -244,6 +264,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeActiveTabTitle(int instanceId, String title) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(instanceId, getInstanceFromProto(instanceId).setActiveTabTitle(title));
         } else {
@@ -262,6 +283,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeCustomTitle(int instanceId, @Nullable String title) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             InstanceData.Builder builder = getInstanceFromProto(instanceId);
             if (title == null) {
@@ -284,6 +306,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeProfileType(int instanceId, @SupportedProfileType int profileType) {
+        if (!hasInstance(instanceId)) return;
         // TODO(crbug.com/439670064): Only preserve regular and incognito type until we finalize the
         // upgrade path.
         if (IncognitoUtils.shouldOpenIncognitoAsWindow()
@@ -315,6 +338,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeLatestPersistentStateId(int instanceId, int latestPersistentStateHash) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(
                     instanceId,
@@ -335,6 +359,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeIncognitoSelected(int instanceId, boolean incognitoSelected) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(
                     instanceId,
@@ -353,6 +378,7 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
     }
 
     static void writeMarkedForDeletion(int instanceId, boolean markedForDeletion) {
+        if (!hasInstance(instanceId)) return;
         if (sData != null) {
             putInstance(
                     instanceId,
@@ -360,6 +386,99 @@ class ChromeMultiInstancePersistentStore extends MultiInstancePersistentStore {
         } else {
             getManager().writeBoolean(markedForDeletionKey(instanceId), markedForDeletion);
         }
+    }
+
+    static void writeIsVisible(int instanceId, boolean isVisible) {
+        if (!hasInstance(instanceId)) return;
+        if (sData != null) {
+            putInstance(instanceId, getInstanceFromProto(instanceId).setIsVisible(isVisible));
+        }
+    }
+
+    static void writeBounds(int instanceId, Rect bounds) {
+        if (!hasInstance(instanceId)) return;
+        if (sData != null) {
+            InstanceData.Rect protoRect =
+                    InstanceData.Rect.newBuilder()
+                            .setLeft(bounds.left)
+                            .setTop(bounds.top)
+                            .setRight(bounds.right)
+                            .setBottom(bounds.bottom)
+                            .build();
+            putInstance(instanceId, getInstanceFromProto(instanceId).setBounds(protoRect));
+        }
+    }
+
+    static boolean readIsRecoverable(int instanceId) {
+        if (sData != null) {
+            InstanceData instance = sData.getInstancesMap().get(instanceId);
+            return instance != null ? instance.getIsRecoverable() : false;
+        }
+        return false;
+    }
+
+    static void writeIsRecoverable(int instanceId, boolean isRecoverable) {
+        if (sData != null
+                && ChromeFeatureList.sSessionRestoreAfterCrash.isEnabled()
+                && hasInstance(instanceId)) {
+            putInstance(
+                    instanceId, getInstanceFromProto(instanceId).setIsRecoverable(isRecoverable));
+        }
+    }
+
+    static boolean readIsCrashRecoveryPending() {
+        return sData != null && sData.getIsCrashRecoveryPending();
+    }
+
+    static void writeIsCrashRecoveryPending(boolean isCrashRecoveryPending) {
+        if (sData != null) {
+            sData = sData.toBuilder().setIsCrashRecoveryPending(isCrashRecoveryPending).build();
+            saveProto();
+        }
+    }
+
+    static List<CrashRecoveryWindowInfo> readCrashRecoveryData() {
+        if (sData == null) return Collections.emptyList();
+
+        List<InstanceDataWithId> crashedInstances = new ArrayList<>();
+        for (Map.Entry<Integer, InstanceData> entry : sData.getInstancesMap().entrySet()) {
+            int instanceId = entry.getKey();
+            InstanceData data = entry.getValue();
+            if (data.getIsRecoverable()
+                    && !data.getMarkedForDeletion()
+                    && readNormalTabCount(instanceId) > 0) {
+                crashedInstances.add(new InstanceDataWithId(instanceId, data));
+            }
+        }
+
+        if (crashedInstances.isEmpty()) return Collections.emptyList();
+
+        // Sort in increasing order of last_accessed_time. This helps restore windows in the
+        // required z-order (most recently accessed window is on the top) during post-crash
+        // recovery.
+        crashedInstances.sort(
+                (i1, i2) ->
+                        Long.compare(
+                                i1.mInstanceData.getLastAccessedTime(),
+                                i2.mInstanceData.getLastAccessedTime()));
+
+        List<CrashRecoveryWindowInfo> windows = new ArrayList<>();
+        for (InstanceDataWithId item : crashedInstances) {
+            Rect bounds = null;
+            if (item.mInstanceData.hasBounds()) {
+                InstanceData.Rect protoBounds = item.mInstanceData.getBounds();
+                bounds =
+                        new Rect(
+                                protoBounds.getLeft(),
+                                protoBounds.getTop(),
+                                protoBounds.getRight(),
+                                protoBounds.getBottom());
+            }
+            windows.add(
+                    new CrashRecoveryWindowInfo(
+                            item.mId, bounds, item.mInstanceData.getIsVisible()));
+        }
+        return windows;
     }
 
     private static String lastAccessedTimeKey(int instanceId) {

@@ -17,6 +17,7 @@ export function getHtml(this: ContextualTasksAppElement) {
           .title="${this.threadTitle_}"
           .darkMode="${this.darkMode_}"
           .isAiPage="${this.isAiPage_}"
+          .isAimEligible="${this.isAimEligible_}"
           .enableOpenInNewTabButton="${this.isAiPage_ && !this.isErrorPageVisible_}"
           @new-thread-click="${this.onNewThreadClick_}">
       </top-toolbar>
@@ -51,6 +52,40 @@ export function getHtml(this: ContextualTasksAppElement) {
       <contextual-tasks-onboarding-tooltip id="onboardingTooltip">
       </contextual-tasks-onboarding-tooltip>
     ` : ''}
+    ${this.showSmartTabSharingTryItIph_ ? html`
+      <contextual-tasks-banner-promo id="stsTryItPromo"
+          style="${this.getBannerPromoBoundsStyles_()}"
+          accept-button-text="$i18n{stsTryItTurnOn}"
+          dismiss-button-text="$i18n{stsTryItNotNow}"
+          @dismiss="${this.onStsTryItDismiss_}"
+          @accept="${this.onStsTryItAccept_}">
+        <span slot="header">$i18n{stsTryItHeader}</span>
+        <span slot="body">
+          $i18n{stsTryItBody}
+          <a href="chrome://settings/ai"
+              target="_blank">$i18n{stsTryItLink}</a>
+          $i18n{stsTryItBodyEnd}
+        </span>
+      </contextual-tasks-banner-promo>
+    ` : ''}
+    ${this.showSmartTabSharingDefaultOnIph_ ? html`
+      <contextual-tasks-banner-promo id="stsDefaultOnPromo"
+          style="${this.getBannerPromoBoundsStyles_()}"
+          accept-button-text="$i18n{stsDefaultOnTurnOn}"
+          dismiss-button-text="$i18n{stsDefaultOnNotNow}"
+          @dismiss="${this.onStsDefaultOnDismiss_}"
+          @accept="${this.onStsDefaultOnAccept_}">
+        <span slot="header">$i18n{stsDefaultOnHeader}</span>
+        <span slot="body">
+          $i18n{stsDefaultOnBody}
+          <a href="chrome://settings/ai"
+              target="_blank">$i18n{stsDefaultOnLink}</a>
+          $i18n{stsDefaultOnBodyEnd}
+        </span>
+      </contextual-tasks-banner-promo>
+    ` : ''}
+</if>
+<if expr="not is_android or enable_webui_contextual_tasks_composebox">
     <contextual-tasks-composebox id="composebox"
           style="${this.getComposeboxBoundsStyles()}"
           ?hidden="${this.isComposeboxHidden_()}"
@@ -67,6 +102,7 @@ export function getHtml(this: ContextualTasksAppElement) {
 </if>
   </div>
   <error-page id="errorPage"></error-page>
+  <div id="iphMenuSmartTabSharingAnchor"></div>
   <!--_html_template_end_-->`;
 }
 // clang-format on

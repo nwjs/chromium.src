@@ -52,7 +52,6 @@ class HttpsUpgradesInterceptor : public content::URLLoaderRequestInterceptor,
       content::NavigationUIData* navigation_ui_data_);
 
   HttpsUpgradesInterceptor(content::FrameTreeNodeId frame_tree_node_id,
-                           bool http_interstitial_enabled,
                            content::NavigationUIData* navigation_ui_data_);
   ~HttpsUpgradesInterceptor() override;
 
@@ -87,14 +86,13 @@ class HttpsUpgradesInterceptor : public content::URLLoaderRequestInterceptor,
       GURL url,
       bool is_outermost_main_frame,
       std::string method,
+      int transition_type,
       content::URLLoaderRequestInterceptor::LoaderCallback callback,
       bool is_hsts_active_for_host);
 
   // network::mojom::URLLoader:
   void FollowRedirect(
-      const std::vector<std::string>& removed_headers,
-      const net::HttpRequestHeaders& modified_headers,
-      const net::HttpRequestHeaders& modified_cors_exempt_headers,
+      network::HttpRequestHeadersUpdateParams headers_update_params,
       const std::optional<GURL>& new_url) override {}
   void SetPriority(net::RequestPriority priority,
                    int intra_priority_value) override {}
@@ -118,11 +116,6 @@ class HttpsUpgradesInterceptor : public content::URLLoaderRequestInterceptor,
 
   // Used to access the WebContents for the navigation.
   content::FrameTreeNodeId frame_tree_node_id_;
-
-  // Controls whether we are upgrading and falling back with an interstitial
-  // before proceeding with the HTTP navigation. This reflects the general
-  // UI setting. Only used to set the values of interstitial_state_.
-  bool http_interstitial_enabled_by_pref_ = false;
 
   // Parameters about whether the throttle should trigger the interstitial
   // warning before navigating to the HTTP fallback URL. Can be null if the

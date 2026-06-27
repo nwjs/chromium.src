@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <utility>
 
 #include "base/run_loop.h"
@@ -164,6 +165,10 @@ void TestRenderFrameHost::ReportInspectorIssue(
                                 kFederatedAuthUserInfoRequestIssue) {
     ++federated_auth_user_info_counts_
         [issue->details->federated_auth_user_info_request_details->status];
+  } else if (issue->code ==
+             blink::mojom::InspectorIssueCode::kEmailVerificationRequestIssue) {
+    ++email_verification_request_counts_
+        [issue->details->email_verification_request_details->status];
   }
   RenderFrameHostImpl::ReportInspectorIssue(std::move(issue));
 }
@@ -268,7 +273,7 @@ void TestRenderFrameHost::SimulateUnloadACK() {
 }
 
 void TestRenderFrameHost::SimulateUserActivation() {
-  frame_tree_node()->UpdateUserActivationState(
+  std::ignore = frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
       blink::mojom::UserActivationNotificationType::kTest);
 }
@@ -324,6 +329,23 @@ int TestRenderFrameHost::GetFederatedAuthUserInfoRequestIssueCount(
 
   auto it = federated_auth_user_info_counts_.find(*status_type);
   if (it == federated_auth_user_info_counts_.end()) {
+    return 0;
+  }
+  return it->second;
+}
+
+int TestRenderFrameHost::GetEmailVerificationRequestIssueCount(
+    std::optional<blink::mojom::EmailVerificationRequestResult> status_type) {
+  if (!status_type) {
+    int total = 0;
+    for (const auto& [result, count] : email_verification_request_counts_) {
+      total += count;
+    }
+    return total;
+  }
+
+  auto it = email_verification_request_counts_.find(*status_type);
+  if (it == email_verification_request_counts_.end()) {
     return 0;
   }
   return it->second;
@@ -708,11 +730,13 @@ TestRenderFrameHost::BuildDidCommitParams(bool did_create_new_entry,
     }
   }
 
-  // In most cases, the origin will match the URL's origin.  Tests that need to
-  // check corner cases (like about:blank) should specify the origin and
-  // initiator_base_url params manually.
-  url::Origin origin = url::Origin::Create(url);
-  params->origin = origin;
+  if (url.IsAboutBlank() || is_same_document) {
+    params->origin = GetLastCommittedOrigin();
+  } else {
+    // In most cases, the origin will match the URL's origin.
+    url::Origin origin = url::Origin::Create(url);
+    params->origin = origin;
+  }
 
   params->page_state = blink::PageState::CreateForTestingWithSequenceNumbers(
       url, params->item_sequence_number, params->document_sequence_number);

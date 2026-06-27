@@ -6,6 +6,7 @@
 
 #import "base/check.h"
 #import "base/logging.h"
+#import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/sequence_checker.h"
 #import "base/strings/sys_string_conversions.h"
@@ -19,7 +20,9 @@
 #import "ios/web/navigation/crw_wk_navigation_handler.h"
 #import "ios/web/navigation/crw_wk_navigation_states.h"
 #import "ios/web/navigation/navigation_context_impl.h"
+#import "ios/web/navigation/navigation_manager_impl.h"
 #import "ios/web/navigation/wk_navigation_util.h"
+#import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/util/wk_web_view_util.h"
 #import "ios/web/web_state/web_state_impl.h"
@@ -235,10 +238,14 @@ using web::NavigationManagerImpl;
       }
       existingContext->SetIsSameDocument(isSameDocumentNavigation);
       existingContext->SetHasCommitted(!isSameDocumentNavigation);
+      base::WeakPtr<web::NavigationContextImpl> weakContext =
+          existingContext->GetWeakPtr();
       self.webStateImpl->OnNavigationStarted(existingContext);
-      [self.delegate navigationObserver:self
-               didChangePageWithContext:existingContext];
-      self.webStateImpl->OnNavigationFinished(existingContext);
+      if (weakContext) {
+        [self.delegate navigationObserver:self
+                 didChangePageWithContext:weakContext.get()];
+        self.webStateImpl->OnNavigationFinished(weakContext.get());
+      }
     }
   }
 

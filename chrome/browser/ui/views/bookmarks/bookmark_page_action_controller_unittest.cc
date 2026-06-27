@@ -9,8 +9,8 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
-#include "chrome/browser/ui/page_actions/page_action_triggers.h"
-#include "chrome/browser/ui/page_actions/test_support/mock_page_action_controller.h"
+#include "chrome/browser/ui/page_action/page_action_triggers.h"
+#include "chrome/browser/ui/page_action/test_support/mock_page_action_controller.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -98,7 +98,7 @@ TEST_F(BookmarkPageActionControllerTest, URLStarredChangedUpdatesImageAndName) {
               OverrideTooltip(kActionBookmarkThisTab, _))
       .Times(1);
   EXPECT_CALL(page_action_controller(),
-              OverrideImage(kActionBookmarkThisTab, _, _))
+              OverrideImage(kActionBookmarkThisTab, _, _, _))
       .Times(1);
 
   bookmark_page_action_controller().URLStarredChanged(tab().GetContents(),
@@ -111,7 +111,7 @@ TEST_F(BookmarkPageActionControllerTest, URLStarredChangedUpdatesImageAndName) {
               OverrideTooltip(kActionBookmarkThisTab, _))
       .Times(1);
   EXPECT_CALL(page_action_controller(),
-              OverrideImage(kActionBookmarkThisTab, _, _))
+              OverrideImage(kActionBookmarkThisTab, _, _, _))
       .Times(1);
 
   bookmark_page_action_controller().URLStarredChanged(tab().GetContents(),

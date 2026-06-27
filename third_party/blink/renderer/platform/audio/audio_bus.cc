@@ -34,7 +34,9 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+
 #include "base/compiler_specific.h"
+#include "base/numerics/safe_conversions.h"
 #include "media/base/audio_bus.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_audio_bus.h"
@@ -75,8 +77,8 @@ scoped_refptr<AudioBus> AudioBus::TryCreate(unsigned number_of_channels,
   scoped_refptr<AudioBus> bus =
       base::AdoptRef(new AudioBus(number_of_channels, length, false));
 
-  for (unsigned i = 0; i < number_of_channels; ++i) {
-    if (!bus->Channel(i)->TryAllocate(length)) {
+  for (AudioChannel& channel : bus->channels_) {
+    if (!channel.TryAllocate(length)) {
       return nullptr;
     }
   }
@@ -100,20 +102,10 @@ AudioBus::AudioBus(unsigned number_of_channels, uint32_t length, bool allocate)
 }
 
 void AudioBus::SetChannelMemory(unsigned channel_index,
-                                float* storage,
-                                uint32_t length) {
+                                base::span<float> storage) {
   if (channel_index < channels_.size()) {
-    SetChannelMemory(channel_index,
-                     UNSAFE_TODO(base::span<float>(storage, length)), length);
-  }
-}
-
-void AudioBus::SetChannelMemory(unsigned channel_index,
-                                base::span<float> storage,
-                                uint32_t length) {
-  if (channel_index < channels_.size()) {
-    Channel(channel_index)->Set(storage, length);
-    length_ = length;
+    Channel(channel_index)->Set(storage);
+    length_ = base::checked_cast<uint32_t>(storage.size());
   }
 }
 
@@ -263,9 +255,8 @@ scoped_refptr<AudioBus> AudioBus::CreateBufferFromRange(
 
 float AudioBus::MaxAbsValue() const {
   float max = 0.0f;
-  for (unsigned i = 0; i < NumberOfChannels(); ++i) {
-    const AudioChannel* channel = Channel(i);
-    max = std::max(max, channel->MaxAbsValue());
+  for (const AudioChannel& channel : channels_) {
+    max = std::max(max, channel.MaxAbsValue());
   }
 
   return max;
@@ -279,8 +270,8 @@ void AudioBus::Normalize() {
 }
 
 void AudioBus::Scale(float scale) {
-  for (unsigned i = 0; i < NumberOfChannels(); ++i) {
-    Channel(i)->Scale(scale);
+  for (AudioChannel& channel : channels_) {
+    channel.Scale(scale);
   }
 }
 
@@ -330,19 +321,10 @@ void AudioBus::SumFrom(const AudioBus& source_bus,
 }
 
 void AudioBus::DiscreteSumFrom(const AudioBus& source_bus) {
-  unsigned number_of_source_channels = source_bus.NumberOfChannels();
-  unsigned number_of_destination_channels = NumberOfChannels();
-
-  if (number_of_destination_channels < number_of_source_channels) {
-    // Down-mix by summing channels and dropping the remaining.
-    for (unsigned i = 0; i < number_of_destination_channels; ++i) {
-      Channel(i)->SumFrom(source_bus.Channel(i));
-    }
-  } else if (number_of_destination_channels > number_of_source_channels) {
-    // Up-mix by summing as many channels as we have.
-    for (unsigned i = 0; i < number_of_source_channels; ++i) {
-      Channel(i)->SumFrom(source_bus.Channel(i));
-    }
+  DCHECK_NE(NumberOfChannels(), source_bus.NumberOfChannels());
+  unsigned count = std::min(NumberOfChannels(), source_bus.NumberOfChannels());
+  for (unsigned i = 0; i < count; ++i) {
+    Channel(i)->SumFrom(source_bus.Channel(i));
   }
 }
 
@@ -417,97 +399,113 @@ void AudioBus::SumFromByDownMixing(const AudioBus& source_bus) {
   if (number_of_source_channels == 2 && number_of_destination_channels == 1) {
     // Down-mixing: 2 -> 1
     //   output = 0.5 * (input.L + input.R)
-    const float* source_l = source_bus.ChannelByType(kChannelLeft)->Data();
-    const float* source_r = source_bus.ChannelByType(kChannelRight)->Data();
+    base::span<const float> source_l =
+        source_bus.ChannelByType(kChannelLeft)->Span();
+    base::span<const float> source_r =
+        source_bus.ChannelByType(kChannelRight)->Span();
 
-    float* destination = ChannelByType(kChannelLeft)->MutableData();
+    base::span<float> destination = ChannelByType(kChannelLeft)->MutableSpan();
     float scale = 0.5;
 
-    Vsma(source_l, 1, &scale, destination, 1, length());
-    Vsma(source_r, 1, &scale, destination, 1, length());
+    Vsma(source_l, scale, destination, length());
+    Vsma(source_r, scale, destination, length());
   } else if (number_of_source_channels == 4 &&
              number_of_destination_channels == 1) {
     // Down-mixing: 4 -> 1
     //   output = 0.25 * (input.L + input.R + input.SL + input.SR)
-    const float* source_l = source_bus.ChannelByType(kChannelLeft)->Data();
-    const float* source_r = source_bus.ChannelByType(kChannelRight)->Data();
-    const float* source_sl =
-        source_bus.ChannelByType(kChannelSurroundLeft)->Data();
-    const float* source_sr =
-        source_bus.ChannelByType(kChannelSurroundRight)->Data();
+    base::span<const float> source_l =
+        source_bus.ChannelByType(kChannelLeft)->Span();
+    base::span<const float> source_r =
+        source_bus.ChannelByType(kChannelRight)->Span();
+    base::span<const float> source_sl =
+        source_bus.ChannelByType(kChannelSurroundLeft)->Span();
+    base::span<const float> source_sr =
+        source_bus.ChannelByType(kChannelSurroundRight)->Span();
 
-    float* destination = ChannelByType(kChannelLeft)->MutableData();
+    base::span<float> destination = ChannelByType(kChannelLeft)->MutableSpan();
     float scale = 0.25;
 
-    Vsma(source_l, 1, &scale, destination, 1, length());
-    Vsma(source_r, 1, &scale, destination, 1, length());
-    Vsma(source_sl, 1, &scale, destination, 1, length());
-    Vsma(source_sr, 1, &scale, destination, 1, length());
+    Vsma(source_l, scale, destination, length());
+    Vsma(source_r, scale, destination, length());
+    Vsma(source_sl, scale, destination, length());
+    Vsma(source_sr, scale, destination, length());
   } else if (number_of_source_channels == 6 &&
              number_of_destination_channels == 1) {
     // Down-mixing: 5.1 -> 1
     //   output = sqrt(1/2) * (input.L + input.R) + input.C
     //            + 0.5 * (input.SL + input.SR)
-    const float* source_l = source_bus.ChannelByType(kChannelLeft)->Data();
-    const float* source_r = source_bus.ChannelByType(kChannelRight)->Data();
-    const float* source_c = source_bus.ChannelByType(kChannelCenter)->Data();
-    const float* source_sl =
-        source_bus.ChannelByType(kChannelSurroundLeft)->Data();
-    const float* source_sr =
-        source_bus.ChannelByType(kChannelSurroundRight)->Data();
+    base::span<const float> source_l =
+        source_bus.ChannelByType(kChannelLeft)->Span();
+    base::span<const float> source_r =
+        source_bus.ChannelByType(kChannelRight)->Span();
+    base::span<const float> source_c =
+        source_bus.ChannelByType(kChannelCenter)->Span();
+    base::span<const float> source_sl =
+        source_bus.ChannelByType(kChannelSurroundLeft)->Span();
+    base::span<const float> source_sr =
+        source_bus.ChannelByType(kChannelSurroundRight)->Span();
 
-    float* destination = ChannelByType(kChannelLeft)->MutableData();
+    base::span<float> destination = ChannelByType(kChannelLeft)->MutableSpan();
     float scale_sqrt_half = sqrtf(0.5);
     float scale_half = 0.5;
 
-    Vsma(source_l, 1, &scale_sqrt_half, destination, 1, length());
-    Vsma(source_r, 1, &scale_sqrt_half, destination, 1, length());
-    Vadd(source_c, 1, destination, 1, destination, 1, length());
-    Vsma(source_sl, 1, &scale_half, destination, 1, length());
-    Vsma(source_sr, 1, &scale_half, destination, 1, length());
+    Vsma(source_l, scale_sqrt_half, destination, length());
+    Vsma(source_r, scale_sqrt_half, destination, length());
+    Vadd(source_c, destination, destination, length());
+    Vsma(source_sl, scale_half, destination, length());
+    Vsma(source_sr, scale_half, destination, length());
   } else if (number_of_source_channels == 4 &&
              number_of_destination_channels == 2) {
     // Down-mixing: 4 -> 2
     //   output.L = 0.5 * (input.L + input.SL)
     //   output.R = 0.5 * (input.R + input.SR)
-    const float* source_l = source_bus.ChannelByType(kChannelLeft)->Data();
-    const float* source_r = source_bus.ChannelByType(kChannelRight)->Data();
-    const float* source_sl =
-        source_bus.ChannelByType(kChannelSurroundLeft)->Data();
-    const float* source_sr =
-        source_bus.ChannelByType(kChannelSurroundRight)->Data();
+    base::span<const float> source_l =
+        source_bus.ChannelByType(kChannelLeft)->Span();
+    base::span<const float> source_r =
+        source_bus.ChannelByType(kChannelRight)->Span();
+    base::span<const float> source_sl =
+        source_bus.ChannelByType(kChannelSurroundLeft)->Span();
+    base::span<const float> source_sr =
+        source_bus.ChannelByType(kChannelSurroundRight)->Span();
 
-    float* destination_l = ChannelByType(kChannelLeft)->MutableData();
-    float* destination_r = ChannelByType(kChannelRight)->MutableData();
+    base::span<float> destination_l =
+        ChannelByType(kChannelLeft)->MutableSpan();
+    base::span<float> destination_r =
+        ChannelByType(kChannelRight)->MutableSpan();
     float scale_half = 0.5;
 
-    Vsma(source_l, 1, &scale_half, destination_l, 1, length());
-    Vsma(source_sl, 1, &scale_half, destination_l, 1, length());
-    Vsma(source_r, 1, &scale_half, destination_r, 1, length());
-    Vsma(source_sr, 1, &scale_half, destination_r, 1, length());
+    Vsma(source_l, scale_half, destination_l, length());
+    Vsma(source_sl, scale_half, destination_l, length());
+    Vsma(source_r, scale_half, destination_r, length());
+    Vsma(source_sr, scale_half, destination_r, length());
   } else if (number_of_source_channels == 6 &&
              number_of_destination_channels == 2) {
     // Down-mixing: 5.1 -> 2
     //   output.L = input.L + sqrt(1/2) * (input.C + input.SL)
     //   output.R = input.R + sqrt(1/2) * (input.C + input.SR)
-    const float* source_l = source_bus.ChannelByType(kChannelLeft)->Data();
-    const float* source_r = source_bus.ChannelByType(kChannelRight)->Data();
-    const float* source_c = source_bus.ChannelByType(kChannelCenter)->Data();
-    const float* source_sl =
-        source_bus.ChannelByType(kChannelSurroundLeft)->Data();
-    const float* source_sr =
-        source_bus.ChannelByType(kChannelSurroundRight)->Data();
+    base::span<const float> source_l =
+        source_bus.ChannelByType(kChannelLeft)->Span();
+    base::span<const float> source_r =
+        source_bus.ChannelByType(kChannelRight)->Span();
+    base::span<const float> source_c =
+        source_bus.ChannelByType(kChannelCenter)->Span();
+    base::span<const float> source_sl =
+        source_bus.ChannelByType(kChannelSurroundLeft)->Span();
+    base::span<const float> source_sr =
+        source_bus.ChannelByType(kChannelSurroundRight)->Span();
 
-    float* destination_l = ChannelByType(kChannelLeft)->MutableData();
-    float* destination_r = ChannelByType(kChannelRight)->MutableData();
+    base::span<float> destination_l =
+        ChannelByType(kChannelLeft)->MutableSpan();
+    base::span<float> destination_r =
+        ChannelByType(kChannelRight)->MutableSpan();
     float scale_sqrt_half = sqrtf(0.5);
 
-    Vadd(source_l, 1, destination_l, 1, destination_l, 1, length());
-    Vsma(source_c, 1, &scale_sqrt_half, destination_l, 1, length());
-    Vsma(source_sl, 1, &scale_sqrt_half, destination_l, 1, length());
-    Vadd(source_r, 1, destination_r, 1, destination_r, 1, length());
-    Vsma(source_c, 1, &scale_sqrt_half, destination_r, 1, length());
-    Vsma(source_sr, 1, &scale_sqrt_half, destination_r, 1, length());
+    Vadd(source_l, destination_l, destination_l, length());
+    Vsma(source_c, scale_sqrt_half, destination_l, length());
+    Vsma(source_sl, scale_sqrt_half, destination_l, length());
+    Vadd(source_r, destination_r, destination_r, length());
+    Vsma(source_c, scale_sqrt_half, destination_r, length());
+    Vsma(source_sr, scale_sqrt_half, destination_r, length());
   } else if (number_of_source_channels == 6 &&
              number_of_destination_channels == 4) {
     // Down-mixing: 5.1 -> 4
@@ -515,18 +513,23 @@ void AudioBus::SumFromByDownMixing(const AudioBus& source_bus) {
     //   output.R = input.R + sqrt(1/2) * input.C
     //   output.SL = input.SL
     //   output.SR = input.SR
-    const float* source_l = source_bus.ChannelByType(kChannelLeft)->Data();
-    const float* source_r = source_bus.ChannelByType(kChannelRight)->Data();
-    const float* source_c = source_bus.ChannelByType(kChannelCenter)->Data();
+    base::span<const float> source_l =
+        source_bus.ChannelByType(kChannelLeft)->Span();
+    base::span<const float> source_r =
+        source_bus.ChannelByType(kChannelRight)->Span();
+    base::span<const float> source_c =
+        source_bus.ChannelByType(kChannelCenter)->Span();
 
-    float* destination_l = ChannelByType(kChannelLeft)->MutableData();
-    float* destination_r = ChannelByType(kChannelRight)->MutableData();
+    base::span<float> destination_l =
+        ChannelByType(kChannelLeft)->MutableSpan();
+    base::span<float> destination_r =
+        ChannelByType(kChannelRight)->MutableSpan();
     float scale_sqrt_half = sqrtf(0.5);
 
-    Vadd(source_l, 1, destination_l, 1, destination_l, 1, length());
-    Vsma(source_c, 1, &scale_sqrt_half, destination_l, 1, length());
-    Vadd(source_r, 1, destination_r, 1, destination_r, 1, length());
-    Vsma(source_c, 1, &scale_sqrt_half, destination_r, 1, length());
+    Vadd(source_l, destination_l, destination_l, length());
+    Vsma(source_c, scale_sqrt_half, destination_l, length());
+    Vadd(source_r, destination_r, destination_r, length());
+    Vsma(source_c, scale_sqrt_half, destination_r, length());
     Channel(2)->SumFrom(source_bus.Channel(4));
     Channel(3)->SumFrom(source_bus.Channel(5));
   } else {
@@ -584,43 +587,39 @@ void AudioBus::CopyWithGainFrom(const AudioBus& source_bus, float gain) {
   } else {
     for (unsigned channel_index = 0; channel_index < number_of_channels;
          ++channel_index) {
-      vector_math::Vsmul(sources[channel_index].data(), 1, &gain,
-                         destinations[channel_index].data(), 1,
-                         frames_to_process);
+      vector_math::Vsmul(sources[channel_index], gain,
+                         destinations[channel_index], frames_to_process);
     }
   }
 }
 
 void AudioBus::CopyWithSampleAccurateGainValuesFrom(
     const AudioBus& source_bus,
-    float* gain_values,
-    unsigned number_of_gain_values) {
+    base::span<const float> gain_values) {
   // Make sure we're processing from the same type of bus.
   // We *are* able to process from mono -> stereo
   if (source_bus.NumberOfChannels() != 1 && !TopologyMatches(source_bus)) {
     NOTREACHED();
   }
 
-  if (!gain_values || number_of_gain_values > source_bus.length()) {
-    NOTREACHED();
-  }
+  CHECK_LE(gain_values.size(), source_bus.length());
 
-  if (source_bus.length() == number_of_gain_values &&
+  if (source_bus.length() == gain_values.size() &&
       source_bus.length() == length() && source_bus.IsSilent()) {
     Zero();
     return;
   }
 
   // We handle both the 1 -> N and N -> N case here.
-  const float* source = source_bus.Channel(0)->Data();
+  base::span<const float> source = source_bus.Channel(0)->Span();
   for (unsigned channel_index = 0; channel_index < NumberOfChannels();
        ++channel_index) {
     if (source_bus.NumberOfChannels() == NumberOfChannels()) {
-      source = source_bus.Channel(channel_index)->Data();
+      source = source_bus.Channel(channel_index)->Span();
     }
-    float* destination = Channel(channel_index)->MutableData();
-    vector_math::Vmul(source, 1, gain_values, 1, destination, 1,
-                      number_of_gain_values);
+    base::span<float> destination = Channel(channel_index)->MutableSpan();
+    vector_math::Vmul(source, gain_values, destination,
+                      base::checked_cast<uint32_t>(gain_values.size()));
   }
 }
 
@@ -664,9 +663,20 @@ scoped_refptr<AudioBus> AudioBus::TryCreateBySampleRateConverting(
     return AudioBus::CreateBufferFromRange(source_bus, 0, source_bus->length());
   }
 
+  // Prevent overflow during extreme up-sampling (e.g., 100,000 samples from
+  // 1Hz to 48kHz calculates to 4,800,000,000 frames). Validate upfront against
+  // signed integer limits to guarantee fail-fast handling before attempting any
+  // buffer allocations via TryCreate.
+  double destination_length_double =
+      static_cast<double>(source_bus->length()) / sample_rate_ratio;
+  if (!base::IsValueInRangeForNumericType<int>(destination_length_double)) {
+    return nullptr;
+  }
+  int destination_length = static_cast<int>(destination_length_double);
+
   if (source_bus->IsSilent()) {
-    scoped_refptr<AudioBus> silent_bus = TryCreate(
-        number_of_source_channels, source_bus->length() / sample_rate_ratio);
+    scoped_refptr<AudioBus> silent_bus =
+        TryCreate(number_of_source_channels, destination_length);
     if (!silent_bus) {
       return nullptr;
     }
@@ -687,10 +697,6 @@ scoped_refptr<AudioBus> AudioBus::TryCreateBySampleRateConverting(
     // Directly resample without down-mixing.
     resampler_source_bus = source_bus;
   }
-
-  // Calculate destination length based on the sample-rates.
-  int source_length = resampler_source_bus->length();
-  int destination_length = source_length / sample_rate_ratio;
 
   // Create destination bus with same number of channels.
   unsigned number_of_destination_channels =
@@ -725,7 +731,7 @@ scoped_refptr<AudioBus> AudioBus::TryCreateByMixingToMono(
       return AudioBus::CreateBufferFromRange(source_bus, 0,
                                              source_bus->length());
     case 2: {
-      unsigned n = source_bus->length();
+      uint32_t n = source_bus->length();
       scoped_refptr<AudioBus> destination_bus = TryCreate(1, n);
       if (!destination_bus) {
         return nullptr;
@@ -737,7 +743,7 @@ scoped_refptr<AudioBus> AudioBus::TryCreateByMixingToMono(
           destination_bus->Channel(0)->MutableSpan();
 
       // Do the mono mixdown.
-      for (unsigned i = 0; i < n; ++i) {
+      for (uint32_t i = 0; i < n; ++i) {
         destination[i] = (source_l[i] + source_r[i]) * 0.5f;
       }
 

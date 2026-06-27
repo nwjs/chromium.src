@@ -39,7 +39,6 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
-#include "chrome/grit/branded_strings.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_permission_utils.h"
@@ -80,9 +79,20 @@ std::string ScaleBitmapAndEncodeToDataUri(SkBitmap bitmap) {
 }
 
 bool UseNonBlockingPrivacyNotice(
-    lens::LensOverlayInvocationSource invocation_source) {
+    lens::LensOverlayInvocationSource invocation_source,
+    bool should_route_to_contextual_tasks) {
   if (!lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled()) {
     return false;
+  }
+  // The non-blocking privacy notice may be used for the image context menu
+  // entrypoint if the flag is enabled and if the query is not being routed to
+  // Contextual Tasks.
+  if (lens::features::
+          IsLensOverlayNonBlockingPrivacyNoticeForImageSearchEnabled() &&
+      invocation_source ==
+          lens::LensOverlayInvocationSource::kContentAreaContextMenuImage &&
+      !should_route_to_contextual_tasks) {
+    return true;
   }
   // Invocation sources that simply open the overlay without submitting a query
   // are permitted to use the non-blocking privacy notice.
@@ -736,8 +746,33 @@ LensSearchController::CreateLensQueryController(
 
 bool LensSearchController::ShouldEnableContextualTasksRouting(
     lens::LensOverlayInvocationSource invocation_source) {
-  // Check if contextual tasks is currently available. If so, route through
-  // results to the contextual tasks side panel.
+  // Route all Lens overlay traffic directly to the Contextual Tasks panel
+  // when the Lens side panel unification feature is active, provided the
+  // contextual tasks feature is enabled (needed to create necessary services).
+  // No need to check the actual eligibility in this case as all Lens queries
+  // should open the contextual tasks panel in this case.
+  if (lens::features::IsLensSidePanelUnificationEnabled()) {
+    if (!base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
+      return false;
+    }
+
+    // If signed out users are not allowed, verify full authentication. This
+    // needs to be done here so the correct panel is opened.
+    if (!lens::features::IsLensSidePanelUnificationAllowSignedOut()) {
+      // The isolated storage partition used by Contextual Tasks requires
+      // account cookies from the primary jar to be successfully synchronized
+      // for web-based authentication. Cookies are checked here to ensure
+      // traffic is not routed to a broken unauthenticated state.
+      auto* service = contextual_tasks::ContextualTasksUiServiceFactory::
+          GetForBrowserContext(tab_->GetBrowserWindowInterface()->GetProfile());
+      if (!service || !service->IsSignedInToBrowserWithValidCredentials() ||
+          !service->CookieJarContainsPrimaryAccount()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   auto* const entry_point_eligibility_manager =
       contextual_tasks::EntryPointEligibilityManager::From(
           tab_->GetBrowserWindowInterface());
@@ -800,7 +835,9 @@ bool LensSearchController::RunLensEligibilityChecks(
   // The non-blocking privacy notice permits the overlay to open without
   // requesting user permission via the bubble.
   if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
-      UseNonBlockingPrivacyNotice(invocation_source)) {
+      UseNonBlockingPrivacyNotice(
+          invocation_source,
+          ShouldEnableContextualTasksRouting(invocation_source))) {
     return true;
   }
 

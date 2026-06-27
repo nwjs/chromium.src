@@ -31,9 +31,13 @@
 #include "base/metrics/histogram_functions.h"
 #include "cc/layers/layer.h"
 #include "cc/paint/paint_canvas.h"
+#include "media/base/cdm_config.h"
+#include "media/base/key_system_names.h"
 #include "media/base/media_switches.h"
 #include "media/base/video_frame.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/blob/blob.mojom-blink.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/platform/web_fullscreen_video_status.h"
 #include "third_party/blink/public/platform/web_media_player.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_fullscreen_options.h"
@@ -44,7 +48,11 @@
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
+#include "third_party/blink/renderer/core/fileapi/blob.h"
+#include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/picture_in_picture_controller.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
@@ -66,18 +74,21 @@
 #include "third_party/blink/renderer/core/loader/lazy_media_helper.h"
 #include "third_party/blink/renderer/core/loader/resource/video_timing.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_non2d_snapshot_provider_bitmap.h"
+#include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
+#include "third_party/blink/renderer/platform/graphics/image_data_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
+#include "third_party/blink/renderer/platform/image-encoders/image_encoder_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 
 namespace blink {
 
@@ -458,8 +469,18 @@ void HTMLVideoElement::ReportVisibility(bool meets_visibility_threshold) {
   }
 }
 
-void HTMLVideoElement::OnEncryptedMediaInitData() {
+void HTMLVideoElement::OnCdmAttached(const media::CdmConfig& cdm_config) {
   if (!base::FeatureList::IsEnabled(media::kEncryptedMediaOcclusionTracking)) {
+    return;
+  }
+
+  // Allow External Clear Key for testing purposes, as it is the primary way
+  // we test the EME pipeline in browser tests but is not hardware secure.
+  // TODO(crbug.com/514379948): When ECK uses the CdmCapability, we can
+  // remove the IsExternalClearKey check, and mock ECK with hardware secure
+  // codecs for testing purposes.
+  if (!cdm_config.use_hw_secure_codecs &&
+      !media::IsExternalClearKey(cdm_config.key_system)) {
     return;
   }
 
@@ -472,6 +493,53 @@ void HTMLVideoElement::OnEncryptedMediaInitData() {
   }
 }
 
+void HTMLVideoElement::RequestSaveVideoFrame() {
+  auto image = CreateStaticBitmapImage();
+  if (!image) {
+    return;
+  }
+  auto data_buffer = ImageDataBuffer::Create(image);
+  if (!data_buffer) {
+    return;
+  }
+
+  ImageEncodingMimeType encoding_mime_type =
+      ImageEncoderUtils::ToEncodingMimeType(
+          "image/png", ImageEncoderUtils::kEncodeReasonToDataURL);
+
+  Vector<unsigned char> png_bytes;
+  if (!data_buffer->EncodeImage(encoding_mime_type, /*quality=*/0,
+                                &png_bytes)) {
+    return;
+  }
+
+  // TODO(crbug.com/515541028): Avoid copying the bytes here.
+  Blob* blob = Blob::Create(base::span(png_bytes), "image/png");
+  LocalDOMWindow* window = GetDocument().domWindow();
+  CHECK(window);
+  PublicURLManager& url_manager = window->GetPublicURLManager();
+  String blob_url = url_manager.RegisterURL(blob);
+
+  mojo::PendingRemote<mojom::blink::BlobURLToken> blob_url_token;
+  url_manager.ResolveAsBlobURLToken(
+      KURL(blob_url), blob_url_token.InitWithNewPipeAndPassReceiver(),
+      /*is_top_level_navigation=*/false);
+
+  auto params = mojom::blink::DownloadURLParams::New();
+  params->is_context_menu_save = true;
+  auto timestamp_ms = base::saturated_cast<uint32_t>(
+      currentTime() * base::Time::kMillisecondsPerSecond);
+  params->suggested_name =
+      StrCat({"videoframe_", String::Number(timestamp_ms)});
+  params->url = KURL(blob_url);
+  params->blob_url_token = std::move(blob_url_token);
+
+  if (GetDocument().GetFrame()) {
+    GetDocument().GetFrame()->GetLocalFrameHostRemote().DownloadURL(
+        std::move(params));
+  }
+}
+
 void HTMLVideoElement::OnVisibilityRatioReport(double ratio) {
   if (GetWebMediaPlayer()) {
     GetWebMediaPlayer()->SetVisibilityRatioAtPlaybackStart(ratio);
@@ -481,7 +549,6 @@ void HTMLVideoElement::OnVisibilityRatioReport(double ratio) {
 void HTMLVideoElement::ResetCache(TimerBase*) {
   snapshot_provider_.reset();
   cached_draw_info_.reset();
-  sw_draw_surface_.reset();
 }
 
 bool HTMLVideoElement::IsPersistent() const {
@@ -499,7 +566,7 @@ void HTMLVideoElement::OnPlay() {
   // for AutoPictureInPictureVideoHeuristicsEnabled feature.
   //
   // For encrypted media, the tracker should only be created via
-  // OnEncryptedMediaInitData(). Initializing it here when only the
+  // OnCdmAttached(). Initializing it here when only the
   // kEncryptedMediaOcclusionTracking feature is enabled would incorrectly
   // attach the tracker to clear videos.
   if (RuntimeEnabledFeatures::AutoPictureInPictureVideoHeuristicsEnabled()) {
@@ -564,9 +631,10 @@ void HTMLVideoElement::RequestVisibility(
 
 void HTMLVideoElement::PaintCurrentFrame(cc::PaintCanvas* canvas,
                                          const gfx::Rect& dest_rect,
-                                         const cc::PaintFlags& flags) const {
+                                         const cc::PaintFlags& flags,
+                                         bool force_pixel_readback) const {
   if (auto* wmp = GetWebMediaPlayer()) {
-    wmp->Paint(canvas, dest_rect, flags);
+    wmp->Paint(canvas, dest_rect, flags, force_pixel_readback);
   }
 }
 
@@ -662,8 +730,8 @@ void HTMLVideoElement::DidMoveToNewDocument(Document& old_document) {
   }
 
   HTMLMediaElement::DidMoveToNewDocument(old_document);
-  if (image_loader_) {
-    image_loader_->UpdateFromElement();
+  if (image_loader_ || FastHasAttribute(html_names::kPosterAttr)) {
+    UpdatePosterImage();
   }
 }
 
@@ -672,6 +740,16 @@ unsigned HTMLVideoElement::webkitDecodedFrameCount() const {
     return wmp->DecodedFrameCount();
   }
   return 0;
+}
+
+void HTMLVideoElement::DidChangeIsCanvasOrInCanvasSubtree() {
+  HTMLMediaElement::DidChangeIsCanvasOrInCanvasSubtree();
+  if (IsCanvasOrInCanvasSubtree()) {
+    UpdateLayoutObject();
+    if (auto* wmp = GetWebMediaPlayer()) {
+      wmp->RequestVideoFrameCallback();
+    }
+  }
 }
 
 unsigned HTMLVideoElement::webkitDroppedFrameCount() const {
@@ -691,11 +769,6 @@ KURL HTMLVideoElement::PosterImageURL() const {
 bool HTMLVideoElement::IsDefaultPosterImageURL() const {
   return ImageSourceURL() == default_poster_url_;
 }
-
-// Killswitch guarding HTMLVideoElement not caching the SkSurface used for
-// VideoFrame->StaticBitmapImage software draws.
-BASE_FEATURE(kHTMLVideoElementCacheSkSurface,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
     std::optional<gfx::Size> size,
@@ -724,7 +797,6 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
           wrapper->ContextProvider().RasterContextProvider();
     }
     snapshot_provider_.reset();
-    sw_draw_surface_.reset();
 
     if (ShouldCreateAcceleratedImages(raster_context_provider)) {
       snapshot_provider_ = CanvasNon2DResourceProviderSharedImage::Create(
@@ -733,12 +805,6 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
           SharedGpuContext::ContextProviderWrapper(),
           gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
       if (!snapshot_provider_) {
-        return nullptr;
-      }
-    } else if (base::FeatureList::IsEnabled(kHTMLVideoElementCacheSkSurface)) {
-      sw_draw_surface_ = CanvasNon2DSnapshotProviderBitmap::CreateSurface(
-          required_provider_info);
-      if (!sw_draw_surface_) {
         return nullptr;
       }
     }
@@ -756,9 +822,8 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
         kPreferTaggedOrientation, reinterpret_as_srgb);
   } else {
     image = CreateUnacceleratedImageFromVideoFrame(
-        std::move(media_video_frame), cached_draw_info_.value(),
-        sw_draw_surface_, video_renderer, kPreferTaggedOrientation,
-        reinterpret_as_srgb);
+        std::move(media_video_frame), cached_draw_info_.value(), video_renderer,
+        kPreferTaggedOrientation, reinterpret_as_srgb);
   }
   if (image)
     image->SetOriginClean(!WouldTaintOrigin());
@@ -917,6 +982,7 @@ void HTMLVideoElement::OnExitedPictureInPicture() {
 
 void HTMLVideoElement::SetIsEffectivelyFullscreen(
     blink::WebFullscreenVideoStatus status) {
+  const bool was_effectively_fullscreen = is_effectively_fullscreen_;
   is_effectively_fullscreen_ =
       status != blink::WebFullscreenVideoStatus::kNotEffectivelyFullscreen;
   if (auto* wmp = GetWebMediaPlayer()) {
@@ -925,6 +991,18 @@ void HTMLVideoElement::SetIsEffectivelyFullscreen(
 
     wmp->SetIsEffectivelyFullscreen(status);
     wmp->OnDisplayTypeChanged(GetDisplayType());
+  }
+
+  // If the video becomes effectively fullscreen, request user confirmation to
+  // enter an immersive Picture-in-Picture session if enabled.
+  if (is_effectively_fullscreen_ && !was_effectively_fullscreen) {
+    if (GetDocument().GetSettings() &&
+        GetDocument().GetSettings()->GetImmersiveVideoPlaybackEnabled()) {
+      if (!PictureInPictureController::IsElementInPictureInPicture(this)) {
+        PictureInPictureController::From(GetDocument())
+            .RequestImmersivePlaybackConfirmation(*this);
+      }
+    }
   }
 }
 
@@ -981,6 +1059,12 @@ void HTMLVideoElement::OnIntersectionChangedForLazyLoad(
 void HTMLVideoElement::OnWebMediaPlayerCreated() {
   if (auto* vfc_requester = VideoFrameCallbackRequester::From(*this))
     vfc_requester->OnWebMediaPlayerCreated();
+
+  if (IsCanvasOrInCanvasSubtree()) {
+    if (auto* wmp = GetWebMediaPlayer()) {
+      wmp->RequestVideoFrameCallback();
+    }
+  }
 }
 
 void HTMLVideoElement::OnWebMediaPlayerCleared() {
@@ -1021,6 +1105,15 @@ void HTMLVideoElement::AttributeChanged(
 void HTMLVideoElement::OnRequestVideoFrameCallback() {
   if (auto* vfc_requester = VideoFrameCallbackRequester::From(*this)) {
     vfc_requester->OnRequestVideoFrameCallback();
+  }
+
+  if (IsCanvasOrInCanvasSubtree()) {
+    if (GetLayoutObject()) {
+      GetLayoutObject()->SetShouldDoFullPaintInvalidation();
+    }
+    if (auto* wmp = GetWebMediaPlayer()) {
+      wmp->RequestVideoFrameCallback();
+    }
   }
 }
 

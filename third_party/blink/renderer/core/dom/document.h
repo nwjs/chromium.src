@@ -85,6 +85,7 @@
 #include "third_party/blink/renderer/core/frame/widget_creation_observer.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/parser/parser_synchronization_policy.h"
+#include "third_party/blink/renderer/core/probe/async_task_context.h"
 #include "third_party/blink/renderer/platform/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_counted_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
@@ -231,6 +232,7 @@ class MenuSafeTriangle;
 class NodeIterator;
 class NthIndexCache;
 class Page;
+class ParseHTMLUnsafeOptions;
 class PendingAnimations;
 class PendingLinkPreload;
 class ProcessingInstruction;
@@ -256,7 +258,6 @@ class SecurityOrigin;
 class SelectorQueryCache;
 class SerializedScriptValue;
 class SetHTMLOptions;
-class SetHTMLUnsafeOptions;
 class Settings;
 class SlotAssignmentEngine;
 class StreamingSanitizer;
@@ -2036,8 +2037,9 @@ class CORE_EXPORT Document : public ContainerNode,
 
   void RequestResizeResponsiveIframe(ExceptionState* = nullptr);
 
-  // A META element with name=responsive-embedded-sizing was added, removed, or
-  // modified. Re-collect the META values.
+  // A META element with name=responsive-embedded-sizing sets this flag.
+  // This flag is immutable once set.
+  // https://drafts.csswg.org/css-sizing-4/#document-responsive-embedded-sizing-flag
   void SetResponsiveEmbeddedSizing() { responsive_embedded_sizing_ = true; }
 
   // A META element with name=text-scale was added, removed, or
@@ -2254,7 +2256,11 @@ class CORE_EXPORT Document : public ContainerNode,
   // should be merged.
   static Document* parseHTMLUnsafe(ExecutionContext* context,
                                    const V8UnionStringOrTrustedHTML* html,
-                                   SetHTMLUnsafeOptions* options,
+                                   ParseHTMLUnsafeOptions* options,
+                                   ExceptionState& exception_state);
+  static Document* parseHTMLUnsafe(ExecutionContext* context,
+                                   const V8UnionStringOrTrustedHTML* html,
+                                   TrustedParserOptions* options,
                                    ExceptionState& exception_state);
   static Document* parseHTML(ExecutionContext* context,
                              const String& html,
@@ -2775,7 +2781,9 @@ class CORE_EXPORT Document : public ContainerNode,
   class PendingJavascriptUrl final
       : public GarbageCollected<PendingJavascriptUrl> {
    public:
-    PendingJavascriptUrl(const KURL& input_url, const DOMWrapperWorld* world);
+    PendingJavascriptUrl(ExecutionContext*,
+                         const KURL& input_url,
+                         const DOMWrapperWorld* world);
     ~PendingJavascriptUrl();
 
     void Trace(Visitor* visitor) const;
@@ -2783,6 +2791,8 @@ class CORE_EXPORT Document : public ContainerNode,
     KURL url;
     // The world in which the navigation to |url| initiated. Non-null.
     Member<const DOMWrapperWorld> world;
+
+    probe::AsyncTaskContext async_task_context;
   };
   HeapVector<Member<PendingJavascriptUrl>> pending_javascript_urls_;
 

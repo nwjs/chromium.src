@@ -19,6 +19,7 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/observer_list_threadsafe.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
@@ -156,11 +157,13 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
 
   bool recording_enabled() const { return recording_enabled_; }
 
-  bool recording_enabled(ukm::UkmConsentType type) const {
-    return recording_state_.Has(type);
-  }
+  bool recording_enabled(ukm::UkmConsentType type) const;
 
   bool ShouldDropEntryForTesting(mojom::UkmEntry* entry);
+
+  void SetShouldUseMetricsConsentRestructure(bool value) {
+    use_metrics_consent_restructure_ = value;
+  }
 
  protected:
   // Calculates sampled in/out for a specific source/event based on internal
@@ -255,6 +258,8 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
       GetDocumentToNavigationUrlsMap_MissingSubframeSource);
   FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest,
                            GetDocumentToNavigationUrlsMap_Redirect);
+  FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest,
+                           StoreDownsamplingParametersInReport);
 
   struct MetricAggregate {
     uint64_t total_count = 0;
@@ -314,10 +319,10 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
   void LoadExperimentSamplingParams(
       const std::map<std::string, std::string>& params);
 
-  // Stores the downsampling rate applied to web features in the report. At
+  // Stores the downsampling rates applied to events in the report. At
   // query time, this can be used as a multiplier to deduce the count of an
   // event type, as if it were not downsampled.
-  void StoreWebDXFeaturesDownsamplingParameter(Report* report);
+  void StoreDownsamplingParameters(Report* report);
 
   // Called to notify interested observers about a newly added UKM entry.
   void NotifyObserversWithNewEntry(const mojom::UkmEntry& entry);
@@ -328,6 +333,9 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
 
   // Whether recording new data is currently allowed.
   bool recording_enabled_ = false;
+
+  // Whether the new metrics consent model should be used.
+  bool use_metrics_consent_restructure_ = false;
 
   // Whether recording new data is enabled and what type is allowed.
   ukm::UkmConsentState recording_state_;

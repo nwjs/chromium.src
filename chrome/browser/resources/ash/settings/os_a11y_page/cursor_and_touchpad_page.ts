@@ -39,6 +39,7 @@ import {getTemplate} from './cursor_and_touchpad_page.html.js';
 import {DisableTouchpadMode} from './disable_touchpad_constants.js';
 
 const DEFAULT_BLACK_CURSOR_COLOR = 0;
+const INVERTED_CURSOR_COLOR = 1;
 interface Option {
   name: string;
   value: number;
@@ -136,7 +137,7 @@ export class SettingsCursorAndTouchpadPageElement extends
         readOnly: true,
         type: Array,
         value() {
-          return [
+          const options = [
             {
               value: DEFAULT_BLACK_CURSOR_COLOR,
               name: loadTimeData.getString('cursorColorBlack'),
@@ -169,8 +170,15 @@ export class SettingsCursorAndTouchpadPageElement extends
               value: 0xf50057,  // Pink A400
               name: loadTimeData.getString('cursorColorPink'),
             },
-
           ];
+          if (loadTimeData.getBoolean(
+                  'isAccessibilityInvertedMouseCursorEnabled')) {
+            options.push({
+              value: INVERTED_CURSOR_COLOR,
+              name: loadTimeData.getString('cursorColorInverted'),
+            });
+          }
+          return options;
         },
       },
 
@@ -486,11 +494,13 @@ export class SettingsCursorAndTouchpadPageElement extends
 
   private onA11yCursorColorChange_(): void {
     // Custom cursor color is enabled when the color is not set to black.
-    const a11yCursorColorOn =
-        this.getPref<number>('settings.a11y.cursor_color').value !==
-        DEFAULT_BLACK_CURSOR_COLOR;
+    const color = this.getPref<number>('settings.a11y.cursor_color').value;
+    const a11yCursorColorOn = color !== DEFAULT_BLACK_CURSOR_COLOR;
     this.set(
         'prefs.settings.a11y.cursor_color_enabled.value', a11yCursorColorOn);
+
+    chrome.metricsPrivate.recordSparseValue(
+        'ChromeOS.Settings.Accessibility.CursorColor.Value', color);
   }
 
   private showTouchpadEnableMessage_(trackpadMode: number): boolean {

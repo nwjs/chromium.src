@@ -117,8 +117,7 @@ void SyncASIdentityStore(NSArray<id<Credential>>* credentials) {
     for (id<Credential> credential in credentials) {
       if (credential.isPasskey) {
         // Hidden passkeys shouldn't be surfaced in the sign-in suggestions.
-        if (base::FeatureList::IsEnabled(kCredentialProviderSignalAPI) &&
-            credential.hidden) {
+        if (credential.hidden) {
           continue;
         }
         [storeIdentities addObject:[[ASPasskeyCredentialIdentity alloc]
@@ -243,9 +242,7 @@ CredentialProviderService::CredentialProviderService(
   OnPrefOrPolicyStatusChanged();
   UpdatePasswordSyncSetting();
   UpdateAutomaticPasskeyUpgradeSetting();
-  UpdatePasskeyPRFSetting();
   UpdatePasskeyLargeBlobSetting();
-  UpdateSignalAPISetting();
 }
 
 CredentialProviderService::~CredentialProviderService() {}
@@ -259,7 +256,10 @@ void CredentialProviderService::Shutdown() {
     passkey_model_->RemoveObserver(this);
   }
   identity_manager_->RemoveObserver(this);
-  sync_service_->RemoveObserver(this);
+  if (sync_service_) {
+    sync_service_->RemoveObserver(this);
+    sync_service_ = nullptr;
+  }
 }
 
 void CredentialProviderService::OnLoginsChanged(
@@ -451,15 +451,23 @@ void CredentialProviderService::AddCredentialsRefactored(
     MemoryCredentialStore* store,
     std::vector<password_manager::StoredCredential> forms,
     base::OnceClosure completion) {
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::MayBlock(), base::ThreadPolicy::PREFER_BACKGROUND,
-       base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(&GetFaviconsListAndFreshness),
+  auto reply_callback = base::BindPostTask(
+      base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           &CredentialProviderService::ContinueAddCredentialsRefactored,
           weak_ptr_factory_.GetWeakPtr(), base::Unretained(store),
           std::move(forms), std::move(completion)));
+
+  base::ThreadPool::PostTask(
+      FROM_HERE,
+      {base::MayBlock(), base::ThreadPolicy::PREFER_BACKGROUND,
+       base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(
+          [](base::OnceCallback<void(NSDictionary<NSString*, NSDate*>*)>
+                 reply) {
+            std::move(reply).Run(GetFaviconsListAndFreshness());
+          },
+          std::move(reply_callback)));
 }
 
 void CredentialProviderService::ContinueAddCredentialsRefactored(
@@ -518,14 +526,6 @@ void CredentialProviderService::AddCredentials(
   NSString* gaia = PrimaryAccountId();
 
   for (const sync_pb::WebauthnCredentialSpecifics& passkey : passkeys) {
-    // With the feature enabled, hidden passkeys are only filtered out before
-    // being added to ASCredentialIdentityStore, they should still be added to
-    // `store`.
-    if (!base::FeatureList::IsEnabled(kCredentialProviderSignalAPI) &&
-        passkey.hidden()) {
-      continue;
-    }
-
     GURL url(base::StrCat(
         {url::kHttpsScheme, url::kStandardSchemeSeparator, passkey.rp_id()}));
     // Only fetch favicon for valid URL.
@@ -634,16 +634,6 @@ void CredentialProviderService::UpdateAutomaticPasskeyUpgradeSetting() {
              AppGroupUserDefaulsCredentialProviderAutomaticPasskeyUpgradeEnabled()];
 }
 
-void CredentialProviderService::UpdatePasskeyPRFSetting() {
-  if (!IsLastUsedProfile()) {
-    return;
-  }
-
-  BOOL is_enabled = base::FeatureList::IsEnabled(kCredentialProviderPasskeyPRF);
-  [app_group::GetGroupUserDefaults()
-      setObject:[NSNumber numberWithBool:is_enabled]
-         forKey:AppGroupUserDefaulsCredentialProviderPasskeyPRFEnabled()];
-}
 
 void CredentialProviderService::UpdatePasskeyLargeBlobSetting() {
   if (!IsLastUsedProfile()) {
@@ -657,16 +647,6 @@ void CredentialProviderService::UpdatePasskeyLargeBlobSetting() {
          forKey:AppGroupUserDefaulsCredentialProviderPasskeyLargeBlobEnabled()];
 }
 
-void CredentialProviderService::UpdateSignalAPISetting() {
-  if (!IsLastUsedProfile()) {
-    return;
-  }
-
-  BOOL is_enabled = base::FeatureList::IsEnabled(kCredentialProviderSignalAPI);
-  [app_group::GetGroupUserDefaults()
-      setObject:[NSNumber numberWithBool:is_enabled]
-         forKey:AppGroupUserDefaulsCredentialProviderSignalAPIEnabled()];
-}
 
 void CredentialProviderService::OnGetPasswordStoreResultsOrErrorFrom(
     password_manager::PasswordStoreInterface* store,
@@ -694,8 +674,8 @@ void CredentialProviderService::OnPrimaryAccountChanged(
 
 void CredentialProviderService::OnLoginsRetained(
     password_manager::PasswordStoreInterface* /*store*/,
-    const std::vector<password_manager::PasswordForm>& /*retained_passwords*/) {
-}
+    const std::vector<
+        password_manager::StoredCredential>& /*retained_credentials*/) {}
 
 void CredentialProviderService::OnInjectedAffiliationAfterLoginsChanged(
     password_manager::PasswordStoreInterface* store,

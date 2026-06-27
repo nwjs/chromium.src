@@ -60,7 +60,7 @@ generate_grd("build_grdp") {
     ]
   }
 
-  if ((!is_android && !is_ios) || enable_webui_ntp) {
+  if ((!is_android && !is_ios) || is_desktop_android) {
     input_files += [
       "arrow_right.svg",
       "business.svg",

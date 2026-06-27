@@ -4,38 +4,43 @@
 
 #include "components/autofill/core/browser/suggestions/autofill_ai/autofill_ai_suggestion_generator.h"
 
+#include <stddef.h>
+
 #include <algorithm>
-#include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/check_deref.h"
+#include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/containers/extend.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
+#include "base/functional/callback.h"
+#include "base/functional/function_ref.h"
 #include "base/memory/raw_ref.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
-#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "base/types/strong_alias.h"
+#include "base/types/optional_ref.h"
 #include "base/types/zip.h"
+#include "build/buildflag.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_type_utils.h"
-#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/autofill_ai/field_filling_entity_util.h"
 #include "components/autofill/core/browser/filling/field_filling_util.h"
 #include "components/autofill/core/browser/form_processing/autofill_ai/determine_attribute_types.h"
@@ -46,12 +51,12 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/suggestions/suggestion_util.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/autofill_prefs.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/feature_engagement/public/feature_constants.h"
-#include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace autofill {
@@ -313,13 +318,14 @@ std::vector<const EntityInstance*> DedupedEntitiesForSuggestions(
     }
   }
 
-  auto is_server_entity = [](const EntityInstance& entity) {
-    switch (entity.record_type()) {
+  auto get_record_type_priority = [](EntityInstance::RecordType record_type) {
+    switch (record_type) {
       case EntityInstance::RecordType::kServerWallet:
-        return true;
+        return 2;
       case EntityInstance::RecordType::kLocal:
-      case EntityInstance::RecordType::kAccessibilityAnnotator:
-        return false;
+        return 1;
+      case EntityInstance::RecordType::kPersonalContext:
+        return 0;
     }
     NOTREACHED();
   };
@@ -336,19 +342,17 @@ std::vector<const EntityInstance*> DedupedEntitiesForSuggestions(
                                                   fields_to_values[j].size();
       // Erase `i` iff:
       // - `i` is a proper subset of `j` for some `j`.
-      // - `i` is equal to `j` and `i` is not a server entity while `j` is.
-      // - `i` is equal to `j` for some j < i and `i` is not a server entity.
-      // - `i` is equal to `j` for some j < i and both `i` and `j` are server
-      // entities.
+      // - `i` is equal to `j` and `j` has higher priority than `i`.
+      // - `i` is equal to `j` and they have the same priority, but `j`
+      //   appears earlier in the list (higher frecency).
       const bool i_is_proper_subset_of_j = j_includes_i && !j_equals_i;
-      const bool i_is_server_entity = is_server_entity(*entities[i]);
-      const bool j_is_server_entity = is_server_entity(*entities[j]);
-      const bool i_and_j_are_server_entities =
-          i_is_server_entity && j_is_server_entity;
+      const int i_priority =
+          get_record_type_priority(entities[i]->record_type());
+      const int j_priority =
+          get_record_type_priority(entities[j]->record_type());
       if (i_is_proper_subset_of_j ||
           (j_equals_i &&
-           ((!i_is_server_entity && j_is_server_entity) ||
-            (i > j && (!i_is_server_entity || i_and_j_are_server_entities))))) {
+           (j_priority > i_priority || (j_priority == i_priority && i > j)))) {
         erase_i = true;
         break;
       }
@@ -371,7 +375,7 @@ Suggestion::Icon GetSuggestionIcon(
   }
 #endif
   if (trigger_entity_record_type ==
-      EntityInstance::RecordType::kAccessibilityAnnotator) {
+      EntityInstance::RecordType::kPersonalContext) {
     return Suggestion::Icon::kSpark;
   }
   switch (trigger_entity_type.name()) {
@@ -650,7 +654,7 @@ void AutofillAiSuggestionGenerator::GenerateSuggestions(
     const FormFieldData& trigger_field,
     const FormStructure* form_structure,
     const AutofillField* trigger_autofill_field,
-    const AutofillClient& client,
+    AutofillClient& client,
     base::OnceCallback<void(ReturnedSuggestions)> callback) {
   GenerateSuggestions(
       form, trigger_field, form_structure, trigger_autofill_field, client,
@@ -664,7 +668,7 @@ void AutofillAiSuggestionGenerator::GenerateSuggestions(
     const FormFieldData& trigger_field,
     const FormStructure* form_structure,
     const AutofillField* trigger_autofill_field,
-    const AutofillClient& client,
+    AutofillClient& client,
     base::FunctionRef<void(ReturnedSuggestions)> callback) {
   const EntityDataManager* entity_manager = client.GetEntityDataManager();
   if (!entity_manager || !form_structure || !trigger_autofill_field) {

@@ -189,4 +189,12 @@ BASE_FEATURE(kActorFormScriptToolInterrupt, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicActorTabObservationController,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kActorObserveScreenshotDefault, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kActorObservePageContentDefault, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kActorScriptToolSkipScreenshot, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kActorScriptToolSkipPageContent,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 }  // namespace actor

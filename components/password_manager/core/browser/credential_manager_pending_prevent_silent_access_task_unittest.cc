@@ -8,11 +8,13 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/test/task_environment.h"
+#include "build/build_config.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
 #include "components/password_manager/core/browser/affiliation/mock_affiliated_match_helper.h"
 #include "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -79,21 +81,20 @@ class CredentialManagerPendingPreventSilentAccessTaskTest
     : public ::testing::Test {
  public:
   CredentialManagerPendingPreventSilentAccessTaskTest() {
-    auto profile_store_match_helper =
+    mock_affiliated_match_helper_ =
         std::make_unique<NiceMock<MockAffiliatedMatchHelper>>(
             affiliation_service_.get());
-    mock_affiliated_match_helper_ = profile_store_match_helper.get();
 
     profile_store_ = new TestPasswordStore(IsAccountStore(false));
-    profile_store_->Init(std::move(profile_store_match_helper));
+    profile_store_->SetAffiliatedMatchHelper(
+        mock_affiliated_match_helper_.get());
+    profile_store_->Init();
 
     account_store_ = new TestPasswordStore(IsAccountStore(true));
-    account_store_->Init(/*affiliated_match_helper=*/nullptr);
+    account_store_->Init();
   }
 
   ~CredentialManagerPendingPreventSilentAccessTaskTest() override {
-    mock_affiliated_match_helper_ = nullptr;
-
     account_store_->ShutdownOnUIThread();
     profile_store_->ShutdownOnUIThread();
     // It's needed to cleanup the password store asynchronously.
@@ -106,6 +107,20 @@ class CredentialManagerPendingPreventSilentAccessTaskTest
     return *mock_affiliated_match_helper_;
   }
 
+  void SetupAffiliatedAndGroupedRealms(
+      TestPasswordStore* store,
+      const PasswordFormDigest& form,
+      const std::vector<std::string>& affiliated_realms,
+      const std::vector<std::string>& grouped_realms = {}) {
+#if BUILDFLAG(IS_ANDROID)
+    store->SetAffiliatedAndGroupedRealms(form.signon_realm, affiliated_realms,
+                                         grouped_realms);
+#else
+    affiliated_match_helper().ExpectCallToGetAffiliatedAndGrouped(
+        form, affiliated_realms, grouped_realms);
+#endif
+  }
+
  protected:
   testing::NiceMock<CredentialManagerPendingPreventSilentAccessTaskDelegateMock>
       delegate_mock_;
@@ -113,7 +128,8 @@ class CredentialManagerPendingPreventSilentAccessTaskTest
   scoped_refptr<TestPasswordStore> account_store_;
   std::unique_ptr<affiliations::FakeAffiliationService> affiliation_service_ =
       std::make_unique<affiliations::FakeAffiliationService>();
-  raw_ptr<NiceMock<MockAffiliatedMatchHelper>> mock_affiliated_match_helper_;
+  std::unique_ptr<NiceMock<MockAffiliatedMatchHelper>>
+      mock_affiliated_match_helper_;
 
  private:
   base::test::SingleThreadTaskEnvironment task_environment_;
@@ -168,7 +184,7 @@ TEST_F(CredentialManagerPendingPreventSilentAccessTaskTest,
 
   PasswordForm form = CreateEntry("username", "password", GURL(kUrl),
                                   PasswordForm::MatchType::kExact);
-  profile_store_->AddLogin(form);
+  profile_store_->AddLogin(password_manager::FromPasswordForm(form));
   ProcessPasswordStoreUpdates();
 
   CredentialManagerPendingPreventSilentAccessTask task(&delegate_mock_);
@@ -192,7 +208,7 @@ TEST_F(CredentialManagerPendingPreventSilentAccessTaskTest,
 
   PasswordForm form = CreateEntry("username", "password", GURL(kUrl),
                                   PasswordForm::MatchType::kExact);
-  profile_store_->AddLogin(form);
+  profile_store_->AddLogin(password_manager::FromPasswordForm(form));
   ProcessPasswordStoreUpdates();
 
   const GURL kDifferentDomainUrl = GURL(kUnrelatedUrl);
@@ -218,14 +234,15 @@ TEST_F(CredentialManagerPendingPreventSilentAccessTaskTest,
   PasswordForm form =
       CreateEntry("username", "password", GURL(kGroupedMatchUrl),
                   PasswordForm::MatchType::kExact);
-  profile_store_->AddLogin(form);
+  profile_store_->AddLogin(password_manager::FromPasswordForm(form));
   ProcessPasswordStoreUpdates();
 
   const PasswordFormDigest kDigest(PasswordForm::Scheme::kHtml,
                                    GetSignonRealm(GURL(kUrl)), GURL(kUrl));
   // Register `kGroupedMatchUrl` domain as weakly affiliated with `kUrl`.
-  affiliated_match_helper().ExpectCallToGetAffiliatedAndGrouped(
-      kDigest, {kUrl}, {kGroupedMatchUrl});
+  SetupAffiliatedAndGroupedRealms(profile_store_.get(), kDigest,
+                                  /*affiliated_realms=*/{},
+                                  /*grouped_realms=*/{kGroupedMatchUrl});
   CredentialManagerPendingPreventSilentAccessTask task(&delegate_mock_);
   task.AddOrigin(kDigest);
   ProcessPasswordStoreUpdates();
@@ -252,7 +269,7 @@ TEST_F(CredentialManagerPendingPreventSilentAccessTaskTest,
   form.url = GURL(kUrl);
   form.blocked_by_user = true;
 
-  profile_store_->AddLogin(form);
+  profile_store_->AddLogin(password_manager::FromPasswordForm(form));
   ProcessPasswordStoreUpdates();
 
   const PasswordFormDigest kDigest(PasswordForm::Scheme::kHtml,

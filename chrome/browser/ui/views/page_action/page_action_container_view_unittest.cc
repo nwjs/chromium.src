@@ -6,12 +6,13 @@
 
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/page_actions/test_support/test_page_action_properties_provider.h"
+#include "chrome/browser/ui/page_action/test_support/test_page_action_properties_provider.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_params.h"
 #include "components/vector_icons/vector_icons.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/views/test/views_test_base.h"
 
 namespace page_actions {
@@ -73,9 +74,12 @@ class PageActionContainerViewTest : public views::ViewsTestBase {
 TEST_F(PageActionContainerViewTest, GetPageActionView) {
   actions::ActionItem* action_item = actions::ActionManager::Get().AddAction(
       actions::ActionItem::Builder()
-          .SetImage(ui::ImageModel::FromVectorIcon(vector_icons::kBackArrowIcon,
-                                                   ui::kColorSysPrimary,
-                                                   /*icon_size=*/16))
+          .SetImage(ui::ImageModel::FromVectorIcon(
+              features::IsRoundedIconsEnabled()
+                  ? vector_icons::kArrowBackIcon
+                  : vector_icons::kBackArrowOldIcon,
+              ui::kColorSysPrimary,
+              /*icon_size=*/16))
           .SetActionId(kTestPageActionId)
           .Build());
 

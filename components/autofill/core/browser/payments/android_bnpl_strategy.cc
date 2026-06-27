@@ -4,15 +4,18 @@
 
 #include "components/autofill/core/browser/payments/android_bnpl_strategy.h"
 
+#include "components/autofill/core/browser/payments/bnpl_strategy.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
+
 namespace autofill::payments {
 
 AndroidBnplStrategy::AndroidBnplStrategy() = default;
 
 AndroidBnplStrategy::~AndroidBnplStrategy() = default;
 
-BnplStrategy::SuggestionShownNextAction
-AndroidBnplStrategy::GetNextActionOnSuggestionShown() {
-  return SuggestionShownNextAction::
+BnplStrategy::SuggestionsShownNextAction
+AndroidBnplStrategy::GetNextActionOnSuggestionsShown() {
+  return SuggestionsShownNextAction::
       kSkipNotifyingUpdateCallbackOfSuggestionsShownResponse;
 }
 

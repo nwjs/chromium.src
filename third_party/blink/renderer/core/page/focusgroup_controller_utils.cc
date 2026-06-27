@@ -740,6 +740,14 @@ bool FocusgroupControllerUtils::ContainsKeyboardFocusableContent(
   return false;
 }
 
+bool FocusgroupControllerUtils::ContainsFocusedElement(const Element& element) {
+  const Element* focused = element.GetDocument().FocusedElement();
+  if (!focused) {
+    return false;
+  }
+  return FlatTreeTraversal::IsInclusiveDescendantOf(*focused, element);
+}
+
 const Element*
 FocusgroupControllerUtils::NextFocusgroupItemInSegmentInDirection(
     const Element& item,
@@ -798,7 +806,9 @@ FocusgroupControllerUtils::NextFocusgroupItemInSegmentInDirection(
       // escape past it. This matters for elements that are focused but not
       // keyboard-focusable in the sequential sense (e.g., an unchecked radio
       // button focused via native radio group arrow navigation).
-      if (opted_out_subtree_root->IsFocusedElementInDocument() ||
+      // Check whether the focused element is inside this subtree — a focused
+      // element nested in a focusgroup="none" wrapper still creates a barrier.
+      if (ContainsFocusedElement(*opted_out_subtree_root) ||
           ContainsKeyboardFocusableContent(*opted_out_subtree_root)) {
         return nullptr;
       }
@@ -908,6 +918,16 @@ bool FocusgroupControllerUtils::IsExcludedFromAncestorFocusgroup(
 // static
 bool FocusgroupControllerUtils::IsFocusgroupStart(const Element& element) {
   return element.FastHasAttribute(html_names::kFocusgroupstartAttr);
+}
+
+// static
+bool FocusgroupControllerUtils::IsNonEntryFocusgroupScopeOwner(
+    const Element& element) {
+  Element* owner = GetFocusgroupOwnerOfItem(&element);
+  if (!owner) {
+    return false;
+  }
+  return !IsEntryElementForFocusgroupSegment(element, *owner);
 }
 
 }  // namespace blink

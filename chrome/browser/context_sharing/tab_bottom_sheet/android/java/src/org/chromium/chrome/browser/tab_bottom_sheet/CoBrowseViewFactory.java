@@ -22,6 +22,7 @@ import org.chromium.chrome.browser.context_sharing.R;
 import org.chromium.chrome.browser.contextual_tasks.fusebox.ContextualTasksFusebox;
 import org.chromium.chrome.browser.contextual_tasks.fusebox.ContextualTasksFusebox.ContextualTasksFuseboxConfig;
 import org.chromium.chrome.browser.contextual_tasks.fusebox.ContextualTasksFuseboxManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -89,12 +90,15 @@ public class CoBrowseViewFactory {
      * @param webContents The {@link WebContents} to be displayed in the thin web view.
      * @param backgroundColor The background color for the content.
      * @param clientType The client using coBrowseViews.
+     * @param containerType The type of container hosting the views.
      * @return The {@link CoBrowseViews} instance.
      */
     CoBrowseViews buildCoBrowseViews(
             @Nullable WebContents webContents,
             @ColorInt int backgroundColor,
-            @TabBottomSheetClientType int clientType) {
+            @TabBottomSheetClientType int clientType,
+            @CoBrowseContainerType int containerType,
+            @Nullable TabBottomSheetContentProvider bottomSheetContentProvider) {
         View containerView =
                 LayoutInflater.from(mActivity).inflate(R.layout.tab_bottom_sheet, null);
         TabBottomSheetWebUi webUi =
@@ -106,7 +110,8 @@ public class CoBrowseViewFactory {
                         backgroundColor,
                         mZoomControl);
         ContextualTasksFusebox fusebox = null;
-        if (clientType == TabBottomSheetClientType.CONTEXTUAL_TASKS) {
+        if (clientType == TabBottomSheetClientType.CONTEXTUAL_TASKS
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXTUAL_TASKS_JAVA_FUSEBOX)) {
             // TaskState retrieval from Manager.
             ContextualTasksFuseboxManager manager =
                     ContextualTasksFuseboxManager.from(mWindowAndroid);
@@ -127,9 +132,16 @@ public class CoBrowseViewFactory {
             }
         }
 
-        webUi.setWebContents(webContents);
+        webUi.setWebContents(webContents, false);
 
-        return new CoBrowseViews(containerView, clientType, webUi, fusebox, backgroundColor);
+        return new CoBrowseViews(
+                containerView,
+                clientType,
+                containerType,
+                webUi,
+                fusebox,
+                backgroundColor,
+                bottomSheetContentProvider);
     }
 
     @CalledByNative
@@ -137,7 +149,9 @@ public class CoBrowseViewFactory {
     public static @Nullable CoBrowseViews buildCoBrowseViews(
             @JniType("ui::WindowAndroid*") WindowAndroid windowAndroid,
             @Nullable @JniType("content::WebContents*") WebContents webContents,
-            @TabBottomSheetClientType int clientType) {
+            @TabBottomSheetClientType int clientType,
+            @CoBrowseContainerType int containerType,
+            @Nullable TabBottomSheetContentProvider bottomSheetContentProvider) {
         CoBrowseViewFactory factory = TabBottomSheetUtils.getFactoryFromWindow(windowAndroid);
         if (factory == null) {
             return null;
@@ -148,6 +162,11 @@ public class CoBrowseViewFactory {
                 clientType == TabBottomSheetClientType.GLIC
                         ? factory.mActivity.getColor(R.color.tab_bottom_sheet_glic_bg)
                         : factory.mActivity.getColor(R.color.tab_bottom_sheet_base_bg);
-        return factory.buildCoBrowseViews(webContents, backgroundColor, clientType);
+        return factory.buildCoBrowseViews(
+                webContents,
+                backgroundColor,
+                clientType,
+                containerType,
+                bottomSheetContentProvider);
     }
 }

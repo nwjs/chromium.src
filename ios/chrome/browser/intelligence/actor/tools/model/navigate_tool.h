@@ -7,13 +7,13 @@
 
 #import <string>
 
-#import "base/memory/raw_ptr.h"
+#import "base/functional/callback.h"
 #import "base/memory/weak_ptr.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 
 class ProfileIOS;
 class UrlLoadingBrowserAgent;
-class WebStateList;
+struct UrlLoadParams;
 
 namespace optimization_guide {
 namespace proto {
@@ -32,26 +32,25 @@ struct ToolExecutionResult;
 // Command to navigate to a URL.
 class NavigateTool : public ActorTool {
  public:
-  ~NavigateTool() override;
-
   static base::expected<std::unique_ptr<NavigateTool>, ToolExecutionResult>
   Create(const optimization_guide::proto::NavigateAction& action,
          ProfileIOS* profile);
 
+  ~NavigateTool() override;
+
   // ActorTool:
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
+  ToolType GetToolType() const override;
 
  private:
   NavigateTool(const std::string& url,
                base::WeakPtr<web::WebState> web_state,
-               WebStateList* web_state_list,
-               UrlLoadingBrowserAgent* url_loader);
+               base::WeakPtr<UrlLoadingBrowserAgent> url_loader);
 
   const std::string url_;
   base::WeakPtr<web::WebState> web_state_;
-  raw_ptr<WebStateList> web_state_list_;
-  raw_ptr<UrlLoadingBrowserAgent> url_loader_;
+  base::WeakPtr<UrlLoadingBrowserAgent> url_loader_;
 };
 
 }  // namespace actor

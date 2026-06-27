@@ -85,6 +85,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/account_managed_status_finder.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/site_engagement/content/site_engagement_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/protocol/user_event_specifics.pb.h"
 #include "components/sync/service/sync_service.h"
@@ -394,6 +395,19 @@ void ChromePasswordProtectionService::Shutdown() {
   if (pref_change_registrar_)
     pref_change_registrar_->RemoveAll();
   scoped_observation_.Reset();
+}
+
+void ChromePasswordProtectionService::RequestFinished(
+    PasswordProtectionRequest* request,
+    RequestOutcome outcome,
+    std::unique_ptr<LoginReputationClientResponse> response) {
+  if (response) {
+    RecordSiteEngagementScore(request->main_frame_url(),
+                              request->trigger_type(),
+                              response->verdict_type());
+  }
+  PasswordProtectionService::RequestFinished(request, outcome,
+                                             std::move(response));
 }
 
 void ChromePasswordProtectionService::HashPasswordManagerAvailable(
@@ -1119,6 +1133,61 @@ void ChromePasswordProtectionService::LogDialogMetricsOnChangePassword(
   }
 }
 
+void ChromePasswordProtectionService::RecordSiteEngagementScore(
+    const GURL& url,
+    LoginReputationClientRequest::TriggerType trigger_type,
+    LoginReputationClientResponse::VerdictType verdict_type) {
+  if (IsIncognito()) {
+    return;
+  }
+  site_engagement::SiteEngagementService* engagement_service =
+      site_engagement::SiteEngagementService::Get(profile_);
+  if (!engagement_service) {
+    return;
+  }
+  double score = engagement_service->GetScore(url);
+
+  std::string trigger_string;
+  switch (trigger_type) {
+    case LoginReputationClientRequest::UNFAMILIAR_LOGIN_PAGE:
+      trigger_string = "UnfamiliarLoginPage";
+      break;
+    case LoginReputationClientRequest::PASSWORD_REUSE_EVENT:
+      trigger_string = "PasswordReuseEvent";
+      break;
+    case LoginReputationClientRequest::ONE_TIME_PASSWORD_FIELD_DETECTED:
+      trigger_string = "OtpFieldDetected";
+      break;
+    case LoginReputationClientRequest::TRIGGER_TYPE_UNSPECIFIED:
+      trigger_string = "Unspecified";
+      break;
+    default:
+      NOTREACHED();
+  }
+
+  std::string verdict_string;
+  switch (verdict_type) {
+    case LoginReputationClientResponse::SAFE:
+      verdict_string = "Safe";
+      break;
+    case LoginReputationClientResponse::LOW_REPUTATION:
+      verdict_string = "LowReputation";
+      break;
+    case LoginReputationClientResponse::PHISHING:
+      verdict_string = "Phishing";
+      break;
+    case LoginReputationClientResponse::VERDICT_TYPE_UNSPECIFIED:
+      verdict_string = "Unspecified";
+      break;
+    default:
+      NOTREACHED();
+  }
+  base::UmaHistogramExactLinear(
+      base::StrCat({"PasswordProtection.Verdict.", trigger_string,
+                    ".SiteEngagementScore.", verdict_string}),
+      static_cast<int>(score), 101);
+}
+
 void ChromePasswordProtectionService::AddModelWarningBypasstoPref() {
   auto* metrics_collector =
       SafeBrowsingMetricsCollectorFactory::GetForProfile(profile_);
@@ -1338,7 +1407,8 @@ void ChromePasswordProtectionService::MaybeReportPasswordReuseDetected(
     const std::string& username,
     PasswordType password_type,
     bool is_phishing_url,
-    bool warning_shown) {
+    bool warning_shown,
+    const ReferrerChain& referrer_chain) {
   auto reused_password_account_type =
       GetPasswordProtectionReusedPasswordAccountType(password_type, username);
   if (reused_password_account_type.account_type() ==
@@ -1381,7 +1451,8 @@ void ChromePasswordProtectionService::MaybeReportPasswordReuseDetected(
         ReportingEventRouterFactory::GetForBrowserContext(profile_);
     if (reporting_event_router) {
       reporting_event_router->OnPasswordReuse(main_frame_url, username_or_email,
-                                              is_phishing_url, warning_shown);
+                                              is_phishing_url, warning_shown,
+                                              referrer_chain);
     }
   }
 }

@@ -93,7 +93,8 @@ TEST_F(ScrollToToolTest, Create_NodeIdWithoutDocumentIdentifier_Invalid) {
 
   action.mutable_scroll_to()->set_tab_id(tab_id);
 
-  auto* target = action.mutable_scroll_to()->mutable_target();
+  optimization_guide::proto::ActionTarget* target =
+      action.mutable_scroll_to()->mutable_target();
   target->set_content_node_id(123);
   // Omit document_identifier
 
@@ -115,7 +116,8 @@ TEST_F(ScrollToToolTest, Create_BothTargetingTypes_Invalid) {
 
   action.mutable_scroll_to()->set_tab_id(tab_id);
 
-  auto* target = action.mutable_scroll_to()->mutable_target();
+  optimization_guide::proto::ActionTarget* target =
+      action.mutable_scroll_to()->mutable_target();
   target->mutable_coordinate()->set_x(50);
   target->mutable_coordinate()->set_y(50);
   target->set_content_node_id(123);
@@ -137,13 +139,15 @@ TEST_F(ScrollToToolTest, Execute_WebStateDestroyed_ReturnsError) {
       browser_->GetWebStateList()->GetWebStateAt(web_state_index);
 
   optimization_guide::proto::Action action;
-  auto* scroll_to_action = action.mutable_scroll_to();
+  optimization_guide::proto::ScrollToAction* scroll_to_action =
+      action.mutable_scroll_to();
   scroll_to_action->set_tab_id(
       inserted_web_state->GetUniqueIdentifier().identifier());
   scroll_to_action->mutable_target()->mutable_coordinate()->set_x(50);
   scroll_to_action->mutable_target()->mutable_coordinate()->set_y(50);
 
-  auto create_result = ScrollToTool::Create(action.scroll_to(), profile_.get());
+  base::expected<std::unique_ptr<ScrollToTool>, ToolExecutionResult>
+      create_result = ScrollToTool::Create(action.scroll_to(), profile_.get());
   ASSERT_TRUE(create_result.has_value());
   std::unique_ptr<ScrollToTool> tool = std::move(create_result.value());
 
@@ -170,13 +174,15 @@ TEST_F(ScrollToToolTest, Execute_NoWebFramesManager_ReturnsError) {
       browser_->GetWebStateList()->GetWebStateAt(web_state_index);
 
   optimization_guide::proto::Action action;
-  auto* scroll_to_action = action.mutable_scroll_to();
+  optimization_guide::proto::ScrollToAction* scroll_to_action =
+      action.mutable_scroll_to();
   scroll_to_action->set_tab_id(
       inserted_web_state->GetUniqueIdentifier().identifier());
   scroll_to_action->mutable_target()->mutable_coordinate()->set_x(50);
   scroll_to_action->mutable_target()->mutable_coordinate()->set_y(50);
 
-  auto create_result = ScrollToTool::Create(action.scroll_to(), profile_.get());
+  base::expected<std::unique_ptr<ScrollToTool>, ToolExecutionResult>
+      create_result = ScrollToTool::Create(action.scroll_to(), profile_.get());
   ASSERT_TRUE(create_result.has_value());
   std::unique_ptr<ScrollToTool> tool = std::move(create_result.value());
 
@@ -210,13 +216,15 @@ TEST_F(ScrollToToolTest, Execute_NoMainFrame_ReturnsError) {
       browser_->GetWebStateList()->GetWebStateAt(web_state_index);
 
   optimization_guide::proto::Action action;
-  auto* scroll_to_action = action.mutable_scroll_to();
+  optimization_guide::proto::ScrollToAction* scroll_to_action =
+      action.mutable_scroll_to();
   scroll_to_action->set_tab_id(
       inserted_web_state->GetUniqueIdentifier().identifier());
   scroll_to_action->mutable_target()->mutable_coordinate()->set_x(50);
   scroll_to_action->mutable_target()->mutable_coordinate()->set_y(50);
 
-  auto create_result = ScrollToTool::Create(action.scroll_to(), profile_.get());
+  base::expected<std::unique_ptr<ScrollToTool>, ToolExecutionResult>
+      create_result = ScrollToTool::Create(action.scroll_to(), profile_.get());
   ASSERT_TRUE(create_result.has_value());
   std::unique_ptr<ScrollToTool> tool = std::move(create_result.value());
 
@@ -226,6 +234,25 @@ TEST_F(ScrollToToolTest, Execute_NoMainFrame_ReturnsError) {
   ToolExecutionResult result = future.Get();
   EXPECT_FALSE(result.IsOk());
   EXPECT_EQ(result.code(), mojom::ActionResultCode::kFrameWentAway);
+}
+
+TEST_F(ScrollToToolTest, GetToolType) {
+  optimization_guide::proto::Action action;
+  auto web_state = std::make_unique<web::FakeWebState>();
+  web_state->SetBrowserState(profile_.get());
+  int tab_id = web_state->GetUniqueIdentifier().identifier();
+  browser_->GetWebStateList()->InsertWebState(
+      std::move(web_state),
+      WebStateList::InsertionParams::AtIndex(0).Activate());
+
+  action.mutable_scroll_to()->set_tab_id(tab_id);
+  action.mutable_scroll_to()->mutable_target()->mutable_coordinate()->set_x(50);
+  action.mutable_scroll_to()->mutable_target()->mutable_coordinate()->set_y(50);
+
+  base::expected<std::unique_ptr<ScrollToTool>, ToolExecutionResult> result =
+      ScrollToTool::Create(action.scroll_to(), profile_.get());
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result.value()->GetToolType(), ToolType::kScrollTo);
 }
 
 }  // namespace actor

@@ -806,6 +806,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeCheckboxParameterSchema(
         To<HTMLFormControlElement>(controls_for_name.front()->ToHTMLElement());
     schema->SetString("type", "boolean");
     required = control.IsRequired();
+    AddDescription(controls_for_name, *schema);
     return schema;
   }
 
@@ -1183,12 +1184,6 @@ String FormMCPSchema::ComputeDescription(const ControlVector& controls) {
         !description.empty()) {
       return description;
     }
-  }
-
-  // Fall back to the `toolparamdescription` of the first control in the group.
-  if (String description = ToolParamDescriptionAttribute(*controls.front());
-      !description.empty()) {
-    return description;
   }
 
   return g_empty_string;

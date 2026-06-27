@@ -112,10 +112,8 @@ bool IsNavigationCapturingSettingOffByDefault(
   }
 
   switch (features::kNavigationCapturingDefaultState.Get()) {
-    case features::CapturingState::kDefaultOff:
     case features::CapturingState::kReimplDefaultOff:
       return true;
-    case features::CapturingState::kDefaultOn:
     case features::CapturingState::kReimplDefaultOn:
       return false;
     case features::CapturingState::kReimplOnViaClientMode:
@@ -1025,6 +1023,11 @@ bool WebAppRegistrar::AppMatches(const webapps::AppId& app_id,
                 return display_mode != DisplayMode::kBrowser &&
                        display_mode != DisplayMode::kUndefined;
               }
+              case WebAppFilter::SimpleCondition::kIsPlaceholder:
+                return IsPlaceholderApp(
+                           app_id, web_app::WebAppManagement::Type::kKiosk) ||
+                       IsPlaceholderApp(
+                           app_id, web_app::WebAppManagement::Type::kPolicy);
             }
           },
           [&](const WebAppFilter::ManagementRequirement& requirement) {

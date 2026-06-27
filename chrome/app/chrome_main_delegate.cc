@@ -181,6 +181,7 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/common/chrome_descriptors_android.h"
 #include "components/crash/android/pure_java_exception_handler.h"
+#include "components/metrics/android_unconditional_persistent_histograms_field_trial.h"
 #include "net/android/network_change_notifier_factory_android.h"
 #else  // BUILDFLAG(IS_ANDROID)
 // Diagnostics is only available on non-android platforms.
@@ -1652,15 +1653,20 @@ void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {
 
   // If this is a browser process, initialize the persistent histograms system
   // unless headless mode is in effect. This is done as soon as possible to
-  // ensure metrics collection coverage. For Fuchsia, persistent histogram
-  // initialization is done after field trial initialization (so that it can be
-  // controlled from the serverside and experimented with). Note: this is done
-  // before field trial initialization, so the values of
-  // `kPersistentHistogramsFeature` and `kPersistentHistogramsStorage` will
-  // not be used. Persist histograms to a memory-mapped file.
+  // ensure metrics collection coverage. Note: this is done before field trial
+  // initialization, so the values of `kPersistentHistogramsFeature` and
+  // `kPersistentHistogramsStorage` will not be used. Persist histograms to a
+  // memory-mapped file.
   if (process_type.empty() && !headless::IsHeadlessMode()) {
     base::FilePath metrics_dir;
     if (base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
+#if BUILDFLAG(IS_ANDROID)
+      // Enroll Chrome in the client-side field trial for unconditional
+      // persistent histograms. This is done here to explicitly exclude WebView.
+      metrics::android_unconditional_persistent_histograms_field_trial::
+          EnrollClient();
+#endif
+
       InstantiatePersistentHistograms(
           metrics_dir,
           /*persistent_histograms_enabled=*/true,

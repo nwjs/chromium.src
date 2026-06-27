@@ -14,43 +14,35 @@ import android.app.Activity;
 
 import androidx.test.filters.SmallTest;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowToast;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.signin.base.AccountInfo;
-import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync_device_info.FormFactor;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.mock.MockWebContents;
-import org.chromium.google_apis.gaia.GaiaId;
 
 import java.util.Arrays;
 import java.util.List;
 
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(
-        manifest = Config.NONE,
-        shadows = {ShadowToast.class})
+@Config(manifest = Config.NONE)
 public class DevicePickerBottomSheetContentTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -61,8 +53,6 @@ public class DevicePickerBottomSheetContentTest {
 
     @Mock private SendTabToSelfAndroidBridge.Natives mNativeMock;
     @Mock private IdentityManager mIdentityManager;
-    private CoreAccountInfo mCoreAccountInfo;
-    private AccountInfo mAccountInfo;
 
     private Activity mContext;
     private List<TargetDeviceInfo> mDevices;
@@ -75,12 +65,9 @@ public class DevicePickerBottomSheetContentTest {
         IdentityServicesProvider.setInstanceForTests(identityServicesProvider);
         when(identityServicesProvider.getIdentityManager(any())).thenReturn(mIdentityManager);
 
-        mCoreAccountInfo =
-                CoreAccountInfo.createFromEmailAndGaiaId("test@example.com", new GaiaId("test_id"));
-        mAccountInfo = new AccountInfo.Builder(mCoreAccountInfo).build();
-
-        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(mCoreAccountInfo);
-        when(mIdentityManager.findExtendedAccountInfoByAccountId(any())).thenReturn(mAccountInfo);
+        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(TestAccounts.ACCOUNT1);
+        when(mIdentityManager.findExtendedAccountInfoByAccountId(any()))
+                .thenReturn(TestAccounts.ACCOUNT1);
 
         mContext = Robolectric.buildActivity(Activity.class).create().get();
         mContext.setTheme(R.style.Theme_BrowserUI_DayNight);
@@ -89,7 +76,8 @@ public class DevicePickerBottomSheetContentTest {
 
         mDevices =
                 Arrays.asList(
-                        new TargetDeviceInfo("Device", "guid", FormFactor.DESKTOP, "Active today"));
+                        new TargetDeviceInfo(
+                                "Pixel 10", "guid", FormFactor.DESKTOP, "Active today"));
 
         when(mTab.getWebContents()).thenReturn(mWebContents);
     }
@@ -120,143 +108,5 @@ public class DevicePickerBottomSheetContentTest {
         verify(mBottomSheetController).hideContent(content, true);
     }
 
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
-    public void testOnItemClick_ShowsSuccessToast() {
-        DevicePickerBottomSheetContent content =
-                new DevicePickerBottomSheetContent(
-                        mContext,
-                        "https://example.com/",
-                        "Title",
-                        mBottomSheetController,
-                        mDevices,
-                        mProfile,
-                        () -> mTab);
-        ArgumentCaptor<SendTabToSelfAndroidBridge.CommitConfirmationCallback> confirmationCallbackCaptor =
-                ArgumentCaptor.forClass(
-                        SendTabToSelfAndroidBridge.CommitConfirmationCallback.class);
-        content.onItemClick(null, null, 0, 0);
 
-        verify(mNativeMock)
-                .sendTabToDevice(
-                        eq(mProfile),
-                        eq(mWebContents),
-                        eq("guid"),
-                        eq("https://example.com/"),
-                        eq("Title"),
-                        confirmationCallbackCaptor.capture());
-
-        confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.SUCCESS);
-
-        // Verify that the completion success toast was shown.
-        Assert.assertTrue(
-                ShadowToast.showedCustomToast(
-                        "Sent. Open Chrome on your other device.", R.id.toast_text));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
-    public void testOnItemClick_ShowsSuccessToast_Throttled() {
-        DevicePickerBottomSheetContent content =
-                new DevicePickerBottomSheetContent(
-                        mContext,
-                        "https://example.com/",
-                        "Title",
-                        mBottomSheetController,
-                        mDevices,
-                        mProfile,
-                        () -> mTab);
-        ArgumentCaptor<SendTabToSelfAndroidBridge.CommitConfirmationCallback> confirmationCallbackCaptor =
-                ArgumentCaptor.forClass(
-                        SendTabToSelfAndroidBridge.CommitConfirmationCallback.class);
-        content.onItemClick(null, null, 0, 0);
-
-        verify(mNativeMock)
-                .sendTabToDevice(
-                        eq(mProfile),
-                        eq(mWebContents),
-                        eq("guid"),
-                        eq("https://example.com/"),
-                        eq("Title"),
-                        confirmationCallbackCaptor.capture());
-
-        confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.SUCCESS_THROTTLED);
-
-        // Verify that the completion success toast was shown even when throttled.
-        Assert.assertTrue(
-                ShadowToast.showedCustomToast(
-                        "Sent. Open Chrome on your other device.", R.id.toast_text));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
-    public void testOnItemClick_ShowsNoToast_OnFailure() {
-        DevicePickerBottomSheetContent content =
-                new DevicePickerBottomSheetContent(
-                        mContext,
-                        "https://example.com/",
-                        "Title",
-                        mBottomSheetController,
-                        mDevices,
-                        mProfile,
-                        () -> mTab);
-        ArgumentCaptor<SendTabToSelfAndroidBridge.CommitConfirmationCallback> confirmationCallbackCaptor =
-                ArgumentCaptor.forClass(
-                        SendTabToSelfAndroidBridge.CommitConfirmationCallback.class);
-        content.onItemClick(null, null, 0, 0);
-
-        verify(mNativeMock)
-                .sendTabToDevice(
-                        eq(mProfile),
-                        eq(mWebContents),
-                        eq("guid"),
-                        eq("https://example.com/"),
-                        eq("Title"),
-                        confirmationCallbackCaptor.capture());
-
-        confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.FAILURE_INVALID_URL);
-
-        // Verify that the completion success toast was NOT shown.
-        Assert.assertFalse(
-                ShadowToast.showedCustomToast(
-                        "Sent. Open Chrome on your other device.", R.id.toast_text));
-    }
-
-    @Test
-    @SmallTest
-    @DisableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
-    public void testOnItemClick_PostSendToastFeatureDisabled() {
-        DevicePickerBottomSheetContent content =
-                new DevicePickerBottomSheetContent(
-                        mContext,
-                        "https://example.com/",
-                        "Title",
-                        mBottomSheetController,
-                        mDevices,
-                        mProfile,
-                        () -> mTab);
-        ArgumentCaptor<SendTabToSelfAndroidBridge.CommitConfirmationCallback> confirmationCallbackCaptor =
-                ArgumentCaptor.forClass(
-                        SendTabToSelfAndroidBridge.CommitConfirmationCallback.class);
-        content.onItemClick(null, null, 0, 0);
-
-        verify(mNativeMock)
-                .sendTabToDevice(
-                        eq(mProfile),
-                        eq(mWebContents),
-                        eq("guid"),
-                        eq("https://example.com/"),
-                        eq("Title"),
-                        confirmationCallbackCaptor.capture());
-
-        confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.SUCCESS);
-
-        // The completion success toast should not be shown when the feature flag is disabled.
-        Assert.assertFalse(
-                ShadowToast.showedCustomToast(
-                        "Sent. Open Chrome on your other device.", R.id.toast_text));
-    }
 }

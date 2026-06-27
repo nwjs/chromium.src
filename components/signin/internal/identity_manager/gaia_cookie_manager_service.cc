@@ -517,6 +517,11 @@ signin::AccountsInCookieJarInfo GaiaCookieManagerService::ListAccounts() {
   return CreateAccountsInCookieJarInfo();
 }
 
+signin::AccountsInCookieJarInfo
+GaiaCookieManagerService::GetCachedListAccounts() {
+  return CreateAccountsInCookieJarInfo();
+}
+
 void GaiaCookieManagerService::TriggerListAccounts() {
   // Callers suspect that a check to Gaia needs to be done, don't rely on the
   // in progress request, conditions might have changed while the request is
@@ -599,6 +604,9 @@ void GaiaCookieManagerService::CancelAll() {
   oauth_multilogin_helper_.reset();
   requests_.clear();
   fetcher_timer_.Stop();
+
+  // Invalidate weak pointers to cancel any outstanding callbacks.
+  weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
 scoped_refptr<network::SharedURLLoaderFactory>

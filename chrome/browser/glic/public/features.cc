@@ -12,7 +12,6 @@
 
 namespace features {
 
-BASE_FEATURE(kGlicTabRestoration, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicAndroidSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicChromeStatusIcon, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -20,6 +19,14 @@ const base::FeatureParam<int> kGlicChromeStatusIconSizePx{
     &kGlicChromeStatusIcon, "glic-chrome-status-icon-size-px", 20};
 const base::FeatureParam<bool> kGlicChromeStatusIconUseAltIcon{
     &kGlicChromeStatusIcon, "glic-chrome-status-icon-use-alt-icon", false};
+const base::FeatureParam<bool> kGlicChromeStatusIconLogOnly{
+    &kGlicChromeStatusIcon, "glic-chrome-status-icon-log-only", true};
+const base::FeatureParam<std::string> kGlicChromeStatusIconOtherAppID{
+    &kGlicChromeStatusIcon, "glic-chrome-status-icon-other-app-id", ""};
+
+BASE_FEATURE(kGlicOSIconVariant, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kGlicOSIconVariantParam{&kGlicOSIconVariant,
+                                                      "variant", 0};
 
 BASE_FEATURE(kGlicOrphanedReattachment, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -36,8 +43,6 @@ const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList{
 const base::FeatureParam<int> kGlicSelectionPromptWidgetMaxTotalDismisses{
     &kGlicSelectionPrompt, "max_total_dismisses", 10};
 
-BASE_FEATURE(kGlicDaisyChainViaCoordinator, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kGlicClearTurnIdOnPanelWillOpen,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -46,6 +51,11 @@ const base::FeatureParam<bool> kAutoOpenGlicForPdfWithOnboarding({
     &kAutoOpenGlicForPdf,
     "AutoOpenGlicForPdfWithOnboarding",
     true,
+});
+const base::FeatureParam<base::TimeDelta> kAutoOpenGlicCooldown({
+    &kAutoOpenGlicForPdf,
+    "AutoOpenGlicCooldown",
+    base::Hours(1),
 });
 
 BASE_FEATURE(kGlicInvoke, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -131,7 +141,7 @@ BASE_FEATURE(kGlicGetTabFaviconById, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSkipCookieSyncOnOpen, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicCookieSyncOnTokenChange, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicShareImageViaInvoke, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicShareImageViaInvoke, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebClientLoadTimes, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicPreLoadingTimeMs{
@@ -148,6 +158,43 @@ BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
 
 BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicOptInImpressionMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicOptInImpressionMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Killswitch that controls whether the WebContents visibility state is
+// set to hidden when the Glic panel is warming.
+// TODO(crbug.com/513620671) Investigate enabling on Windows.
+// TODO(crbug.com/516381993) Investigate enabling on ChromeOS.
+BASE_FEATURE(kGlicContentsInitiallyHidden,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
+
+BASE_FEATURE(kGlicAnchorEntryPointForOnboardedUsers,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If kGlicShowForSignedOut is enabled, the GiC panel can be shown to signed out
+// users to show the sign-in promotion.
+BASE_FEATURE(kGlicShowForSignedOut,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+// Killswitch that controls whether to update the WebContents visibility state
+// when toggling the Glic panel.
+BASE_FEATURE(kGlicSetWebContentsVisibilityWhenToggling,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicProcessCounterAbuseVerdict,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicNoWebUiLoader, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicGeminiEnterpriseSettingsEnabled,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

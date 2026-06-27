@@ -33,14 +33,14 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator+Testing.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view.h"
-#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view_controller+Testing.h"
-#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mediator.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_view_controller.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
+#import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_scene_agent.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -159,11 +159,16 @@ class NewTabPageCoordinatorTest : public PlatformTest {
   }
 
   void CreateCoordinator(bool off_the_record) {
+    scene_state_ = [[SceneState alloc] initWithAppState:nil];
+    LayoutGuideSceneAgent* layout_guide_scene_agent =
+        [[LayoutGuideSceneAgent alloc] init];
+    [scene_state_ addAgent:layout_guide_scene_agent];
+
     if (off_the_record) {
       ProfileIOS* otr_state = GetProfile()->GetOffTheRecordProfile();
-      browser_ = std::make_unique<TestBrowser>(otr_state);
+      browser_ = std::make_unique<TestBrowser>(otr_state, scene_state_);
     } else {
-      browser_ = std::make_unique<TestBrowser>(GetProfile());
+      browser_ = std::make_unique<TestBrowser>(GetProfile(), scene_state_);
       StartSurfaceRecentTabBrowserAgent::CreateForBrowser(browser_.get());
       BrowserViewVisibilityNotifierBrowserAgent::CreateForBrowser(
           browser_.get());
@@ -345,6 +350,7 @@ class NewTabPageCoordinatorTest : public PlatformTest {
   id toolbar_delegate_;
   id delegate_;
   std::unique_ptr<Browser> browser_;
+  SceneState* scene_state_;
   UIViewController* fake_feed_view_controller_;
   NewTabPageCoordinator* coordinator_;
   NewTabPageMetricsRecorder* NTPMetricsRecorder_;
@@ -605,7 +611,7 @@ TEST_F(NewTabPageCoordinatorTest, IsNTPCleanOnStop) {
   EXPECT_NE(nil, coordinator_.NTPViewController);
   EXPECT_NE(nil, coordinator_.contentSuggestionsCoordinator.viewController);
   EXPECT_NE(nil, coordinator_.contentSuggestionsCoordinator);
-  EXPECT_NE(nil, coordinator_.headerViewController);
+  EXPECT_NE(nil, coordinator_.headerView);
   EXPECT_NE(nil, coordinator_.NTPMediator);
   EXPECT_NE(nil, coordinator_.feedWrapperViewController);
   EXPECT_NE(nil, coordinator_.feedTopSectionCoordinator);
@@ -616,7 +622,7 @@ TEST_F(NewTabPageCoordinatorTest, IsNTPCleanOnStop) {
   EXPECT_EQ(nil, coordinator_.NTPViewController);
   EXPECT_EQ(nil, coordinator_.contentSuggestionsCoordinator.viewController);
   EXPECT_EQ(nil, coordinator_.contentSuggestionsCoordinator);
-  EXPECT_EQ(nil, coordinator_.headerViewController);
+  EXPECT_EQ(nil, coordinator_.headerView);
   EXPECT_EQ(nil, coordinator_.NTPMediator);
   EXPECT_EQ(nil, coordinator_.feedWrapperViewController);
   EXPECT_EQ(nil, coordinator_.feedTopSectionCoordinator);
@@ -695,7 +701,7 @@ TEST_F(NewTabPageCoordinatorTest,
 
   // Open the customization menu by tapping on the customization button.
   UIButton* customizationMenuButton =
-      coordinator_.headerViewController.headerView.customizationMenuButton;
+      coordinator_.headerView.customizationMenuButton;
   [customizationMenuButton
       sendActionsForControlEvents:UIControlEventTouchUpInside];
 
@@ -722,7 +728,7 @@ TEST_F(NewTabPageCoordinatorTest,
 
   // Open the customization menu by tapping on the customization button.
   UIButton* customizationMenuButton =
-      coordinator_.headerViewController.headerView.customizationMenuButton;
+      coordinator_.headerView.customizationMenuButton;
   [customizationMenuButton
       sendActionsForControlEvents:UIControlEventTouchUpInside];
 

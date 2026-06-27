@@ -260,7 +260,7 @@ class PasswordManager : public PasswordManagerInterface {
   // Returns the best matches from the manager which manages |form_id|. |driver|
   // is needed to determine the match. Returns nullptr when no matched manager
   // is found.
-  base::span<const PasswordForm> GetBestMatches(
+  base::span<const StoredCredential> GetBestMatches(
       PasswordManagerDriver* driver,
       autofill::FormRendererId form_id);
 
@@ -273,7 +273,7 @@ class PasswordManager : public PasswordManagerInterface {
     return GetSubmittedManager();
   }
 
-  const std::map<autofill::FormSignature, FormPredictions>&
+  const std::map<std::pair<autofill::FormSignature, DriverId>, FormPredictions>&
   GetServerPredictionsForTesting() const {
     return server_predictions_;
   }
@@ -402,7 +402,7 @@ class PasswordManager : public PasswordManagerInterface {
   // `field_id` and `driver_id`.
   std::optional<FormPredictions> FindServerPredictionsForField(
       autofill::FieldRendererId field_id,
-      int driver_id);
+      DriverId driver_id);
 
   //  If `possible_username_.form_predictions` is missing, this functions tries
   //  to find predictions for the forms which contains `possible_usernames_` in
@@ -487,7 +487,8 @@ class PasswordManager : public PasswordManagerInterface {
   const base::CallbackListSubscription account_store_cb_list_subscription_;
 
   // Server predictions for the forms on the page.
-  std::map<autofill::FormSignature, FormPredictions> server_predictions_;
+  std::map<std::pair<autofill::FormSignature, DriverId>, FormPredictions>
+      server_predictions_;
 
   // Classification model predictions for the forms on the page, keyed by
   // the combination of the driver and the renderer id of the form, that allow

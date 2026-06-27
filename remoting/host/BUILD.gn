@@ -4,6 +4,7 @@
 
 import("//build/config/chrome_build.gni")
 import("//build/config/linux/pkg_config.gni")
+import("//build/config/python.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/util/process_version.gni")
 import("//remoting/build/config/remoting_build.gni")
@@ -355,6 +356,7 @@ source_set("mojo_caller_security_checker") {
   }
   if (is_win) {
     deps += [ "//remoting/host/win:trust_util" ]
+    libs = [ "wtsapi32.lib" ]
   }
 }
 
@@ -1044,8 +1046,9 @@ source_set("unit_tests") {
   }
 
   if (is_posix && !is_chromeos && !is_msan) {
-    # PAM tests fail on MSan because libpam is uninstrumented (crbug.com/504793694).
-    # They also don't work on ChromeOS as PAM is not used there for remoting.
+    # PAM tests fail on MSan because libpam is uninstrumented
+    # (crbug.com/504793694). They also don't work on ChromeOS as PAM is not used
+    # there for remoting.
     sources += [ "pam_authorization_factory_posix_unittest.cc" ]
     deps += [ ":pam_authorization" ]
   }
@@ -1099,7 +1102,7 @@ if (enable_me2me_host) {
     }
   }
 
-  action_foreach("remoting_native_messaging_manifests") {
+  action_foreach_with_pydeps("remoting_native_messaging_manifests") {
     if (is_mac) {
       me2me_host_path = "/Library/PrivilegedHelperTools/$me2me_host_bundle_name/Contents/MacOS/$native_messaging_host_bundle_name/Contents/MacOS/native_messaging_host"
       it2me_host_path = "/Library/PrivilegedHelperTools/$me2me_host_bundle_name/Contents/MacOS/$remote_assistance_host_bundle_name/Contents/MacOS/remote_assistance_host"
@@ -1135,7 +1138,9 @@ if (enable_me2me_host) {
       ]
     }
 
-    # LINT.ThenChange(/remoting/host/it2me/it2me_native_messaging_host_allowed_origins.h:it2me_origins, /remoting/host/webauthn/remote_webauthn_extension_notifier.cc:extension_ids, /remoting/tools/register_local_nm_hosts.sh:extension_ids)
+    # LINT.ThenChange(/remoting/host/it2me/it2me_native_messaging_host_allowed_origins.h:it2me_origins,
+    # /remoting/host/webauthn/remote_webauthn_extension_notifier.cc:extension_ids,
+    # /remoting/tools/register_local_nm_hosts.sh:extension_ids)
 
     companion_extension_ids_joined = string_join(",", companion_extension_ids)
     security_key_extension_ids_joined =
@@ -1177,13 +1182,18 @@ if (enable_me2me_host) {
   }
 
   if (is_mac) {
-    action_foreach("remoting_infoplist_strings") {
+    action_foreach_with_pydeps("remoting_infoplist_strings") {
       sources = [
         "installer/mac/uninstaller/remoting_uninstaller-InfoPlist.strings.jinja2",
         "it2me/remote_assistance_host-InfoPlist.strings.jinja2",
         "remoting_me2me_host-InfoPlist.strings.jinja2",
         "setup/native_messaging_host-InfoPlist.strings.jinja2",
       ]
+
+      inputs = [ branding_path ]
+      foreach(locale, remoting_locales_with_underscores) {
+        inputs += [ "${resources_locale_dir}/${locale}/messages.json" ]
+      }
 
       script = "//remoting/tools/build/remoting_localize.py"
       args = [

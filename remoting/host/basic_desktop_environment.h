@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 
+#include "base/callback_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -27,6 +28,7 @@ class SingleThreadTaskRunner;
 namespace remoting {
 
 class DesktopDisplayInfoMonitor;
+class IpcFifoBufferReader;
 
 // Used to create audio/video capturers and event executor that work with
 // the local console.
@@ -59,7 +61,8 @@ class BasicDesktopEnvironment : public DesktopEnvironment {
   void SetCapabilities(const std::string& capabilities) override;
   std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
   CreateRemoteWebAuthnStateChangeNotifier() override;
-  std::unique_ptr<AudioInjector> CreateAudioInjector() override;
+  std::unique_ptr<AudioInjector> CreateAudioInjector(
+      std::unique_ptr<IpcFifoBufferReader> reader) override;
 
  protected:
   friend class BasicDesktopEnvironmentFactory;
@@ -109,6 +112,7 @@ class BasicDesktopEnvironment : public DesktopEnvironment {
   base::WeakPtr<ClientSessionControl> client_session_control_;
 
   std::unique_ptr<DesktopDisplayInfoMonitor> display_info_monitor_;
+  base::CallbackListSubscription display_info_subscription_;
 
   DesktopEnvironmentOptions options_;
 };

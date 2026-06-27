@@ -28,6 +28,7 @@
 #import "components/previous_session_info/previous_session_info.h"
 #import "components/signin/public/identity_manager/tribool.h"
 #import "components/ukm/ios/ukm_reporting_ios_util.h"
+#import "crypto/apple/keychain_util.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/metric_kit_subscriber.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
@@ -36,7 +37,6 @@
 #import "ios/chrome/browser/crash_report/model/crash_helper.h"
 #import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
 #import "ios/chrome/browser/metrics/model/first_user_action_recorder.h"
-#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/connection_information.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -52,6 +52,7 @@
 #import "ios/chrome/browser/signin/model/signin_util.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/metrics.h"
 #import "ios/chrome/browser/widget_kit/model/features.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/chrome/common/app_group/app_group_metrics.h"
 #import "ios/chrome/common/app_group/app_group_metrics_mainapp.h"
 #import "ios/chrome/common/credential_provider/constants.h"
@@ -320,13 +321,6 @@ using metrics_mediator::kAppEnteredBackgroundDateKey;
 + (void)recordStartupTabsPerGroupCount:(int)tabsPerGroupCount;
 // Logs the number of tabs with UMAHistogramCount100 and allows testing.
 + (void)recordResumeTabCount:(int)tabCount;
-// Logs the number of NTP tabs with UMAHistogramCount100 and allows testing.
-+ (void)recordStartupNTPTabCount:(int)tabCount;
-// Logs the number of NTP tabs with UMAHistogramCount100 and allows testing.
-+ (void)recordResumeNTPTabCount:(int)tabCount;
-// Logs the number of live NTP tabs with UMAHistogramCount100 and allows
-// testing.
-+ (void)recordResumeLiveNTPTabCount:(int)tabCount;
 
 // Logs the number of old (inactive for more than 7 days) tabs with
 // UMAHistogramCount100 and allows testing.
@@ -404,8 +398,6 @@ BOOL _credentialExtensionWasUsed = NO;
   int tabCount = 0;
   int tabGroupCount = 0;
   int pinnedTabCount = 0;
-  int NTPTabCount = 0;
-  int liveNTPTabCount = 0;
   int oldTabCount = 0;
   int duplicatedTabCount = 0;
   int activeTabCount = 0;
@@ -455,11 +447,6 @@ BOOL _credentialExtensionWasUsed = NO;
       const bool wasWebStateRealized = webState->IsRealized();
       const GURL& URL = webState->GetVisibleURL();
 
-      // Count NTPs.
-      if (IsURLNewTabPage(URL)) {
-        NTPTabCount++;
-      }
-
       // Count duplicate URLs (if the URL is not inserted, then it is a
       // duplicate, otherwise it is a new distinct URL).
       auto [_, inserted] = uniqueURLs.insert(URL.GetWithoutRef());
@@ -507,18 +494,16 @@ BOOL _credentialExtensionWasUsed = NO;
     [self recordStartupPinnedTabCount:pinnedTabCount];
     [self recordStartupTabCount:tabCount];
     [self recordStartupTabGroupCount:tabGroupCount];
-    [self recordStartupNTPTabCount:NTPTabCount];
     [self recordStartupOldTabCount:oldTabCount];
     [self recordStartupDuplicatedTabCount:duplicatedTabCount];
     [self recordTabsAgeAtStartup:timesSinceCreation];
     [self recordAndResetWarmStartCount];
+    crypto::apple::RecordKeychainMigrationStatus(
+        base::SysNSStringToUTF8(app_group::ApplicationGroup()));
     ui_util::RecordSystemFontSizeMetrics();
   } else {
     [[PreviousSessionInfo sharedInstance] incrementWarmStartCount];
     [self recordResumeTabCount:tabCount];
-    [self recordResumeNTPTabCount:NTPTabCount];
-    // Only log at resume since there are likely no live NTPs on startup.
-    [self recordResumeLiveNTPTabCount:liveNTPTabCount];
   }
 
   [self recordConnectedAndDisconnectedSceneCount:scenes.count];
@@ -799,18 +784,6 @@ BOOL _credentialExtensionWasUsed = NO;
 
 + (void)recordResumeTabCount:(int)tabCount {
   base::UmaHistogramCounts1M("Tabs.CountAtResume2", tabCount);
-}
-
-+ (void)recordStartupNTPTabCount:(int)tabCount {
-  base::UmaHistogramCounts100("Tabs.NTPCountAtStartup", tabCount);
-}
-
-+ (void)recordResumeNTPTabCount:(int)tabCount {
-  base::UmaHistogramCounts100("Tabs.NTPCountAtResume", tabCount);
-}
-
-+ (void)recordResumeLiveNTPTabCount:(int)tabCount {
-  base::UmaHistogramCounts100("Tabs.LiveNTPCountAtResume", tabCount);
 }
 
 + (void)recordStartupOldTabCount:(int)tabCount {

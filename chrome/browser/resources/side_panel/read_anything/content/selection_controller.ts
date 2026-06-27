@@ -5,6 +5,8 @@ import {isDistilledByReadability} from '../shared/common.js';
 import {getTextNodeOffsets} from '../shared/dom_queries.js';
 
 import {NodeStore} from './node_store.js';
+import {ContentPositionSource} from './read_anything_types.js';
+import type {ContentPosition} from './read_anything_types.js';
 
 interface SelectionWithIds {
   anchorNodeId?: number;
@@ -39,9 +41,9 @@ export class SelectionController {
          selection.anchorOffset !== selection.focusOffset);
   }
 
-  getCurrentSelectionStart(): SelectionEndpoint {
+  getCurrentSelectionStart(): ContentPosition|null {
     if (chrome.readingMode.isImmersiveEnabled) {
-      return this.getCurrentSelectionStartImmersive();
+      return this.getCurrentSelectionStartImmersive_();
     }
 
     const anchorNodeId = chrome.readingMode.startNodeId;
@@ -50,54 +52,57 @@ export class SelectionController {
     const focusOffset = chrome.readingMode.endOffset;
 
     // If only one of the ids is present, use that one.
-    let startingNodeId: number|undefined =
-        anchorNodeId ? anchorNodeId : focusNodeId;
-    let startingOffset = anchorNodeId ? anchorOffset : focusOffset;
+    let nodeId: number|undefined = anchorNodeId ? anchorNodeId : focusNodeId;
+    let offset = anchorNodeId ? anchorOffset : focusOffset;
     // If both are present, start with the node that is sooner in the page.
     if (anchorNodeId && focusNodeId) {
       const selection = this.currentSelection_;
       if (anchorNodeId === focusNodeId) {
-        startingOffset = Math.min(anchorOffset, focusOffset);
+        offset = Math.min(anchorOffset, focusOffset);
       } else if (selection && selection.anchorNode && selection.focusNode) {
         const pos =
             selection.anchorNode.compareDocumentPosition(selection.focusNode);
         const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
-        startingNodeId = focusIsFirst ? focusNodeId : anchorNodeId;
-        startingOffset = focusIsFirst ? focusOffset : anchorOffset;
+        nodeId = focusIsFirst ? focusNodeId : anchorNodeId;
+        offset = focusIsFirst ? focusOffset : anchorOffset;
       }
     }
 
-    return {nodeId: startingNodeId, offset: startingOffset};
+    const node = this.nodeStore_.getDomNode(nodeId);
+    return node ? {node, offset, source: ContentPositionSource.SELECTION} :
+                  null;
   }
 
-  getCurrentSelectionStartImmersive(): SelectionEndpoint {
+  private getCurrentSelectionStartImmersive_(): ContentPosition|null {
     const selection = this.currentSelection_;
     if (!selection || !selection.anchorNode || !selection.focusNode) {
-      return {nodeId: 0, offset: -1};
+      return null;
     }
-    const {anchorNodeId, anchorOffset, focusNodeId, focusOffset} =
-        this.getSelectionIds_(
-            selection.anchorNode, selection.anchorOffset, selection.focusNode,
-            selection.focusOffset);
 
-    // If only one of the ids is present, use that one.
-    let startingNodeId: number|undefined =
-        anchorNodeId ? anchorNodeId : focusNodeId;
-    let startingOffset = anchorNodeId ? anchorOffset : focusOffset;
-    // If both are present, start with the node that is sooner in the page.
-    if (anchorNodeId && focusNodeId) {
-      if (anchorNodeId === focusNodeId) {
-        startingOffset = Math.min(anchorOffset, focusOffset);
-      } else {
-        const pos =
-            selection.anchorNode.compareDocumentPosition(selection.focusNode);
-        const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
-        startingNodeId = focusIsFirst ? focusNodeId : anchorNodeId;
-        startingOffset = focusIsFirst ? focusOffset : anchorOffset;
+    let node: Node|null = null;
+    let offset: number = 0;
+    const pos =
+        selection.anchorNode.compareDocumentPosition(selection.focusNode);
+    // If the focus and anchor are the same node, use the earlier offset.
+    if (pos === 0) {
+      node = selection.anchorNode;
+      offset = Math.min(selection.anchorOffset, selection.focusOffset);
+    } else {
+      const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
+      node = focusIsFirst ? selection.focusNode : selection.anchorNode;
+      offset = focusIsFirst ? selection.focusOffset : selection.anchorOffset;
+    }
+
+    if (node) {
+      const ancestor = this.nodeStore_.getAncestor(node);
+      if (ancestor) {
+        node = ancestor.node;
+        offset += ancestor.offset;
       }
     }
 
-    return {nodeId: startingNodeId, offset: startingOffset};
+    return node ? {node, offset, source: ContentPositionSource.SELECTION} :
+                  null;
   }
 
   // Called when the user selects text in reading mode. Forwards that
@@ -123,6 +128,14 @@ export class SelectionController {
       // The selection was collapsed by clicking inside the selection.
       chrome.readingMode.onCollapseSelection();
       return;
+    }
+
+    // If we're using Readability with select text enabled, report a user
+    // selection attempt to try to log this as an early selection attempt from
+    // the side panel.
+    if (isDistilledByReadability() &&
+        chrome.readingMode.isReadabilitySelectTextEnabled) {
+      chrome.readingMode.attemptLogEarlySelection(/*fromSidePanel=*/ true);
     }
 
     const {anchorNodeId, anchorOffset, focusNodeId, focusOffset} =
@@ -157,20 +170,24 @@ export class SelectionController {
       focusOffset: number): SelectionWithIds {
     let anchorNodeId = this.nodeStore_.getAxId(anchorNode);
     let focusNodeId = this.nodeStore_.getAxId(focusNode);
-    let adjustedAnchorOffset = anchorOffset;
-    let adjustedFocusOffset = focusOffset;
+    let adjustedAnchorOffset =
+        anchorOffset + this.nodeStore_.getAxNodeOffset(anchorNode);
+    let adjustedFocusOffset =
+        focusOffset + this.nodeStore_.getAxNodeOffset(focusNode);
     if (!anchorNodeId) {
       const ancestor = this.nodeStore_.getAncestor(anchorNode);
       if (ancestor) {
         anchorNodeId = this.nodeStore_.getAxId(ancestor.node);
-        adjustedAnchorOffset += ancestor.offset;
+        adjustedAnchorOffset +=
+            ancestor.offset + this.nodeStore_.getAxNodeOffset(ancestor.node);
       }
     }
     if (!focusNodeId) {
       const ancestor = this.nodeStore_.getAncestor(focusNode);
       if (ancestor) {
         focusNodeId = this.nodeStore_.getAxId(ancestor.node);
-        adjustedFocusOffset += ancestor.offset;
+        adjustedFocusOffset +=
+            ancestor.offset + this.nodeStore_.getAxNodeOffset(ancestor.node);
       }
     }
     return {
@@ -196,6 +213,14 @@ export class SelectionController {
       // The selection in the main panel collapsed, so clear the selection here.
       selectionToUpdate.removeAllRanges();
       return;
+    }
+
+    // If we're using Readability with select text enabled, report a user
+    // selection attempt to try to log this as an early selection attempt from
+    // the main panel.
+    if (isDistilledByReadability() &&
+        chrome.readingMode.isReadabilitySelectTextEnabled) {
+      chrome.readingMode.attemptLogEarlySelection(/*fromSidePanel=*/ false);
     }
 
     const newSelection = this.getNewSelection_(container);
@@ -243,9 +268,13 @@ export class SelectionController {
       focusOffset: chrome.readingMode.endOffset,
     };
 
-    return isDistilledByReadability() ?
-        this.getNewSelectionWithoutAxIds_(container, selectionIds) :
-        this.getNewSelectionWithAxIds_(selectionIds);
+    if (isDistilledByReadability()) {
+      return chrome.readingMode.isReadabilitySelectTextEnabled ?
+          this.getNewSelectionWithAxIds_(selectionIds) :
+          this.getNewSelectionWithoutAxIds_(container, selectionIds);
+    }
+
+    return this.getNewSelectionWithAxIds_(selectionIds);
   }
 
   private getNewSelectionWithoutAxIds_(
@@ -317,6 +346,18 @@ export class SelectionController {
     let anchorNode = this.nodeStore_.getDomNode(anchorNodeId);
     let focusNode = this.nodeStore_.getDomNode(focusNodeId);
     if (!anchorNode || !focusNode) {
+      return null;
+    }
+
+    // Convert AXNode-relative offsets to offsets relative to the side panel's
+    // distilled text fragment.
+    anchorOffset -= this.nodeStore_.getAxNodeOffset(anchorNode);
+    focusOffset -= this.nodeStore_.getAxNodeOffset(focusNode);
+
+    // Filter out main panel selections that don't overlap the text shown
+    // in the side panel.
+    if (anchorOffset < 0 ||
+        anchorOffset > (anchorNode.textContent?.length ?? 0)) {
       return null;
     }
 

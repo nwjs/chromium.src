@@ -16,6 +16,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/security_interstitials/core/https_only_mode_metrics.h"
 #include "content/public/browser/web_contents.h"
@@ -65,6 +66,9 @@ void ClearHttpAllowlistForHostnamesForTesting(PrefService* prefs) {
 
 security_interstitials::https_only_mode::HttpInterstitialState
 ComputeInterstitialState(content::WebContents* web_contents, const GURL& url) {
+  if (!web_contents) {
+    return {};
+  }
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   PrefService* prefs = profile->GetPrefs();
@@ -108,7 +112,9 @@ ComputeInterstitialState(content::WebContents* web_contents, const GURL& url) {
   auto* advanced_protection_manager =
       safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
           profile);
-  if (advanced_protection_manager) {
+  if (advanced_protection_manager &&
+      base::FeatureList::IsEnabled(
+          features::kHttpsFirstModeForAdvancedProtectionUsers)) {
     interstitial_state.enabled_by_advanced_protection =
         advanced_protection_manager->IsUnderAdvancedProtection();
   }
@@ -128,6 +134,11 @@ bool IsBalancedModeEnabled(PrefService* prefs) {
       prefs->HasPrefPath(prefs::kHttpsOnlyModeEnabled) ||
       prefs->HasPrefPath(prefs::kHttpsFirstBalancedMode);
   if (!user_has_modified_settings) {
+    if (base::FeatureList::IsEnabled(
+            features::kHttpsFirstModeDefaultSettingPairsWithEsb) &&
+        safe_browsing::IsEnhancedProtectionEnabled(*prefs)) {
+      return true;
+    }
     return base::FeatureList::IsEnabled(
         features::kHttpsFirstBalancedModeAutoEnable);
   }
@@ -141,25 +152,12 @@ bool IsBalancedModeInterstitialEnabledByHeuristics(
           state.enabled_by_typically_secure_browsing);
 }
 
-bool IsBalancedModeUniquelyEnabled(const HttpInterstitialState& state) {
-  // Balance mode is _uniquely_ enabled only when other HFM variants aren't
-  // enabled.
-  if (state.enabled_by_pref) {
-    return false;
-  }
-  if (base::FeatureList::IsEnabled(features::kHttpsFirstModeIncognito) &&
-      state.enabled_by_incognito) {
-    return false;
-  }
-
-  // ...then ensure balanced mode is enabled.
-  return (IsBalancedModeAvailable() && state.enabled_in_balanced_mode) ||
-         IsBalancedModeInterstitialEnabledByHeuristics(state);
-}
-
 bool IsInterstitialEnabled(const HttpInterstitialState& state) {
   // Interstitials are enabled when "strict" interstitials are enabled...
   if (IsStrictInterstitialEnabled(state)) {
+    return true;
+  }
+  if (state.enabled_by_incognito) {
     return true;
   }
   if (IsBalancedModeAvailable() && state.enabled_in_balanced_mode) {
@@ -172,10 +170,6 @@ bool IsStrictInterstitialEnabled(const HttpInterstitialState& state) {
   if (state.enabled_by_pref) {
     return true;
   }
-  if (base::FeatureList::IsEnabled(features::kHttpsFirstModeIncognito) &&
-      state.enabled_by_incognito) {
-    return true;
-  }
   if (state.enabled_by_advanced_protection) {
     return true;
   }
@@ -183,21 +177,9 @@ bool IsStrictInterstitialEnabled(const HttpInterstitialState& state) {
 }
 
 bool ShouldExemptNonUniqueHostnames(const HttpInterstitialState& state) {
-  // If strict mode is enabled by the pref, warn the user before any HTTP that
-  // goes over the network. Any other mode ignores non-unique hostnames.
-  // Advanced Protection users are also treated as "strict".
-  return !state.enabled_by_pref && !state.enabled_by_advanced_protection;
-}
-
-bool ShouldExcludeUrlFromInterstitial(const HttpInterstitialState& state,
-                                      const GURL& url) {
-  // In balanced mode, single-label hostnames and URLs with non-default ports
-  // are excluded from interstitials. This also applies if one of the HFM
-  // heuristics enabled Balanced Mode.
-  return IsBalancedModeUniquelyEnabled(state) &&
-         (net::GetSuperdomain(url.GetHost()).empty() ||
-          (url.has_port() &&
-           url.IntPort() != HttpsUpgradesInterceptor::GetHttpPortForTesting()));
+  // If strict mode is enabled, warn the user before any HTTP that goes over
+  // the network. Any other mode ignores non-unique hostnames.
+  return !IsStrictInterstitialEnabled(state);
 }
 
 bool MustDisableSiteEngagementHeuristic(Profile* profile) {
@@ -216,6 +198,7 @@ bool MustDisableTypicallySecureUserHeuristic(Profile* profile) {
 
 void RecordHttpsFirstModeUKM(
     ukm::SourceId source_id,
+    security_interstitials::https_only_mode::FallbackReason fallback_reason,
     security_interstitials::https_only_mode::BlockingResult result) {
   if (source_id == ukm::kInvalidSourceId) {
     return;
@@ -225,6 +208,7 @@ void RecordHttpsFirstModeUKM(
   CHECK(ukm_recorder);
   ukm::builders::HttpsFirstMode_Event(source_id)
       .SetResult(static_cast<int>(result))
+      .SetFallbackReason(static_cast<int>(fallback_reason))
       .Record(ukm_recorder);
 }
 

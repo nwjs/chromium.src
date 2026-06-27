@@ -20,6 +20,7 @@ import {TestDevicePageBrowserProxy} from '../device_page/test_device_page_browse
 import {clearBody} from '../utils.js';
 
 const DEFAULT_BLACK_CURSOR_COLOR = 0;
+const INVERTED_CURSOR_COLOR = 1;
 const RED_CURSOR_COLOR = 0xd93025;
 
 /**
@@ -43,7 +44,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
     await CrSettingsPrefs.initialized;
     page = document.createElement('settings-cursor-and-touchpad-page');
-    page.prefs = prefElement.prefs;
+    page.prefs = prefElement.prefs!;
     document.body.appendChild(page);
     flush();
   }
@@ -104,7 +105,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     return disableInternalTouchpadSelectElement;
   }
 
-  test('cursor color prefs and dropdown synced', async () => {
+  test('cursor color default black and prefs and dropdown synced', async () => {
     await initPage();
 
     // Make sure cursor color dropdown is black, matching default pref state.
@@ -117,14 +118,14 @@ suite('<settings-cursor-and-touchpad-page>', () => {
         cursorColorDropdown.shadowRoot!.querySelector('select');
     assert(cursorColorSelectElement);
     assertEquals(
-        'SETTINGS_DROPDOWN_NOT_FOUND_ITEM', cursorColorSelectElement.value);
+        String(DEFAULT_BLACK_CURSOR_COLOR), cursorColorSelectElement.value);
 
     // Turn cursor color to red, and verify pref is also red.
     cursorColorSelectElement.value = String(RED_CURSOR_COLOR);
     cursorColorSelectElement.dispatchEvent(new CustomEvent('change'));
     const cursorColorPref = page.getPref('settings.a11y.cursor_color');
     const cursorColorEnabledPref =
-        page.getPref('settings.a11y.cursor_color_enabled');
+        page.getPref<boolean>('settings.a11y.cursor_color_enabled');
     assertEquals(RED_CURSOR_COLOR, cursorColorPref.value);
     assertTrue(cursorColorEnabledPref.value);
 
@@ -133,6 +134,62 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     cursorColorSelectElement.dispatchEvent(new CustomEvent('change'));
     assertEquals(DEFAULT_BLACK_CURSOR_COLOR, cursorColorPref.value);
     assertFalse(cursorColorEnabledPref.value);
+  });
+
+  test('cursor color inverted option visible only with flag', async () => {
+    // Enable the flag.
+    loadTimeData.overrideValues({
+      isAccessibilityInvertedMouseCursorEnabled: true,
+    });
+    await initPage();
+
+    const cursorColorDropdown =
+        page.shadowRoot!.querySelector<SettingsDropdownMenuElement>(
+            '#cursorColorDropdown');
+    assert(cursorColorDropdown);
+    await waitAfterNextRender(cursorColorDropdown);
+    const cursorColorSelectElement =
+        cursorColorDropdown.shadowRoot!.querySelector('select');
+    assert(cursorColorSelectElement);
+
+    // Check if inverted option is present.
+    let foundInverted = false;
+    for (let i = 0; i < cursorColorSelectElement.options.length; i++) {
+      if (cursorColorSelectElement.options[i]!.value ===
+          String(INVERTED_CURSOR_COLOR)) {
+        foundInverted = true;
+        break;
+      }
+    }
+    assertTrue(foundInverted);
+
+    // Disable the flag and re-init page.
+    page.remove();
+    prefElement.remove();
+    loadTimeData.overrideValues({
+      isAccessibilityInvertedMouseCursorEnabled: false,
+    });
+    await initPage();
+
+    const cursorColorDropdown2 =
+        page.shadowRoot!.querySelector<SettingsDropdownMenuElement>(
+            '#cursorColorDropdown');
+    assert(cursorColorDropdown2);
+    await waitAfterNextRender(cursorColorDropdown2);
+    const cursorColorSelectElement2 =
+        cursorColorDropdown2.shadowRoot!.querySelector('select');
+    assert(cursorColorSelectElement2);
+
+    // Check if inverted option is NOT present.
+    let foundInverted2 = false;
+    for (let i = 0; i < cursorColorSelectElement2.options.length; i++) {
+      if (cursorColorSelectElement2.options[i]!.value ===
+          String(INVERTED_CURSOR_COLOR)) {
+        foundInverted2 = true;
+        break;
+      }
+    }
+    assertFalse(foundInverted2);
   });
 
   test(
@@ -318,16 +375,18 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
     assertTrue(navButtonsToggle.checked);
     assertFalse(navButtonsToggle.disabled);
-    assertTrue(
-        page.prefs.settings.a11y.tablet_mode_shelf_nav_buttons_enabled.value);
+    assertTrue(page.getPref<boolean>(
+                       'settings.a11y.tablet_mode_shelf_nav_buttons_enabled')
+                   .value);
 
     navButtonsToggle.click();
     flush();
 
     assertFalse(navButtonsToggle.checked);
     assertFalse(navButtonsToggle.disabled);
-    assertFalse(
-        page.prefs.settings.a11y.tablet_mode_shelf_nav_buttons_enabled.value);
+    assertFalse(page.getPref<boolean>(
+                        'settings.a11y.tablet_mode_shelf_nav_buttons_enabled')
+                    .value);
   });
 
   test('tablet mode buttons toggle disabled with spoken feedback', async () => {
@@ -359,8 +418,9 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
     assertTrue(navButtonsToggle.disabled);
     assertTrue(navButtonsToggle.checked);
-    assertFalse(
-        page.prefs.settings.a11y.tablet_mode_shelf_nav_buttons_enabled.value);
+    assertFalse(page.getPref<boolean>(
+                        'settings.a11y.tablet_mode_shelf_nav_buttons_enabled')
+                    .value);
 
     // The toggle should be enabled if the spoken feedback gets disabled.
     page.set('prefs.settings.accessibility.value', false);
@@ -368,8 +428,9 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
     assertFalse(navButtonsToggle.disabled);
     assertFalse(navButtonsToggle.checked);
-    assertFalse(
-        page.prefs.settings.a11y.tablet_mode_shelf_nav_buttons_enabled.value);
+    assertFalse(page.getPref<boolean>(
+                        'settings.a11y.tablet_mode_shelf_nav_buttons_enabled')
+                    .value);
 
     // Clicking the toggle should update the backing pref.
     navButtonsToggle.click();
@@ -377,8 +438,9 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
     assertFalse(navButtonsToggle.disabled);
     assertTrue(navButtonsToggle.checked);
-    assertTrue(
-        page.prefs.settings.a11y.tablet_mode_shelf_nav_buttons_enabled.value);
+    assertTrue(page.getPref<boolean>(
+                       'settings.a11y.tablet_mode_shelf_nav_buttons_enabled')
+                   .value);
   });
 
   test('some parts are hidden in kiosk mode', async () => {
@@ -415,13 +477,15 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     assertFalse(isVisible(largeCursorSizeSlider));
     assertTrue(isVisible(largeCursorToggle));
     assertFalse(largeCursorToggle.checked);
-    assertFalse(page.prefs.settings.a11y.large_cursor_enabled.value);
+    assertFalse(
+        page.getPref<boolean>('settings.a11y.large_cursor_enabled').value);
     largeCursorToggle.click();
 
     await waitBeforeNextRender(page);
     flush();
     assertTrue(largeCursorToggle.checked);
-    assertTrue(page.prefs.settings.a11y.large_cursor_enabled.value);
+    assertTrue(
+        page.getPref<boolean>('settings.a11y.large_cursor_enabled').value);
     assertTrue(isVisible(largeCursorSizeSlider));
   });
 
@@ -509,13 +573,15 @@ suite('<settings-cursor-and-touchpad-page>', () => {
         assert(cursorHighlightToggle);
         assertTrue(isVisible(cursorHighlightToggle));
         assertFalse(cursorHighlightToggle.checked);
-        assertFalse(page.prefs.settings.a11y.cursor_highlight.value);
+        assertFalse(
+            page.getPref<boolean>('settings.a11y.cursor_highlight').value);
         cursorHighlightToggle.click();
 
         await waitBeforeNextRender(page);
         flush();
         assertTrue(cursorHighlightToggle.checked);
-        assertTrue(page.prefs.settings.a11y.cursor_highlight.value);
+        assertTrue(
+            page.getPref<boolean>('settings.a11y.cursor_highlight').value);
       });
 
   test('overscroll setting enabled', async () => {
@@ -530,14 +596,18 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
     // Pref has default value.
     assertTrue(overscrollToggle.checked);
-    assertTrue(page.prefs.settings.a11y.overscroll_history_navigation.value);
+    assertTrue(
+        page.getPref<boolean>('settings.a11y.overscroll_history_navigation')
+            .value);
 
     overscrollToggle.click();
 
     await waitBeforeNextRender(page);
     flush();
     assertFalse(overscrollToggle.checked);
-    assertFalse(page.prefs.settings.a11y.overscroll_history_navigation.value);
+    assertFalse(
+        page.getPref<boolean>('settings.a11y.overscroll_history_navigation')
+            .value);
   });
 
   test('kOverscrollSetting is deep-linkable', async () => {
@@ -569,7 +639,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     assertTrue(!!faceGazePageRow);
     assertTrue(isVisible(faceGazePageRow));
 
-    assertFalse(page.prefs.settings.a11y.face_gaze.enabled.value);
+    assertFalse(page.getPref<boolean>('settings.a11y.face_gaze.enabled').value);
   });
 
   test('can reach face control settings from row', async () => {
@@ -580,7 +650,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     assertTrue(!!faceGazePageRow);
     assertTrue(isVisible(faceGazePageRow));
 
-    assertFalse(page.prefs.settings.a11y.face_gaze.enabled.value);
+    assertFalse(page.getPref<boolean>('settings.a11y.face_gaze.enabled').value);
 
     // Clicking on it should update the route.
     faceGazePageRow.click();
@@ -609,10 +679,13 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     await initPage();
 
     // If the flag is enabled, check that the UI works.
-    assertFalse(page.prefs.settings.a11y.mouse_keys.enabled.value);
+    assertFalse(
+        page.getPref<boolean>('settings.a11y.mouse_keys.enabled').value);
 
     // We should use primary keys by default.
-    assertTrue(page.prefs.settings.a11y.mouse_keys.use_primary_keys.value);
+    assertTrue(
+        page.getPref<boolean>('settings.a11y.mouse_keys.use_primary_keys')
+            .value);
 
     const enableMouseKeysToggle =
         page.shadowRoot!.querySelector<CrToggleElement>('#mouseKeysToggle');
@@ -623,7 +696,7 @@ suite('<settings-cursor-and-touchpad-page>', () => {
     await waitBeforeNextRender(page);
     flush();
 
-    assertTrue(page.prefs.settings.a11y.mouse_keys.enabled.value);
+    assertTrue(page.getPref<boolean>('settings.a11y.mouse_keys.enabled').value);
   });
 
   if (disableInternalTouchpadFeatureEnabled) {
@@ -737,9 +810,11 @@ suite('<settings-cursor-and-touchpad-page>', () => {
 
       // Pref has default value.
       assertEquals(
-          page.prefs.settings.a11y.disable_trackpad_mode.value,
+          page.getPref('settings.a11y.disable_trackpad_mode').value,
           DisableTouchpadMode.NEVER);
-      assertFalse(page.prefs.settings.a11y.disable_trackpad_enabled.value);
+      assertFalse(
+          page.getPref<boolean>('settings.a11y.disable_trackpad_enabled')
+              .value);
     });
   }
 });

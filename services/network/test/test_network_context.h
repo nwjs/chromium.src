@@ -337,7 +337,6 @@ class TestNetworkContext : public mojom::NetworkContext {
       const net::AuthCredentials& credentials,
       AddAuthCacheEntryCallback callback) override {}
   void SetCorsNonWildcardRequestHeadersSupport(bool value) override {}
-  void SetDohFallbackUpgradeAllowed(bool allowed) override {}
 #if BUILDFLAG(IS_CHROMEOS)
   void LookupProxyAuthCredentials(
       const net::ProxyServer& proxy_server,
@@ -375,11 +374,11 @@ class TestNetworkContext : public mojom::NetworkContext {
   void FlushMatchingCachedClientCert(
       const scoped_refptr<net::X509Certificate>& certificate) override {}
   void FlushClientCertCache() override {}
-  void RevokeNetworkForNonces(
-      std::vector<mojom::NonceAndAllowlistedPatternsPtr> nonces_to_patternss,
-      RevokeNetworkForNoncesCallback callback) override {}
-  void ClearNonces(const std::vector<base::UnguessableToken>& nonces) override {
-  }
+  void RestrictNetworkForIds(
+      std::vector<mojom::IdAndAllowlistedPatternsPtr> ids_to_patternss,
+      RestrictNetworkForIdsCallback callback) override {}
+  void ClearNetworkRestrictions(const std::vector<base::UnguessableToken>&
+                                    network_restrictions_ids) override {}
   void Prefetch(int32_t request_id,
                 uint32_t options,
                 const ResourceRequest& request,

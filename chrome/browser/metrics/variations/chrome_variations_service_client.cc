@@ -108,31 +108,17 @@ bool ChromeVariationsServiceClient::IsEnterprise() {
 #endif
 }
 
-// Remove any profiles from variations prefs that no longer exist in the
-// ProfileAttributesStorage source-of-truth.
-void ChromeVariationsServiceClient::
-    RemoveGoogleGroupsFromPrefsForDeletedProfiles(PrefService* local_state) {
-  // Get the list of profiles in attribute storage.
-  base::flat_set<std::string> profile_keys =
-      ProfileAttributesStorage::GetAllProfilesKeys(local_state);
+std::optional<base::flat_set<std::string>>
+ChromeVariationsServiceClient::GetAllProfilesKeys(PrefService* local_state) {
+  return ProfileAttributesStorage::GetAllProfilesKeys(local_state);
+}
 
-  // Get the current value of the local state dict.
-  const base::DictValue& cached_profiles =
-      local_state->GetDict(variations::prefs::kVariationsGoogleGroups);
-  std::vector<std::string> variations_profiles_to_delete;
-  for (std::pair<const std::string&, const base::Value&> profile :
-       cached_profiles) {
-    if (!profile_keys.contains(profile.first)) {
-      variations_profiles_to_delete.push_back(profile.first);
-    }
-  }
-
-  ScopedDictPrefUpdate variations_prefs_update(
-      local_state, variations::prefs::kVariationsGoogleGroups);
-  base::DictValue& variations_prefs_dict = variations_prefs_update.Get();
-  for (const auto& profile : variations_profiles_to_delete) {
-    variations_prefs_dict.Remove(profile);
-  }
+bool ChromeVariationsServiceClient::IsChromeEnterpriseCoreSupported() {
+#if BUILDFLAG(IS_CHROMEOS)
+  return false;
+#else
+  return true;
+#endif
 }
 
 version_info::Channel ChromeVariationsServiceClient::GetChannel() {

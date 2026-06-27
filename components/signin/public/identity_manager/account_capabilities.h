@@ -56,7 +56,7 @@ class AccountCapabilities {
 #endif
 
   // clang-format off
-  // keep-sorted start newline_separated=yes sticky_prefixes=#if group_prefixes=#endif,can,has,is,must
+  // keep-sorted start newline_separated=yes sticky_prefixes=#if,BUILDFLAG group_prefixes=#endif,can,has,is,must
   // clang-format on
   // Chrome can fetch information related to the family
   // group for accounts with this capability.
@@ -88,7 +88,8 @@ class AccountCapabilities {
   signin::Tribool can_sign_in_to_chrome() const;
 #endif
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_IOS)
   // Whether the account can submit feedback. For iOS, this is implemented by
   // Aloha FeedbackKit. For Android, this is implemented by GMS Core.
   signin::Tribool can_submit_feedback() const;
@@ -164,6 +165,16 @@ class AccountCapabilities {
 
   // Chrome applies parental controls to accounts with this capability.
   signin::Tribool is_subject_to_parental_controls() const;
+
+#if BUILDFLAG(IS_IOS)
+  // Whether the client must fetch Apple's age range in Chrome.
+  signin::Tribool must_fetch_apple_age_range_in_chrome() const;
+#endif
+
+#if BUILDFLAG(IS_IOS)
+  // Whether the client must skip Apple's age range check in Chrome.
+  signin::Tribool must_skip_apple_age_range_in_chrome() const;
+#endif
 
   // keep-sorted end
 

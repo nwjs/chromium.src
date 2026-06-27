@@ -28,6 +28,8 @@ public class GlicKeyedServiceImpl implements GlicKeyedService {
     private final ObserverList<GlobalShowHideObserver> mObservers = new ObserverList<>();
     private final ObserverList<UserEnabledActuationOnWebObserver>
             mUserEnabledActuationOnWebObservers = new ObserverList<>();
+    private final ObserverList<AllowedChangedObserver> mAllowedChangedObservers =
+            new ObserverList<>();
 
     @CalledByNative
     private static GlicKeyedServiceImpl create(long nativePtr) {
@@ -40,7 +42,10 @@ public class GlicKeyedServiceImpl implements GlicKeyedService {
 
     @Override
     public void toggleUI(
-            long browserWindowPtr, boolean preventClose, Profile profile, int invocationSource) {
+            long browserWindowPtr,
+            boolean preventClose,
+            Profile profile,
+            @GlicInvocationSource int invocationSource) {
         if (mNativePtr == 0) return;
 
         Tracker tracker = TrackerFactory.getTrackerForProfile(profile);
@@ -51,7 +56,8 @@ public class GlicKeyedServiceImpl implements GlicKeyedService {
     }
 
     @Override
-    public boolean invokeWithAutoSubmit(Tab tab, String text, int invocationSource) {
+    public boolean invokeWithAutoSubmit(
+            Tab tab, String text, @GlicInvocationSource int invocationSource) {
         if (mNativePtr == 0) return false;
 
         return GlicKeyedServiceImplJni.get()
@@ -109,10 +115,27 @@ public class GlicKeyedServiceImpl implements GlicKeyedService {
         mUserEnabledActuationOnWebObservers.removeObserver(observer);
     }
 
+    @Override
+    public void addAllowedChangedObserver(AllowedChangedObserver observer) {
+        mAllowedChangedObservers.addObserver(observer);
+    }
+
+    @Override
+    public void removeAllowedChangedObserver(AllowedChangedObserver observer) {
+        mAllowedChangedObservers.removeObserver(observer);
+    }
+
     @CalledByNative
     private void onUserEnabledActuationOnWebChanged(boolean enabled) {
         for (UserEnabledActuationOnWebObserver observer : mUserEnabledActuationOnWebObservers) {
             observer.onUserEnabledActuationOnWebChanged(enabled);
+        }
+    }
+
+    @CalledByNative
+    private void onAllowedStateChanged() {
+        for (AllowedChangedObserver observer : mAllowedChangedObservers) {
+            observer.onAllowedStateChanged();
         }
     }
 
@@ -123,13 +146,13 @@ public class GlicKeyedServiceImpl implements GlicKeyedService {
                 long browserWindowPtr,
                 boolean preventClose,
                 @JniType("Profile*") Profile profile,
-                int source);
+                @GlicInvocationSource int source);
 
         boolean invokeWithAutoSubmit(
                 long nativeGlicKeyedServiceAndroid,
                 @JniType("TabAndroid*") Tab tab,
                 @JniType("std::string") String text,
-                int source);
+                @GlicInvocationSource int source);
 
         boolean isPanelShowingForBrowser(long nativeGlicKeyedServiceAndroid, long browserWindowPtr);
 

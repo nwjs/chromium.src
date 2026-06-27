@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/text/justification_opportunity.h"
 
+#include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/platform/text/character.h"
 #include "third_party/blink/renderer/platform/text/character_break_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
@@ -106,10 +107,10 @@ std::pair<bool, bool> JustificationContext::CheckOpportunity(TextJustify method,
     return {false, false};
   }
 
-  // IsCJKIdeographOrSymbol() has opportunities both before and after
+  // IsCjkIdeographOrSymbol() has opportunities both before and after
   // each character.
   // http://www.w3.org/TR/jlreq/#line_adjustment
-  if (!Character::IsCJKIdeographOrSymbol(ch)) {
+  if (!Character::IsCjkIdeographOrSymbol(ch)) {
     is_after_opportunity_ = false;
     return {false, false};
   }
@@ -167,8 +168,8 @@ wtf_size_t JustificationContext::CountOpportunities(
       count += CountOpportunity16(method, CodePointAt(chars, i));
     }
   } else {
-    for (int i = iter.Preceding(chars.size()); i != kTextBreakDone;
-         i = iter.Preceding(i)) {
+    for (int i = iter.Preceding(base::checked_cast<int>(chars.size()));
+         i != kTextBreakDone; i = iter.Preceding(i)) {
       count += CountOpportunity16(method, CodePointAt(chars, i));
     }
   }

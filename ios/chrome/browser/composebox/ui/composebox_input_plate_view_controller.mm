@@ -21,10 +21,12 @@
 #import "components/lens/lens_features.h"
 #import "ios/chrome/browser/composebox/public/composebox_attachment_option.h"
 #import "ios/chrome/browser/composebox/public/composebox_constants.h"
+#import "ios/chrome/browser/composebox/public/composebox_input_item_source.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_plate_controls.h"
 #import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
+#import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/shared/ui/composebox_snackbar_presenter.h"
 #import "ios/chrome/browser/composebox/shared/ui/composebox_ui_constants.h"
 #import "ios/chrome/browser/composebox/ui/composebox_animation_context.h"
@@ -33,7 +35,6 @@
 #import "ios/chrome/browser/composebox/ui/composebox_input_item_view.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_mutator.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_view_controller_delegate.h"
-#import "ios/chrome/browser/composebox/ui/composebox_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/ui/composebox_strings.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_util.h"
@@ -249,6 +250,9 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   BOOL _inputPlatePresented;
   /// Caches the items list if set before viewDidLoad.
   NSArray<ComposeboxInputItem*>* _cachedItems;
+
+  // Whether to trigger a glow effect on appear.
+  BOOL _glowOnAppear;
 }
 
 /// ComposeboxAnimationContext
@@ -353,6 +357,11 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
          selector:@selector(keyboardWillHide:)
              name:UIKeyboardWillHideNotification
            object:nil];
+
+  if (_glowOnAppear) {
+    [self triggerGlowEffect];
+    _glowOnAppear = NO;
+  }
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -597,7 +606,13 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 
   if (activeToolChanged) {
     [self updateAIMButtonAppearance];
-    [self triggerGlowEffect];
+
+    // If the view is not yet shown, delay the glow effect.
+    if (self.view.window) {
+      [self triggerGlowEffect];
+    } else {
+      _glowOnAppear = YES;
+    }
   }
 
   if (stringsChanged) {
@@ -625,23 +640,32 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 
 - (void)aimButtonTapped {
   [self.delegate
-      composeboxViewControllerDidTapAIMButton:self
-                             activationSource:AiModeActivationSource::
-                                                  kDedicatedButton];
+      composeboxViewController:self
+                    didTapTool:ComposeboxMode::kAIM
+              activationSource:AiModeActivationSource::kDedicatedButton];
 }
 
 - (void)imageGenerationButtonTapped {
-  [self.delegate composeboxViewControllerDidTapImageGenerationButton:self];
+  [self.delegate
+      composeboxViewController:self
+                    didTapTool:ComposeboxMode::kImageGeneration
+              activationSource:AiModeActivationSource::kDedicatedButton];
 }
 
 // Called when the canvas button in the input plate is tapped.
 - (void)canvasButtonTapped {
-  [self.delegate composeboxViewControllerDidTapCanvasButton:self];
+  [self.delegate
+      composeboxViewController:self
+                    didTapTool:ComposeboxMode::kCanvas
+              activationSource:AiModeActivationSource::kDedicatedButton];
 }
 
 // Called when the deep search button in the input plate is tapped.
 - (void)deepSearchButtonTapped {
-  [self.delegate composeboxViewControllerDidTapDeepSearchButton:self];
+  [self.delegate
+      composeboxViewController:self
+                    didTapTool:ComposeboxMode::kDeepSearch
+              activationSource:AiModeActivationSource::kDedicatedButton];
 }
 
 // Called when the Ask about this page button in the input plate is tapped.
@@ -668,7 +692,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
     visibleButtons.push_back(FuseboxAttachmentButtonType::kFiles);
   }
   [self.delegate composeboxViewController:self
-      didOpenPlusMenuWithVisibleInternalButtons:visibleButtons];
+      didOpenPlusMenuWithVisibleInternalButtons:visibleButtons
+                                   uiInputState:_state];
 }
 
 - (void)micButtonTapped {
@@ -678,7 +703,6 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 - (void)plusButtonTapped {
   [self.delegate composeboxViewControllerDidTapPlusButton:self
                                          withUIInputState:_state];
-  [self plusButtonDidOpenMenu];
 }
 
 - (void)visualSearchButtonTapped {
@@ -835,32 +859,36 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self.delegate composeboxViewControllerDidTapAttachTabsButton:self];
 }
 
-/// Notifies the delegate to handle AIM tapped from the tool menu.
 - (void)handleAIMTappedFromToolMenu {
-  [self.delegate composeboxViewControllerDidTapAIMButton:self
-                                        activationSource:
-                                            AiModeActivationSource::kToolMenu];
+  [self.delegate composeboxViewController:self
+                               didTapTool:ComposeboxMode::kAIM
+                         activationSource:AiModeActivationSource::kToolMenu];
 }
 
 /// Notifies the delegate to handle canvas button tapped from the tool menu.
 - (void)handleImageGenTappedFromToolMenu {
-  [self.delegate composeboxViewControllerDidTapImageGenerationButton:self];
+  [self.delegate composeboxViewController:self
+                               didTapTool:ComposeboxMode::kImageGeneration
+                         activationSource:AiModeActivationSource::kToolMenu];
 }
 
 /// Notifies the delegate to handle canvas tapped from the tool menu.
 - (void)handleCanvasTappedFromToolMenu {
-  [self.delegate composeboxViewControllerDidTapCanvasButton:self];
+  [self.delegate composeboxViewController:self
+                               didTapTool:ComposeboxMode::kCanvas
+                         activationSource:AiModeActivationSource::kToolMenu];
 }
 
 /// Notifies the delegate to handle deep search tapped from the tool menu.
 - (void)handleDeepSearchTappedFromToolMenu {
-  [self.delegate composeboxViewControllerDidTapDeepSearchButton:self];
+  [self.delegate composeboxViewController:self
+                               didTapTool:ComposeboxMode::kDeepSearch
+                         activationSource:AiModeActivationSource::kToolMenu];
 }
-
-/// Notifies the mutator to handle the selection of a new model option.
+/// Notifies the delegate to handle the selection of a new model option.
 - (void)handleModelChangeFromToolsMenuWithOption:
     (ComposeboxModelOption)modelOption {
-  [self.mutator setModelOption:modelOption explicitUserAction:YES];
+  [self.delegate composeboxViewController:self didSelectModel:modelOption];
 }
 
 /// Updates the visibility of the leading/trailing fade views for the carousel.
@@ -972,12 +1000,12 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   }
   config.contentInsets = insets;
   config.background.backgroundColor =
-      [_theme aimButtonBackgroundColorWithAIMEnabled:isAIModeEnabled];
+      [_theme toolButtonBackgroundColorWithActiveState:isAIModeEnabled];
   config.baseForegroundColor =
-      [_theme aimButtonTextColorWithAIMEnabled:isAIModeEnabled];
+      [_theme toolButtonTextColorWithActiveState:isAIModeEnabled];
   config.background.strokeWidth = isAIModeEnabled ? 0 : 1;
   config.background.strokeColor =
-      [_theme aimButtonBorderColorWithAIMEnabled:isAIModeEnabled];
+      [_theme toolButtonBorderColorWithActiveState:isAIModeEnabled];
 
   _aimButton.accessibilityLabel = l10n_util::GetNSString(
       isAIModeEnabled
@@ -985,6 +1013,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
           : IDS_IOS_COMPOSEBOX_AIM_BUTTON_ENABLE_ACTION_ACCESSIBILITY_LABEL);
 
   _aimButton.configuration = config;
+  _aimButton.tintColor =
+      [_theme toolButtonTextColorWithActiveState:isAIModeEnabled];
 
   // Setup the X mark only after the config was aplied, otherwise the
   // constraints applied relative to the title label will be wrong for iOS 18.
@@ -1015,6 +1045,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
       DefaultSymbolWithConfiguration(kXMarkSymbol, configuration);
   // The parent button view is the relevant element.
   xMarkImageView.isAccessibilityElement = NO;
+  xMarkImageView.tintColor = button.tintColor;
   [button addSubview:xMarkImageView];
 
   [NSLayoutConstraint activateConstraints:@[
@@ -1414,8 +1445,6 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   NSMutableArray<UIMenuElement*>* sections =
       [[NSMutableArray alloc] initWithArray:@[ attachmentMenu, modeMenu ]];
   if (_state.allowModelPicker) {
-    CHECK(ShowComposeboxAdditionalAdvancedTools());
-
     BOOL regularHidden =
         [_state isModelHidden:ComposeboxModelOption::kRegular] ||
         ![_state isModelHidden:ComposeboxModelOption::kAuto];
@@ -1774,9 +1803,9 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                                    image:GetBananaIcon(kSymbolActionPointSize)];
   config.contentInsets = kImageGenerationButtonInsets;
   config.background.backgroundColor =
-      [_theme imageGenerationButtonBackgroundColor];
-  config.baseForegroundColor = [_theme imageGenerationButtonTextColor];
-  button.tintColor = [_theme imageGenerationButtonTextColor];
+      [_theme toolButtonBackgroundColorWithActiveState:YES];
+  config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:YES];
+  button.tintColor = [_theme toolButtonTextColorWithActiveState:YES];
 
   button.configuration = config;
   [self setupXMarkInButton:button];
@@ -1824,9 +1853,10 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   insets.trailing = kModeIndicatorButtonInsets.trailing + kXButtonWidthInButton;
   config.contentInsets = insets;
 
-  config.background.backgroundColor = [_theme canvasButtonBackgroundColor];
-  config.baseForegroundColor = [_theme canvasButtonTextColor];
-  button.tintColor = [_theme canvasButtonTextColor];
+  config.background.backgroundColor =
+      [_theme toolButtonBackgroundColorWithActiveState:YES];
+  config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:YES];
+  button.tintColor = [_theme toolButtonTextColorWithActiveState:YES];
 
   button.configuration = config;
 
@@ -1863,9 +1893,10 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   insets.trailing = kModeIndicatorButtonInsets.trailing + kXButtonWidthInButton;
   config.contentInsets = insets;
 
-  config.background.backgroundColor = [_theme deepSearchButtonBackgroundColor];
-  config.baseForegroundColor = [_theme deepSearchButtonTextColor];
-  button.tintColor = [_theme deepSearchButtonTextColor];
+  config.background.backgroundColor =
+      [_theme toolButtonBackgroundColorWithActiveState:YES];
+  config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:YES];
+  button.tintColor = [_theme toolButtonTextColorWithActiveState:YES];
 
   button.configuration = config;
 
@@ -1894,7 +1925,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [button addTarget:self
                 action:@selector(askAboutThisPageButtonTapped)
       forControlEvents:UIControlEventTouchUpInside];
-  button.tintColor = [_theme aimButtonTextColorWithAIMEnabled:NO];
+  button.tintColor = [_theme toolButtonTextColorWithActiveState:NO];
 
   [button
       setContentCompressionResistancePriority:UILayoutPriorityRequired
@@ -1907,10 +1938,10 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                                              kMagnifyingglassSparkSymbol,
                                              kAIMButtonSymbolPointSize)];
   config.background.backgroundColor = [UIColor clearColor];
-  config.baseForegroundColor = [_theme aimButtonTextColorWithAIMEnabled:NO];
+  config.baseForegroundColor = [_theme toolButtonTextColorWithActiveState:NO];
   config.background.strokeWidth = 1;
   config.background.strokeColor =
-      [_theme aimButtonBorderColorWithAIMEnabled:NO];
+      [_theme toolButtonBorderColorWithActiveState:NO];
 
   button.configuration = config;
 
@@ -2127,8 +2158,10 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   CHECK(
       [itemProvider hasItemConformingToTypeIdentifier:UTTypeImage.identifier]);
 
-  [self.mutator processImageItemProvider:itemProvider
-                                 assetID:[NSUUID UUID].UUIDString];
+  [self.mutator
+      processImageItemProvider:itemProvider
+                       assetID:[NSUUID UUID].UUIDString
+                        source:ComposeboxInputItemSource::kDragAndDrop];
 }
 
 /// Performs a drop for a dragged file from a given `itemProvider`.

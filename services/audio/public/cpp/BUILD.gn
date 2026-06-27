@@ -18,6 +18,19 @@ component("cpp") {
     "output_device.h",
   ]
 
+  if (is_win || is_mac || is_linux || is_chromeos) {
+    sources += [
+      "sounds/audio_stream_handler.cc",
+      "sounds/audio_stream_handler.h",
+      "sounds/global_sounds_manager.cc",
+      "sounds/global_sounds_manager.h",
+      "sounds/sounds_manager.cc",
+      "sounds/sounds_manager.h",
+    ]
+
+    deps = [ "//ui/base" ]
+  }
+
   defines = [ "IS_AUDIO_PUBLIC_CPP_IMPL" ]
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -41,6 +54,13 @@ source_set("test_support") {
     "fake_system_info.cc",
     "fake_system_info.h",
   ]
+
+  if (is_win || is_mac || is_linux || is_chromeos) {
+    sources += [
+      "sounds/test_data.cc",
+      "sounds/test_data.h",
+    ]
+  }
 
   public_deps = [
     ":cpp",

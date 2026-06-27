@@ -16,6 +16,10 @@ BASE_FEATURE(kGenericSensorExtraClasses, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSensorsAllowAskBlockPermissionModel,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables severing sensor connections on permission revocation.
+BASE_FEATURE(kSeverSensorConnectionsOnPermissionRevocation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Expose serial port logical connection state and dispatch connection events
 // for Bluetooth serial ports when the Bluetooth device connection state
 // changes.
@@ -26,6 +30,10 @@ BASE_FEATURE(kSerialPortConnected,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif  // !BUILDFLAG(IS_ANDROID)
 );
+
+// Avoid triggering the macOS Bluetooth permission prompt when
+// navigator.serial.getPorts() is called and permission is undetermined.
+BASE_FEATURE(kAvoidBluetoothPromptInGetPorts, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This feature allows to dynamically introduce an additional list of devices
 // blocked by WebUSB via a Finch parameter. This parameter should be specified
@@ -39,6 +47,18 @@ BASE_FEATURE(kWebUsbBlocklist,
 // or endpoint. This protects devices which ignore this field.
 BASE_FEATURE(kWebUsbProtectedClassControlTransferBlock,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, WebUSB control transfers enforce a positive matching allowlist
+// for Standard requests (permitting only GET_STATUS, GET_DESCRIPTOR,
+// GET_CONFIGURATION, GET_INTERFACE, SYNCH_FRAME). All other Standard requests
+// are strictly blocked.
+BASE_FEATURE(kWebUsbEnforceStandardRequestAllowlist,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, WebUSB rejects claiming interfaces that share endpoints with
+// already claimed interfaces, and avoids overwriting endpoint mapping entries.
+// See crbug.com/513167952.
+BASE_FEATURE(kWebUsbHardenEndpointAliasing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, accessing the navigator.hid attribute does not prevent the
 // frame from entering the back forward cache.
@@ -66,6 +86,11 @@ BASE_FEATURE(kSafeUsbDeviceHandleWinClose, base::FEATURE_ENABLED_BY_DEFAULT);
 // are not deleted until the kernel has signaled completion, even if the
 // connection is closed.
 BASE_FEATURE(kSafeHidConnectionWinClose, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, SerialPortImpl will ensure that shared memory buffers backing
+// pending OVERLAPPED requests are not unmapped until the kernel has signaled
+// completion, even if the port is closed.
+BASE_FEATURE(kSafeSerialPortImplWinClose, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Defines a feature parameter for the `kWinSystemLocationPermission` feature.
 // This parameter controls the polling interval (in milliseconds) for checking

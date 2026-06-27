@@ -6,6 +6,7 @@ source_set("contextual_cueing") {
   sources = [
     "contextual_cueing_controller.h",
     "contextual_cueing_enums.h",
+    "contextual_cueing_metrics.h",
     "contextual_cueing_service.h",
     "contextual_cueing_service_factory.h",
     "contextual_cueing_web_contents_observer.h",
@@ -13,6 +14,7 @@ source_set("contextual_cueing") {
     "cueing_log.h",
     "features.h",
     "nudge_cap_tracker.h",
+    "prefs.h",
   ]
 
   public_deps = [
@@ -24,6 +26,10 @@ source_set("contextual_cueing") {
     "//components/tabs:public",
     "//url",
   ]
+
+  if (!is_android) {
+    public_deps += [ "//chrome/browser/ui/page_action" ]
+  }
 }
 
 source_set("impl") {
@@ -37,7 +43,6 @@ source_set("impl") {
     "contextual_cueing_menu_model.cc",
     "contextual_cueing_menu_model.h",
     "contextual_cueing_metrics.cc",
-    "contextual_cueing_metrics.h",
     "contextual_cueing_service.cc",
     "contextual_cueing_service_factory.cc",
     "contextual_cueing_web_contents_observer.cc",
@@ -49,6 +54,7 @@ source_set("impl") {
   deps = [
     ":contextual_cueing",
     "//chrome/browser:primitives",
+    "//chrome/browser/favicon",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/page_content_annotations",
     "//chrome/browser/search_engines",
@@ -63,6 +69,7 @@ source_set("impl") {
     "//components/infobars/content",
     "//components/keyed_service/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/pdf/common:constants",
     "//components/strings:components_strings",
     "//components/sync/service",
     "//components/vector_icons",
@@ -72,8 +79,8 @@ source_set("impl") {
 
   if (!is_android) {
     deps += [
+      "//chrome/browser/ui/page_action",
       "//chrome/browser/ui/user_education",
-      "//chrome/browser/ui/views/page_action",
     ]
   }
 }
@@ -94,6 +101,7 @@ if (!is_android) {
       "//chrome/browser/optimization_guide:test_support",
       "//chrome/browser/sync",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/page_action",
       "//chrome/browser/ui/side_panel",
       "//chrome/browser/ui/side_panel:side_panel_ui_provider",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
@@ -102,6 +110,7 @@ if (!is_android) {
       "//chrome/test:test_support",
       "//components/infobars/content",
       "//content/public/browser",
+      "//pdf:buildflags",
       "//testing/gmock",
       "//testing/gtest",
     ]

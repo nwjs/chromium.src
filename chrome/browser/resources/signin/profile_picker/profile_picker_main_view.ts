@@ -107,10 +107,6 @@ export class ProfilePickerMainViewElement extends
   protected accessor pickerButtonsDisabled_: boolean = false;
 
   protected accessor isRefreshedUI_: boolean = isUseRefreshedUI();
-  private showProfilePickerToAllUsersExperiment_: boolean =
-      loadTimeData.getBoolean('showProfilePickerToAllUsersExperiment');
-  private isProfilePickerTextVariationsEnabled_: boolean =
-      loadTimeData.getBoolean('isProfilePickerTextVariationsEnabled');
 
   private eventTracker_: EventTracker = new EventTracker();
 
@@ -293,11 +289,7 @@ export class ProfilePickerMainViewElement extends
   }
 
   private computeHideAskOnStartup_(): boolean {
-    const shouldShowBasedOnProfilesCount = this.profilesList_.length >= 2 ||
-        (this.profilesList_.length >= 1 &&
-         this.showProfilePickerToAllUsersExperiment_);
-
-    return !isAskOnStartupAllowed() || !shouldShowBasedOnProfilesCount;
+    return !isAskOnStartupAllowed() || this.profilesList_.length < 2;
   }
 
   protected onToggleDrag_(e: CustomEvent<{toggle: boolean}>) {
@@ -334,30 +326,23 @@ export class ProfilePickerMainViewElement extends
   }
 
   protected getTitle_(): TrustedHTML {
-    if (this.isProfileListLoadedAndEmptyAndGlic_()) {
-      // Special styling through 'class' attribute in some version of the title.
-      return this.i18nAdvanced('glicTitleNoProfile', {attrs: ['class']});
+    return this.i18nAdvanced(
+        this.isProfileListLoadedAndEmptyAndGlic_() ? 'glicTitleNoProfile' :
+                                                     'mainViewTitle',
+        // Special styling through 'class' attribute in some version of the
+        // title.
+        {attrs: ['class']});
     }
-    const titleStringResouce = this.isProfilePickerTextVariationsEnabled_ &&
-            this.profilesList_.length === 1 ?
-        'mainViewSingleProfileTitle' :
-        'mainViewTitle';
-    return this.i18nAdvanced(titleStringResouce, {attrs: ['class']});
-  }
 
   protected getSubtitle_(): TrustedHTML {
-    if (this.isProfileListLoadedAndEmptyAndGlic_()) {
-      // Special tagging through 'class' attribute in some version of the
-      // subtitle.
-      return this.i18nAdvanced(
-          'mainViewSubtitleGlicNoProfile', {attrs: ['class']});
+    return this.i18nAdvanced(
+        this.isProfileListLoadedAndEmptyAndGlic_() ?
+            'mainViewSubtitleGlicNoProfile' :
+            'mainViewSubtitle',
+        // Special styling through 'class' attribute in some version of the
+        // subtitle.
+        {attrs: ['class']});
     }
-    const subtitleStringResource = this.isProfilePickerTextVariationsEnabled_ &&
-            this.profilesList_.length === 1 ?
-        'mainViewSingleProfileSubtitle' :
-        'mainViewSubtitle';
-    return this.i18nAdvanced(subtitleStringResource, {attrs: ['class']});
-  }
 
   protected shouldHideProfilesWrapper_(): boolean {
     if (!this.profilesListLoaded_) {

@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/guest_view/buildflags/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
@@ -314,7 +313,6 @@ static_library("common") {
     "command.h",
     "common_manifest_handlers.cc",
     "common_manifest_handlers.h",
-    "common_param_traits.h",
     "content_script_injection_url_getter.cc",
     "content_script_injection_url_getter.h",
     "context_data.h",
@@ -811,9 +809,6 @@ if (enable_extensions) {
       "//content/test:test_support",
       "//extensions:test_support",
     ]
-
-    # The fuzzed code needs more RAM that the default limit.
-    libfuzzer_options = [ "rss_limit_mb=4096" ]
   }
 
   fuzzer_test("extension_url_pattern_fuzzer") {
@@ -831,9 +826,6 @@ if (enable_extensions) {
       "//base",
       "//third_party/icu/fuzzers:fuzzer_support",
     ]
-
-    # The fuzzed code needs more RAM that the default limit.
-    libfuzzer_options = [ "rss_limit_mb=4096" ]
   }
 
   fuzzer_test("extension_api_scripts_internal_serialization_fuzzer") {
@@ -846,8 +838,5 @@ if (enable_extensions) {
       "//third_party/abseil-cpp:absl",
       "//third_party/icu/fuzzers:fuzzer_support",
     ]
-
-    # The fuzzed code needs more RAM that the default limit.
-    libfuzzer_options = [ "rss_limit_mb=4096" ]
   }
 }

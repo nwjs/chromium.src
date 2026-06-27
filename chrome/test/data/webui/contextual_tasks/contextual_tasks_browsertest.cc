@@ -3,12 +3,18 @@
 // found in the LICENSE file.
 
 #include "base/command_line.h"
+#include "base/functional/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/config/coverage/buildflags.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "content/public/test/browser_test.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 class ContextualTasksBrowserTest : public WebUIMochaBrowserTest {
  protected:
@@ -20,14 +26,44 @@ class ContextualTasksBrowserTest : public WebUIMochaBrowserTest {
     set_test_loader_host(chrome::kChromeUIContextualTasksHost);
   }
 
+  void SetUpInProcessBrowserTestFixture() override {
+    WebUIMochaBrowserTest::SetUpInProcessBrowserTestFixture();
+    create_services_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(base::BindRepeating(
+                &ContextualTasksBrowserTest::OnWillCreateBrowserContextServices,
+                base::Unretained(this)));
+  }
 
+  void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
+    AimEligibilityServiceFactory::GetInstance()->SetTestingFactory(
+        context,
+        base::BindRepeating(
+            &ContextualTasksBrowserTest::BuildMockAimEligibilityService));
+  }
+
+  static std::unique_ptr<KeyedService> BuildMockAimEligibilityService(
+      content::BrowserContext* context) {
+    Profile* profile = Profile::FromBrowserContext(context);
+    auto aim_eligibility_service =
+        std::make_unique<testing::NiceMock<MockAimEligibilityService>>(
+            *profile->GetPrefs(), /*template_url_service=*/nullptr,
+            /*url_loader_factory=*/nullptr, /*identity_manager=*/nullptr);
+
+    ON_CALL(*aim_eligibility_service, IsAimEligible())
+        .WillByDefault(testing::Return(true));
+    ON_CALL(*aim_eligibility_service, IsCobrowseEligible())
+        .WillByDefault(testing::Return(true));
+    return aim_eligibility_service;
+  }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  base::CallbackListSubscription create_services_subscription_;
 };
 
 // TODO(crbug.com/487147580): Re-enable the test
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 #define MAYBE_App DISABLED_App
 #else
 #define MAYBE_App App
@@ -94,6 +130,10 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, TopToolbarTest) {
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, OverflowMenu) {
   RunTest("contextual_tasks/overflow_menu_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, OnboardingTooltip) {
+  RunTest("contextual_tasks/onboarding_tooltip_test.js", "mocha.run();");
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, WebView) {

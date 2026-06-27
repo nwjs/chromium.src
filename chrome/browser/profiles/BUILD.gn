@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/common/features.gni")
 import("//components/captive_portal/core/features.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
@@ -85,6 +84,7 @@ source_set("misc") {
     "//chrome/browser:buildflags",
     "//chrome/browser:flags",
     "//chrome/browser:global_features",
+    "//chrome/browser:startup_data",
     "//chrome/browser/accessibility",
     "//chrome/browser/app_mode",
     "//chrome/browser/background",
@@ -125,6 +125,7 @@ source_set("misc") {
     "//chrome/browser/transition_manager",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/startup",
+    "//chrome/browser/ui/webui:prefs_internals_source",
     "//chrome/browser/ui/zoom",
     "//chrome/browser/updates/announcement_notification",
     "//chrome/browser/webid",
@@ -171,6 +172,7 @@ source_set("misc") {
       "profile_manager_android.cc",
     ]
     deps += [
+      "//chrome/browser:profile_key_startup_accessor",
       "//chrome/browser/android:profile_token",
       "//chrome/browser/profiles/android:jni_headers",
       "//chrome/common:constants",
@@ -237,6 +239,7 @@ source_set("misc") {
 
   if (is_chromeos) {
     deps += [
+      "//chrome/browser:browser_process_platform_part",
       "//chrome/browser/ash/account_manager",
       "//chrome/browser/ash/app_mode",
       "//chrome/browser/ash/arc/session:service_launcher",
@@ -373,6 +376,7 @@ source_set("profile_manager_impl") {
     "//base",
     "//chrome/browser:browser_features",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser:buildflags",
     "//chrome/browser:flags",
     "//chrome/browser/accessibility",
@@ -425,7 +429,6 @@ source_set("profile_manager_impl") {
       "//chrome/browser/ash/account_manager",
       "//chrome/browser/ash/arc/policy",
       "//chrome/browser/ash/profiles",
-      "//chrome/browser/chromeos/extensions/contact_center_insights",
       "//chrome/browser/chromeos/extensions/desk_api",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/experiences/arc/session:arc_base_enums",
@@ -526,6 +529,7 @@ source_set("profile_util_impl") {
     "//chrome/app:generated_resources",
     "//chrome/app/vector_icons",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/autofill",
     "//chrome/browser/bookmarks",
     "//chrome/browser/browsing_topics",
@@ -603,10 +607,10 @@ source_set("profiles_extra_parts_impl") {
     ":profiles_extra_parts",
     "//base",
     "//chrome/browser:browser_process",
+    "//chrome/browser:chrome_browser_main",
     "//chrome/browser:font_pref",
     "//chrome/browser/accessibility",
     "//chrome/browser/accessibility_annotator",
-    "//chrome/browser/accessibility_annotator/first_run",
     "//chrome/browser/account_settings",
     "//chrome/browser/affiliations",
     "//chrome/browser/ai",
@@ -682,6 +686,8 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/performance_manager",
     "//chrome/browser/permissions",
     "//chrome/browser/persisted_state_db",
+    "//chrome/browser/personal_context",
+    "//chrome/browser/personal_context/first_run",
     "//chrome/browser/plus_addresses",
     "//chrome/browser/predictors",
     "//chrome/browser/prefs",
@@ -775,6 +781,7 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/commerce/merchant_viewer:merchant_viewer_data_manager",
       "//chrome/browser/feed",
       "//chrome/browser/tab",
+      "//chrome/browser/ui/android",
       "//components/commerce/core:merchant_signal_db_proto",
     ]
     if (enable_webui_ntp) {
@@ -819,7 +826,11 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/ui/webui/signin",
       "//chrome/browser/ui/webui/signin:login_ui_service",
       "//chrome/browser/user_education",
+      "//chrome/browser/web_applications/isolated_web_apps/window_management",
     ]
+  }
+  if (!is_android && !is_chromeos) {
+    deps += [ "//chrome/browser/download/bubble" ]
   }
   if (is_chromeos) {
     deps += [
@@ -850,7 +861,10 @@ source_set("profiles_extra_parts_impl") {
   }
 
   if (!is_chromeos && !is_android) {
-    deps += [ ":profile_util" ]
+    deps += [
+      ":profile_util",
+      "//chrome/browser/download/bubble",
+    ]
   }
 
   if (is_win || is_mac || is_linux || is_chromeos) {
@@ -897,11 +911,12 @@ source_set("profiles_extra_parts_impl") {
     deps += [ "//chrome/browser/on_device_translation" ]
   }
 
+  if (enable_dice_support || is_chromeos) {
+    deps += [ "//chrome/browser/profiles/batch_upload" ]
+  }
+
   if (enable_dice_support) {
-    deps += [
-      "//chrome/browser/profiles/batch_upload",
-      "//chrome/browser/ui/signin",
-    ]
+    deps += [ "//chrome/browser/ui/signin" ]
   }
 
   if (enable_captive_portal_detection) {
@@ -917,8 +932,8 @@ source_set("profiles_extra_parts_impl") {
 
   if (!is_android) {
     deps += [
+      "//chrome/browser/glic/browser_ui",
       "//chrome/browser/password_manager/factories:startup_import_factory",
-      "//chrome/browser/ui/tabs:glic",
     ]
   }
 

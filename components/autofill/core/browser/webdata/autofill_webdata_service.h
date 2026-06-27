@@ -5,21 +5,21 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_WEBDATA_AUTOFILL_WEBDATA_SERVICE_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_WEBDATA_AUTOFILL_WEBDATA_SERVICE_H_
 
+#include <stdint.h>
+
 #include <string>
-#include <string_view>
 #include <vector>
 
+#include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/observer_list.h"
 #include "base/supports_user_data.h"
-#include "base/uuid.h"
+#include "base/time/time.h"
+#include "build/buildflag.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
-#include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
+#include "components/autofill/core/browser/data_model/valuables/valuable_types.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
 #include "components/autofill/core/common/form_field_data.h"
-#include "components/sync/base/data_type.h"
-#include "components/webdata/common/web_data_results.h"
 #include "components/webdata/common/web_data_service_base.h"
 #include "components/webdata/common/web_data_service_consumer.h"
 
@@ -180,10 +180,6 @@ class AutofillWebDataService : public WebDataServiceBase {
 
   // Method to clear all the local CVCs from the web database.
   void ClearLocalCvcs();
-
-  // Method to clear all local CVCs created before mid-May 2025. For more
-  // information, see crbug.com/411681430.
-  void ClearLocalCvcsUpToMay2025();
 
 #if BUILDFLAG(IS_IOS)
   // Method to clean up for crbug.com/445879524.

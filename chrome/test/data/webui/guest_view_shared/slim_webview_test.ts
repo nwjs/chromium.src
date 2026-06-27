@@ -93,7 +93,7 @@ function denyPermissionRequest(
     webview.addEventListener('permissionrequest', function f(e: Event) {
       assertTrue(e instanceof PermissionRequestEvent);
       assertEquals(permission, e.permission);
-      assertEquals(getOrigin(webview.src), e.request.url);
+      assertEquals(getOrigin(webview.src), getOrigin(e.request.url));
       e.request.deny();
       console.info(`Denied ${permission} permission request`);
       resolve(e);
@@ -290,6 +290,21 @@ suite('Operations', function() {
     assertEquals('NotAllowedError', mediaError.name);
     assertTrue(await isFulfilled(requestDeniedPromise));
   });
+
+  test('DownloadPermissionEventDeniedByEmbedder', async function() {
+    const requestDeniedPromise = denyPermissionRequest(webview, 'download');
+
+    evalOnWebview(webview, () => {
+      const a = document.createElement('a');
+      a.href = '/download-file';
+      a.download = 'file.txt';
+      document.body.appendChild(a);
+      a.click();
+    });
+
+    const event = await requestDeniedPromise;
+    assertEquals(getTestUrl('/download-file'), event.request.url);
+  });
 });
 
 suite('Requests', function() {
@@ -311,6 +326,52 @@ suite('Requests', function() {
     evalOnWebview(webview, (url: string) => {
       window.location.href = url;
     }, getCrossOriginUrl('/simple.html'));
+
+    const loadAbortEvent = await loadAbortPromise;
+
+    assertEquals('ERR_BLOCKED_BY_CLIENT', loadAbortEvent.reason);
+  });
+
+  test('ServerRedirectToAllowedOriginSucceeds', async function() {
+    const webview = document.createElement('webview');
+    const origin = getOrigin(getTestUrl('/'));
+    webview.allowedOriginsParams =
+        new OriginCheckParams(['main_frame'], [origin]);
+    document.body.appendChild(webview);
+
+    const loadStartPromise = eventToPromise<LoadEvent>('loadstart', webview);
+    const loadCommitPromise = eventToPromise<LoadEvent>('loadcommit', webview);
+    const contentLoadPromise = eventToPromise('contentload', webview);
+    const loadStopPromise = eventToPromise('loadstop', webview);
+
+    const targetUrl = getTestUrl('/simple.html');
+    webview.src =
+        getTestUrl(`/server-redirect?url=${encodeURIComponent(targetUrl)}`);
+
+    const [loadStartEvent, loadCommitEvent] = await Promise.all([
+      loadStartPromise,
+      loadCommitPromise,
+      contentLoadPromise,
+      loadStopPromise,
+    ]);
+
+    assertEquals(loadStartEvent.url, webview.src);
+    assertEquals(loadCommitEvent.url, targetUrl);
+  });
+
+  test('ServerRedirectToDisallowedOriginFails', async function() {
+    const webview = document.createElement('webview');
+    const origin = getOrigin(getTestUrl('/'));
+    webview.allowedOriginsParams =
+        new OriginCheckParams(['main_frame'], [origin]);
+    document.body.appendChild(webview);
+
+    const loadAbortPromise =
+        eventToPromise<LoadAbortEvent>('loadabort', webview);
+
+    const targetUrl = getCrossOriginUrl('/simple.html');
+    webview.src =
+        getTestUrl(`/server-redirect?url=${encodeURIComponent(targetUrl)}`);
 
     const loadAbortEvent = await loadAbortPromise;
 

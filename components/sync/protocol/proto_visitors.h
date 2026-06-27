@@ -736,7 +736,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(64 == GetNumDataTypes(),
+  static_assert(63 == GetNumDataTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -804,7 +804,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(contextual_task);
   VISIT(skill);
   VISIT(gemini_thread);
-  VISIT(accessibility_annotation);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::ExtensionSettingSpecifics& proto) {
@@ -1008,6 +1007,22 @@ VISIT_PROTO_FIELDS(const sync_pb::WebauthnCredentialSpecifics& proto) {
   VISIT(edited_by_user);
   VISIT(hidden);
   VISIT(hidden_time);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::WebauthnCredentialSpecifics::Encrypted& proto) {
+  VISIT_SECRET(private_key);
+  VISIT_SECRET(hmac_secret);
+  VISIT_SECRET(cred_blob);
+  VISIT_SECRET(large_blob);
+  VISIT(large_blob_uncompressed_size);
+  VISIT_REP(cmtg_keys);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::WebauthnCredentialSpecifics::Encrypted::CmtgKey& proto) {
+  VISIT_SECRET(private_key);
+  VISIT(creation_time_unix_epoch_millis);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::HistorySpecifics::PageTransition& proto) {
@@ -1561,6 +1576,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SyncInvalidationsPayload& proto) {
   VISIT_REP(data_type_invalidations);
   VISIT_BYTES(hint);
   VISIT(version);
+  VISIT(server_publish_time_unix_epoch_millis);
 }
 
 VISIT_PROTO_FIELDS(
@@ -1856,7 +1872,17 @@ VISIT_PROTO_FIELDS(const sync_pb::PaymentInstrument& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::PaymentInstrumentCreationOption& proto) {
   VISIT(id);
   VISIT(buy_now_pay_later_option);
+  VISIT(ewallet_creation_option);
+  VISIT(pix_creation_option);
 }
+
+VISIT_PROTO_FIELDS(const sync_pb::EwalletCreationOption& proto) {
+  VISIT(issuer_id);
+  VISIT(issuer_display_name);
+  VISIT_REP(supported_payment_link_uris);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::PixCreationOption& proto) {}
 
 VISIT_PROTO_FIELDS(const sync_pb::BankAccountDetails& proto) {
   VISIT(bank_name);
@@ -2141,6 +2167,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableSpecifics& proto) {
   VISIT(serialized_chrome_valuables_metadata);
   VISIT(event_ticket);
   VISIT(transit_pass);
+  VISIT(offer);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Any& proto) {
@@ -2175,6 +2202,7 @@ VISIT_PROTO_FIELDS(const sync_pb::VehicleRegistration& proto) {
   VISIT(issue_date_unix_epoch_micros);
   VISIT(expiration_date_unix_epoch_micros);
   VISIT(logo_url);
+  VISIT(owner_address);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::FlightReservation& proto) {
@@ -2191,6 +2219,7 @@ VISIT_PROTO_FIELDS(const sync_pb::FlightReservation& proto) {
   VISIT(departure_airport_utc_offset_seconds);
   VISIT(arrival_airport_utc_offset_seconds);
   VISIT(issuer_name);
+  VISIT_REP(issuer_domains);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Passport& proto) {
@@ -2239,6 +2268,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EventTicket& proto) {
   VISIT(event_start_time_windows_epoch_micros);
   VISIT(event_end_time_windows_epoch_micros);
   VISIT(logo_url);
+  VISIT_REP(issuer_domains);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::TransitPass& proto) {
@@ -2246,6 +2276,17 @@ VISIT_PROTO_FIELDS(const sync_pb::TransitPass& proto) {
   VISIT(passenger_name);
   VISIT(transit_pass_number);
   VISIT(agency_logo_url);
+  VISIT_REP(agency_domains);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::Offer& proto) {
+  VISIT(issuer_name);
+  VISIT(provider_name);
+  VISIT(offer_short_title);
+  VISIT(expiration_time_unix_epoch_micros);
+  VISIT(offer_code);
+  VISIT(offer_title_image_url);
+  VISIT_REP(issuer_domains);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableMetadataSpecifics& proto) {
@@ -2356,125 +2397,6 @@ VISIT_PROTO_FIELDS(const sync_pb::GeminiThreadSpecifics& proto) {
   VISIT(last_turn_time_unix_epoch_millis);
 }
 
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::Order& proto) {
-  VISIT(order_id);
-  VISIT(account);
-  VISIT(order_date);
-  VISIT(merchant_name);
-  VISIT(merchant_domain);
-  VISIT_REP(product_names);
-  VISIT(grand_total);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::Shipment& proto) {
-  VISIT(tracking_number);
-  VISIT_REP(associated_order_ids);
-  VISIT(delivery_address);
-  VISIT(carrier_name);
-  VISIT(carrier_domain);
-  VISIT(estimated_delivery_date);
-  VISIT(delivery_zip_code);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::DriversLicense& proto) {
-  VISIT(name);
-  VISIT(number);
-  VISIT(expiration_date);
-  VISIT(issue_date);
-  VISIT(state);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::Passport& proto) {
-  VISIT(name);
-  VISIT(number);
-  VISIT(expiration_date);
-  VISIT(issue_date);
-  VISIT(issuing_country);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::NationalId& proto) {
-  VISIT(name);
-  VISIT(number);
-  VISIT(expiration_date);
-  VISIT(issue_date);
-  VISIT(issuing_country);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::FlightReservation& proto) {
-  VISIT(flight_number);
-  VISIT(flight_ticket_number);
-  VISIT(flight_confirmation_code);
-  VISIT(passenger_name);
-  VISIT(departure_airport);
-  VISIT(arrival_airport);
-  VISIT(departure_date_unix_epoch_seconds);
-  VISIT(arrival_date_unix_epoch_seconds);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::Vehicle& proto) {
-  VISIT(vehicle_make);
-  VISIT(vehicle_model);
-  VISIT(vehicle_year);
-  VISIT(vehicle_identification_number);
-  VISIT(vehicle_license_plate);
-  VISIT(license_plate_region);
-  VISIT(license_plate_country);
-  VISIT(owner_name);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::GmailSource& proto) {
-  VISIT(thread_id);
-  VISIT(message_id);
-  VISIT(thread_locator);
-  VISIT(received_time_unix_epoch_seconds);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::CalendarSource& proto) {
-  VISIT(event_id);
-  VISIT(modified_time_unix_epoch_seconds);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::PhotosSource& proto) {
-  VISIT(photo_id);
-  VISIT(creation_time_unix_epoch_seconds);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::NaiveDate& proto) {
-  VISIT(day);
-  VISIT(month);
-  VISIT(year);
-}
-
-VISIT_PROTO_FIELDS(
-    const sync_pb::AccessibilityAnnotationSpecifics::Source& proto) {
-  VISIT(deeplink);
-  VISIT(gmail_source);
-  VISIT(calendar_source);
-  VISIT(photos_source);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::AccessibilityAnnotationSpecifics& proto) {
-  VISIT(id);
-  VISIT(order);
-  VISIT(shipment);
-  VISIT(drivers_license);
-  VISIT(passport);
-  VISIT(national_id);
-  VISIT(flight_reservation);
-  VISIT(vehicle);
-  VISIT_REP(sources);
-}
 
 VISIT_PROTO_FIELDS(const sync_pb::AiThreadSpecifics& proto) {
   VISIT_ENUM(type);

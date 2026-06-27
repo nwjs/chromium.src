@@ -20,6 +20,7 @@ import org.chromium.components.autofill.autofill_ai.AutofillAiOptInStatus;
 import org.chromium.components.autofill.autofill_ai.EntityInstance;
 import org.chromium.components.autofill.autofill_ai.EntityInstanceWithLabels;
 import org.chromium.components.autofill.autofill_ai.EntityType;
+import org.chromium.components.autofill.autofill_ai.EntityTypeName;
 
 import java.text.Collator;
 import java.util.ArrayList;
@@ -199,12 +200,35 @@ public class EntityDataManager implements Destroyable {
     }
 
     /**
-     * Returns whether the user might perform `AutofillAiAction::kListEntityInstancesInSettings`.
+     * When default availability is on, this checks whether the user is eligible for Autofill AI
+     * features, such as to opt-into identity docs, travel etc. It runs high level checks such as
+     * address pref state, policies etc. for a given type.
      */
+    public boolean canEnableOrDisableAutofillAiForType(@EntityTypeName int entityType) {
+        ThreadUtils.assertOnUiThread();
+        return EntityDataManagerJni.get()
+                .canEnableOrDisableAutofillAiForType(mNativeEntityDataManagerAndroid, entityType);
+    }
+
+    /** Returns whether the user is eligible for Autofill AI for a given type. */
+    public boolean isEligibleToAutofillAiForType(@EntityTypeName int entityType) {
+        ThreadUtils.assertOnUiThread();
+        return EntityDataManagerJni.get()
+                .isEligibleToAutofillAiForType(mNativeEntityDataManagerAndroid, entityType);
+    }
+
+    /** Returns whether the user might perform `AutofillAiAction::kListEntityInstancesInSettings`. */
     public boolean canListEntityInstancesInSettings() {
         ThreadUtils.assertOnUiThread();
         return EntityDataManagerJni.get()
                 .canListEntityInstancesInSettings(mNativeEntityDataManagerAndroid);
+    }
+
+    /** Returns whether the user can see the Wallet data sharing promotion. */
+    public boolean canShowWalletDataSharingPromotion() {
+        ThreadUtils.assertOnUiThread();
+        return EntityDataManagerJni.get()
+                .canShowWalletDataSharingPromotion(mNativeEntityDataManagerAndroid);
     }
 
     /** Returns the opt-in status for Autofill AI. */
@@ -245,14 +269,14 @@ public class EntityDataManager implements Destroyable {
                 .isWalletPublicPassStorageEnabled(mNativeEntityDataManagerAndroid);
     }
 
-    public static boolean isAccessibilityAnnotatorSettingVisible(Profile profile) {
+    public static boolean isPersonalContextSettingVisible(Profile profile) {
         ThreadUtils.assertOnUiThread();
-        return EntityDataManagerJni.get().isAccessibilityAnnotatorSettingVisible(profile);
+        return EntityDataManagerJni.get().isPersonalContextSettingVisible(profile);
     }
 
-    public static String getAccessibilityAnnotatorSettingsUrl() {
+    public static String getPersonalContextSettingsUrl() {
         ThreadUtils.assertOnUiThread();
-        return EntityDataManagerJni.get().getAccessibilityAnnotatorSettingsUrl();
+        return EntityDataManagerJni.get().getPersonalContextSettingsUrl();
     }
 
     @NativeMethods
@@ -266,7 +290,15 @@ public class EntityDataManager implements Destroyable {
 
         boolean canEnableOrDisableAutofillAi(long nativeEntityDataManagerAndroid);
 
+        boolean canEnableOrDisableAutofillAiForType(
+                long nativeEntityDataManagerAndroid, @EntityTypeName int entityType);
+
+        boolean isEligibleToAutofillAiForType(
+                long nativeEntityDataManagerAndroid, @EntityTypeName int entityType);
+
         boolean canListEntityInstancesInSettings(long nativeEntityDataManagerAndroid);
+
+        boolean canShowWalletDataSharingPromotion(long nativeEntityDataManagerAndroid);
 
         boolean getAutofillAiOptInStatus(long nativeEntityDataManagerAndroid);
 
@@ -280,10 +312,10 @@ public class EntityDataManager implements Destroyable {
 
         boolean isWalletPublicPassStorageEnabled(long nativeEntityDataManagerAndroid);
 
-        boolean isAccessibilityAnnotatorSettingVisible(@JniType("Profile*") Profile profile);
+        boolean isPersonalContextSettingVisible(@JniType("Profile*") Profile profile);
 
         @JniType("std::string")
-        String getAccessibilityAnnotatorSettingsUrl();
+        String getPersonalContextSettingsUrl();
 
         void removeEntityInstance(
                 long nativeEntityDataManagerAndroid, @JniType("std::string") String guid);

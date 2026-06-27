@@ -47,6 +47,7 @@ class WebStateID;
 @class UIImage;
 @class ComposeboxModeHolder;
 @class ComposeboxInputItemCollection;
+@class ComposeboxMetricsRecorder;
 
 // Delegate protocol for ComposeboxInputStateManager.
 @protocol ComposeboxInputStateManagerDelegate <NSObject>
@@ -81,6 +82,9 @@ class WebStateID;
 // state of the items, `ComposeboxInputStateManager` should not modify items.
 @property(nonatomic, weak) ComposeboxInputItemCollection* items;
 
+// The metrics recorder.
+@property(nonatomic, weak) ComposeboxMetricsRecorder* metricsRecorder;
+
 // Initializes the manager.
 - (instancetype)
      initWithWebStateList:(WebStateList*)webStateList
@@ -98,9 +102,6 @@ class WebStateID;
 
 // Disconnects the manager and cleans up resources.
 - (void)disconnect;
-
-// Sets the searchbox configuration.
-- (void)setSearchboxConfig:(const omnibox::SearchboxConfig&)searchboxConfig;
 
 // Sets the active model if eligible. If explicitUserAction is YES, records
 // metrics.

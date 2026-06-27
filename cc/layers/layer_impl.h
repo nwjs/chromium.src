@@ -151,6 +151,8 @@ class CC_EXPORT LayerImpl {
                            AppendQuadsData* append_quads_data) {}
   virtual void DidDraw(viz::ClientResourceProvider* resource_provider) {}
 
+  virtual bool HasMissingTiles() const;
+
   virtual bool ComputeCheckerboardedNeedsRecord();
 
   // Verify that the resource ids in the quad are valid.
@@ -444,6 +446,7 @@ class CC_EXPORT LayerImpl {
   // pending tree while syncing layers from main thread, or when we recompute
   // visible layer properties on the pending tree.
   void SetNeedsPushProperties(uint8_t changed_props = kChangedGeneralProperty);
+  bool needs_push_properties() const { return needs_push_properties_; }
 
   virtual void RunMicroBenchmark(MicroBenchmarkImpl* benchmark);
 

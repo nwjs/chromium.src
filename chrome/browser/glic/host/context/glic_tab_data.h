@@ -119,7 +119,6 @@ class TabDataObserver : public content::WebContentsObserver
       scoped_refptr<base::SequencedTaskRunner> task_runner);
 
  private:
-  void ReportUpdatesPerNavigation();
   void SendRateLimitedUpdate();
   void SendUpdate();
   void ClearObservation();
@@ -172,11 +171,13 @@ class FocusedTabData {
   raw_ptr<tabs::TabInterface> unfocused_tab_;
 };
 
-// Helper function to extract the Tab Id from the current web contents.
+// Helper function to extract the Tab Id.
 int GetTabId(content::WebContents* web_contents);
+int GetTabId(tabs::TabInterface* tab);
 
-// Helper function to extract the Tab url from the current web contents.
+// Helper function to extract the Tab url.
 const GURL& GetTabUrl(content::WebContents* web_contents);
+GURL GetTabUrl(tabs::TabInterface* tab);
 
 // Populates and returns a TabDataPtr from a given Tab, or null if tab is null.
 glic::mojom::TabDataPtr CreateTabData(tabs::TabInterface* tab);

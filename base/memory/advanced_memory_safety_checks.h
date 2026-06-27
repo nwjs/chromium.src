@@ -112,11 +112,23 @@
       NOINLINE NOT_TAIL_CALLED,                                               \
       base::internal::kAdvancedMemorySafetyChecks __VA_OPT__(, ) __VA_ARGS__, \
       kNone, kNone)
+
+#define LEAKED_SANITIZED_OBJECT(...)                                     \
+  MEMORY_SAFETY_CHECKS_INTERNAL(                                         \
+      NOINLINE NOT_TAIL_CALLED,                                          \
+      base::internal::kLeakedSanitizedObject __VA_OPT__(, ) __VA_ARGS__, \
+      kNone, kNone)
 #else
 #define ADVANCED_MEMORY_SAFETY_CHECKS(...)                                    \
   MEMORY_SAFETY_CHECKS_INTERNAL(                                              \
       ALWAYS_INLINE,                                                          \
       base::internal::kAdvancedMemorySafetyChecks __VA_OPT__(, ) __VA_ARGS__, \
+      kNone, kNone)
+
+#define LEAKED_SANITIZED_OBJECT(...)                                     \
+  MEMORY_SAFETY_CHECKS_INTERNAL(                                         \
+      ALWAYS_INLINE,                                                     \
+      base::internal::kLeakedSanitizedObject __VA_OPT__(, ) __VA_ARGS__, \
       kNone, kNone)
 #endif  // DCHECK_IS_ON()
 
@@ -171,6 +183,8 @@ enum class MemorySafetyCheck : uint32_t {
   // Enables |FreeFlags::kSchedulerLoopQuarantineForAdvancedMemorySafetyChecks|.
   // Requires PA-E.
   kSchedulerLoopQuarantine = (1u << 1),
+  // Enables |FreeFlags::kInfiniteQuarantine|. Requires PA-E.
+  kInfiniteQuarantine = 1u << 2,
 };
 
 #define FOR_EACH_BASE_INTERNAL_MEMORY_SAFETY_CHECK_VALUE(MACRO)        \
@@ -178,7 +192,10 @@ enum class MemorySafetyCheck : uint32_t {
   MACRO(::base::internal::MemorySafetyCheck::kForcePartitionAlloc)     \
   MACRO(::base::internal::MemorySafetyCheck::kSchedulerLoopQuarantine) \
   MACRO(::base::internal::MemorySafetyCheck::kForcePartitionAlloc |    \
-        ::base::internal::MemorySafetyCheck::kSchedulerLoopQuarantine)
+        ::base::internal::MemorySafetyCheck::kSchedulerLoopQuarantine) \
+  MACRO(::base::internal::MemorySafetyCheck::kInfiniteQuarantine)      \
+  MACRO(::base::internal::MemorySafetyCheck::kForcePartitionAlloc |    \
+        ::base::internal::MemorySafetyCheck::kInfiniteQuarantine)
 
 constexpr MemorySafetyCheck operator|(MemorySafetyCheck a,
                                       MemorySafetyCheck b) {
@@ -215,6 +232,10 @@ inline constexpr auto kAdvancedMemorySafetyChecks =
     MemorySafetyCheck::kForcePartitionAlloc |
     MemorySafetyCheck::kSchedulerLoopQuarantine;
 
+inline constexpr auto kLeakedSanitizedObject =
+    MemorySafetyCheck::kForcePartitionAlloc |
+    MemorySafetyCheck::kInfiniteQuarantine;
+
 template <MemorySafetyCheck checks>
 void* HandleMemorySafetyCheckedOperatorNew(std::size_t count);
 template <MemorySafetyCheck checks>
@@ -245,6 +266,12 @@ void HandleMemorySafetyCheckedOperatorDelete(void* ptr,
 
 FOR_EACH_BASE_INTERNAL_MEMORY_SAFETY_CHECK_VALUE(
     DECLARE_BASE_INTERNAL_HANDLE_MEMORY_SAFETY_CHECKED_OPERATORS)
+
+// Returns `PartitionRoot` for leaky security object allocation.
+// To only compare between roots from leaky security objects and roots
+// used at allocations, no need to return as `PartitionRoot*`.
+BASE_EXPORT uintptr_t
+GetPartitionRootForLeakySecurityObjectAllocationForTesting();
 
 }  // namespace base::internal
 

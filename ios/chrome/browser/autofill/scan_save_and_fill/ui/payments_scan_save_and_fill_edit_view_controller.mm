@@ -6,11 +6,13 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/feature_list.h"
+#import "base/metrics/histogram_functions.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/task/sequenced_task_runner.h"
+#import "base/timer/elapsed_timer.h"
 #import "build/branding_buildflags.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/autofill/core/browser/payments/payments_autofill_client.h"
-#import "components/autofill/core/common/autofill_features.h"
 #import "components/grit/components_scaled_resources.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_credit_card_ui_type.h"
@@ -35,8 +37,6 @@ namespace {
 // Constant for section 0.
 const NSInteger kSectionIdentifierEnumZero = 0;
 
-// Point size for the lock symbol in confirmation state.
-const CGFloat kLockSymbolPointSize = 18.0;
 
 // Identifiers for sections in the table view.
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
@@ -57,7 +57,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 const CGFloat kFooterSpacing = 16.0;
 
 // Margins for the footer view (top, left, bottom, right).
-const UIEdgeInsets kFooterMargins = {8.0, 0.0, 16.0, 0.0};
+const UIEdgeInsets kFooterMargins = {24.0, 16.0, 16.0, 16.0};
 
 // Estimated height of the footer view.
 const CGFloat kEstimatedFooterHeight = 50.0;
@@ -69,6 +69,39 @@ const CGFloat kHeaderHeight = 56.0;
 // Height of the Google Wallet logo.
 const CGFloat kGoogleWalletLogoHeight = 32.0;
 #endif
+
+// Separator for expiration date components (Month/Year).
+NSString* const kDateSeparator = @"/";
+
+// Alpha value for the save button in loading and success states.
+const CGFloat kSaveButtonActiveAlpha = 1.0;
+
+// State of the save button during async transitions.
+enum class SaveButtonState {
+  kLoading,
+  kConfirmation,
+};
+
+// Styles the button for the loading state.
+void StyleButtonForLoading(UIButtonConfiguration* config) {
+  config.showsActivityIndicator = YES;
+  config.background.backgroundColor = [UIColor colorNamed:kGrey400Color];
+  config.baseForegroundColor = [UIColor whiteColor];
+  config.activityIndicatorColorTransformer = ^UIColor*(UIColor* _) {
+    return [UIColor whiteColor];
+  };
+}
+
+// Styles the button for the success/confirmation state.
+void StyleButtonForConfirmation(UIButtonConfiguration* config) {
+  config.showsActivityIndicator = NO;
+  config.background.backgroundColor = [UIColor colorNamed:kBlueHaloColor];
+  UIColor* blueColor = [UIColor colorNamed:kBlueColor];
+  config.baseForegroundColor = blueColor;
+  config.image =
+      [config.image imageWithTintColor:blueColor
+                         renderingMode:UIImageRenderingModeAlwaysOriginal];
+}
 }  // namespace
 
 @interface PaymentsScanSaveAndFillEditViewController () <
@@ -77,12 +110,23 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 @end
 
 @implementation PaymentsScanSaveAndFillEditViewController {
+  // The table view.
+  UITableView* _tableView;
+
+  // The bottom sticky container for the save button.
+  UIStackView* _bottomContainerView;
+
   // Stored card details.
   NSString* _cardNumber;
   NSString* _expirationDate;
   NSString* _cardholderName;
   NSString* _cardCVC;
   NSString* _nickname;
+
+  // Initial scanned details.
+  NSString* _scannedCardNumber;
+  NSString* _scannedExpirationMonth;
+  NSString* _scannedExpirationYear;
 
   // Tracked edit items for diffable data source.
   TableViewTextEditItem* _cardNumberItem;
@@ -102,18 +146,34 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 
   // Currently focused item.
   TableViewTextEditItem* _focusedItem;
+
+  // Track if the user action has been logged to avoid duplicate logging.
+  BOOL _actionLogged;
+
+  // Timer to track the end-to-end latency of the card scanning session.
+  base::ElapsedTimer _sessionTimer;
 }
 
 #pragma mark - Initialization
 
 - (instancetype)init {
-  return [super initWithStyle:ChromeTableViewStyle()];
+  self = [super initWithNibName:nil bundle:nil];
+  return self;
+}
+
+#pragma mark - Properties
+
+- (UITableView*)tableView {
+  return _tableView;
 }
 
 #pragma mark - UIViewController
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+
+  self.view.backgroundColor =
+      [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
 
   // Set title and cancel button.
   self.title = l10n_util::GetNSString(IDS_IOS_AUTOFILL_SAVE_CARD);
@@ -122,9 +182,16 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
                            target:self
                            action:@selector(didTapCancel)];
 
-  self.tableView.tableHeaderView = [self createHeaderView];
-  self.tableView.sectionFooterHeight = UITableViewAutomaticDimension;
-  self.tableView.estimatedSectionFooterHeight = kEstimatedFooterHeight;
+  _tableView = [[UITableView alloc] initWithFrame:CGRectZero
+                                            style:ChromeTableViewStyle()];
+  _tableView.backgroundColor =
+      [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
+  _tableView.delegate = self;
+  _tableView.tableHeaderView = [self createHeaderView];
+  _tableView.translatesAutoresizingMaskIntoConstraints = NO;
+  _tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+  _tableView.sectionFooterHeight = UITableViewAutomaticDimension;
+  _tableView.estimatedSectionFooterHeight = kEstimatedFooterHeight;
 
   UITapGestureRecognizer* tapGesture = [[UITapGestureRecognizer alloc]
       initWithTarget:self
@@ -132,17 +199,12 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
   tapGesture.cancelsTouchesInView = NO;
   [self.view addGestureRecognizer:tapGesture];
 
-  _saveButton = [[ChromeButton alloc] initWithStyle:ChromeButtonStylePrimary];
-  _saveButton.title =
-      l10n_util::GetNSString(IDS_IOS_AUTOFILL_SAVE_AND_AUTOFILL);
-  [_saveButton addTarget:self
-                  action:@selector(didTapSave)
-        forControlEvents:UIControlEventTouchUpInside];
+  [self setupBottomContainerAndConstraints];
 
-  RegisterTableViewCell<TableViewTextEditCell>(self.tableView);
+  RegisterTableViewCell<TableViewTextEditCell>(_tableView);
 
   _diffableDataSource = [[UITableViewDiffableDataSource alloc]
-      initWithTableView:self.tableView
+      initWithTableView:_tableView
            cellProvider:^UITableViewCell*(UITableView* tableView,
                                           NSIndexPath* indexPath,
                                           TableViewItem* item) {
@@ -155,10 +217,12 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
            }];
 
   [self loadItemsAndApplySnapshot];
+  [self updateBottomContainerView];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
   [super viewDidDisappear:animated];
+  [self logScanCardAction:ScanCardOfferToSaveAction::kIgnore];
   [self.delegate onViewDisappeared];
 }
 
@@ -244,33 +308,13 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
   return headerView;
 }
 
-// Creates and returns the footer view with legal texts and save button.
-- (UIView*)createFooterView {
-  UIStackView* footerView = [[UIStackView alloc] initWithFrame:CGRectZero];
-  footerView.axis = UILayoutConstraintAxisVertical;
-  footerView.spacing = kFooterSpacing;
-  footerView.layoutMargins = kFooterMargins;
-  footerView.layoutMarginsRelativeArrangement = YES;
-
-  // Add legal messages.
-  for (SaveCardMessageWithLinks* message in _legalMessages) {
-    UITextView* legalTextView =
-        [AutofillCreditCardUtil createTextViewForLegalMessage:message];
-    legalTextView.delegate = self;
-    [footerView addArrangedSubview:legalTextView];
+// Updates the bottom container view with the save button.
+- (void)updateBottomContainerView {
+  for (UIView* view in _bottomContainerView.arrangedSubviews) {
+    [view removeFromSuperview];
   }
-
   // Add save button.
-  [footerView addArrangedSubview:_saveButton];
-
-  // Adjust footer frame to fit contents.
-  CGSize size =
-      [footerView systemLayoutSizeFittingSize:UILayoutFittingCompressedSize];
-  footerView.frame =
-      CGRectMake(/*x=*/0, /*y=*/0, /*width=*/self.view.frame.size.width,
-                 /*height=*/size.height);
-
-  return footerView;
+  [_bottomContainerView addArrangedSubview:_saveButton];
 }
 
 #pragma mark - Actions
@@ -279,15 +323,56 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 - (void)dismissKeyboard {
   [self.view endEditing:YES];
 }
+// Helper method to log the user action in scan card edit view.
+- (void)logScanCardAction:(ScanCardOfferToSaveAction)action {
+  if (_actionLogged) {
+    return;
+  }
+  base::UmaHistogramEnumeration("IOS.ScanCardOfferToSave", action);
+
+  if (action == ScanCardOfferToSaveAction::kAccept) {
+    if (_scannedCardNumber.length > 0) {
+      BOOL numberEdited =
+          ![_cardNumberItem.textFieldValue isEqualToString:_scannedCardNumber];
+      base::UmaHistogramBoolean("IOS.ScannedCard.NumberEdited", numberEdited);
+    }
+
+    NSArray<NSString*>* components = [_expirationDateItem.textFieldValue
+        componentsSeparatedByString:kDateSeparator];
+    NSString* currentMonth = components.count > 0 ? components[0] : @"";
+    NSString* currentYear = components.count > 1 ? components[1] : @"";
+
+    if (_scannedExpirationMonth.length > 0) {
+      BOOL monthEdited =
+          ![currentMonth isEqualToString:_scannedExpirationMonth];
+      base::UmaHistogramBoolean("IOS.ScannedCard.ExpMonthEdited", monthEdited);
+    }
+    if (_scannedExpirationYear.length > 0) {
+      BOOL yearEdited = ![currentYear isEqualToString:_scannedExpirationYear];
+      base::UmaHistogramBoolean("IOS.ScannedCard.ExpYearEdited", yearEdited);
+    }
+  }
+  _actionLogged = YES;
+}
 
 // Triggered when the user taps the save button.
 - (void)didTapSave {
-  _saveButton.enabled = NO;
-  [self.mutator didTapSave];
+  [self showLoadingStateWithAccessibilityLabel:nil];
+  [self logScanCardAction:ScanCardOfferToSaveAction::kAccept];
+
+  // Defer the mutator call to the next run loop cycle to allow UIKit to
+  // establish the spinner layout stably before the local save synchronous
+  // completion triggers the progress dialog and dismisses the view controller.
+  __weak __typeof__(_mutator) weakMutator = _mutator;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(^{
+        [weakMutator didTapSave];
+      }));
 }
 
 // Triggered when the user taps the cancel button.
 - (void)didTapCancel {
+  [self logScanCardAction:ScanCardOfferToSaveAction::kReject];
   [self.mutator didCancel];
 }
 
@@ -297,11 +382,37 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 - (void)setCreditCardNumber:(NSString*)cardNumber
             expirationMonth:(NSString*)expirationMonth
              expirationYear:(NSString*)expirationYear {
+  base::UmaHistogramTimes("IOS.ScanCard.EndToEndLatency",
+                          _sessionTimer.Elapsed());
+
+  _scannedCardNumber = cardNumber;
+  _scannedExpirationMonth = expirationMonth;
+  _scannedExpirationYear = expirationYear;
+
   _cardNumber = cardNumber;
   if (expirationMonth.length > 0 && expirationYear.length > 0) {
     _expirationDate =
-        [NSString stringWithFormat:@"%@/%@", expirationMonth, expirationYear];
+        [NSString stringWithFormat:@"%@%@%@", expirationMonth, kDateSeparator,
+                                   expirationYear];
   }
+
+  std::string appLocale =
+      GetApplicationContext()->GetApplicationLocaleStorage()->Get();
+
+  base::UmaHistogramBoolean(
+      "IOS.ScanCardOfferToSave.ValidNumber",
+      [AutofillCreditCardUtil isValidCreditCardNumber:cardNumber
+                                             appLocal:appLocale]);
+
+  base::UmaHistogramBoolean(
+      "IOS.ScanCardOfferToSave.ValidExpMonth",
+      [AutofillCreditCardUtil
+          isValidCreditCardExpirationMonth:expirationMonth]);
+
+  base::UmaHistogramBoolean(
+      "IOS.ScanCardOfferToSave.ValidExpYear",
+      [AutofillCreditCardUtil isValidCreditCardExpirationYear:expirationYear
+                                                     appLocal:appLocale]);
 
   if (_cardNumberItem && _expirationDateItem) {
     _cardNumberItem.textFieldValue = _cardNumber;
@@ -315,12 +426,8 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 #pragma mark - SaveCardBottomSheetConsumer
 
 - (void)showConfirmationState {
-  _saveButton.enabled = NO;
-  _saveButton.title = nil;
-  UIButtonConfiguration* config = _saveButton.configuration;
-  config.image = DefaultSymbolWithPointSize(kLockSymbol, kLockSymbolPointSize);
-  _saveButton.configuration = config;
-  _saveButton.primaryButtonImage = PrimaryButtonImageCustom;
+  [self transitionSaveButtonToState:SaveButtonState::kConfirmation
+                          withImage:PrimaryButtonImageCheckmark];
 }
 
 - (void)setField:(AutofillCreditCardUIType)type
@@ -387,6 +494,12 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 }
 
 - (void)showLoadingStateWithAccessibilityLabel:(NSString*)accessibilityLabel {
+  if (accessibilityLabel.length > 0) {
+    _saveButton.accessibilityLabel = accessibilityLabel;
+  }
+
+  [self transitionSaveButtonToState:SaveButtonState::kLoading
+                          withImage:PrimaryButtonImageSpinner];
 }
 
 - (void)setLegalMessages:(NSArray<SaveCardMessageWithLinks*>*)legalMessages {
@@ -408,9 +521,21 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
   NSNumber* sectionIdentifier =
       [_diffableDataSource sectionIdentifierForIndex:section];
   if (sectionIdentifier.integerValue == SectionIdentifierNickname) {
-    return [self createFooterView];
+    UIStackView* footerView = [[UIStackView alloc] initWithFrame:CGRectZero];
+    footerView.axis = UILayoutConstraintAxisVertical;
+    footerView.spacing = kFooterSpacing;
+    footerView.layoutMargins = kFooterMargins;
+    footerView.layoutMarginsRelativeArrangement = YES;
+
+    for (SaveCardMessageWithLinks* message in _legalMessages) {
+      UITextView* legalTextView =
+          [AutofillCreditCardUtil createTextViewForLegalMessage:message];
+      legalTextView.delegate = self;
+      [footerView addArrangedSubview:legalTextView];
+    }
+    return footerView;
   }
-  return [super tableView:tableView viewForFooterInSection:section];
+  return nil;
 }
 
 #pragma mark - TableViewTextEditItemDelegate
@@ -451,6 +576,72 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 }
 
 #pragma mark - Private
+
+// Transitions the save button to a textless state displaying the specified
+// image and applies custom configuration styling based on `state`.
+- (void)transitionSaveButtonToState:(SaveButtonState)state
+                          withImage:(PrimaryButtonImage)primaryButtonImage {
+  _saveButton.enabled = NO;
+  _saveButton.title = nil;
+  _saveButton.primaryButtonImage = primaryButtonImage;
+
+  _saveButton.configurationUpdateHandler = ^(UIButton* button) {
+    UIButtonConfiguration* config = button.configuration;
+    config.title = nil;
+    config.attributedTitle = nil;
+
+    switch (state) {
+      case SaveButtonState::kLoading:
+        StyleButtonForLoading(config);
+        break;
+      case SaveButtonState::kConfirmation:
+        StyleButtonForConfirmation(config);
+        break;
+    }
+
+    button.alpha = kSaveButtonActiveAlpha;
+    button.configuration = config;
+  };
+  [_saveButton setNeedsUpdateConfiguration];
+}
+
+// Sets up the bottom container view and subview constraints.
+- (void)setupBottomContainerAndConstraints {
+  _saveButton = [[ChromeButton alloc] initWithStyle:ChromeButtonStylePrimary];
+  _saveButton.title =
+      l10n_util::GetNSString(IDS_IOS_AUTOFILL_SAVE_AND_AUTOFILL);
+  [_saveButton addTarget:self
+                  action:@selector(didTapSave)
+        forControlEvents:UIControlEventTouchUpInside];
+
+  _bottomContainerView = [[UIStackView alloc] initWithFrame:CGRectZero];
+  _bottomContainerView.axis = UILayoutConstraintAxisVertical;
+  _bottomContainerView.spacing = kFooterSpacing;
+  _bottomContainerView.layoutMargins = kFooterMargins;
+  _bottomContainerView.layoutMarginsRelativeArrangement = YES;
+  _bottomContainerView.translatesAutoresizingMaskIntoConstraints = NO;
+  _bottomContainerView.backgroundColor =
+      [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
+
+  [self.view addSubview:_tableView];
+  [self.view addSubview:_bottomContainerView];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [_tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+    [_tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+    [_tableView.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+    [_tableView.bottomAnchor
+        constraintEqualToAnchor:_bottomContainerView.topAnchor],
+
+    [_bottomContainerView.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [_bottomContainerView.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+    [_bottomContainerView.bottomAnchor
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
+  ]];
+}
 
 // Helper to validate and reconfigure the cells and save button for multiple
 // items.
@@ -519,12 +710,8 @@ const CGFloat kGoogleWalletLogoHeight = 32.0;
 - (UIImage*)aboveTitleImage {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // Use the optimized high-resolution iOS symbol for branded builds.
-  return MakeSymbolMulticolor(CustomSymbolWithPointSize(
-      base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableWalletBranding)
-          ? kGoogleWalletSymbol
-          : kGooglePaySymbol,
-      kGoogleWalletLogoHeight));
+  return MakeSymbolMulticolor(
+      CustomSymbolWithPointSize(kGoogleWalletSymbol, kGoogleWalletLogoHeight));
 #else
   // Fallback to the generic asset for unbranded builds.
   return NativeImage(IDR_AUTOFILL_GOOGLE_PAY);

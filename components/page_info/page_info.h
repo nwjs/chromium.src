@@ -157,6 +157,11 @@ class PageInfo : private content_settings::CookieControlsObserver,
     base::Time last_used;
     // Whether the permission is in use.
     bool is_in_use = false;
+
+#if BUILDFLAG(IS_ANDROID)
+    // Whether the permission was requested in this session.
+    bool is_requested = false;
+#endif  // BUILDFLAG(IS_ANDROID)
   };
 
   // Creates a PageInfo for the passed |url| using the given |ssl| status
@@ -273,6 +278,8 @@ class PageInfo : private content_settings::CookieControlsObserver,
   const SafeBrowsingStatus& safe_browsing_status() const {
     return safe_browsing_status_;
   }
+
+  const GURL& site_url() const { return site_url_; }
 
   // For most sites, this returns a human-friendly string based on site origin,
   // without scheme, the username and password, the path or trivial subdomains.

@@ -67,6 +67,7 @@
 #include "extensions/common/switches.h"
 #include "extensions/common/user_scripts_allowed_state.h"
 #include "extensions/common/utils/extension_utils.h"
+#include "extensions/grit/extensions_renderer_generated_resources.h"
 #include "extensions/grit/extensions_renderer_resources.h"
 #include "extensions/renderer/api/messaging/native_renderer_messaging_service.h"
 #include "extensions/renderer/content_watcher.h"
@@ -479,7 +480,7 @@ void Dispatcher::DidCreateScriptContext(
 
   bool run_nw_hook = false;
   if (context->extension()) {
-    if (context->extension()->GetType() == Manifest::TYPE_NWJS_APP &&
+    if (context->extension()->GetType() == extensions::Manifest::Type::kNwjsApp &&
         context->context_type() == mojom::ContextType::kPrivilegedExtension) {
       run_nw_hook = true;
     }
@@ -496,7 +497,7 @@ void Dispatcher::DidCreateScriptContext(
 #if BUILDFLAG(ENABLE_PLATFORM_APPS)
   // Inject custom JS into the platform app context.
   if (IsWithinPlatformApp() && context->extension() &&
-      context->extension()->GetType() != Manifest::TYPE_NWJS_APP) {
+      context->extension()->GetType() != extensions::Manifest::Type::kNwjsApp) {
     module_system->Require("platformApp");
   }
 #endif
@@ -917,8 +918,10 @@ void Dispatcher::DidCreateDocumentElement(blink::WebLocalFrame* frame) {
 
   if (extension && !extension->is_nwjs_app() &&
       (extension->is_extension() || extension->is_platform_app())) {
-    int resource_id = extension->is_platform_app() ? IDR_PLATFORM_APP_CSS
-                                                   : IDR_EXTENSION_FONTS_CSS;
+    int resource_id =
+        extension->is_platform_app()
+            ? IDR_EXTENSIONS_RENDERER_GENERATED_PLATFORM_APP_CSS
+            : IDR_EXTENSIONS_RENDERER_GENERATED_EXTENSION_FONTS_CSS;
     std::string stylesheet =
         ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
             resource_id);
@@ -1155,7 +1158,7 @@ void Dispatcher::LoadExtensions(
         }
       }
     }
-    if (extension->GetType() == Manifest::TYPE_NWJS_APP) {
+    if (extension->GetType() == extensions::Manifest::Type::kNwjsApp) {
       const std::string* user_agent;
       if ((user_agent = extension->manifest()->FindStringPath("user-agent"))) {
         const std::string* name, *version;

@@ -37,8 +37,8 @@
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_constants.h"
-#include "chrome/common/actor/task_id.h"
 #include "components/actor/core/shared_types.h"
+#include "components/actor/core/task_id.h"
 #include "components/actor/core/task_source_info.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
@@ -793,7 +793,7 @@ ExecutionEngineStateWaiter::ExecutionEngineStateWaiter(
     ExecutionEngine& execution_engine,
     ExecutionEngine::State target_state)
     : callback_(std::move(callback)),
-      execution_engine_(execution_engine.GetWeakPtr()),
+      execution_engine_(execution_engine.GetActionSequenceWeakPtr()),
       target_state_(target_state) {
   execution_engine_->AddObserver(this);
 }
@@ -845,6 +845,9 @@ ScopedExecutionEngineFactory::~ScopedExecutionEngineFactory() {
   ExecutionEngine::GetFactoryFunctionForTesting().Reset();
 }
 
+MockActorTaskDelegate::MockActorTaskDelegate() = default;
+MockActorTaskDelegate::~MockActorTaskDelegate() = default;
+
 MockPolicyChecker::MockPolicyChecker(UrlBlockReason reason,
                                      ContentValidationReason content_reason)
     : reason_(reason), content_reason_(content_reason) {}
@@ -874,6 +877,13 @@ const TaskSourceInfo& TestTaskSourceInfo() {
   static base::NoDestructor<TaskSourceInfo> task_source_info(
       TaskSourceInfo::Client::kTest, /*id=*/std::nullopt);
   return *task_source_info.get();
+}
+
+void AddTabToTask(tabs::TabInterface& tab, ActorTask& actor_task) {
+  base::test::TestFuture<mojom::ActionResultPtr> add_tab_future;
+  actor_task.AddTab(tab.GetHandle(), /*stop_task_on_detach=*/true,
+                    add_tab_future.GetCallback());
+  ExpectOkResult(add_tab_future);
 }
 
 ScopedMockTabObservationResult::ScopedMockTabObservationResult(

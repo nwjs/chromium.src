@@ -14,6 +14,7 @@
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
@@ -28,6 +29,7 @@
 #include "ui/base/class_property.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/text_constants.h"
@@ -54,6 +56,7 @@
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "extensions/common/extension_urls.h"
@@ -117,7 +120,7 @@ END_VIEW_BUILDER
 DEFINE_VIEW_BUILDER(/* No Export */, SectionContainer)
 
 ExtensionsMenuMainPageView::ExtensionsMenuMainPageView(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     ExtensionsMenuHandler* menu_handler)
     : browser_(browser), menu_handler_(menu_handler) {
   views::FlexSpecification stretch_specification =
@@ -206,7 +209,8 @@ void ExtensionsMenuMainPageView::CreateAndInsertMenuEntry(
       base::BindRepeating(&ExtensionsMenuHandler::OnActionButtonClicked,
                           base::Unretained(menu_handler_), extension_id),
       base::BindRepeating(&ExtensionsMenuHandler::OnExtensionToggleSelected,
-                          base::Unretained(menu_handler_), extension_id),
+                          base::Unretained(menu_handler_), extension_id,
+                          entry_state.origin),
       base::BindRepeating(&ExtensionsMenuHandler::OpenSitePermissionsPage,
                           base::Unretained(menu_handler_), extension_id));
   item->Update(entry_state);
@@ -593,7 +597,7 @@ ExtensionsMenuMainPageView::CreateManageButtonBuilder() {
   return views::Builder<HoverButton>(
              std::make_unique<HoverButton>(
                  base::BindRepeating(
-                     [](Browser* browser) {
+                     [](BrowserWindowInterface* browser) {
                        base::RecordAction(
                            base::UserMetricsAction("Extensions.Menu."
                                                    "ExtensionsSettingsOpened"));
@@ -601,7 +605,9 @@ ExtensionsMenuMainPageView::CreateManageButtonBuilder() {
                      },
                      browser_),
                  ui::ImageModel::FromVectorIcon(
-                     vector_icons::kSettingsChromeRefreshIcon),
+                     features::IsRoundedIconsEnabled()
+                         ? vector_icons::kSettingsIcon
+                         : vector_icons::kSettingsChromeRefreshOldIcon),
                  l10n_util::GetStringUTF16(IDS_MANAGE_EXTENSIONS)))
       .SetProperty(views::kElementIdentifierKey,
                    kExtensionsMenuManageExtensionsElementId);

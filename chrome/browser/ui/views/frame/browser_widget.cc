@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget_factory.h"
@@ -388,7 +389,7 @@ void BrowserWidget::OnNativeWidgetDestroyed() {
   // destruction here.
   // TODO(crbug.com/413168662): Once clients have been migrated away from
   // closing Browsers via their NativeWidgets explore removing this completely.
-  browser->set_force_skip_warning_user_on_close(true);
+  UnloadController::From(browser)->set_force_skip_warning_user_on_close(true);
   browser->OnWindowClosing();
   Widget::OnNativeWidgetDestroyed();
   browser->SynchronouslyDestroyBrowser();
@@ -420,7 +421,8 @@ void BrowserWidget::ShowContextMenuForViewImpl(
   gfx::Point point_in_view_coords(p);
   views::View::ConvertPointFromScreen(non_client_view(), &point_in_view_coords);
   int hit_test = non_client_view()->NonClientHitTest(point_in_view_coords);
-  if (hit_test == HTCAPTION || hit_test == HTNOWHERE) {
+  if (source_type == ui::mojom::MenuSourceType::kKeyboard ||
+      hit_test == HTCAPTION || hit_test == HTNOWHERE) {
     menu_runner_ = std::make_unique<views::MenuRunner>(
         GetSystemMenuModel(),
         views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU,

@@ -64,6 +64,7 @@
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -175,7 +176,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 @interface TabGridCoordinator () <BringAndroidTabsCommands,
                                   GridCoordinatorAudience,
                                   GridMediatorDelegate,
-                                  GuidedTourCoordinatorDelegate,
                                   HistoryCoordinatorDelegate,
                                   HistoryPresentationDelegate,
                                   InactiveTabsCoordinatorDelegate,
@@ -187,13 +187,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                                   TabGridViewControllerDelegate,
                                   TabGroupPositioner,
                                   TabPresentationDelegate> {
-  // Use an explicit ivar instead of synthesizing as the setter isn't using the
-  // ivar.
-  raw_ptr<Browser> _incognitoBrowser;
-
-  // Browser that contain tabs, from the regular browser, that have not been
-  // open since a certain amount of time.
-  raw_ptr<Browser> _inactiveBrowser;
+  // Weak references to browsers to safely auto-nil if they are destroyed during
+  // async transitions or teardowns.
+  base::WeakPtr<Browser> _regularBrowser;
+  base::WeakPtr<Browser> _incognitoBrowser;
+  base::WeakPtr<Browser> _inactiveBrowser;
 
   // The coordinator that shows the bookmarking UI after the user taps the Add
   // to Bookmarks button.
@@ -231,6 +229,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 // Browser that contain tabs from the main pane (i.e. non-incognito).
 // TODO(crbug.com/40893775): Make regular ivar as incognito and inactive.
 @property(nonatomic, assign, readonly) Browser* regularBrowser;
+// Browser that contains inactive tabs.
+@property(nonatomic, assign, readonly) Browser* inactiveBrowser;
 // Commad dispatcher used while this coordinator's view controller is active.
 @property(nonatomic, strong) CommandDispatcher* dispatcher;
 // Container view controller for the BVC to live in; this class's view
@@ -276,15 +276,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 @implementation TabGridCoordinator {
   // Coordinator for the long press step of the guided tour.
   GuidedTourCoordinator* _guidedTourCoordinator;
-  // Completion block for when the `_guidedTourCoordinator` finishes.
-  ProceduralBlock _guidedTourCompletionBlock;
 
   // The view controller for the Tab Grid, defined manually so that the type can
   // be specified.
   TabGridViewController* _viewController;
 }
-// Ivars are not auto-synthesized when accessors are overridden.
-@synthesize regularBrowser = _regularBrowser;
 
 @dynamic baseViewController;
 @synthesize viewController = _viewController;
@@ -301,9 +297,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     [_dispatcher startDispatchingToTarget:sceneCommandsEndpoint
                               forProtocol:@protocol(SceneCommands)];
 
-    _regularBrowser = regularBrowser;
-    _inactiveBrowser = inactiveBrowser;
-    _incognitoBrowser = incognitoBrowser;
+    _regularBrowser = regularBrowser->AsWeakPtr();
+    _inactiveBrowser = inactiveBrowser->AsWeakPtr();
+    _incognitoBrowser = incognitoBrowser->AsWeakPtr();
 
     if (IsIncognitoModeDisabled(_regularBrowser->GetProfile()->GetPrefs())) {
       _pageConfiguration = TabGridPageConfiguration::kIncognitoPageDisabled;
@@ -327,7 +323,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   // Ensure browser which is actually used by the regular coordinator is
   // returned, as it may have been updated.
   return _regularGridCoordinator ? _regularGridCoordinator.browser
-                                 : _regularBrowser;
+                                 : _regularBrowser.get();
+}
+
+- (Browser*)inactiveBrowser {
+  return _inactiveBrowser.get();
 }
 
 - (Browser*)incognitoBrowser {
@@ -399,10 +399,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       [self showPage:page animated:NO];
     } else {
       // Fallback to regular tabs if the feature is disabled.
-      [_mediator setActivePage:TabGridPage::TabGridPageRegularTabs];
+      [_mediator setActivePage:TabGridPage::TabGridPageRegularTabs
+                      behavior:TabGridScrollBehaviorAnimated];
     }
   } else {
-    [_mediator setActivePage:page];
+    [_mediator setActivePage:page behavior:TabGridScrollBehaviorAnimated];
   }
   SceneState* sceneState = self.regularBrowser->GetSceneState();
   sceneState.tabGridState.tabGridVisible = YES;
@@ -571,27 +572,31 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       [self.browserLayoutViewController removeFromParentViewController];
       self.browserLayoutViewController = viewController;
 
-      if (!IsChromeNextIaEnabled()) {
-        viewController.view.frame = frame;
-      }
-      viewController.view.alpha = 1.0;
-      [_viewController addChildViewController:viewController];
+      UIViewController* parentViewController =
+          (IsChromeNextIaEnabled() && IsFullscreenRefactoringEnabled())
+              ? _viewController.parentViewController
+              : _viewController;
+      [parentViewController addChildViewController:viewController];
       if (IsChromeNextIaEnabled()) {
-        UIView* appContentGuide = [LayoutGuideCenterForBrowser(nil)
+        UIView* appContentGuide = [LayoutGuideCenterForScene(sceneState)
             referencedViewUnderName:kAppContentGuide];
+        [appContentGuide addSubview:viewController.view];
         if (IsFullscreenRefactoringEnabled()) {
-          [_viewController.view addSubview:viewController.view];
-          AddSameConstraints(appContentGuide, viewController.view);
+          AddSameConstraints(viewController.view, appContentGuide);
         } else {
-          [appContentGuide addSubview:viewController.view];
           viewController.view.frame = frame;
         }
       } else {
         [_viewController.view addSubview:viewController.view];
+        if (IsFullscreenRefactoringEnabled()) {
+          AddSameConstraints(viewController.view, _viewController.view);
+        } else {
+          viewController.view.frame = frame;
+        }
       }
 
-      [viewController.view layoutIfNeeded];
-      [viewController didMoveToParentViewController:_viewController];
+      [parentViewController.view layoutIfNeeded];
+      [viewController didMoveToParentViewController:parentViewController];
     }
     _viewController.childViewControllerForStatusBarStyle = viewController;
     [_viewController setNeedsStatusBarAppearanceUpdate];
@@ -628,7 +633,14 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     if (!strongSelf) {
       return;
     }
+
     [strongSelf.delegate tabGridDismissTransitionDidEnd:strongSelf];
+    if (IsChromeNextIaEnabled() && !IsFullscreenRefactoringEnabled()) {
+      [strongSelf->_viewController setContentVisible:NO];
+    }
+    if (IsChromeNextIaEnabled()) {
+      [strongSelf showPage:strongSelf->_viewController.activePage animated:NO];
+    }
     // In search mode, the tabgrid mode is not reset before the animation so
     // the animation can start from the correct cell. Once the animation is
     // complete, reset the tab grid mode.
@@ -674,6 +686,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 }
 
 #pragma mark - Private
+
+// Handles the completion of a guided tour step.
+- (void)guidedTourStepCompleted {
+  [_guidedTourCoordinator stop];
+  _guidedTourCoordinator = nil;
+}
 
 // Hides tab group views.
 - (void)hideTabGroupsViews {
@@ -729,13 +747,20 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     animationEnabled = NO;
   }
 
-  UIView* appContentView = IsChromeNextIaEnabled()
-                               ? [LayoutGuideCenterForBrowser(nil)
-                                     referencedViewUnderName:kAppContentGuide]
-                               : nil;
+  UIView* appContentView =
+      IsChromeNextIaEnabled()
+          ? [LayoutGuideCenterForScene(browser->GetSceneState())
+                referencedViewUnderName:kAppContentGuide]
+          : nil;
+
+  UIViewController* parentViewController = _viewController;
+  if (IsChromeNextIaEnabled() && IsFullscreenRefactoringEnabled()) {
+    parentViewController = _viewController.parentViewController;
+  }
+
   auto params = std::make_unique<TabGridTransitionHandlerInitParams>(
       direction, self.browserLayoutViewController, _viewController,
-      appContentView);
+      parentViewController, appContentView);
 
   if (animationEnabled) {
     // Use reduced animation on TabGroup panel to avoid weird animation where
@@ -793,7 +818,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                 (BOOL)shouldDisplayBringAndroidTabsPrompt {
   _viewController.childViewControllerForStatusBarStyle = nil;
 
-  if (IsGeminiCopresenceEnabled()) {
+  if (IsGeminiCopresenceEnabled() && !IsChromeNextIaEnabled()) {
     id<BWGCommands> geminiHandler = HandlerForProtocol(
         self.regularBrowser->GetCommandDispatcher(), BWGCommands);
     [geminiHandler
@@ -1012,9 +1037,10 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 #pragma mark - ChromeCoordinator
 
 - (void)start {
+  SceneState* sceneState = _regularBrowser->GetSceneState();
   TRACE_EVENT("ui", "-[TabGridCoordinator start]");
-  _modeHolder = [[TabGridModeHolder alloc]
-      initWithTabGridState:_regularBrowser->GetSceneState().tabGridState];
+  _modeHolder =
+      [[TabGridModeHolder alloc] initWithTabGridState:sceneState.tabGridState];
 
   [_regularBrowser->GetCommandDispatcher()
       startDispatchingToTarget:self
@@ -1031,7 +1057,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                                    GetForProfile(profile)
                     modeHolder:_modeHolder];
 
-  _mediator.tabGridState = _regularBrowser->GetSceneState().tabGridState;
+  _mediator.tabGridState = sceneState.tabGridState;
 
   id<SceneCommands> sceneHandler =
       HandlerForProtocol(self.dispatcher, SceneCommands);
@@ -1040,10 +1066,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   _viewController = [[TabGridViewController alloc]
       initWithPageConfiguration:_pageConfiguration];
+  _viewController.layoutState =
+      self.regularBrowser->GetSceneState().layoutState;
   _viewController.handler = sceneHandler;
   _viewController.geminiHandler = geminiHandler;
   _viewController.tabPresentationDelegate = self;
-  _viewController.layoutGuideCenter = LayoutGuideCenterForBrowser(nil);
+  _viewController.layoutGuideCenter = LayoutGuideCenterForScene(sceneState);
   _viewController.delegate = self;
   _viewController.tabGridHandler = self;
   _viewController.mutator = _mediator;
@@ -1052,7 +1080,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   _toolbarsCoordinator = [[TabGridToolbarsCoordinator alloc]
       initWithBaseViewController:_viewController
-                         browser:_regularBrowser];
+                         browser:self.regularBrowser];
   _toolbarsCoordinator.searchDelegate = _viewController;
   _toolbarsCoordinator.toolbarTabGridDelegate = _viewController;
   _toolbarsCoordinator.modeHolder = _modeHolder;
@@ -1062,7 +1090,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   _regularGridCoordinator = [[RegularGridCoordinator alloc]
       initWithBaseViewController:_viewController
-                         browser:_regularBrowser
+                         browser:self.regularBrowser
                  toolbarsMutator:_toolbarsCoordinator.toolbarsMutator
             gridMediatorDelegate:self];
   _regularGridCoordinator.disabledTabViewControllerDelegate = _viewController;
@@ -1095,15 +1123,15 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     CHECK(_regularGridCoordinator.gridViewController);
     self.inactiveTabsButtonMediator = [[InactiveTabsButtonMediator alloc]
           initWithConsumer:_regularGridCoordinator.gridViewController
-              webStateList:_inactiveBrowser->GetWebStateList()
-        profilePrefService:_inactiveBrowser->GetProfile()->GetPrefs()];
+              webStateList:self.inactiveBrowser->GetWebStateList()
+        profilePrefService:self.inactiveBrowser->GetProfile()->GetPrefs()];
   }
 
   _viewController.priceCardDataSource = self.priceCardMediator;
 
   _incognitoGridCoordinator = [[IncognitoGridCoordinator alloc]
       initWithBaseViewController:_viewController
-                         browser:_incognitoBrowser
+                         browser:self.incognitoBrowser
                  toolbarsMutator:_toolbarsCoordinator.toolbarsMutator
             gridMediatorDelegate:self];
   _incognitoGridCoordinator.disabledTabViewControllerDelegate = _viewController;
@@ -1130,7 +1158,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   _tabGroupsPanelCoordinator = [[TabGroupsPanelCoordinator alloc]
           initWithBaseViewController:_viewController
-                      regularBrowser:_regularBrowser
+                      regularBrowser:self.regularBrowser
                      toolbarsMutator:_toolbarsCoordinator.toolbarsMutator
       disabledViewControllerDelegate:_viewController];
 
@@ -1145,7 +1173,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   self.inactiveTabsCoordinator = [[InactiveTabsCoordinator alloc]
       initWithBaseViewController:_viewController
-                         browser:_inactiveBrowser
+                         browser:self.inactiveBrowser
                         delegate:self];
   self.inactiveTabsCoordinator.tabContextMenuDelegate = self;
 
@@ -1158,7 +1186,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   self.firstPresentation = YES;
 
-  SceneState* sceneState = self.regularBrowser->GetSceneState();
   if (!IsUseSceneViewControllerEnabled()) {
     sceneState.window.rootViewController = _viewController;
   }
@@ -1177,7 +1204,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   // Set the `baseViewController` active and current page.
   TabGridPage page = profile->IsOffTheRecord() ? TabGridPageIncognitoTabs
                                                : TabGridPageRegularTabs;
-  [_mediator setActivePage:page];
+  [_mediator setActivePage:page behavior:TabGridScrollBehaviorInstant];
 
   self.incognitoTabsMediator.tabGridIdleStatusHandler = _viewController;
   self.regularTabsMediator.tabGridIdleStatusHandler = _viewController;
@@ -1190,12 +1217,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                    forProtocol:@protocol(BookmarksCommands)];
 
   [sceneState addObserver:self];
-
-  // Once the mediators are set up, stop keeping pointers to the browsers used
-  // to initialize them.
-  _regularBrowser = nil;
-  _incognitoBrowser = nil;
-  _inactiveBrowser = nil;
 }
 
 - (void)stop {
@@ -1217,6 +1238,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   if (IsNewTabGridTransitionsEnabled()) {
     self.transitionHandler = nil;
   }
+
+  [_guidedTourCoordinator stop];
+  _guidedTourCoordinator = nil;
 
   [_toolbarsCoordinator stop];
   _toolbarsCoordinator = nil;
@@ -1258,7 +1282,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 - (void)showActiveTabInPage:(TabGridPage)page focusOmnibox:(BOOL)focusOmnibox {
   DCHECK(self.regularBrowser && self.incognitoBrowser);
-  [_mediator setActivePage:page];
+  [_mediator setActivePage:page behavior:TabGridScrollBehaviorNone];
 
   Browser* activeBrowser = nullptr;
   switch (page) {
@@ -1847,17 +1871,22 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 - (void)showGuidedTourLongPressStepWithDismissalCompletion:
     (ProceduralBlock)completion {
+  __weak __typeof(self) weakSelf = self;
+  ProceduralBlock completionBlock = ^{
+    [weakSelf guidedTourStepCompleted];
+    if (completion) {
+      completion();
+    }
+  };
   _guidedTourCoordinator = [[GuidedTourCoordinator alloc]
             initWithStep:GuidedTourStep::kTabGridLongPress
       baseViewController:_viewController
                  browser:self.regularBrowser
-                delegate:self];
+         completionBlock:completionBlock];
   [_guidedTourCoordinator start];
-  _guidedTourCompletionBlock = completion;
 }
 
 - (void)hideTabGridGuidedTour {
-  _guidedTourCompletionBlock = nil;
   [_guidedTourCoordinator stop];
   _guidedTourCoordinator = nil;
 }
@@ -1885,22 +1914,15 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self.pageActionMenuCoordinator start];
 }
 
-#pragma mark - GuidedTourCoordinatorDelegate
 
-- (void)nextTappedForStep:(GuidedTourStep)step {
-}
 
-- (void)stepCompleted:(GuidedTourStep)step {
-  [_guidedTourCoordinator stop];
-  _guidedTourCoordinator = nil;
-  _guidedTourCompletionBlock();
-}
 
 #pragma mark - TabGroupPositioner
 
 - (UIView*)viewAboveTabGroup {
   if (IsChromeNextIaEnabled() && !IsFullscreenRefactoringEnabled()) {
-    return [LayoutGuideCenterForBrowser(nil)
+    SceneState* sceneState = self.regularBrowser->GetSceneState();
+    return [LayoutGuideCenterForScene(sceneState)
         referencedViewUnderName:kAppContentGuide];
   }
   return self.browserLayoutViewController.view;

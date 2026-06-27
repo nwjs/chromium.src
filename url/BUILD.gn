@@ -212,7 +212,11 @@ test("url_unittests") {
   ]
 
   if (use_platform_icu_alternatives) {
-    # Unit tests that are not supported by the current ICU alternatives on Android.
+    # Unit tests that are not supported by the current ICU alternatives on
+    # Android.
+    # TODO(https://crbug.com/513446116): revisit this - in Android >=24 we now
+    # use android.icu.text.IDNA which implements IDNA2008 and should therefore
+    # be consistent with ICU.
     if (is_android) {
       sources -= [
         "url_canon_icu_unittest.cc",
@@ -319,8 +323,8 @@ if (is_android && !is_cronet_build) {
       ]
     }
 
-    # Targets depending on gurl_junit_test_support do not need to bypass platform
-    # checks.
+    # Targets depending on gurl_junit_test_support do not need to bypass
+    # platform checks.
     android_library("gurl_junit_test_support") {
       testonly = true
       sources = [ "android/test/java/src/org/chromium/url/JUnitTestGURLs.java" ]
@@ -400,4 +404,44 @@ if (!is_cronet_build && target_os == "android") {
       configs += [ "//third_party/jdk" ]
     }
   }
+}
+
+# Provides FFI bindings for Chromium's C++ URL types (specifically GURL and
+# url::Origin) using the cxx crate, enabling Rust code to interact with and use
+# these types.
+rust_static_library("url_rust") {
+  crate_name = "url"
+  crate_root = "url.rs"
+  sources = [
+    "gurl.rs",
+    "origin.rs",
+    "url.rs",
+  ]
+  allow_unsafe = true
+  deps = [
+    ":url",
+    ":url_shim",
+    "//third_party/rust/cxx/v1:lib",
+  ]
+  cxx_bindings = [
+    "gurl.rs",
+    "origin.rs",
+  ]
+}
+
+# Contains C++ shim code that supports the Rust FFI bindings for GURL and
+# url::Origin. This is compiled as a separate C++ target to prevent exposing
+# Rust-specific FFI shim functionality (such as shims returning rust::Str
+# or FFI ordering functions) directly to general C++ users of the url library.
+source_set("url_shim") {
+  sources = [
+    "gurl_shim.cc",
+    "gurl_shim.h",
+    "origin_shim.cc",
+    "origin_shim.h",
+  ]
+  deps = [
+    ":url",
+    "//third_party/rust/cxx/v1:lib",
+  ]
 }

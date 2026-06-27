@@ -39,13 +39,12 @@ suite('CollapsibleAutofillSettingsCard', function() {
       'prefs.autofill.autofill_ai.reauth_before_viewing_sensitive_data';
   // </if>
 
-  suiteSetup(function() {
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
-  });
-
-  setup(function() {
+  setup(async function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    settingsPrefs = document.createElement('settings-prefs');
+    document.body.appendChild(settingsPrefs);
+    await CrSettingsPrefs.initialized;
 
     entityDataManager = new TestEntityDataManagerProxy();
     EntityDataManagerProxyImpl.setInstance(entityDataManager);
@@ -58,7 +57,6 @@ suite('CollapsibleAutofillSettingsCard', function() {
     OpenWindowProxyImpl.setInstance(openWindowProxy);
 
     setupDefaultPrefs(settingsPrefs);
-    loadTimeData.overrideValues({userEligibleForAutofillAi: false});
   });
 
   teardown(function() {
@@ -70,7 +68,7 @@ suite('CollapsibleAutofillSettingsCard', function() {
       autofillAddOtherDatatypesPrefIsEnabled: boolean = false,
       optInStatusResponse: boolean = true,
       autofillAiAvailableByDefault: boolean = false,
-      showAccessibilityAnnotatorSettingsLink: boolean =
+      showPersonalContextSettingsLink: boolean =
           true): Promise<CollapsibleCardElement> {
     entityDataManager.setGetOptInStatusResponse(optInStatusResponse);
     loadTimeData.overrideValues({
@@ -78,13 +76,12 @@ suite('CollapsibleAutofillSettingsCard', function() {
       AutofillAddOtherDatatypesPrefIsEnabled:
           autofillAddOtherDatatypesPrefIsEnabled,
       autofillAiAvailableByDefault: autofillAiAvailableByDefault,
-      showAccessibilityAnnotatorSettingsLink:
-          showAccessibilityAnnotatorSettingsLink,
+      showPersonalContextSettingsLink: showPersonalContextSettingsLink,
     });
 
     const card: CollapsibleCardElement =
         document.createElement('collapsible-autofill-settings-card');
-    card.prefs = settingsPrefs.prefs;
+    card.prefs = settingsPrefs.prefs!;
     document.body.appendChild(card);
 
     await flushTasks();
@@ -451,9 +448,6 @@ suite('CollapsibleAutofillSettingsCard', function() {
   test(
       'EnterprisePolicyObserverTakeIntoAccountAddressEnabledPolicy',
       async function() {
-        loadTimeData.overrideValues({
-          enableYourSavedInfoPolicyAndExtentionToggleIndicators: true,
-        });
         const card = await createCollapsibleAutofillSettingsCard();
 
         const expandButton = card.shadowRoot!.querySelector('cr-expand-button');
@@ -506,9 +500,6 @@ suite('CollapsibleAutofillSettingsCard', function() {
   test(
       'EnterprisePolicyObserverTakeIntoAccountAddressEnabledExtension',
       async function() {
-        loadTimeData.overrideValues({
-          enableYourSavedInfoPolicyAndExtentionToggleIndicators: true,
-        });
         const card = await createCollapsibleAutofillSettingsCard();
 
         const expandButton = card.shadowRoot!.querySelector('cr-expand-button');
@@ -559,9 +550,6 @@ suite('CollapsibleAutofillSettingsCard', function() {
       });
 
   test('AddressAutofillDoesNotEnforceTrueValueOnToggle', async function() {
-    loadTimeData.overrideValues({
-      enableYourSavedInfoPolicyAndExtentionToggleIndicators: true,
-    });
     const card = await createCollapsibleAutofillSettingsCard(
         /*eligibleUser=*/ true,
         /*autofillAddOtherDatatypesPrefIsEnabled=*/ false,
@@ -668,13 +656,13 @@ suite('CollapsibleAutofillSettingsCard', function() {
   });
   // </if>
 
-  test('AccessibilityAnnotatorSettingsLinkRow', async function() {
+  test('PersonalContextSettingsLinkRow', async function() {
     const card = await createCollapsibleAutofillSettingsCard(
         /*eligibleUser=*/ true,
         /*autofillAddOtherDatatypesPrefIsEnabled=*/ false,
         /*optInStatusResponse=*/ true,
         /*autofillAiAvailableByDefault=*/ false,
-        /*showAccessibilityAnnotatorSettingsLink=*/ true);
+        /*showPersonalContextSettingsLink=*/ true);
 
     const expandButton = card.shadowRoot!.querySelector('cr-expand-button');
     assertTrue(!!expandButton);
@@ -682,33 +670,32 @@ suite('CollapsibleAutofillSettingsCard', function() {
     await flushTasks();
 
     const link = card.shadowRoot!.querySelector<HTMLElement>(
-        '#accessibilityAnnotatorSettingsLink');
+        '#personalContextSettingsLink');
     assertTrue(!!link);
     assertTrue(isVisible(link));
 
     link.click();
     const url = await openWindowProxy.whenCalled('openUrl');
-    assertEquals(
-        loadTimeData.getString('accessibilityAnnotatorSettingsUrl'), url);
+    assertEquals(loadTimeData.getString('personalContextSettingsUrl'), url);
 
     const metric = await testMetricsBrowserProxy.whenCalled('recordAction');
     assertEquals(
-        'Autofill.Settings.AccessibilityAnnotatorSettingsLinkRowClick', metric);
+        'Autofill.Settings.PersonalContextSettingsLinkRowClick', metric);
   });
 
-  test('AccessibilityAnnotatorSettingsLinkRowNotVisible', async function() {
+  test('PersonalContextSettingsLinkRowNotVisible', async function() {
     const card = await createCollapsibleAutofillSettingsCard(
         /*eligibleUser=*/ true,
         /*autofillAddOtherDatatypesPrefIsEnabled=*/ false,
         /*optInStatusResponse=*/ true,
         /*autofillAiAvailableByDefault=*/ false,
-        /*showAccessibilityAnnotatorSettingsLink=*/ false);
+        /*showPersonalContextSettingsLink=*/ false);
 
     const expandButton = card.shadowRoot!.querySelector('cr-expand-button');
     assertTrue(!!expandButton);
     expandButton.click();
     await flushTasks();
 
-    assertFalse(isChildVisible(card, '#accessibilityAnnotatorSettingsLink'));
+    assertFalse(isChildVisible(card, '#personalContextSettingsLink'));
   });
 });

@@ -105,15 +105,8 @@ public class ActorNotificationFactoryTest {
                 "Notification should be ongoing",
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
 
-        assertEquals("Should have 2 actions", 2, notification.actions.length);
-        assertEquals(
-                "First action should be 'View task'",
-                mContext.getString(R.string.actor_notification_button_view_task),
-                notification.actions[0].title);
-        assertEquals(
-                "Second action should be 'Pause task'",
-                mContext.getString(R.string.actor_notification_button_pause_task),
-                notification.actions[1].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
@@ -143,15 +136,8 @@ public class ActorNotificationFactoryTest {
                 "Notification should be ongoing",
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
 
-        assertEquals("Should have 2 actions", 2, notification.actions.length);
-        assertEquals(
-                "First action should be 'View task'",
-                mContext.getString(R.string.actor_notification_button_view_task),
-                notification.actions[0].title);
-        assertEquals(
-                "Second action should be 'Resume task'",
-                mContext.getString(R.string.actor_notification_button_resume_task),
-                notification.actions[1].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
@@ -182,11 +168,8 @@ public class ActorNotificationFactoryTest {
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
         assertNotNull("Content intent should not be null", notification.contentIntent);
 
-        assertEquals("Should have 1 action", 1, notification.actions.length);
-        assertEquals(
-                "First action should be 'View task'",
-                mContext.getString(R.string.actor_notification_button_view_task),
-                notification.actions[0].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
@@ -209,6 +192,7 @@ public class ActorNotificationFactoryTest {
             intent = shadowOf(wrappedPendingIntent).getSavedIntent();
         }
         assertEquals("MOCK_ACTION", intent.getAction());
+        assertSmallIcon(notification);
     }
 
     @Test
@@ -241,11 +225,8 @@ public class ActorNotificationFactoryTest {
                 "Notification should have auto-cancel enabled",
                 (notification.flags & Notification.FLAG_AUTO_CANCEL) != 0);
 
-        assertEquals("Should have 1 action", 1, notification.actions.length);
-        assertEquals(
-                "First action should be 'View task'",
-                mContext.getString(R.string.actor_notification_button_view_task),
-                notification.actions[0].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
@@ -261,11 +242,8 @@ public class ActorNotificationFactoryTest {
                 mContext.getString(R.string.actor_notification_title_working_on_task),
                 shadowOf(notification).getContentTitle());
         assertNotNull("Content intent should be set", notification.contentIntent);
-        assertEquals("Should have 2 actions", 2, notification.actions.length);
-        assertEquals(
-                "First action should be 'View task'",
-                mContext.getString(R.string.actor_notification_button_view_task),
-                notification.actions[0].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
@@ -281,15 +259,12 @@ public class ActorNotificationFactoryTest {
                 mContext.getString(R.string.actor_notification_title_task_paused),
                 shadowOf(notification).getContentTitle());
         assertNotNull("Content intent should be set", notification.contentIntent);
-        assertEquals("Should have 2 actions", 2, notification.actions.length);
-        assertEquals(
-                "First action should be 'View task'",
-                mContext.getString(R.string.actor_notification_button_view_task),
-                notification.actions[0].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
-    public void testBuildNotification_Interrupted() {
+    public void testBuildNotification_Stopped() {
         // Use an unhandled state to trigger the fallback
         NotificationWrapper wrapper =
                 ActorNotificationFactory.buildNotification(
@@ -301,42 +276,23 @@ public class ActorNotificationFactoryTest {
         ShadowNotification shadowNotification = shadowOf(notification);
 
         assertEquals(
-                "Content title should match interrupted status for fallback",
-                mContext.getString(R.string.actor_notification_title_task_interrupted),
+                "Content title should match stopped status for fallback",
+                mContext.getString(R.string.actor_notification_title_task_stopped),
                 shadowNotification.getContentTitle());
         assertEquals(
-                "Content text should match interrupted template",
-                mContext.getString(R.string.actor_notification_body_interrupted, TASK_TITLE),
+                "Content text should match stopped template",
+                mContext.getString(R.string.actor_notification_body_stopped, TASK_TITLE),
                 shadowNotification.getContentText());
         assertEquals(
                 "Big text should match content text",
-                mContext.getString(R.string.actor_notification_body_interrupted, TASK_TITLE),
+                mContext.getString(R.string.actor_notification_body_stopped, TASK_TITLE),
                 notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
         assertFalse(
                 "Notification should not be ongoing",
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
         assertNotNull("Content intent should be set", notification.contentIntent);
-    }
-
-    @Test
-    public void testBuildNotification_NullRoutingIntent() {
-        when(mServiceController.createTrustedBringTabToFrontIntent(mTask)).thenReturn(null);
-
-        NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(
-                        mTask, ActorTaskState.ACTING, /* isSilent= */ false);
-
-        Notification notification = wrapper.getNotification();
-        // Acting notification normally has 2 actions: View and Pause.
-        // If View is missing, it should only have 1 (Pause).
-        assertEquals(
-                "Should have only 1 action when routing intent is null",
-                1,
-                notification.actions.length);
-        assertEquals(
-                "Remaining action should be 'Pause task'",
-                mContext.getString(R.string.actor_notification_button_pause_task),
-                notification.actions[0].title);
+        assertSmallIcon(notification);
+        assertAction(notification);
     }
 
     @Test
@@ -349,5 +305,26 @@ public class ActorNotificationFactoryTest {
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         assertTrue("Notification should be silent", wrapper.isSilent());
+    }
+
+    private void assertSmallIcon(Notification notification) {
+        assertNotNull("Small icon should not be null", notification.getSmallIcon());
+        assertEquals(
+                "Small icon should be ic_chrome",
+                R.drawable.ic_chrome,
+                notification.getSmallIcon().getResId());
+    }
+
+    private void assertAction(Notification notification) {
+        assertNotNull("Actions should not be null", notification.actions);
+        assertEquals("Should have 1 action", 1, notification.actions.length);
+        assertEquals(
+                "Action title should match",
+                mContext.getString(R.string.actor_notification_button_go_to_chrome),
+                notification.actions[0].title);
+        assertEquals(
+                "Action icon should be ic_chrome",
+                R.drawable.ic_chrome,
+                notification.actions[0].getIcon().getResId());
     }
 }

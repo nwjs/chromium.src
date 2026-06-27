@@ -131,13 +131,15 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   bool HasFocus() override;
   void Hide() override;
   bool IsShowing() override;
-  void WasUnOccluded() override;
   void WasOccluded() override;
   gfx::Rect GetViewBounds() override;
   bool IsPointerLocked() override;
   gfx::Size GetVisibleViewportSize() override;
   gfx::Size GetVisibleViewportSizeDevicePx() override;
   void SetInsets(const gfx::Insets& insets) override;
+  void SetForceSpecifiedDeadline(
+      std::optional<uint32_t> deadline_in_frames) override;
+  std::optional<uint32_t> GetForceSpecifiedDeadlineForTesting() override;
   TouchSelectionControllerClientManager*
   GetTouchSelectionControllerClientManager() override;
   ui::mojom::VirtualKeyboardMode GetVirtualKeyboardMode() override;
@@ -145,6 +147,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
       const gfx::Rect& keyboard_rect) override;
   bool IsHTMLFormPopup() const override;
   void ResetGestureDetection() override;
+  void SetShouldUseDefaultDeadlineOnResize(bool enable) override;
 
   // Overridden from RenderWidgetHostViewBase:
   void InitAsPopup(RenderWidgetHostView* parent_host_view,
@@ -227,6 +230,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   void OnStartStylusWriting() override;
   void OnEditElementFocusedForStylusWriting(
       blink::mojom::StylusWritingFocusResultPtr focus_result) override;
+  void SetStylusHandwritingFocusCallback(
+      OnFocusHandwritingTargetCallback callback) override;
 #endif  // BUILDFLAG(IS_WIN)
   void OnSynchronizedDisplayPropertiesChanged(bool rotation = false) override;
   viz::ScopedSurfaceIdAllocator DidUpdateVisualProperties(
@@ -460,6 +465,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
     return last_stylus_handwriting_properties_;
   }
 #endif  // BUILDFLAG(IS_WIN)
+
+  bool ShouldUseDefaultDeadlineOnResize() const;
 
  protected:
   ~RenderWidgetHostViewAura() override;
@@ -882,9 +889,16 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   // pointer id and a handwriting stroke id.
   std::optional<ui::StylusHandwritingPropertiesWin>
       last_stylus_handwriting_properties_;
+
+  // Set by a child frame view so the TSF focus response is routed to the
+  // child frame view instead of this view. Reset after use in
+  // OnStartStylusWriting.
+  OnFocusHandwritingTargetCallback stylus_handwriting_focus_callback_;
 #endif  // BUILDFLAG(IS_WIN)
 
   std::optional<display::ScopedDisplayObserver> display_observer_;
+
+  bool use_default_deadline_on_resize_ = false;
 
   base::WeakPtrFactory<RenderWidgetHostViewAura> weak_ptr_factory_{this};
 };

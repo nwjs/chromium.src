@@ -6,10 +6,12 @@
 
 #include <Availability.h>
 #include <CoreGraphics/CoreGraphics.h>
+#include <CoreVideo/CoreVideo.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "base/apple/mach_logging.h"
+#include "base/apple/scoped_mach_port.h"
 #include "base/bits.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -77,11 +79,7 @@ namespace internal {
 
 // static
 mach_port_t IOSurfaceMachPortTraits::Retain(mach_port_t port) {
-  kern_return_t kr =
-      mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, 1);
-  MACH_LOG_IF(ERROR, kr != KERN_SUCCESS, kr)
-      << "IOSurfaceMachPortTraits::Retain mach_port_mod_refs";
-  return port;
+  return base::apple::RetainMachSendRight(port).release();
 }
 
 // static
@@ -362,6 +360,23 @@ ScopedIOSurface IOSurfaceMachPortToIOSurface(
     return io_surface;
   }
   return io_surface;
+}
+
+bool IOSurfaceIsWebGPUCompatible(IOSurfaceRef io_surface) {
+  switch (IOSurfaceGetPixelFormat(io_surface)) {
+    case kCVPixelFormatType_64RGBAHalf:
+    case kCVPixelFormatType_TwoComponent16Half:
+    case kCVPixelFormatType_OneComponent16Half:
+    case kCVPixelFormatType_ARGB2101010LEPacked:
+    case kCVPixelFormatType_32RGBA:
+    case kCVPixelFormatType_32BGRA:
+    case kCVPixelFormatType_TwoComponent8:
+    case kCVPixelFormatType_OneComponent8:
+    case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
+      return true;
+    default:
+      return false;
+  }
 }
 
 }  // namespace gfx

@@ -495,10 +495,6 @@ void AppListControllerImpl::OnSessionStateChanged(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(features::kQuickAppAccessTestUI)) {
-    SetHomeButtonQuickApp(kOsSettingsAppId);
-  }
-
   if (in_clamshell)
     return;
 
@@ -1057,7 +1053,7 @@ void AppListControllerImpl::SetKeyboardTraversalMode(bool engaged) {
   } else if (AppListToastView::IsToastButton(focused_view)) {
     // Toast button can become focused after app list sorting, so make sure the
     // focus ring appears correctly when updating `keyboard_traversal_engaged_`.
-    focused_view->SchedulePaint();
+    views::FocusRing::Get(focused_view)->Refresh();
   } else {
     // Ensure that when an app list item's focus ring is triggered by key
     // events, the item is selected.
@@ -1066,6 +1062,7 @@ void AppListControllerImpl::SetKeyboardTraversalMode(bool engaged) {
     // the item's selection status.
     if (focused_view->GetClassName() == AppListItemView::kViewClassName) {
       static_cast<AppListItemView*>(focused_view)->EnsureSelected();
+      views::FocusRing::Get(focused_view)->Refresh();
     }
 
     focused_view->SchedulePaint();

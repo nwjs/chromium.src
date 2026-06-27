@@ -461,5 +461,145 @@ TEST_F(SurfaceTest, RentrantSurfaceActivationGroups) {
       SurfaceId(y2_support->frame_sink_id(), y2_lsid)));
 }
 
+// Regression test for iterator invalidation in
+// SurfaceAllocationGroup::OnFirstSurfaceActivation().
+TEST_F(SurfaceTest, ActiveEmbeddersIteratorInvalidation) {
+  // We need three FrameSinkIds:
+  //   fs_target: surfaces that belong to the target allocation groups G1 and G2
+  //   fs_e1, fs_e2: embedder surfaces that reference G1
+  constexpr FrameSinkId fs_target(2, 1);
+  constexpr FrameSinkId fs_e1(3, 1);
+  constexpr FrameSinkId fs_e2(4, 1);
+
+  auto target_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_target, /*is_root=*/false);
+  auto e1_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_e1, /*is_root=*/false);
+  auto e2_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_e2, /*is_root=*/false);
+
+  // Two different embed tokens on the same FrameSinkId = two allocation groups.
+  const base::UnguessableToken token_g1 = base::UnguessableToken::Create();
+  const base::UnguessableToken token_g2 = base::UnguessableToken::Create();
+
+  // SurfaceIds in allocation group G1 (token_g1).
+  SurfaceId sid_g1_start(fs_target, LocalSurfaceId(1, 1, token_g1));
+  SurfaceId sid_g1_activating(fs_target, LocalSurfaceId(2, 1, token_g1));
+
+  // SurfaceId in allocation group G2 (token_g2).
+  SurfaceId sid_g2_end(fs_target, LocalSurfaceId(1, 1, token_g2));
+
+  // A dependency that will never be resolved, keeping the G2 surface pending.
+  SurfaceId unresolvable_dep(
+      FrameSinkId(99, 1),
+      LocalSurfaceId(1, 1, base::UnguessableToken::Create()));
+
+  auto build_frame = [](std::vector<SurfaceId> deps,
+                        std::vector<SurfaceRange> refs) {
+    return CompositorFrameBuilder()
+        .AddRenderPass(gfx::Rect(10, 10), gfx::Rect(10, 10))
+        .SetActivationDependencies(std::move(deps))
+        .SetReferencedSurfaces(std::move(refs))
+        .SetDeadline(FrameDeadline(base::TimeTicks::Now(), 10000u,
+                                   base::Milliseconds(16), false))
+        .Build();
+  };
+
+  // Step 1: Submit a pending frame in G2. The activation dependency keeps it
+  // pending so GetLatestInFlightSurface won't find an active surface yet.
+  LocalSurfaceId g2_lsid(1, 1, token_g2);
+  target_support->SubmitCompositorFrame(g2_lsid,
+                                        build_frame({unresolvable_dep}, {}));
+
+  // Step 2: E1 references SurfaceRange(sid_g1_start → sid_g2_end). Because
+  // HasDifferentEmbedTokens() is true and no active surface exists in the
+  // range, E1 becomes an active embedder of BOTH G1 (start) and G2 (end).
+  LocalSurfaceId e1_lsid(1, 1, base::UnguessableToken::Create());
+  e1_support->SubmitCompositorFrame(
+      e1_lsid, build_frame({}, {SurfaceRange(sid_g1_start, sid_g2_end)}));
+
+  // Step 3: E2 references G1 directly. E2 becomes an active embedder of G1.
+  // Now G1 has two active embedders: E1 and E2.
+  LocalSurfaceId e2_lsid(1, 1, base::UnguessableToken::Create());
+  e2_support->SubmitCompositorFrame(
+      e2_lsid, build_frame({}, {SurfaceRange(sid_g1_start)}));
+
+  // Step 4: Activate surface in G1 to trigger OnFirstSurfaceActivation(S)
+  // which iterates over the `active_embedders_` flat_set {E1, E2}.
+  // The OnChildActivatedForActiveFrame() callback chain for E1 leads to
+  // UnregisterActiveEmbedder(E1) being called which mutates the flat_set.
+  LocalSurfaceId g1_lsid(2, 1, token_g1);
+  target_support->SubmitCompositorFrame(g1_lsid, build_frame({}, {}));
+
+  // If we reach here without crashing on ASAN, the fix is in place (or the call
+  // chain didn't trigger). Verify surfaces exist.
+  SurfaceManager* surface_manager = frame_sink_manager_.surface_manager();
+  EXPECT_TRUE(surface_manager->GetSurfaceForId(SurfaceId(fs_target, g1_lsid)));
+}
+
+// Verifies that when `features::kBypassOutdatedSurfaceActivation` is enabled,
+// a parent surface with an activation dependency on an inactive, outdated child
+// surface ID activates immediately without deadlocking if a newer surface ID
+// in the same allocation group is already active.
+TEST_F(SurfaceTest, BypassOutdatedSurfaceActivation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kBypassOutdatedSurfaceActivation);
+
+  // Establish independent sink interfaces representing embedder (parent) and
+  // target (child) execution streams.
+  constexpr FrameSinkId fs_parent(2, 1);
+  constexpr FrameSinkId fs_child(3, 1);
+
+  auto parent_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_parent, /*is_root=*/true);
+  auto child_support = std::make_unique<CompositorFrameSinkSupport>(
+      nullptr, &frame_sink_manager_, fs_child, /*is_root=*/false);
+
+  // Allocate a shared embedding scope for the child sequence to model an
+  // unfulfilled historic frame demand alongside an active presentation state.
+  const base::UnguessableToken child_token = base::UnguessableToken::Create();
+
+  SurfaceId child_inactive_id(fs_child, LocalSurfaceId(1, 1, child_token));
+  SurfaceId child_active_id(fs_child, LocalSurfaceId(2, 1, child_token));
+
+  // Configure a baseline frame template with an extended deadline to ensure
+  // activation dependencies are strictly evaluated rather than timing out.
+  auto build_frame = [](std::vector<SurfaceId> deps) {
+    return CompositorFrameBuilder()
+        .AddRenderPass(gfx::Rect(10, 10), gfx::Rect(10, 10))
+        .SetActivationDependencies(std::move(deps))
+        // Arbitrary large deadline (10,000 frames) guarantees the surface
+        // remains pending/blocked on dependencies instead of activating early.
+        .SetDeadline(FrameDeadline(base::TimeTicks::Now(), 10000u,
+                                   base::Milliseconds(16), false))
+        .Build();
+  };
+
+  // Step 1: Submit an active frame for the newer child surface ID.
+  child_support->SubmitCompositorFrame(child_active_id.local_surface_id(),
+                                       build_frame({}));
+
+  SurfaceManager* surface_manager = frame_sink_manager_.surface_manager();
+  Surface* child_surface = surface_manager->GetSurfaceForId(child_active_id);
+  ASSERT_TRUE(child_surface);
+  EXPECT_TRUE(child_surface->HasActiveFrame());
+
+  // Step 2: Submit a parent frame with an activation dependency on the older,
+  // inactive child surface ID.
+  LocalSurfaceId parent_lsid(1, 1, base::UnguessableToken::Create());
+  parent_support->SubmitCompositorFrame(parent_lsid,
+                                        build_frame({child_inactive_id}));
+
+  // Verify that the parent surface activates immediately because the outdated
+  // activation dependency is bypassed by the newer active surface in the same
+  // allocation group.
+  Surface* parent_surface =
+      surface_manager->GetSurfaceForId(SurfaceId(fs_parent, parent_lsid));
+  ASSERT_TRUE(parent_surface);
+  EXPECT_TRUE(parent_surface->HasActiveFrame());
+  EXPECT_TRUE(parent_surface->activation_dependencies().empty());
+}
+
 }  // namespace
 }  // namespace viz

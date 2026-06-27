@@ -28,6 +28,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -42,7 +43,7 @@ namespace extensions {
 namespace {
 
 // Whether the dialog should be accepted without showing it on tests.
-std::optional<bool> g_accept_bubble_for_testing_ = std::nullopt;
+std::optional<bool> g_accept_bubble_for_testing_;
 
 // The size of the extension icon.
 constexpr int kIconSize = extension_misc::EXTENSION_ICON_SMALLISH;
@@ -79,7 +80,14 @@ ReloadPageDialogController::ReloadPageDialogController(
     content::BrowserContext* browser_context)
     : web_contents_(web_contents), browser_context_(browser_context) {}
 
-ReloadPageDialogController::~ReloadPageDialogController() = default;
+ReloadPageDialogController::~ReloadPageDialogController() {
+#if BUILDFLAG(IS_ANDROID)
+  if (message_ && message_->is_in_queue()) {
+    messages::MessageDispatcherBridge::Get()->DismissMessage(
+        message_.get(), messages::DismissReason::DISMISSED_BY_FEATURE);
+  }
+#endif
+}
 
 void ReloadPageDialogController::TriggerShow(
     const std::vector<const Extension*>& extensions) {
@@ -175,10 +183,12 @@ void ReloadPageDialogController::Show() {
     } else {
       // For multiple extensions, set the icon to the extensions puzzle icon.
       message_->SetIcon(
-          gfx::Image(
-              ui::ImageModel::FromVectorIcon(vector_icons::kExtensionIcon,
-                                             ui::kColorIcon, kIconSize)
-                  .Rasterize(&web_contents_->GetColorProvider()))
+          gfx::Image(ui::ImageModel::FromVectorIcon(
+                         features::IsRoundedIconsEnabled()
+                             ? vector_icons::kExtensionFilledIcon
+                             : vector_icons::kExtensionOldIcon,
+                         ui::kColorIcon, kIconSize)
+                         .Rasterize(&web_contents_->GetColorProvider()))
               .AsBitmap());
     }
     message_->DisableIconTint();

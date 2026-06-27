@@ -13,10 +13,11 @@ import {LineFocusLineStyleMode, LineFocusNoneStyleMode, LineFocusWindowStyleMode
 import {getLineFocusValues, LineFocusMovement, LineFocusStyle, LineFocusType} from './read_anything_types.js';
 
 export interface LineFocusListener {
-  onLineFocusMove(newTop: number, newHeight: number|null): void;
+  onLineFocusMove(newTop: number, newHeight: number, newFocalPoint: number):
+      void;
   onNeedScrollForLineFocus(scrollDiff: number, instant?: boolean): void;
   onNeedScrollToTop(): void;
-  onLineFocusToggled(): void;
+  onLineFocusModesChanged(): void;
   onScrollBufferForLineFocusChange(needsBuffer: boolean): void;
 }
 
@@ -120,6 +121,7 @@ export class LineFocusController implements MoveModeDelegate {
       this.model_.setLastEnabledLineFocusStyle(lastEnabled.style);
       const style = isOn ? lastEnabled.style : LineFocusStyle.OFF;
       this.setStyleAndMovement_(style, lastEnabled.movement, container, height);
+      this.listeners_.forEach(l => l.onLineFocusModesChanged());
     }
   }
 
@@ -169,8 +171,11 @@ export class LineFocusController implements MoveModeDelegate {
       return;
     }
     const lineFocusValue = this.lineFocusToEnumValue_(style, movement);
-    if (lineFocusValue !== null) {
-      chrome.readingMode.onLineFocusChanged(lineFocusValue);
+    const lastNonDisabledLineFocus = this.lineFocusToEnumValue_(
+        this.model_.getLastEnabledLineFocusStyle(), movement);
+    if (lineFocusValue !== null && lastNonDisabledLineFocus !== null) {
+      chrome.readingMode.onLineFocusChanged(
+          lineFocusValue, lastNonDisabledLineFocus);
     }
   }
 
@@ -197,14 +202,15 @@ export class LineFocusController implements MoveModeDelegate {
     this.setStyleAndMovement_(
         newStyle, this.getCurrentLineFocusMovement(), container, height);
     this.logger_.logLineFocusToggled(this.isEnabled());
-    this.listeners_.forEach(l => l.onLineFocusToggled());
+    this.listeners_.forEach(l => l.onLineFocusModesChanged());
   }
 
   // MoveModeDelegate methods.
   notifyMove(): void {
     this.listeners_.forEach(
         l => l.onLineFocusMove(
-            this.model_.getTop(), this.model_.getWindowHeight()));
+            this.model_.getTop(), this.model_.getWindowHeight(),
+            this.model_.getFocalPoint()));
   }
 
   notifyScroll(scrollDiff: number, instant?: boolean): void {

@@ -12,7 +12,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -26,6 +26,7 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 
 namespace zoom {
 
@@ -75,13 +76,17 @@ void ZoomViewController::UpdatePageActionIconProperties() {
     case ZoomController::ZOOM_BELOW_DEFAULT_ZOOM:
       page_action_controller_->OverrideImage(
           kActionZoomNormal,
-          ui::ImageModel::FromVectorIcon(kZoomMinusChromeRefreshIcon));
+          ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
+                                             ? kZoomOutIcon
+                                             : kZoomMinusChromeRefreshOldIcon));
       break;
     case ZoomController::ZOOM_AT_DEFAULT_ZOOM:
     case ZoomController::ZOOM_ABOVE_DEFAULT_ZOOM:
       page_action_controller_->OverrideImage(
           kActionZoomNormal,
-          ui::ImageModel::FromVectorIcon(kZoomPlusChromeRefreshIcon));
+          ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
+                                             ? kZoomInIcon
+                                             : kZoomPlusChromeRefreshOldIcon));
       break;
     default:
       NOTREACHED();
@@ -143,8 +148,7 @@ bool ZoomViewController::CanBubbleBeVisible(bool prefer_to_show_bubble,
   // If neither of these is true, we only show the bubble if the zoom level
   // is not at the default (`!is_zoom_at_default`), indicating that zoom is
   // active.
-  return (prefer_to_show_bubble || IsBubbleVisible()) ? true
-                                                      : !is_zoom_at_default;
+  return prefer_to_show_bubble || IsBubbleVisible() || !is_zoom_at_default;
 }
 
 content::WebContents* ZoomViewController::GetWebContents() const {

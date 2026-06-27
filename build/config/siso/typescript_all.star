@@ -21,6 +21,10 @@ __input_deps = {
 }
 
 def __step_config(ctx, step_config):
+    if runtime.os == "windows":
+        # TODO: b/515026786 - Re-enable typescript rules on Windows after fixing massive lstat performance issue.
+        return step_config
+
     remote_run = config.get(ctx, "googlechrome")
     step_config["input_deps"].update(typescript_all.input_deps)
 
@@ -87,6 +91,8 @@ def __step_config(ctx, step_config):
 
 # TODO: crbug.com/1478909 - Specify typescript inputs in GN config.
 def __filegroups(ctx):
+    if runtime.os == "windows":
+        return {}
     return {
         "third_party/node/node_modules:node_modules": {
             "type": "glob",
@@ -106,6 +112,13 @@ def __filegroups(ctx):
             ],
         },
     }
+
+def _find_tsconfig(cmd, gen_dir, default_name):
+    for out in cmd.outputs:
+        base = path.base(out)
+        if base.startswith("tsconfig") and base.endswith(".json"):
+            return out
+    return path.join(gen_dir, default_name)
 
 def _ts_library(ctx, cmd):
     in_files = []
@@ -148,7 +161,7 @@ def _ts_library(ctx, cmd):
     tsconfig["files"] = [path.join(root_dir, f) for f in in_files]
     tsconfig["files"].extend(definitions)
     tsconfig["references"] = [{"path": dep} for dep in deps]
-    tsconfig_path = path.join(gen_dir, "tsconfig.json")
+    tsconfig_path = _find_tsconfig(cmd, gen_dir, "tsconfig.json")
     deps = tsc.scandeps(ctx, tsconfig_path, tsconfig)
     for m in path_mappings:
         _, _, pathname = m.partition("|")
@@ -181,17 +194,22 @@ def _ts_definitions(ctx, cmd):
     out_dir = path.rel(gen_dir, out_dir)
     gen_dir = ctx.fs.canonpath(gen_dir)
     tsconfig["files"] = [path.join(root_dir, f) for f in js_files]
-    tsconfig_path = path.join(gen_dir, "tsconfig.definitions.json")
+    tsconfig_path = _find_tsconfig(cmd, gen_dir, "tsconfig.definitions.json")
     deps = tsc.scandeps(ctx, tsconfig_path, tsconfig)
     print("_ts_definitions: tsconfig=%s, deps=%s" % (tsconfig, deps))
     ctx.actions.fix(inputs = cmd.inputs + deps)
 
-typescript_all = module(
-    "typescript_all",
-    handlers = {
+_handlers = {
+    True: {},
+    False: {
         "typescript_ts_library": _ts_library,
         "typescript_ts_definitions": _ts_definitions,
     },
+}[runtime.os == "windows"]
+
+typescript_all = module(
+    "typescript_all",
+    handlers = _handlers,
     step_config = __step_config,
     filegroups = __filegroups,
     input_deps = __input_deps,

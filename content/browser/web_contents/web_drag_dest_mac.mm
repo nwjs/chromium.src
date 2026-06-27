@@ -2,17 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #import "content/browser/web_contents/web_drag_dest_mac.h"
 
 #include <AppKit/AppKit.h>
 #import <Carbon/Carbon.h>
+#include <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #include <algorithm>
 #include <optional>
 
+#include "base/apple/bridging.h"
 #include "base/apple/foundation_util.h"
+#include "base/byte_size.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/sys_string_conversions.h"
@@ -28,6 +32,8 @@
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/browser/web_drag_dest_delegate.h"
 #include "content/public/common/drop_data.h"
+#include "net/base/filename_util.h"
+#include "net/base/mime_util.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/clipboard/clipboard_util_mac.h"
@@ -66,27 +72,34 @@ namespace {
 
 int GetModifierFlags() {
   int modifier_state = 0;
-  UInt32 currentModifiers = GetCurrentKeyModifiers();
-  if (currentModifiers & ::shiftKey)
+  UInt32 current_modifiers = GetCurrentKeyModifiers();
+  if (current_modifiers & ::shiftKey) {
     modifier_state |= blink::WebInputEvent::kShiftKey;
-  if (currentModifiers & ::controlKey)
+  }
+  if (current_modifiers & ::controlKey) {
     modifier_state |= blink::WebInputEvent::kControlKey;
-  if (currentModifiers & ::optionKey)
+  }
+  if (current_modifiers & ::optionKey) {
     modifier_state |= blink::WebInputEvent::kAltKey;
-  if (currentModifiers & ::cmdKey)
+  }
+  if (current_modifiers & ::cmdKey) {
     modifier_state |= blink::WebInputEvent::kMetaKey;
+  }
 
   // The return value of 1 << 0 corresponds to the left mouse button,
   // 1 << 1 corresponds to the right mouse button,
   // 1 << n, n >= 2 correspond to other mouse buttons.
-  NSUInteger pressedButtons = [NSEvent pressedMouseButtons];
+  NSUInteger pressed_buttons = NSEvent.pressedMouseButtons;
 
-  if (pressedButtons & (1 << 0))
+  if (pressed_buttons & (1 << 0)) {
     modifier_state |= blink::WebInputEvent::kLeftButtonDown;
-  if (pressedButtons & (1 << 1))
+  }
+  if (pressed_buttons & (1 << 1)) {
     modifier_state |= blink::WebInputEvent::kRightButtonDown;
-  if (pressedButtons & (1 << 2))
+  }
+  if (pressed_buttons & (1 << 2)) {
     modifier_state |= blink::WebInputEvent::kMiddleButtonDown;
+  }
 
   return modifier_state;
 }
@@ -226,8 +239,9 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 }
 
 - (NSDragOperation)draggingEntered:(const DraggingInfo*)info {
-  if (_webContents->ShouldIgnoreInputEvents())
+  if (_webContents->ShouldIgnoreInputEvents()) {
     return NSDragOperationNone;
+  }
 
   // Save off the RVH so we can tell if it changes during a drag. If it does,
   // we need to send a new enter message in draggingUpdated:.
@@ -236,7 +250,7 @@ void OnWebContentsViewDelegatePerformingDropComplete(
   if (!_webContents->GetRenderWidgetHostView()) {
     // TODO(ekaramad, paulmeyer): Find a better way than toggling |canceled_|.
     // This could happen when the renderer process for the top-level RWH crashes
-    // (see https://crbug.com/670645).
+    // (see https://crbug.com/41289250).
     _canceled = true;
     return NSDragOperationNone;
   }
@@ -246,21 +260,21 @@ void OnWebContentsViewDelegatePerformingDropComplete(
   _pendingDragEnteredInfo =
       std::make_unique<remote_cocoa::mojom::DraggingInfo>(*info);
   // Increment sequence number to track this specific operation.
-  uint64_t current_sequence_number = ++_dragEnteredSequenceNumber;
+  uint64_t currentSequenceNumber = ++_dragEnteredSequenceNumber;
 
-  __weak WebDragDest* weak_self = self;
+  __weak WebDragDest* weakSelf = self;
   auto callback = base::BindOnce(
-      [](WebDragDest* __weak weak_drag_dest, uint64_t sequence_no,
+      [](WebDragDest* __weak weakDragDest, uint64_t sequenceNumber,
          base::WeakPtr<content::RenderWidgetHostViewBase> target,
          std::optional<gfx::PointF> transformedPoint) {
-        WebDragDest* drag_dest = weak_drag_dest;
+        WebDragDest* drag_dest = weakDragDest;
         if (drag_dest && transformedPoint.has_value()) {
           [drag_dest dragEnterHitTestDidCompleteForView:target
                                        transformedPoint:transformedPoint.value()
-                                         sequenceNumber:sequence_no];
+                                         sequenceNumber:sequenceNumber];
         }
       },
-      weak_self, current_sequence_number);
+      weakSelf, currentSequenceNumber);
 
   _webContents->GetRenderWidgetHostAtPointAsynchronously(
       static_cast<content::RenderWidgetHostViewBase*>(
@@ -278,27 +292,28 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 }
 
 - (void)dragEnterHitTestDidCompleteForView:
-            (base::WeakPtr<content::RenderWidgetHostViewBase>)target_view
+            (base::WeakPtr<content::RenderWidgetHostViewBase>)targetView
                           transformedPoint:(const gfx::PointF&)transformedPoint
-                            sequenceNumber:(uint64_t)sequence_no {
+                            sequenceNumber:(uint64_t)sequenceNumber {
   // Check if this callback is still valid - drag may have exited already.
   // Compare sequence number instead of pointer to avoid dangling pointer
   // issues.
-  if (!_pendingDragEnteredInfo || sequence_no != _dragEnteredSequenceNumber) {
+  if (!_pendingDragEnteredInfo ||
+      sequenceNumber != _dragEnteredSequenceNumber) {
     return;
   }
 
   // Safe to access _pendingDragEnteredInfo now that sequence is validated.
   const remote_cocoa::mojom::DraggingInfo* info = _pendingDragEnteredInfo.get();
 
-  if (!target_view) {
+  if (!targetView) {
     // Clean up state on invalid target.
     [self cleanupDragState];
     return;
   }
 
-  auto* view_base = target_view.get();
-  auto* rwh = view_base->GetRenderWidgetHost();
+  auto* viewBase = targetView.get();
+  auto* rwh = viewBase->GetRenderWidgetHost();
   if (!rwh) {
     [self cleanupDragState];
     return;
@@ -345,8 +360,9 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 }
 
 - (void)draggingExited {
-  if (_webContents->ShouldIgnoreInputEvents())
+  if (_webContents->ShouldIgnoreInputEvents()) {
     return;
+  }
 
   _webContents->PreHandleDragExit();
 
@@ -363,18 +379,22 @@ void OnWebContentsViewDelegatePerformingDropComplete(
   _pendingDragEnteredInfo.reset();
   _pendingDragUpdatedInfo.reset();
 
-  if (!_dropDataFiltered || !_dropDataUnfiltered)
+  if (!_dropDataFiltered || !_dropDataUnfiltered) {
     return;
+  }
 
   DCHECK(_currentRVH);
-  if (_currentRVH != _webContents->GetRenderViewHost())
+  if (_currentRVH != _webContents->GetRenderViewHost()) {
     return;
+  }
 
-  if (_canceled)
+  if (_canceled) {
     return;
+  }
 
-  if (_delegate)
+  if (_delegate) {
     _delegate->OnDragLeave();
+  }
 
   if (_currentRWHForDrag) {
     _currentRWHForDrag->DragTargetDragLeave(gfx::PointF(), gfx::PointF());
@@ -385,8 +405,9 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 }
 
 - (NSDragOperation)draggingUpdated:(const DraggingInfo*)info {
-  if (_webContents->ShouldIgnoreInputEvents())
+  if (_webContents->ShouldIgnoreInputEvents()) {
     return NSDragOperationNone;
+  }
 
   if (_canceled) {
     // TODO(ekaramad,paulmeyer): We probably shouldn't be checking for
@@ -408,22 +429,22 @@ void OnWebContentsViewDelegatePerformingDropComplete(
   _pendingDragUpdatedInfo =
       std::make_unique<remote_cocoa::mojom::DraggingInfo>(*info);
   // Increment sequence number to track this specific operation.
-  uint64_t current_sequence_number = ++_dragUpdatedSequenceNumber;
+  uint64_t currentSequenceNumber = ++_dragUpdatedSequenceNumber;
 
-  __weak WebDragDest* weak_self = self;
+  __weak WebDragDest* weakSelf = self;
   auto callback = base::BindOnce(
-      [](WebDragDest* __weak weak_drag_dest, uint64_t sequence_no,
+      [](WebDragDest* __weak weakDragDest, uint64_t sequenceNumber,
          base::WeakPtr<content::RenderWidgetHostViewBase> target,
          std::optional<gfx::PointF> transformedPoint) {
-        WebDragDest* drag_dest = weak_drag_dest;
+        WebDragDest* drag_dest = weakDragDest;
         if (drag_dest && transformedPoint.has_value()) {
           [drag_dest
               dragUpdateHitTestDidCompleteForView:target
                                  transformedPoint:transformedPoint.value()
-                                   sequenceNumber:sequence_no];
+                                   sequenceNumber:sequenceNumber];
         }
       },
-      weak_self, current_sequence_number);
+      weakSelf, currentSequenceNumber);
 
   _webContents->GetRenderWidgetHostAtPointAsynchronously(
       static_cast<content::RenderWidgetHostViewBase*>(
@@ -436,27 +457,28 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 }
 
 - (void)dragUpdateHitTestDidCompleteForView:
-            (base::WeakPtr<content::RenderWidgetHostViewBase>)target_view
+            (base::WeakPtr<content::RenderWidgetHostViewBase>)targetView
                            transformedPoint:(const gfx::PointF&)transformedPoint
-                             sequenceNumber:(uint64_t)sequence_no {
+                             sequenceNumber:(uint64_t)sequenceNumber {
   // Check if this callback is still valid - drag may have exited already.
   // Compare sequence number instead of pointer to avoid dangling pointer
   // issues.
-  if (!_pendingDragUpdatedInfo || sequence_no != _dragUpdatedSequenceNumber) {
+  if (!_pendingDragUpdatedInfo ||
+      sequenceNumber != _dragUpdatedSequenceNumber) {
     return;
   }
 
   // Safe to access _pendingDragUpdatedInfo now that sequence is validated.
   const remote_cocoa::mojom::DraggingInfo* info = _pendingDragUpdatedInfo.get();
 
-  if (!target_view) {
+  if (!targetView) {
     // Clean up state on invalid target.
     [self cleanupDragState];
     return;
   }
 
-  auto* view_base = target_view.get();
-  auto* rwh = view_base->GetRenderWidgetHost();
+  auto* viewBase = targetView.get();
+  auto* rwh = viewBase->GetRenderWidgetHost();
   if (!rwh) {
     [self cleanupDragState];
     return;
@@ -500,7 +522,7 @@ void OnWebContentsViewDelegatePerformingDropComplete(
     _pendingDragEnteredInfo =
         std::make_unique<remote_cocoa::mojom::DraggingInfo>(
             *_pendingDragUpdatedInfo);
-    [self dragEnterHitTestDidCompleteForView:target_view
+    [self dragEnterHitTestDidCompleteForView:targetView
                             transformedPoint:transformedPoint
                               sequenceNumber:++_dragEnteredSequenceNumber];
     // Continue to send DragOver to the new target after re-entry.
@@ -536,25 +558,25 @@ void OnWebContentsViewDelegatePerformingDropComplete(
   _pendingDropInfo = std::make_unique<DraggingInfo>(*info);
   _pendingDropDelegate = webContentsViewDelegate;
   // Increment sequence number to track this specific operation.
-  uint64_t current_sequence_number = ++_dropSequenceNumber;
+  uint64_t currentSequenceNumber = ++_dropSequenceNumber;
 
   // Set drop in progress to prevent endDrag from clearing state.
   _dropInProgress = true;
 
   // Create callback for async hit test.
-  __weak WebDragDest* weak_self = self;
+  __weak WebDragDest* weakSelf = self;
   auto callback = base::BindOnce(
-      [](WebDragDest* __weak weak_drag_dest, uint64_t sequence_no,
+      [](WebDragDest* __weak weakDragDest, uint64_t sequenceNumber,
          base::WeakPtr<content::RenderWidgetHostViewBase> target,
          std::optional<gfx::PointF> transformedPoint) {
-        WebDragDest* drag_dest = weak_drag_dest;
+        WebDragDest* drag_dest = weakDragDest;
         if (drag_dest && transformedPoint.has_value()) {
           [drag_dest dropHitTestDidCompleteForView:target
                                   transformedPoint:transformedPoint.value()
-                                    sequenceNumber:sequence_no];
+                                    sequenceNumber:sequenceNumber];
         }
       },
-      weak_self, current_sequence_number);
+      weakSelf, currentSequenceNumber);
 
   // Trigger async hit test.
   _webContents->GetRenderWidgetHostAtPointAsynchronously(
@@ -567,30 +589,30 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 }
 
 - (void)dropHitTestDidCompleteForView:
-            (base::WeakPtr<content::RenderWidgetHostViewBase>)target_view
+            (base::WeakPtr<content::RenderWidgetHostViewBase>)targetView
                      transformedPoint:(const gfx::PointF&)transformedPoint
-                       sequenceNumber:(uint64_t)sequence_no {
+                       sequenceNumber:(uint64_t)sequenceNumber {
   // Check if this callback is still valid - drag may have been canceled.
   // Compare sequence number instead of pointer to avoid dangling pointer
   // issues.
-  if (!_pendingDropInfo || sequence_no != _dropSequenceNumber) {
+  if (!_pendingDropInfo || sequenceNumber != _dropSequenceNumber) {
     // Reset flag if stale - the real drop may have already happened or been
     // canceled.
     _dropInProgress = false;
-    base::ScopedClosureRunner end_drag_runner(std::move(_endDragRunner));
+    base::ScopedClosureRunner endDragRunner(std::move(_endDragRunner));
     return;
   }
 
   // Safe to access _pendingDropInfo now that sequence is validated.
   const remote_cocoa::mojom::DraggingInfo* info = _pendingDropInfo.get();
 
-  if (!target_view) {
+  if (!targetView) {
     [self cleanupDragState];
     return;
   }
 
-  auto* view_base = target_view.get();
-  auto* rwh = view_base->GetRenderWidgetHost();
+  auto* viewBase = targetView.get();
+  auto* rwh = viewBase->GetRenderWidgetHost();
   if (!rwh) {
     [self cleanupDragState];
     return;
@@ -618,7 +640,7 @@ void OnWebContentsViewDelegatePerformingDropComplete(
       _pendingDragEnteredInfo =
           std::make_unique<remote_cocoa::mojom::DraggingInfo>(
               *_pendingDropInfo);
-      [self dragEnterHitTestDidCompleteForView:target_view
+      [self dragEnterHitTestDidCompleteForView:targetView
                               transformedPoint:transformedPoint
                                 sequenceNumber:++_dragEnteredSequenceNumber];
     } else {
@@ -656,19 +678,20 @@ void OnWebContentsViewDelegatePerformingDropComplete(
                                  /*screen_pt=*/info->location_in_screen,
                                  /*modifier_flags=*/GetModifierFlags(),
                                  /*target_rwh=*/targetRWH->GetWeakPtr());
-    content::DropData drop_data = context.drop_data;
+    content::DropData dropData = context.drop_data;
     // _dropInProgress already set in performDragOperation.
     webContentsViewDelegate->OnPerformingDrop(
-        std::move(drop_data),
+        std::move(dropData),
         base::BindOnce(&OnWebContentsViewDelegatePerformingDropComplete, self,
                        std::move(context)));
   } else {
     // No delegate - drop completes synchronously.
     _dropInProgress = false;
-    base::ScopedClosureRunner end_drag_runner(std::move(_endDragRunner));
+    base::ScopedClosureRunner endDragRunner(std::move(_endDragRunner));
 
-    if (_delegate)
+    if (_delegate) {
       _delegate->OnDrop();
+    }
     // For drops with data, send to renderer.
     if (_dropDataFiltered) {
       targetRWH->DragTargetDrop(*_dropDataFiltered, transformedPoint,
@@ -685,17 +708,19 @@ void OnWebContentsViewDelegatePerformingDropComplete(
 - (void)finishDropWithData:(std::optional<content::DropData>)dropData
                    context:(const content::DropContext)context {
   _dropInProgress = false;
-  base::ScopedClosureRunner end_drag_runner(std::move(_endDragRunner));
+  base::ScopedClosureRunner endDragRunner(std::move(_endDragRunner));
 
   if (dropData.has_value()) {
-    if (_delegate)
+    if (_delegate) {
       _delegate->OnDrop();
+    }
     context.target_rwh->DragTargetDrop(
         dropData.value(), context.client_pt, context.screen_pt,
         context.modifier_flags, base::DoNothing());
   } else {
-    if (_delegate)
+    if (_delegate) {
       _delegate->OnDragLeave();
+    }
     context.target_rwh->DragTargetDragLeave(gfx::PointF(), gfx::PointF());
   }
 }
@@ -751,8 +776,8 @@ DropData PopulateDropDataFromPasteboard(NSPasteboard* pboard) {
   DCHECK(pboard);
   DropData drop_data;
 
-  // https://crbug.com/1016740#c21
-  NSArray* types = [pboard types];
+  // https://crbug.com/40050499#comment22
+  NSArray* types = pboard.types;
 
   drop_data.did_originate_from_renderer =
       [types containsObject:ui::kUTTypeChromiumRendererInitiatedDrag];
@@ -788,16 +813,91 @@ DropData PopulateDropDataFromPasteboard(NSPasteboard* pboard) {
     drop_data.html = base::SysNSStringToUTF16(html);
   }
 
-  // Get files.
+  // Get real files already on disk (e.g. files dragged from Finder). These are
+  // backed by actual file paths.
   drop_data.filenames = ui::clipboard_util::FilesFromPasteboard(pboard);
+
+  // Get promised file contents from pasteboard (e.g. JS File objects or images
+  // dragged from web content).
+  NSString* promise_content_type =
+      base::apple::CFToNSPtrCast(kPasteboardTypeFilePromiseContent);
+  NSData* file_data;
+  NSString* content_type_id;
+  if ([types containsObject:promise_content_type]) {
+    content_type_id = [pboard stringForType:promise_content_type];
+    if (content_type_id && [types containsObject:content_type_id]) {
+      file_data = [pboard dataForType:content_type_id];
+    }
+  }
+  // If no file promises or regular files were found on the pasteboard, try to
+  // scavenge any generic images that might be present.
+  if (file_data.length == 0 && drop_data.filenames.empty()) {
+    for (NSString* type in types) {
+      UTType* utType = [UTType typeWithIdentifier:type];
+      if (utType && [utType conformsToType:UTTypeImage]) {
+        NSData* data = [pboard dataForType:type];
+        if (data) {
+          file_data = data;
+          content_type_id = type;
+          break;
+        }
+      }
+    }
+  }
+  constexpr base::ByteSize kMaxDragBinarySize = base::MiBU(256);
+  if (file_data.length > 0 &&
+      file_data.length <= kMaxDragBinarySize.InBytes()) {
+    drop_data.file_contents =
+        base::ToVector(base::apple::NSDataToSpan(file_data));
+
+    if (content_type_id) {
+      UTType* utType = [UTType typeWithIdentifier:content_type_id];
+      if (utType && utType.preferredFilenameExtension) {
+        drop_data.file_contents_filename_extension =
+            base::SysNSStringToUTF8(utType.preferredFilenameExtension);
+      }
+    }
+
+    // Mark as image-accessible for renderer-initiated drags so the
+    // renderer can expose the data to the drop target page.
+    drop_data.file_contents_image_accessible = true;
+
+    // Read content_disposition from pasteboard to recover the original
+    // filename for web-to-web drops.
+    NSString* disposition;
+    if ([types containsObject:ui::kUTTypeChromiumContentDisposition]) {
+      disposition =
+          [pboard stringForType:ui::kUTTypeChromiumContentDisposition];
+    }
+    constexpr base::ByteSize kMaxContentDispositionLength = base::KiBU(4);
+    if (disposition.length > 0 &&
+        disposition.length <= kMaxContentDispositionLength.InBytes()) {
+      drop_data.file_contents_content_disposition =
+          base::SysNSStringToUTF8(disposition);
+      // Synthesize a file:// source URL from the content_disposition
+      // filename so the renderer can derive File.name from it.
+      // This matches what Windows does natively via
+      // CFSTR_FILEDESCRIPTORW.cFileName.
+      base::FilePath filename = net::GenerateFileName(
+          GURL(), drop_data.file_contents_content_disposition,
+          /*referrer_charset=*/std::string(),
+          /*suggested_name=*/std::string(),
+          /*mime_type=*/std::string(),
+          /*default_name=*/std::string());
+      if (!filename.empty()) {
+        drop_data.file_contents_source_url =
+            net::FilePathToFileURL(filename.BaseName());
+      }
+    }
+  }
 
   // Get custom MIME data.
   if ([types containsObject:ui::kUTTypeChromiumDataTransferCustomData]) {
-    NSData* customData =
+    NSData* custom_data =
         [pboard dataForType:ui::kUTTypeChromiumDataTransferCustomData];
     if (std::optional<std::unordered_map<std::u16string, std::u16string>>
             maybe_custom_data = ui::ReadCustomDataIntoMap(
-                base::apple::NSDataToSpan(customData));
+                base::apple::NSDataToSpan(custom_data));
         maybe_custom_data) {
       drop_data.custom_data = std::move(*maybe_custom_data);
     }

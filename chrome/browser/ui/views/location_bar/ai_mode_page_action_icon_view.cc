@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/omnibox/ai_mode_button_config.h"
 #include "chrome/browser/ui/omnibox/ai_mode_page_action_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/search/omnibox_utils.h"
@@ -28,6 +29,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/events/event.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -52,15 +54,14 @@ AiModePageActionIconView::AiModePageActionIconView(
 
   SetProperty(views::kElementIdentifierKey, kAiModePageActionIconElementId);
 
-  SetLabel(l10n_util::GetStringUTF16(IDS_AI_MODE_ENTRYPOINT_LABEL));
+  const auto& config = ai_mode_button_config::GetCurrentAiModeButtonConfig();
+  SetLabel(config.text);
   SetUseTonalColorsWhenExpanded(true);
   SetBackgroundVisibility(BackgroundVisibility::kWithLabel);
 
   // The accessible name prompts the user to ask Google AI Mode.
-  GetViewAccessibility().SetName(
-      l10n_util::GetStringUTF16(
-          IDS_STARTER_PACK_AI_MODE_ACTION_SUGGESTION_CONTENTS),
-      ax::mojom::NameFrom::kAttribute);
+  GetViewAccessibility().SetName(config.a11y_label,
+                                 ax::mojom::NameFrom::kAttribute);
 }
 
 AiModePageActionIconView::~AiModePageActionIconView() = default;
@@ -79,7 +80,8 @@ views::BubbleDialogDelegate* AiModePageActionIconView::GetBubble() const {
 }
 
 const gfx::VectorIcon& AiModePageActionIconView::GetVectorIcon() const {
-  return omnibox::kSearchSparkIcon;
+  return features::IsRoundedIconsEnabled() ? omnibox::kSearchSparkIcon
+                                           : omnibox::kSearchSparkOldIcon;
 }
 
 void AiModePageActionIconView::UpdateIconImage() {

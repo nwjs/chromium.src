@@ -65,6 +65,7 @@ export function getStudentActivityMojomToUI(activities: Activity[]):
         viewScreenSessionCode: item.activity.viewScreenSessionCode ?
             item.activity.viewScreenSessionCode :
             undefined,
+        geminiState: item.activity.geminiState.valueOf(),
       },
     };
   });
@@ -112,6 +113,7 @@ export function getSessionConfigMojomToUI(session: Config|
             url: item.tab.url,
             title: item.tab.title,
             favicon: item.tab.favicon,
+            urlType: item.tab.urlType?.valueOf(),
           },
           navigationType: item.navigationType.valueOf(),
         };
@@ -150,6 +152,7 @@ export class ClientDelegateFactory {
                 title: tab.title,
                 url: tab.url,
                 favicon: tab.favicon,
+                urlType: tab.urlType?.valueOf(),
               };
             }),
           };
@@ -219,6 +222,7 @@ export class ClientDelegateFactory {
                       url: item.tab.url,
                       title: item.tab.title,
                       favicon: item.tab.favicon,
+                      urlType: item.tab.urlType?.valueOf() ?? null,
                     },
                     navigationType: item.navigationType.valueOf(),
                   };
@@ -286,6 +290,7 @@ export class ClientDelegateFactory {
                     url: item.tab.url,
                     title: item.tab.title,
                     favicon: item.tab.favicon,
+                    urlType: item.tab.urlType?.valueOf() ?? null,
                   },
                   navigationType: item.navigationType.valueOf(),
                 };
@@ -374,6 +379,9 @@ export class ClientDelegateFactory {
       },
       stopPresentingOwnScreen: async () => {
         return (await pageHandler.stopPresentingOwnScreen()).success;
+      },
+      getGeminiStatus: async () => {
+        return (await pageHandler.getGeminiStatus()).enabled;
       },
     };
   }

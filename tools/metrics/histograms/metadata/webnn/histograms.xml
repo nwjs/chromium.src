@@ -53,22 +53,34 @@ chromium-metrics-reviews@google.com.
   <variant name="Inference" summary="time to inference."/>
 </variants>
 
+<histogram name="WebNN.CompilerProcess.CrashCount" units="count"
+    expires_after="2027-06-27">
+  <owner>reillyg@chromium.org</owner>
+  <owner>src/services/webnn/OWNERS</owner>
+  <summary>
+    Records the cumulative number of unexpected WebNN Compiler process
+    disconnections (crashes) within a single browser session. Logged each time
+    the Compiler process disconnects unexpectedly. Values range from 1 to 3,
+    after which the Compiler process is no longer relaunched.
+  </summary>
+</histogram>
+
 <histogram name="WebNN.ConstantDataSizeInKB" units="KB"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>Records the constant data sizes in KB.</summary>
 </histogram>
 
 <histogram name="WebNN.Context.Backend" enum="ContextBackendUma"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>Records what backend WebNN is running on.</summary>
 </histogram>
 
 <histogram name="WebNN.CoreML.TimingMs.{WebNNCoreMLActions}" units="ms"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -79,14 +91,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.DeviceType" enum="DeviceTypeUma"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>Records what device type WebNN is running on.</summary>
 </histogram>
 
 <histogram name="WebNN.DML.TimingMs.{WebNNDMLActions}" units="ms"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -97,7 +109,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.DMLCreateDevice.Error" enum="Hresult"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -106,14 +118,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.MLTensor.TimingMs.Read" units="ms"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>The time taken to read the ml tensor.</summary>
 </histogram>
 
 <histogram name="WebNN.Operator" enum="MLGraphOperatorUma"
-    expires_after="2026-08-30">
+    expires_after="2026-11-01">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -125,7 +137,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.ORT.FirstSelectedDevice" enum="WebNNOrtDeviceUma"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -134,7 +146,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.ORT.FirstSelectedEP" enum="WebNNOrtEPUma"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -143,7 +155,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.ORT.TimingMs.{WebNNOrtActions}" units="ms"
-    expires_after="2026-06-27">
+    expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -154,7 +166,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.ORT.WinAppRuntimeInstallState"
-    enum="WinAppRuntimeInstallStateUma" expires_after="2026-08-30">
+    enum="WinAppRuntimeInstallStateUma" expires_after="2026-11-01">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -166,7 +178,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.ORT.{PackageDependencyAction}.ErrorResult"
-    enum="Hresult" expires_after="2026-06-27">
+    enum="Hresult" expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>
@@ -182,7 +194,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebNN.ORT.{WebNNOrtExecutionProvider}.Status"
-    enum="ExecutionProviderStatusUma" expires_after="2026-06-27">
+    enum="ExecutionProviderStatusUma" expires_after="2027-06-27">
   <owner>reillyg@chromium.org</owner>
   <owner>src/services/webnn/OWNERS</owner>
   <summary>

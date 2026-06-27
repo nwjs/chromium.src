@@ -99,9 +99,32 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
                         uint32_t number_of_frames,
                         double start_time_offset);
 
+  bool HandleLoopWrapping(double virtual_end_frame,
+                          double virtual_delta_frames,
+                          unsigned write_index,
+                          uint32_t frames_remaining,
+                          double& virtual_read_index);
+
+  void ProcessFastPath(double virtual_delta_frames,
+                       double virtual_end_frame,
+                       uint32_t buffer_length,
+                       size_t destination_length,
+                       unsigned number_of_channels,
+                       int& frames_to_process,
+                       unsigned& write_index,
+                       double& virtual_read_index);
+
+  void ProcessInterpolatedPath(double virtual_delta_frames,
+                               double virtual_end_frame,
+                               uint32_t buffer_length,
+                               unsigned number_of_channels,
+                               double computed_playback_rate,
+                               int& frames_to_process,
+                               unsigned& write_index,
+                               double& virtual_read_index);
+
   // Render silence starting from "index" frame in AudioBus.
-  inline bool RenderSilenceAndFinishIfNotLooping(AudioBus*,
-                                                 unsigned index,
+  inline bool RenderSilenceAndFinishIfNotLooping(unsigned index,
                                                  uint32_t frames_to_process);
 
   // Clamps grain parameters to the duration of the given AudioBuffer.
@@ -161,10 +184,14 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
   double grain_offset_ = 0.0;  // in seconds
   double grain_duration_;      // in seconds
   // True if `grain_duration_` is given explicitly (via 3 arg start method).
-  bool is_duration_given_;
+  bool is_duration_given_ = false;
 
   // The minimum playbackRate value ever used for this source.
   double min_playback_rate_ = 1.0;
+
+  // The number of source frames currently output by this node.
+  // This is used for keeping track of the rate invariate duration of the node.
+  double buffer_played_frames_ = 0.0;
 
   // True if the `buffer` attribute has ever been set to a non-null
   // value.  Defaults to false.

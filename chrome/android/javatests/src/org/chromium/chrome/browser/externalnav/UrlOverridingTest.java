@@ -71,6 +71,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -164,6 +165,10 @@ import java.util.concurrent.atomic.AtomicReference;
     "Prewarm",
     ChromeFeatureList.DESKTOP_ANDROID_LINK_CAPTURING
 })
+@DisableLeakChecks({
+    "crbug.com/512492165 (ActorForegroundServiceManager)",
+    "crbug.com/512492107 (CustomTabActivity)"
+})
 public class UrlOverridingTest {
     @Rule
     public FreshCtaTransitTestRule mTabbedActivityTestRule =
@@ -240,6 +245,8 @@ public class UrlOverridingTest {
             BASE_PATH + "subframe_navigation_child.html";
     private static final String NAVIGATION_FROM_RENAVIGATE_FRAME =
             BASE_PATH + "renavigate_frame.html";
+    private static final String NAVIGATION_FROM_RENAVIGATE_FRAME_BLANK =
+            BASE_PATH + "renavigate_frame_blank.html";
     private static final String NAVIGATION_FROM_RENAVIGATE_FRAME_WITH_REDIRECT =
             BASE_PATH + "renavigate_frame_with_redirect.html";
     private static final String NAVIGATION_FROM_WINDOW_REDIRECT =
@@ -665,8 +672,14 @@ public class UrlOverridingTest {
                                                 .OVERRIDE_WITH_EXTERNAL_INTENT));
                     }
                     if (params.expectedFinalUrl == null) return;
-                    Criteria.checkThat(
-                            latestTab.getUrl().getSpec(), Matchers.is(params.expectedFinalUrl));
+                    if (params.createsNewTab && params.shouldLaunchExternalIntent) {
+                        Criteria.checkThat(
+                                sourcePage.getTab().getUrl().getSpec(),
+                                Matchers.is(params.expectedFinalUrl));
+                    } else {
+                        Criteria.checkThat(
+                                latestTab.getUrl().getSpec(), Matchers.is(params.expectedFinalUrl));
+                    }
                 },
                 10000L,
                 CriteriaHelper.DEFAULT_POLLING_INTERVAL);
@@ -1100,6 +1113,7 @@ public class UrlOverridingTest {
 
     @Test
     @SmallTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287942
     public void testRedirectionFromIntentColdWithTask() throws Exception {
         // Set up task with finished ChromeActivity.
         Context context = ContextUtils.getApplicationContext();
@@ -2161,11 +2175,26 @@ public class UrlOverridingTest {
         TestParams params =
                 new TestParams(mTestServer.getURL(NAVIGATION_FROM_RENAVIGATE_FRAME), true, false);
         params.createsNewTab = true;
+        params.willNavigateTwice = true;
         params.expectedFinalUrl = finalUrl;
         OverrideUrlLoadingResult result = loadUrlAndWaitForIntentUrl(params, ctaPage);
 
         Assert.assertEquals(OverrideUrlLoadingResultType.NO_OVERRIDE, result.getResultType());
         Assert.assertNull(getCurrentExternalNavigationMessage());
+    }
+
+    @Test
+    @LargeTest
+    public void testWindowRenavigation_blankFrame() throws Exception {
+        String finalUrl = mTestServer.getURL(HELLO_PAGE);
+        WebPageStation ctaPage = mTabbedActivityTestRule.startOnBlankPage();
+
+        TestParams params =
+                new TestParams(
+                        mTestServer.getURL(NAVIGATION_FROM_RENAVIGATE_FRAME_BLANK), true, true);
+        params.createsNewTab = true;
+        params.willNavigateTwice = true;
+        loadUrlAndWaitForIntentUrl(params, ctaPage);
     }
 
     @Test
@@ -2181,6 +2210,7 @@ public class UrlOverridingTest {
                         true,
                         false);
         params.createsNewTab = true;
+        params.willNavigateTwice = true;
         params.expectedFinalUrl = finalUrl;
         OverrideUrlLoadingResult result = loadUrlAndWaitForIntentUrl(params, ctaPage);
 
@@ -2555,6 +2585,7 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
+    @DisabledTest(message = "https://crbug.com/513674983")
     public void testTopLevelNavigationWasReparented() throws TimeoutException {
         InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
 

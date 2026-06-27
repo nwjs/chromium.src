@@ -35,6 +35,7 @@
 #include "ui/actions/actions.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -141,8 +142,9 @@ class PinnedToolbarActionsContainerTest : public TestWithBrowserView {
         id, browser_view()->browser()->browser_actions()->root_action_item());
     action->SetText(u"Test Action");
     action->SetTooltipText(u"Test Action");
-    action->SetImage(
-        ui::ImageModel::FromVectorIcon(vector_icons::kDogfoodIcon));
+    action->SetImage(ui::ImageModel::FromVectorIcon(
+        features::IsRoundedIconsEnabled() ? vector_icons::kPetsIcon
+                                          : vector_icons::kDogfoodOldIcon));
     action->SetVisible(true);
     action->SetEnabled(true);
     action->SetProperty(actions::kActionItemPinnableKey,
@@ -658,6 +660,23 @@ TEST_F(PinnedToolbarActionsContainerTest,
   container()->ShowActionEphemerallyInToolbar(actions::kActionCut, false);
   CheckIsPoppedOut(actions::kActionCut, false);
   CheckIsPinned(actions::kActionCut, false);
+}
+
+TEST_F(PinnedToolbarActionsContainerTest, EphemeralActionOverflows) {
+  UpdateActionItem(actions::kActionCut);
+
+  container()->GetAnimatingLayoutManager()->disable_widget_check_for_testing();
+  container()->SetBounds(0, 0, 1000, 50);
+  container()->ShowActionEphemerallyInToolbar(actions::kActionCut, true);
+  container()->GetAnimatingLayoutManager()->ResetLayout();
+  CheckIsPoppedOut(actions::kActionCut, true);
+  CheckIsPinned(actions::kActionCut, false);
+
+  // If the available size is large, nothing should need to overflow.
+  EXPECT_FALSE(container()->ShouldAnyButtonsOverflow(gfx::Size(1000, 1000)));
+
+  // If the available size is too small, it should overflow.
+  EXPECT_TRUE(container()->ShouldAnyButtonsOverflow(gfx::Size(1, 1)));
 }
 
 TEST_F(PinnedToolbarActionsContainerTest, ActiveActionSkipsExecution) {

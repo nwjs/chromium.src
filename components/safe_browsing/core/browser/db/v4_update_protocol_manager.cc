@@ -4,20 +4,12 @@
 
 #include "components/safe_browsing/core/browser/db/v4_update_protocol_manager.h"
 
-#include <optional>
-#include <string>
-#include <utility>
-
 #include "base/base64url.h"
-#include "base/functional/bind.h"
-#include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/rand_util.h"
-#include "base/timer/timer.h"
-#include "build/build_config.h"
-#include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/core/browser/db/safebrowsing.pb.h"
-#include "components/safe_browsing/core/common/features.h"
+#include "base/notreached.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/utils.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_response_headers.h"
@@ -66,20 +58,14 @@ void RecordUpdateResult(safe_browsing::V4OperationResult result) {
   UMA_HISTOGRAM_ENUMERATION(
       "SafeBrowsing.V4Update.Result", result,
       safe_browsing::V4OperationResult::OPERATION_RESULT_MAX);
+  UMA_HISTOGRAM_ENUMERATION(
+      "SafeBrowsing.SBUpdate.Result", result,
+      safe_browsing::V4OperationResult::OPERATION_RESULT_MAX);
 }
 
 }  // namespace
 
 namespace safe_browsing {
-
-// Minimum time, in seconds, from start up before we must issue an update query.
-static const int kV4TimerStartIntervalSecMin = 60;
-
-// Maximum time, in seconds, from start up before we must issue an update query.
-static const int kV4TimerStartIntervalSecMax = 300;
-
-// Maximum time, in seconds, to wait for a response to an update request.
-static const int kV4TimerUpdateWaitSecMax = 15 * 60;  // 15 minutes
 
 ChromeClientInfo::SafeBrowsingReportingPopulation GetReportingLevelProtoValue(
     ExtendedReportingLevel reporting_level) {
@@ -97,38 +83,16 @@ ChromeClientInfo::SafeBrowsingReportingPopulation GetReportingLevelProtoValue(
   }
 }
 
-// V4UpdateProtocolManager implementation --------------------------------
-
-void V4UpdateProtocolManager::ResetUpdateErrors() {
-  update_error_count_ = 0;
-  update_back_off_mult_ = 1;
-}
-
 V4UpdateProtocolManager::V4UpdateProtocolManager(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const V4ProtocolConfig& config,
     V4UpdateCallback update_callback,
     ExtendedReportingLevelCallback extended_reporting_level_callback)
-    : update_error_count_(0),
-      update_back_off_mult_(1),
-      next_update_interval_(
-          base::Seconds(base::RandIntInclusive(kV4TimerStartIntervalSecMin,
-                                               kV4TimerStartIntervalSecMax))),
-      config_(config),
-      url_loader_factory_(url_loader_factory),
+    : SBUpdateProtocolManager(url_loader_factory, config),
       update_callback_(update_callback),
-      extended_reporting_level_callback_(extended_reporting_level_callback) {
-  // Do not auto-schedule updates. Let the owner (V4LocalDatabaseManager) do it
-  // when it is ready to process updates.
-}
+      extended_reporting_level_callback_(extended_reporting_level_callback) {}
 
-V4UpdateProtocolManager::~V4UpdateProtocolManager() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-}
-
-bool V4UpdateProtocolManager::IsUpdateScheduled() const {
-  return update_timer_.IsRunning();
-}
+V4UpdateProtocolManager::~V4UpdateProtocolManager() = default;
 
 void V4UpdateProtocolManager::ScheduleNextUpdate(
     std::unique_ptr<StoreStateMap> store_state_map) {
@@ -147,34 +111,6 @@ void V4UpdateProtocolManager::ScheduleNextUpdateWithBackoff(bool back_off) {
   // Reschedule with the new update.
   base::TimeDelta next_update_interval = GetNextUpdateInterval(back_off);
   ScheduleNextUpdateAfterInterval(next_update_interval);
-}
-
-// According to section 5 of the SafeBrowsing protocol specification, we must
-// back off after a certain number of errors.
-base::TimeDelta V4UpdateProtocolManager::GetNextUpdateInterval(bool back_off) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(next_update_interval_.is_positive());
-
-  base::TimeDelta next = next_update_interval_;
-  if (back_off) {
-    next = SBProtocolManagerUtil::GetNextBackOffInterval(
-        &update_error_count_, &update_back_off_mult_);
-  }
-
-  if (!last_response_time_.is_null()) {
-    // The callback spent some time updating the database, including disk I/O.
-    // Do not wait that extra time.
-    base::TimeDelta callback_time = Time::Now() - last_response_time_;
-    if (callback_time < next) {
-      next -= callback_time;
-    } else {
-      // If the callback took too long, schedule the next update with no delay.
-      next = base::TimeDelta();
-    }
-  }
-  DVLOG(1) << "V4UpdateProtocolManager::GetNextUpdateInterval: "
-           << "next_interval: " << next;
-  return next;
 }
 
 void V4UpdateProtocolManager::ScheduleNextUpdateAfterInterval(
@@ -244,8 +180,8 @@ bool V4UpdateProtocolManager::ParseUpdateResponse(
         response.minimum_wait_duration().seconds();
 
     // Do not let the next_update_interval_ to be too low.
-    if (minimum_wait_duration_seconds < kV4TimerStartIntervalSecMin) {
-      minimum_wait_duration_seconds = kV4TimerStartIntervalSecMin;
+    if (minimum_wait_duration_seconds < kTimerStartIntervalSecMin) {
+      minimum_wait_duration_seconds = kTimerStartIntervalSecMin;
     }
     next_update_interval_ = base::Seconds(minimum_wait_duration_seconds);
   }
@@ -316,36 +252,50 @@ void V4UpdateProtocolManager::IssueUpdateRequest() {
   std::unique_ptr<network::SimpleURLLoader> loader =
       network::SimpleURLLoader::Create(std::move(resource_request),
                                        traffic_annotation);
+  base::TimeTicks request_start_time = base::TimeTicks::Now();
   loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
       url_loader_factory_.get(),
       base::BindOnce(&V4UpdateProtocolManager::OnURLLoaderComplete,
-                     base::Unretained(this)));
+                     base::Unretained(this), request_start_time));
 
   request_ = std::move(loader);
 #endif
+  base::TimeTicks request_start_time = base::TimeTicks::Now();
   // Begin the update request timeout.
-  timeout_timer_.Start(FROM_HERE, base::Seconds(kV4TimerUpdateWaitSecMax), this,
-                       &V4UpdateProtocolManager::HandleTimeout);
+  timeout_timer_.Start(
+      FROM_HERE, base::Seconds(kTimerUpdateWaitSecMax),
+      base::BindOnce(&V4UpdateProtocolManager::HandleTimeout,
+                     base::Unretained(this), request_start_time));
 }
 
-void V4UpdateProtocolManager::HandleTimeout() {
+void V4UpdateProtocolManager::HandleTimeout(
+    base::TimeTicks request_start_time) {
+  RecordNetworkTimeHistograms("SafeBrowsing.V4Update.Network.Time",
+                              request_start_time);
+  base::UmaHistogramBoolean("SafeBrowsing.V4Update.Network.TimedOut", true);
+  base::UmaHistogramBoolean("SafeBrowsing.SBUpdate.Network.TimedOut", true);
+
   request_.reset();
   ScheduleNextUpdateWithBackoff(true);
 }
 
 // SafeBrowsing request responses are handled here.
 void V4UpdateProtocolManager::OnURLLoaderComplete(
+    base::TimeTicks request_start_time,
     std::optional<std::string> response_body) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   int response_code = 0;
-  if (request_->ResponseInfo() && request_->ResponseInfo()->headers)
+  if (request_->ResponseInfo() && request_->ResponseInfo()->headers) {
     response_code = request_->ResponseInfo()->headers->response_code();
+  }
 
-  OnURLLoaderCompleteInternal(request_->NetError(), response_code,
+  OnURLLoaderCompleteInternal(request_start_time, request_->NetError(),
+                              response_code,
                               std::move(response_body).value_or(""));
 }
 
 void V4UpdateProtocolManager::OnURLLoaderCompleteInternal(
+    base::TimeTicks request_start_time,
     int net_error,
     int response_code,
     const std::string& data) {
@@ -354,9 +304,15 @@ void V4UpdateProtocolManager::OnURLLoaderCompleteInternal(
   last_response_code_ = response_code;
   RecordHttpResponseOrErrorCode("SafeBrowsing.V4Update.Network.Result",
                                 net_error, last_response_code_);
+  RecordHttpResponseOrErrorCode("SafeBrowsing.SBUpdate.Network.Result",
+                                net_error, last_response_code_);
 
   last_response_time_ = Time::Now();
 
+  RecordNetworkTimeHistograms("SafeBrowsing.V4Update.Network.Time",
+                              request_start_time);
+  base::UmaHistogramBoolean("SafeBrowsing.V4Update.Network.TimedOut", false);
+  base::UmaHistogramBoolean("SafeBrowsing.SBUpdate.Network.TimedOut", false);
   std::unique_ptr<ParsedServerResponse> parsed_server_response(
       new ParsedServerResponse);
   if (net_error == net::OK && last_response_code_ == net::HTTP_OK) {
@@ -369,6 +325,8 @@ void V4UpdateProtocolManager::OnURLLoaderCompleteInternal(
     request_.reset();
 
     UMA_HISTOGRAM_COUNTS_1M("SafeBrowsing.V4Update.ResponseSizeKB",
+                            data.size() / 1024);
+    UMA_HISTOGRAM_COUNTS_1M("SafeBrowsing.SBUpdate.ResponseSizeKB",
                             data.size() / 1024);
 
     // The caller should update its state now, based on parsed_server_response.
@@ -401,24 +359,11 @@ void V4UpdateProtocolManager::GetUpdateUrlAndHeaders(
       req_base64, "threatListUpdates:fetch", config_, gurl, headers);
 }
 
-void V4UpdateProtocolManager::CollectUpdateInfo(
-    DatabaseManagerInfo::UpdateInfo* update_info) {
-  if (last_response_code_)
-    update_info->set_network_status_code(last_response_code_);
-
-  if (last_response_time_.InMillisecondsSinceUnixEpoch()) {
-    update_info->set_last_update_time_millis(
-        last_response_time_.InMillisecondsSinceUnixEpoch());
-  }
-
-  if (next_update_time_) {
-    update_info->set_next_update_time_millis(
-        next_update_time_.value().InMillisecondsSinceUnixEpoch());
-  }
-}
-
-const base::Time& V4UpdateProtocolManager::last_response_time() const {
-  return last_response_time_;
+void V4UpdateProtocolManager::RecordProtocolSpecificNextUpdateInterval(
+    base::TimeDelta interval) {
+  base::UmaHistogramCustomTimes("SafeBrowsing.V4Update.NextUpdateInterval",
+                                interval, base::Seconds(1), base::Hours(24),
+                                50);
 }
 
 }  // namespace safe_browsing

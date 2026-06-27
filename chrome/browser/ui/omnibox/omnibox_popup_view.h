@@ -16,20 +16,29 @@
 #include <string_view>
 
 #include "base/memory/raw_ptr.h"
+#include "base/time/time.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "ui/base/window_open_disposition.h"
 
 class OmniboxController;
+class OmniboxPopupPresenterBase;
 class OmniboxResultView;
 class OmniboxSuggestionButtonRowView;
+class OmniboxPopupViewBrowserView;
 namespace ui {
 struct AXNodeData;
+}
+
+namespace content {
+class WebContents;
 }
 
 class OmniboxPopupView {
  public:
   explicit OmniboxPopupView(OmniboxController* controller);
   virtual ~OmniboxPopupView();
+
+  virtual OmniboxPopupPresenterBase* presenter();
 
   // Returns true if the popup is currently open.
   virtual bool IsOpen() const = 0;
@@ -65,8 +74,16 @@ class OmniboxPopupView {
   // Informs the popup of user intent to open its current selection.
   virtual void OpenCurrentSelection(WindowOpenDisposition disposition) {}
 
+  // Saves state to the given tab.
+  virtual void SaveStateToTab(content::WebContents* contents) {}
+
   // Returns true if the popup controls its own selection state.
   virtual bool IsSelectionPopupControlled() const = 0;
+
+  // Safe downcasting to the BrowserView-embedded implementation.
+  virtual OmniboxPopupViewBrowserView* AsOmniboxPopupViewBrowserView();
+
+  base::TimeTicks construction_time() const { return construction_time_; }
 
  protected:
   friend class OmniboxResultView;
@@ -78,6 +95,9 @@ class OmniboxPopupView {
  private:
   // Owned by the LocationBarView that owns this. Outlives this.
   const raw_ptr<OmniboxController> controller_;
+
+  // Time when this instance was constructed, or null after use for histogram.
+  base::TimeTicks construction_time_;
 };
 
 #endif  // CHROME_BROWSER_UI_OMNIBOX_OMNIBOX_POPUP_VIEW_H_

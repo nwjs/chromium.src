@@ -17,6 +17,8 @@
 
 namespace password_manager {
 
+class AffiliatedMatchHelper;
+
 // A matcher that compares two PasswordForm or StoredCredential instances but
 // ignores the |in_store| member.
 MATCHER_P(MatchesFormExceptStore, expected, "") {
@@ -63,12 +65,21 @@ class TestPasswordStore : public PasswordStore {
   void CallSyncEnabledOrDisabledCallbacks();
 
   void TriggerOnLoginsRetainedForAndroid(
-      const std::vector<PasswordForm>& password_forms);
+      const std::vector<StoredCredential>& credentials);
+
+#if BUILDFLAG(IS_ANDROID)
+  void SetAffiliatedAndGroupedRealms(
+      const std::string& realm,
+      const std::vector<std::string>& affiliated_realms,
+      const std::vector<std::string>& grouped_realms = {});
+#endif
 
   void ReturnErrorOnRequest(
       PasswordStoreBackendError password_store_backend_error);
 
   void SetError(ActionableError error);
+
+  void SetAffiliatedMatchHelper(AffiliatedMatchHelper* helper);
 
   void NotifyAboutError();
 

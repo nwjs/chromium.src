@@ -10,7 +10,11 @@
 #import "ios/chrome/browser/app_bar/ui/app_bar_mutator.h"
 
 @protocol AppBarConsumer;
+namespace signin {
+class IdentityManager;
+}
 class AuthenticationService;
+class GeminiBrowserAgent;
 class GeminiService;
 @class BrowserActionFactory;
 @protocol FullscreenBrowserAgentObserving;
@@ -19,7 +23,6 @@ class FullscreenController;
 @class IncognitoState;
 class FullscreenBrowserAgent;
 class PrefService;
-@protocol LensCommands;
 @protocol SceneCommands;
 @protocol TabGridCommands;
 @protocol SettingsCommands;
@@ -36,19 +39,22 @@ class WebStateList;
 // Indicates to the delegate to show the account menu anchored to `anchorView`.
 - (void)showAccountMenu:(UIView*)anchorView;
 
+// Indicates to the delegate to show the sign-in flow anchored to `anchorView`.
+- (void)showSignin:(UIView*)anchorView;
+
 @end
 
 // Mediator for the App Bar coordinator.
 @interface AppBarMediator : NSObject <AppBarMutator>
+
+// The delegate for this mediator.
+@property(nonatomic, weak) id<AppBarMediatorDelegate> delegate;
 
 // The base view controller for presenting modals.
 @property(nonatomic, weak) UIViewController* baseViewController;
 
 // Handler for the scene commands.
 @property(nonatomic, weak) id<SceneCommands> sceneHandler;
-
-// Handler for the lens commands.
-@property(nonatomic, weak) id<LensCommands> lensHandler;
 
 // Handler for the tab grid commands.
 @property(nonatomic, weak) id<TabGridCommands> tabGridHandler;
@@ -95,7 +101,9 @@ class WebStateList;
                  templateURLService:(TemplateURLService*)templateURLService
               authenticationService:
                   (AuthenticationService*)authenticationService
+                    identityManager:(signin::IdentityManager*)identityManager
                       geminiService:(GeminiService*)geminiService
+                 geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
                           URLLoader:(UrlLoadingBrowserAgent*)URLLoader
                        tabGridState:(TabGridState*)tabGridState
                      incognitoState:(IncognitoState*)incognitoState;

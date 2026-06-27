@@ -624,7 +624,8 @@ void PermissionRequestManager::Accept(const PromptOptions& prompt_options) {
             ContentSettingsType::GEOLOCATION_WITH_OPTIONS ||
         std::holds_alternative<std::monostate>(prompt_options))
       << "Requests that are not for Geolocation with options should not "
-         "pass any options (must be std::monostate).";
+         "pass any options (must be std::monostate)."
+      << requests_[0]->GetContentSettingsType();
 
   if (ignore_callbacks_from_prompt_) {
     return;
@@ -929,10 +930,10 @@ PermissionRequestManager::GetInitialGeolocationAccuracySelection() const {
   }
 }
 
-bool PermissionRequestManager::ShouldShowLocationPrecisionSelector() const {
+std::optional<GeolocationPromptType>
+PermissionRequestManager::GetGeolocationPromptType() const {
   CHECK_EQ(requests_.size(), 1u);
-  return requests_[0]->GetGeolocationPromptType() ==
-         GeolocationPromptType::kApproximateOrPrecise;
+  return requests_[0]->GetGeolocationPromptType();
 }
 
 bool PermissionRequestManager::
@@ -1139,6 +1140,13 @@ void PermissionRequestManager::ShowPrompt() {
     PermissionUmaUtil::PermissionPromptShown(requests_);
 
     if (!requests_.empty()) {
+#if BUILDFLAG(IS_ANDROID)
+      if (requests_[0]->GetContentSettingsType() ==
+          ContentSettingsType::NOTIFICATIONS) {
+        has_requested_notifications_ = true;
+      }
+#endif  // BUILDFLAG(IS_ANDROID)
+
       // The session duration before a permission prompt is displayed is only
       // recorded for geolocation and notifications requests because these two
       // permission types are supported by the PermissionsAI and potentially can
@@ -1384,6 +1392,10 @@ void PermissionRequestManager::CurrentRequestsDecided(
 }
 
 void PermissionRequestManager::CleanUpRequests() {
+#if BUILDFLAG(IS_ANDROID)
+  has_requested_notifications_ = false;
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // No need to execute the preignore logic as we canceling currently active
   // requests anyway.
   preignore_timer_.Stop();

@@ -13,6 +13,7 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/timer/timer.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
@@ -20,6 +21,9 @@
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/fre/glic_fre.mojom.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
+#include "chrome/browser/private_ai/private_ai_service.h"
+#include "chrome/browser/private_ai/private_ai_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -31,9 +35,12 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
+#include "components/private_ai/client.h"
+#include "components/private_ai/features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_variant.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -60,6 +67,7 @@ class MenuRunner;
 namespace glic {
 inline constexpr int kIconLeftMargin = 4;
 inline constexpr int kCloseButtonMargin = 6;
+inline constexpr int kLabelWithCloseButtonRightMargin = 12;
 inline constexpr int kLabelRightMargin = 8;
 inline constexpr ui::ColorId kTextDisabled = ui::kColorLabelForegroundDisabled;
 
@@ -71,6 +79,23 @@ inline constexpr ui::ColorId kForegroundOnAltBackground =
 inline constexpr int kCollapsedWidth = 41;
 inline constexpr int kSplitFlatEdgetRadius = 2;
 inline constexpr int kSplitRoundedEdgeRadius = 10;
+inline void EstablishPrivateAiConnection(Profile* profile) {
+  if (!profile) {
+    return;
+  }
+  if (base::FeatureList::IsEnabled(private_ai::kPrivateAi) &&
+      base::FeatureList::IsEnabled(glic::kZeroStateSuggestionsUsePrivateAi)) {
+    private_ai::PrivateAiService* private_ai_service =
+        private_ai::PrivateAiServiceFactory::GetForProfile(profile);
+    if (private_ai_service) {
+      private_ai::Client* client = private_ai_service->GetClient();
+      if (client) {
+        client->EstablishConnection(
+            private_ai::proto::FEATURE_NAME_CHROME_ZERO_STATE_SUGGESTION);
+      }
+    }
+  }
+}
 
 template <typename T>
   requires std::derived_from<T, views::LabelButton>
@@ -176,8 +201,6 @@ class GlicButton : public GlicBaseShim<T>,
 
   template <typename... BaseArgs>
   explicit GlicButton(BrowserWindowInterface* browser_window_interface,
-                      base::RepeatingClosure hovered_callback,
-                      base::RepeatingClosure mouse_down_callback,
                       base::RepeatingClosure expansion_animation_done_callback,
                       const std::u16string& tooltip,
                       const int icon_size,
@@ -188,8 +211,6 @@ class GlicButton : public GlicBaseShim<T>,
         profile_(browser_window_interface
                      ? browser_window_interface->GetProfile()
                      : nullptr),
-        hovered_callback_(std::move(hovered_callback)),
-        mouse_down_callback_(std::move(mouse_down_callback)),
         normal_icon_(GetNormalIcon(icon_size)),
         icon_for_highlight_(GetIconForHighlight(icon_size)) {
     Init(expansion_animation_done_callback, tooltip);
@@ -326,11 +347,16 @@ class GlicButton : public GlicBaseShim<T>,
 
   void StateChanged(views::Button::ButtonState old_state) override {
     T::StateChanged(old_state);
-    if (old_state == views::Button::ButtonState::STATE_NORMAL &&
-        this->GetState() == views::Button::ButtonState::STATE_HOVERED) {
-      if (hovered_callback_) {
-        hovered_callback_.Run();
+
+    if (this->GetState() == views::Button::ButtonState::STATE_HOVERED) {
+      if (old_state == views::Button::ButtonState::STATE_NORMAL) {
+        prewarm_timer_.Start(FROM_HERE,
+                             kZeroStateSuggestionsPrivateAiPrewarmDelay.Get(),
+                             base::BindOnce(&GlicButton::OnPrewarmTimerFired,
+                                            weak_ptr_factory_.GetWeakPtr()));
       }
+    } else if (this->GetState() != views::Button::ButtonState::STATE_PRESSED) {
+      prewarm_timer_.Stop();
     }
 
     UpdateTextAndBackgroundColors();
@@ -338,13 +364,13 @@ class GlicButton : public GlicBaseShim<T>,
   }
 
   void AddedToWidget() override {
-      // Both TabStripControlButton and parent LabelButton set up similar logic
-      // here for drawing the button as enabled or disabled when window
-      // activation changes. Use LabelButton's as TabStripControlButton fails to
-      // update the text color when the window goes from inactive to active.
-      // TODO(crbug.com/452116005): Make this behavior configurable on
-      // TabStripControlButton.
-      views::LabelButton::AddedToWidget();
+    // Both TabStripControlButton and parent LabelButton set up similar logic
+    // here for drawing the button as enabled or disabled when window
+    // activation changes. Use LabelButton's as TabStripControlButton fails to
+    // update the text color when the window goes from inactive to active.
+    // TODO(crbug.com/452116005): Make this behavior configurable on
+    // TabStripControlButton.
+    views::LabelButton::AddedToWidget();
 
     T::AddedToWidget();
     // Button starts in WidthState::kNormal. Measure that state's width and set
@@ -403,17 +429,6 @@ class GlicButton : public GlicBaseShim<T>,
                                        false);
   }
 
-  // views::View:
-  // Note that this is an optimization for fetching zero-state suggestions so
-  // that we can load the suggestions in the UI as quickly as possible.
-  bool OnMousePressed(const ui::MouseEvent& event) override {
-    if (event.IsOnlyLeftMouseButton() && mouse_down_callback_) {
-      mouse_down_callback_.Run();
-      return true;
-    }
-    return false;
-  }
-
   bool IsContextMenuShowingForTest() {
     return menu_runner_ && menu_runner_->IsRunning();
   }
@@ -441,6 +456,10 @@ class GlicButton : public GlicBaseShim<T>,
   }
 
   bool GetLabelEnabledForTesting() const { return this->label()->GetEnabled(); }
+
+  bool IsPrewarmTimerRunningForTesting() const {
+    return prewarm_timer_.IsRunning();
+  }
 
   // Updates the background painter to match the current border insets.
   void RefreshBackground() { UpdateColors(); }
@@ -569,22 +588,8 @@ class GlicButton : public GlicBaseShim<T>,
   }
 
   static std::u16string GetLabelText() {
-    if (base::FeatureList::IsEnabled(features::kGlicButtonAltLabel)) {
-      switch (features::kGlicButtonAltLabelVariant.Get()) {
-        case 0:
           return l10n_util::GetStringUTF16(
               IDS_GLIC_BUTTON_ENTRYPOINT_ASK_GEMINI_LABEL);
-        case 1:
-          return l10n_util::GetStringUTF16(
-              IDS_GLIC_BUTTON_ENTRYPOINT_ASK_BROWSER_LABEL);
-        case 2:
-          return l10n_util::GetStringUTF16(
-              IDS_GLIC_BUTTON_ENTRYPOINT_BROWSE_LABEL);
-        default:
-          break;
-      }
-    }
-    return l10n_util::GetStringUTF16(IDS_GLIC_BUTTON_ENTRYPOINT_LABEL);
   }
 
   bool IsAnimatingTextVisibility() const {
@@ -599,7 +604,7 @@ class GlicButton : public GlicBaseShim<T>,
   virtual void SetLabelMargins() {
     int right = kLabelRightMargin;
     if ((!close_button() || !close_button()->GetVisible())) {
-      right += 4;
+      right = kLabelWithCloseButtonRightMargin;
     }
     this->label()->SetProperty(views::kMarginsKey,
                                gfx::Insets().set_right(right));
@@ -608,6 +613,10 @@ class GlicButton : public GlicBaseShim<T>,
   // Must be implemented by any subclass that does not have T implementing the
   // class.
   void UpdateColors() override { GlicBaseShim<T>::UpdateColors(); }
+
+  WidthState width_state() { return width_state_; }
+
+  int normal_width() { return normal_width_; }
 
   const raw_ptr<BrowserWindowInterface> browser_window_interface_;
 
@@ -641,6 +650,8 @@ class GlicButton : public GlicBaseShim<T>,
     SetLabelMargins();
   }
 
+  void OnPrewarmTimerFired() { EstablishPrivateAiConnection(profile_); }
+
   void NotifyClick(const ui::Event& event) override {
     if (base::FeatureList::IsEnabled(features::kGlicButtonPressedState)) {
       // T likely manipulates the ink drop in its NotifyClick(), so
@@ -659,7 +670,9 @@ class GlicButton : public GlicBaseShim<T>,
         std::make_unique<ui::SimpleMenuModel>(this);
     model->AddItemWithStringIdAndIcon(
         IDC_GLIC_TOGGLE_PIN, IDS_GLIC_BUTTON_CXMENU_UNPIN,
-        ui::ImageModel::FromVectorIcon(kKeepOffIcon, ui::kColorIcon, 16));
+        ui::ImageModel::FromVectorIcon(
+            features::IsRoundedIconsEnabled() ? kKeepOffIcon : kKeepOffOldIcon,
+            ui::kColorIcon, 16));
     return model;
   }
 
@@ -835,8 +848,6 @@ class GlicButton : public GlicBaseShim<T>,
     return this->GetLayoutManager()->GetPreferredSize(this);
   }
 
-  WidthState width_state() { return width_state_; }
-
   virtual void OnLabelVisibilityChanged() {}
 
   static const gfx::VectorIcon& GlicVectorIcon() {
@@ -861,14 +872,6 @@ class GlicButton : public GlicBaseShim<T>,
                : base::TimeDelta();
   }
 
-  // Callback which is invoked when the button is hovered (i.e., the user is
-  // more likely to interact with it soon).
-  base::RepeatingClosure hovered_callback_;
-
-  // Callback which is invoked when there is a mouse down event on the button
-  // (i.e., the user is very likely to interact with it soon).
-  base::RepeatingClosure mouse_down_callback_;
-
   // Start and end values for width animations.
   int start_width_ = 0;
   int end_width_ = 0;
@@ -891,6 +894,8 @@ class GlicButton : public GlicBaseShim<T>,
   // Window active and inactive subscriptions for changing the hover color.
   base::CallbackListSubscription window_did_become_active_subscription_;
   base::CallbackListSubscription window_did_become_inactive_subscription_;
+
+  base::OneShotTimer prewarm_timer_;
 
   base::WeakPtrFactory<GlicButton> weak_ptr_factory_{this};
 };

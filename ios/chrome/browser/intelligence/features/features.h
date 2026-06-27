@@ -6,7 +6,7 @@
 #define IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_
 
 #import "base/feature_list.h"
-#import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
+#import "components/optimization_guide/proto/features/actions_data.pb.h"
 
 namespace base {
 class TimeDelta;
@@ -83,30 +83,6 @@ extern const char kPageActionMenuDirectEntryPointParam[];
 // The BWG session validity duration in minutes.
 const base::TimeDelta BWGSessionValidityDuration();
 extern const char kBWGSessionValidityDurationParam[];
-
-// Holds the variations of the BWG Promo Consent flow.
-enum class BWGPromoConsentVariations {
-  kDisabled = 0,
-  kSinglePage = 1,
-  kDoublePage = 2,
-  kSkipConsent = 3,
-  kForceFRE = 4,
-  kSkipNewUserDelay = 5,
-};
-extern const char kBWGPromoConsentParams[];
-
-// Returns the variation of the BWG Promo Consent flow.
-BWGPromoConsentVariations BWGPromoConsentVariationsParam();
-
-// Returns YES if the promo should be forced.
-bool ShouldForceBWGPromo();
-
-// Returns YES if the Chrome FRE recency check should be skipped when evaluating
-// whether to show the Gemini on-navigation promo.
-bool ShouldSkipBWGPromoNewUserDelay();
-
-// Feature flag to enable BWG Promo Consent.
-BASE_DECLARE_FEATURE(kBWGPromoConsent);
 
 // Feature flag to enable Explain Gemini in Edit Menu.
 BASE_DECLARE_FEATURE(kExplainGeminiEditMenu);
@@ -214,16 +190,11 @@ BASE_DECLARE_FEATURE(kZeroStateSuggestions);
 // Returns true if zero-state suggestions are enabled.
 bool IsZeroStateSuggestionsEnabled();
 
-// Parameter names for the zero-state suggestions placement.
-extern const char kZeroStateSuggestionsPlacementAIHub[];
-extern const char kZeroStateSuggestionsPlacementAskGemini[];
+// Feature flag to enable centralization of zero-state suggestions.
+BASE_DECLARE_FEATURE(kZeroStateSuggestionsCentralization);
 
-// Returns true if zero-state suggestions should be executed in the AI Hub.
-bool IsZeroStateSuggestionsAIHubEnabled();
-
-// Returns true if zero-state suggestions should be executed in the Ask Gemini
-// overlay.
-bool IsZeroStateSuggestionsAskGeminiEnabled();
+// Returns true if centralization of zero-state suggestions is enabled.
+bool IsZeroStateSuggestionsCentralizationEnabled();
 
 // Feature flag to use the new refactored version of the page context extractor.
 // Acts as a killswitch where the feature is enabled by default.
@@ -237,6 +208,12 @@ BASE_DECLARE_FEATURE(kGeminiUpdatedEligibility);
 
 // Returns true if the updated eligibiliy checks for Gemini are enabled.
 bool IsGeminiUpdatedEligibilityEnabled();
+
+// Feature flag to enable the updated Gemini consent.
+BASE_DECLARE_FEATURE(kGeminiUpdatedConsent);
+
+// Returns true if the updated Gemini consent is enabled.
+bool IsGeminiUpdatedConsentEnabled();
 
 // Feature flag for enabling the image remixing tool in the Gemini floaty.
 BASE_DECLARE_FEATURE(kGeminiImageRemixTool);
@@ -278,8 +255,6 @@ double GetGeminiCopresenceResponseReadyInterval();
 
 // Feature parameter for kGeminiCopresence to skip checking for a Search
 // Related Page.
-extern const char kGeminiCopresenceSRPCheck[];
-bool IsGeminiCopresenceSRPCheckEnabled();
 
 // Returns true if the Gemini chat persistence is enabled.
 bool IsGeminiChatPersistenceEnabled();
@@ -303,12 +278,20 @@ bool IsGeminiResponseViewDynamicResizingEnabled();
 BASE_DECLARE_FEATURE(kGeminiDynamicSettings);
 bool IsGeminiDynamicSettingsEnabled();
 
+// Feature flag for enabling early metrics collection for page stability.
+BASE_DECLARE_FEATURE(kPageStabilityMetrics);
+bool IsPageStabilityMetricsEnabled();
+base::TimeDelta GetPageStabilityIntervalDuration();
+
 // Feature flag for Actor tools.
 BASE_DECLARE_FEATURE(kActorTools);
 bool IsActorEnabled();
 extern const char kActorToolsPageStabilityParam[];
 bool IsPageStabilityEnabled();
 base::TimeDelta GetActorObservationDelayTimeout();
+// Used to configure how long the PageStabilityMonitor in Chrome for iOS waits.
+base::TimeDelta GetActorPageStabilityMinWait();
+base::TimeDelta GetActorPageStabilityTimeout();
 
 // Returns true if the specified tool is disabled via the "DisabledTools"
 // feature parameter of the `kActorTools` feature.
@@ -386,6 +369,10 @@ BASE_DECLARE_FEATURE(kPageContextIPCOptimization);
 // Returns true if the PageContextIPCOptimization feature is enabled.
 bool IsPageContextIPCOptimizationEnabled();
 
+// Returns true if the actionable optimization is enabled within the IPC
+// optimization.
+bool IsPageContextIPCOptimizationActionableEnabled();
+
 // Enables the GeminiClientMigration feature.
 BASE_DECLARE_FEATURE(kGeminiClientMigration);
 
@@ -418,5 +405,35 @@ BASE_DECLARE_FEATURE(kGeneralizedGeminiEntryFlow);
 
 // Returns true if the generalized Gemini entry flow is enabled.
 bool IsGeneralizedGeminiEntryFlowEnabled();
+
+#pragma mark - Debugging Features
+
+// Holds the variations of the BWG Promo Consent flow for debugging.
+enum class BWGPromoConsentVariations {
+  kDisabled = 0,
+  kSinglePage = 1,
+  kDoublePage = 2,
+  kSkipConsent = 3,
+  kForceFRE = 4,
+  kSkipNewUserDelay = 5,
+};
+extern const char kBWGPromoConsentParams[];
+
+// Returns the variation of the BWG Promo Consent flow.
+BWGPromoConsentVariations BWGPromoConsentVariationsParam();
+
+// Returns YES if the promo should be forced.
+bool ShouldForceBWGPromo();
+
+// Returns YES if the Chrome FRE recency check should be skipped when evaluating
+// whether to show the Gemini on-navigation promo.
+bool ShouldSkipBWGPromoNewUserDelay();
+
+// Feature flag to enable BWG Promo Consent for debugging.
+BASE_DECLARE_FEATURE(kBWGPromoConsent);
+
+// Feature flag to enable the ActorServiceLogging feature for debugging.
+BASE_DECLARE_FEATURE(kActorServiceLogging);
+bool IsActorServiceLoggingEnabled();
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

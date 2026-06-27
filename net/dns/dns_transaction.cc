@@ -257,26 +257,6 @@ class DnsOverHttpsProbeRunner : public DnsProbeRunner {
       return;
     }
 
-    // Also cancel the probe sequence if the DoH config corresponds to DoH
-    // fallback upgrade mode but the functionality is disabled. Note that this
-    // means that if the value of `context_->doh_fallback_upgrade_allowed()`
-    // changes the user will have to wait for a network change event or restart
-    // to have DoH auto-upgrade enabled, but this is acceptable since this
-    // approach to disabling is only intended to be used for a brief duration
-    // experiment. It's important to check the feature flag last because of how
-    // we plan to conduct an experiment enabling the functionality.
-    // TODO(crbug.com/490045356): Remove the `doh_fallback_upgrade_allowed()`
-    // check and the kForceSecureDnsDohFallback feature flag check once the
-    // experiment has concluded and kBundledSecuritySettingsSecureDnsV2 has been
-    // enabled by default.
-    if (context_->IsDohConfigFromFallbackDohNameservers() &&
-        (!context_->doh_fallback_upgrade_allowed() ||
-         !base::FeatureList::IsEnabled(
-             net::features::kForceSecureDnsDohFallback))) {
-      probe_stats_list_[doh_server_index] = nullptr;
-      return;
-    }
-
     // Schedule a new probe assuming this one will fail. The newly scheduled
     // probe will not run if an earlier probe has already succeeded. Probes may
     // take awhile to fail, which is why we schedule the next one here rather
@@ -432,6 +412,7 @@ class DnsTransactionImpl final : public DnsTransaction {
     if (!callback_.is_null()) {
       net_log_.EndEventWithNetErrorCode(NetLogEventType::DNS_TRANSACTION,
                                         ERR_ABORTED);
+      RecordLookupResult(ERR_ABORTED);
     }  // otherwise logged in DoCallback or Start
   }
 
@@ -575,12 +556,54 @@ class DnsTransactionImpl final : public DnsTransaction {
     net_log_.EndEventWithNetErrorCode(NetLogEventType::DNS_TRANSACTION,
                                       result.rv);
 
+    RecordLookupResult(result.rv);
+
     std::move(callback_).Run(result.rv, response);
   }
 
   void RecordAttemptUma(DnsAttemptType attempt_type) {
     UMA_HISTOGRAM_ENUMERATION("Net.DNS.DnsTransaction.AttemptType",
                               attempt_type);
+  }
+
+  void RecordLookupResult(int net_error) {
+    CHECK_NE(ERR_IO_PENDING, net_error);
+    std::string_view histogram_base;
+    switch (qtype_) {
+      case dns_protocol::kTypeA:
+        histogram_base = "Net.DNS.DnsTransaction.A.LookupResult";
+        break;
+      case dns_protocol::kTypeAAAA:
+        histogram_base = "Net.DNS.DnsTransaction.AAAA.LookupResult";
+        break;
+      case dns_protocol::kTypeHttps:
+        histogram_base = "Net.DNS.DnsTransaction.HTTPS.LookupResult";
+        break;
+      default:
+        // We currently only record results for A, AAAA, and HTTPS queries.
+        return;
+    }
+    net_error = -net_error;
+    base::UmaHistogramSparse(histogram_base, net_error);
+    switch (attempt_mode_) {
+      case DnsTransactionFactory::AttemptMode::kClassic:
+        base::UmaHistogramSparse(base::StrCat({histogram_base, ".Classic"}),
+                                 net_error);
+        if (had_tcp_retry_) {
+          base::UmaHistogramSparse(
+              base::StrCat({histogram_base, ".ClassicTruncatedAndTcpRetried"}),
+              net_error);
+        }
+        break;
+      case DnsTransactionFactory::AttemptMode::kHttp:
+        base::UmaHistogramSparse(base::StrCat({histogram_base, ".DoH"}),
+                                 net_error);
+        break;
+      case DnsTransactionFactory::AttemptMode::kPlatform:
+        base::UmaHistogramSparse(base::StrCat({histogram_base, ".Platform"}),
+                                 net_error);
+        break;
+    }
   }
 
   AttemptResult MakeAttempt() {
@@ -989,9 +1012,7 @@ class DnsTransactionImpl final : public DnsTransaction {
         timeout = resolve_context_->ClassicTransactionTimeout(session_.get());
         break;
       case DnsTransactionFactory::AttemptMode::kPlatform:
-        // TODO(crbug.com/493024959): Consider whether this should be changed to
-        // a platform specific value.
-        timeout = features::kDnsMinTransactionTimeout.Get();
+        timeout = resolve_context_->PlatformTransactionTimeout(session_.get());
         break;
       default:
         NOTREACHED();
@@ -1024,9 +1045,9 @@ class DnsTransactionImpl final : public DnsTransaction {
         &DnsTransactionImpl::OnAttemptComplete, base::Unretained(this),
         attempt_number, /*record_rtt=*/false, base::TimeTicks::Now()));
     if (rv == ERR_IO_PENDING) {
-      // TODO(crbug.com/493024959): Consider whether this should be changed to
-      // a platform specific value.
-      timer_.Start(FROM_HERE, features::kDnsMinTransactionTimeout.Get(), this,
+      base::TimeDelta fallback_period =
+          resolve_context_->NextPlatformFallbackPeriod(session_.get());
+      timer_.Start(FROM_HERE, fallback_period, this,
                    &DnsTransactionImpl::OnFallbackPeriodExpired);
     }
     return AttemptResult(rv, attempt);

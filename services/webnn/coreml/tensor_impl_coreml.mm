@@ -26,12 +26,12 @@
 #include "services/webnn/coreml/context_impl_coreml.h"
 #include "services/webnn/coreml/utils_coreml.h"
 #include "services/webnn/error.h"
+#include "services/webnn/gpu_task_scheduler.h"
 #include "services/webnn/public/cpp/operand_descriptor.h"
 #include "services/webnn/public/cpp/webnn_trace.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
 #include "services/webnn/queueable_resource_state.h"
 #include "services/webnn/resource_task.h"
-#include "services/webnn/scoped_gpu_sequence.h"
 
 namespace webnn::coreml {
 
@@ -380,15 +380,14 @@ void TensorImplCoreml::ExportTensorImpl(ScopedAccessPtr access) {
   NOTREACHED();
 }
 
-void TensorImplCoreml::ExportTensor(uint64_t flow_id,
-                                    const gpu::SyncToken& release) {
+void TensorImplCoreml::ExportTensor(uint64_t flow_id, uint64_t release_count) {
   // Since we currently depend on `ResourceTask`, we can't support the
   // asynchronous `ExportTensor`.
   NOTIMPLEMENTED();
 }
 
 void TensorImplCoreml::ExportTensorSync(uint64_t flow_id,
-                                        const gpu::SyncToken& release,
+                                        uint64_t release_count,
                                         ExportTensorSyncCallback callback) {
   ScopedTrace scoped_trace("TensorImplCoreml::ExportTensorSync");
 
@@ -397,11 +396,23 @@ void TensorImplCoreml::ExportTensorSync(uint64_t flow_id,
     return;
   }
 
+  if (!context_->gpu_task_scheduler()) {
+    GetMojoReceiver().ReportBadMessage(kBadMessageInvalidTensor);
+    return;
+  }
+
+  gpu::SyncToken release;
+  if (release_count != 0) {
+    release = gpu::SyncToken(
+        context_->gpu_task_scheduler()->namespace_id(),
+        context_->gpu_task_scheduler()->command_buffer_id(), release_count);
+  }
+
   // Ensure the Mojo callback is posted back to the task runner. Running
   // it directly on the GPU sequence can violate Mojo's sequence checks,
   // even if executing on the same thread.
   auto mojo_callback_wrapper = base::BindPostTask(
-      context_->task_runner(),
+      context_->mojo_task_runner(),
       base::BindOnce(
           [](ExportTensorSyncCallback callback, ScopedTrace scoped_trace,
              uint64_t flow_id) {

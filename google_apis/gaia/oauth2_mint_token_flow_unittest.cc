@@ -38,8 +38,10 @@
 using testing::_;
 using testing::AllOf;
 using testing::ByRef;
+using testing::ElementsAre;
 using testing::Eq;
 using testing::Field;
+using testing::IsEmpty;
 using testing::StrictMock;
 
 namespace {
@@ -487,6 +489,17 @@ class OAuth2MintTokenFlowTest : public testing::Test {
                         bound_oauth_token, use_mtls_endpoints));
   }
 
+  void CreateClientFlowWithUpgradeEligibility(
+      bool check_bound_token_upgrade_eligibility) {
+    const std::string_view kDeviceId = "test_device_id";
+    auto params = OAuth2MintTokenFlow::Parameters::CreateForClientFlow(
+        kClientId, kScopes, kVersion, kChannel, kDeviceId,
+        /*bound_oauth_token=*/"", /*use_mtls_endpoints=*/false);
+    params.check_bound_token_upgrade_eligibility =
+        check_bound_token_upgrade_eligibility;
+    flow_ = std::make_unique<MockMintTokenFlow>(&delegate_, std::move(params));
+  }
+
   void ProcessApiCallSuccess(const network::mojom::URLResponseHead* head,
                              std::optional<std::string> body) {
     flow_->ProcessApiCallSuccess(head, std::move(body));
@@ -752,6 +765,88 @@ TEST_F(OAuth2MintTokenFlowTest, ParseMintTokenResponseEncryptedToken) {
       testing::Optional(HasMintTokenResult(
           "at1", std::set<std::string>({"http://scope1", "http://scope2"}),
           base::Seconds(3600), true)));
+}
+
+TEST_F(OAuth2MintTokenFlowTest, CreateApiCallBodyUpgradeEligibility) {
+  CreateClientFlowWithUpgradeEligibility(true);
+  std::string body = flow_->CreateApiCallBody();
+  std::string expected_body(
+      "force=false"
+      "&response_type=token"
+      "&scope=http://scope1+http://scope2"
+      "&enable_granular_permissions=false"
+      "&client_id=client1"
+      "&lib_ver=test_version"
+      "&release_channel=test_channel"
+      "&device_id=test_device_id"
+      "&device_type=chrome"
+      "&check_bound_token_upgrade_eligibility=true");
+  EXPECT_EQ(expected_body, body);
+}
+
+TEST_F(OAuth2MintTokenFlowTest, ParseMintTokenResponseBoundTokenUpgradeInfo) {
+  static constexpr std::string_view kValidTokenResponseBoundTokenUpgradeInfo =
+      R"({
+        "token": "at1",
+        "issueAdvice": "Auto",
+        "expiresIn": "3600",
+        "grantedScopes": "http://scope1 http://scope2",
+        "boundTokenUpgradeInfo": {
+          "challenge": "test_challenge",
+          "supportedAlgorithms": ["ES256", "RS256", "UNSUPPORTED"]
+        }
+       })";
+  base::DictValue json =
+      base::test::ParseJsonDict(kValidTokenResponseBoundTokenUpgradeInfo);
+  auto result = ParseMintTokenResponse(json);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->bound_token_upgrade_challenge, "test_challenge");
+  EXPECT_THAT(result->bound_token_upgrade_supported_algorithms,
+              ElementsAre(crypto::SignatureVerifier::ECDSA_SHA256,
+                          crypto::SignatureVerifier::RSA_PKCS1_SHA256));
+}
+
+TEST_F(OAuth2MintTokenFlowTest,
+       ParseMintTokenResponseBoundTokenUpgradeInfoDefaultAlgorithms) {
+  static constexpr std::string_view kValidTokenResponseBoundTokenUpgradeInfo =
+      R"({
+        "token": "at1",
+        "issueAdvice": "Auto",
+        "expiresIn": "3600",
+        "grantedScopes": "http://scope1 http://scope2",
+        "boundTokenUpgradeInfo": {
+          "challenge": "test_challenge"
+        }
+       })";
+  base::DictValue json =
+      base::test::ParseJsonDict(kValidTokenResponseBoundTokenUpgradeInfo);
+  auto result = ParseMintTokenResponse(json);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->bound_token_upgrade_challenge, "test_challenge");
+  EXPECT_THAT(result->bound_token_upgrade_supported_algorithms,
+              ElementsAre(crypto::SignatureVerifier::ECDSA_SHA256,
+                          crypto::SignatureVerifier::RSA_PKCS1_SHA256));
+}
+
+TEST_F(OAuth2MintTokenFlowTest,
+       ParseMintTokenResponseBoundTokenUpgradeInfoEmptyAlgorithms) {
+  static constexpr std::string_view kValidTokenResponseBoundTokenUpgradeInfo =
+      R"({
+        "token": "at1",
+        "issueAdvice": "Auto",
+        "expiresIn": "3600",
+        "grantedScopes": "http://scope1 http://scope2",
+        "boundTokenUpgradeInfo": {
+          "challenge": "test_challenge",
+          "supportedAlgorithms": ["UNSUPPORTED"]
+        }
+       })";
+  base::DictValue json =
+      base::test::ParseJsonDict(kValidTokenResponseBoundTokenUpgradeInfo);
+  auto result = ParseMintTokenResponse(json);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->bound_token_upgrade_challenge, "test_challenge");
+  EXPECT_THAT(result->bound_token_upgrade_supported_algorithms, IsEmpty());
 }
 
 TEST_F(OAuth2MintTokenFlowTest, ParseRemoteConsentResponse) {

@@ -1707,7 +1707,7 @@ AXNode* AXTree::CreateNode(AXNode* parent,
   [[maybe_unused]] bool inserted =
       id_map_.try_emplace(id, std::move(node)).second;
   // There should not have been a node already in the map with the same id.
-  DCHECK(inserted);
+  CHECK(inserted);
   return node_raw;
 }
 
@@ -1770,8 +1770,10 @@ bool AXTree::ComputePendingChanges(const AXTreeUpdate& update,
   // on the tree during the update.
   int number_of_inline_textboxes = 0;
   for (const AXNodeData& new_data : update_state->pending_tree_update->nodes) {
-    if (new_data.id == kInvalidAXNodeID)
-      continue;
+    if (new_data.id == kInvalidAXNodeID) {
+      RecordError(*update_state, "Node ID is invalid.");
+      return false;
+    }
     bool is_new_root =
         update_state->root_will_be_created && new_data.id == update.root_id;
     if (!ComputePendingChangesToNode(new_data, is_new_root, update_state)) {
@@ -1805,6 +1807,10 @@ bool AXTree::ComputePendingChangesToNode(const AXNodeData& new_data,
   // unignored index in parent.
   size_t j = 0;
   for (auto child_id : new_data.child_ids) {
+    if (child_id == kInvalidAXNodeID) {
+      RecordError(*update_state, "Child ID is invalid.");
+      return false;
+    }
     if (const AXNode* node = GetFromId(child_id);
         node && node->GetIndexInParent() != j) {
       update_state->InvalidateParentNodeUnignoredCacheValues(node->id());
@@ -3080,6 +3086,20 @@ std::optional<int> AXTree::GetSetSize(const AXNode& node) {
       node_set_size_pos_in_set_info_map_[node.id()].set_size =
           controlled_item_set_size;
       return controlled_item_set_size;
+    }
+
+    // We want screen readers to announce buttons that pop up a menulist as
+    // pop up buttons. That means exposing their role to kPopUpButton. But
+    // for elements with the kPopUpButton role that aren't linked
+    // to their popups (via aria-controls), the set size calculation returns 0.
+    // <menulist>s aren't linked to their invoker buttons, and we don't want the
+    // invoker buttons to have a setsize anyway, so just return null here,
+    // making the <menulist>-invoking buttons have a setsize property at all.
+    // Unlinked explicit popup buttons get caught here too, but exposing no
+    // setsize for <button aria-haspopup="menu">button</button> seems fine.
+    if (node.GetRole() == ax::mojom::Role::kPopUpButton) {
+      node_set_size_pos_in_set_info_map_[node.id()].set_size = std::nullopt;
+      return std::nullopt;
     }
   }
 

@@ -5,15 +5,21 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_SUGGESTIONS_SUGGESTION_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_SUGGESTIONS_SUGGESTION_H_
 
-#include <cstdint>
+#include <stdint.h>
+
+#include <map>
 #include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <variant>
+#include <vector>
 
+#include "base/check.h"
+#include "base/containers/span.h"
+#include "base/dcheck_is_on.h"
+#include "base/feature.h"
 #include "base/feature_list.h"
-#include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
@@ -25,7 +31,6 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/autofill/core/common/unique_ids.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
 
@@ -189,8 +194,11 @@ struct Suggestion {
     // `std::string` is used to store the `CreditCard::guid_`.
     // TODO(crbug.com/505251083): Replace `std::string` with `CreditCard::Guid`
     // once its added.
-    using Identifier = std::
-        variant<std::monostate, Iban::Guid, Iban::InstrumentId, std::string>;
+    using Identifier = std::variant<std::monostate,
+                                    Iban::Guid,
+                                    Iban::InstrumentId,
+                                    std::string,
+                                    EntityInstance::EntityId>;
 
     AtMemoryPayload();
     // `value` is the value to be shown in the suggestion UI and the preview.
@@ -398,6 +406,7 @@ struct Suggestion {
     kSaveAndFill,
     kAndroidMessages,
     kSpark,
+    kSadTab,
   };
 
   // This enum is used to control filtration of suggestions (see it's used in
@@ -574,11 +583,6 @@ struct Suggestion {
   // This is the icon which is shown on the side of a suggestion.
   // If |custom_icon| is empty, the fallback built-in icon.
   Icon icon = Icon::kNoIcon;
-
-#if BUILDFLAG(IS_IOS)
-  // Indicates whether the suggestion has a custom card art image.
-  bool has_custom_card_art_image = false;
-#endif  // BUILDFLAG(IS_IOS)
 
   // An icon that appears after the suggestion in the suggestion view. For
   // passwords, this icon string shows whether the suggestion originates from

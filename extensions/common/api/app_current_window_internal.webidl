@@ -104,7 +104,6 @@ interface CurrentWindowInternal {
   static undefined setIcon(DOMString icon_url);
   static undefined setShape(Region region);
   static undefined setAlwaysOnTop(boolean always_on_top);
-  static undefined setResizable(boolean resizable);
   static undefined setVisibleOnAllWorkspaces(boolean always_visible);
   static undefined setActivateOnPointer(boolean activate_on_pointer);
 

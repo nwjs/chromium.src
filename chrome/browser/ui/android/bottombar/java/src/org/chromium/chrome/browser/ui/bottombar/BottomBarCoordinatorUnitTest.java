@@ -15,7 +15,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
-import android.content.res.ColorStateList;
 import android.view.View;
 import android.widget.FrameLayout;
 
@@ -43,6 +42,7 @@ import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionProperties;
 import org.chromium.chrome.browser.ui.actions.ActionRegistry;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -62,6 +62,7 @@ public class BottomBarCoordinatorUnitTest {
     @Mock private ThemeColorProvider mThemeColorProvider;
     @Mock private BottomBarMediator.VisibilityDelegate mVisibilityDelegate;
     @Mock private Profile mProfile;
+    @Mock private UserEducationHelper mUserEducationHelper;
 
     private final SettableNullableObservableSupplier<Tab> mTabSupplier =
             ObservableSuppliers.createNullable();
@@ -81,6 +82,7 @@ public class BottomBarCoordinatorUnitTest {
     private Activity mActivity;
     private FrameLayout mParent;
     private SettableNonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
+    private SettableNonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     private BottomBarCoordinator mCoordinator;
 
     @Before
@@ -98,23 +100,26 @@ public class BottomBarCoordinatorUnitTest {
         mActivity = activity;
         mParent = new FrameLayout(mActivity);
         mHomepageEnabledSupplier = ObservableSuppliers.createNonNull(true);
+        mOmniboxFocusStateSupplier = ObservableSuppliers.createNonNull(false);
         mProfileSupplier.set(mProfile);
         mCoordinator =
                 new BottomBarCoordinator(
                         mParent,
+                        mUserEducationHelper,
                         mActionRegistry,
                         mThemeColorProvider,
                         mTabSupplier,
                         mHomepageEnabledSupplier,
                         mVisibilityDelegate,
-                        mProfileSupplier);
+                        mProfileSupplier,
+                        mOmniboxFocusStateSupplier);
     }
 
     @Test
     public void testInitialization_bindsAction() {
         assertNotNull(mCoordinator);
         verify(mActionRegistry, times(2)).get(ActionId.NEW_TAB);
-        verify(mActionRegistry, times(2)).get(ActionId.TAB_SWITCHER);
+        verify(mActionRegistry, times(1)).get(ActionId.TAB_SWITCHER);
     }
 
     @Test
@@ -149,7 +154,7 @@ public class BottomBarCoordinatorUnitTest {
     @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":keep_home_button_in_toolbar/false")
     public void testInitialization_withHomeButton_bindsHomeButton() {
-        verify(mActionRegistry, times(2)).get(ActionId.HOME_BUTTON);
+        verify(mActionRegistry, times(1)).get(ActionId.HOME_BUTTON);
 
         View homeButton = mCoordinator.getView().findViewById(R.id.home_button);
         assertNotNull(homeButton);
@@ -170,10 +175,11 @@ public class BottomBarCoordinatorUnitTest {
     @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR + ":keep_app_menu_in_toolbar/false")
     public void testInitialization_withAppMenu_bindsAppMenu() {
-        verify(mActionRegistry, times(2)).get(ActionId.APP_MENU);
+        verify(mActionRegistry, times(1)).get(ActionId.APP_MENU);
 
         View menuButton = mCoordinator.getView().findViewById(R.id.app_menu_button);
         assertNotNull(menuButton);
+        assertEquals(true, menuButton.getTag(R.id.is_bottom_bar_menu_anchor));
     }
 
     @Test
@@ -194,24 +200,33 @@ public class BottomBarCoordinatorUnitTest {
     }
 
     @Test
-    public void testUpdateIconColors() {
-        PropertyModel actionModel = new PropertyModel.Builder(ActionProperties.ALL_KEYS).build();
-        mActionSupplier.set(actionModel);
-        mCoordinator =
-                new BottomBarCoordinator(
-                        mParent,
-                        mActionRegistry,
-                        mThemeColorProvider,
-                        mTabSupplier,
-                        mHomepageEnabledSupplier,
-                        mVisibilityDelegate,
-                        mProfileSupplier);
+    public void testOmniboxFocusHidesBottomBar() {
+        // Initially not focused, should be visible.
+        verify(mVisibilityDelegate).onVisibilityChanged(true);
 
-        ColorStateList expectedTint =
-                BottomBarUtils.getIconColorStateList(mActivity, BrandedColorScheme.APP_DEFAULT);
+        // Focus omnibox, should hide.
+        mOmniboxFocusStateSupplier.set(true);
+        verify(mVisibilityDelegate).onVisibilityChanged(false);
 
-        assertEquals(
-                String.valueOf(expectedTint),
-                String.valueOf(actionModel.get(ActionProperties.ICON_TINT)));
+        // Unfocus omnibox, should show again.
+        mOmniboxFocusStateSupplier.set(false);
+        verify(mVisibilityDelegate, times(2)).onVisibilityChanged(true);
+    }
+
+    @Test
+    public void testIphSetup_setsPropertiesOnModels() {
+        PropertyModel glicModel = new PropertyModel.Builder(ActionProperties.BASE_KEYS).build();
+        PropertyModel newTabModel = new PropertyModel.Builder(ActionProperties.BASE_KEYS).build();
+
+        mGlicActionSupplier.set(glicModel);
+        mActionSupplier.set(newTabModel);
+
+        // Verify USER_EDUCATION_HELPER is set on both.
+        assertEquals(mUserEducationHelper, glicModel.get(ActionProperties.USER_EDUCATION_HELPER));
+        assertEquals(mUserEducationHelper, newTabModel.get(ActionProperties.USER_EDUCATION_HELPER));
+
+        // Verify IPH_INTENT is set on both.
+        assertNotNull(glicModel.get(ActionProperties.IPH_INTENT));
+        assertNotNull(newTabModel.get(ActionProperties.IPH_INTENT));
     }
 }

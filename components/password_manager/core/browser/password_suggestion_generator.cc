@@ -71,16 +71,11 @@ std::u16string ReplaceEmptyUsername(const std::u16string& username,
 Suggestion CreatePasskeyFromAnotherDeviceEntry(bool listed_passkeys) {
   int title_id;
 #if !BUILDFLAG(IS_IOS)
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::
-              kAutofillReintroduceHybridPasskeyDropdownItem)) {
-    title_id = IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE;
-  } else
+  title_id = IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE;
+#else
+  title_id = listed_passkeys ? IDS_PASSWORD_MANAGER_USE_DIFFERENT_PASSKEY
+                             : IDS_PASSWORD_MANAGER_USE_PASSKEY;
 #endif  // !BUILDFLAG(IS_IOS)
-  {
-    title_id = listed_passkeys ? IDS_PASSWORD_MANAGER_USE_DIFFERENT_PASSKEY
-                               : IDS_PASSWORD_MANAGER_USE_PASSKEY;
-  }
   return Suggestion(l10n_util::GetStringUTF16(title_id),
                     /*label=*/u"", Suggestion::Icon::kDevice,
                     SuggestionType::kWebauthnSignInWithAnotherDevice);
@@ -368,23 +363,6 @@ void RecordPendingStatePromoHistogram(FillingReauthPromoShown sample) {
 
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
-bool ShowPasskeysFromAnotherDeviceInAutofill() {
-#if BUILDFLAG(IS_IOS)
-  return true;
-#else
-  // Show the hybrid passkey item if the context menu experiment (which moves
-  // this option) is not enabled, or if the feature to reintroduce it to the
-  // dropdown is explicitly enabled.
-  return !base::FeatureList::IsEnabled(
-             password_manager::features::
-                 kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu) ||
-         base::FeatureList::IsEnabled(
-             password_manager::features::
-                 kAutofillReintroduceHybridPasskeyDropdownItem);
-#endif  // BUILDFLAG(IS_IOS)
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
 }  // namespace
 
 PasswordSuggestionGenerator::PasswordSuggestionGenerator(
@@ -615,8 +593,16 @@ PasswordSuggestionGenerator::GetManualFallbackSuggestions(
         ui_entry.stored_in.contains(PasswordForm::Store::kAccountStore);
     const bool favicon_can_be_requested_from_google =
         (is_sync_passwords_enabled || is_from_account) && !is_passphrase_user;
+    bool is_cross_domain = false;
+    if (base::FeatureList::IsEnabled(
+            password_manager::features::
+                kShowConfirmationForGroupedCredentials)) {
+      is_cross_domain = form.match_type.has_value() &&
+                        password_manager_util::GetMatchType(form) ==
+                            password_manager_util::GetLoginMatchType::kGrouped;
+    }
     AppendManualFallbackSuggestions(
-        ui_entry, on_password_form, IsCrossDomain(false),
+        ui_entry, on_password_form, IsCrossDomain(is_cross_domain),
         favicon_can_be_requested_from_google, &suggestions,
         Suggestion::FiltrationPolicy::kPresentOnlyWithoutFilter);
   }
@@ -673,8 +659,7 @@ PasswordSuggestionGenerator::GetWebauthnSignInWithAnotherDeviceSuggestion()
       password_client_->GetWebAuthnCredentialsDelegateForDriver(
           password_manager_driver_);
   if (!delegate || !delegate->GetPasskeys().has_value() ||
-      !delegate->IsSecurityKeyOrHybridFlowAvailable() ||
-      !ShowPasskeysFromAnotherDeviceInAutofill()) {
+      !delegate->IsSecurityKeyOrHybridFlowAvailable()) {
     return std::nullopt;
   }
   return CreatePasskeyFromAnotherDeviceEntry(

@@ -289,6 +289,11 @@ void FakeOnDeviceSession::GenerateImpl(
         "Adapter cache weight: " + model_->data().adapter_cache_weight;
     remote->OnResponse(std::move(chunk));
   }
+  if (!model_->data().shader_cache_data.empty()) {
+    auto chunk = mojom::ResponseChunk::New();
+    chunk->text = "Shader cache data: " + model_->data().shader_cache_data;
+    remote->OnResponse(std::move(chunk));
+  }
 
   if (priority_ == on_device_model::mojom::Priority::kBackground) {
     auto chunk = mojom::ResponseChunk::New();
@@ -459,10 +464,15 @@ void FakeOnDeviceModel::LoadAdaptation(
 FakeTsModel::FakeTsModel(
     on_device_model::mojom::TextSafetyModelParamsPtr params) {
   if (params->safety_assets) {
-    CHECK_EQ(ReadFile(params->safety_assets->get_ts_assets()->data),
-             FakeTsData());
-    CHECK_EQ(ReadFile(params->safety_assets->get_ts_assets()->sp_model),
-             FakeTsSpModel());
+    if (params->safety_assets->is_bs_assets()) {
+      CHECK_EQ(ReadFile(params->safety_assets->get_bs_assets()->model),
+               FakeTsData());
+    } else {
+      CHECK_EQ(ReadFile(params->safety_assets->get_ts_assets()->data),
+               FakeTsData());
+      CHECK_EQ(ReadFile(params->safety_assets->get_ts_assets()->sp_model),
+               FakeTsSpModel());
+    }
     has_safety_model_ = true;
   }
   if (params->language_assets) {
@@ -552,6 +562,9 @@ void FakeOnDeviceModelService::LoadModel(
   }
   if (params->assets.adapter_cache.IsValid()) {
     data.adapter_cache_weight = ReadFile(params->assets.adapter_cache);
+  }
+  if (params->assets.program_cache.IsValid()) {
+    data.shader_cache_data = ReadFile(params->assets.program_cache);
   }
   data.adaptation_ranks = params->adaptation_ranks;
   auto test_model = std::make_unique<FakeOnDeviceModel>(

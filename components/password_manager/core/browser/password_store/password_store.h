@@ -21,7 +21,6 @@
 #include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
-#include "components/password_manager/core/browser/affiliation/affiliated_match_helper.h"
 #include "components/password_manager/core/browser/password_form_digest.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend.h"
@@ -35,8 +34,6 @@ class DataTypeControllerDelegate;
 }  // namespace syncer
 
 namespace password_manager {
-
-struct PasswordForm;
 
 using metrics_util::GaiaPasswordHashChange;
 
@@ -56,27 +53,27 @@ class PasswordStore : public PasswordStoreInterface {
 
   // Always call this too on the UI thread.
   // TODO(crbug.com/40185648): Move initialization into the core interface, too.
-  void Init(std::unique_ptr<AffiliatedMatchHelper> affiliated_match_helper);
+  void Init();
 
   // RefcountedKeyedService:
   void ShutdownOnUIThread() override;
 
   // PasswordStoreInterface:
   ActionableError GetError() const override;
-  void AddLogin(const PasswordForm& form,
+  void AddLogin(StoredCredential form,
                 base::OnceClosure completion = base::DoNothing()) override;
-  void AddLogins(const std::vector<PasswordForm>& forms,
+  void AddLogins(std::vector<StoredCredential> forms,
                  base::OnceClosure completion = base::DoNothing()) override;
-  void UpdateLogin(const PasswordForm& form,
+  void UpdateLogin(StoredCredential form,
                    base::OnceClosure completion = base::DoNothing()) override;
-  void UpdateLogins(const std::vector<PasswordForm>& forms,
+  void UpdateLogins(std::vector<StoredCredential> forms,
                     base::OnceClosure completion = base::DoNothing()) override;
   void UpdateLoginWithPrimaryKey(
-      const PasswordForm& new_form,
-      const PasswordForm& old_primary_key,
+      StoredCredential new_form,
+      const StoredCredential& old_primary_key,
       base::OnceClosure completion = base::DoNothing()) override;
   void RemoveLogin(const base::Location& location,
-                   const PasswordForm& form) override;
+                   const StoredCredential& form) override;
   void RemoveLoginsCreatedBetween(const base::Location& location,
                                   base::Time delete_begin,
                                   base::Time delete_end,
@@ -166,8 +163,6 @@ class PasswordStore : public PasswordStoreInterface {
 
   // The observers.
   base::ObserverList<Observer, /*check_empty=*/true> observers_;
-
-  std::unique_ptr<AffiliatedMatchHelper> affiliated_match_helper_;
 
   base::Time construction_time_;
 

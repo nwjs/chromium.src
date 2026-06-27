@@ -63,7 +63,6 @@
 #include "chrome/browser/supervised_user/supervised_user_test_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -72,8 +71,10 @@
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/startup/startup_types.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/split_view_layout_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
@@ -108,6 +109,7 @@
 #include "components/lens/lens_metadata.mojom.h"
 #include "components/lens/lens_testing_utils.h"
 #include "components/pdf/browser/pdf_frame_util.h"
+#include "components/policy/core/browser/url_list/url_list_policy_pref_names.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/prefs/pref_service.h"
@@ -118,6 +120,7 @@
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "components/supervised_user/test_support/kids_management_api_server_mock.h"
+#include "components/tabs/public/split_tab_data.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
 #include "content/public/browser/browser_plugin_guest_manager.h"
@@ -130,6 +133,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -1510,6 +1514,41 @@ class DataControlsContextMenuBrowserTest : public ContextMenuBrowserTest {
     return menu;
   }
 
+  std::unique_ptr<TestRenderViewContextMenu> SetUpVideoAndCreateMenu(
+      const std::string& data_controls_rule) {
+    EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+
+    TemplateURLService* model =
+        TemplateURLServiceFactory::GetForProfile(browser()->profile());
+    EXPECT_NE(model, nullptr);
+    search_test_utils::WaitForTemplateURLServiceToLoad(model);
+
+    TemplateURLData data;
+    data.SetShortName(u"TestSearch");
+    data.SetKeyword(u"test.com");
+    data.SetURL("http://www.test.com/search?q={searchTerms}");
+    data.image_url = "http://www.test.com/searchbyimage/upload";
+    data.new_tab_url = "https://www.test.com/newtab";
+    TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
+    model->SetUserSelectedDefaultSearchProvider(template_url);
+
+    data_controls::SetDataControls(browser()->profile()->GetPrefs(),
+                                   {data_controls_rule});
+
+    content::ContextMenuParams params;
+    params.media_type = blink::mojom::ContextMenuDataMediaType::kVideo;
+    params.media_flags = blink::ContextMenuData::kMediaHasReadableVideoFrame;
+    params.src_url = GURL("https://www.example.com/video.mp4");
+    params.page_url = GURL("https://www.example.com/");
+
+    auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+    auto menu = std::make_unique<TestRenderViewContextMenu>(
+        *web_contents->GetPrimaryMainFrame(), params);
+    menu->SetBrowser(browser());
+    menu->Init();
+    return menu;
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -1550,6 +1589,55 @@ IN_PROC_BROWSER_TEST_F(DataControlsContextMenuBrowserTest,
   histogram_tester.ExpectUniqueSample(
       "Enterprise.DataControls.SearchWith.Verdict",
       data_controls::Rule::Level::kWarn, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(DataControlsContextMenuBrowserTest,
+                       DataControlsSearchWith_VideoBlock) {
+  auto menu = SetUpVideoAndCreateMenu(R"({
+                                   "name": "block_rule",
+                                   "rule_id": "123",
+                                   "sources": {
+                                     "urls": ["*"]
+                                   },
+                                   "restrictions": [
+                                     {"class": "CLIPBOARD", "level": "BLOCK"}
+                                   ]
+                                 })");
+
+  // Search items should be hidden by clipboard policy.
+  EXPECT_FALSE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME));
+}
+
+IN_PROC_BROWSER_TEST_F(DataControlsContextMenuBrowserTest,
+                       DataControlsSearchWith_VideoWarn) {
+  auto menu = SetUpVideoAndCreateMenu(R"({
+                                   "name": "warn_rule",
+                                   "rule_id": "123",
+                                   "sources": {
+                                     "urls": ["*"]
+                                   },
+                                   "restrictions": [
+                                     {"class": "CLIPBOARD", "level": "WARN"}
+                                   ]
+                                 })");
+
+  // Only the web search item should be visible because it's a non-Google
+  // provider and it's only a warning.
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME));
+  EXPECT_FALSE(
+      menu->IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
+
+  data_controls::DesktopDataControlsDialogTestHelper helper(
+      data_controls::DataControlsDialog::Type::kClipboardActionWarn);
+
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME,
+                       /*event_flags=*/0);
+
+  helper.WaitForDialogToInitialize();
+  helper.CloseDialogWithoutBypass();
+  helper.WaitForDialogToClose();
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
@@ -1798,7 +1886,9 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   EXPECT_EQ(title2, tab->GetLastCommittedURL());
   EXPECT_EQ(tab_strip_model->count(), 2);
   EXPECT_EQ(app_tab_strip_model->count(), 1);
-  EXPECT_TRUE(chrome::FindBrowserWithTab(tab)->is_type_normal());
+  EXPECT_TRUE(GlobalBrowserCollection::GetInstance()
+                  ->FindBrowserWithTab(tab)
+                  ->GetType() == BrowserWindowInterface::TYPE_NORMAL);
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
@@ -1839,10 +1929,13 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 
   EXPECT_EQ(title1, tab->GetLastCommittedURL());
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);
-  EXPECT_TRUE(chrome::FindBrowserWithTab(tab)->is_type_normal());
+  EXPECT_TRUE(GlobalBrowserCollection::GetInstance()
+                  ->FindBrowserWithTab(tab)
+                  ->GetType() == BrowserWindowInterface::TYPE_NORMAL);
 
-  TabStripModel* tab_strip_model =
-      chrome::FindBrowserWithTab(tab)->tab_strip_model();
+  TabStripModel* tab_strip_model = GlobalBrowserCollection::GetInstance()
+                                       ->FindBrowserWithTab(tab)
+                                       ->GetTabStripModel();
   EXPECT_EQ(app_tab_strip_model->count(), 1);
   EXPECT_EQ(tab_strip_model->count(), 1);
 }
@@ -3756,7 +3849,7 @@ IN_PROC_BROWSER_TEST_F(SubframeContextMenuBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(SubframeContextMenuBrowserTest,
                        SubframeExistingSplitInitiator) {
-  chrome::NewSplitTab(browser(),
+  chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kSideBySide,
                       split_tabs::SplitTabCreatedSource::kLinkContextMenu);
   browser()->tab_strip_model()->ActivateTabAt(0);
   RunSubframeInitiatorTestForCommand(IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW);
@@ -3789,16 +3882,6 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   EXPECT_FALSE(menu1->IsItemEnabled(IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD));
 }
 
-IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
-                       LinkPreviewInvisibleForIWALinks) {
-  std::unique_ptr<TestRenderViewContextMenu> menu1 =
-      CreateContextMenuMediaTypeNone(
-          /*unfiltered_url=*/GURL(
-              "isolated-app://"
-              "anayaszofsyqapbofoli7ljxoxkp32qkothweire2o6t7xy6taz6oaacai/"),
-          /*url=*/GURL(""));
-}
-
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, DoNotShowSplitTabInWebApp) {
   const GURL test_url("http://www.example.com/");
   const AppId app_id = InstallTestWebApp(GURL(kAppUrl1));
@@ -3827,6 +3910,46 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInNewSplitTab) {
   EXPECT_EQ(tab_strip_model->active_index(), 1);
   EXPECT_TRUE(tab_strip_model->GetActiveTab()->IsSplit());
   EXPECT_TRUE(tab_strip_model->GetTabAtIndex(0)->IsSplit());
+}
+
+// Regression test for crbug.com/511304744: crash in AddToSplitImpl when
+// OpenURL() returns nullptr (e.g., popup blocked, delegate unavailable).
+IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
+                       OpenLinkInSplitViewHandlesNullOpenURL) {
+  // A delegate that makes OpenURL() return nullptr, simulating a failed
+  // navigation (popup blocked, prerender abort, etc.).
+  class NullOpenURLDelegate : public content::WebContentsDelegate {
+   public:
+    content::WebContents* OpenURLFromTab(
+        content::WebContents* source,
+        const content::OpenURLParams& params,
+        base::OnceCallback<void(content::NavigationHandle&)> callback)
+        override {
+      return nullptr;
+    }
+  };
+
+  const GURL test_url("http://www.example.com/");
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(test_url, test_url);
+
+  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+  ASSERT_EQ(tab_strip_model->count(), 1);
+
+  // Swap delegate so OpenURL returns nullptr.
+  content::WebContents* web_contents = tab_strip_model->GetActiveWebContents();
+  NullOpenURLDelegate null_delegate;
+  web_contents->SetDelegate(&null_delegate);
+
+  // Without the fix, this crashes with null deref in AddToSplitImpl.
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW, 0);
+
+  // Restore the original delegate before teardown.
+  web_contents->SetDelegate(browser());
+
+  // No new tab was created, no split was formed.
+  EXPECT_EQ(tab_strip_model->count(), 1);
+  EXPECT_FALSE(tab_strip_model->GetActiveTab()->IsSplit());
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInNewPinnedSplitTab) {
@@ -3858,7 +3981,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInExistingSplitTab) {
   const GURL test_url("http://www.example.com/");
   TabStripModel* const tab_strip_model = browser()->tab_strip_model();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
-  chrome::NewSplitTab(browser(),
+  chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kSideBySide,
                       split_tabs::SplitTabCreatedSource::kLinkContextMenu);
   tab_strip_model->ActivateTabAt(0);
   ASSERT_NE(tab_strip_model->GetWebContentsAt(1)->GetURL(), test_url);
@@ -3887,7 +4010,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInExistingSplitTabRTL) {
   const GURL test_url("http://www.example.com/");
   TabStripModel* const tab_strip_model = browser()->tab_strip_model();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
-  chrome::NewSplitTab(browser(),
+  chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kSideBySide,
                       split_tabs::SplitTabCreatedSource::kLinkContextMenu);
   tab_strip_model->ActivateTabAt(0);
   ASSERT_NE(tab_strip_model->GetWebContentsAt(1)->GetURL(), test_url);
@@ -3902,6 +4025,106 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInExistingSplitTabRTL) {
   size_t index = model_and_index->second;
   EXPECT_EQ(model->GetLabelAt(index),
             l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_OPENLINKLEFTVIEW));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
+                       OpenLinkInExistingSplitTabBottom) {
+  const GURL test_url("http://www.example.com/");
+  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+  chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kStacked,
+                      split_tabs::SplitTabCreatedSource::kLinkContextMenu);
+  tab_strip_model->ActivateTabAt(0);
+  ASSERT_NE(tab_strip_model->GetWebContentsAt(1)->GetURL(), test_url);
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(test_url, test_url);
+
+  std::optional<std::pair<ui::MenuModel*, size_t>> model_and_index =
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW);
+  ASSERT_TRUE(model_and_index);
+  ui::MenuModel* model = model_and_index->first;
+  size_t index = model_and_index->second;
+  EXPECT_EQ(model->GetLabelAt(index),
+            l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_OPENLINKBOTTOMVIEW));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInExistingSplitTabTop) {
+  const GURL test_url("http://www.example.com/");
+  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+  chrome::NewSplitTab(browser(), split_tabs::SplitTabLayout::kStacked,
+                      split_tabs::SplitTabCreatedSource::kLinkContextMenu);
+  tab_strip_model->ActivateTabAt(1);
+  ASSERT_NE(tab_strip_model->GetWebContentsAt(1)->GetURL(), test_url);
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(test_url, test_url);
+
+  std::optional<std::pair<ui::MenuModel*, size_t>> model_and_index =
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW);
+  ASSERT_TRUE(model_and_index);
+  ui::MenuModel* model = model_and_index->first;
+  size_t index = model_and_index->second;
+  EXPECT_EQ(model->GetLabelAt(index),
+            l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_OPENLINKTOPVIEW));
+}
+
+class ContextMenuSplitViewHorizontalDirectAccessBrowserTest
+    : public ContextMenuBrowserTest {
+ public:
+  ContextMenuSplitViewHorizontalDirectAccessBrowserTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{tabs::kSplitViewHorizontal,
+                               {{"split_view_horizontal_direct_access",
+                                 "true"}}}},
+        /*disabled_features=*/{});
+  }
+
+  void TestOpenLinkNewSplit(size_t index,
+                            SplitViewLayoutMenuModel::CommandId command_id,
+                            split_tabs::SplitTabLayout expected_layout) {
+    const GURL test_url("http://www.example.com/");
+    TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+    ASSERT_EQ(tab_strip_model->count(), 1);
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+
+    std::unique_ptr<TestRenderViewContextMenu> menu =
+        CreateContextMenuMediaTypeNone(test_url, test_url);
+
+    std::optional<std::pair<ui::MenuModel*, size_t>> model_and_index =
+        menu->GetMenuModelAndItemIndex(static_cast<int>(command_id));
+    ASSERT_TRUE(model_and_index);
+    auto [submenu, _] = model_and_index.value();
+
+    EXPECT_EQ(2u, submenu->GetItemCount());
+    EXPECT_EQ(static_cast<int>(command_id), submenu->GetCommandIdAt(index));
+    submenu->ActivatedAt(index);
+
+    EXPECT_EQ(tab_strip_model->count(), 2);
+    EXPECT_TRUE(tab_strip_model->GetActiveTab()->GetSplit().has_value());
+    EXPECT_EQ(
+        expected_layout,
+        tab_strip_model
+            ->GetSplitData(tab_strip_model->GetActiveTab()->GetSplit().value())
+            ->visual_data()
+            ->split_layout());
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextMenuSplitViewHorizontalDirectAccessBrowserTest,
+                       OpenLinkNewSplitSideBySide) {
+  TestOpenLinkNewSplit(0, SplitViewLayoutMenuModel::CommandId::kSideBySide,
+                       split_tabs::SplitTabLayout::kSideBySide);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextMenuSplitViewHorizontalDirectAccessBrowserTest,
+                       OpenLinkNewSplitStacked) {
+  TestOpenLinkNewSplit(1, SplitViewLayoutMenuModel::CommandId::kStacked,
+                       split_tabs::SplitTabLayout::kStacked);
 }
 
 }  // namespace

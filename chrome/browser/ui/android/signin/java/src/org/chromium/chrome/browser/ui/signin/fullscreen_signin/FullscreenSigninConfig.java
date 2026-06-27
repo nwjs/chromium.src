@@ -10,6 +10,7 @@ import androidx.annotation.DrawableRes;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninSurveyController;
 
 import java.util.Objects;
@@ -23,6 +24,8 @@ public final class FullscreenSigninConfig {
     public final @DrawableRes int logoId;
     public final boolean shouldDisableSignin;
     public final @Nullable @SigninSurveyController.SigninSurveyType Integer signinSurveyType;
+    public final @Nullable String selectedAccountEmail;
+    public final @SigninAndHistorySyncCoordinator.SigninFlow int signinFlow;
 
     /**
      * Constructor of FullscreenSigninConfig.
@@ -35,6 +38,10 @@ public final class FullscreenSigninConfig {
      * @param shouldDisableSignin Whether the sign-in should always be disabled for sign-in flows
      *     started by the caller. The sign-in screen will show a generic title and a continue
      *     button.
+     * @param surveyType The survey type to use for the sign-in flow.
+     * @param selectedAccountEmail the email of the account to auto-select in the sign-in flow.
+     * @param signinFlow The {@link SigninAndHistorySyncCoordinator.SigninFlow} for the sign-in
+     *     routine.
      */
     public FullscreenSigninConfig(
             String title,
@@ -42,16 +49,24 @@ public final class FullscreenSigninConfig {
             String dismissText,
             @DrawableRes int logoId,
             boolean shouldDisableSignin,
-            @Nullable @SigninSurveyController.SigninSurveyType Integer surveyType) {
+            @Nullable @SigninSurveyController.SigninSurveyType Integer surveyType,
+            @Nullable String selectedAccountEmail,
+            @SigninAndHistorySyncCoordinator.SigninFlow int signinFlow) {
         assert !TextUtils.isEmpty(title);
         assert !TextUtils.isEmpty(subtitle);
         assert !TextUtils.isEmpty(dismissText);
+        // TODO(crbug.com/512202548): Replace with two separate builders with one having a mandatory
+        // email string for the account switch flow.
+        assert signinFlow != SigninAndHistorySyncCoordinator.SigninFlow.SWITCH_ACCOUNT
+                || selectedAccountEmail != null;
         this.title = title;
         this.subtitle = subtitle;
         this.dismissText = dismissText;
         this.logoId = logoId;
         this.shouldDisableSignin = shouldDisableSignin;
         this.signinSurveyType = surveyType;
+        this.selectedAccountEmail = selectedAccountEmail;
+        this.signinFlow = signinFlow;
     }
 
     @Override
@@ -66,11 +81,21 @@ public final class FullscreenSigninConfig {
                 && Objects.equals(dismissText, other.dismissText)
                 && logoId == other.logoId
                 && shouldDisableSignin == other.shouldDisableSignin
-                && Objects.equals(signinSurveyType, other.signinSurveyType);
+                && Objects.equals(signinSurveyType, other.signinSurveyType)
+                && Objects.equals(selectedAccountEmail, other.selectedAccountEmail)
+                && signinFlow == other.signinFlow;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(title, subtitle, dismissText, logoId, shouldDisableSignin);
+        return Objects.hash(
+                title,
+                subtitle,
+                dismissText,
+                logoId,
+                shouldDisableSignin,
+                signinSurveyType,
+                selectedAccountEmail,
+                signinFlow);
     }
 }

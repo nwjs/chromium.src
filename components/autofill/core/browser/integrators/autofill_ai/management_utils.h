@@ -9,8 +9,13 @@
 
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/common/dense_set.h"
 
 namespace autofill {
+
+// Returns the i18n string representation of the "<entity type>s". For example,
+// for passport for "en-US", this function should return "Passports".
+std::string GetEntityTypeSectionTitleStringForI18n(EntityType entity_type);
 
 // Returns the i18n string representation of "Add <entity type>". For example,
 // for a passport for "en-US", this function should return "Add passport".

@@ -6,11 +6,13 @@ source_set("dictation") {
   public = [
     "dictation_keyed_service.h",
     "dictation_keyed_service_factory.h",
+    "features.h",
     "session_controller.h",
     "session_controller_delegate.h",
+    "session_ui.h",
+    "session_ui_delegate.h",
     "stream_provider.h",
     "target.h",
-    "ui.h",
   ]
   public_deps = [
     "//base",
@@ -23,14 +25,20 @@ source_set("impl") {
     "dictation_keyed_service.cc",
     "dictation_keyed_service_factory.cc",
     "features.cc",
-    "features.h",
     "session_controller.cc",
+    "session_ui_impl.cc",
+    "session_ui_impl.h",
   ]
 
   deps = [
     ":dictation",
     "//base",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/views/interaction",
     "//content/public/browser",
+    "//ui/views",
   ]
 }
 
@@ -60,13 +68,17 @@ source_set("unit_tests") {
     ":impl",
     ":test_support",
     "//base/test:test_support",
+    "//chrome/browser/ui:test_support",
   ]
 }
 
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-  sources = [ "dictation_keyed_service_browsertest.cc" ]
+  sources = [
+    "dictation_keyed_service_browsertest.cc",
+    "session_ui_impl_browsertest.cc",
+  ]
   deps = [
     ":impl",
     ":test_support",

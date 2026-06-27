@@ -78,8 +78,8 @@
 #include "ui/accessibility/accessibility_features.h"
 
 #if BUILDFLAG(ENABLE_UNHANDLED_TAP)
-#include "chrome/browser/android/contextualsearch/unhandled_tap_notifier_impl.h"
-#include "chrome/browser/android/contextualsearch/unhandled_tap_web_contents_observer.h"
+#include "chrome/browser/android/contextualsearch/unhandled_tap_notifier_impl.h"  // nogncheck crbug.com/40147906
+#include "chrome/browser/android/contextualsearch/unhandled_tap_web_contents_observer.h"  // nogncheck crbug.com/40147906
 #include "third_party/blink/public/mojom/unhandled_tap_notifier/unhandled_tap_notifier.mojom.h"
 #endif  // BUILDFLAG(ENABLE_UNHANDLED_TAP)
 
@@ -87,7 +87,7 @@
     BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/screen_ai/screen_ai_service_router.h"
 #include "chrome/browser/screen_ai/screen_ai_service_router_factory.h"
-#include "chrome/browser/web_applications/sub_apps_service_impl.h"
+#include "chrome/browser/web_applications/sub_apps/sub_apps_service_impl.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -133,6 +133,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/media/media_foundation_service_monitor.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_instance.h"
 #include "media/mojo/mojom/media_foundation_preferences.mojom.h"
 #include "media/mojo/services/media_foundation_preferences.h"
@@ -366,7 +367,9 @@ void BindMediaFoundationPreferences(
     content::RenderFrameHost* frame_host,
     mojo::PendingReceiver<media::mojom::MediaFoundationPreferences> receiver) {
   MediaFoundationPreferencesImpl::Create(
-      frame_host->GetSiteInstance()->GetSiteURL(),
+      frame_host->GetSiteInstance()
+          ->GetSecurityPrincipal()
+          .GetDeprecatedSiteURL(),
       base::BindRepeating(&MediaFoundationServiceMonitor::
                               IsHardwareSecureDecryptionAllowedForSite),
       std::move(receiver));

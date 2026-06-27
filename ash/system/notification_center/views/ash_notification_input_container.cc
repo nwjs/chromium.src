@@ -9,6 +9,7 @@
 #include "ash/style/typography.h"
 #include "ash/system/notification_center/message_center_constants.h"
 #include "components/vector_icons/vector_icons.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/font_list.h"
@@ -95,14 +96,16 @@ void AshNotificationInputContainer::UpdateButtonImage() {
   UpdateButtonState();
   button()->SetImageModel(
       views::Button::STATE_NORMAL,
-      ui::ImageModel::FromVectorIcon(vector_icons::kSendIcon,
-                                     cros_tokens::kColorProminent,
-                                     kInputReplyButtonSize));
+      ui::ImageModel::FromVectorIcon(
+          ::features::IsRoundedIconsEnabled() ? vector_icons::kSendIcon
+                                              : vector_icons::kSendOldIcon,
+          cros_tokens::kColorProminent, kInputReplyButtonSize));
   button()->SetImageModel(
       views::Button::STATE_DISABLED,
-      ui::ImageModel::FromVectorIcon(vector_icons::kSendIcon,
-                                     cros_tokens::kColorDisabled,
-                                     kInputReplyButtonSize));
+      ui::ImageModel::FromVectorIcon(
+          ::features::IsRoundedIconsEnabled() ? vector_icons::kSendIcon
+                                              : vector_icons::kSendOldIcon,
+          cros_tokens::kColorDisabled, kInputReplyButtonSize));
 }
 
 void AshNotificationInputContainer::UpdateButtonState() {
@@ -119,13 +122,11 @@ void AshNotificationInputContainer::OnThemeChanged() {
   SetSendButtonHighlightPath();
   StyleTextfield();
 
-  textfield()->SetTextColor(
-      GetColorProvider()->GetColor(cros_tokens::kCrosSysOnSurface));
+  textfield()->SetTextColorId(cros_tokens::kCrosSysOnSurface);
   textfield()->SetFontList(
       ash::TypographyProvider::Get()->ResolveTypographyToken(
           ash::TypographyToken::kCrosBody2));
-  textfield()->set_placeholder_text_color(
-      GetColorProvider()->GetColor(cros_tokens::kCrosSysOnSurfaceVariant));
+  textfield()->SetPlaceholderTextColorId(cros_tokens::kCrosSysOnSurfaceVariant);
   textfield()->set_placeholder_font_list(
       ash::TypographyProvider::Get()->ResolveTypographyToken(
           ash::TypographyToken::kCrosBody2));

@@ -17,6 +17,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/client/aura_constants.h"
@@ -41,6 +42,7 @@
 #include "ui/events/event_handler.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
+#include "ui/events/gestures/gesture_recognizer.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/events/test/event_generator.h"
@@ -2173,6 +2175,89 @@ class DeleteHostFromHeldMouseEventDelegate : public test::TestWindowDelegate {
 
 }  // namespace
 
+namespace {
+
+// Pre-target handler on the root window that synchronously deletes a target
+// window the first time it sees a kTouchMoved event. Mirrors what a
+// close-on-exit widget / popup-dismissal handler can do during dispatch of a
+// held move event.
+class DeleteWindowOnHeldTouchMove : public ui::EventHandler {
+ public:
+  explicit DeleteWindowOnHeldTouchMove(aura::Window* victim)
+      : victim_(victim) {}
+
+  DeleteWindowOnHeldTouchMove(const DeleteWindowOnHeldTouchMove&) = delete;
+  DeleteWindowOnHeldTouchMove& operator=(const DeleteWindowOnHeldTouchMove&) =
+      delete;
+
+  bool did_delete() const { return did_delete_; }
+
+  void OnTouchEvent(ui::TouchEvent* event) override {
+    if (event->type() == ui::EventType::kTouchMoved && victim_) {
+      aura::Window* w = victim_.ExtractAsDangling();
+      did_delete_ = true;
+      delete w;
+      event->StopPropagation();
+    }
+  }
+
+ private:
+  raw_ptr<aura::Window> victim_;
+  bool did_delete_ = false;
+};
+
+}  // namespace
+
+// Regression test for a use-after-free in
+// WindowEventDispatcher::DispatchGestureEvent. On the timer-driven gesture
+// path (SHOW_PRESS / LONG_PRESS), DispatchGestureEvent receives the gesture
+// target as a bare ui::GestureConsumer* and first calls DispatchHeldEvents().
+// If a handler reached during the held-event dispatch synchronously destroys
+// the touched window, DispatchGestureEvent must not dereference the
+// now-dangling consumer pointer. Before the fix this test triggers an ASAN
+// heap-use-after-free at Window::ConvertPointToTarget (called from
+// LocatedEvent::ConvertLocationToTarget).
+TEST_F(WindowEventDispatcherTest,
+       GestureConsumerDestroyedDuringHeldEventDispatch) {
+  // Owned by root_window() (and later deleted by |handler|).
+  Window* w = CreateNormalWindow(1, root_window(), nullptr);
+  w->SetBounds(gfx::Rect(0, 0, 40, 40));
+
+  // 1) Touch-press on |w|: arms the SHOW_PRESS timer (5 ms in tests) and
+  //    creates a GestureProviderAura whose gesture_consumer_ is |w|.
+  ui::TouchEvent press(ui::EventType::kTouchPressed, gfx::Point(10, 10),
+                       ui::EventTimeForNow(),
+                       ui::PointerDetails(ui::EventPointerType::kTouch, 0));
+  DispatchEventUsingWindowDispatcher(&press);
+
+  // 2) Hold pointer moves so the next touch-move is queued as
+  //    held_move_event_ instead of dispatched immediately. This is the same
+  //    state that WindowTreeHost::OnCompositingChildResizing produces on
+  //    ChromeOS in production.
+  host()->dispatcher()->HoldPointerMoves();
+  ui::TouchEvent move(ui::EventType::kTouchMoved, gfx::Point(11, 10),
+                      ui::EventTimeForNow(),
+                      ui::PointerDetails(ui::EventPointerType::kTouch, 0));
+  DispatchEventUsingWindowDispatcher(&move);
+
+  // 3) Install a root pre-target handler that deletes |w| when the held
+  //    touch-move is later flushed by DispatchGestureEvent ->
+  //    DispatchHeldEvents().
+  DeleteWindowOnHeldTouchMove handler(w);
+  root_window()->AddPreTargetHandler(&handler);
+
+  // 4) Spin the loop until the SHOW_PRESS timer fires. The timer callback
+  //    calls WindowEventDispatcher::DispatchGestureEvent(w, show_press),
+  //    which first runs DispatchHeldEvents() -> dispatches the held
+  //    kTouchMoved -> |handler| deletes |w| -> control returns to
+  //    DispatchGestureEvent which then dereferences the freed |w| via
+  //    ConsumerToWindow / ConvertLocationToTarget.
+  EXPECT_TRUE(base::test::RunUntil([&]() { return handler.did_delete(); }));
+
+  root_window()->RemovePreTargetHandler(&handler);
+  host()->dispatcher()->ReleasePointerMoves();
+}
+
 // Verifies if a WindowTreeHost is deleted from dispatching a held mouse event
 // we don't crash.
 TEST_F(WindowEventDispatcherTest, DeleteHostFromHeldMouseEvent) {
@@ -2194,6 +2279,108 @@ TEST_F(WindowEventDispatcherTest, DeleteHostFromHeldMouseEvent) {
   RunAllPendingInMessageLoop();
   EXPECT_TRUE(delegate.got_mouse_event());
   EXPECT_TRUE(delegate.got_destroy());
+}
+
+namespace {
+
+// Pre-target handler that synchronously deletes a WindowTreeHost the first
+// time it sees a kTouchCancelled event. This simulates a browser-side handler
+// (e.g. a Widget calling CloseNow()) that tears down a top-level
+// DesktopWindowTreeHost while synthetic touch-cancels are being dispatched.
+class DeleteHostOnTouchCancelHandler : public ui::EventHandler {
+ public:
+  explicit DeleteHostOnTouchCancelHandler(WindowTreeHost* host) : host_(host) {}
+
+  DeleteHostOnTouchCancelHandler(const DeleteHostOnTouchCancelHandler&) =
+      delete;
+  DeleteHostOnTouchCancelHandler& operator=(
+      const DeleteHostOnTouchCancelHandler&) = delete;
+
+  ~DeleteHostOnTouchCancelHandler() override = default;
+
+  int touch_cancel_count() const { return touch_cancel_count_; }
+  bool host_deleted() const { return host_deleted_; }
+
+  void OnTouchEvent(ui::TouchEvent* event) override {
+    if (event->type() != ui::EventType::kTouchCancelled) {
+      return;
+    }
+    ++touch_cancel_count_;
+    if (host_deleted_) {
+      return;
+    }
+    host_deleted_ = true;
+    // Stop propagation so that the (about-to-be-freed) target window doesn't
+    // see this event after we tear everything down underneath it.
+    event->StopPropagation();
+    WindowTreeHost* host = host_;
+    host_ = nullptr;
+    // Destroys the WindowTreeHost, its root window, all child windows, and
+    // (last) the WindowEventDispatcher that is currently dispatching to us.
+    delete host;
+  }
+
+ private:
+  raw_ptr<WindowTreeHost, base::RawPtrTraits::kMayDangle> host_;
+  bool host_deleted_ = false;
+  int touch_cancel_count_ = 0;
+};
+
+}  // namespace
+
+// Regression test for a use-after-free in
+// GestureRecognizerImpl::CancelActiveTouchesImpl. That function captures the
+// consumer's WindowEventDispatcher* once into a bare local |helper| and then
+// loops over one synthetic kTouchCancelled per active pointer, calling the
+// pure-virtual helper->DispatchSyntheticTouchEvent() each iteration with no
+// liveness check. If the first dispatch causes the WindowEventDispatcher to be
+// synchronously destroyed (a first-class supported case — DispatchSynthetic-
+// TouchEvent itself checks dispatcher_destroyed but discards it via its void
+// return), the second iteration is a virtual call on freed memory.
+//
+// In production this corresponds to: ≥2 fingers down on a popup that owns its
+// own DesktopWindowTreeHost, then a capture change in another root triggers
+// CancelActiveTouchesExcept; the first synthetic cancel reaches a handler that
+// CloseNow()'s the popup, freeing its WindowEventDispatcher mid-loop.
+TEST_F(WindowEventDispatcherTest,
+       CancelActiveTouchesUAFWhenHandlerDeletesHost) {
+  // Second host with its own WindowEventDispatcher (the |helper|). Ownership
+  // is transferred to the handler, which deletes it during dispatch.
+  WindowTreeHost* h2 = WindowTreeHost::Create(ui::PlatformWindowInitProperties{
+                                                  gfx::Rect(0, 0, 200, 200)})
+                           .release();
+  h2->InitHost();
+  h2->window()->Show();
+
+  // Install the destroying handler as a pre-target handler on Env so it
+  // outlives |h2|'s window tree (which is torn down when |h2| is deleted).
+  DeleteHostOnTouchCancelHandler handler(h2);
+  Env::GetInstance()->AddPreTargetHandler(&handler);
+
+  // A child window in |h2| acts as the GestureConsumer for the touches.
+  test::TestWindowDelegate delegate;
+  Window* child = CreateNormalWindow(1, h2->window(), &delegate);
+  child->SetBounds(gfx::Rect(0, 0, 200, 200));
+
+  // Register two active touch pointers on |child| via |h2|'s dispatcher so
+  // that CancelActiveTouchesImpl will loop twice.
+  ui::TouchEvent press0(ui::EventType::kTouchPressed, gfx::Point(20, 20),
+                        ui::EventTimeForNow(),
+                        ui::PointerDetails(ui::EventPointerType::kTouch, 0));
+  h2->dispatcher()->OnEventFromSource(&press0);
+  ui::TouchEvent press1(ui::EventType::kTouchPressed, gfx::Point(60, 60),
+                        ui::EventTimeForNow(),
+                        ui::PointerDetails(ui::EventPointerType::kTouch, 1));
+  h2->dispatcher()->OnEventFromSource(&press1);
+
+  // This walks both active pointers; the first DispatchSyntheticTouchEvent
+  // reaches |handler| which deletes |h2| (and its WindowEventDispatcher).
+  // The second loop iteration then calls helper->DispatchSyntheticTouchEvent()
+  // on a freed WindowEventDispatcher: heap-use-after-free under ASAN.
+  Env::GetInstance()->gesture_recognizer()->CancelActiveTouchesExcept(nullptr);
+
+  Env::GetInstance()->RemovePreTargetHandler(&handler);
+  EXPECT_TRUE(handler.host_deleted());
 }
 
 TEST_F(WindowEventDispatcherTest, WindowHideCancelsActiveTouches) {

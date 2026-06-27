@@ -9,20 +9,21 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_mock_time_task_runner.h"
+#include "build/blink_buildflags.h"
 #include "build/build_config.h"
 #include "components/policy/core/common/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
-#if !BUILDFLAG(IS_IOS)
-#include "content/public/browser/browser_task_traits.h"
-#include "content/public/browser/browser_thread.h"
-#include "content/public/test/browser_task_environment.h"
+#if BUILDFLAG(USE_BLINK)
+#include "content/public/browser/browser_task_traits.h"    // nogncheck
+#include "content/public/browser/browser_thread.h"         // nogncheck
+#include "content/public/test/browser_task_environment.h"  // nogncheck
 #else
-#include "ios/web/public/test/web_task_environment.h"
-#include "ios/web/public/thread/web_task_traits.h"
-#include "ios/web/public/thread/web_thread.h"
+#include "ios/web/public/test/web_task_environment.h"  // nogncheck
+#include "ios/web/public/thread/web_task_traits.h"     // nogncheck
+#include "ios/web/public/thread/web_thread.h"          // nogncheck
 #endif
 
 using testing::_;
@@ -30,23 +31,21 @@ using testing::ElementsAre;
 using testing::Eq;
 using testing::Property;
 
-#if BUILDFLAG(IS_IOS)
-  using web::GetUIThreadTaskRunner;
-  using web::GetIOThreadTaskRunner;
+#if BUILDFLAG(USE_BLINK)
+using content::GetIOThreadTaskRunner;
+using content::GetUIThreadTaskRunner;
 #else
-  using content::GetUIThreadTaskRunner;
-  using content::GetIOThreadTaskRunner;
+using web::GetIOThreadTaskRunner;
+using web::GetUIThreadTaskRunner;
 #endif
 
 namespace policy {
 
 namespace {
 
-#if !BUILDFLAG(IS_CHROMEOS)
 void AddLogs(const std::string& message, PolicyLogger* policy_logger) {
   LOG_POLICY(INFO, POLICY_FETCHING) << "Element added: " << message;
 }
-#endif
 
 }  // namespace
 
@@ -65,11 +64,11 @@ class PolicyLoggerTest : public PlatformTest {
 
   base::test::ScopedFeatureList scoped_feature_list_;
 
-#if BUILDFLAG(IS_IOS)
-  web::WebTaskEnvironment task_environment_{
+#if BUILDFLAG(USE_BLINK)
+  content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 #else
-  content::BrowserTaskEnvironment task_environment_{
+  web::WebTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 #endif
 };
@@ -78,8 +77,10 @@ class PolicyLoggerTest : public PlatformTest {
 // updated list of logs.
 TEST_F(PolicyLoggerTest, PolicyLoggingEnabled) {
 #if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "Policy logging is disabled on ChromeOS.";
-#else
+  if (!PolicyLogger::IsPolicyLoggingEnabled()) {
+    GTEST_SKIP() << "Policy logging is disabled on ChromeOS stable";
+  }
+#endif
   PolicyLogger* policy_logger = policy::PolicyLogger::GetInstance();
 
   size_t logs_size_before_adding = policy_logger->GetPolicyLogsSizeForTesting();
@@ -90,14 +91,15 @@ TEST_F(PolicyLoggerTest, PolicyLoggingEnabled) {
                   .GetDict()
                   .FindString("message")),
             "Element added: when the feature is enabled.");
-#endif
 }
 
 // Checks that the deletion of expired logs works as expected.
 TEST_F(PolicyLoggerTest, DeleteOldLogs) {
 #if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "Policy logging is disabled on ChromeOS.";
-#else
+  if (!PolicyLogger::IsPolicyLoggingEnabled()) {
+    GTEST_SKIP() << "Policy logging is disabled on ChromeOS stable";
+  }
+#endif
   PolicyLogger* policy_logger = policy::PolicyLogger::GetInstance();
   policy_logger->EnableLogDeletion();
   size_t logs_size_before_adding = policy_logger->GetPolicyLogsSizeForTesting();
@@ -124,15 +126,16 @@ TEST_F(PolicyLoggerTest, DeleteOldLogs) {
   task_environment_.FastForwardBy(policy::PolicyLogger::kTimeToLive);
   task_environment_.RunUntilIdle();
   EXPECT_EQ(policy_logger->GetAsList().size(), size_t(0));
-#endif
 }
 
 // Checks that the first log  added is deleted when `PolicyLogger::kMaxLogSize`
 // is exceeded.
 TEST_F(PolicyLoggerTest, MaxSizeExceededDeletesOldestLog) {
 #if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "Policy logging is disabled on ChromeOS.";
-#else
+  if (!PolicyLogger::IsPolicyLoggingEnabled()) {
+    GTEST_SKIP() << "Policy logging is disabled on ChromeOS stable";
+  }
+#endif
   PolicyLogger* policy_logger = policy::PolicyLogger::GetInstance();
 
   AddLogs("First log that will be removed.", policy_logger);
@@ -157,25 +160,27 @@ TEST_F(PolicyLoggerTest, MaxSizeExceededDeletesOldestLog) {
 
   EXPECT_EQ(*(current_logs[current_size - 1].GetDict().FindString("message")),
             "Element added: Last log added and size is exceeded.");
-#endif
 }
 
 // Checks that `ScheduleOldLogsDeletion` does not crash when there is no task
 // runner.
 TEST(PolicyLoggerTestNoTaskRunner, ScheduleOldLogsDeletion) {
 #if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "Policy logging is disabled on ChromeOS.";
-#else
+  if (!PolicyLogger::IsPolicyLoggingEnabled()) {
+    GTEST_SKIP() << "Policy logging is disabled on ChromeOS stable";
+  }
+#endif
   ASSERT_TRUE(!base::SequencedTaskRunner::HasCurrentDefault());
   policy::PolicyLogger::GetInstance()->ScheduleOldLogsDeletionForTesting();
-#endif
 }
 
 // Checks that the deletion of expired logs works as expected.
 TEST_F(PolicyLoggerTest, DeleteOldLogsMultithreaded) {
 #if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "Policy logging is disabled on ChromeOS.";
-#else
+  if (!PolicyLogger::IsPolicyLoggingEnabled()) {
+    GTEST_SKIP() << "Policy logging is disabled on ChromeOS stable";
+  }
+#endif
   PolicyLogger* policy_logger = policy::PolicyLogger::GetInstance();
   policy_logger->EnableLogDeletion();
   size_t logs_size_before_adding = policy_logger->GetPolicyLogsSizeForTesting();
@@ -210,15 +215,16 @@ TEST_F(PolicyLoggerTest, DeleteOldLogsMultithreaded) {
   task_environment_.FastForwardBy(policy::PolicyLogger::kTimeToLive);
   task_environment_.RunUntilIdle();
   EXPECT_EQ(policy_logger->GetAsList().size(), size_t(0));
-#endif
 }
 
 // Checks that the deletion of expired logs works does not happen when no
 // SequenceTaskRunner is available.
 TEST_F(PolicyLoggerTest, DeleteOldLogsMultithreadedNoSequencedTaskRunner) {
 #if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "Policy logging is disabled on ChromeOS.";
-#else
+  if (!PolicyLogger::IsPolicyLoggingEnabled()) {
+    GTEST_SKIP() << "Policy logging is disabled on ChromeOS stable";
+  }
+#endif
   PolicyLogger* policy_logger = policy::PolicyLogger::GetInstance();
   policy_logger->EnableLogDeletion();
 
@@ -251,7 +257,6 @@ TEST_F(PolicyLoggerTest, DeleteOldLogsMultithreadedNoSequencedTaskRunner) {
   task_environment_.FastForwardBy(policy::PolicyLogger::kTimeToLive);
   task_environment_.RunUntilIdle();
   EXPECT_EQ(policy_logger->GetAsList().size(), size_t(3));
-#endif
 }
 
 }  // namespace policy

@@ -166,8 +166,6 @@ class CORE_EXPORT HTMLMediaElement
   // Whether the media element has encrypted audio or video streams.
   bool IsEncrypted() const;
 
-  virtual void OnEncryptedMediaInitData() {}
-
   bool SupportsSave() const;
   bool SupportsLoop() const;
 
@@ -240,12 +238,14 @@ class CORE_EXPORT HTMLMediaElement
   };
   ReadyState getReadyState() const;
   bool seeking() const;
+  void SetSeeking(bool);
 
   // playback state
   double currentTime() const;
   void setCurrentTime(double);
   double duration() const;
   bool paused() const;
+  void SetPaused(bool);
   double defaultPlaybackRate() const;
   void setDefaultPlaybackRate(double);
   double playbackRate() const;
@@ -378,6 +378,12 @@ class CORE_EXPORT HTMLMediaElement
   // [SpecialWrapFor] IDL attribute usage.)
   virtual bool IsHTMLAudioElement() const { return false; }
   virtual bool IsHTMLVideoElement() const { return false; }
+
+  // Predicates for CSS pseudo-classes that have non-trivial conditions or that
+  // aren't exposed by any other method. (Simple pseudos like :paused don't have
+  // dedicated helpers.)
+  bool MatchesBufferingPseudo() const;
+  bool MatchesStalledPseudo() const;
 
   void VideoWillBeDrawnToCanvas() const;
 
@@ -626,6 +632,7 @@ class CORE_EXPORT HTMLMediaElement
   void DidUseAudioServiceChange(bool uses_audio_service) override;
   void DidPlayerSizeChange(const gfx::Size& size) override;
   void OnRemotePlaybackDisabled(bool disabled) override;
+  void OnCdmAttached(const media::CdmConfig& cdm_config) override {}
 
   // Returns a reference to the mojo remote for the MediaPlayerHost interface,
   // requesting it first from the BrowserInterfaceBroker if needed. It is an
@@ -889,6 +896,7 @@ class CORE_EXPORT HTMLMediaElement
   bool should_delay_load_event_ : 1 = false;
   bool have_fired_loaded_data_ : 1 = false;
   bool can_autoplay_ : 1 = true;
+  bool muted_is_default_ : 1 = true;
   bool muted_ : 1 = false;
   bool paused_ : 1 = true;
   bool seeking_ : 1 = false;

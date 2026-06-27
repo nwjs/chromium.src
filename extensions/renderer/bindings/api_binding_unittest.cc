@@ -4,6 +4,7 @@
 
 #include "extensions/renderer/bindings/api_binding.h"
 
+#include <optional>
 #include <string_view>
 #include <tuple>
 
@@ -35,6 +36,11 @@
 #include "gin/public/context_holder.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "v8/include/cppgc/allocation.h"
+#include "v8/include/cppgc/garbage-collected.h"
+#include "v8/include/cppgc/persistent.h"
+#include "v8/include/cppgc/prefinalizer.h"
+#include "v8/include/v8-cppgc.h"
 #include "v8/include/v8.h"
 
 namespace extensions {
@@ -471,10 +477,11 @@ TEST_F(APIBindingUnittest, TestBasicAPICalls) {
                                             api_errors::NoMatchingSignature()));
   ExpectPass(binding_object, "obj.intAndCallback(1, function() {})", "[1]",
              true);
-  ExpectFailure(binding_object, "obj.intAndCallback(function() {})",
-                api_errors::InvocationError("test.intAndCallback",
-                                            "integer int, function callback",
-                                            api_errors::NoMatchingSignature()));
+  ExpectFailure(
+      binding_object, "obj.intAndCallback(function() {})",
+      api_errors::InvocationError("test.intAndCallback",
+                                  "integer int, optional function callback",
+                                  api_errors::NoMatchingSignature()));
 
   // ...And an interesting case (throwing an error during parsing).
   ExpectThrow(binding_object,
@@ -2440,10 +2447,11 @@ TEST_F(APIBindingUnittest, TestPromiseWithJSUpdateArgumentsPreValidate) {
   {
     // Calling supportsPromises with a string which we have not set up the
     // custom hook for should cause an error.
-    ExpectFailure(binding_object, "obj.supportsPromises('foo');",
-                  api_errors::InvocationError(
-                      "test.supportsPromises", "integer int, function callback",
-                      api_errors::NoMatchingSignature()));
+    ExpectFailure(
+        binding_object, "obj.supportsPromises('foo');",
+        api_errors::InvocationError("test.supportsPromises",
+                                    "integer int, optional function callback",
+                                    api_errors::NoMatchingSignature()));
     EXPECT_EQ(R"("foo")", GetStringPropertyFromObject(
                               context->Global(), context, "firstArgument"));
   }
@@ -2495,10 +2503,11 @@ TEST_F(APIBindingUnittest, TestPromiseWithJSUpdateArgumentsPostValidate) {
 
   {
     // Calling the method with an invalid signature should never enter the hook.
-    ExpectFailure(binding_object, "return obj.supportsPromises('foo');",
-                  api_errors::InvocationError(
-                      "test.supportsPromises", "integer int, function callback",
-                      api_errors::NoMatchingSignature()));
+    ExpectFailure(
+        binding_object, "return obj.supportsPromises('foo');",
+        api_errors::InvocationError("test.supportsPromises",
+                                    "integer int, optional function callback",
+                                    api_errors::NoMatchingSignature()));
     EXPECT_EQ("undefined", GetStringPropertyFromObject(
                                context->Global(), context, "firstArgument"));
   }
@@ -2554,6 +2563,56 @@ TEST_F(APIBindingUnittest, UnicodeArgumentsPassedCorrectly) {
   base::Value str_value = last_request()->arguments_list.front().Clone();
   ASSERT_TRUE(str_value.is_string());
   ASSERT_EQ(kExpectation, *str_value.GetIfString());
+}
+
+namespace {
+
+class TestGCedListener final
+    : public cppgc::GarbageCollected<TestGCedListener> {
+  CPPGC_USING_PRE_FINALIZER(TestGCedListener, Dispose);
+
+ public:
+  explicit TestGCedListener(v8::Local<v8::Context> context) {
+    listener_.emplace(context, base::DoNothing());
+  }
+
+  void Dispose() { listener_.reset(); }
+
+  void Trace(cppgc::Visitor* visitor) const {}
+
+ private:
+  std::optional<binding::ContextInvalidationListener> listener_;
+};
+
+}  // namespace
+
+// Tests that having multiple ContextInvalidationListeners destroyed during
+// GC sweeping/pre-finalization does not cause a hang (due to unsafe WeakPtr
+// resolution in ObserverList).
+TEST_F(APIBindingUnittest, GCWithMultipleListeners) {
+  InitializeBinding();
+
+  v8::HandleScope handle_scope(isolate());
+  v8::Local<v8::Context> context = MainContext();
+
+  ASSERT_TRUE(isolate()->GetCppHeap());
+  cppgc::AllocationHandle& alloc_handle =
+      isolate()->GetCppHeap()->GetAllocationHandle();
+
+  // Create multiple listeners.
+  cppgc::Persistent<TestGCedListener> listener1 =
+      cppgc::MakeGarbageCollected<TestGCedListener>(alloc_handle, context);
+  cppgc::Persistent<TestGCedListener> listener2 =
+      cppgc::MakeGarbageCollected<TestGCedListener>(alloc_handle, context);
+
+  // Release the persistent handles to make them eligible for GC.
+  listener1.Clear();
+  listener2.Clear();
+
+  // Run GC. If the fix is not present, this might hang or crash due to
+  // `RemoveListener` accessing a "semi-dead" listener's WeakPtr in
+  // `ObserverList::HasObserver`.
+  RunGarbageCollection();
 }
 
 }  // namespace extensions

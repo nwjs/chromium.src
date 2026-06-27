@@ -4,13 +4,19 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetUtils.isActivityFinishingOrDestroyed;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewTreeObserver;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.version_info.VersionInfo;
@@ -24,6 +30,7 @@ import org.chromium.components.thinwebview.ThinWebViewAttachParams;
 import org.chromium.components.thinwebview.ThinWebViewConstraints;
 import org.chromium.components.thinwebview.ThinWebViewFactory;
 import org.chromium.components.thinwebview.internal.ThinWebViewContextMenuItemDelegate;
+import org.chromium.content_public.browser.ImeAdapter;
 import org.chromium.content_public.browser.ViewEventSink;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ViewAndroidDelegate;
@@ -41,8 +48,9 @@ public class TabBottomSheetWebUi {
     private final @ColorInt int mBackgroundColor;
     private final CoBrowseViewsZoomControl mZoomControl;
 
-    private ThinWebView mThinWebView;
+    private @Nullable ThinWebView mThinWebView;
     private @Nullable WebContents mWebContents;
+    private @Nullable ContentView mContentView;
 
     TabBottomSheetWebUi(
             Context context,
@@ -56,18 +64,59 @@ public class TabBottomSheetWebUi {
         mContextMenuPopulatorFactory = contextMenuPopulatorFactory;
         mBackgroundColor = backgroundColor;
         mZoomControl = zoomControl;
-        mWebViewResizingHelper = new WebViewResizingHelper(containerView, backgroundColor);
-        resetThinWebView();
+        mWebViewResizingHelper =
+                new WebViewResizingHelper(containerView, windowAndroid, backgroundColor);
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    void setWebContents(@Nullable WebContents webContents) {
+    void setWebContents(@Nullable WebContents webContents, boolean requestFocus) {
         if (mWebContents == webContents) {
             return;
         }
         mWebContents = webContents;
         if (mWebContents != null) {
-            ContentView contentView = ContentView.createContentView(mContext, mWebContents);
+            mWebContents.getEventForwarder().setCurrentTouchOffsetX(0.0f);
+            mWebContents.getEventForwarder().setCurrentTouchOffsetY(0.0f);
+            // Use a local variable to ensure we are using the correct ContentView instance.
+            ContentView contentView = createContentView(mContext, mWebContents);
+            mContentView = contentView;
+
+            contentView.addOnAttachStateChangeListener(
+                    new View.OnAttachStateChangeListener() {
+                        private final ViewTreeObserver.OnWindowFocusChangeListener mListener =
+                                new ViewTreeObserver.OnWindowFocusChangeListener() {
+                                    @Override
+                                    public void onWindowFocusChanged(boolean hasFocus) {
+                                        if (!hasFocus) {
+                                            contentView.clearFocus();
+                                        }
+                                    }
+                                };
+
+                        @Override
+                        public void onViewAttachedToWindow(View v) {
+                            contentView
+                                    .getViewTreeObserver()
+                                    .addOnWindowFocusChangeListener(mListener);
+                        }
+
+                        @Override
+                        public void onViewDetachedFromWindow(View v) {
+                            contentView
+                                    .getViewTreeObserver()
+                                    .removeOnWindowFocusChangeListener(mListener);
+                        }
+                    });
+
+            // Use OnTouchListener instead of OnClickListener to avoid consuming the click event,
+            // which would prevent it from reaching the web content.
+            contentView.setOnTouchListener(
+                    (v, event) -> {
+                        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                            contentView.requestFocus();
+                        }
+                        return false;
+                    });
 
             // Most systems assume ViewAndroidDelegate is created alongside WebContents and never
             // changes. SelectionPopupControllerImpl is an example of a system that does this so if
@@ -96,21 +145,54 @@ public class TabBottomSheetWebUi {
             ThinWebViewContextMenuItemDelegate itemDelegate =
                     new ThinWebViewContextMenuItemDelegate(mWebContents);
             mContextMenuPopulatorFactory.setItemDelegate(itemDelegate);
-            mThinWebView.attachWebContents(
-                    mWebContents,
-                    contentView,
-                    new ThinWebViewAttachParams.Builder()
-                            .setWebContentsDelegate(createWebContentsDelegate())
-                            .setContextMenuPopulatorFactory(mContextMenuPopulatorFactory)
-                            .setSupportTheming(true)
-                            .build());
+            ensureThinWebViewCreated();
+            if (mThinWebView != null) {
+                mThinWebView.attachWebContents(
+                        mWebContents,
+                        contentView,
+                        new ThinWebViewAttachParams.Builder()
+                                .setWebContentsDelegate(createWebContentsDelegate())
+                                .setContextMenuPopulatorFactory(mContextMenuPopulatorFactory)
+                                .setSupportTheming(true)
+                                .build());
+                mWebViewResizingHelper.setThinWebView(mThinWebView, mWebContents);
+                setAllowFullscreenIme(
+                        mContext.getResources().getConfiguration().orientation
+                                == Configuration.ORIENTATION_LANDSCAPE);
+            }
+
+            if (requestFocus) {
+                // Only request focus once the web contents have been attached to the activity's
+                // layout
+                // tree.
+                View currentlyFocusedView =
+                        assertNonNull(mWindowAndroid.getActivity().get()).getCurrentFocus();
+                if (currentlyFocusedView != null) {
+                    currentlyFocusedView.clearFocus();
+                }
+                contentView.requestFocus();
+            }
         } else {
-            resetThinWebView();
+            destroyThinWebView();
+        }
+    }
+
+    void setAllowFullscreenIme(boolean allow) {
+        if (mWebContents == null) return;
+        ImeAdapter adapter = ImeAdapter.fromWebContents(mWebContents);
+        if (adapter != null) {
+            adapter.setAllowFullscreenIme(allow);
         }
     }
 
     @Nullable WebContents getWebContents() {
         return mWebContents;
+    }
+
+    void setIgnoreClearFocus(boolean ignoreClearFocus) {
+        if (mContentView != null) {
+            mContentView.setIgnoreClearFocus(ignoreClearFocus);
+        }
     }
 
     WebViewResizingHelper getWebViewResizingHelper() {
@@ -120,8 +202,8 @@ public class TabBottomSheetWebUi {
     void destroy() {
         // We expect the life cycle of webContents to be managed by native.
         mWebContents = null;
-        mWebViewResizingHelper.reset();
-        mThinWebView.destroy();
+        mContentView = null;
+        destroyThinWebView();
     }
 
     View getWebUiView() {
@@ -142,18 +224,43 @@ public class TabBottomSheetWebUi {
         };
     }
 
-    private void resetThinWebView() {
-        if (mThinWebView != null) mThinWebView.destroy();
+    @VisibleForTesting
+    ContentView createContentView(Context context, WebContents webContents) {
+        return ContentView.createContentView(context, webContents);
+    }
+
+    private void ensureThinWebViewCreated() {
+        if (mThinWebView != null) {
+            return;
+        }
+
+        if (isActivityFinishingOrDestroyed(mWindowAndroid)) {
+            return;
+        }
+
         ThinWebViewConstraints constraints = new ThinWebViewConstraints();
         constraints.supportsOpacity = true;
         constraints.backgroundColor = mBackgroundColor;
+        constraints.ignoreSizeChanges = true;
         mThinWebView =
                 ThinWebViewFactory.create(
                         mContext,
                         constraints,
                         assumeNonNull(mWindowAndroid.getIntentRequestTracker()),
                         /* enablePermissionRequests= */ true);
-        mWebViewResizingHelper.setThinWebView(mThinWebView);
+        mWebViewResizingHelper.setThinWebView(mThinWebView, mWebContents);
+    }
+
+    private void destroyThinWebView() {
+        if (mThinWebView != null) {
+            mThinWebView.destroy();
+            mThinWebView = null;
+        }
+        mWebViewResizingHelper.reset();
+    }
+
+    @Nullable ThinWebView getThinWebViewForTesting() {
+        return mThinWebView;
     }
 
     static void setInTestModeForTesting() {

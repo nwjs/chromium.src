@@ -41,7 +41,6 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
-import org.chromium.chrome.browser.enterprise.util.DataProtectionBridgeJni;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.locale.LocaleManager;
@@ -102,7 +101,7 @@ public class ChromeActionModeHandlerUnitTest {
 
     @Before
     public void setUp() {
-        DataProtectionBridgeJni.setInstanceForTesting(mDataProtectionBridgeJniMock);
+        DataProtectionBridge.setInstanceForTesting(mDataProtectionBridgeJniMock);
         Mockito.when(mDataProtectionBridgeJniMock.isSearchWithAllowed(any())).thenReturn(true);
 
         mActionModeCallback =
@@ -117,7 +116,7 @@ public class ChromeActionModeHandlerUnitTest {
 
     @After
     public void tearDown() {
-        DataProtectionBridgeJni.setInstanceForTesting(null);
+        DataProtectionBridge.setInstanceForTesting(null);
         FirstRunStatus.setFirstRunFlowComplete(false);
     }
 
@@ -284,7 +283,8 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mControlsState.getTopControlsHeight()).thenReturn(topControlsHeight);
 
         // Set up for the case where top controls are hidden.
-        Mockito.when(mControlsState.getBrowserControlHiddenRatio()).thenReturn(1.f);
+        Mockito.when(mControlsState.getTopControlHiddenRatio()).thenReturn(1.f);
+        Mockito.when(mControlsState.getTopControlOffset()).thenReturn(topControlsHeight);
 
         // If there's enough space between the selected text and the top of the content view for
         // action mode, the content rect is left untouched.
@@ -302,7 +302,7 @@ public class ChromeActionModeHandlerUnitTest {
         Assert.assertEquals(height, outRect.height());
 
         // Set up for the case where top controls are visible.
-        Mockito.when(mControlsState.getBrowserControlHiddenRatio()).thenReturn(0.f);
+        Mockito.when(mControlsState.getTopControlHiddenRatio()).thenReturn(0.f);
 
         // We have enough space for action mode to fit in. The content rect is left untouched.
         top = topControlsHeight * 3;

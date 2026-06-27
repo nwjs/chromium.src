@@ -30,10 +30,6 @@
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "ui/base/resource/resource_bundle.h"
 
-#if defined(HEADLESS_USE_POLICY)
-#include "components/user_prefs/user_prefs.h"  // nogncheck
-#endif                                         // defined(HEADLESS_USE_POLICY)
-
 namespace headless {
 
 namespace {
@@ -81,10 +77,6 @@ HeadlessBrowserContextImpl::HeadlessBrowserContextImpl(
   profile_metrics::SetBrowserProfileType(
       this, IsOffTheRecord() ? profile_metrics::BrowserProfileType::kIncognito
                              : profile_metrics::BrowserProfileType::kRegular);
-#if defined(HEADLESS_USE_POLICY)
-  if (PrefService* pref_service = browser->GetPrefs())
-    user_prefs::UserPrefs::Set(this, pref_service);
-#endif  // defined(HEADLESS_USE_POLICY)
 
   // Ensure the delegate is initialized early to give it time to load its
   // persistence.
@@ -151,6 +143,10 @@ HeadlessBrowserContextImpl::GetAllWebContents() {
 }
 
 void HeadlessBrowserContextImpl::Close() {
+  while (!web_contents_map_.empty()) {
+    auto it = web_contents_map_.begin();
+    it->second->Close();
+  }
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   browser_->DestroyBrowserContext(this);
 }

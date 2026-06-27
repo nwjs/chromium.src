@@ -67,6 +67,11 @@ const std::string& PasskeyRequestParams::FrameId() const {
   return request_info_.frame_id;
 }
 
+const std::optional<autofill::RemoteFrameToken>&
+PasskeyRequestParams::RemoteFrameToken() const {
+  return request_info_.remote_frame_token;
+}
+
 const std::string& PasskeyRequestParams::RequestId() const {
   return request_info_.request_id;
 }

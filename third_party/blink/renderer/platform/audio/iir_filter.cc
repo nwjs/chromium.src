@@ -10,6 +10,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
 #include "third_party/blink/renderer/platform/audio/vector_math.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
@@ -31,11 +32,9 @@ std::complex<double> EvaluatePolynomial(base::span<const double> coef,
   // Use Horner's method to evaluate the polynomial P(z) = sum(coef[k]*z^k, k,
   // 0, order);
   std::complex<double> result = 0;
-  const size_t coef_size = coef.size();
-  if (coef_size) {
-    const int order = coef_size - 1;
-    for (int k = order; k >= 0; --k) {
-      result = result * z + std::complex<double>(coef[k]);
+  if (coef.size()) {
+    for (double c : base::Reversed(coef)) {
+      result = result * z + std::complex<double>(c);
     }
   }
 
@@ -210,7 +209,7 @@ double IIRFilter::TailTime(double sample_rate,
 
   // Process the first block and get the max magnitude of the output.
   Process(input.as_span(), output.as_span());
-  vector_math::Vmaxmgv(output.Data(), 1, &magnitudes[0], render_quantum_frames);
+  magnitudes[0] = vector_math::Vmaxmgv(output.as_span(), render_quantum_frames);
 
   // Process the rest of the signal, getting the max magnitude of the
   // output for each block.
@@ -218,8 +217,8 @@ double IIRFilter::TailTime(double sample_rate,
 
   for (int k = 1; k < number_of_blocks; ++k) {
     Process(input.as_span(), output.as_span());
-    vector_math::Vmaxmgv(output.Data(), 1, &magnitudes[k],
-                         render_quantum_frames);
+    magnitudes[k] =
+        vector_math::Vmaxmgv(output.as_span(), render_quantum_frames);
   }
 
   // Done computing the impulse response; reset the state so the actual node

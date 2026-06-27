@@ -40,7 +40,6 @@ import org.chromium.payments.mojom.PaymentMethodData;
 import org.chromium.payments.mojom.PaymentOptions;
 import org.chromium.payments.mojom.PaymentRequestClient;
 import org.chromium.payments.mojom.PaymentResponse;
-import org.chromium.url.internal.mojom.Origin;
 import org.chromium.url.mojom.Url;
 
 import java.util.ArrayList;
@@ -51,6 +50,7 @@ import java.util.Set;
 /** A test for PaymentRequestService. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@EnableFeatures({PaymentFeatureList.SECURE_PAYMENT_CONFIRMATION})
 @DisableFeatures({
     PaymentFeatureList.WEB_PAYMENTS_EXPERIMENTAL_FEATURES,
     PaymentFeatureList.ANDROID_PAYMENT_INTENTS_OMIT_DEPRECATED_PARAMETERS
@@ -774,20 +774,6 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
 
     @Test
     @Feature({"Payments"})
-    public void testSpcCanOnlyBeRequestedAlone_failedForNullPayeeNameAndOrigin() {
-        Assert.assertNull(
-                defaultBuilder()
-                        .setPayeeName(null)
-                        .setPayeeOrigin(null)
-                        .setOnlySpcMethodWithoutPaymentOptions()
-                        .build());
-        assertErrorAndReason(
-                ErrorStrings.INVALID_PAYMENT_METHODS_OR_DATA,
-                PaymentErrorReason.INVALID_DATA_FROM_RENDERER);
-    }
-
-    @Test
-    @Feature({"Payments"})
     public void testSpcCanOnlyBeRequestedAlone_allowsNullPayeeOrigin() {
         // If a valid payeeName is passed, then payeeOrigin is not needed.
         Assert.assertNotNull(
@@ -800,9 +786,12 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
 
     @Test
     @Feature({"Payments"})
-    public void testSpcCanOnlyBeRequestedAlone_failedForEmptyPayeeName() {
+    public void testSpcCanOnlyBeRequestedAlone_failedForJniValidationError() {
         Assert.assertNull(
-                defaultBuilder().setPayeeName("").setOnlySpcMethodWithoutPaymentOptions().build());
+                defaultBuilder()
+                        .setOnlySpcMethodWithoutPaymentOptions()
+                        .setSecurePaymentConfirmationRequestValid(false)
+                        .build());
         assertErrorAndReason(
                 ErrorStrings.INVALID_PAYMENT_METHODS_OR_DATA,
                 PaymentErrorReason.INVALID_DATA_FROM_RENDERER);
@@ -810,19 +799,25 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
 
     @Test
     @Feature({"Payments"})
-    public void testSpcCanOnlyBeRequestedAlone_failedForHttpPayeeOrigin() {
-        Origin payeeOrigin = new Origin();
-        payeeOrigin.scheme = "http";
-        payeeOrigin.host = "www.example.test";
-        payeeOrigin.port = 443;
-        Assert.assertNull(
-                defaultBuilder()
-                        .setPayeeOrigin(payeeOrigin)
-                        .setOnlySpcMethodWithoutPaymentOptions()
-                        .build());
-        assertErrorAndReason(
-                ErrorStrings.INVALID_PAYMENT_METHODS_OR_DATA,
-                PaymentErrorReason.INVALID_DATA_FROM_RENDERER);
+    @DisableFeatures({PaymentFeatureList.SECURE_PAYMENT_CONFIRMATION})
+    public void testSpcConstraintsBypassedWhenDisabled() {
+        // When SPC is disabled, it should be successfully initialized even if:
+        // 1. It is not the only payment method.
+        // 2. Payment options (like shipping) are requested.
+        // Note: securePaymentConfirmation must be null when the feature is disabled.
+        PaymentOptions options = new PaymentOptions();
+        options.requestShipping = true;
+
+        PaymentMethodData[] methodData = new PaymentMethodData[2];
+        methodData[0] = new PaymentMethodData();
+        methodData[0].supportedMethod = "https://www.chromium.org";
+        methodData[1] = new PaymentMethodData();
+        methodData[1].supportedMethod = MethodStrings.SECURE_PAYMENT_CONFIRMATION;
+        methodData[1].securePaymentConfirmation = null;
+
+        Assert.assertNotNull(
+                defaultBuilder().setMethodData(methodData).setOptions(options).build());
+        assertNoError();
     }
 
     @Test

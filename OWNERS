@@ -44,8 +44,14 @@ per-file WATCHLISTS=*
 per-file .../SECURITY_OWNERS=set noparent
 per-file .../SECURITY_OWNERS=file://SECURITY_OWNERS
 
+# Release Branch ownership, managed by branch-managers@chromium.org
+file://BRANCH_FEATURE_OWNERS
+per-file BRANCH_FEATURE_OWNERS=file://BRANCH_OWNERS
+per-file BRANCH_OWNERS=file://BRANCH_OWNERS
+
 # git submodules
 per-file agents/internal=*
+per-file agents/shared=*
 per-file build/fuchsia/internal=*
 per-file chrome/app/theme/default_100_percent/google_chrome=*
 per-file chrome/app/theme/default_200_percent/google_chrome=*
@@ -89,7 +95,6 @@ per-file chromeos/assistant/internal=*
 per-file clank=*
 per-file clusterfuzz-data=*
 per-file components/accessibility/internal=*
-per-file components/accessibility_annotator/core/resources/internal=*
 per-file components/activity_reporter/internal=*
 per-file components/autofill/core/browser/form_parsing/internal_resources=*
 per-file components/autofill/core/browser/geo/chrome_alternative_state_name_maps=*
@@ -97,6 +102,7 @@ per-file components/crash/core/app/internal=*
 per-file components/metrics/internal=*
 per-file components/ntp_tiles/resources/internal=*
 per-file components/optimization_guide/internal=*
+per-file components/personal_context/core/resources/internal=*
 per-file components/plus_addresses/core/browser/resources/internal=*
 per-file components/resources/default_100_percent/google_chrome=*
 per-file components/resources/default_200_percent/google_chrome=*
@@ -134,6 +140,7 @@ per-file third_party/angle=*
 per-file third_party/anonymous_tokens/src=*
 per-file third_party/apache-portable-runtime/src=*
 per-file third_party/arcore-android-sdk/src=*
+per-file third_party/aria-practices/src=*
 per-file third_party/barhopper=*
 per-file third_party/beto-core/src=*
 per-file third_party/boringssl/src=*
@@ -269,6 +276,7 @@ per-file third_party/ruy/src=*
 per-file third_party/search_engines_data/resources=*
 per-file third_party/search_engines_data/resources_internal=*
 per-file third_party/securemessage/src=*
+per-file third_party/sframe/src=*
 per-file third_party/skia=*
 per-file third_party/smhasher/src=*
 per-file third_party/snappy/src=*

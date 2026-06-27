@@ -140,9 +140,7 @@ public class TabModelSelectorImplTest {
 
         mTabCreatorManager.initialize(mTabModelSelector);
         mTabModelSelector.onNativeLibraryReadyInternal(
-                mMockTabContentManager,
-                TabModelHolderFactory.createTabModelHolderForTesting(mRegularTabModel),
-                TabModelHolderFactory.createIncognitoTabModelHolderForTesting(mIncognitoTabModel));
+                mMockTabContentManager, mRegularTabModel, mIncognitoTabModel);
 
         assertEquals(
                 mTabModelSelector.getModel(/* incognito= */ false),
@@ -415,9 +413,7 @@ public class TabModelSelectorImplTest {
                         /* startIncognito= */ false,
                         SupportedProfileType.MIXED);
         MockTabModel regularTabModel = spy(new MockTabModel(mProfile, null));
-        TabGroupModelFilterInternal filter = mock(TabGroupModelFilterInternal.class);
-        when(filter.getTabModel()).thenReturn(regularTabModel);
-        TabRemover regularTabRemover = new PassthroughTabRemover(() -> filter);
+        TabRemover regularTabRemover = new PassthroughTabRemover(() -> regularTabModel);
         regularTabModel.setActive(true);
         regularTabModel.setTabRemoverForTesting(regularTabRemover);
         TabUngrouper tabUngrouper = mock(TabUngrouper.class);
@@ -435,9 +431,7 @@ public class TabModelSelectorImplTest {
                 .ungroupTabs(any(), anyBoolean(), anyBoolean());
         tabCreatorManager.initialize(tabModelSelector);
         tabModelSelector.onNativeLibraryReadyInternal(
-                mMockTabContentManager,
-                new TabModelHolder(regularTabModel, filter),
-                TabModelHolderFactory.createIncognitoTabModelHolderForTesting(mIncognitoTabModel));
+                mMockTabContentManager, regularTabModel, mIncognitoTabModel);
         MockTab tab0 = regularTabModel.addTab(0);
         MockTab tab1 = regularTabModel.addTab(1);
         assertEquals(0, TabModelUtils.getTabIndexById(regularTabModel, tab0.getId()));
@@ -486,10 +480,7 @@ public class TabModelSelectorImplTest {
                         /* startIncognito= */ false,
                         SupportedProfileType.MIXED);
         when(regularModel.isActiveModel()).thenReturn(true);
-        when(regularModel.getTabModel()).thenReturn(regularModel);
-        mTabModelSelector.initializeForTesting(
-                TabModelHolderFactory.createTabModelHolderForTesting(regularModel),
-                TabModelHolderFactory.createIncognitoTabModelHolderForTesting(mIncognitoTabModel));
+        mTabModelSelector.initializeForTesting(regularModel, mIncognitoTabModel);
         mTabModelSelector.markTabStateInitialized();
         verify(regularModel, never()).broadcastSessionRestoreComplete();
     }

@@ -4,10 +4,46 @@
 
 module toolbar_ui_api.mojom;
 
+import "components/browser_apis/browser_controls/browser_controls_api_data_model.mojom";
 import "components/content_settings/core/common/content_settings_types.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/time.mojom";
+import "skia/public/mojom/skcolor.mojom";
 import "ui/gfx/range/mojom/range.mojom";
+
+// A reference to a separately uploaded icon. See IconHandle in icon_handle.h
+// and webui_toolbar::IconTable.
+// Note that this can only be sent C++ -> JS; if you try to sent it towards
+// C++ you'll just end up with a null IconHandle, since the traits don't know
+// what IconTable (or other implementation!) is supposed to be interpreting the
+// number.
+struct IconHandle {
+  uint64 handle_id;
+};
+
+enum IconType {
+  kIconSet,
+  kMaskUrl,
+  kFullColorUrl,
+};
+
+// Used to update binding of an IconHandle.
+struct IconUpdate {
+  uint64 handle_id;
+  // If this is null, the icon is deleted.
+  // Otherwise, the semantics depend on icon_type:
+  // kIconSet: `icon_url_or_name` is the name of an icon provided by a
+  //           <cr-iconset>
+  // kMaskUrl: `icon_url_or_name` is a URL to a monochrome mask image,
+  //           which should be painted with current pen (for now).
+  // kFullColorUrl: `icon_url_or_name` is a URL to a multi-color image,
+  //                that's not controlled by pen colors.
+  string? icon_url_or_name;
+  IconType icon_type;
+
+  // Color to apply to vector icons.
+  skia.mojom.SkColor? color;
+};
 
 // The context menu types that can be opened with ToolbarUIService's
 // ShowContextMenu.
@@ -87,16 +123,29 @@ struct OmniboxActionTextInput {
   // characters).
   mojo_base.mojom.String16 inline_autocompletion;
 
+  // The version of the input on the browser side, incremented when the
+  // state is reset due to navigation or selection from completion popup.
+  // (Wraparound is OK, it looks for equality).
+  uint32 browser_version;
+
+  // The version of the input on the WebUI side, incremented during typing.
+  // (Wraparound is OK, it looks for equality).
+  uint32 ui_version;
+
   gfx.mojom.Range selection;
 };
 
 struct OmniboxActionKey {
-  // For now this is just key down, but will likely be more in the future.
+  // True if this is a key down event, false if it's key up.
+  bool is_key_down = true;
 
   // KeyboardEvent.key of the event; nothing else should be stored in this
   // field.
   string key;
   gfx.mojom.Range selection;
+
+  // Modifier keys held during event.
+  array<browser_controls_api.mojom.EventDispositionFlag> modifiers;
 };
 
 union OmniboxAction {
@@ -139,6 +188,14 @@ struct BackForwardControlState {
 struct HomeControlState {
   bool should_be_shown;
   bool is_context_menu_visible;
+};
+
+struct AvatarControlState {
+  string icon_url;
+  mojo_base.mojom.String16 text;
+  mojo_base.mojom.String16 tooltip;
+  mojo_base.mojom.String16 accessibility_name;
+  mojo_base.mojom.String16 accessibility_description;
 };
 
 // The type of the content setting image model.
@@ -184,9 +241,8 @@ struct ContentSettingImageState {
   // The type of icon to display.
   ContentSettingImageType type;
 
-  // NOTE: this isn't actually announced unless `should_notify_accessibility` is
-  // true -- it's merely the accessible name.
-  mojo_base.mojom.String16 accessibility_announcement_string;
+  // Accessible name for the icon. If empty, `tooltip` is used instead.
+  mojo_base.mojom.String16 accessibility_string;
 
   // Mouseover popup text to display over icon.
   mojo_base.mojom.String16 tooltip;
@@ -196,19 +252,23 @@ struct ContentSettingImageState {
   // the blocked status.
   bool is_blocked;
 
-  // If true, `accessibility_announcement_string` is announced to users of
-  // accessibility technologies.
-  bool should_notify_accessibility;
-
   // If true, the bubble is visible, so the icon should be highlighted.
+  //
+  // TODO: crbug.com/489109708 - Consider removing `should_run_animation` if we
+  // can use element tracking for highlighting instead.
   bool is_bubble_visible;
+
+  // TODO: crbug.com/489109708 - For stateful property below, we'll need to
+  // send an incrementing generation number instead, as updates can be
+  // consolidated, and check against the last known number on the WebUI side.
+  // This prevents an issue where the initial message (run animation) gets lost
+  // in consolidation.
 
   // If true, when `explanitory_string` is displayed, it should appear via an
   // animation.
   bool should_run_animation;
 
-  // Explanatory text that either appears instantly, or animates in, depending
-  // on the value of `should_run_animation`.
+  // Explanatory text that animates in if `should_run_animation` is true.
   mojo_base.mojom.String16 explanatory_string;
 
   // NOTE: The visual icon to display is determined by `type`
@@ -235,6 +295,15 @@ struct OmniboxTextPortion {
 };
 
 struct OmniboxViewState {
+  // Latest version of the input from the WebUI seen by the browser side;
+  // used to discard updates that are out-of-date. This gets reset to 0
+  // when `browser_version` changes.
+  uint32 ui_version = 0;
+
+  // Latest version of the input from the browser side. Used to discard
+  // input if something dramatic happened clearing the entire state.
+  uint32 browser_version = 0;
+
   // Text to display in the omnibox view.
   array<OmniboxTextPortion> text_pieces;
 
@@ -260,6 +329,18 @@ struct LocationBarFlags {
   bool popup_open = false;
 };
 
+// Search keyword chip, which shows up when the user enters things like
+// "google.com query" or "@history recent site" to replace google.com and
+// @history with a chip describing the search provider.
+struct SelectedKeywordState {
+  // Descriptions to show based on available space. Note that `short_name`
+  // may be empty.
+  mojo_base.mojom.String16 short_name;
+  mojo_base.mojom.String16 full_name;
+
+  // TODO(crbug.com/503784002): Icon
+};
+
 // Enum of all supported pinned toolbar actions.
 enum PinnedToolbarAction {
  kUnspecified, // Unused; triggers assert if used.
@@ -277,10 +358,6 @@ enum PinnedToolbarAction {
  kShowTranslate,
  kQrCodeGenerator,
  kRouteMedia,
- kRouteMediaIdle,
- kRouteMediaWarning,
- kRouteMediaPaused,
- kRouteMediaActive,
  kSidePanelShowReadAnything,
  kCopyUrl,
  kSendTabToSelf,
@@ -309,6 +386,9 @@ struct PinnedToolbarActionState {
   // Should this button appear enabled?
   bool enabled;
 
+  // Should this button appear activated?
+  bool activated;
+
   // Tooltip text to display on hover.
   mojo_base.mojom.String16 tooltip;
 
@@ -317,6 +397,9 @@ struct PinnedToolbarActionState {
 
   // The ElementIdentifier for this action, if any.
   string? element_id;
+
+  // The icon to display.
+  IconHandle icon;
 };
 
 struct LocationBarState {
@@ -326,6 +409,9 @@ struct LocationBarState {
   array<ContentSettingImageState> content_setting_image_states;
   // LHS location bar chips states.
   LhsChipsState lhs_chips_state;
+
+  // Any search keyword to render, if not null.
+  SelectedKeywordState? selected_keyword;
 };
 
 enum LhsChipIdentifier {
@@ -389,17 +475,6 @@ struct PermissionDashboardState {
   bool is_divider_visible;
 };
 
-enum SecurityChipIcon {
-  kUnspecified,
-  kHttp,
-  kSecurePageInfo,
-  kNotSecureWarning,
-  kDangerous,
-  kGoogleSuperG,
-  kGoogleGMonochrome,
-  kAddContext,
-};
-
 // Represents the security state of the current page.
 // This strictly maps to native security_state::SecurityLevel values.
 enum SecurityLevel {
@@ -410,10 +485,16 @@ enum SecurityLevel {
   kWarning,
 };
 
+struct SecurityChipAccessibilityState {
+  mojo_base.mojom.String16 label;
+  mojo_base.mojom.String16 description;
+};
+
 struct SecurityChipState {
-  SecurityChipIcon icon;
+  IconHandle icon;
   SecurityLevel security_level;
   mojo_base.mojom.String16 text;
+  SecurityChipAccessibilityState accessibility_state;
   bool is_clickable;
   // True specifically when the text is exactly "Dangerous" (e.g. Malware). This
   // represents a higher alert state than the standard kDangerous security
@@ -443,6 +524,7 @@ struct NavigationControlsState {
   SplitTabsControlState split_tabs_control_state;
   BackForwardControlState back_forward_control_state;
   HomeControlState home_control_state;
+  AvatarControlState avatar_control_state;
   LocationBarState location_bar_state;
   // List of pinned toolbar action button states. Order corresponds to order
   // of the drawn buttons and duplicates imply duplicate buttons.

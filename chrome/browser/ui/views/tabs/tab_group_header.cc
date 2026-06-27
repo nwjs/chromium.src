@@ -10,6 +10,9 @@
 #include <utility>
 
 #include "base/feature_list.h"
+#include "base/i18n/break_iterator.h"
+#include "base/i18n/char_iterator.h"
+#include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -52,11 +55,13 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom-shared.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -76,6 +81,10 @@
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 
+#if BUILDFLAG(IS_MAC)
+#include "third_party/icu/source/common/unicode/uchar.h"
+#endif
+
 namespace {
 
 // The amount of padding between the label and the sync icon.
@@ -83,6 +92,60 @@ constexpr int kSyncIconPaddingFromLabel = 2;
 
 bool SupportsDataSharing() {
   return data_sharing::features::IsDataSharingFunctionalityEnabled();
+}
+
+#if BUILDFLAG(IS_MAC)
+// Returns true if `text` renders with Apple Color Emoji on macOS.
+// This intentionally uses a conservative heuristic: only default
+// emoji-presentation codepoints and regional indicators (flag sequences).
+//
+// We intentionally do not treat Variation Selector-16 (U+FE0F) alone as a
+// trigger. Some text-default symbols followed by VS-16 can still render with
+// text-like metrics in this UI context (e.g. U+2666 U+FE0F), and applying the
+// 1px compensation to them introduces a visible right bias.
+bool RendersAsColorEmoji(std::u16string_view text) {
+  for (base::i18n::UTF16CharIterator iter(text); !iter.end(); iter.Advance()) {
+    const UChar32 codepoint = iter.get();
+    if (u_hasBinaryProperty(codepoint, UCHAR_EMOJI_PRESENTATION) ||
+        u_hasBinaryProperty(codepoint, UCHAR_REGIONAL_INDICATOR)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true if `text` consists of exactly one grapheme cluster (a single
+// user-perceived character). This includes multi-codepoint sequences such as
+// emoji with skin tone modifiers, ZWJ sequences, and regional indicator
+// pairs.
+bool IsSingleGrapheme(std::u16string_view text) {
+  if (text.empty()) {
+    return false;
+  }
+  base::i18n::BreakIterator graphemes(
+      text, base::i18n::BreakIterator::BREAK_CHARACTER);
+  if (!graphemes.Init() || !graphemes.Advance()) {
+    return false;
+  }
+  return !graphemes.Advance();
+}
+#endif
+
+// Returns a horizontal pixel offset to apply to the tab group title for
+// visual centering, accounting for RTL. Most titles return 0 (advance-width
+// centering is correct). On macOS, Apple Color Emoji glyphs have asymmetric
+// side bearings — the colored ink sits slightly left of the glyph's advance
+// box — so a single-emoji title centered using advance-width metrics looks
+// ~1px left of the chip's geometric center. Shift such titles right by 1px
+// to compensate. Under RTL the offset is negated so the on-screen visual
+// direction (rightward shift) is preserved after framework mirroring.
+int GetTitleVisualCenteringOffset(std::u16string_view title) {
+#if BUILDFLAG(IS_MAC)
+  if (IsSingleGrapheme(title) && RendersAsColorEmoji(title)) {
+    return base::i18n::IsRTL() ? -1 : 1;
+  }
+#endif
+  return 0;
 }
 
 class TabGroupHighlightPathGenerator : public views::HighlightPathGenerator {
@@ -140,11 +203,11 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
           base::BindRepeating(&TabSlotController::NotifyTabstripBubbleClosed,
                               base::Unretained(tab_slot_controller_)));
 
-  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group);
+  TabGroup* const tab_group = tab_slot_controller_->GetTabGroup(group);
   if (tab_group) {
-    SetHoverCardDataFrom(tabs::TabGroupData::FromTabGroup(tab_group));
     tab_group_data_observer_ =
         std::make_unique<tabs::TabGroupDataObserver>(tab_group);
+    SetHoverCardDataFrom(tab_group_data_observer_->tab_group_data());
     tab_group_data_observer_subscription_ =
         tab_group_data_observer_->RegisterTabGroupDataChangedCallback(
             base::BindRepeating(&TabGroupHeader::OnTabGroupDataChanged,
@@ -483,6 +546,14 @@ void TabGroupHeader::VisualsChanged() {
     CreateHeaderWithTitle();
   }
 
+  // Expand the clip by 1 DIP to prevent clipping the title chip's anti-aliased
+  // rrect background at fractional display scales. This won't paint over
+  // anything else since nothing is painted outside the background region.
+  // See https://crbug.com/40662024 for more details.
+  gfx::Rect clip_bounds = title_chip_->GetLocalBounds();
+  clip_bounds.Outset(1);
+  title_chip_->SetClipPath(SkPath::Rect(gfx::RectToSkRect(clip_bounds)));
+
   if (views::FocusRing::Get(this)) {
     views::FocusRing::Get(this)->DeprecatedLayoutImmediately();
   }
@@ -576,7 +647,10 @@ void TabGroupHeader::UpdateSyncIconView() {
   if (should_show_header_icon_) {
     bool use_share_icon = SupportsDataSharing();
     sync_icon_->SetImage(ui::ImageModel::FromVectorIcon(
-        use_share_icon ? kPeopleGroupIcon : kTabGroupsSyncIcon,
+        use_share_icon ? features::IsRoundedIconsEnabled() ? kGroupCustomIcon
+                                                           : kPeopleGroupOldIcon
+        : features::IsRoundedIconsEnabled() ? kSyncIcon
+                                            : kTabGroupsSyncOldIcon,
         color_utils::GetColorWithMaxContrast(color_),
         group_style_->GetSyncIconWidth()));
   }
@@ -593,7 +667,7 @@ void TabGroupHeader::UpdateAttentionIndicatorView() {
   attention_indicator_->SetVisible(should_show_attention_indicator);
   if (should_show_attention_indicator) {
     attention_indicator_->SetImage(ui::ImageModel::FromVectorIcon(
-        kDefaultTouchFaviconMaskIcon,
+        kDefaultTouchFaviconMaskCustomIcon,
         color_utils::GetColorWithMaxContrast(color_),
         group_style_->GetAttentionIndicatorWidth()));
   }
@@ -718,7 +792,8 @@ void TabGroupHeader::CreateHeaderWithTitle() {
     // chip so the title appears centered.
     const int text_offset = std::max(
         0, (title_chip_width - text_width - title_chip_insets.width()) / 2);
-    title_->SetBounds(title_chip_insets.left() + text_offset,
+    title_->SetBounds(title_chip_insets.left() + text_offset +
+                          GetTitleVisualCenteringOffset(group_title_),
                       title_chip_vertical_inset, text_width, chip_height);
     attention_indicator_->SetBounds(0, 0, 0, 0);
   } else {

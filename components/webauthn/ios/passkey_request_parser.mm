@@ -5,6 +5,9 @@
 #import "components/webauthn/ios/passkey_request_parser.h"
 
 #import "base/base64url.h"
+#import "components/autofill/core/common/unique_ids.h"
+#import "components/autofill/ios/browser/autofill_util.h"
+#import "components/webauthn/core/browser/webauthn_security_utils.h"
 #import "device/fido/fido_user_verification_requirement.h"
 #import "device/fido/public/fido_constants.h"
 
@@ -34,6 +37,9 @@ constexpr char kRequestId[] = "requestId";
 
 // Frame ID for handle* events.
 constexpr char kFrameId[] = "frameId";
+
+// Remote frame ID (token) for handle* events.
+constexpr char kRemoteFrameId[] = "remoteFrameId";
 
 // Common parameters of "handleGetRequest" and "handleCreateRequest" events.
 constexpr char kRequest[] = "request";
@@ -431,7 +437,17 @@ BuildRequestInfo(const base::DictValue& dict) {
     return base::unexpected(request_id.error());
   }
 
-  return IOSPasskeyClient::RequestInfo(*frame_id, *request_id);
+  const std::string* remote_frame_id = dict.FindString(kRemoteFrameId);
+  std::optional<autofill::RemoteFrameToken> remote_frame_token;
+  if (remote_frame_id && !remote_frame_id->empty()) {
+    if (std::optional<base::UnguessableToken> unguessable_token =
+            autofill::DeserializeJavaScriptFrameId(*remote_frame_id)) {
+      remote_frame_token = autofill::RemoteFrameToken(*unguessable_token);
+    }
+  }
+
+  return IOSPasskeyClient::RequestInfo(*frame_id, *request_id,
+                                       remote_frame_token);
 }
 
 base::expected<AssertionRequestParams, PasskeysParsingError>
@@ -525,6 +541,7 @@ base::DictValue ToAuthenticationExtensionsClientOutputsJSON(
 
 std::optional<PasskeyScriptEvent> ParsePasskeyScriptEvent(
     const base::DictValue& dict,
+    const url::Origin& caller_origin,
     IsGpmPasskeyFunc is_gpm_passkey_func) {
   const std::string* event_string = dict.FindString(kEvent);
   if (!event_string || event_string->empty()) {
@@ -547,26 +564,35 @@ std::optional<PasskeyScriptEvent> ParsePasskeyScriptEvent(
     return PasskeyScriptEvent::kLogCreateRequest;
   }
 
-  if (*event_string == kLogGetResolved) {
-    const std::string* credential_id = dict.FindString(kCredentialId);
+  bool is_log_get_resolved = (*event_string == kLogGetResolved);
+  bool is_log_create_resolved = (*event_string == kLogCreateResolved);
+  if (is_log_get_resolved || is_log_create_resolved) {
     const std::string* rp_id = dict.FindString(kRpId);
-    if (!credential_id || credential_id->empty() || !rp_id || rp_id->empty()) {
+    if (!rp_id || rp_id->empty() ||
+        !OriginIsAllowedToClaimRelyingPartyId(*rp_id, caller_origin)) {
       return std::nullopt;
     }
-    // Checks whether a passkey matching the provided rp ID and credential ID is
-    // present in the currently logged in user's GPM passkeys.
-    bool is_gpm = is_gpm_passkey_func(*rp_id, *credential_id);
-    return is_gpm ? PasskeyScriptEvent::kLogGetResolvedGpm
-                  : PasskeyScriptEvent::kLogGetResolvedNonGpm;
-  }
 
-  if (*event_string == kLogCreateResolved) {
-    std::optional<bool> is_gpm = dict.FindBool(kIsGpm);
-    if (!is_gpm.has_value()) {
-      return std::nullopt;
+    if (is_log_get_resolved) {
+      const std::string* credential_id = dict.FindString(kCredentialId);
+      if (!credential_id || credential_id->empty()) {
+        return std::nullopt;
+      }
+      // Checks whether a passkey matching the provided rp ID and credential ID
+      // is present in the currently logged in user's GPM passkeys.
+      bool is_gpm = is_gpm_passkey_func(*rp_id, *credential_id);
+      return is_gpm ? PasskeyScriptEvent::kLogGetResolvedGpm
+                    : PasskeyScriptEvent::kLogGetResolvedNonGpm;
     }
-    return *is_gpm ? PasskeyScriptEvent::kLogCreateResolvedGpm
-                   : PasskeyScriptEvent::kLogCreateResolvedNonGpm;
+
+    if (is_log_create_resolved) {
+      std::optional<bool> is_gpm = dict.FindBool(kIsGpm);
+      if (!is_gpm.has_value()) {
+        return std::nullopt;
+      }
+      return *is_gpm ? PasskeyScriptEvent::kLogCreateResolvedGpm
+                     : PasskeyScriptEvent::kLogCreateResolvedNonGpm;
+    }
   }
 
   return std::nullopt;

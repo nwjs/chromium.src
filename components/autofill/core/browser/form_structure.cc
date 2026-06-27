@@ -4,83 +4,77 @@
 
 #include "components/autofill/core/browser/form_structure.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
-#include <sstream>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include "base/base64.h"
+#include "base/check.h"
 #include "base/check_deref.h"
-#include "base/command_line.h"
-#include "base/containers/adapters.h"
+#include "base/check_op.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/map_util.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
-#include "base/i18n/case_conversion.h"
-#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial.h"
-#include "base/numerics/safe_conversions.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
 #include "components/autofill/core/browser/autofill_ai_form_rationalization.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/autofill_server_prediction.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/country_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
-#include "components/autofill/core/browser/data_quality/validation.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
 #include "components/autofill/core/browser/form_parsing/form_field_parser.h"
 #include "components/autofill/core/browser/form_processing/autofill_ai/determine_attribute_types.h"
 #include "components/autofill/core/browser/form_processing/name_processing_util.h"
 #include "components/autofill/core/browser/form_structure_rationalizer.h"
 #include "components/autofill/core/browser/form_structure_sectioning_util.h"
+#include "components/autofill/core/browser/form_types.h"
 #include "components/autofill/core/browser/heuristic_source.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
-#include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
-#include "components/autofill/core/browser/metrics/prediction_quality_metrics.h"
+#include "components/autofill/core/browser/suggestions/suggestion_util.h"
 #include "components/autofill/core/common/autocomplete_parsing_util.h"
-#include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
-#include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/autofill/core/common/autofill_regex_constants.h"
-#include "components/autofill/core/common/autofill_regexes.h"
-#include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_predictions.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/form_field_data_predictions.h"
 #include "components/autofill/core/common/html_field_types.h"
+#include "components/autofill/core/common/language_code.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
+#include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/security_state/core/security_state.h"
-#include "components/version_info/version_info.h"
-#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "url/origin.h"
 
 namespace autofill {
@@ -151,6 +145,40 @@ std::unique_ptr<AutofillField> ExtractMatchingFieldToUpdate(
 
 }  // namespace
 
+FormStructure::AutofillFieldCopyableVector::AutofillFieldCopyableVector() =
+    default;
+
+FormStructure::AutofillFieldCopyableVector::AutofillFieldCopyableVector(
+    const AutofillFieldCopyableVector& other) {
+  data_ = base::ToVector(
+      other.data_, [](const std::unique_ptr<AutofillField>& field) {
+        return AutofillField::Clone(*field, AutofillFieldCopyKey());
+      });
+}
+
+FormStructure::AutofillFieldCopyableVector::AutofillFieldCopyableVector(
+    AutofillFieldCopyableVector&&) = default;
+
+FormStructure::AutofillFieldCopyableVector&
+FormStructure::AutofillFieldCopyableVector::operator=(
+    AutofillFieldCopyableVector&&) = default;
+
+FormStructure::AutofillFieldCopyableVector&
+FormStructure::AutofillFieldCopyableVector::operator=(
+    const AutofillFieldCopyableVector& other) {
+  if (this == &other) {
+    return *this;
+  }
+  data_ = base::ToVector(
+      other.data_, [](const std::unique_ptr<AutofillField>& field) {
+        return AutofillField::Clone(*field, AutofillFieldCopyKey());
+      });
+  return *this;
+}
+
+FormStructure::AutofillFieldCopyableVector::~AutofillFieldCopyableVector() =
+    default;
+
 FormStructure::FormStructure(const FormData& form)
     : form_parsed_timestamp_(base::TimeTicks::Now()),
       host_frame_(form.host_frame()),
@@ -162,11 +190,15 @@ FormStructure::FormStructure(
     FormSignature form_signature,
     const std::vector<FieldSignature>& field_signatures)
     : form_signature_(form_signature) {
-  for (const auto& signature : field_signatures) {
-    fields_.push_back(AutofillField::CreateForPasswordManagerUpload(signature));
+  for (const FieldSignature& signature : field_signatures) {
+    fields_.data().push_back(
+        AutofillField::CreateForPasswordManagerUpload(signature));
   }
   DetermineFieldRanks();
 }
+
+FormStructure::FormStructure(const FormStructure&) = default;
+FormStructure& FormStructure::operator=(const FormStructure&) = default;
 
 FormStructure::~FormStructure() = default;
 
@@ -177,7 +209,7 @@ void FormStructure::DetermineFieldRanks() {
   std::map<std::pair<FormGlobalId, FieldSignature>, size_t>
       rank_in_host_form_signature_group;
 
-  for (auto& field : fields_) {
+  for (std::unique_ptr<AutofillField>& field : fields_) {
     field->set_rank(rank++);
     field->set_rank_in_host_form(
         rank_in_host_form[field->renderer_form_id()]++);
@@ -214,7 +246,7 @@ void FormStructure::RationalizeAndAssignSections(
   // Log the field type predicted by rationalization.
   // The sections are mapped to consecutive natural numbers starting at 1.
   std::map<Section, size_t> section_id_map;
-  for (const auto& field : fields_) {
+  for (const std::unique_ptr<AutofillField>& field : fields_) {
     if (!section_id_map.contains(field->section())) {
       size_t next_section_id = section_id_map.size() + 1;
       section_id_map[field->section()] = next_section_id;
@@ -255,7 +287,7 @@ FormDataPredictions FormStructure::GetFieldTypePredictions() const {
   const base::flat_map<FieldGlobalId, std::u16string> parseable_names =
       GetParseableNames(fields_);
 
-  for (const auto& field : fields_) {
+  for (const std::unique_ptr<AutofillField>& field : fields_) {
     FormFieldDataPredictions annotated_field;
     annotated_field.host_form_signature =
         base::NumberToString(field->host_form_signature().value());
@@ -311,7 +343,7 @@ std::vector<FieldGlobalId> FormStructure::FindFieldsEligibleForManualFilling(
     const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms) {
   std::vector<FieldGlobalId> fields_eligible_for_manual_filling;
   for (const FormStructure* form : forms) {
-    for (const auto& field : form->fields_) {
+    for (const std::unique_ptr<AutofillField>& field : form->fields_) {
       FieldTypeGroup field_type_group =
           GroupTypeOfFieldType(field->server_type());
       // In order to trigger the payments bottom sheet that assists users to
@@ -432,7 +464,7 @@ void FormStructure::UpdateFormData(const FormData& form_data) {
         return autofill_field;
       });
 
-  fields_ = std::move(fields);
+  fields_.data() = std::move(fields);
 
   form_signature_ = CalculateFormSignature(form_data);
   alternative_form_signature_ = CalculateAlternativeFormSignature(form_data);
@@ -459,166 +491,6 @@ void FormStructure::UpdateFormData(const FormData& form_data) {
       field->SetTypeTo(type, source);
     }
   }
-}
-
-void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
-                                      RetrieveFromCacheReason reason) {
-  // Build a table to lookup AutofillFields by their FieldGlobalId.
-  auto cached_fields_by_id =
-      base::MakeFlatMap<FieldGlobalId, const AutofillField*>(
-          cached_form.fields(), {},
-          [](const std::unique_ptr<AutofillField>& field) {
-            return std::make_pair(field->global_id(), field.get());
-          });
-
-  // Lookup field by global_id in cached_fields_by_id.
-  auto find_field_by_id = [&cached_fields_by_id](FieldGlobalId global_id) {
-    const auto& it = cached_fields_by_id.find(global_id);
-    return it != cached_fields_by_id.end() ? it->second : nullptr;
-  };
-
-  // Lookup field by field signature and return it in case only a single field
-  // with the signature exists.
-  auto find_field_with_unique_field_signature =
-      [&cached_fields_by_id](
-          FieldSignature field_signature) -> const AutofillField* {
-    const AutofillField* match = nullptr;
-    // Iterate over the fields to find the field with the same form signature.
-    for (const auto& entry : cached_fields_by_id) {
-      if (entry.second->GetFieldSignature() == field_signature) {
-        // If there are multiple matches, do not retrieve the field and stop
-        // the process.
-        if (match) {
-          return nullptr;
-        }
-        match = entry.second;
-      }
-    }
-    return match;
-  };
-
-  for (auto& field : *this) {
-    const AutofillField* cached_field = find_field_by_id(field->global_id());
-
-    // If the unique renderer id (or the name) is not stable due to some Java
-    // Script magic in the website, use the field signature as a fallback
-    // solution to find the field in the cached form.
-    if (!cached_field) {
-      cached_field =
-          find_field_with_unique_field_signature(field->GetFieldSignature());
-    }
-
-    // Skip fields that we could not find.
-    if (!cached_field) {
-      continue;
-    }
-
-    field->set_initial_value(cached_field->initial_value(),
-                             /*pass_key=*/{});
-    if (!cached_field->server_predictions().empty()) {
-      // Calling field->set_server_predictions({}) does actually add a
-      // `NO_SERVER_DATA`  prediction to the field, which wouldn't be preserving
-      // the old state of the cached field. An empty
-      // `AutofillField::server_predictions_` means the server response is still
-      // pending, whereas `NO_SERVER_DATA` means the server replied and couldn't
-      // classify the field.
-      field->set_server_predictions(cached_field->server_predictions());
-    }
-    if (reason == RetrieveFromCacheReason::kFormCacheUpdateWithoutParsing ||
-        reason == RetrieveFromCacheReason::kFormCacheUpdateAfterParsing) {
-      if (!base::FeatureList::IsEnabled(features::kAutofillFixIsAutofilled)) {
-        field->set_is_autofilled_deprecated(
-            cached_field->is_autofilled_deprecated(/*pass_key=*/{}),
-            base::PassKey<FormStructure>());
-      }
-    }
-    field->set_autofill_source_profile_guid(
-        cached_field->autofill_source_profile_guid());
-    field->set_autofilled_type(cached_field->autofilled_type());
-    field->set_filling_product(cached_field->filling_product());
-    if (!base::FeatureList::IsEnabled(features::kAutofillFixIsAutofilled)) {
-      field->set_is_user_edited_deprecated(
-          cached_field->is_user_edited_deprecated());
-      field->set_previously_autofilled_deprecated(
-          cached_field->previously_autofilled_deprecated());
-    }
-    field->set_field_modifiers(
-        cached_field->field_modifiers(base::PassKey<FormStructure>()),
-        base::PassKey<FormStructure>());
-    field->set_did_trigger_suggestions(cached_field->did_trigger_suggestions());
-    field->set_was_focused(cached_field->was_focused());
-    if (base::optional_ref<const AutofillFormatString> format_string =
-            cached_field->format_string()) {
-      field->set_format_string_unless_overruled(
-          *format_string, cached_field->format_string_source());
-    }
-
-    // During form parsing, we don't care for heuristic field classifications
-    // and information derived from the autocomplete attribute as those are
-    // either regenerated or copied from the form that the renderer sent.
-    // During import, no parsing happens and we want to preserve the last field
-    // classification. Similarly, if the renderer sends an update that does not
-    // trigger parsing, we want to preserve the last field classification
-    if (reason == RetrieveFromCacheReason::kFormCacheUpdateWithoutParsing ||
-        reason == RetrieveFromCacheReason::kFormImport) {
-      // Transfer attributes of the cached AutofillField to the newly created
-      // AutofillField.
-      for (int i = 0; i <= static_cast<int>(HeuristicSource::kMaxValue); ++i) {
-        HeuristicSource s = static_cast<HeuristicSource>(i);
-        field->set_heuristic_type(s, cached_field->heuristic_type(s));
-      }
-      std::optional<FieldTypeSet> cached_ml_types =
-          cached_field->ml_supported_types();
-      if (cached_ml_types.has_value()) {
-        field->set_ml_supported_types(cached_ml_types.value());
-      }
-      field->SetHtmlType(cached_field->html_type(), cached_field->html_mode());
-      field->set_credit_card_number_offset(
-          cached_field->credit_card_number_offset());
-      field->set_section(cached_field->section());
-      field->set_only_fill_when_focused(cached_field->only_fill_when_focused());
-
-      // During import, the final field type is used to decide which
-      // information to store in an address profile or credit card. As
-      // rationalization is an important component of determining the final
-      // field type, the output should be preserved.
-      field->SetTypeTo(cached_field->Type(), cached_field->PredictionSource());
-    }
-    field->set_field_log_events(cached_field->field_log_events());
-  }
-
-  // Preserve timestamp from the cache as a new form from the renderer does not
-  // know the parsing/filling history, as this information is computed in the
-  // browser.
-  form_parsed_timestamp_ =
-      std::min(form_parsed_timestamp_, cached_form.form_parsed_timestamp_);
-  last_filling_timestamp_ = cached_form.last_filling_timestamp_;
-  server_predictions_received_timestamp_ =
-      cached_form.server_predictions_received_timestamp_;
-
-  // The form signature should match between query and upload requests to the
-  // server. On many websites, form elements are dynamically added, removed, or
-  // rearranged via JavaScript between page load and form submission, so we
-  // copy over the |form_signature_field_names_| corresponding to the query
-  // request.
-  form_signature_ = cached_form.form_signature_;
-
-  // Keeping the behavior for structural signature consistent with the main one.
-  // In practice, first-encountered signatures are preserved only for purely
-  // credit card forms.
-  // TODO(crbug.com/431754194): Investigate making the behavior consistent
-  // across all form types.
-  structural_form_signature_ = cached_form.structural_form_signature_;
-
-  // Whether the AutofillAI model may be run is set at the same time as the
-  // server predictions - it also needs to be retrieved from the cache.
-  may_run_autofill_ai_model_ = cached_form.may_run_autofill_ai_model_;
-
-  // The last successfully queried version is set at the same time as the
-  // server predictions - it also needs to be retrieved from the cache to avoid
-  // applying outdated server predictions.
-  last_successfully_queried_version_ =
-      cached_form.last_successfully_queried_version_;
 }
 
 void FormStructure::SetFieldTypesFromAutocompleteAttribute() {
@@ -655,7 +527,7 @@ const AutofillField* FormStructure::field(size_t index) const {
   if (index >= fields_.size()) {
     NOTREACHED();
   }
-  return fields_[index].get();
+  return fields_.data()[index].get();
 }
 
 AutofillField* FormStructure::field(size_t index) {
@@ -733,6 +605,18 @@ std::ostream& operator<<(std::ostream& buffer, const FormStructure& form) {
                           " - ",
                           base::NumberToString(
                               HashFormSignature(form.form_signature()))});
+  buffer << "\n Form alternative signature: "
+         << base::StrCat({base::NumberToString(
+                              form.alternative_form_signature().value()),
+                          " - ",
+                          base::NumberToString(HashFormSignature(
+                              form.alternative_form_signature()))});
+  buffer << "\n Form structural signature: "
+         << base::StrCat(
+                {base::NumberToString(form.structural_form_signature().value()),
+                 " - ",
+                 base::NumberToString(
+                     HashFormSignature(form.structural_form_signature()))});
   buffer << "\n Form name: " << form.form_name();
   buffer << "\n Identifiers: "
          << base::StrCat(
@@ -827,6 +711,12 @@ LogBuffer& operator<<(LogBuffer& buffer, const FormStructure& form) {
                           " - ",
                           base::NumberToString(HashFormSignature(
                               form.alternative_form_signature()))});
+  buffer << Tr{} << "Form structural signature:"
+         << base::StrCat(
+                {base::NumberToString(form.structural_form_signature().value()),
+                 " - ",
+                 base::NumberToString(
+                     HashFormSignature(form.structural_form_signature()))});
   buffer << Tr{} << "Form name:" << form.form_name();
   buffer << Tr{} << "Identifiers: "
          << base::StrCat(

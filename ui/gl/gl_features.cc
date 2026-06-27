@@ -4,6 +4,7 @@
 
 #include "ui/gl/gl_features.h"
 
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/strings/string_split.h"
@@ -53,9 +54,11 @@ const base::FeatureParam<std::string>
     kPassthroughCommandDecoderBlockListByManufacturer{
         &kDefaultPassthroughCommandDecoder, "BlockListByManufacturer", ""};
 
+// b/455412928 flickering issue with WebView on the following XR devices
 const base::FeatureParam<std::string>
     kPassthroughCommandDecoderBlockListByModel{
-        &kDefaultPassthroughCommandDecoder, "BlockListByModel", ""};
+        &kDefaultPassthroughCommandDecoder, "BlockListByModel",
+        "SM-I610|SM-I610H|Robin XR"};
 
 const base::FeatureParam<std::string>
     kPassthroughCommandDecoderBlockListByBoard{
@@ -105,18 +108,8 @@ BASE_FEATURE(kGpuVsync, base::FEATURE_ENABLED_BY_DEFAULT);
 // Feature lives in ui/gl because it affects the GL binding initialization on
 // platforms that would otherwise not default to using EGL bindings.
 BASE_FEATURE(kDefaultPassthroughCommandDecoder,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Add a small delay in shader compiling if validating command decoder is used.
-// This is to verify if passthrough command decoder impacting negatively top
-// level metrics could be due to slower shader compiling.
-BASE_FEATURE(kAddDelayToGLCompileShader, base::FEATURE_DISABLED_BY_DEFAULT);
-// Histogram |GrCompileShaderUs| mean is 1.8ms (native) vs 3.1ms (ANGLE).
-// Therefore, we add a 1.3ms delay to shader compiling.
-constexpr base::FeatureParam<base::TimeDelta> kGLCompileShaderDelay = {
-    &kAddDelayToGLCompileShader, /*name=*/"interval",
-    /*default_value=*/base::Microseconds(1300)};
-#endif  // !defined(PASSTHROUGH_COMMAND_DECODER_LAUNCHED)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(ENABLE_VALIDATING_COMMAND_DECODER)
 
 // Controls whether the GPU process falls back to software if GLES3 is not
 // supported.
@@ -307,7 +300,8 @@ bool IsSwiftShaderAllowedByCommandLine(const base::CommandLine* command_line) {
 
   std::string angle_name =
       command_line->GetSwitchValueASCII(switches::kUseANGLE);
-  if (angle_name == gl::kANGLEImplementationSwiftShaderName) {
+  if (angle_name == gl::kANGLEImplementationSwiftShaderName ||
+      angle_name == gl::kANGLEImplementationSwiftShaderForWebGLName) {
     // If SwiftShader is specifically requested with the --use-angle command
     // line flag, allow it.
     return true;
@@ -370,20 +364,6 @@ bool IsSoftwareGLFallbackDueToCrashesAllowed(
   return base::FeatureList::IsEnabled(kAllowSoftwareGLFallbackDueToCrashes);
 }
 
-base::TimeDelta GetGLCompileShaderDelay() {
-#if BUILDFLAG(ENABLE_VALIDATING_COMMAND_DECODER)
-  if (UsePassthroughCommandDecoder()) {
-    return base::TimeDelta();
-  }
-  if (!base::FeatureList::IsEnabled(kAddDelayToGLCompileShader)) {
-    return base::TimeDelta();
-  }
-  return kGLCompileShaderDelay.Get();
-#else
-  return base::TimeDelta();
-#endif  // BUILDFLAG(ENABLE_VALIDATING_COMMAND_DECODER)
-}
-
 BASE_FEATURE(kAllowANGLED3D9Fallback, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsANGLED3D9FallbackAllowed() {
@@ -395,7 +375,7 @@ BASE_FEATURE(kAndroidLimitRgb565DisplayToApi32,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool PreferRGB565ResourcesForDisplay() {
-  return base::SysInfo::AmountOfPhysicalMemory().InMiB() <= 512 &&
+  return base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() <= 512 &&
          (base::android::android_info::sdk_int() <=
               base::android::android_info::SDK_VERSION_Sv2 ||
           !base::FeatureList::IsEnabled(kAndroidLimitRgb565DisplayToApi32));

@@ -247,6 +247,11 @@ enum class SigninScreenState {
     self.localPrefService->SetBoolean(prefs::kEulaAccepted, true);
     self.localPrefService->SetBoolean(metrics::prefs::kMetricsReportingEnabled,
                                       self.UMAReportingUserChoice);
+    metrics::MetricsReportingLevel level =
+        self.UMAReportingUserChoice ? metrics::MetricsReportingLevel::kBasic
+                                    : metrics::MetricsReportingLevel::kNone;
+    metrics::MetricsReportingChoiceService::SetMetricsReportingLevel(
+        self.localPrefService, level);
     self.localPrefService->CommitPendingWrite();
   }
 }
@@ -324,28 +329,33 @@ enum class SigninScreenState {
 
 #pragma mark - AuthenticationFlowDelegate
 
-- (void)
-    authenticationFlowDidSignInInSameProfileWithCancelationReason:
-        (signin_ui::CancelationReason)cancelationReason
-                                                         identity:
-                                                             (id<SystemIdentity>)
-                                                                 identity {
+- (void)authenticationFlowDidSignInInSameProfileWithIdentity:
+            (id<SystemIdentity>)identity
+                                           cancelationReason:
+                                               (signin_ui::CancelationReason)
+                                                   cancelationReason
+
+                                                  completion:(ProceduralBlock)
+                                                                 completion {
+  CHECK(completion);
   self.signinInProgress = NO;
   [self.consumer setUIEnabled:YES];
   switch (cancelationReason) {
     case signin_ui::CancelationReason::kAgeMismatchCanceledStaySignedOut:
       [self.delegate fullscreenSigninScreenMediatorWantsToBeDismissed:self];
-      return;
+      break;
     case signin_ui::CancelationReason::kNotCanceled:
       [self.logger logSigninCompletedWithResult:SigninCoordinatorResultSuccess
                                    addedAccount:self.addedAccount];
       [self.delegate fullscreenSigninScreenMediatorDidFinishSignin:self];
-      return;
+      break;
     case signin_ui::CancelationReason::kUserCanceled:
     case signin_ui::CancelationReason::kFailed:
     case signin_ui::CancelationReason::kAgeMismatchCanceled:
-      return;
+    case signin_ui::CancelationReason::kSignInNotAllowed:
+      break;
   }
+  completion();
 }
 
 - (void)authenticationFlowWillSwitchProfileWithReadyCompletion:

@@ -21,6 +21,7 @@
   BOOL _autofillProfileEnabled;
   BOOL _identityDocsEnabled;
   BOOL _travelInfoEnabled;
+  BOOL _shouldShowAutofillAIFeatures;
 
   // Updatable Items.
   TableViewDetailIconItem* _passwordsDetailItem;
@@ -28,6 +29,7 @@
   TableViewDetailIconItem* _autofillProfileDetailItem;
   TableViewDetailIconItem* _identityDocsDetailItem;
   TableViewDetailIconItem* _travelInfoDetailItem;
+  TableViewDetailIconItem* _autofillSettingsDetailItem;
 
   BOOL _settingsAreDismissed;
 }
@@ -72,12 +74,18 @@
   [model addItem:_autofillProfileDetailItem
       toSectionWithIdentifier:SettingsSectionIdentifierBasics];
 
-  _identityDocsDetailItem = IdentityDocsItem(_identityDocsEnabled);
-  [model addItem:_identityDocsDetailItem
-      toSectionWithIdentifier:SettingsSectionIdentifierBasics];
+  if (_shouldShowAutofillAIFeatures) {
+    _identityDocsDetailItem = IdentityDocsItem(_identityDocsEnabled);
+    [model addItem:_identityDocsDetailItem
+        toSectionWithIdentifier:SettingsSectionIdentifierBasics];
 
-  _travelInfoDetailItem = TravelInfoItem(_travelInfoEnabled);
-  [model addItem:_travelInfoDetailItem
+    _travelInfoDetailItem = TravelInfoItem(_travelInfoEnabled);
+    [model addItem:_travelInfoDetailItem
+        toSectionWithIdentifier:SettingsSectionIdentifierBasics];
+  }
+
+  _autofillSettingsDetailItem = AutofillSettingsItem();
+  [model addItem:_autofillSettingsDetailItem
       toSectionWithIdentifier:SettingsSectionIdentifierBasics];
 }
 
@@ -110,6 +118,10 @@
     case SettingsItemTypeTravelInfo:
       [self.delegate
           autofillAndPasswordsTableViewControllerDidSelectTravelInfo:self];
+      break;
+    case SettingsItemTypeAutofillSettings:
+      [self.delegate
+          autofillAndPasswordsTableViewControllerDidSelectAutofillSettings:self];
       break;
     default:
       break;
@@ -163,8 +175,7 @@
   _identityDocsEnabled = enabled;
 
   if (_identityDocsDetailItem) {
-    _identityDocsDetailItem.detailText =
-        IdentityDocsItemDetailText(enabled);
+    _identityDocsDetailItem.detailText = IdentityDocsItemDetailText(enabled);
     [self reconfigureCellsForItems:@[ _identityDocsDetailItem ]];
   }
 }
@@ -179,6 +190,10 @@
     _travelInfoDetailItem.detailText = TravelInfoItemDetailText(enabled);
     [self reconfigureCellsForItems:@[ _travelInfoDetailItem ]];
   }
+}
+
+- (void)setShouldShowAutofillAIFeatures:(BOOL)shouldShow {
+  _shouldShowAutofillAIFeatures = shouldShow;
 }
 
 #pragma mark - SettingsControllerProtocol

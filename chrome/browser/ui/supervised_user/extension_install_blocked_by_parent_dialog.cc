@@ -17,6 +17,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/gfx/paint_vector_icon.h"
 
@@ -55,8 +56,11 @@ void ShowExtensionInstallBlockedByParentDialog(
   auto dialog_model =
       ui::DialogModel::Builder()
           .SetTitle(GetTitle(action, extension_type))
-          .SetIcon(ui::ImageModel::FromVectorIcon(vector_icons::kFamilyLinkIcon,
-                                                  ui::kColorIcon))
+          .SetIcon(ui::ImageModel::FromVectorIcon(
+              features::IsRoundedIconsEnabled()
+                  ? vector_icons::kFamilyLinkFilledIcon
+                  : vector_icons::kFamilyLinkOldIcon,
+              ui::kColorIcon))
           .AddParagraph(
               ui::DialogModelLabel(l10n_util::GetStringUTF16(
                   IDS_EXTENSION_PERMISSIONS_BLOCKED_BY_PARENT_PROMPT_MESSAGE)),

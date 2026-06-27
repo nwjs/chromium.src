@@ -15,6 +15,7 @@
 #import "base/ios/block_types.h"
 #import "base/ios/ios_util.h"
 #import "base/json/string_escape.h"
+#import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
@@ -681,6 +682,7 @@ BOOL ExtractInteractionState(NSData* data, NSData** interactionState) {
           responseHTMLString:(NSString*)responseHTMLString {
   NSURLRequest* request =
       [[NSURLRequest alloc] initWithURL:net::NSURLWithGURL(URL)];
+  [self ensureWebViewCreated];
   [self.webView loadSimulatedRequest:request
                   responseHTMLString:responseHTMLString];
 }
@@ -695,7 +697,7 @@ BOOL ExtractInteractionState(NSData* data, NSData** interactionState) {
                                 MIMEType:MIMEType
                    expectedContentLength:responseData.length
                         textEncodingName:nil];
-
+  [self ensureWebViewCreated];
   [self.webView loadSimulatedRequest:request
                             response:response
                         responseData:responseData];
@@ -1823,7 +1825,12 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
           contextForPendingMainFrameNavigationWithURL:newURL];
     }
     navigationContext->SetIsSameDocument(true);
+    base::WeakPtr<web::NavigationContextImpl> weakContext =
+        navigationContext->GetWeakPtr();
     self.webStateImpl->OnNavigationStarted(navigationContext);
+    if (!weakContext) {
+      return;
+    }
     [self didStartLoading];
     self.navigationManagerImpl->CommitPendingItem(
         navigationContext->ReleaseItem());

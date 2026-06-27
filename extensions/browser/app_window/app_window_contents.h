@@ -14,12 +14,9 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "url/gurl.h"
 
-#include "content/public/browser/web_contents.h"
-
 namespace content {
 class BrowserContext;
 class RenderFrameHost;
-class WebContents;
 }
 
 namespace extensions {
@@ -30,7 +27,7 @@ namespace extensions {
 class AppWindowContentsImpl : public AppWindowContents,
                               public content::WebContentsObserver {
  public:
-   explicit AppWindowContentsImpl(AppWindow* host, std::unique_ptr<content::WebContents> web_contents = nullptr);
+  explicit AppWindowContentsImpl(AppWindow* host);
 
   AppWindowContentsImpl(const AppWindowContentsImpl&) = delete;
   AppWindowContentsImpl& operator=(const AppWindowContentsImpl&) = delete;
@@ -55,7 +52,6 @@ class AppWindowContentsImpl : public AppWindowContents,
 
   raw_ptr<AppWindow> host_;  // This class is owned by |host_|
   GURL url_;
-
   std::unique_ptr<content::WebContents> web_contents_;
 };
 

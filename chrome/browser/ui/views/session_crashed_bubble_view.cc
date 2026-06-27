@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/scoped_observation.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -58,7 +59,25 @@
 
 namespace {
 
-views::BubbleDialogDelegate* g_instance_for_test = nullptr;
+views::BubbleDialogModelHost* g_instance_for_test = nullptr;
+
+enum SessionCrashedBubbleHistogramValue {
+  SESSION_CRASHED_BUBBLE_SHOWN,
+  SESSION_CRASHED_BUBBLE_ERROR,
+  SESSION_CRASHED_BUBBLE_RESTORED,
+  SESSION_CRASHED_BUBBLE_ALREADY_UMA_OPTIN,
+  SESSION_CRASHED_BUBBLE_UMA_OPTIN,
+  SESSION_CRASHED_BUBBLE_HELP,
+  SESSION_CRASHED_BUBBLE_IGNORED,
+  SESSION_CRASHED_BUBBLE_OPTIN_BAR_SHOWN,
+  SESSION_CRASHED_BUBBLE_STARTUP_PAGES,
+  SESSION_CRASHED_BUBBLE_MAX,
+};
+
+void RecordBubbleHistogramValue(SessionCrashedBubbleHistogramValue value) {
+  UMA_HISTOGRAM_ENUMERATION("SessionCrashed.Bubble", value,
+                            SESSION_CRASHED_BUBBLE_MAX);
+}
 
 bool DoesSupportConsentCheck() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -73,6 +92,7 @@ void OpenUmaLink(BrowserWindowInterface* browser, const ui::Event& event) {
       GURL("https://support.google.com/chrome/answer/96817"),
       ui::DispositionFromEventFlags(event.flags(),
                                     WindowOpenDisposition::NEW_FOREGROUND_TAB));
+  RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_HELP);
 }
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kUmaConsentCheckboxId);
@@ -84,21 +104,42 @@ class SessionCrashedBubbleDelegate : public ui::DialogModelDelegate {
             ExitTypeService::GetInstanceForProfile(profile)) {
       crashed_lock_ = exit_type_service->CreateCrashedLock();
     }
+
+    change_metrics_reporting_state_callback_ =
+        base::BindRepeating([](metrics::MetricsReportingLevel level) {
+          metrics::ChangeMetricsReportingState(
+              level, metrics::ChangeMetricsReportingStateCalledFrom::
+                         kSessionCrashedDialog);
+        });
   }
 
   ~SessionCrashedBubbleDelegate() override { g_instance_for_test = nullptr; }
 
+  void set_change_metrics_reporting_state_callback(
+      SessionCrashedBubbleView::ChangeMetricsReportingStateCallback callback) {
+    change_metrics_reporting_state_callback_ = std::move(callback);
+  }
+
   void OpenStartupPages(BrowserWindowInterface* browser) {
+    ignored_ = false;
     MaybeEnableUma();
     dialog_model()->host()->Close();
 
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_STARTUP_PAGES);
     // Opening tabs has side effects, so it's preferable to do it after the
     // bubble was closed.
     SessionRestore::OpenStartupPagesAfterCrash(
         browser->GetBrowserForMigrationOnly());
   }
 
+  void OnWindowClosing() {
+    if (ignored_) {
+      RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_IGNORED);
+    }
+  }
+
   void RestorePreviousSession(BrowserWindowInterface* browser) {
+    ignored_ = false;
     MaybeEnableUma();
     // The call to Close() deletes this. Grab the lock so that session restore
     // is triggered before the lock is destroyed, otherwise ExitTypeService
@@ -107,6 +148,7 @@ class SessionCrashedBubbleDelegate : public ui::DialogModelDelegate {
         std::move(crashed_lock_);
     dialog_model()->host()->Close();
 
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_RESTORED);
     // Restoring tabs has side effects, so it's preferable to do it after the
     // bubble was closed.
     SessionRestore::RestoreSessionAfterCrash(
@@ -123,13 +165,19 @@ class SessionCrashedBubbleDelegate : public ui::DialogModelDelegate {
     if (dialog_model()
             ->GetCheckboxByUniqueId(kUmaConsentCheckboxId)
             ->is_checked()) {
-      ChangeMetricsReportingState(
-          true, ChangeMetricsReportingStateCalledFrom::kSessionCrashedDialog);
+      // TODO(crbug.com/483043192): should we enable kAdvanced if the user
+      // also has history (and other) syncs enabled?
+      change_metrics_reporting_state_callback_.Run(
+          metrics::MetricsReportingLevel::kBasic);
+      RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_UMA_OPTIN);
     }
   }
 
  private:
+  bool ignored_ = true;
   std::unique_ptr<ExitTypeService::CrashedLock> crashed_lock_;
+  SessionCrashedBubbleView::ChangeMetricsReportingStateCallback
+      change_metrics_reporting_state_callback_;
 };
 
 }  // namespace
@@ -203,25 +251,44 @@ void SessionCrashedBubbleView::Show(
   bool offer_uma_optin = false;
 
   if (DoesSupportConsentCheck() && !uma_opted_in_already) {
-    offer_uma_optin = !IsMetricsReportingPolicyManaged();
+    offer_uma_optin = !metrics::IsMetricsReportingPolicyManaged();
   }
 
   BrowserWindowInterface* browser = browser_observer->browser();
 
   if (browser && (skip_tab_checking ||
                   browser->GetTabStripModel()->GetActiveWebContents())) {
-    ShowBubble(browser, offer_uma_optin);
+    ShowBubble(browser, uma_opted_in_already, offer_uma_optin);
     return;
   }
+
+  RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_ERROR);
 }
 
 // static
-views::BubbleDialogDelegate* SessionCrashedBubbleView::GetInstanceForTest() {
+views::BubbleDialogModelHost*
+SessionCrashedBubbleView::GetModelHostForTesting() {
   return g_instance_for_test;
 }
 
-views::BubbleDialogDelegate* SessionCrashedBubbleView::ShowBubble(
+// static
+ui::ElementIdentifier
+SessionCrashedBubbleView::GetUmaConsentCheckboxIdForTesting() {
+  return kUmaConsentCheckboxId;
+}
+
+// static
+void SessionCrashedBubbleView::
+    SetChangeMetricsReportingStateCallbackForTesting(  // IN-TEST
+        ui::DialogModel* model,
+        ChangeMetricsReportingStateCallback callback) {
+  static_cast<SessionCrashedBubbleDelegate*>(model->delegate())
+      ->set_change_metrics_reporting_state_callback(std::move(callback));
+}
+
+views::BubbleDialogModelHost* SessionCrashedBubbleView::ShowBubble(
     BrowserWindowInterface* browser,
+    bool uma_opted_in_already,
     bool offer_uma_optin) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
   // TODO(webium): WebUI browser does not use BrowserView. Make an WebUI anchor
@@ -243,9 +310,14 @@ views::BubbleDialogDelegate* SessionCrashedBubbleView::ShowBubble(
       .SetTitle(l10n_util::GetStringUTF16(IDS_SESSION_CRASHED_BUBBLE_TITLE))
       .DisableCloseOnDeactivate()
       .SetIsAlertDialog()
+      .SetDialogDestroyingCallback(
+          base::BindOnce(&SessionCrashedBubbleDelegate::OnWindowClosing,
+                         base::Unretained(bubble_delegate)))
       .AddParagraph(ui::DialogModelLabel(IDS_SESSION_CRASHED_VIEW_MESSAGE));
 
   if (offer_uma_optin) {
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_OPTIN_BAR_SHOWN);
+
     dialog_builder.AddCheckbox(
         kUmaConsentCheckboxId,
         ui::DialogModelLabel::CreateWithReplacement(
@@ -272,14 +344,19 @@ views::BubbleDialogDelegate* SessionCrashedBubbleView::ShowBubble(
       ui::DialogModel::Button::Params().SetLabel(
           l10n_util::GetStringUTF16(IDS_SESSION_CRASHED_VIEW_RESTORE_BUTTON)));
 
+  auto model = dialog_builder.Build();
   auto bubble = std::make_unique<views::BubbleDialogModelHost>(
-      dialog_builder.Build(), anchor, views::BubbleBorder::TOP_RIGHT);
+      std::move(model), anchor, views::BubbleBorder::TOP_RIGHT);
 
-  views::BubbleDialogDelegate* bubble_ptr = bubble.get();
+  views::BubbleDialogModelHost* bubble_ptr = bubble.get();
   g_instance_for_test = bubble_ptr;
   views::BubbleDialogDelegate::CreateBubbleDeprecated(
       std::move(bubble), views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET)
       ->Show();
 
+  RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_SHOWN);
+  if (uma_opted_in_already) {
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_ALREADY_UMA_OPTIN);
+  }
   return bubble_ptr;
 }

@@ -78,8 +78,8 @@ void RenderProcessPriority::WriteIntoTrace(
     case ChildProcessImportance::MODERATE:
       proto->set_importance(PriorityProto::IMPORTANCE_MODERATE);
       break;
-    case ChildProcessImportance::PERCEPTIBLE:
-      proto->set_importance(PriorityProto::IMPORTANCE_PERCEPTIBLE);
+    case ChildProcessImportance::NOT_PERCEPTIBLE:
+      proto->set_importance(PriorityProto::IMPORTANCE_NOT_PERCEPTIBLE);
       break;
   }
 #endif
@@ -355,8 +355,7 @@ RenderProcessPriority::RenderProcessPriority(bool visible,
                                              bool boost_for_discard,
 #if BUILDFLAG(IS_ANDROID)
                                              bool is_spare_renderer,
-                                             ChildProcessImportance importance,
-                                             bool has_active_clients
+                                             ChildProcessImportance importance
 #else
                                              std::optional<
                                                  base::Process::Priority>
@@ -374,8 +373,7 @@ RenderProcessPriority::RenderProcessPriority(bool visible,
       boost_for_discard(boost_for_discard),
 #if BUILDFLAG(IS_ANDROID)
       is_spare_renderer(is_spare_renderer),
-      importance(importance),
-      has_active_clients(has_active_clients)
+      importance(importance)
 #endif
 #if !BUILDFLAG(IS_ANDROID)
           priority_override(priority_override)

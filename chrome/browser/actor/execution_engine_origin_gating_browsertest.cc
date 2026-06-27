@@ -6,6 +6,7 @@
 #include "base/task/current_thread.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
@@ -31,6 +32,7 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/test/embedded_test_server/controllable_http_response.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "url/origin.h"
 #include "url/url_util.h"
@@ -309,8 +311,16 @@ class ExecutionEngineOriginGatingBrowserTestBase
         base::expected<int32_t, glic::mojom::CreateTaskErrorReason>>
         create_task_future;
     ASSERT_TRUE(GetGlicInstanceImpl());
-    GetGlicInstanceImpl()->CreateTask(nullptr, nullptr,
-                                      create_task_future.GetCallback());
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return GetGlicInstanceImpl()
+                 ->GetActorTaskManager()
+                 ->GetClientSessionForTesting() != nullptr;
+    }));
+    GetGlicInstanceImpl()
+        ->GetActorTaskManager()
+        ->GetClientSessionForTesting()
+        ->CreateTask(actor::webui::mojom::TaskOptions::New(),
+                     create_task_future.GetCallback());
     auto result = create_task_future.Get();
     ASSERT_TRUE(result.has_value());
     task_id_ = TaskId(result.value());
@@ -1898,12 +1908,12 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineGatingConfirmationMetricBrowserTest,
 
   StopAllTasks();
   if (recording_metrics_enabled()) {
-    base::test::RunUntil([&]() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
       return histogram_tester
                  .GetAllSamples(
                      "Actor.NavigationGating.ActionNavigationsApprovedByServer")
                  .size() == 1;
-    });
+    }));
     histogram_tester.ExpectUniqueSample(
         "Actor.NavigationGating.ActionNavigationsApprovedByServer", true, 1);
   } else {
@@ -1934,12 +1944,12 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineGatingConfirmationMetricBrowserTest,
 
   StopAllTasks();
   if (recording_metrics_enabled()) {
-    base::test::RunUntil([&]() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
       return histogram_tester
                  .GetAllSamples(
                      "Actor.NavigationGating.ActionNavigationsApprovedByServer")
                  .size() == 1;
-    });
+    }));
     histogram_tester.ExpectUniqueSample(
         "Actor.NavigationGating.ActionNavigationsApprovedByServer", true, 1);
   } else {
@@ -1977,12 +1987,12 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineGatingConfirmationMetricBrowserTest,
 
   StopAllTasks();
   if (recording_metrics_enabled()) {
-    base::test::RunUntil([&]() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
       return histogram_tester
                  .GetAllSamples(
                      "Actor.NavigationGating.ActionNavigationsApprovedByServer")
                  .size() == 1;
-    });
+    }));
     histogram_tester.ExpectUniqueSample(
         "Actor.NavigationGating.ActionNavigationsApprovedByServer", false, 1);
   } else {
@@ -2032,12 +2042,12 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineGatingConfirmationMetricBrowserTest,
 
   StopAllTasks();
   if (recording_metrics_enabled()) {
-    base::test::RunUntil([&]() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
       return histogram_tester
                  .GetAllSamples(
                      "Actor.NavigationGating.ActionNavigationsApprovedByServer")
                  .size() == 1;
-    });
+    }));
     histogram_tester.ExpectUniqueSample(
         "Actor.NavigationGating.ActionNavigationsApprovedByServer", true, 1);
   } else {
@@ -2079,12 +2089,12 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineGatingConfirmationMetricBrowserTest,
 
   StopAllTasks();
   if (recording_metrics_enabled()) {
-    base::test::RunUntil([&]() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
       return histogram_tester
                  .GetAllSamples(
                      "Actor.NavigationGating.ActionNavigationsApprovedByServer")
                  .size() == 1;
-    });
+    }));
     histogram_tester.ExpectUniqueSample(
         "Actor.NavigationGating.ActionNavigationsApprovedByServer", true, 1);
   } else {
@@ -2126,12 +2136,12 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineGatingConfirmationMetricBrowserTest,
 
   StopAllTasks();
   if (recording_metrics_enabled()) {
-    base::test::RunUntil([&]() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
       return histogram_tester
                  .GetAllSamples(
                      "Actor.NavigationGating.ActionNavigationsApprovedByServer")
                  .size() == 1;
-    });
+    }));
     histogram_tester.ExpectUniqueSample(
         "Actor.NavigationGating.ActionNavigationsApprovedByServer", true, 1);
   } else {
@@ -2371,5 +2381,84 @@ INSTANTIATE_TEST_SUITE_P(All,
                            return info.param ? "ConfirmOriginsEnabled"
                                              : "ConfirmOriginsDisabled";
                          });
+
+class ExecutionEngineOriginGatingSlowResponseBrowserTest
+    : public ExecutionEngineOriginGatingBrowserTestBase {
+ public:
+  ExecutionEngineOriginGatingSlowResponseBrowserTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {
+            {features::kGlicActor,
+             {{features::kGlicActorPolicyControlExemption.name, "true"},
+              {features::kGlicActorPageStabilityTimeout.name, "300ms"},
+              {features::kActorObservationDelayTimeout.name, "1s"}}},
+        },
+        /*disabled_features=*/{});
+  }
+
+  void SetUpOnMainThread() override {
+    CHECK(!embedded_https_test_server().Started());
+    response_manager_ =
+        std::make_unique<net::test_server::ControllableHttpResponseManager>(
+            &embedded_https_test_server(), "/slow");
+    ExecutionEngineOriginGatingBrowserTestBase::SetUpOnMainThread();
+  }
+
+ protected:
+  std::unique_ptr<net::test_server::ControllableHttpResponseManager>
+      response_manager_;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Verifies that navigations are subject to safety checks even if the relevant
+// action sequence times out (and is therefore cancelled).
+IN_PROC_BROWSER_TEST_F(ExecutionEngineOriginGatingSlowResponseBrowserTest,
+                       SlowResponseDoesntBypassNavGating) {
+  base::HistogramTester histogram_tester;
+
+  const GURL start_url =
+      embedded_https_test_server().GetURL("example.com", "/actor/link.html");
+
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+  OpenGlicAndCreateTask();
+
+  ASSERT_TRUE(content::ExecJs(
+      web_contents(),
+      content::JsReplace("setLink($1);", embedded_https_test_server().GetURL(
+                                             "blocked.example.com", "/slow"))));
+
+  ActResultFuture act_result;
+  content::TestNavigationObserver nav_observer(web_contents());
+  actor_task().Act(ToRequestList(MakeClickRequest(
+                       *main_frame(),
+                       content::GetDOMNodeId(*main_frame(), "#link").value())),
+                   act_result.GetCallback());
+  // No handler has been registered; wait for the observation delay to cancel
+  // the action.
+  ASSERT_TRUE(act_result.Wait());
+
+  std::unique_ptr<net::test_server::ControllableHttpResponse> slow_response =
+      response_manager_->WaitForRequest();
+  slow_response->Send(net::HTTP_OK);
+  slow_response->Done();
+  nav_observer.Wait();
+
+  EXPECT_FALSE(nav_observer.last_navigation_succeeded());
+  EXPECT_EQ(web_contents()->GetLastCommittedURL(), start_url);
+
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.GatingDecision2",
+      /*sample=*/ExecutionEngine::GatingDecision::kNeedsAsyncCheck,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample("Actor.NavigationGating.AppliedGate",
+                                      /*sample=*/true,
+                                      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Actor.NavigationGating.PermissionGranted", /*sample=*/false,
+      /*expected_bucket_count=*/1);
+}
 
 }  // namespace actor

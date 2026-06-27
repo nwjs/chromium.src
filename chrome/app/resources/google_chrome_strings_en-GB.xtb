@@ -9,6 +9,7 @@
 <translation id="1028061813283459617">To delete browsing data from this device only, while keeping it in your Google Account, <ph name="BEGIN_LINK" />sign out of Chrome<ph name="END_LINK" />.</translation>
 <translation id="1042270987544905725">Click to close the Chrome sign-in dialogue</translation>
 <translation id="1051793555070215510">Help us improve Incognito by taking this 1-minute survey.</translation>
+<translation id="1055295352198814912">Show Gemini in Chrome in Mac menu bar and turn on keyboard shortcut</translation>
 <translation id="1059838145689930908">To use this extension as <ph name="USER_EMAIL_ADDRESS" />, sign in to Chrome.</translation>
 <translation id="1065672644894730302">Your preferences cannot be read.
 
@@ -34,7 +35,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1290883685122687410">Setup error: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1302523850133262269">Please wait while Chrome installs the latest system updates.</translation>
 <translation id="1330562121671411446">Detect language</translation>
-<translation id="1335640173511558774"><ph name="MANAGER" /> requires that you read and accept the following Terms of Service before using this device. These terms do not expand, modify or limit the Google Chrome OS Flex terms.</translation>
 <translation id="1341711321000856656">You can switch to see passwords from another Chrome profile</translation>
 <translation id="1343830902827845050">Sign in to Chrome</translation>
 <translation id="1356661055722410047">New! You can translate both text and images on your screen</translation>
@@ -100,7 +100,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2018528049276128029">Each profile holds its own Chrome info, like bookmarks, history, passwords and more</translation>
 <translation id="2018879682492276940">Installation failed. Please try again.</translation>
 <translation id="2024959665595762054">To use and save Chrome data in your Google Account, verify that it's you</translation>
-<translation id="2026377840141807639">Chrome profiles let you keep personal browsing and work apart. Add a new profile now.</translation>
 <translation id="2034233344106846793">Chrome upgrades insecure connections to HTTPS automatically when possible</translation>
 <translation id="2039417478970545937">Settings.</translation>
 <translation id="2066690553719545730">Always show AI Mode</translation>
@@ -123,7 +122,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2174917724755363426">Installation is not complete. Are you sure that you want to cancel?</translation>
 <translation id="2186206192313702726">Google Lens</translation>
 <translation id="2190166659037789668">Update check error: <ph name="UPDATE_CHECK_ERROR" />.</translation>
-<translation id="2199691482078155239">Chrome gives you more control over the ads that you see and limits what sites can learn about you when they show you personalised ads</translation>
 <translation id="2216543877350048334">To remove your Google Account from Chrome, sign out</translation>
 <translation id="2236949375853147973">My Activity</translation>
 <translation id="22791603784558743">Close Gemini in Chrome Dev</translation>
@@ -135,7 +133,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2309047409763057870">This is a secondary installation of Google Chrome, and cannot be made your default browser.</translation>
 <translation id="2345992953227471816">Chrome found that these extensions contain malware:</translation>
 <translation id="2348335408836342058">Chrome needs permission to access your camera and microphone for this site</translation>
-<translation id="234869673307233423">Chrome can't check your passwords. Try again later.</translation>
 <translation id="2359808026110333948">Continue</translation>
 <translation id="2403703063067034158">Startup error: Another instance of setup is currently running, please try again later.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{1 HID device was being accessed by one or more Chrome extensions}=1{1 HID device is being accessed by one or more Chrome extensions}other{# HID devices are being accessed by one or more Chrome extensions}}</translation>
@@ -150,6 +147,9 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2569974318947988067">Chrome will try to upgrade navigations to HTTPS</translation>
 <translation id="2571392474191184472">Your organisation manages Chrome</translation>
 <translation id="2574930892358684005"><ph name="EXISTING_USER" /> is already signed in to this Chrome profile. To keep your browsing separate, Chrome can create your own profile for you.</translation>
+<translation id="2575799939951057838">For security, Chrome turns off JavaScript optimisation when you visit a site for the first time.
+
+If this page isn't working as expected, try allowing optimisation.</translation>
 <translation id="2580411288591421699">Cannot install the same Google Chrome version that is currently running. Please close Google Chrome and try again.</translation>
 <translation id="2586406160782125153">This will delete your browsing data from this device. To retrieve your data later, sign in to Chrome as <ph name="USER_EMAIL" />.</translation>
 <translation id="259935314519650377">Failed to cache the downloaded installer. Error: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
@@ -169,7 +169,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2753623023919742414">Click to search</translation>
 <translation id="2757826245013442432">{COUNT,plural, =0{Advanced Protection requires that you relaunch Chrome to apply an update}=1{Advanced Protection requires that you relaunch Chrome to apply an update. Your Incognito window won't reopen.}other{Advanced Protection requires that you relaunch Chrome to apply an update. Your # Incognito windows won't reopen.}}</translation>
 <translation id="2765403129283291972">Chrome needs permission to access your microphone for this site</translation>
-<translation id="2775140325783767197">Chrome can't check your passwords. Try checking your Internet connection.</translation>
 <translation id="2797864378188255696">When signing in to Google services like Gmail or YouTube with <ph name="USER_EMAIL" />, you can automatically sign in to Chrome with the same account</translation>
 <translation id="2799162042226656283">Your Chrome</translation>
 <translation id="2799223571221894425">Relaunch</translation>
@@ -187,9 +186,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2888126860611144412">About Chrome</translation>
 <translation id="2915996080311180594">Restart later</translation>
 <translation id="2916983411556218750">Let's get your Chrome ready</translation>
-<translation id="2926676257163822632">Weak passwords are easy to guess. Let Chrome <ph name="BEGIN_LINK" />create and remember strong passwords for you<ph name="END_LINK" />.</translation>
 <translation id="2926952073016206995">Chrome needs camera permission for this site</translation>
-<translation id="2928420929544864228">Installation complete.</translation>
 <translation id="2945997411976714835">Install error: The installer process failed to start.</translation>
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> – Network sign-in – Chrome</translation>
 <translation id="2970681950995291301">To remove your Google Account from Chrome, sign out of Chrome in the Settings page</translation>
@@ -212,7 +209,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="310459126943037700">Failed to end task(s).</translation>
 <translation id="3104828284009500087">Search anything on page</translation>
 <translation id="3112458742631356345">Chrome blocked this download because the file isn't commonly downloaded and it may be dangerous</translation>
-<translation id="3114643501466072395">To check if your other passwords are safe from data breaches and other security issues, <ph name="BEGIN_LINK" />sign in to Chrome<ph name="END_LINK" />.</translation>
 <translation id="3119573284443908657">Chrome blocked this download because the archive file includes other files that may hide malware</translation>
 <translation id="3124332159330678621">Customise Chrome to give your browser a new look</translation>
 <translation id="3130333203120345554">New search</translation>
@@ -228,6 +224,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3242123554343253302">Add Chrome profile</translation>
 <translation id="3245429137663807393">If you also share Chrome usage reports, those reports include the URLs that you visit</translation>
 <translation id="3259748324892322072">Get the Chrome app</translation>
+<translation id="3282568296779691940">Sign in to Chrome</translation>
 <translation id="3286538390144397061">Restart Now</translation>
 <translation id="3292333338048274092">You'll then need to restart Chrome.</translation>
 <translation id="3324218984287646518">Ask Google Lens about this video</translation>
@@ -239,15 +236,12 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3380249972812870825">To open Gemini in Chrome, press <ph name="GLOBAL_HOTKEY" /></translation>
 <translation id="3396977131400919238">An operating system error occurred during installation. Please download Google Chrome again.</translation>
 <translation id="3428747202529429621">Keeps you safe on Chrome and may be used to improve your security in other Google apps when you are signed in</translation>
-<translation id="3434246496373299699">Chrome can check your passwords when you sign in with your Google Account</translation>
 <translation id="3438681572027105609">To get your passwords and more on all your devices, sign in to Chrome</translation>
 <translation id="3450887623636316740">This file may be dangerous<ph name="LINE_BREAK" />Chrome can check this download for you, if you provide the password. Info about the file gets sent to Google Safe Browsing, but the file content and password stay on your device.</translation>
 <translation id="3451115285585441894">Adding to Chrome...</translation>
 <translation id="345171907106878721">Add yourself to Chrome</translation>
 <translation id="3453763134178591239">Chrome OS terms</translation>
 <translation id="3503306920980160878">Chrome needs access to your location to share your location with this site</translation>
-<translation id="3533694711092285624">No saved passwords. Chrome can check your passwords when you save them.</translation>
-<translation id="3541482654983822893">Chrome can't check your passwords. Try again after 24 hours.</translation>
 <translation id="3576528680708590453">Your system administrator has configured Google Chrome to open an alternative browser to access <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Sync and personalise Chrome across your devices</translation>
 <translation id="3583751698304738917">You're already signed in as <ph name="USER_EMAIL_ADDRESS" /> in another Chrome profile</translation>
@@ -286,9 +280,10 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3885770153807205175">Language picker</translation>
 <translation id="3889417619312448367">Uninstall Google Chrome</translation>
 <translation id="3892148308691398805">Copy text</translation>
-<translation id="3893985792899396936">Chrome tip: Search with Lens</translation>
 <translation id="3941890832296813527">Install error: The installer filename is invalid or unsupported.</translation>
 <translation id="395904275706073188">Protected pages can't be read. Try a different page.</translation>
+<translation id="3965532487635448963">Show Gemini in Chrome in system tray and turn on keyboard shortcut</translation>
+<translation id="3967822245660637423">Download complete</translation>
 <translation id="3968962723676998462">Enter your passphrase to use and save Chrome data in your account, <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="3973161977468201858">Google Chrome wants to delete your Google Password Manager data. Type in your Windows password to allow this.</translation>
 <translation id="400161754580828648">To share your screen, allow screen recording for Chrome in System Settings.</translation>
@@ -311,7 +306,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="4173512894976930765">Sites will probably work as expected. You'll be signed out of most sites when you close all Chrome windows, except your Google Account if you're signed in to Chrome.</translation>
 <translation id="4175922240926474352">Chrome blocked this download because the site isn't using a secure connection and the file may have been tampered with</translation>
 <translation id="4191857738314598978">{0,plural, =1{Relaunch Chrome within a day}other{Relaunch Chrome within # days}}</translation>
-<translation id="4205939740494406371">Chrome can't check your passwords. Try again after 24 hours or <ph name="BEGIN_LINK" />check passwords in your Google Account<ph name="END_LINK" />.</translation>
 <translation id="4222932583846282852">Cancelling...</translation>
 <translation id="4224210481850767180">The installation has been cancelled.</translation>
 <translation id="4242034826641750751">Chrome needs camera and microphone permissions for this site</translation>
@@ -319,22 +313,19 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="4251615635259297716">Link my Chrome data to this account</translation>
 <translation id="4280647692742956593">Download Chrome on your phone to open or create new tab groups on the go.</translation>
 <translation id="4281844954008187215">Terms of Service</translation>
-<translation id="4293420128516039005">Sign in to sync and personalise Chrome across your devices</translation>
 <translation id="430327780270213103">Allow extension to show access requests in the Chrome toolbar</translation>
 <translation id="4326552909330437744">{NUM_TABS,plural, =1{Chrome recommends pausing the tab that's slowing your browser}other{Chrome recommends pausing the tabs that are slowing your browser}}</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)</translation>
 <translation id="4329315893554541805">To get personalisation and other features, include Chrome in Web &amp; App Activity and linked Google services</translation>
 <translation id="4334241893986177674">Search this screenshot</translation>
-<translation id="4334294535648607276">Download complete.</translation>
 <translation id="4343195214584226067"><ph name="EXTENSION_NAME" /> has been added to Chrome</translation>
 <translation id="4344128547036991536">When you open Google Lens, the page title, URL and content, including PDFs, will be sent to Google automatically. <ph name="LEARN_MORE" /></translation>
 <translation id="4348548358339558429">To get personalisation, include Chrome in Web &amp; App Activity</translation>
 <translation id="436060642166082913">Chrome blocked this download because the file can harm your personal and social network accounts</translation>
 <translation id="4367027658822022112">You can pin Google Lens for easy access; click the Pin button at the top of the side panel</translation>
-<translation id="4380616334811859000">Chrome turns off JavaScript optimisation when you visit a site for the first time.
-
-If this page isn't working as expected, try allowing optimisation.</translation>
+<translation id="4372389195695053189">Chrome is now your default browser</translation>
 <translation id="4389991535395284064">When browsing in Incognito mode, Chrome will warn you before loading a site using an insecure connection</translation>
+<translation id="4400772909124543403">No update is available</translation>
 <translation id="4427306783828095590">Enhanced protection does more to block phishing and malware</translation>
 <translation id="4434353761996769206">Installer error: <ph name="INSTALLER_ERROR" /></translation>
 <translation id="4450664632294415862">Chrome – Network sign-in – <ph name="PAGE_TITLE" /></translation>
@@ -373,6 +364,7 @@ If this page isn't working as expected, try allowing optimisation.</translation>
 <translation id="4891791193823137474">Let Google Chrome run in the background</translation>
 <translation id="4895437082222824641">Open link in new Chrome &amp;tab</translation>
 <translation id="4896867431081882115">Get easy access to the features that you know, love and trust by setting Chrome as your default browser. Chrome will be pinned to your taskbar for quick access.</translation>
+<translation id="4904953848704395458">Open Gemini in Chrome with a keyboard shortcut.</translation>
 <translation id="4918086044614829423">Accept</translation>
 <translation id="4918844574251943176">Image copied</translation>
 <translation id="4926882258455737990">To use a different Google Account with Gemini in Chrome, <ph name="BEGIN_LINK" />create a new profile<ph name="END_LINK" /> and sign in with the account that you want</translation>
@@ -424,7 +416,6 @@ Some features may be unavailable. Please specify a different profile directory o
 
 Google Chrome is unable to recover your settings.</translation>
 <translation id="5465210843490471889">Choose a Chrome profile to use with <ph name="START_GLIC_STYLING" />Gemini<ph name="END_GLIC_STYLING" /></translation>
-<translation id="5468572406162360320">To help improve these features, Chrome sends your interactions with them to Google. This data may be read, processed and annotated by human reviewers.</translation>
 <translation id="547202872422499512">Chrome now launches when Windows starts so that you can begin browsing instantly. You can turn this off in settings.</translation>
 <translation id="5486346529181556467">Improve online safety for everyone when you report a site that you think is harmful. Learn more about <ph name="BEGIN_LINK" />Google's unsafe site policy.<ph name="END_LINK" /></translation>
 <translation id="5524890928877629608">top-left corner of search area: left <ph name="LEFT" />%, top <ph name="TOP" />%</translation>
@@ -459,7 +450,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="5736850870166430177">If a site tries to steal your password, or when you download a harmful file, Chrome may also send URLs, including bits of page content, to Safe Browsing</translation>
 <translation id="5756509061973259733">A Chrome profile with this account already exists on this device</translation>
 <translation id="5759947850379142561">Select any text or image to search with Google Lens or press Escape to exit Google Lens</translation>
-<translation id="5762867845020858790">Add a new Chrome profile to keep bookmarks, passwords and settings apart.</translation>
 <translation id="5779427581965287859">Set Chrome as default and pin it to taskbar</translation>
 <translation id="5795887333006832406"><ph name="PAGE_TITLE" /> – Google Chrome Canary</translation>
 <translation id="5804318322022881572">Couldn't launch Chrome. Try again.</translation>
@@ -507,7 +497,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome Beta</translation>
 <translation id="6180522807229584611">This tab is using extra resources. To improve your performance, let Chrome make it inactive.</translation>
 <translation id="6182736845697986886">Installation failed because of an update server internal error.</translation>
-<translation id="6187085551300363958">Chrome tip: Save passwords</translation>
 <translation id="6192058120268468905">Your account in Chrome</translation>
 <translation id="6220551899604141979"><ph name="PARTNER_NAME" /> has added an extension that may change the way that Chrome works.
 
@@ -527,7 +516,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6319856120645568262">Chrome needs permission to map your surroundings and track your hands</translation>
 <translation id="6321592572353357376">The extension '<ph name="EXTENSION_NAME" />' wants you to sign in to Chrome</translation>
 <translation id="6326175484149238433">Remove from Chrome</translation>
-<translation id="6327105987658262776">No update is available.</translation>
 <translation id="6334815226785304306">Make Google Chrome the default browser and pin to the taskbar</translation>
 <translation id="63540178978900677">Chrome is no longer your default browser. Make Chrome the default browser?</translation>
 <translation id="6360449101159168105">While this tab was inactive, memory was freed up to keep Chrome fast. You can choose to always exclude this site from being inactive.</translation>
@@ -539,6 +527,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6434035853014503219">Thanks for choosing Chrome as your default browser!</translation>
 <translation id="6438015621983209660">Extend Enhanced Safe Browsing with Chrome on your phone</translation>
 <translation id="6442774133615368941">Shop, translate and identify what you see with your camera on the Chrome iOS app</translation>
+<translation id="6448835208126432197">To select part of the screen in Gemini in Chrome, use keyboard shortcut.</translation>
 <translation id="6473905796280459355">Go to the About Chrome page</translation>
 <translation id="6481963882741794338">Link Chrome and other Google services for personalisation and other purposes</translation>
 <translation id="648319183876919572">Enhanced Safe Browsing does more to protect you against dangerous websites and downloads</translation>
@@ -551,6 +540,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6520670145826811516">To use your location, give Chrome access in <ph name="BEGIN_LINK" />system settings<ph name="END_LINK" /></translation>
 <translation id="652948702951888897">Chrome history</translation>
 <translation id="6532945796722480006">Open Gemini in Chrome Canary</translation>
+<translation id="6539493053177300926">Easy access to use Gemini in Chrome across your device, even if Chrome is minimised.</translation>
 <translation id="6585124893636629274">Close Gemini in Chrome</translation>
 <translation id="659498884637196217">In Google Password Manager on this device</translation>
 <translation id="6631524303639368205">Continue where you left off: Chrome restored your tabs from your last session. You can turn this off in</translation>
@@ -573,7 +563,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6800285125190089494">Sign in faster to sites using saved passwords for Chrome on iOS</translation>
 <translation id="6831043979455480757">Translate</translation>
 <translation id="683440813066116847">Inbound rule for Google Chrome Canary to allow mDNS traffic.</translation>
-<translation id="6841242485723266823">Chrome profiles help you separate different parts of your life. Add a new profile now.</translation>
 <translation id="684888714667046800">Unable to connect to the Internet. If you use a firewall, please ensure that <ph name="PRODUCT_EXE_NAME" /> is in the allowlist.</translation>
 <translation id="6859580922007887573">Tab to continue</translation>
 <translation id="6877155553248388166">bottom-right corner of search area: right <ph name="RIGHT" />%, bottom <ph name="BOTTOM" />%</translation>
@@ -594,7 +583,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6999131147875565462">Chrome runs faster and features that use JavaScript should work as designed</translation>
 <translation id="7011190694940573312">Installation failed because this version of the operating system is not supported.</translation>
 <translation id="7024536598735240744">Unpack error: <ph name="UNPACK_ERROR" />.</translation>
-<translation id="7025789849649390912">Installation stopped.</translation>
 <translation id="7025800014283535195">You can switch between Chrome profiles here</translation>
 <translation id="7047386856539490735">Are these results useful?</translation>
 <translation id="7051685429025310665">You haven't visited recently. Chrome removed <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" />.</translation>
@@ -609,10 +597,10 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7106741999175697885">Task Manager - Google Chrome</translation>
 <translation id="7121179479711575744">Sign in to Chrome</translation>
 <translation id="7140653346177713799">{COUNT,plural, =0{A new update for Chrome is available and will be applied as soon as you relaunch.}=1{A new update for Chrome is available and will be applied as soon as you relaunch. Your Incognito window won't reopen.}other{A new update for Chrome is available and will be applied as soon as you relaunch. Your # Incognito windows won't reopen.}}</translation>
-<translation id="7155997830309522122">If so, please edit your saved password in Chrome so that it matches your new password.</translation>
 <translation id="7161904924553537242">Welcome to Google Chrome</translation>
 <translation id="7193885263065350793">Your organisation closes Chrome when it isn't used for <ph name="TIMEOUT_DURATION" />.</translation>
 <translation id="7242029209006116544">You are signing in with a managed account and giving its administrator control over your Google Chrome profile. Your Chrome data, such as your apps, bookmarks, history, passwords and other settings will become permanently tied to <ph name="USER_NAME" />. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. You can optionally create a new profile to keep your existing Chrome data separate. <ph name="LEARN_MORE" /></translation>
+<translation id="7257689164441568409">To leave or return to Gemini in Chrome, use keyboard shortcut.</translation>
 <translation id="7274402351400635015">You can use Chrome any time that you click links in messages, documents and other apps It will also be pinned to your taskbar.</translation>
 <translation id="7285616922384953075"><ph name="MANAGER" /> manages Chrome</translation>
 <translation id="7285990705317078173">Download Chrome on your phone to track prices and get alerts when the price drops on any site</translation>
@@ -621,7 +609,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7302361266603927550">Some of your Chrome data hasn't been saved in your Google Account yet. Try waiting a few minutes before signing out. If you sign out now, this data will be deleted.</translation>
 <translation id="7306401458628386911">Begin browsing instantly: Chrome can now launch when Windows starts.</translation>
 <translation id="7308322188646931570">Chrome needs storage access to download files</translation>
-<translation id="7339898014177206373">New window</translation>
 <translation id="7352651011704765696">Something went wrong</translation>
 <translation id="73786666777299047">Open Chrome Web Store</translation>
 <translation id="7386878009611068389">To stay safer online with your parent's choices, switch to your Chrome profile where you're already signed in as <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -652,18 +639,15 @@ Google Chrome is unable to recover your settings.</translation>
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="7606334485649076285">Google Chrome OS Flex</translation>
-<translation id="7626072681686626474"><ph name="MANAGER" /> requires that you read and accept the following Terms of Service before using this device. These terms do not expand, modify or limit the Google Chrome OS terms.</translation>
 <translation id="7627609214560473136">To protect your data, let Chrome remove permissions from sites that you haven't visited recently.</translation>
 <translation id="7629695634924605473">Chrome lets you know if your passwords are ever compromised</translation>
 <translation id="7641148173327520642">Your system administrator has configured Google Chrome to open <ph name="ALTERNATIVE_BROWSER_NAME" /> to access <ph name="TARGET_URL_HOSTNAME" />.</translation>
-<translation id="7641448682796883218">Chrome tip: Enhanced Safe Browsing</translation>
 <translation id="7649070708921625228">Help</translation>
 <translation id="7651907282515937834">Chrome Enterprise logo</translation>
 <translation id="76531479118467370">Chrome blocked this download because you turned Safe Browsing off and the file can't be verified</translation>
 <translation id="7655472416356262023">Remove account from Chrome</translation>
 <translation id="7658239707568436148">Cancel</translation>
 <translation id="7670287553302121848">Chrome account requires re-authentication</translation>
-<translation id="7675756456029023637">Ask Chrome</translation>
 <translation id="769538538642757151">Chrome will let you know if anything needs your review</translation>
 <translation id="769906121737764913">Close Gemini in Chrome Beta</translation>
 <translation id="7716950018788545737">Task(s) ended.</translation>
@@ -725,6 +709,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8221491193165283816">You usually block notifications. To let this site notify you, click here.</translation>
 <translation id="8253851811470049684">Open links in Chrome from any app and keep the browser accessible on your taskbar</translation>
 <translation id="8255190535488645436">Google Chrome is using your camera and microphone.</translation>
+<translation id="8260086374035800939">If Gemini in Chrome is open, the side panel stays open when creating new tabs</translation>
 <translation id="8267953129876836456">Chrome found some safety recommendations for your review</translation>
 <translation id="8286862437124483331">Google Chrome is trying to show passwords. Type your Windows password to allow this.</translation>
 <translation id="829923460755755423">Add a shortcut to Google Password Manager</translation>
@@ -736,6 +721,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8362914115861174987">Translate to</translation>
 <translation id="8366770919198174997">Reduces performance but makes Chrome more resistant to attacks</translation>
 <translation id="8367705492654390392">Ask anything</translation>
+<translation id="8367950957770994118">Quickly open Gemini in Chrome whenever you need it</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. All rights reserved.</translation>
 <translation id="8377158135256176353">Toggle Gemini in Chrome Canary</translation>
 <translation id="8387459386171870978">Continue using Chrome</translation>
@@ -751,21 +737,20 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="8458117863387545390">Get Chrome on your phone</translation>
 <translation id="8496177819998570653">Google P&amp;assword Manager</translation>
 <translation id="8498858610309223613">A special security update for Google Chrome was just applied. Restart now and we'll restore your tabs.</translation>
-<translation id="8516431725144212809">Your interests as estimated by Chrome</translation>
 <translation id="8521348052903287641">Inbound rule for Google Chrome Dev to allow mDNS traffic.</translation>
 <translation id="852529348814672339">Display Chrome in this language</translation>
+<translation id="8525579356836940628">Installation stopped</translation>
 <translation id="8533056045953418157">Set Google Chrome as your default PDF viewer</translation>
 <translation id="8555465886620020932">Service error: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">Search language list</translation>
 <translation id="8575047640889685742">Use your <ph name="BEGIN_LINK" />own passphrase<ph name="END_LINK" /> to encrypt all the Chrome data in your Google Account. Payment methods and addresses from Google Pay won't be encrypted. Browsing history from Chrome won't sync.</translation>
+<translation id="8590782867495422699">Reopen Google Search AI Mode</translation>
 <translation id="8601359445272098721">New! You can translate both text and images on your screen by selecting the 'translate screen' button</translation>
 <translation id="8614913330719544658">Google Chrome is unresponsive. Relaunch now?</translation>
 <translation id="861702415419836452">Chrome needs permission to access your camera to create a 3D map of your surroundings</translation>
 <translation id="8624541899164515475">Settings, opens in new tab.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome will relaunch in 1 minute}other{Chrome will relaunch in # minutes}}</translation>
 <translation id="8637932705841171563">To share your window, allow screen recording for Chrome in System Settings</translation>
-<translation id="8641606876632989680">Chrome will notify you when you sign in with a compromised password</translation>
-<translation id="8647930742055103497">Keep everything in Chrome</translation>
 <translation id="8656634243791296665">Open Gemini in Chrome Dev</translation>
 <translation id="8669527147644353129">Google Chrome Helper</translation>
 <translation id="8679801911857917785">It also controls what page is shown when you start Chrome.</translation>
@@ -801,6 +786,8 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="8999117580775242387">When HTTPS isn't available, Chrome will use an insecure connection without warning you</translation>
 <translation id="8999208279178790196">{0,plural, =0{A Chrome update is available}=1{A Chrome update is available}other{A Chrome update has been available for # days}}</translation>
 <translation id="9014771989710951291">Multiple organisations manage Chrome</translation>
+<translation id="9018218886431812662">Installation complete</translation>
+<translation id="9024318700713112071">Set Chrome as your default</translation>
 <translation id="9066987883552592250">Close Gemini in Chrome Canary</translation>
 <translation id="9090566250983691233">Learn why Chrome blocks some files</translation>
 <translation id="9106236359747881194">Select text to search</translation>

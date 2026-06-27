@@ -144,6 +144,7 @@ source_set("sync") {
     "//components/language/core/common",
     "//components/live_caption:constants",
     "//components/metrics/demographics",
+    "//components/network_time",
     "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/browser/features:utils",
     "//components/password_manager/core/browser/password_store:password_store_interface",
@@ -167,8 +168,9 @@ source_set("sync") {
     "//components/variations/service",
     "//components/webauthn/core/browser:passkey_model",
 
-    # TODO(crbug.com/352700220): Extract target for //chrome/browser/android/webapk from
-    # //chrome/browser and use that instead here.
+    # TODO(crbug.com/352700220): Extract target for
+    # //chrome/browser/android/webapk from //chrome/browser and use that instead
+    # here.
     "//chrome/browser/android/webapk/proto",
     "//components/webapps/browser",
   ]

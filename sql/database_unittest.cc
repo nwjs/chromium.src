@@ -43,20 +43,23 @@
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/thread_annotations.h"
 #include "base/trace_event/memory_dump_request_args.h"
 #include "base/trace_event/process_memory_dump.h"
 #include "build/build_config.h"
 #include "sql/database_memory_dump_provider.h"
+#include "sql/internal_api_token.h"
 #include "sql/meta_table.h"
 #include "sql/recovery.h"
 #include "sql/sqlite_result_code.h"
+#include "sql/sqlite_result_code_values.h"
 #include "sql/statement.h"
 #include "sql/statement_id.h"
+#include "sql/test/drive_error_test_vfs.h"
 #include "sql/test/scoped_error_expecter.h"
 #include "sql/test/test_helpers.h"
-#include "sql/test/test_vfs.h"
 #include "sql/transaction.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -67,8 +70,9 @@ namespace sql {
 
 namespace {
 
+using ::base::test::ScopedFeatureList;
+using ::sql::test::DriveErrorTestVfs;
 using ::sql::test::ExecuteWithResult;
-using ::sql::test::TestVfs;
 using ::testing::Bool;
 using ::testing::Combine;
 using ::testing::Contains;
@@ -2750,6 +2754,66 @@ TEST_P(SQLDatabaseTest, StatementErrorHistogram) {
   EXPECT_TRUE(expecter.SawExpectedErrors());
 }
 
+TEST_P(SQLDatabaseTest, CommitTransactionDeprecated) {
+  ASSERT_TRUE(db_->Execute("CREATE TABLE foo (id INTEGER UNIQUE)"));
+
+  ASSERT_TRUE(db_->Execute("INSERT INTO foo (id) VALUES (1)"));
+  ASSERT_TRUE(db_->BeginTransactionDeprecated());
+  ASSERT_TRUE(db_->Execute("INSERT INTO foo (id) VALUES (2)"));
+  EXPECT_TRUE(db_->CommitTransactionDeprecated());
+
+  Statement row_count(db_->GetReadonlyStatement("SELECT COUNT(*) FROM foo"));
+  ASSERT_TRUE(row_count.Step());
+  EXPECT_EQ(row_count.ColumnInt(0), 2);
+}
+
+TEST_P(SQLDatabaseTest, RollbackTransactionDeprecated) {
+  ASSERT_TRUE(db_->Execute("CREATE TABLE foo (id INTEGER UNIQUE)"));
+
+  ASSERT_TRUE(db_->Execute("INSERT INTO foo (id) VALUES (1)"));
+  ASSERT_TRUE(db_->BeginTransactionDeprecated());
+  ASSERT_TRUE(db_->Execute("INSERT INTO foo (id) VALUES (2)"));
+  db_->RollbackTransactionDeprecated();
+
+  Statement row_count(db_->GetReadonlyStatement("SELECT COUNT(*) FROM foo"));
+  ASSERT_TRUE(row_count.Step());
+  EXPECT_EQ(row_count.ColumnInt(0), 1);
+}
+
+TEST_P(SQLDatabaseTest, CloseThenBeginTransactionDeprecated) {
+  db_->Close();
+  EXPECT_FALSE(db_->BeginTransactionDeprecated());
+}
+
+TEST_P(SQLDatabaseTest, CloseThenCommitTransactionDeprecated) {
+  ASSERT_TRUE(db_->BeginTransactionDeprecated());
+  db_->Close();
+  EXPECT_FALSE(db_->CommitTransactionDeprecated());
+}
+
+TEST_P(SQLDatabaseTest, CloseThenRollbackTransactionDeprecated) {
+  ASSERT_TRUE(db_->BeginTransactionDeprecated());
+  db_->Close();
+  db_->RollbackTransactionDeprecated();
+}
+
+TEST_P(SQLDatabaseTest, PoisonThenBeginTransactionDeprecated) {
+  db_->Poison();
+  EXPECT_FALSE(db_->BeginTransactionDeprecated());
+}
+
+TEST_P(SQLDatabaseTest, PoisonThenCommitTransactionDeprecated) {
+  ASSERT_TRUE(db_->BeginTransactionDeprecated());
+  db_->Poison();
+  EXPECT_FALSE(db_->CommitTransactionDeprecated());
+}
+
+TEST_P(SQLDatabaseTest, PoisonThenRollbackTransactionDeprecated) {
+  ASSERT_TRUE(db_->BeginTransactionDeprecated());
+  db_->Poison();
+  db_->RollbackTransactionDeprecated();
+}
+
 TEST(SQLEmptyPathDatabaseTest, EmptyPathTest) {
   Database db(test::kTestTag);
   EXPECT_TRUE(db.OpenInMemory());
@@ -2884,25 +2948,6 @@ INSTANTIATE_TEST_SUITE_P(
            std::get<2>(info.param) ? "ReadOnly" : "ReadWrite"});
     });
 
-// An SQLite VFS for testing the Database class.
-class DatabaseTestVfs : public TestVfs {
- public:
-  int Write(sqlite3_file* file,
-            const void* buffer,
-            int size,
-            sqlite3_int64 offset) override {
-    if (drive_full_) {
-      return SQLITE_FULL;
-    }
-    return TestVfs::Write(file, buffer, size, offset);
-  }
-
-  void set_drive_full(bool drive_full) { drive_full_ = drive_full; }
-
- private:
-  bool drive_full_ = false;
-};
-
 std::optional<std::vector<int>> ReadInts(Database& db,
                                          base::cstring_view query) {
   std::vector<int> result;
@@ -2924,7 +2969,7 @@ class DatabaseDiskFullTest : public Test {
   }
 
  protected:
-  DatabaseTestVfs vfs_;
+  DriveErrorTestVfs vfs_;
   base::ScopedTempDir temp_dir_;
   base::FilePath db_path_;
 };
@@ -2940,7 +2985,223 @@ TEST_F(DatabaseDiskFullTest, RazeFailsWhenDiskIsFull) {
   vfs_.set_drive_full(true);
 
   EXPECT_FALSE(db.Raze());
+  EXPECT_THAT(vfs_.errors_produced(), Contains(SqliteErrorCode::kFullDisk));
   EXPECT_THAT(ReadInts(db, "SELECT i FROM foo"), Optional(ElementsAre(42)));
+}
+
+// Tests that writing a journal can trigger an `SQLITE_FULL` error.
+TEST_F(DatabaseDiskFullTest, JournalCreationCanCauseSqliteFullErrors) {
+  Database db(test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  // Force any further writes to fail.
+  vfs_.set_drive_full(true);
+
+  // Open a transaction so that rows aren't written to disk until the commit.
+  Transaction transaction(&db);
+  ASSERT_TRUE(transaction.Begin());
+
+  // Writing statements require creating a journal, which can't be done when
+  // the disk is full.
+  EXPECT_THAT(errors, IsEmpty());
+  EXPECT_FALSE(db.Execute("INSERT INTO foo(i) VALUES(42)"));
+  EXPECT_THAT(errors, ElementsAre(SQLITE_FULL));
+}
+
+// Tests that an `SQLITE_FULL` error can occur if SQLite runs out of room in its
+// memory cache and is forced to write to disk before the commit/rollback.
+TEST_F(DatabaseDiskFullTest, CacheSpillCanCauseSqliteFullErrors) {
+  Database db(DatabaseOptions().set_cache_size(1), test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+
+  // Disable journal to only get `SQLITE_FULL` errors from writing to the main
+  // database file.
+  ASSERT_TRUE(db.Execute("PRAGMA journal_mode = OFF"));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  // Force any further writes to fail.
+  vfs_.set_drive_full(true);
+
+  // Open a transaction so that rows aren't written until the cache spills.
+  Transaction transaction(&db);
+  ASSERT_TRUE(transaction.Begin());
+
+  // The first rows are stored in the cache and don't trigger `SQLITE_FULL`.
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_TRUE(db.Execute("INSERT INTO foo(i) VALUES(42)"));
+  }
+
+  // Eventually, the cache will fill and write will spill over to the disk.
+  EXPECT_THAT(errors, IsEmpty());
+  while (db.Execute("INSERT INTO foo(i) VALUES(42)")) {
+  }
+  EXPECT_THAT(errors, ElementsAre(SQLITE_FULL));
+}
+
+// Checks that statements producing `SQLITE_FULL` automatically rollback
+// transactions.
+TEST_F(DatabaseDiskFullTest, SqliteFullAbortsTransactions) {
+  ScopedFeatureList feature_list(kCheckAutoCommitInCommitAndRollback);
+  Database db(test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  vfs_.set_drive_full(true);
+
+  {
+    Transaction transaction(&db);
+    ASSERT_TRUE(transaction.Begin());
+
+    // `SQLITE_FULL` errors prematurely rollback the transaction on the SQLite
+    // side.
+    EXPECT_FALSE(sqlite3_get_autocommit(db.db(InternalApiToken())));
+    EXPECT_FALSE(db.Execute("INSERT INTO foo(i) VALUES(42)"));
+    EXPECT_TRUE(sqlite3_get_autocommit(db.db(InternalApiToken())));
+  }
+
+  // Should only be one error (i.e. `~Transaction` shouldn't trigger an SQLite
+  // error).
+  EXPECT_THAT(errors, ElementsAre(SQLITE_FULL));
+}
+
+// Checks that calling `Commit` in an abandoned transactions doesn't invoke
+// error callback.
+TEST_F(DatabaseDiskFullTest, CommitInAbandonedTransactions) {
+  ScopedFeatureList feature_list(kCheckAutoCommitInCommitAndRollback);
+  Database db(test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  vfs_.set_drive_full(true);
+
+  {
+    Transaction transaction(&db);
+    ASSERT_TRUE(transaction.Begin());
+
+    EXPECT_FALSE(db.Execute("INSERT INTO foo(i) VALUES(42)"));
+
+    EXPECT_FALSE(transaction.Commit());
+  }
+
+  // Should only be one error (i.e. `Commit` shouldn't trigger error callback).
+  EXPECT_THAT(errors, ElementsAre(SQLITE_FULL));
+}
+
+// Checks that calling `Rollback` in an abandoned transactions doesn't invoke
+// error callback.
+TEST_F(DatabaseDiskFullTest, RollbackInAbandonedTransactions) {
+  ScopedFeatureList feature_list(kCheckAutoCommitInCommitAndRollback);
+  Database db(test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  vfs_.set_drive_full(true);
+
+  {
+    Transaction transaction(&db);
+    ASSERT_TRUE(transaction.Begin());
+
+    EXPECT_FALSE(db.Execute("INSERT INTO foo(i) VALUES(42)"));
+
+    transaction.Rollback();
+  }
+
+  // Should only be one error (i.e. `Rollback` shouldn't trigger error
+  // callback).
+  EXPECT_THAT(errors, ElementsAre(SQLITE_FULL));
+}
+
+// Tests `Commit` in a transaction that was rolled-back outside the control of
+// the `Database` class. This simulates an automatic rollback done by SQLite in
+// a non-statement API call which the `Database` doesn't expect could ever
+// possibly rollback transactions. `Commit` should still fail without producing
+// errors.
+TEST_F(DatabaseDiskFullTest, CommitInTransactionAbortedByRawSqliteCalls) {
+  ScopedFeatureList feature_list(kCheckAutoCommitInCommitAndRollback);
+  Database db(test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  vfs_.set_drive_full(true);
+
+  {
+    Transaction transaction(&db);
+    ASSERT_TRUE(transaction.Begin());
+
+    EXPECT_EQ(
+        sqlite3_exec(db.db(InternalApiToken()), "INSERT INTO foo(i) VALUES(42)",
+                     /*callback=*/nullptr, /*arg=*/nullptr,
+                     /*errmsg=*/nullptr),
+        SQLITE_FULL);
+
+    EXPECT_FALSE(transaction.Commit());
+  }
+
+  EXPECT_THAT(errors, IsEmpty());
+}
+
+// Tests `Rollback` in a transaction that was rolled-back outside the control of
+// the `Database` class. This simulates an automatic rollback done by SQLite in
+// a non-statement API call which the `Database` doesn't expect could ever
+// possibly rollback transactions. `Rollback` shouldn't produce errors.
+TEST_F(DatabaseDiskFullTest, RollbackInTransactionAbortedByRawSqliteCalls) {
+  ScopedFeatureList feature_list(kCheckAutoCommitInCommitAndRollback);
+  Database db(test::kTestTag);
+
+  std::vector<int> errors;
+  db.set_error_callback(base::BindLambdaForTesting(
+      [&](int error, Statement*) { errors.push_back(error); }));
+
+  ASSERT_TRUE(db.Open(db_path_));
+  ASSERT_TRUE(db.Execute("CREATE TABLE foo(i)"));
+
+  vfs_.set_drive_full(true);
+
+  {
+    Transaction transaction(&db);
+    ASSERT_TRUE(transaction.Begin());
+
+    EXPECT_EQ(
+        sqlite3_exec(db.db(InternalApiToken()), "INSERT INTO foo(i) VALUES(42)",
+                     /*callback=*/nullptr, /*arg=*/nullptr,
+                     /*errmsg=*/nullptr),
+        SQLITE_FULL);
+
+    transaction.Rollback();
+  }
+
+  EXPECT_THAT(errors, IsEmpty());
 }
 
 }  // namespace sql

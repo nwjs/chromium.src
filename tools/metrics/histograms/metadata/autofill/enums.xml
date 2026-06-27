@@ -232,6 +232,9 @@ chromium-metrics-reviews@google.com.
       label="The user closed the prompt (via the close button or the ESC)"/>
   <int value="4" label="The user did not interact with the prompt"/>
   <int value="5" label="The prompt was closed due to losing focus"/>
+  <int value="6"
+      label="The prompt was closed by pressing 'Done' button in the editor.
+             The editor is only present on Android."/>
 </enum>
 
 <!-- LINT.IfChange(AutofillAiDecryptStatus) -->
@@ -499,10 +502,6 @@ Called by update_autofill_enums.py.-->
   <int value="657" label="ALTERNATIVE_GIVEN_NAME: Failure"/>
   <int value="660" label="ALTERNATIVE_FAMILY_NAME: Success"/>
   <int value="661" label="ALTERNATIVE_FAMILY_NAME: Failure"/>
-  <int value="664" label="NAME_LAST_PREFIX: Success"/>
-  <int value="665" label="NAME_LAST_PREFIX: Failure"/>
-  <int value="668" label="NAME_LAST_CORE: Success"/>
-  <int value="669" label="NAME_LAST_CORE: Failure"/>
   <int value="676" label="PASSPORT_NUMBER: Success"/>
   <int value="677" label="PASSPORT_NUMBER: Failure"/>
   <int value="680" label="PASSPORT_ISSUING_COUNTRY: Success"/>
@@ -1220,12 +1219,6 @@ Called by update_autofill_enums.py.-->
              edited"/>
   <int value="10561"
       label="ALTERNATIVE_FAMILY_NAME: Autofilled value accepted"/>
-  <int value="10624"
-      label="NAME_LAST_PREFIX: Not autofilled or autofilled value edited"/>
-  <int value="10625" label="NAME_LAST_PREFIX: Autofilled value accepted"/>
-  <int value="10688"
-      label="NAME_LAST_CORE: Not autofilled or autofilled value edited"/>
-  <int value="10689" label="NAME_LAST_CORE: Autofilled value accepted"/>
   <int value="10752"
       label="PASSPORT_NAME_TAG: Not autofilled or autofilled value edited"/>
   <int value="10753" label="PASSPORT_NAME_TAG: Autofilled value accepted"/>
@@ -1605,10 +1598,6 @@ Called by update_autofill_enums.py.-->
   <int value="2625" label="ALTERNATIVE_GIVEN_NAME: accepted"/>
   <int value="2640" label="ALTERNATIVE_FAMILY_NAME: edited"/>
   <int value="2641" label="ALTERNATIVE_FAMILY_NAME: accepted"/>
-  <int value="2656" label="NAME_LAST_PREFIX: edited"/>
-  <int value="2657" label="NAME_LAST_PREFIX: accepted"/>
-  <int value="2672" label="NAME_LAST_CORE: edited"/>
-  <int value="2673" label="NAME_LAST_CORE: accepted"/>
   <int value="2688" label="PASSPORT_NAME_TAG: edited"/>
   <int value="2689" label="PASSPORT_NAME_TAG: accepted"/>
   <int value="2704" label="PASSPORT_NUMBER: edited"/>
@@ -2539,8 +2528,6 @@ Called by update_autofill_enums.py.-->
   <int value="163" label="ALTERNATIVE_FULL_NAME"/>
   <int value="164" label="ALTERNATIVE_GIVEN_NAME"/>
   <int value="165" label="ALTERNATIVE_FAMILY_NAME"/>
-  <int value="166" label="NAME_LAST_PREFIX"/>
-  <int value="167" label="NAME_LAST_CORE"/>
   <int value="168" label="PASSPORT_NAME_TAG"/>
   <int value="169" label="PASSPORT_NUMBER"/>
   <int value="170" label="PASSPORT_ISSUING_COUNTRY"/>
@@ -2948,6 +2935,8 @@ Called by update_autofill_enums.py.-->
   <int value="3" label="Name"/>
 </enum>
 
+<!-- LINT.IfChange(AutofillOptionsReferrer) -->
+
 <enum name="AutofillOptionsReferrer">
   <int value="0" label="User entered the autofill options via main settings."/>
   <int value="1" label="User entered the autofill options via deep link."/>
@@ -2959,7 +2948,17 @@ Called by update_autofill_enums.py.-->
   <int value="4"
       label="User entered the autofill options via autofill and passwords
              fragment."/>
+  <int value="5"
+      label="User entered the autofill options via autofill identity docs
+             fragment."/>
+  <int value="6"
+      label="User entered the autofill options via autofill travel fragment."/>
+  <int value="7"
+      label="User entered the autofill options via autofill shopping
+             fragment."/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/autofill/android/java/src/org/chromium/chrome/browser/autofill/options/AutofillOptionsFragment.java:AutofillOptionsReferrer) -->
 
 <enum name="AutofillOtpAuthEvent">
   <int value="0" label="Unknown result"/>
@@ -3601,16 +3600,6 @@ Called by update_autofill_enums.py.-->
   <int value="2642" label="ALTERNATIVE_FAMILY_NAME: kHeuristics"/>
   <int value="2643" label="ALTERNATIVE_FAMILY_NAME: kAutocomplete"/>
   <int value="2644" label="ALTERNATIVE_FAMILY_NAME: kRationalization"/>
-  <int value="2656" label="NAME_LAST_PREFIX: kServerCrowdsourcing"/>
-  <int value="2657" label="NAME_LAST_PREFIX: kServerOverride"/>
-  <int value="2658" label="NAME_LAST_PREFIX: kHeuristics"/>
-  <int value="2659" label="NAME_LAST_PREFIX: kAutocomplete"/>
-  <int value="2660" label="NAME_LAST_PREFIX: kRationalization"/>
-  <int value="2672" label="NAME_LAST_CORE: kServerCrowdsourcing"/>
-  <int value="2673" label="NAME_LAST_CORE: kServerOverride"/>
-  <int value="2674" label="NAME_LAST_CORE: kHeuristics"/>
-  <int value="2675" label="NAME_LAST_CORE: kAutocomplete"/>
-  <int value="2676" label="NAME_LAST_CORE: kRationalization"/>
   <int value="2704" label="PASSPORT_NUMBER: kServerCrowdsourcing"/>
   <int value="2705" label="PASSPORT_NUMBER: kServerOverride"/>
   <int value="2706" label="PASSPORT_NUMBER: kHeuristics"/>
@@ -4135,7 +4124,7 @@ Called by update_autofill_enums.py.-->
   <int value="3" label="FillingFlowDropdown"/>
 </enum>
 
-<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/autofill_settings_metrics.h:AutofillSettingsReferrer,/chrome/browser/resources/settings/metrics_browser_proxy.ts:AutofillSettingsReferrer) -->
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/autofill_settings_metrics.h:AutofillSettingsReferrer, /chrome/browser/resources/settings/metrics_browser_proxy.ts:AutofillSettingsReferrer, /chrome/android/java/src/org/chromium/chrome/browser/autofill/settings/HomeOfTransactionsFragment.java:AutofillSettingsReferrer) -->
 
 <enum name="AutofillSettingsVisibleTypes">
   <int value="0" label="Undefined"/>
@@ -4479,8 +4468,8 @@ Called by update_autofill_enums.py.-->
   <int value="301" label="RemoveEntityInstance: Failure"/>
   <int value="310" label="RemoveEntityInstancesModifiedBetween: Success"/>
   <int value="311" label="RemoveEntityInstancesModifiedBetween: Failure"/>
-  <int value="312" label="ClearLocalCvcsUpToMay2025: Success"/>
-  <int value="313" label="ClearLocalCvcsUpToMay2025: Failure"/>
+  <int value="312" label="(Deprecated) ClearLocalCvcsUpToMay2025: Success"/>
+  <int value="313" label="(Deprecated) ClearLocalCvcsUpToMay2025: Failure"/>
   <int value="314" label="CleanupForCrbug445879524: Success"/>
   <int value="315" label="CleanupForCrbug445879524: Failure"/>
   <int value="316" label="AddOrUpdateValuableMetadata: Success"/>
@@ -5019,10 +5008,6 @@ Called by update_autofill_enums.py.-->
   <int value="657" label="ALTERNATIVE_GIVEN_NAME: Accepted"/>
   <int value="660" label="ALTERNATIVE_FAMILY_NAME: Ignored"/>
   <int value="661" label="ALTERNATIVE_FAMILY_NAME: Accepted"/>
-  <int value="664" label="NAME_LAST_PREFIX: Ignored"/>
-  <int value="665" label="NAME_LAST_PREFIX: Accepted"/>
-  <int value="668" label="NAME_LAST_CORE: Ignored"/>
-  <int value="669" label="NAME_LAST_CORE: Accepted"/>
   <int value="672" label="PASSPORT_NAME_TAG: Ignored"/>
   <int value="673" label="PASSPORT_NAME_TAG: Accepted"/>
   <int value="676" label="PASSPORT_NUMBER: Ignored"/>
@@ -5120,6 +5105,29 @@ Called by update_autofill_enums.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//components/autofill/ios/form_util/form_activity_tab_helper.mm:FormSubmissionOutcomeIOS) -->
+
+<!-- LINT.IfChange(GmailOneTimeTokensBackendErrorCode) -->
+
+<enum name="GmailOneTimeTokensBackendErrorCode">
+  <int value="8" label="Auth error"/>
+  <int value="9" label="Network error"/>
+  <int value="10" label="Invalid response"/>
+  <int value="12" label="Unknown error"/>
+  <int value="13" label="API not available"/>
+  <int value="14" label="Initialization failed"/>
+  <int value="15" label="Smart features in Gmail consent required"/>
+  <int value="16"
+      label="Smart features in other Google products consent required"/>
+  <int value="17" label="DMA cross product sharing consent required"/>
+  <int value="18" label="Bad message reference"/>
+  <int value="19" label="Message ID not found"/>
+  <int value="20" label="Wrong token type requested"/>
+  <int value="21" label="One time token expired"/>
+  <int value="22" label="OTP attribute not found"/>
+  <int value="23" label="Server error"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/one_time_tokens/core/browser/one_time_token_retrieval_error.h) -->
 
 <enum name="IbanCountry">
   <int value="0" label="Unsupport"/>
@@ -5343,7 +5351,9 @@ Called by update_autofill_enums.py.-->
   <int value="3" label="Aborted; failed to fetch cached form"/>
   <int value="4" label="Aborted; card number or expiration date field missing"/>
   <int value="5" label="Aborted; form or client context not secure"/>
-  <int value="7" label="All prior checks passed; started IntersectionObserver"/>
+  <int value="6" label="Aborted; OptimizationGuideDecider missing"/>
+  <int value="7" label="Aborted; found field from non-allowlisted iframe"/>
+  <int value="8" label="All prior checks passed; started IntersectionObserver"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/omnibox_autofill_metrics.h:OmniboxAutofillShowChipDecisionPart1) -->
@@ -5509,6 +5519,15 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h:SaveAndFillFormEvent) -->
 
+<!-- LINT.IfChange(SaveAndFillFunnelCanceledStage) -->
+
+<enum name="SaveAndFillFunnelCanceledStage">
+  <int value="0" label="Suggestion ignored"/>
+  <int value="1" label="Dialog canceled"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h:SaveAndFillFunnelCanceledStage) -->
+
 <!-- LINT.IfChange(SaveAndFillFunnelSucceededStage) -->
 
 <enum name="SaveAndFillFunnelSucceededStage">
@@ -5529,7 +5548,23 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h:SaveAndFillPaymentsRequestResult) -->
 
-<!-- LINT.IfChange(SaveAndFillSuggestionNotShownReason) -->
+<!-- LINT.IfChange(SaveAndFillSuggestionEvent) -->
+
+<enum name="SaveAndFillSuggestionEvent">
+  <int value="0" label="The Save and Fill suggestion was shown"/>
+  <int value="1" label="Suggestion not shown: user is in incognito mode"/>
+  <int value="2"
+      label="Suggestion not shown: credit card form is not complete"/>
+  <int value="3"
+      label="Suggestion not shown: strike database required delay not met"/>
+  <int value="4"
+      label="Suggestion not shown: strike database max strike limit reached"/>
+  <int value="5"
+      label="Suggestion not shown: user already has cards saved in profile"/>
+  <int value="6" label="The Save and Fill suggestion was accepted"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h:SaveAndFillSuggestionEvent) -->
 
 <enum name="SaveAndFillSuggestionNotShownReason">
   <int value="0"
@@ -5538,8 +5573,6 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="The user is in incognito mode"/>
   <int value="3" label="The credit card form is not complete"/>
 </enum>
-
-<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h:SaveAndFillSuggestionNotShownReason) -->
 
 <!-- LINT.IfChange(SaveCreditCardPromptResultIOS) -->
 
@@ -5675,6 +5708,9 @@ Called by update_autofill_enums.py.-->
   <int value="80" label="AtMemory inactivity nudge"/>
   <int value="81" label="Autocomplete AtMemory button"/>
   <int value="82" label="Open Gemini"/>
+  <int value="83" label="AtMemory no connection"/>
+  <int value="84" label="AtMemory search trigger affordance"/>
+  <int value="85" label="Personal context notice"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/suggestions/suggestion_type.h:SuggestionType) -->
@@ -5799,7 +5835,7 @@ Called by update_autofill_enums.py.-->
   <int value="5" label="Shopping"/>
 </enum>
 
-<!-- LINT.ThenChange(/chrome/browser/resources/settings/metrics_browser_proxy.ts:YourSavedInfoDataCategory) -->
+<!-- LINT.ThenChange(/chrome/browser/resources/settings/metrics_browser_proxy.ts:YourSavedInfoDataCategory, /chrome/android/java/src/org/chromium/chrome/browser/autofill/settings/HomeOfTransactionsFragment.java:YourSavedInfoDataCategory) -->
 
 <!-- LINT.IfChange(YourSavedInfoDataChip) -->
 

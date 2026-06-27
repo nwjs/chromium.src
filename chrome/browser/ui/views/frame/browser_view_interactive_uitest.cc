@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
+#include "chrome/browser/ui/focus/browser_focus_controller.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -30,6 +31,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ozone_buildflags.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/ozone/public/ozone_platform.h"
@@ -135,6 +137,70 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ImmersiveFullscreenViewTreeOrder) {
   EXPECT_EQ(children_before, children_after);
 }
 #endif
+
+// Test that holding Esc correctly exits fullscreen when focus is on the native
+// browser UI.
+IN_PROC_BROWSER_TEST_F(BrowserViewTest,
+                       PressAndHoldEscExitsFullscreenWithNativeFocus) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  ASSERT_TRUE(browser_view()->IsFullscreen());
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  // When fullscreening a window that is displaying the NTP, focus can remain on
+  // the native window container (the RootView) rather than the
+  // RenderWidgetHostView. This prevents the 'Esc' keypress from being handled
+  // by the WebContents delegate and instead causes it to be routed through the
+  // FocusManager's accelerator system (as IDC_CLOSE_FIND_OR_STOP). We use
+  // ProcessAccelerator here to specifically verify that our fix in the native
+  // accelerator path correctly catches this event and triggers the
+  // ExclusiveAccessManager.
+  ui::Accelerator escape_accelerator(ui::VKEY_ESCAPE, ui::EF_NONE);
+  browser_view()->GetFocusManager()->ProcessAccelerator(escape_accelerator);
+
+  // Hold for kHoldEscapeTime plus a buffer to ensure the timer fires, and then
+  // release.
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(2000));
+  run_loop.Run();
+  ui::Accelerator escape_released(ui::VKEY_ESCAPE, ui::EF_NONE);
+  escape_released.set_key_state(ui::Accelerator::KeyState::RELEASED);
+  browser_view()->GetFocusManager()->ProcessAccelerator(escape_released);
+
+  ui_test_utils::FullscreenWaiter(
+      browser(), ui_test_utils::FullscreenWaiter::kNoFullscreen)
+      .Wait();
+
+  EXPECT_FALSE(browser_view()->IsFullscreen());
+}
+
+// Test that a quick tap of Esc does NOT exit fullscreen when focus is on the
+// native browser UI. This verifies that the release accelerator correctly
+// stops the fullscreen exit timer.
+IN_PROC_BROWSER_TEST_F(BrowserViewTest,
+                       QuickTapEscDoesNotExitFullscreenWithNativeFocus) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  ASSERT_TRUE(browser_view()->IsFullscreen());
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  // Simulate a quick press and release of 'Esc'.
+  ui::Accelerator escape_accelerator(ui::VKEY_ESCAPE, ui::EF_NONE);
+  browser_view()->GetFocusManager()->ProcessAccelerator(escape_accelerator);
+
+  ui::Accelerator escape_released(ui::VKEY_ESCAPE, ui::EF_NONE);
+  escape_released.set_key_state(ui::Accelerator::KeyState::RELEASED);
+  browser_view()->GetFocusManager()->ProcessAccelerator(escape_released);
+
+  // Wait for longer than kHoldEscapeTime (1500ms) to ensure it doesn't exit.
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(2000));
+  run_loop.Run();
+
+  EXPECT_TRUE(browser_view()->IsFullscreen());
+}
 
 // Test whether the top view including toolbar and tab strip shows up or hides
 // correctly in browser fullscreen mode.
@@ -429,7 +495,8 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest,
   EXPECT_TRUE(widget->IsVisible());
   EXPECT_FALSE(widget->IsActive());
 
-  browser_view()->FocusInactivePopupForAccessibility();
+  BrowserFocusController::From(browser_view()->browser())
+      ->FocusInactivePopupForAccessibility();
   views::test::WaitForWidgetActive(widget, true);
 
   // Ensure the bubble's widget refreshed appropriately.
@@ -492,6 +559,26 @@ IN_PROC_BROWSER_TEST_F(BrowserViewFullscreenTest, MAYBE_Fullscreen) {
   }
 }
 
+class BrowserViewLoadingAnimationTest
+    : public BrowserViewTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BrowserViewLoadingAnimationTest() {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeature(features::kCompositorLoadingThrobber);
+    } else {
+      feature_list_.InitAndDisableFeature(features::kCompositorLoadingThrobber);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(CompositorDrivenThrobber,
+                         BrowserViewLoadingAnimationTest,
+                         testing::Bool());
+
 // TODO(b/342017720): Re-enable on Mac
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_LoadingAnimationChangeOnMinimizeAndRestore \
@@ -500,7 +587,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewFullscreenTest, MAYBE_Fullscreen) {
 #define MAYBE_LoadingAnimationChangeOnMinimizeAndRestore \
   LoadingAnimationChangeOnMinimizeAndRestore
 #endif  // BUILDFLAG(IS_MAC)
-IN_PROC_BROWSER_TEST_F(BrowserViewTest,
+IN_PROC_BROWSER_TEST_P(BrowserViewLoadingAnimationTest,
                        MAYBE_LoadingAnimationChangeOnMinimizeAndRestore) {
   auto* contents = browser()->tab_strip_model()->GetActiveWebContents();
   content::TestNavigationObserver navigation_watcher(
@@ -517,7 +604,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest,
     browser_view()->SetLoadingAnimationStateChangeClosureForTesting(
         run_loop.QuitClosure());
 
-    // Loading animation is not rendered when browser view is minimized.
+    // Loading animation is not rendered when browser view is hidden.
     browser_view()->Minimize();
     run_loop.Run();
   }
@@ -530,7 +617,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest,
     browser_view()->SetLoadingAnimationStateChangeClosureForTesting(
         run_loop.QuitClosure());
 
-    // Loading animation is rendered when browser view is restored.
+    // Loading animation is rendered when browser view is shown.
     browser_view()->Restore();
     run_loop.Run();
   }

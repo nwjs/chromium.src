@@ -20,18 +20,21 @@ void HttpsOnlyModeTabHelper::DidStartNavigation(
     content::NavigationHandle* navigation_handle) {
   if (base::FeatureList::IsEnabled(
           security_interstitials::features::kHttpsFirstDialogUi)) {
-    // Close the Ask-before-HTTP dialog if a new navigation begins.
-    // TabDialogManager has a parameter to close tab-modal dialogs
-    // if a cross-site navigation occurs, but we need to be more
-    // strict and close on *any* new navigation. (For example, without
-    // this when a user clicks from badssl.com to http.badssl.com, sees
-    // the warning prompt, and then clicks the back button, the warning
-    // prompt would still be showing.)
-    if (auto* tab = tabs::TabInterface::MaybeGetFromContents(
-            navigation_handle->GetWebContents())) {
-      auto* const dialog_controller = AskBeforeHttpDialogController::From(tab);
-      if (dialog_controller && dialog_controller->HasOpenDialog()) {
-        dialog_controller->CloseDialog();
+    // Close the Ask-before-HTTP dialog if a new navigation begins in the
+    // primary main frame. TabDialogManager has a parameter to close tab-modal
+    // dialogs if a cross-site navigation occurs, but we need to be more strict
+    // and close on *any* new navigation. (For example, without this when a user
+    // clicks from badssl.com to http.badssl.com, sees the warning prompt, and
+    // then clicks the back button, the warning prompt would still be showing.)
+    if (navigation_handle->IsInPrimaryMainFrame() &&
+        !navigation_handle->IsSameDocument()) {
+      if (auto* tab = tabs::TabInterface::MaybeGetFromContents(
+              navigation_handle->GetWebContents())) {
+        auto* const dialog_controller =
+            AskBeforeHttpDialogController::From(tab);
+        if (dialog_controller && dialog_controller->HasOpenDialog()) {
+          dialog_controller->CloseDialog();
+        }
       }
     }
   }
@@ -48,6 +51,9 @@ void HttpsOnlyModeTabHelper::DidStartNavigation(
     set_fallback_url(GURL());
     set_is_navigation_fallback(false);
     set_is_navigation_upgraded(false);
+    set_is_typed_schemeless_upgrade(false);
+    set_fallback_reason(
+        security_interstitials::https_only_mode::FallbackReason::kNone);
   }
 }
 
@@ -81,7 +87,8 @@ void HttpsOnlyModeTabHelper::DidFinishNavigation(
     ukm::SourceId ukm_source_id = ukm::ConvertToSourceId(
         navigation_handle->GetNavigationId(), ukm::SourceIdType::NAVIGATION_ID);
     dialog_controller->ShowDialog(navigation_handle->GetWebContents(),
-                                  navigation_handle->GetURL(), ukm_source_id);
+                                  navigation_handle->GetURL(), ukm_source_id,
+                                  fallback_reason());
     // Make sure that the security indicator shows the correct icon.
     // TODO(crbug.com/351990829): Add the new icon and integration.
     navigation_handle->GetWebContents()->DidChangeVisibleSecurityState();

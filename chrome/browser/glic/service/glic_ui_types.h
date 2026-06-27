@@ -30,6 +30,12 @@ struct FloatingEmbedderKey {
 using EmbedderKey = std::variant<tabs::TabInterface*, FloatingEmbedderKey>;
 std::string DescribeEmbedderKeyForTesting(const EmbedderKey& key);
 
+enum class EmbedderCloseReason {
+  kExplicitlyClosed,
+  kBackgrounded,
+  kPeek,
+};
+
 struct SidePanelShowOptions {
   explicit SidePanelShowOptions(tabs::TabInterface& bound_tab)
       : tab(bound_tab) {}
@@ -75,7 +81,7 @@ struct ShowOptions {
   // Shared show options
   bool focus_on_show = false;
   bool reinitialize_if_already_active = false;
-  std::optional<std::string> prompt_suggestion = std::nullopt;
+  std::optional<std::string> prompt_suggestion;
   mojom::InvocationSource invocation_source =
       mojom::InvocationSource::kTopChromeButton;
   mojom::FreOverride fre_override = mojom::FreOverride::kUnspecified;

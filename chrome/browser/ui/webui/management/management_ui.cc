@@ -33,13 +33,13 @@
 #include "ui/webui/webui_util.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/strings/grit/ash_strings.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
 #include "chrome/browser/enterprise/data_controls/dlp_reporting_manager.h"
-#include "chrome/grit/branded_strings.h"
 #include "ui/chromeos/devicetype_utils.h"
 #else  // BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/browser_process.h"
@@ -83,6 +83,10 @@ content::WebUIDataSource* CreateAndAddManagementUIHtmlSource(Profile* profile) {
                         IDS_MANAGEMENT_REPORT_PLUGIN_VM,
                         l10n_util::GetStringUTF16(IDS_PLUGIN_VM_APP_NAME)));
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+  source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
+                                            ? "webui-refresh-2026"
+                                            : "");
 
   webui::SetupWebUIDataSource(source, kManagementResources,
                               IDR_MANAGEMENT_MANAGEMENT_HTML);
@@ -307,7 +311,8 @@ void ManagementUI::GetLocalizedStrings(
   }
 }
 
-ManagementUI::ManagementUI(content::WebUI* web_ui) : WebUIController(web_ui) {
+ManagementUI::ManagementUI(content::WebUI* web_ui)
+    : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true) {
   Profile* profile = Profile::FromWebUI(web_ui);
   CreateAndAddManagementUIHtmlSource(profile);
 #if !BUILDFLAG(IS_ANDROID)

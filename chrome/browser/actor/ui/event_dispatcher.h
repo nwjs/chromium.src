@@ -8,7 +8,7 @@
 #include "base/functional/callback.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/common/actor.mojom-forward.h"
-#include "chrome/common/actor/task_id.h"
+#include "components/actor/core/task_id.h"
 #include "components/tabs/public/tab_interface.h"
 
 namespace actor {
@@ -46,6 +46,7 @@ class UiEventDispatcher {
     std::string title;
     tabs::TabInterface::Handle last_acted_on_tab_handle;
     ActorTask::TaskDuration duration;
+    glic::mojom::FeatureMode feature_mode;
   };
 
   struct RemoveTab {

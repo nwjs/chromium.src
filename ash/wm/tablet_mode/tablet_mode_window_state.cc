@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
-#include "ash/drag_drop/tab_drag_drop_delegate.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_animation_types.h"
 #include "ash/public/cpp/window_properties.h"
@@ -291,6 +290,22 @@ void TabletModeWindowState::OnWMEvent(WindowState* window_state,
     return;
   }
 
+  // Note that we don't apply this guard to standard pinned mode (kPinned).
+  // Standard pinned mode can be exited by the user using back gestures (which
+  // triggers minimization/transition events in tablet mode).
+  if (window_state->IsLockedFullscreen() &&
+      (event->type() != WM_EVENT_NORMAL && event->type() != WM_EVENT_RESTORE &&
+       event->IsTransitionEvent())) {
+    // Locked fullscreen state can be exited only by normal event or restore
+    // event.
+    return;
+  }
+
+  // A window state change should not lead to the window destruction.
+  // It is the caller's responsibility to delete the window in a safe way
+  // after the transition is completed if necessary (crbug.com/513489429).
+  aura::Window::ScopedDeleteBlocker blocker(window_state->window());
+
   const chromeos::WindowStateType previous_state_type =
       window_state->GetStateType();
 
@@ -376,7 +391,6 @@ void TabletModeWindowState::OnWMEvent(WindowState* window_state,
         break;
 
       if (window_state->is_dragged() ||
-          TabDragDropDelegate::IsSourceWindowForDrag(window_state->window()) ||
           BoundsChangeIsFromVKAndAllowed(window_state->window())) {
         // If the window is the current tab-dragged window or the current tab-
         // dragged window's source window, we may need to update its bounds

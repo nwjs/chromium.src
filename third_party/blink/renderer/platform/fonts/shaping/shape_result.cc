@@ -47,12 +47,28 @@
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_bounds_accumulator.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_run.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_spacing.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/text_break_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/size_assertions.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 
 namespace blink {
+
+namespace {
+
+// Returns the index of the first element in `collection` that does not satisfy
+// `comp`. If no such element is found (i.e. all elements satisfy `comp`),
+// returns `collection.size()`.
+template <typename Collection, typename Value, typename Compare>
+wtf_size_t FindLowerBoundIndex(const Collection& collection,
+                               const Value& value,
+                               Compare comp) {
+  auto it = std::lower_bound(collection.begin(), collection.end(), value, comp);
+  return static_cast<wtf_size_t>(it - collection.begin());
+}
+
+}  // namespace
 
 constexpr unsigned HarfBuzzRunGlyphData::kMaxCharacterIndex;
 constexpr unsigned HarfBuzzRunGlyphData::kMaxGlyphs;
@@ -66,9 +82,15 @@ struct SameSizeAsHarfBuzzRunGlyphData {
 ASSERT_SIZE(HarfBuzzRunGlyphData, SameSizeAsHarfBuzzRunGlyphData);
 
 struct SameSizeAsRunInfo {
+  STACK_ALLOCATED();
+
+ public:
   struct GlyphDataCollection {
-    Vector<int> glyphs;
-    Vector<int> offsets;
+    STACK_ALLOCATED();
+
+   public:
+    HeapVector<int> glyphs;
+    HeapVector<int> offsets;
   } glyph_data;
   Member<void*> pointer2[2];
   int integers[5];
@@ -84,8 +106,11 @@ struct SameSizeAsShapeResultCharacterData {
 ASSERT_SIZE(ShapeResultCharacterData, SameSizeAsShapeResultCharacterData);
 
 struct SameSizeAsShapeResult {
-  Vector<int> character_position_;
-  Vector<UntracedMember<void*>, 1> runs_;
+  STACK_ALLOCATED();
+
+ public:
+  HeapVector<int> character_position_;
+  HeapVector<Member<ShapeResultRun>, 1> runs_;
   float width;
   unsigned start_index_;
   unsigned bitfields;
@@ -873,20 +898,27 @@ float ShapeResult::ForEachGraphemeClusters(const StringView& text,
     const unsigned num_glyphs = run->glyph_data_.size();
     for (unsigned i = 0; i < num_glyphs; ++i) {
       const HarfBuzzRunGlyphData& glyph_data = run->glyph_data_[i];
-      uint16_t current_character_index =
+      const uint16_t current_character_index =
           run->start_index_ + glyph_data.character_index + run_offset;
-      bool is_run_end = (i + 1 == num_glyphs);
-      bool is_cluster_end =
-          is_run_end || (run->GlyphToCharacterIndex(i + 1) + run_offset !=
-                         current_character_index);
-
-      if ((rtl && current_character_index >= to) ||
-          (!rtl && current_character_index < from)) {
+      const bool is_bounds_check_enabled =
+          RuntimeEnabledFeatures::GraphemeClusterBoundsCheckEnabled();
+      if (is_bounds_check_enabled && current_character_index >= text.length())
+          [[unlikely]] {
+        NOTREACHED();
+      }
+      if (is_bounds_check_enabled
+              ? current_character_index < from || current_character_index >= to
+              : (rtl && current_character_index >= to) ||
+                    (!rtl && current_character_index < from)) {
         advance_so_far += glyph_data.advance;
         rtl ? --cluster_start : ++cluster_start;
         continue;
       }
 
+      const bool is_run_end = (i + 1 == num_glyphs);
+      const bool is_cluster_end =
+          is_run_end || (run->GlyphToCharacterIndex(i + 1) + run_offset !=
+                         current_character_index);
       cluster_advance += glyph_data.advance;
 
       if (text.Is8Bit()) {
@@ -1579,22 +1611,23 @@ void ShapeResult::InsertRun(ShapeResultRun* run) {
   // The runs are stored in result->m_runs in visual order. For LTR, we place
   // the run to be inserted before the next run with a bigger character start
   // index.
-  const auto ltr_comparer = [](Member<ShapeResultRun>& run,
+  const auto ltr_comparer = [](const Member<ShapeResultRun>& run,
                                unsigned start_index) {
     return run->start_index_ < start_index;
   };
 
   // For RTL, we place the run before the next run with a lower character
   // index. Otherwise, for both directions, at the end.
-  const auto rtl_comparer = [](Member<ShapeResultRun>& run,
+  const auto rtl_comparer = [](const Member<ShapeResultRun>& run,
                                unsigned start_index) {
     return run->start_index_ > start_index;
   };
 
-  auto it = std::lower_bound(runs_.begin(), runs_.end(), run->start_index_,
-                             run->IsLtr() ? ltr_comparer : rtl_comparer);
-  if (it != runs_.end()) {
-    runs_.insert(static_cast<wtf_size_t>(it - runs_.begin()), run);
+  const wtf_size_t index = FindLowerBoundIndex(
+      runs_, run->start_index_, run->IsLtr() ? ltr_comparer : rtl_comparer);
+
+  if (index < runs_.size()) {
+    runs_.insert(index, run);
   } else {
     // If we didn't find an existing slot to place it, append.
     runs_.push_back(run);

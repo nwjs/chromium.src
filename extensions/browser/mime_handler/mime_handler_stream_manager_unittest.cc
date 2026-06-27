@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/memory/weak_ptr.h"
+#include "base/test/run_until.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -15,10 +16,13 @@
 #include "content/public/test/mock_navigation_handle.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
+#include "extensions/browser/mime_handler/mime_handler_body_cache.h"
 #include "extensions/browser/mime_handler/mime_handler_test_helpers.h"
 #include "extensions/browser/mime_handler/mock_mime_handler_stream_delegate.h"
 #include "extensions/browser/mime_handler/stream_container.h"
 #include "extensions/browser/mime_handler/stream_info.h"
+#include "mojo/public/cpp/system/data_pipe.h"
+#include "mojo/public/cpp/system/data_pipe_drainer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/loader/transferrable_url_loader.mojom.h"
@@ -1048,6 +1052,302 @@ TEST_F(MimeHandlerStreamManagerTest,
   extension_handle.set_render_frame_host(extension_host);
   extension_handle.set_is_in_primary_main_frame(false);
   manager->ReadyToCommitNavigation(&extension_handle);
+}
+
+TEST_F(MimeHandlerStreamManagerTest,
+       AbortAndFallbackToNativeHandler_MarksEmbedderFrame) {
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), GURL(kOriginalUrl1));
+  const content::FrameTreeNodeId embedder_ftn =
+      embedder_host->GetFrameTreeNodeId();
+  auto* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_ftn, "internal_id",
+      extensions::mime_handler::GenerateSampleStreamContainer(1),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+
+  // Satisfy the CHECKs in `AbortAndFallbackToNativeHandler`: the
+  // extension frame must have finished navigating, and the content
+  // frame must not yet be bound.
+  auto* stream_info = manager->GetClaimedStreamInfoForTesting(embedder_host);
+  ASSERT_TRUE(stream_info);
+  stream_info->SetDidExtensionFinishNavigation();
+
+  EXPECT_FALSE(manager->IsPendingNativeFallback(embedder_ftn));
+  manager->AbortAndFallbackToNativeHandler(embedder_host);
+
+  // Peek is non-destructive -- the throttle's `WillProcessResponse`
+  // may fire multiple times in a single re-navigation (redirect chain),
+  // so the mark must survive until the navigation completes.
+  EXPECT_TRUE(manager->IsPendingNativeFallback(embedder_ftn));
+  EXPECT_TRUE(manager->IsPendingNativeFallback(embedder_ftn));
+
+  // A different frame is never marked.
+  EXPECT_FALSE(manager->IsPendingNativeFallback(content::FrameTreeNodeId()));
+}
+
+TEST_F(MimeHandlerStreamManagerTest,
+       AbortAndFallbackToNativeHandler_DidFinishNavigationClearsMark) {
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), GURL(kOriginalUrl1));
+  const content::FrameTreeNodeId embedder_ftn =
+      embedder_host->GetFrameTreeNodeId();
+  auto* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_ftn, "internal_id",
+      extensions::mime_handler::GenerateSampleStreamContainer(1),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+  auto* stream_info = manager->GetClaimedStreamInfoForTesting(embedder_host);
+  ASSERT_TRUE(stream_info);
+  stream_info->SetDidExtensionFinishNavigation();
+
+  manager->AbortAndFallbackToNativeHandler(embedder_host);
+  ASSERT_TRUE(manager->IsPendingNativeFallback(embedder_ftn));
+
+  // `DidFinishNavigation` on the embedder FTN clears the mark --
+  // committed or errored, the re-fetch is over.
+  NiceMock<content::MockNavigationHandle> finish_handle(web_contents());
+  finish_handle.set_render_frame_host(embedder_host);
+  manager->DidFinishNavigation(&finish_handle);
+  EXPECT_FALSE(manager->IsPendingNativeFallback(embedder_ftn));
+}
+
+TEST_F(MimeHandlerStreamManagerTest,
+       AbortAndFallbackToNativeHandler_NoBodyCache_TakeReturnsInvalid) {
+  // Without a body cache attached, the FTN mark still exists but the
+  // captured handle is invalid -- the throttle will fall through to a
+  // network refetch.
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), GURL(kOriginalUrl1));
+  const content::FrameTreeNodeId embedder_ftn =
+      embedder_host->GetFrameTreeNodeId();
+  auto* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_ftn, "internal_id",
+      extensions::mime_handler::GenerateSampleStreamContainer(1),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+  auto* stream_info = manager->GetClaimedStreamInfoForTesting(embedder_host);
+  ASSERT_TRUE(stream_info);
+  stream_info->SetDidExtensionFinishNavigation();
+
+  manager->AbortAndFallbackToNativeHandler(embedder_host);
+  ASSERT_TRUE(manager->IsPendingNativeFallback(embedder_ftn));
+  EXPECT_FALSE(manager->TakeCachedFallbackBody(embedder_ftn).has_value());
+}
+
+TEST_F(MimeHandlerStreamManagerTest,
+       AbortAndFallbackToNativeHandler_ReplaysCachedBody) {
+  // Populate a body cache, attach it to the claimed stream, abort.
+  // `TakeCachedFallbackBody` must return a valid pipe whose bytes match
+  // the original body. A second take must return an invalid handle --
+  // the underlying mojo data pipe consumer is single-use.
+  mojo::ScopedDataPipeProducerHandle producer;
+  mojo::ScopedDataPipeConsumerHandle consumer;
+  ASSERT_EQ(MOJO_RESULT_OK, mojo::CreateDataPipe(64u, producer, consumer));
+  constexpr char kBody[] = "cached-body-bytes";
+  ASSERT_EQ(MOJO_RESULT_OK,
+            producer->WriteAllData(base::as_byte_span(std::string(kBody))));
+  producer.reset();
+
+  auto cache =
+      extensions::MimeHandlerBodyCache::Create(std::move(consumer), nullptr);
+  ASSERT_TRUE(cache);
+  ASSERT_TRUE(base::test::RunUntil([&] { return cache->is_complete(); }));
+
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), GURL(kOriginalUrl1));
+  const content::FrameTreeNodeId embedder_ftn =
+      embedder_host->GetFrameTreeNodeId();
+  auto* manager = mime_handler_stream_manager();
+  auto stream = extensions::mime_handler::GenerateSampleStreamContainer(1);
+  stream->SetBodyCache(cache);
+  manager->AddStreamContainer(
+      embedder_ftn, "internal_id", std::move(stream),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+  auto* stream_info = manager->GetClaimedStreamInfoForTesting(embedder_host);
+  ASSERT_TRUE(stream_info);
+  stream_info->SetDidExtensionFinishNavigation();
+
+  manager->AbortAndFallbackToNativeHandler(embedder_host);
+  ASSERT_TRUE(manager->IsPendingNativeFallback(embedder_ftn));
+
+  std::optional<MimeHandlerStreamManager::CachedFallbackBody> taken =
+      manager->TakeCachedFallbackBody(embedder_ftn);
+  ASSERT_TRUE(taken.has_value());
+  ASSERT_TRUE(taken->pipe.is_valid());
+  EXPECT_EQ(std::string_view(kBody).size(), taken->decoded_body_size);
+  StringDrainerClient client;
+  mojo::DataPipeDrainer drainer(&client, std::move(taken->pipe));
+  ASSERT_TRUE(base::test::RunUntil([&] { return client.complete(); }));
+  EXPECT_EQ(kBody, client.TakeAccumulated());
+
+  // The mark stays in place until `DidFinishNavigation`/`FrameDeleted`,
+  // but the body is single-use.
+  EXPECT_TRUE(manager->IsPendingNativeFallback(embedder_ftn));
+  EXPECT_FALSE(manager->TakeCachedFallbackBody(embedder_ftn).has_value());
+}
+
+TEST_F(MimeHandlerStreamManagerTest,
+       TakeCachedFallbackBody_Unflagged_ReturnsInvalid) {
+  MimeHandlerStreamManager::Create(web_contents());
+  auto* manager = mime_handler_stream_manager();
+  ASSERT_TRUE(manager);
+
+  EXPECT_FALSE(
+      manager->TakeCachedFallbackBody(content::FrameTreeNodeId()).has_value());
+}
+
+// `MimeHandlerStreamManager::GetTopLevelHandlerExtensionId()` returns nullopt
+// when no stream is registered for the WebContents.
+TEST_F(MimeHandlerStreamManagerTest,
+       GetTopLevelHandlerExtensionIdEmptyWithoutStream) {
+  // Create the manager but register no streams.
+  MimeHandlerStreamManager::Create(
+      content::RenderViewHostTestHarness::web_contents());
+
+  EXPECT_FALSE(mime_handler_stream_manager()
+                   ->GetTopLevelHandlerExtensionId()
+                   .has_value());
+}
+
+// `MimeHandlerStreamManager::GetTopLevelHandlerExtensionId()` returns nullopt
+// after the claimed stream has been deleted.
+TEST_F(MimeHandlerStreamManagerTest,
+       GetTopLevelHandlerExtensionIdEmptyAfterStreamDeleted) {
+  auto stream_container = GenerateSampleStreamContainer(/*container_number=*/1,
+                                                        /*embedded=*/false);
+  const GURL original_url = stream_container->original_url();
+  const ExtensionId expected_extension_id = stream_container->extension_id();
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), original_url);
+
+  MimeHandlerStreamManager* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_host->GetFrameTreeNodeId(), "internal_id",
+      std::move(stream_container),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+  EXPECT_THAT(manager->GetTopLevelHandlerExtensionId(),
+              testing::Optional(expected_extension_id));
+
+  // Navigating away tears down the claimed stream.
+  NavigateAndCommit(main_rfh(), GURL(kOriginalUrl2));
+
+  EXPECT_FALSE(mime_handler_stream_manager()
+                   ->GetTopLevelHandlerExtensionId()
+                   .has_value());
+}
+
+// `MimeHandlerStreamManager::GetTopLevelHandlerExtensionId()` returns nullopt
+// when the claimed stream's `original_url()` does not match the primary main
+// frame's last committed URL -- the URL-spoof guard.
+TEST_F(MimeHandlerStreamManagerTest,
+       GetTopLevelHandlerExtensionIdEmptyOnUrlMismatch) {
+  // Install a stream whose `original_url()` is `kOriginalUrl1`
+  // ("https://original_url1") but commit the main frame to a different
+  // URL.
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), GURL(kOriginalUrl2));
+
+  MimeHandlerStreamManager* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_host->GetFrameTreeNodeId(), "internal_id",
+      extensions::mime_handler::GenerateSampleStreamContainer(
+          /*container_number=*/1, /*embedded=*/false),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+
+  EXPECT_FALSE(manager->GetTopLevelHandlerExtensionId().has_value());
+}
+
+// MimeHandlerStreamManager host privilege status should be correctly revoked
+// during a pushState URL path spoofing same-document navigation.
+TEST_F(MimeHandlerStreamManagerTest, HostPrivilegeBypassWithPushState) {
+  const GURL pdf_url(kOriginalUrl1);
+
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), pdf_url);
+  auto* extension_host =
+      CreateChildRenderFrameHost(embedder_host, "extension host");
+  auto* content_host =
+      CreateChildRenderFrameHost(extension_host, "content host");
+  content_host = NavigateAndCommit(content_host, pdf_url);
+
+  MimeHandlerStreamManager* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_host->GetFrameTreeNodeId(), "internal_id",
+      extensions::mime_handler::GenerateSampleStreamContainer(1),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+  manager->SetExtensionFrameTreeNodeIdForTesting(
+      embedder_host, extension_host->GetFrameTreeNodeId());
+  manager->SetContentFrameTreeNodeIdForTesting(
+      embedder_host, content_host->GetFrameTreeNodeId());
+
+  content::OverrideLastCommittedOrigin(
+      extension_host,
+      url::Origin::Create(GURL(
+          "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html")));
+
+  // Initially, both extension and content frames should have host privileges.
+  EXPECT_TRUE(manager->IsExtensionHost(extension_host));
+  EXPECT_TRUE(manager->IsContentHost(content_host));
+
+  // Simulate pushState URL spoofing on the embedder host.
+  auto simulator = content::NavigationSimulator::CreateRendererInitiated(
+      GURL("https://original_url1/spoofed"), embedder_host);
+  simulator->CommitSameDocument();
+
+  // Spoofed URL path must revoke the privileges.
+  EXPECT_FALSE(manager->IsExtensionHost(extension_host));
+  EXPECT_FALSE(manager->IsContentHost(content_host));
+}
+
+// MimeHandlerStreamManager should continue to identify the extension and
+// content frames during same-document fragment/hash navigations on the
+// embedder host (e.g., scrolling).
+TEST_F(MimeHandlerStreamManagerTest, AllowsFragmentNavigation) {
+  const GURL pdf_url(kOriginalUrl1);
+
+  content::RenderFrameHost* embedder_host =
+      NavigateAndCommit(main_rfh(), pdf_url);
+  auto* extension_host =
+      CreateChildRenderFrameHost(embedder_host, "extension host");
+  auto* content_host =
+      CreateChildRenderFrameHost(extension_host, "content host");
+  content_host = NavigateAndCommit(content_host, pdf_url);
+
+  MimeHandlerStreamManager* manager = mime_handler_stream_manager();
+  manager->AddStreamContainer(
+      embedder_host->GetFrameTreeNodeId(), "internal_id",
+      extensions::mime_handler::GenerateSampleStreamContainer(1),
+      std::make_unique<NiceMock<MockMimeHandlerStreamDelegate>>());
+  manager->ClaimStreamInfoForTesting(embedder_host);
+  manager->SetExtensionFrameTreeNodeIdForTesting(
+      embedder_host, extension_host->GetFrameTreeNodeId());
+  manager->SetContentFrameTreeNodeIdForTesting(
+      embedder_host, content_host->GetFrameTreeNodeId());
+
+  content::OverrideLastCommittedOrigin(
+      extension_host,
+      url::Origin::Create(GURL(
+          "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html")));
+
+  EXPECT_TRUE(manager->IsExtensionHost(extension_host));
+  EXPECT_TRUE(manager->IsContentHost(content_host));
+
+  // Simulate a fragment/hash navigation on the embedder host (e.g. scrolling
+  // updates hash).
+  auto simulator = content::NavigationSimulator::CreateRendererInitiated(
+      GURL("https://original_url1#page=2"), embedder_host);
+  simulator->CommitSameDocument();
+
+  EXPECT_TRUE(manager->IsExtensionHost(extension_host));
+  EXPECT_TRUE(manager->IsContentHost(content_host));
 }
 
 }  // namespace extensions::mime_handler

@@ -6,15 +6,19 @@
 
 #include <string_view>
 
+#include "base/byte_size.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
+#include "components/metrics/metrics_pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "components/segmentation_platform/internal/database/ukm_types.h"
 #include "components/segmentation_platform/internal/execution/processing/feature_processor_state.h"
 #include "components/segmentation_platform/internal/execution/processing/processing_utils.h"
 #include "components/segmentation_platform/internal/metadata/metadata_utils.h"
 #include "components/segmentation_platform/public/input_delegate.h"
+#include "components/segmentation_platform/public/local_state_helper.h"
 #include "components/segmentation_platform/public/proto/model_metadata.pb.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -233,6 +237,12 @@ QueryProcessor::Tensor CustomInputProcessor::ProcessSingleCustomInput(
     feature_processor_state.SetError(
         stats::FeatureProcessingError::kCustomInputError);
     NOTREACHED() << "InputDelegate is not found";
+  } else if (custom_input.fill_policy() ==
+             proto::CustomInput::FILL_CLIENT_AGE_DAYS) {
+    if (!AddClientAgeInDays(custom_input, tensor_result)) {
+      feature_processor_state.SetError(
+          stats::FeatureProcessingError::kCustomInputError);
+    }
   }
 
   return tensor_result;
@@ -305,7 +315,7 @@ bool CustomInputProcessor::AddDeviceRAMInMB(
   if (custom_input.tensor_length() != 1) {
     return false;
   }
-  float device_ram_in_mb = base::SysInfo::AmountOfPhysicalMemory().InMiB();
+  float device_ram_in_mb = base::SysInfo::AmountOfTotalPhysicalMemory().InMiB();
   out_tensor.emplace_back(device_ram_in_mb);
   return true;
 }
@@ -343,6 +353,21 @@ bool CustomInputProcessor::AddRandom(const proto::CustomInput& custom_input,
     return false;
   }
   out_tensor.emplace_back(base::RandFloat());
+  return true;
+}
+
+bool CustomInputProcessor::AddClientAgeInDays(
+    const proto::CustomInput& custom_input,
+    std::vector<ProcessedValue>& out_tensor) {
+  if (custom_input.tensor_length() != 1) {
+    return false;
+  }
+  int64_t install_date_seconds =
+      LocalStateHelper::GetInstance().GetLocalStatePrefs()->GetInt64(
+          metrics::prefs::kInstallDate);
+  base::Time install_date = base::Time::FromTimeT(install_date_seconds);
+  int age_in_days = (prediction_time_ - install_date).InDays();
+  out_tensor.emplace_back(static_cast<float>(age_in_days));
   return true;
 }
 

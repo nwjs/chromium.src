@@ -35,7 +35,6 @@ import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
-import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.PanelState;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.StateChangeReason;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanelContentProgressObserver;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanelManager;
@@ -49,6 +48,7 @@ import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.locale.LocaleManagerDelegate;
+import org.chromium.chrome.browser.overlay_panel.PanelState;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
@@ -120,6 +120,8 @@ public class ContextualSearchInstrumentationBase {
 
     /** ContextualSearchManager wrapper that prevents network requests and most native calls. */
     protected static class ContextualSearchManagerWrapper extends ContextualSearchManager {
+        private WebContents mWebContents;
+
         public ContextualSearchManagerWrapper(ChromeActivity activity) {
             super(
                     activity,
@@ -134,21 +136,30 @@ public class ContextualSearchInstrumentationBase {
                     activity.getEdgeToEdgeControllerSupplierForTesting());
             setSelectionController(new MockCSSelectionController(activity, this));
             Profile profile = ProfileManager.getLastUsedRegularProfile();
-            WebContents webContents = WebContentsFactory.createWebContents(profile, false, false);
-            ContentView cv = ContentView.createContentView(activity, webContents);
-            webContents.setDelegates(
+            mWebContents = WebContentsFactory.createWebContents(profile, false, false);
+            ContentView cv = ContentView.createContentView(activity, mWebContents);
+            mWebContents.setDelegates(
                     null,
                     ViewAndroidDelegate.createBasicDelegate(cv),
                     null,
                     activity.getWindowAndroid(),
                     WebContents.createDefaultInternalsHolder());
             SelectionPopupController selectionPopupController =
-                    WebContentsUtils.createSelectionPopupController(webContents);
+                    WebContentsUtils.createSelectionPopupController(mWebContents);
             selectionPopupController.setSelectionClient(this.getContextualSearchSelectionClient());
 
             MockContextualSearchPolicy policy =
                     new MockContextualSearchPolicy(profile, getSelectionController());
             setContextualSearchPolicy(policy);
+        }
+
+        @Override
+        public void destroy() {
+            if (mWebContents != null) {
+                mWebContents.destroy();
+                mWebContents = null;
+            }
+            super.destroy();
         }
 
         @Override
@@ -426,6 +437,9 @@ public class ContextualSearchInstrumentationBase {
 
                     if (mManager != null) mManager.dismissContextualSearchBar();
                     if (mPanel != null) mPanel.closePanel(StateChangeReason.UNKNOWN, false);
+                    if (mContextualSearchManager != null) {
+                        mContextualSearchManager.destroy();
+                    }
                 });
         if (mActivityMonitor != null) {
             InstrumentationRegistry.getInstrumentation().removeMonitor(mActivityMonitor);

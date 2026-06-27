@@ -14,6 +14,7 @@
 #include "base/types/strong_alias.h"
 #include "components/password_manager/core/browser/import/csv_password.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 
 namespace password_manager {
 
@@ -101,6 +102,8 @@ struct CredentialUIEntry {
   CredentialUIEntry();
   explicit CredentialUIEntry(const PasswordForm& form);
   explicit CredentialUIEntry(const std::vector<PasswordForm>& forms);
+  explicit CredentialUIEntry(StoredCredential cred);
+  explicit CredentialUIEntry(std::vector<StoredCredential> creds);
   explicit CredentialUIEntry(const PasskeyCredential& passkey);
   explicit CredentialUIEntry(
       const CSVPassword& csv_password,
@@ -136,7 +139,11 @@ struct CredentialUIEntry {
   // The origin of identity provider used for federated login.
   url::SchemeHostPort federation_origin;
 
-  // The creation time, if this is a passkey, nullopt otherwise.
+  // The creation time of the credential. It can be `std::nullopt` in some
+  // cases, e.g. when the field is not set during credential import.
+  // TODO(crbug.com/501020786): Credential import / export should probably
+  // operate on `StoredCredential`. Modify comment back if it's just used for
+  // passkeys in settings UI.
   std::optional<base::Time> creation_time;
 
   // Indicates the stores where the credential is stored.

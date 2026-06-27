@@ -79,6 +79,9 @@ std::optional<SessionID> TestTabStripModelDelegate::CreateHistoricalTab(
 void TestTabStripModelDelegate::CreateHistoricalGroup(
     const tab_groups::TabGroupId& group) {}
 
+void TestTabStripModelDelegate::CreateHistoricalSplit(
+    const split_tabs::SplitTabId& split_id) {}
+
 void TestTabStripModelDelegate::GroupAdded(
     const tab_groups::TabGroupId& group) {}
 
@@ -86,6 +89,12 @@ void TestTabStripModelDelegate::WillCloseGroup(
     const tab_groups::TabGroupId& group) {}
 
 void TestTabStripModelDelegate::WillCloseSplit(
+    const split_tabs::SplitTabId& split_id) {}
+
+void TestTabStripModelDelegate::SplitClosed(
+    const split_tabs::SplitTabId& split_id) {}
+
+void TestTabStripModelDelegate::SplitCloseStopped(
     const split_tabs::SplitTabId& split_id) {}
 
 void TestTabStripModelDelegate::GroupCloseStopped(
@@ -130,6 +139,7 @@ bool TestTabStripModelDelegate::IsNormalWindow() {
 
 void TestTabStripModelDelegate::NewSplitTab(
     std::vector<int> indices,
+    split_tabs::SplitTabLayout layout,
     split_tabs::SplitTabCreatedSource source) {}
 
 BrowserWindowInterface* TestTabStripModelDelegate::GetBrowserWindowInterface() {

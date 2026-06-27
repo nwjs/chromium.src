@@ -111,9 +111,6 @@ BASE_DECLARE_FEATURE(kLocalNetworkAccessChecksWebSockets);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kLocalNetworkAccessChecksWebTransport);
 
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kLocalNetworkAccessChecksSplitPermissions);
-
 // If enabled, then the network service will parse the Cookie-Indices header.
 // This does not currently control changing cache behavior according to the
 // value of this header.
@@ -281,12 +278,6 @@ BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxNegativeGroupsPerOwner);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(int, kInterestGroupStorageMaxOpsBeforeMaintenance);
 
-// When enabled, returns the output of GetCookiesString when calling
-// SetCookiesString, so that it can be cached in the renderer to avoid an IPC
-// on subsequent Get requests.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kGetCookiesOnSet);
-
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kIncreaseCookieAccessCacheSize);
 
@@ -357,11 +348,6 @@ COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(bool, kNetworkServiceTaskSchedulerResourceScheduler);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(bool, kNetworkServiceTaskSchedulerURLLoader);
-
-// When enabled, Network Service Task Scheduler supports
-// per-net::RequestrPriority task queues for each RequestPriority variant.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kNetworkServicePerPriorityTaskQueues);
 
 // When enabled, URLLoader in Network Service check header consistency for the
 // ServiceWorker SyntheticResponse.
@@ -447,6 +433,14 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kDelayInitialDohProbeTimeoutParam);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kRestrictForbiddenSecurityHeaders);
+
+// Enables the Declarative Performance Observer feature.
+// When enabled, the network service will parse the `Performance-Observer`
+// HTTP response header to extract the telemetry policy for the document.
+// https://github.com/explainers-by-googlers/declarative-performance-observer
+// for more details.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kDeclarativePerformanceObserver);
 
 }  // namespace network::features
 

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string_view>
 
+#include "base/containers/fixed_flat_map.h"
 #include "base/strings/utf_string_conversion_utils.h"
 #include "third_party/abseil-cpp/absl/strings/ascii.h"
 #include "third_party/icu/source/common/unicode/uchar.h"
@@ -16,6 +17,67 @@ namespace policy::local_auth_factors {
 namespace {
 
 using Complexity = ash::LocalAuthFactorsComplexity;
+
+// The rules used to validate a password
+struct PasswordValidationRules {
+  size_t min_length;
+  size_t min_classes;
+  bool check_non_pin;
+  bool check_trivial_sequence;
+};
+
+constexpr PasswordValidationRules kDefaultPasswordValidationRules =
+    PasswordValidationRules{/* min_length= */ 1, /* min_classes= */ 0,
+                            /* check_non_pin= */ false,
+                            /* check_trivial_sequence= */ false};
+
+// clang-format off
+// Password complexity to password validation rule map, used to lookup password
+// validation rules.
+constexpr auto kPasswordComplexityValidationMap = base::MakeFixedFlatMap<Complexity, PasswordValidationRules>({
+    {Complexity::kNone,   kDefaultPasswordValidationRules},
+    {Complexity::kLow,    {/* min_length= */ 6, /* min_classes= */ 0, /* check_non_pin= */ true, /* check_trivial_sequence= */ false}},
+    {Complexity::kMedium, {/* min_length= */ 8, /* min_classes= */ 2, /* check_non_pin= */ false, /* check_trivial_sequence= */ true}},
+    {Complexity::kHigh,   {/* min_length= */ 12, /* min_classes= */ 4, /* check_non_pin= */ false, /* check_trivial_sequence= */ true}}
+});
+// clang-format on
+
+PasswordValidationRules GetPasswordComplexityValidationRules(
+    Complexity complexity) {
+  auto it = kPasswordComplexityValidationMap.find(complexity);
+  return it != kPasswordComplexityValidationMap.end()
+             ? it->second
+             : kDefaultPasswordValidationRules;
+}
+
+// The rules used to validate a PIN
+struct PinValidationRules {
+  size_t min_length;
+  bool check_trivial_sequence;
+};
+
+constexpr PinValidationRules kDefaultPinValidationRules = PinValidationRules{
+    /* min_length= */ 1, /* check_trivial_sequence= */ false};
+
+// clang-format off
+// LINT.IfChange(PinComplexityValidationMap)
+// PIN complexity to PIN validation rule map, used to lookup PIN validation
+// rules.
+constexpr auto kPinComplexityValidationMap =
+    base::MakeFixedFlatMap<Complexity, PinValidationRules>({
+        {Complexity::kNone,   kDefaultPinValidationRules},
+        {Complexity::kLow,    {/* min_length= */ 4, /* check_trivial_sequence= */ false}},
+        {Complexity::kMedium, {/* min_length= */ 6, /* check_trivial_sequence= */ true}},
+        {Complexity::kHigh,   {/* min_length= */ 8, /* check_trivial_sequence= */ true}}
+    });
+// LINT.ThenChange(//ash/webui/common/resources/quick_unlock/setup_pin_keyboard.ts:ComplexityMinLengths)
+// clang-format on
+
+PinValidationRules GetPinComplexityValidationRules(Complexity complexity) {
+  auto it = kPinComplexityValidationMap.find(complexity);
+  return it != kPinComplexityValidationMap.end() ? it->second
+                                                 : kDefaultPinValidationRules;
+}
 
 enum class CharClass { kDigit, kLower, kUpper, kSymbol, kOther };
 
@@ -29,17 +91,22 @@ CharClass GetCharClass(base_icu::UChar32 c) {
   if (u_isupper(c)) {
     return CharClass::kUpper;
   }
+  // Handle uncased alphabetic characters (e.g. Arabic, CJK) which should be
+  // treated as "letters" for complexity requirements.
+  if (u_isalpha(c)) {
+    return CharClass::kLower;
+  }
   if (u_isgraph(c) && !u_isalnum(c)) {
     return CharClass::kSymbol;
   }
   return CharClass::kOther;
 }
 
-// Returns true if the password contains 5+:
-// - Repeating characters (e.g., "aaaaa", "@@@@@"),
-// - Sequential letters or numbers (e.g., "abcde", "ABCDE", "98765").
+// Returns true if the password contains 4+:
+// - Repeating characters (e.g., "aaaa", "@@@@"),
+// - Sequential letters or numbers (e.g., "abcd", "ABCD", "9876").
 bool ContainsTrivialSequence(std::string_view password) {
-  constexpr int kMinSeq = 5;
+  constexpr int kMinSeq = 4;
   int inc = 1, dec = 1, same = 1;
 
   base_icu::UChar32 prev = -1;
@@ -66,12 +133,11 @@ bool ContainsTrivialSequence(std::string_view password) {
   return false;
 }
 
-// Returns true for inputs like "6789", or "6543", or "0000" (but not for inputs
+// Returns true for inputs like "6789", or "6543" (but not for inputs
 // like "8901" - wrap around isn't considered).
-bool ContainsOrderedOrRepeatingSequence(std::string_view pin) {
+bool IsOrderedSequence(std::string_view pin) {
   bool is_increasing = true;
   bool is_decreasing = true;
-  bool is_same = true;
 
   for (size_t i = 1; i < pin.length(); i++) {
     const char prev = pin[i - 1];
@@ -79,15 +145,23 @@ bool ContainsOrderedOrRepeatingSequence(std::string_view pin) {
 
     is_increasing = is_increasing && (cur == prev + 1);
     is_decreasing = is_decreasing && (cur == prev - 1);
-    is_same = is_same && (cur == prev);
   }
 
-  return is_increasing || is_decreasing || is_same;
+  return is_increasing || is_decreasing;
+}
+
+// Returns true for inputs like "0000".
+bool IsRepeatingDigits(std::string_view pin) {
+  if (pin.empty()) {
+    return false;
+  }
+  return std::ranges::all_of(pin, [&](char c) { return c == pin[0]; });
 }
 
 }  // namespace
 
-bool CheckPasswordComplexity(std::string_view password, Complexity complexity) {
+PasswordComplexityResult CheckPasswordComplexity(std::string_view password,
+                                                 Complexity complexity) {
   bool has_digit = false;
   bool has_lower = false;
   bool has_upper = false;
@@ -112,49 +186,48 @@ bool CheckPasswordComplexity(std::string_view password, Complexity complexity) {
 
   size_t different_classes = has_digit + has_lower + has_upper + has_symbol;
   size_t length = base::CountUnicodeCharacters(password).value_or(0);
+  const PasswordValidationRules& rules =
+      GetPasswordComplexityValidationRules(complexity);
 
-  switch (complexity) {
-    case Complexity::kNone:
-      return length >= 1;
-
-    case Complexity::kLow:
-      // The password must contain alphabetic (or symbol) characters (ie. must
-      // not be a "PIN").
-      return length >= 6 && (has_lower || has_upper || has_symbol);
-
-    case Complexity::kMedium:
-      // The password must contain at least two different sets of characters and
-      // must not contain trivial sequential or repeating characters.
-      return length >= 8 && different_classes >= 2 &&
-             !ContainsTrivialSequence(password);
-
-    case Complexity::kHigh:
-      // The password must contain all four different sets of characters and
-      // must not contain trivial sequential or repeating characters.
-      return length >= 12 && different_classes == 4 &&
-             !ContainsTrivialSequence(password);
+  if (length < rules.min_length) {
+    return PasswordComplexityResult::kTooShort;
   }
+
+  if ((rules.check_non_pin && !(has_lower || has_upper || has_symbol)) ||
+      (different_classes < rules.min_classes)) {
+    return PasswordComplexityResult::kMissesCharacters;
+  }
+
+  if (rules.check_trivial_sequence && ContainsTrivialSequence(password)) {
+    return PasswordComplexityResult::kContainsTrivialSequence;
+  }
+
+  return PasswordComplexityResult::kOk;
 }
 
-bool CheckPinComplexity(std::string_view pin, Complexity complexity) {
+PinComplexityResult CheckPinComplexity(std::string_view pin,
+                                       Complexity complexity) {
   // Check that the pin contains only digits.
   if (!std::ranges::all_of(pin, absl::ascii_isdigit)) {
-    return false;
+    return PinComplexityResult::kContainsNonDigits;
   }
 
-  switch (complexity) {
-    case Complexity::kNone:
-      return pin.length() >= 1;
+  const PinValidationRules& rules = GetPinComplexityValidationRules(complexity);
 
-    case Complexity::kLow:
-      return pin.length() >= 4;
-
-    case Complexity::kMedium:
-      return pin.length() >= 6 && !ContainsOrderedOrRepeatingSequence(pin);
-
-    case Complexity::kHigh:
-      return pin.length() >= 8 && !ContainsOrderedOrRepeatingSequence(pin);
+  if (pin.length() < rules.min_length) {
+    return PinComplexityResult::kTooShort;
   }
+
+  if (rules.check_trivial_sequence) {
+    if (IsOrderedSequence(pin)) {
+      return PinComplexityResult::kContainsOrderedSequence;
+    }
+    if (IsRepeatingDigits(pin)) {
+      return PinComplexityResult::kContainsRepeatingDigits;
+    }
+  }
+
+  return PinComplexityResult::kOk;
 }
 
 }  // namespace policy::local_auth_factors

@@ -8285,6 +8285,70 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="ContextualCueing.CueInteraction">
+  <owner>iwells@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Metrics recorded when the user interacts with or dismisses a v2 cue.
+  </summary>
+  <metric name="ProactiveCueInteraction" enum="ContextualCueingInteraction">
+    <summary>
+      Records user interaction or non-interaction with the cue.
+    </summary>
+  </metric>
+  <metric name="ProactiveCueShownDurationMs">
+    <summary>
+      Duration in milliseconds between showing the cue and user interaction or
+      dismissal. Exponentially bucketed.
+    </summary>
+  </metric>
+</event>
+
+<event name="ContextualCueing.CueShown" singular="true">
+  <owner>iwells@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Metrics recorded when the v2 cue is shown to the user.
+  </summary>
+  <metric name="MatchedTabCount">
+    <summary>
+      Number of background tabs suggested by the model that are still valid and
+      relevant (e.g. not navigated away or closed). Exponentially bucketed.
+    </summary>
+  </metric>
+  <metric name="MissingTabCount">
+    <summary>
+      Number of background tabs suggested by the model that weren’t valid by the
+      time the model response was received. Exponentially bucketed.
+    </summary>
+  </metric>
+  <metric name="NavigatedAwayTabCount">
+    <summary>
+      Number of background tabs suggested by the model that are no longer
+      relevant because they navigated to another URL before the model response
+      was received. Exponentially bucketed.
+    </summary>
+  </metric>
+  <metric name="ProactiveCueDecision" enum="ContextualCueingDecision">
+    <summary>
+      Records kSuccess when a cue is shown, or a different value indicating the
+      reason why the cue was not shown.
+    </summary>
+  </metric>
+  <metric name="ProactiveCueLatencyAfterPageLoad">
+    <summary>
+      Duration in milliseconds between page load
+      (WebContentsObserver::DidFinishNavigation()) and a cue being shown.
+    </summary>
+  </metric>
+  <metric name="SuggestedCujCategory">
+    <summary>
+      Hash of the name of the critical user journey category output by the
+      model.
+    </summary>
+  </metric>
+</event>
+
 <event name="ContextualCueing.NudgeDecision">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
@@ -9171,6 +9235,20 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Extensions.DeclarativeNetRequest.DSERedirect">
+  <owner>quarz@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Recorded when an extension redirects search away from the default search
+    engine (DSE) page using the DeclarativeNetRequest API.
+  </summary>
+  <metric name="Seen" enum="Boolean">
+    <summary>
+      Dummy Boolean as UKM does not support events with no metrics.
+    </summary>
+  </metric>
+</event>
+
 <event name="Extensions.ExtensionUsage">
   <owner>howardcha@google.com</owner>
   <owner>webstore-eng@google.com</owner>
@@ -9366,6 +9444,49 @@ be describing additional metrics about the same event.
         </statistics>
       </history>
     </aggregation>
+  </metric>
+</event>
+
+<event name="Extensions.SearchRedirect">
+  <owner>quarz@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Recorded when an extension redirects a search away from the default search
+    engine (DSE) page. The event is associated with the destination URL of the
+    redirect.
+  </summary>
+  <metric name="Api" enum="ExtensionSearchRedirectedByApi">
+    <summary>
+      The API used to perform the redirect.
+    </summary>
+  </metric>
+</event>
+
+<event name="Extensions.Tabs.RemoveDSE">
+  <owner>quarz@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Recorded when an extension uses the Tabs API to update the default search
+    engine url of the tab.
+  </summary>
+  <metric name="Seen" enum="Boolean">
+    <summary>
+      Dummy Boolean as UKM does not support events with no metrics.
+    </summary>
+  </metric>
+</event>
+
+<event name="Extensions.Tabs.UpdateDSE">
+  <owner>quarz@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Recorded when an extension uses the Tabs API to remove a tab whose url is
+    the default search engine.
+  </summary>
+  <metric name="Seen" enum="Boolean">
+    <summary>
+      Dummy Boolean as UKM does not support events with no metrics.
+    </summary>
   </metric>
 </event>
 
@@ -10936,6 +11057,11 @@ be describing additional metrics about the same event.
   <summary>
     Metrics recorded when an HTTPS-First Mode event happens.
   </summary>
+  <metric name="FallbackReason" enum="HttpsFirstModeFallbackReason">
+    <summary>
+      The reason why the navigation fell back to HTTP.
+    </summary>
+  </metric>
   <metric name="Result" enum="HttpsFirstModeBlockingResult">
     <summary>
       An enum value representing the decision the user made when shown an
@@ -11618,6 +11744,12 @@ be describing additional metrics about the same event.
       framework.
     </summary>
   </metric>
+  <metric name="MediaPipePageLoad" enum="Boolean">
+    <summary>
+      True if the page loaded in the main frame uses the MediaPipe JavaScript
+      framework.
+    </summary>
+  </metric>
   <metric name="NextJSPageLoad" enum="Boolean">
     <summary>
       True if the page loaded in the main frame uses the Next.js JavaScript
@@ -11651,6 +11783,17 @@ be describing additional metrics about the same event.
   <metric name="SveltePageLoad" enum="Boolean">
     <summary>
       True if the page loaded in the main frame uses the Svelte JavaScript
+      framework.
+    </summary>
+  </metric>
+  <metric name="TFJSPageLoad" enum="Boolean">
+    <summary>
+      True if the page loaded in the main frame uses the TensorflowJS framework.
+    </summary>
+  </metric>
+  <metric name="TransformersJSPageLoad" enum="Boolean">
+    <summary>
+      True if the page loaded in the main frame uses the Transformers.js
       framework.
     </summary>
   </metric>
@@ -13961,8 +14104,9 @@ be describing additional metrics about the same event.
       a percentage from 0 to 100. 0 means that the element is not visible due to
       factors like being off-screen, clipped, occluded by other elements, or
       styled as invisible (e.g., opacity:0). 100 means that the element is fully
-      visible. This value is currently set for only encrypted media and if the
-      kEncryptedMediaOcclusionTracking flag is enabled.
+      visible. This value is currently set only for encrypted media using
+      hardware secure codecs, and if the kEncryptedMediaOcclusionTracking flag
+      is enabled.
     </summary>
   </metric>
 </event>
@@ -15073,6 +15217,22 @@ be describing additional metrics about the same event.
       The duration (in milliseconds) for how long it took from the time the
       navigation loader is created to the time the navigation loader receives
       the response from the networking layer.
+    </summary>
+  </metric>
+</event>
+
+<event name="Navigation.TypedAndDefault">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>chrome-desktop-ui-waterloo@google.com</owner>
+  <summary>
+    Recorded immediately after a successful navigation completes if the user
+    explicitly navigates to a domain via the Omnibox.
+  </summary>
+  <metric name="IsSameAsDefault" enum="Boolean">
+    <summary>
+      Recorded as 1 if the explicitly typed search engine destination matches
+      the user's currently active Default Search Engine (DSE), and 0 if it
+      differs.
     </summary>
   </metric>
 </event>
@@ -16303,6 +16463,27 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="OptimizationGuide.PageContentExtraction">
+  <owner>chrome-intelligence-core@google.com</owner>
+  <owner>linnan@chromium.org</owner>
+  <summary>
+    Metrics related to the page settling and stability detection during page
+    content extraction. Recorded once per committed primary main frame
+    navigation when the page first becomes stable and ready for extraction.
+  </summary>
+  <metric name="IsSameDocument" enum="Boolean">
+    <summary>
+      Whether the navigation was a same-document navigation.
+    </summary>
+  </metric>
+  <metric name="NavigationToReadyLatencyMs">
+    <summary>
+      The duration in milliseconds from when a main frame navigation commits
+      until the page is considered stable and ready for extraction.
+    </summary>
+  </metric>
+</event>
+
 <event name="PageContentAnnotations2" singular="True">
   <owner>chrome-intelligence-core@google.com</owner>
   <owner>mcrouse@chromium.org</owner>
@@ -16390,18 +16571,6 @@ be describing additional metrics about the same event.
       Delay refers to the duration between the hardware timestamp and the start
       of event processing on the main thread for the meaningful input. In ms.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.country,profile.system_ram"/>
-        <index fields="profile.is_dominant_version"/>
-        <index fields="profile.is_latest_version"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
 </event>
 
@@ -16544,18 +16713,6 @@ be describing additional metrics about the same event.
       record the layout shift values which are not able to be recorded in
       LayoutInstability.CumulativeShiftScore for some reasons.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.country,profile.system_ram"/>
-        <index fields="profile.is_dominant_version"/>
-        <index fields="profile.is_latest_version"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
   <metric
       name="Experimental.LayoutInstability.MaxCumulativeShiftScoreAtFirstOnHidden.SessionWindow.Gap1000ms.Max5000ms">
@@ -16570,13 +16727,6 @@ be describing additional metrics about the same event.
       LayoutInstability.MaxCumulativeShiftScore.SessionWindow.Gap1000ms.Max5000ms
       for some reasons.
     </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
   <metric name="Experimental.Navigation.UserInitiated">
     <summary>
@@ -16680,6 +16830,13 @@ be describing additional metrics about the same event.
       page load, in ms. For this metric, we measure the latency of user
       interactions by Responsiveness.UserInteraction.MaxEventDuration.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric
       name="InteractiveTiming.UserInteractionLatencyAtFirstOnHidden.HighPercentile2.MaxEventDuration">
@@ -16731,6 +16888,13 @@ be describing additional metrics about the same event.
       measure the latency of user interactions by
       Responsiveness.UserInteraction.MaxEventDuration.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="IsCrossProcessNavigation">
     <owner>arthursonzogni@chromium.org</owner>
@@ -17390,18 +17554,6 @@ be describing additional metrics about the same event.
       recorded in PaintTiming.NavigationToLargestContentfulPaint2 for some
       reasons.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.country,profile.system_ram"/>
-        <index fields="profile.is_dominant_version"/>
-        <index fields="profile.is_latest_version"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
   <metric name="PaintTiming.ParseStartToFirstContentfulPaintMs">
     <summary>
@@ -17421,6 +17573,13 @@ be describing additional metrics about the same event.
       Similar to PaintTiming.NavigationToLargestContentfulPaint2, except that it
       is recorded before the first soft navigation.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="ParseTiming.ActualNavigationStartToParseStartMs">
     <summary>
@@ -17478,6 +17637,13 @@ be describing additional metrics about the same event.
       the history API or the new Navigation API, triggered by a user gesture and
       meaningfully modify the DOM, replacing the previous content with new one.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="ThirdPartyCookieBlockingEnabledForSite" enum="Boolean">
     <owner>dullweber@chromium.org</owner>
@@ -18207,7 +18373,7 @@ be describing additional metrics about the same event.
 
 <event name="PasswordManager.Classification">
   <owner>kazinova@google.com</owner>
-  <owner>vasilii@chromium.org</owner>
+  <owner>chrome-password-manager-metrics-alerts@google.com</owner>
   <summary>
     Metrics for clientside password form classifications. Recorded when the
     field types are received by Password Manager after the model finishes
@@ -18288,7 +18454,7 @@ be describing additional metrics about the same event.
 
 <event name="PasswordManager.NewlySavedPassword">
   <owner>kazinova@google.com</owner>
-  <owner>vasilii@chromium.org</owner>
+  <owner>chrome-password-manager-metrics-alerts@google.com</owner>
   <summary>
     Metrics for newly saved credentials, recorded at the moment of saving.
   </summary>
@@ -18404,7 +18570,7 @@ be describing additional metrics about the same event.
 
 <event name="PasswordManager.SavedPassword">
   <owner>kazinova@google.com</owner>
-  <owner>vasilii@chromium.org</owner>
+  <owner>chrome-password-manager-metrics-alerts@google.com</owner>
   <summary>
     Metrics for saved passwords, recorded at the moment of saving.
   </summary>
@@ -18425,7 +18591,7 @@ be describing additional metrics about the same event.
 
 <event name="PasswordManager.WellKnownChangePasswordResult">
   <owner>kazinova@google.com</owner>
-  <owner>vasilii@chromium.org</owner>
+  <owner>chrome-password-manager-metrics-alerts@google.com</owner>
   <summary>
     Metrics related to the usage and support of .well-known/change-password. The
     .well-known/change-password standard is defined to redirect to the sites
@@ -18487,6 +18653,13 @@ be describing additional metrics about the same event.
       The 2.0 version of Events. Bitfield representing the events that occurred
       during the Payment Request. Values defined in the Event2 enum of
       components/payments/core/journey_logger.h.
+    </summary>
+  </metric>
+  <metric name="WindowSizeCheckRejectionReason"
+      enum="PaymentRequestWindowSizeCheckRejectionReason">
+    <summary>
+      The reason why the browser window size check failed and the Payment
+      Request or Payment Handler dialog was rejected.
     </summary>
   </metric>
 </event>
@@ -18969,7 +19142,7 @@ be describing additional metrics about the same event.
     renderer process are allocated to all pages hosted in that process using the
     algorithm in performance_manager::ProcessMetricsDecorator. An event is
     collected for each open page every 2 minutes, which is the same frequency as
-    the PerformanceMonitor.AverageCPU9.* histograms.
+    the PerformanceMonitor.AverageCPU10.* histograms.
   </summary>
   <metric name="BackgroundState" enum="PageMeasurementBackgroundState">
     <summary>
@@ -19000,7 +19173,7 @@ be describing additional metrics about the same event.
     <summary>
       The estimated CPU usage of the page over the last 2 minutes, with 10,000
       as 100% usage of 1 full core. (The same scale as the
-      PerformanceMonitor.AverageCPU9.* histograms.)
+      PerformanceMonitor.AverageCPU10.* histograms.)
     </summary>
     <aggregation>
       <history>
@@ -19028,7 +19201,7 @@ be describing additional metrics about the same event.
     <summary>
       The sum of the estimated CPU usage of all pages over the last 2 minutes,
       with 10,000 as 100% usage of 1 full core. (The same scale as the
-      PerformanceMonitor.AverageCPU9.* histograms.) RecentCPUUsage can be
+      PerformanceMonitor.AverageCPU10.* histograms.) RecentCPUUsage can be
       compared to this to find how the page compares to other open tabs.
     </summary>
     <aggregation>
@@ -19129,6 +19302,16 @@ be describing additional metrics about the same event.
         </statistics>
       </history>
     </aggregation>
+  </metric>
+  <metric name="GeolocationPromptType" enum="GeolocationPromptType">
+    <summary>
+      An enum of type GeolocationPromptType (see
+      https://source.chromium.org/search?q=class:%5CbGeolocationPromptType%5Cb).
+      This is only emitted for geolocation permission prompts if approximate
+      geolocation is enabled. In that case, it encodes the variant of the
+      geolocation prompt type and it is either 0 (kApproximateOrPrecise), 1
+      (kApproximateOnly) or 2 (kUpgradeToPrecise).
+    </summary>
   </metric>
   <metric name="Gesture">
     <summary>
@@ -23118,6 +23301,13 @@ be describing additional metrics about the same event.
       the page load end. See definition of user interaction:
       https://web.dev/better-responsiveness-metric/#group-events-into-interactions
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric
       name="InteractiveTiming.UserInteractionLatency.HighPercentile2.MaxEventDuration">
@@ -23128,6 +23318,13 @@ be describing additional metrics about the same event.
       measure the latency of user interactions by
       Responsiveness.UserInteraction.MaxEventDuration.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric
       name="LayoutInstability.MaxCumulativeShiftScore.SessionWindow.Gap1000ms.Max5000ms">
@@ -23159,11 +23356,25 @@ be describing additional metrics about the same event.
       Type of the soft navigation. Corresponds to the first URL change.
     </summary>
   </metric>
+  <metric name="PageLoadType">
+    <summary>
+      Indicates whether the soft navigation occurred within a PageLoad event
+      (value 1), a PrerenderPageLoad event (value 2), or a HistoryNavigation
+      event (value 3). See page_load_metrics::PageLoadType.
+    </summary>
+  </metric>
   <metric name="PaintTiming.LargestContentfulPaint">
     <summary>
       Measures the LargestContentfulPaint in milliseconds from the start time of
       the soft navigation to the LCP time.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="PaintTiming.LargestContentfulPaintBPP"
       enum="BitsPerPixelExponential">
@@ -23692,6 +23903,42 @@ be describing additional metrics about the same event.
       The total time the tab has spent as the active tab since it was created,
       in seconds.
     </summary>
+  </metric>
+</event>
+
+<event name="Tabs.SadTab">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>rohitrao@chromium.org</owner>
+  <summary>
+    Recorded when a Sad Tab is displayed or interacted with. This allows
+    correlating specific URLs and page contexts with renderer crashes that lead
+    to Sad Tabs and user feedback.
+  </summary>
+  <metric name="EventType" enum="SadTabEvent">
+    <summary>
+      The type of the SadTabEvent that occurred (e.g. Displayed, Button clicked,
+      Learn more clicked).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="IsFeedbackMode" enum="Boolean">
+    <summary>
+      True if the Sad Tab is in feedback mode (typically due to a repeated
+      failure). False if it is in reload mode.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 

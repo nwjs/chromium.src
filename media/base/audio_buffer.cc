@@ -4,11 +4,14 @@
 
 #include "media/base/audio_buffer.h"
 
+#include <array>
 #include <cmath>
+#include <cstdint>
 
 #include "base/bits.h"
 #include "base/compiler_specific.h"
 #include "base/containers/heap_array.h"
+#include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
@@ -49,31 +52,6 @@ std::unique_ptr<AudioBuffer::ExternalMemory> AllocateMemory(size_t size) {
   return std::make_unique<SelfOwnedMemory>(size);
 }
 
-template <typename T>
-base::span<T> CastSpan(base::span<uint8_t> span) {
-  CHECK_EQ(span.size() % sizeof(T), 0u);
-  CHECK(base::IsAligned(span.data(), alignof(T)));
-  // SAFETY: Spanification documentation strongly discourages
-  // `reinterpret_cast`, but it is a necessary evil throughout this file, as we
-  // store multiple format types as bytes. Checking that the data is aligned
-  // and that the size divisible is the best we can do here.
-  return UNSAFE_BUFFERS(
-      base::span(reinterpret_cast<T*>(span.data()), span.size() / sizeof(T)));
-}
-
-template <typename T>
-base::span<const T> CastConstSpan(base::span<const uint8_t> span) {
-  CHECK_EQ(span.size() % sizeof(T), 0u);
-  CHECK(base::IsAligned(span.data(), alignof(T)));
-  // SAFETY: See `CastSpan()` comment.
-  return UNSAFE_BUFFERS(base::span(reinterpret_cast<const T*>(span.data()),
-                                   span.size() / sizeof(T)));
-}
-
-template <>
-base::span<const uint8_t> CastConstSpan(base::span<const uint8_t> span) {
-  return span;
-}
 
 template <typename SampleTypeTraits>
 void PlanarRead(AudioBus* dest,
@@ -86,8 +64,11 @@ void PlanarRead(AudioBus* dest,
   CHECK_EQ(static_cast<size_t>(dest->channels()), source.size());
   for (auto [dest_ch, source_ch] : base::zip(dest->AllChannels(), source)) {
     auto dest_data = dest_ch.subspan(dest_offset, frames);
-    auto source_data = CastConstSpan<SourceValueType>(source_ch).subspan(
-        source_offset, frames);
+    // This code in `//media` is hot, so it's worth using
+    // `reinterpret_span` to keep performance up.
+    auto source_data =
+        base::subtle::reinterpret_span<SourceValueType>(source_ch).subspan(
+            source_offset, frames);
 
     std::ranges::transform(source_data, dest_data.begin(),
                            SampleTypeTraits::ToFloat);
@@ -165,7 +146,7 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
                          int sample_rate,
                          int frame_count,
                          bool create_buffer,
-                         const uint8_t* const* data,
+                         AudioBufferData data,
                          const size_t data_size,
                          const base::TimeDelta timestamp,
                          scoped_refptr<AudioBufferMemoryPool> pool)
@@ -174,7 +155,7 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
       channel_count_(channel_count),
       sample_rate_(sample_rate),
       adjusted_frame_count_(frame_count),
-      end_of_stream_(!create_buffer && !data && !frame_count),
+      end_of_stream_(!create_buffer && data.empty() && !frame_count),
       timestamp_(timestamp),
       duration_(end_of_stream_
                     ? base::TimeDelta()
@@ -217,12 +198,13 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
     auto needs_zeroing = data_->span();
 
     // Copy data
-    if (data) {
+    if (!data.empty()) {
       // Note: `data_size` is the external data size, not `data_size_`.
+      CHECK_EQ(data.size(), 1u);
+      CHECK_EQ(data[0].size(), data_size);
       auto [data_portion, zero_portion] = data_->span().split_at(data_size);
 
-      data_portion.copy_from_nonoverlapping(
-          UNSAFE_TODO(base::span(data[0], data_size)));
+      data_portion.copy_from_nonoverlapping(data[0]);
       needs_zeroing = zero_portion;
     }
 
@@ -233,6 +215,10 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
   const size_t data_size_per_channel = frame_count * bytes_per_channel;
   if (IsPlanar(sample_format)) {
     DCHECK(!IsBitstreamFormat()) << sample_format_;
+    if (!data.empty()) {
+      CHECK_EQ(data.size(), static_cast<size_t>(channel_count_));
+    }
+
     // Planar data, so need to allocate buffer for each channel.
     // Determine per channel data size, taking into account alignment.
     const size_t block_size_per_channel =
@@ -250,10 +236,9 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
     // Copy each channel's data into the appropriate spot.
     for (int i = 0; i < channel_count_; ++i) {
       auto [channel, rem] = remaining_channels.split_at(block_size_per_channel);
-      if (data) {
-        channel.first(data_size_per_channel)
-            .copy_from_nonoverlapping(
-                UNSAFE_TODO(base::span(data[i], data_size_per_channel)));
+      if (!data.empty()) {
+        CHECK_EQ(data[i].size(), data_size_per_channel);
+        channel.first(data_size_per_channel).copy_from_nonoverlapping(data[i]);
       }
       channel_spans_.push_back(channel);
       remaining_channels = rem;
@@ -275,9 +260,10 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
 
   data_ = pool_ ? pool_->CreateBuffer(data_size_) : AllocateMemory(data_size_);
   channel_spans_.push_back(data_->span());
-  if (data) {
-    data_->span().copy_from_nonoverlapping(
-        UNSAFE_TODO(base::span(data[0], data_size_)));
+  if (!data.empty()) {
+    CHECK_EQ(data.size(), 1u);
+    CHECK_EQ(data[0].size(), data_size_);
+    data_->span().copy_from_nonoverlapping(data[0]);
   }
 }
 
@@ -349,6 +335,7 @@ AudioBuffer::AudioBuffer(base::PassKey<AudioBuffer>,
 
 AudioBuffer::~AudioBuffer() = default;
 
+
 // static
 scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
     SampleFormat sample_format,
@@ -356,12 +343,13 @@ scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
     int channel_count,
     int sample_rate,
     int frame_count,
-    const uint8_t* const* data,
+    AudioBufferData data,
     const base::TimeDelta timestamp,
     scoped_refptr<AudioBufferMemoryPool> pool) {
   // If you hit this CHECK you likely have a bug in a demuxer. Go fix it.
   CHECK_GT(frame_count, 0);  // Otherwise looks like an EOF buffer.
-  CHECK(data[0]);
+  CHECK(!data.empty());
+  CHECK(!data[0].empty());
   return base::MakeRefCounted<AudioBuffer>(
       base::PassKey<AudioBuffer>(), sample_format, channel_layout,
       channel_count, sample_rate, frame_count, true, data, 0, timestamp,
@@ -380,13 +368,14 @@ scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
   const int channel_count = audio_bus->channels();
   DCHECK(channel_count);
 
-  std::vector<const uint8_t*> data(channel_count);
+  std::vector<base::span<const uint8_t>> channel_spans(channel_count);
   for (int ch = 0; ch < channel_count; ch++) {
-    data[ch] = reinterpret_cast<const uint8_t*>(audio_bus->channel(ch).data());
+    channel_spans[ch] =
+        base::as_byte_span(base::allow_nonunique_obj, audio_bus->channel(ch));
   }
 
   return CopyFrom(kSampleFormatPlanarF32, channel_layout, channel_count,
-                  sample_rate, audio_bus->frames(), data.data(), timestamp,
+                  sample_rate, audio_bus->frames(), channel_spans, timestamp,
                   std::move(pool));
 }
 
@@ -403,6 +392,7 @@ scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
                   audio_bus, std::move(pool));
 }
 
+
 // static
 scoped_refptr<AudioBuffer> AudioBuffer::CopyBitstreamFrom(
     SampleFormat sample_format,
@@ -410,16 +400,16 @@ scoped_refptr<AudioBuffer> AudioBuffer::CopyBitstreamFrom(
     int channel_count,
     int sample_rate,
     int frame_count,
-    const uint8_t* const* data,
-    const size_t data_size,
+    const base::span<const uint8_t> data,
     const base::TimeDelta timestamp,
     scoped_refptr<AudioBufferMemoryPool> pool) {
   // If you hit this CHECK you likely have a bug in a demuxer. Go fix it.
   CHECK_GT(frame_count, 0);  // Otherwise looks like an EOF buffer.
-  CHECK(data[0]);
+  CHECK(!data.empty());
   return base::MakeRefCounted<AudioBuffer>(
       base::PassKey<AudioBuffer>(), sample_format, channel_layout,
-      channel_count, sample_rate, frame_count, true, data, data_size, timestamp,
+      channel_count, sample_rate, frame_count, true,
+      std::array<base::span<const uint8_t>, 1u>{data}, data.size(), timestamp,
       std::move(pool));
 }
 
@@ -434,8 +424,8 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateBuffer(
   CHECK_GT(frame_count, 0);  // Otherwise looks like an EOF buffer.
   return base::MakeRefCounted<AudioBuffer>(
       base::PassKey<AudioBuffer>(), sample_format, channel_layout,
-      channel_count, sample_rate, frame_count, true, nullptr, 0, kNoTimestamp,
-      std::move(pool));
+      channel_count, sample_rate, frame_count, true, AudioBufferData(), 0,
+      kNoTimestamp, std::move(pool));
 }
 
 // static
@@ -450,8 +440,8 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateBitstreamBuffer(
   CHECK_GT(frame_count, 0);  // Otherwise looks like an EOF buffer.
   return base::MakeRefCounted<AudioBuffer>(
       base::PassKey<AudioBuffer>(), sample_format, channel_layout,
-      channel_count, sample_rate, frame_count, true, nullptr, data_size,
-      kNoTimestamp, std::move(pool));
+      channel_count, sample_rate, frame_count, true, AudioBufferData(),
+      data_size, kNoTimestamp, std::move(pool));
 }
 
 // static
@@ -465,8 +455,8 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateEmptyBuffer(
   // Since data == nullptr, format doesn't matter.
   return base::MakeRefCounted<AudioBuffer>(
       base::PassKey<AudioBuffer>(), kSampleFormatF32, channel_layout,
-      channel_count, sample_rate, frame_count, false, nullptr, 0, timestamp,
-      nullptr);
+      channel_count, sample_rate, frame_count, false, AudioBufferData(), 0,
+      timestamp, nullptr);
 }
 
 // static
@@ -489,7 +479,7 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateFromExternalMemory(
 scoped_refptr<AudioBuffer> AudioBuffer::CreateEOSBuffer() {
   return base::MakeRefCounted<AudioBuffer>(
       base::PassKey<AudioBuffer>(), kUnknownSampleFormat, CHANNEL_LAYOUT_NONE,
-      0, 0, 0, false, nullptr, 0, kNoTimestamp, nullptr);
+      0, 0, 0, false, AudioBufferData(), 0, kNoTimestamp, nullptr);
 }
 
 // static
@@ -518,8 +508,11 @@ std::unique_ptr<AudioBus> AudioBuffer::WrapOrCopyToAudioBus(
     audio_bus->set_frames(frames);
 
     for (int ch = 0; ch < channels; ++ch) {
+      // This code in `//media` is hot, so it's worth using
+      // `reinterpret_span` to keep performance up.
       audio_bus->SetChannelData(
-          ch, CastSpan<float>(buffer->channel_spans_[ch]).first(frames));
+          ch, base::subtle::reinterpret_span<float>(buffer->channel_spans_[ch])
+                  .first(frames));
     }
 
     // Keep `buffer` alive as long as `audio_bus`.
@@ -618,19 +611,23 @@ void AudioBuffer::ReadFrames(int frames_to_copy,
   base::span<const uint8_t> source_data =
       data_->span().subspan(source_offset * frame_size, frames * frame_size);
 
+  // This code in `//media` is hot, so it's worth using
+  // `reinterpret_span` to keep performance up.
   if (sample_format_ == kSampleFormatF32) {
     dest->FromInterleavedPartial<Float32SampleTypeTraits>(
-        CastConstSpan<float>(source_data), dest_offset);
+        base::subtle::reinterpret_span<const float>(source_data), dest_offset);
   } else if (sample_format_ == kSampleFormatU8) {
     dest->FromInterleavedPartial<UnsignedInt8SampleTypeTraits>(source_data,
                                                                dest_offset);
   } else if (sample_format_ == kSampleFormatS16) {
     dest->FromInterleavedPartial<SignedInt16SampleTypeTraits>(
-        CastConstSpan<int16_t>(source_data), dest_offset);
+        base::subtle::reinterpret_span<const int16_t>(source_data),
+        dest_offset);
   } else if (sample_format_ == kSampleFormatS24 ||
              sample_format_ == kSampleFormatS32) {
     dest->FromInterleavedPartial<SignedInt32SampleTypeTraits>(
-        CastConstSpan<int32_t>(source_data), dest_offset);
+        base::subtle::reinterpret_span<const int32_t>(source_data),
+        dest_offset);
   } else {
     NOTREACHED() << "Unsupported audio sample type: " << sample_format_;
   }

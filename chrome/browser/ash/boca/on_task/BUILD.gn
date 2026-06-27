@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
-
 assert(is_chromeos, "OnTask is only supported in Ash")
 
 static_library("on_task") {
@@ -39,7 +37,6 @@ static_library("on_task") {
     "//ash/public/cpp",
     "//ash/webui/boca_ui",
     "//ash/webui/boca_ui:constants",
-    "//ash/webui/system_apps/public:system_web_app_type",
     "//base",
     "//chrome/app:command_ids",
     "//chrome/browser:primitives",
@@ -56,6 +53,7 @@ static_library("on_task") {
     "//chromeos/ash/components/boca/on_task",
     "//chromeos/ash/components/boca/on_task:activity",
     "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/system_web_apps:system_web_app_type",
     "//chromeos/strings:strings_grit",
     "//chromeos/ui/frame",
     "//components/keyed_service/content",

@@ -19,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/string_util.h"
+#include "base/task/single_thread_task_executor.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/command_buffer/common/context_creation_attribs.h"
@@ -301,6 +302,9 @@ class CommandBufferSetup {
  public:
   CommandBufferSetup()
       : at_exit_manager_(),
+#if BUILDFLAG(IS_MAC)
+        task_executor_(base::MessagePumpType::NS_RUNLOOP),
+#endif
         gpu_preferences_(GetGpuPreferences()),
         share_group_(new gl::GLShareGroup),
         translator_cache_(gpu_preferences_) {
@@ -624,6 +628,12 @@ class CommandBufferSetup {
   }
 
   base::AtExitManager at_exit_manager_;
+
+#if BUILDFLAG(IS_MAC)
+  // b/513273428, b/514834448 - For Mac only. |task_executor_| with
+  // base::MessagePumpType::DEFAULT causes a ASAN crash on ChromeOS.
+  base::SingleThreadTaskExecutor task_executor_;
+#endif
 
   GpuPreferences gpu_preferences_;
 

@@ -11,12 +11,37 @@
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/default_browser/default_browser_manager.h"
 #include "chrome/browser/default_browser/default_browser_setter.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/toasts/api/toast_id.h"
+#include "chrome/browser/ui/toasts/toast_controller.h"
 #include "default_browser_setter.h"
 
 namespace default_browser {
 
 namespace {
+
+std::string GetEntrypointHistogramName(
+    DefaultBrowserEntrypointType entrypoint_type,
+    DefaultBrowserSetterType setter_type,
+    const std::string& metric_type) {
+  return base::JoinString(
+      {"DefaultBrowser", UiEntrypointTypeToString(entrypoint_type),
+       SetterTypeToString(setter_type), metric_type},
+      ".");
+}
+
+std::string GetSetterHistogramName(DefaultBrowserSetterType setter_type,
+                                   const std::string& metric_type) {
+  return base::JoinString(
+      {"DefaultBrowser", SetterTypeToString(setter_type), metric_type}, ".");
+}
+
+}  // namespace
 
 std::string SetterTypeToString(DefaultBrowserSetterType setter_type) {
   switch (setter_type) {
@@ -49,24 +74,6 @@ std::string UiEntrypointTypeToString(
   }
 }
 
-std::string GetEntrypointHistogramName(
-    DefaultBrowserEntrypointType entrypoint_type,
-    DefaultBrowserSetterType setter_type,
-    const std::string& metric_type) {
-  return base::JoinString(
-      {"DefaultBrowser", UiEntrypointTypeToString(entrypoint_type),
-       SetterTypeToString(setter_type), metric_type},
-      ".");
-}
-
-std::string GetSetterHistogramName(DefaultBrowserSetterType setter_type,
-                                   const std::string& metric_type) {
-  return base::JoinString(
-      {"DefaultBrowser", SetterTypeToString(setter_type), metric_type}, ".");
-}
-
-}  // namespace
-
 DefaultBrowserController::DefaultBrowserController(
     std::unique_ptr<DefaultBrowserSetter> setter,
     DefaultBrowserEntrypointType ui_entrypoint)
@@ -83,13 +90,17 @@ void DefaultBrowserController::OnShown() {
 }
 
 void DefaultBrowserController::OnAccepted(
-    DefaultBrowserControllerCompletionCallback completion_callback) {
+    DefaultBrowserControllerCompletionCallback completion_callback,
+    const DefaultBrowserSetter::ExecuteParams& params) {
   RecordInteractionMetric(DefaultBrowserInteractionType::kAccepted);
+
+  setter_execution_start_time_ = base::TimeTicks::Now();
 
   completion_callback_ = std::move(completion_callback);
   setter_->Execute(
       base::BindOnce(&DefaultBrowserController::OnSetterExecutionComplete,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr()),
+      std::move(params));
 }
 
 void DefaultBrowserController::OnIgnored() {
@@ -102,7 +113,29 @@ void DefaultBrowserController::OnDismissed() {
 
 void DefaultBrowserController::OnSetterExecutionComplete(
     DefaultBrowserState default_browser_state) {
-  RecordResultMetric(default_browser_state == DefaultBrowserState::IS_DEFAULT);
+  bool success = default_browser_state == DefaultBrowserState::IS_DEFAULT;
+  RecordResultMetric(success);
+
+  if (success) {
+    std::string duration_histogram_name =
+        GetSetterHistogramName(GetSetterType(), "SuccessDuration");
+    base::UmaHistogramLongTimes(
+        duration_histogram_name,
+        base::TimeTicks::Now() - setter_execution_start_time_);
+
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+    if (browser) {
+      ToastController* toast_controller =
+          browser->GetFeatures().toast_controller();
+      if (toast_controller) {
+        toast_controller->MaybeShowToast(
+            ToastParams(ToastId::kDefaultBrowserUpdateSuccess));
+      }
+    }
+  } else if (auto* manager = DefaultBrowserManager::From(g_browser_process)) {
+    manager->TrackTimeAfterSetterFailure(ui_entrypoint_, GetSetterType());
+  }
 
   std::move(completion_callback_).Run(default_browser_state);
 }

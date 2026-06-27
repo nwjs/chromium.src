@@ -20,7 +20,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/types/expected_macros.h"
-#include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/webnn/buildflags.h"
 #include "services/webnn/error.h"
 #include "services/webnn/public/cpp/webnn_trace.h"
@@ -149,6 +149,7 @@ class GraphImplLiteRt::ComputeResources {
  public:
   static base::expected<std::unique_ptr<ComputeResources>, mojom::ErrorPtr>
   Create(mojom::Device context_device,
+         bool is_xnnpack_enabled,
          tflite::GraphBuilderTflite::Result build_graph_result) {
     auto self = std::make_unique<ComputeResources>(
         std::move(build_graph_result.input_name_to_descriptor),
@@ -160,10 +161,10 @@ class GraphImplLiteRt::ComputeResources {
       DumpModelToFile(self->model_content_);
     }
 
-    ASSIGN_OR_RETURN(
-        ::litert::Options compilation_options,
-        self->GetCompilationOptions(
-            context_device, build_graph_result.graph_requires_fp32_precision));
+    ASSIGN_OR_RETURN(::litert::Options compilation_options,
+                     self->GetCompilationOptions(
+                         context_device, is_xnnpack_enabled,
+                         build_graph_result.graph_requires_fp32_precision));
 
     self->weights_file_ = std::make_unique<::litert::ScopedFile>(
         build_graph_result.weights_file.TakePlatformFile());
@@ -299,13 +300,13 @@ class GraphImplLiteRt::ComputeResources {
     input_buffers.reserve(inputs.size());
     for (int i = 0; i < inputs.size(); ++i) {
       const auto& [name, input] = inputs[i];
-      base::span<uint8_t> data = buffers.at(input.tensor_index)->AsSpan();
+      const auto& buffer = buffers.at(input.tensor_index);
       ASSIGN_OR_RETURN(
           auto litert_buffer,
-          AsBaseExpected(
-              ::litert::TensorBuffer::CreateFromHostMemory(
-                  *env_, input_tensor_types[i], data.data(), data.size()),
-              "Failed to create input LiteRT buffer"));
+          AsBaseExpected(::litert::TensorBuffer::CreateFromHostMemory(
+                             *env_, input_tensor_types[i],
+                             buffer->AsSpan().data(), buffer->AllocatedSize()),
+                         "Failed to create input LiteRT buffer"));
       input_buffers.push_back(std::move(litert_buffer));
     }
 
@@ -313,14 +314,13 @@ class GraphImplLiteRt::ComputeResources {
     output_buffers.reserve(outputs.size());
     for (int i = 0; i < outputs.size(); ++i) {
       const auto& [name, output] = outputs[i];
-      base::span<uint8_t> data = buffers.at(output.tensor_index)->AsSpan();
-
+      const auto& buffer = buffers.at(output.tensor_index);
       ASSIGN_OR_RETURN(
           auto litert_buffer,
-          AsBaseExpected(
-              ::litert::TensorBuffer::CreateFromHostMemory(
-                  *env_, output_tensor_types[i], data.data(), data.size()),
-              "Failed to create output LiteRT buffer"));
+          AsBaseExpected(::litert::TensorBuffer::CreateFromHostMemory(
+                             *env_, output_tensor_types[i],
+                             buffer->AsSpan().data(), buffer->AllocatedSize()),
+                         "Failed to create output LiteRT buffer"));
       output_buffers.push_back(std::move(litert_buffer));
     }
 
@@ -387,6 +387,7 @@ class GraphImplLiteRt::ComputeResources {
  private:
   base::expected<::litert::Options, mojom::ErrorPtr> GetCompilationOptions(
       mojom::Device context_device,
+      bool is_xnnpack_enabled,
       bool graph_requires_fp32_precision) {
     auto options = ::litert::Options::Create();
     if (!options) {
@@ -424,8 +425,17 @@ class GraphImplLiteRt::ComputeResources {
           base::StringPrintf("Unable to create CPU Options: %s",
                              cpu_options.Error().Message())));
     }
+    // Fall back to LiteRT's built-in optimized kernels when `xnn_initialize()`
+    // failed during `WebNNContextImpl` construction.
+    if (!is_xnnpack_enabled) {
+      cpu_options->SetKernelMode(kLiteRtCpuKernelModeBuiltin);
+    }
 #if BUILDFLAG(WEBNN_ENABLE_TFLITE_PROFILER)
-    cpu_options->SetXNNPackFlags(XNN_FLAG_BASIC_PROFILING);
+    // `SetXNNPackFlags` only applies to the XNNPACK kernel mode; skip it
+    // when falling back to LiteRT's built-in kernels.
+    if (is_xnnpack_enabled) {
+      cpu_options->SetXNNPackFlags(XNN_FLAG_BASIC_PROFILING);
+    }
     auto runtime_options = options->GetRuntimeOptions();
     if (!runtime_options) {
       return base::unexpected(mojom::Error::New(
@@ -465,7 +475,7 @@ class GraphImplLiteRt::ComputeResources {
 
 // static
 void GraphImplLiteRt::CreateAndBuild(
-    mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
     mojom::GraphInfoPtr graph_info,
     ComputeResourceInfo compute_resource_info,
     base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
@@ -486,7 +496,8 @@ void GraphImplLiteRt::CreateAndBuild(
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN, base::MayBlock()},
       base::BindOnce(&GraphImplLiteRt::CreateAndBuildOnBackgroundThread,
                      context.properties(), context.options().device,
-                     std::move(graph_info), std::move(constant_operands),
+                     context.IsXNNPackInitialized(), std::move(graph_info),
+                     std::move(constant_operands),
                      std::move(operand_to_dependent_operations),
                      std::move(operand_to_producing_operation),
                      std::move(weights_file)),
@@ -501,6 +512,7 @@ base::expected<std::unique_ptr<GraphImplLiteRt::ComputeResources>,
 GraphImplLiteRt::CreateAndBuildOnBackgroundThread(
     ContextProperties context_properties,
     mojom::Device context_device,
+    bool is_xnnpack_enabled,
     mojom::GraphInfoPtr graph_info,
     base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
         constant_operands,
@@ -521,12 +533,13 @@ GraphImplLiteRt::CreateAndBuildOnBackgroundThread(
       });
 
   ASSIGN_OR_RETURN(std::unique_ptr<ComputeResources> compute_resources,
-                   ComputeResources::Create(context_device, std::move(result)));
+                   ComputeResources::Create(context_device, is_xnnpack_enabled,
+                                            std::move(result)));
   return compute_resources;
 }
 
 void GraphImplLiteRt::DidCreateAndBuild(
-    mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
     base::WeakPtr<WebNNContextImpl> context,
     ComputeResourceInfo compute_resource_info,
     WebNNContextImpl::CreateGraphImplCallback callback,
@@ -559,7 +572,7 @@ void GraphImplLiteRt::DidCreateAndBuild(
 GraphImplLiteRt::~GraphImplLiteRt() = default;
 
 GraphImplLiteRt::GraphImplLiteRt(
-    mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+    mojo::PendingReceiver<mojom::WebNNGraph> receiver,
     ComputeResourceInfo compute_resource_info,
     std::vector<std::pair<std::string, tflite::TensorDescriptor>>
         input_name_to_descriptor,

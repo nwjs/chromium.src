@@ -193,23 +193,6 @@ export class SettingsAppearancePageElement extends
 
       showManagedThemeDialog_: Boolean,
 
-      sidePanelOptions_: {
-        readOnly: true,
-        type: Array,
-        value() {
-          return [
-            {
-              value: 'true',
-              name: loadTimeData.getString('uiFeatureAlignRight'),
-            },
-            {
-              value: 'false',
-              name: loadTimeData.getString('uiFeatureAlignLeft'),
-            },
-          ];
-        },
-      },
-
       tabStripOptions_: {
         readOnly: true,
         type: Array,
@@ -267,6 +250,41 @@ export class SettingsAppearancePageElement extends
         type: Boolean,
         value: false,
       },
+
+      showCtrlTabMru_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('showCtrlTabMru');
+        },
+      },
+      sidePanelAlignmentOptions_: {
+        readOnly: true,
+        type: Array,
+        value() {
+          return [
+            {
+              value: 'false',
+              name: loadTimeData.getString('uiFeatureAlignLeft'),
+            },
+            {
+              value: 'true',
+              name: loadTimeData.getString('uiFeatureAlignRight'),
+            },
+          ];
+        },
+      },
+
+      configurableSidePanels_: {
+        readOnly: true,
+        type: Array,
+        value() {
+          const json =
+              loadTimeData.valueExists('configurableSidePanelAlignments') ?
+              loadTimeData.getString('configurableSidePanelAlignments') :
+              '[]';
+          return JSON.parse(json);
+        },
+      },
     };
   }
 
@@ -278,9 +296,12 @@ export class SettingsAppearancePageElement extends
       // <if expr="is_linux">
       'systemThemePrefChanged_(prefs.extensions.theme.system_theme.value)',
       // </if>
+      // Keep this list in sync with `PinnedToolbarActionsModel::IsDefault()`.
       'toolbarPinningStateChanged_(prefs.toolbar.pinned_actions.value,' +
           'prefs.browser.show_home_button.value,' +
-          'prefs.browser.show_forward_button.value)',
+          'prefs.browser.show_forward_button.value,' +
+          'prefs.browser.pin_split_tab_button.value,' +
+          'prefs.browser.pin_contextual_task_button.value)',
     ];
   }
 
@@ -298,6 +319,7 @@ export class SettingsAppearancePageElement extends
   declare private isForcedTheme_: boolean;
   declare private showHoverCardImagesOption_: boolean;
   declare private showResetPinnedActionsButton_: boolean;
+  declare private showCtrlTabMru_: boolean;
 
   // <if expr="is_linux">
   declare private showCustomChromeFrame_: boolean;
@@ -309,7 +331,8 @@ export class SettingsAppearancePageElement extends
   declare private showProjectsPanelEnabled_: boolean;
   declare private showEverythingMenuEnabled_: boolean;
   declare private showManagedThemeDialog_: boolean;
-  declare private sidePanelOptions_: DropdownMenuOptionList;
+  declare private sidePanelAlignmentOptions_: DropdownMenuOptionList;
+  declare private configurableSidePanels_: Array<{id: string, label: string}>;
   declare private tabStripOptions_: DropdownMenuOptionList;
   private appearanceBrowserProxy_: AppearanceBrowserProxy =
       AppearanceBrowserProxyImpl.getInstance();
@@ -378,7 +401,7 @@ export class SettingsAppearancePageElement extends
     Router.getInstance().navigateTo(routes.FONTS);
   }
 
-  private onDisableExtension_() {
+  private onDisableExtensionClick_() {
     this.dispatchEvent(new CustomEvent(
         'refresh-pref', {bubbles: true, composed: true, detail: 'homepage'}));
   }
@@ -595,6 +618,26 @@ export class SettingsAppearancePageElement extends
     this.showManagedThemeDialog_ = false;
   }
 
+  private getOverrideValue_(
+      id: string, overrides: Record<string, boolean>|undefined,
+      defaultIsRight: boolean|undefined): string {
+    if (defaultIsRight === undefined) {
+      return '';
+    }
+    const isRight = (overrides && overrides[id] !== undefined) ? overrides[id] :
+                                                                 defaultIsRight;
+    return isRight.toString();
+  }
+
+  private onOverrideAlignmentChange_(event: Event) {
+    const dropdown = event.target as SettingsDropdownMenuElement;
+    const entryId = dropdown.dataset['entryId']!;
+    const newValue = dropdown.getSelectedValue() === 'true';
+    this.set(`prefs.side_panel.alignment_overrides.value.${entryId}`, newValue);
+  }
+
+
+
   // SettingsViewMixin
   override getFocusConfig() {
     const map = new Map();
@@ -609,7 +652,9 @@ export class SettingsAppearancePageElement extends
     assert(childViewId === 'fonts');
     const control = this.shadowRoot!.querySelector<HTMLElement>(
         '#customize-fonts-subpage-trigger');
-    assert(control);
+    assert(
+        control,
+        `Failed to find associated control for child '${childViewId}'`);
     return control;
   }
 }

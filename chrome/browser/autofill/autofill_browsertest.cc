@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -131,7 +132,8 @@ class AutofillTest : public InProcessBrowserTest {
         web_contents()->GetPrimaryMainFrame())
         ->GetAutofillManager()
         .client()
-        .HideAutofillSuggestions(SuggestionHidingReason::kTabGone);
+        .HideSuggestions(SuggestionHidingReason::kTabGone,
+                         /*product=*/std::nullopt);
     InProcessBrowserTest::TearDownOnMainThread();
   }
 
@@ -812,8 +814,7 @@ class AutofillTestPrerendering : public InProcessBrowserTest {
     }
     MOCK_METHOD(void,
                 OnFormsSeen,
-                (const std::vector<FormData>&,
-                 const std::vector<FormGlobalId>&),
+                (std::vector<FormData>, std::vector<FormGlobalId>),
                 (override));
     MOCK_METHOD(void,
                 OnFocusOnFormFieldImpl,

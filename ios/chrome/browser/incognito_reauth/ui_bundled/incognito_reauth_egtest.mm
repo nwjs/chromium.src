@@ -39,9 +39,6 @@ using chrome_test_util::TabGroupCreationView;
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  if ([self isRunningTest:@selector(testTabGridButton)]) {
-    config.features_enabled.push_back(kTabSwitcherOverflowMenu);
-  }
 
   return config;
 }
@@ -62,7 +59,9 @@ using chrome_test_util::TabGroupCreationView;
 - (void)displayBlockingUI {
   [ChromeEarlGrey setBoolValue:YES
              forLocalStatePref:prefs::kIncognitoAuthenticationSetting];
+  [ChromeEarlGreyUI waitForAppToIdle];
   [[AppLaunchManager sharedManager] backgroundAndForegroundApp];
+  [ChromeEarlGreyUI waitForAppToIdle];
 }
 
 // Tests that the TabGrid is correctly updated when the incognito reauth screen

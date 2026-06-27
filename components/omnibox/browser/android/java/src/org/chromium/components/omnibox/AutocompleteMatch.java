@@ -92,6 +92,7 @@ public class AutocompleteMatch {
     private final int mGroupId;
     private byte @Nullable [] mClipboardImageData;
     private final boolean mHasTabMatch;
+    private final int mAndroidTabId;
     private long mNativeMatch;
     private final List<OmniboxAction> mActions;
     private final boolean mAllowedToBeDefaultMatch;
@@ -125,6 +126,7 @@ public class AutocompleteMatch {
             int groupId,
             byte @Nullable [] clipboardImageData,
             boolean hasTabMatch,
+            int androidTabId,
             @Nullable List<OmniboxAction> actions,
             boolean allowedToBeDefaultMatch,
             String inlineAutocompletion,
@@ -165,6 +167,7 @@ public class AutocompleteMatch {
         mGroupId = groupId;
         mClipboardImageData = clipboardImageData;
         mHasTabMatch = hasTabMatch;
+        mAndroidTabId = androidTabId;
         mActions = actions != null ? actions : Arrays.asList();
         mAllowedToBeDefaultMatch = allowedToBeDefaultMatch;
         mInlineAutocompletion = inlineAutocompletion;
@@ -225,6 +228,7 @@ public class AutocompleteMatch {
             int groupId,
             byte[] clipboardImageData,
             boolean hasTabMatch,
+            int androidTabId,
             @JniType("std::vector") List<OmniboxAction> actions,
             boolean allowedToBeDefaultMatch,
             @JniType("std::u16string") String inlineAutocompletion,
@@ -269,6 +273,7 @@ public class AutocompleteMatch {
                         groupId,
                         clipboardImageData,
                         hasTabMatch,
+                        androidTabId,
                         actions,
                         allowedToBeDefaultMatch,
                         inlineAutocompletion,
@@ -427,6 +432,17 @@ public class AutocompleteMatch {
         return mIsDeletable;
     }
 
+    /** {@return whether the match type is a search or url match to what the user typed} */
+    public static boolean isWhatYouTyped(@OmniboxSuggestionType int type) {
+        return type == OmniboxSuggestionType.URL_WHAT_YOU_TYPED
+                || type == OmniboxSuggestionType.SEARCH_WHAT_YOU_TYPED;
+    }
+
+    /** {@return whether the member match type is a search or url match to what the user typed} */
+    public boolean isWhatYouTyped() {
+        return isWhatYouTyped(mType);
+    }
+
     /**
      * Returns the extra HTTP headers associated with this autocomplete match. These headers should
      * be included when navigating to the suggestion's URL.
@@ -443,6 +459,10 @@ public class AutocompleteMatch {
 
     public boolean hasTabMatch() {
         return mHasTabMatch;
+    }
+
+    public int getAndroidTabId() {
+        return mAndroidTabId;
     }
 
     public List<OmniboxAction> getActions() {
@@ -522,6 +542,7 @@ public class AutocompleteMatch {
                 && Arrays.equals(mPostData, suggestion.mPostData)
                 && mGroupId == suggestion.mGroupId
                 && mAnswerType == suggestion.mAnswerType
+                && mAndroidTabId == suggestion.mAndroidTabId
                 && answer_template_is_equal
                 && suggest_template_is_equal
                 && ObjectsCompat.equals(mTabGroupUuid, suggestion.mTabGroupUuid)
@@ -662,6 +683,7 @@ public class AutocompleteMatch {
                 input.getGroupId(),
                 /* clipboardImageData= */ null,
                 /* hasTabMatch= */ false,
+                /* androidTabId= */ 0,
                 /* actions= */ null,
                 input.getAllowedToBeDefaultMatch(),
                 input.getInlineAutocompletion(),
@@ -690,6 +712,8 @@ public class AutocompleteMatch {
                         "mExtraHeaders=" + mExtraHeaders,
                         "mPostData=" + Arrays.toString(mPostData),
                         "mGroupId=" + mGroupId,
+                        "mHasTabMatch=" + mHasTabMatch,
+                        "mAndroidTabId=" + mAndroidTabId,
                         "mDisplayTextClassifications=" + mDisplayTextClassifications,
                         "mDescriptionClassifications=" + mDescriptionClassifications,
                         "mAnswerTemplate=" + mAnswerTemplate,

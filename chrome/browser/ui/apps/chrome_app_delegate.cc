@@ -13,11 +13,6 @@
 
 #include "components/sessions/content/session_tab_helper.h"
 #include "chrome/browser/extensions/tab_helper.h"
-#include "chrome/browser/password_manager/chrome_password_manager_client.h"
-#include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
-#include "chrome/browser/external_protocol/external_protocol_observer.h"
-#include "components/content_settings/browser/page_specific_content_settings.h"
-#include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/apps/platform_apps/audio_focus_web_contents_observer.h"
@@ -64,15 +59,10 @@
 #include "chrome/browser/printing/printing_init.h"
 #endif
 
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
-#include "components/autofill/content/browser/content_autofill_driver_factory.h"
-#include "chrome/browser/ui/prefs/prefs_tab_helper.h"
-
 namespace {
 
 // Time to wait for an app window to show before allowing Chrome to quit.
-//constexpr int kAppWindowFirstShowTimeoutSeconds = 10;
+constexpr int kAppWindowFirstShowTimeoutSeconds = 10;
 
 bool disable_external_open_for_testing_ = false;
 
@@ -97,7 +87,7 @@ content::WebContents* OpenURLFromTabInternal(
     new_tab_params.disposition = WindowOpenDisposition::OFF_THE_RECORD;
     new_tab_params.window_action = NavigateParams::WindowAction::kShowWindow;
   } else {
-    new_tab_params.disposition = WindowOpenDisposition::NEW_POPUP;
+    new_tab_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
     new_tab_params.window_action = NavigateParams::WindowAction::kShowWindow;
   }
 
@@ -229,8 +219,7 @@ ChromeAppDelegate::ChromeAppDelegate(Profile* profile, bool keep_alive)
     : has_been_shown_(false),
       is_hidden_(true),
       profile_(profile),
-      new_window_contents_delegate_(new NewWindowContentsDelegate()),
-      web_contents_(nullptr) {
+      new_window_contents_delegate_(new NewWindowContentsDelegate()) {
   if (keep_alive) {
     keep_alive_ = std::make_unique<ScopedKeepAlive>(
         KeepAliveOrigin::CHROME_APP_DELEGATE, KeepAliveRestartOption::DISABLED);
@@ -253,8 +242,6 @@ void ChromeAppDelegate::DisableExternalOpenForTesting() {
 }
 
 void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
-  web_contents_ = web_contents;
-
   favicon::CreateContentFaviconDriverForWebContents(web_contents);
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -276,13 +263,6 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
 #endif
 
   FileSystemAccessPermissionRequestManager::CreateForWebContents(web_contents);
-  autofill::ChromeAutofillClient::CreateForWebContents(web_contents);
-  ChromePasswordManagerClient::CreateForWebContents(web_contents);
-  ManagePasswordsUIController::CreateForWebContents(web_contents);
-  PrefsTabHelper::CreateForWebContents(web_contents);
-  ExternalProtocolObserver::CreateForWebContents(web_contents);
-  content_settings::PageSpecificContentSettings::CreateForWebContents(web_contents,
-                                                                     std::make_unique<PageSpecificContentSettingsDelegate>(web_contents));
 }
 
 void ChromeAppDelegate::RenderFrameCreated(
@@ -327,14 +307,12 @@ void ChromeAppDelegate::AddNewContents(
     const blink::mojom::WindowFeatures& window_features,
     bool user_gesture) {
   if (!disable_external_open_for_testing_) {
-#if 0
     // We don't really want to open a window for |new_contents|, but we need to
     // capture its intended navigation. Here we give ownership to the
     // NewWindowContentsDelegate, which will dispose of the contents once
     // a navigation is captured.
     new_window_contents_delegate_->BecomeOwningDeletageOf(
         std::move(new_contents));
-#endif
     return;
   }
 
@@ -412,7 +390,6 @@ void ChromeAppDelegate::SetTerminatingCallback(base::OnceClosure callback) {
 
 void ChromeAppDelegate::OnHide() {
   is_hidden_ = true;
-#if 0
   if (has_been_shown_) {
     profile_keep_alive_.reset();
     keep_alive_.reset();
@@ -426,20 +403,17 @@ void ChromeAppDelegate::OnHide() {
       base::BindOnce(&ChromeAppDelegate::RelinquishKeepAliveAfterTimeout,
                      weak_factory_.GetWeakPtr()),
       base::Seconds(kAppWindowFirstShowTimeoutSeconds));
-#endif
 }
 
 void ChromeAppDelegate::OnShow() {
   has_been_shown_ = true;
   is_hidden_ = false;
-#if 0
   keep_alive_ = std::make_unique<ScopedKeepAlive>(
       KeepAliveOrigin::CHROME_APP_DELEGATE, KeepAliveRestartOption::DISABLED);
   if (!profile_->IsOffTheRecord()) {
     profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
         profile_, ProfileKeepAliveOrigin::kAppWindow);
   }
-#endif
 }
 
 content::PictureInPictureResult ChromeAppDelegate::EnterPictureInPicture(

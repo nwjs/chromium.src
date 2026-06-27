@@ -21,7 +21,6 @@ export const TEST_RANDOM_VALUE_SETTINGS: SettingsPrefs = {
   speechRate: 104,
   font: 'font',
   highlightGranularity: 105,
-  lineFocus: 106,
   linksEnabled: true,
   imagesEnabled: false,
 };
@@ -40,7 +39,8 @@ export function mockMetrics(): TestMetricsBrowserProxy {
   return metrics;
 }
 
-export function emitEvent(app: AppElement, name: string, options?: any): void {
+export function emitEvent(
+    app: AppElement, name: string, options?: CustomEventInit): void {
   app.$.toolbar.dispatchEvent(new CustomEvent(name, options));
 }
 

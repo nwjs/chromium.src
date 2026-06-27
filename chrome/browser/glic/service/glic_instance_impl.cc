@@ -29,11 +29,13 @@
 #include "chrome/browser/glic/host/context/glic_active_pinned_focused_tab_manager.h"
 #include "chrome/browser/glic/host/context/glic_empty_focused_browser_manager.h"
 #include "chrome/browser/glic/host/context/glic_empty_focused_tab_manager.h"
+#include "chrome/browser/glic/host/context/glic_pin_candidate_provider.h"
 #include "chrome/browser/glic/host/context/glic_pinned_tab_manager_impl.h"
 #include "chrome/browser/glic/host/context/glic_screenshot_capturer.h"
 #include "chrome/browser/glic/host/context/glic_sharing_manager_coordinator.h"
 #include "chrome/browser/glic/host/context/glic_sharing_manager_impl.h"
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
+#include "chrome/browser/glic/host/glic_skills_manager_impl.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
@@ -66,8 +68,8 @@
 #include "components/user_education/common/user_education_features.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_delegate.h"
-#include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -77,7 +79,6 @@
 #include "chrome/browser/glic/host/context/glic_empty_pinned_tab_manager.h"
 #include "chrome/browser/glic/widget/conversions.h"
 #include "chrome/browser/glic/widget/glic_floating_ui_android.h"
-#include "chrome/browser/glic/widget/glic_inactive_floating_ui_android.h"
 #include "chrome/browser/glic/widget/glic_inactive_side_panel_ui_android.h"
 #include "chrome/browser/glic/widget/glic_side_panel_ui_android.h"
 #else
@@ -105,9 +106,6 @@ BASE_FEATURE(kGlicAvoidReactivatingActiveEmbedder,
 
 BASE_FEATURE(kGlicUnpinOnUnbindIfUnused, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicRequireConversationIdForActorTask,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSuppressFocusOnReady, base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr size_t kMaxRecentConversationsForPanel = 3;
@@ -127,13 +125,6 @@ BASE_FEATURE(kGlicUnbindOnClose, base::FEATURE_DISABLED_BY_DEFAULT);
 
 namespace {
 
-bool ShouldShowInactiveSidePanel(const SidePanelShowOptions& options) {
-  auto* coordinator = GlicSidePanelCoordinator::GetForTab(&options.tab.get());
-  bool supports_peek = coordinator && coordinator->SupportsPeek();
-  bool is_activated = options.tab->IsActivated();
-  return !is_activated || (options.prefer_peek && supports_peek);
-}
-
 EmbedderKey CreateSidePanelEmbedderKey(tabs::TabInterface* tab) {
   CHECK(tab);
   return EmbedderKey(tab);
@@ -150,65 +141,9 @@ GetSaasUsageReportingController(Profile* profile) {
 }
 }  // namespace
 
-// Web Contents Observer for the tab bound with its respective glic
-// embedder.
-class GlicTabContentsObserver : public content::WebContentsObserver {
- public:
-  GlicTabContentsObserver(content::WebContents* web_contents,
-                          GlicInstanceImpl* instance)
-      : content::WebContentsObserver(web_contents), instance_(instance) {}
-
-  // content::WebContentsObserver:
-  // This is called whenever a navigation happens from clicking a link within
-  // the observed web contents.
-  void DidOpenRequestedURL(content::WebContents* new_contents,
-                           content::RenderFrameHost* source_render_frame_host,
-                           const GURL& url,
-                           const content::Referrer& referrer,
-                           WindowOpenDisposition disposition,
-                           ui::PageTransition transition,
-                           bool started_from_context_menu,
-                           bool renderer_initiated) override {
-    if (!new_contents) {
-      return;
-    }
-
-    tabs::TabInterface* tab_to_bind =
-        tabs::TabInterface::MaybeGetFromContents(new_contents);
-
-    if (!tab_to_bind) {
-      LOG(ERROR) << "Invalid tab_to_bind, null";
-      return;
-    }
-    if (tab_to_bind->GetProfile() != instance_->profile()) {
-      LOG(ERROR) << "Invalid tab_to_bind, wrong profile";
-      return;
-    }
-    if (!GlicInstanceHelper::From(tab_to_bind)) {
-      LOG(ERROR) << "Invalid tab_to_bind, no GlicInstanceHelper in its "
-                    "UnownedUserData";
-      return;
-    }
-
-    if (!tab_to_bind || (tab_to_bind->GetProfile() != instance_->profile()) ||
-        !GlicInstanceHelper::From(tab_to_bind)) {
-      LOG(ERROR) << "Invalid tab_to_bind, null or wrong profile or no "
-                    "GlicInstanceHelper in its UnownedUserData";
-      return;
-    }
-
-    tabs::TabInterface* source_tab = tabs::TabInterface::GetFromContents(
-        content::WebContents::FromRenderFrameHost(source_render_frame_host));
-
-    instance_->MaybeDaisyChainToTab(source_tab, tab_to_bind);
-  }
-
- private:
-  raw_ptr<GlicInstanceImpl> instance_ = nullptr;
-};
-
 void GlicInstanceImpl::MaybeDaisyChainToTab(tabs::TabInterface* source_tab,
-                                            tabs::TabInterface* target_tab) {
+                                            tabs::TabInterface* target_tab,
+                                            DaisyChainSource source) {
   // Ideally we would like to unify this daisy chaining logic with what is in
   // `CreateTab`, but doing so would require a more involved plumbing change in
   // order to play nicely with detached mode.
@@ -231,12 +166,12 @@ void GlicInstanceImpl::MaybeDaisyChainToTab(tabs::TabInterface* source_tab,
     side_panel_options.pin_trigger = GlicPinTrigger::kDaisyChain;
     side_panel_options.prefer_peek = true;
     auto show_options = ShowOptions{side_panel_options};
-    instance_metrics().OnDaisyChain(DaisyChainSource::kTabContents,
+    instance_metrics().OnDaisyChain(source,
                                     /*success=*/true, target_tab, source_tab);
     Show(show_options);
   } else {
     // Record the failure.
-    instance_metrics().OnDaisyChain(DaisyChainSource::kTabContents,
+    instance_metrics().OnDaisyChain(source,
                                     /*success=*/false, target_tab, source_tab);
   }
 }
@@ -298,7 +233,8 @@ GlicInstanceImpl::GlicInstanceImpl(
   if (auto* actor_keyed_service =
           actor::ActorKeyedServiceFactory::GetActorKeyedService(profile_)) {
     actor_task_manager_ = std::make_unique<GlicActorTaskManager>(
-        profile, actor_keyed_service, service_->actor_policy_checker());
+        profile_, actor_keyed_service, service_->actor_policy_checker(),
+        &instance_metrics_, &sharing_manager(), this);
   }
 
   browser_collection_observation_.Observe(
@@ -329,11 +265,9 @@ GlicInstanceImpl::~GlicInstanceImpl() {
     UnbindEmbedder(key);
   }
 
-  for (auto* web_contents : sharing_manager().GetPinnedTabs()) {
-    if (auto* tab = tabs::TabInterface::GetFromContents(web_contents)) {
-      if (auto* helper = GlicInstanceHelper::From(tab)) {
-        helper->OnUnpinnedByInstance(this);
-      }
+  for (tabs::TabInterface* tab : sharing_manager().GetPinnedTabs()) {
+    if (auto* helper = GlicInstanceHelper::From(tab)) {
+      helper->OnUnpinnedByInstance(this);
     }
   }
 }
@@ -347,12 +281,11 @@ GlicInstanceImpl::instance_metrics_backwards_compatibility() {
   return instance_metrics_;
 }
 
-void GlicInstanceImpl::OnSelectionAreasChanged(int count) {
-  instance_metrics_.OnSelectionAreasChanged(count);
-}
-
-void GlicInstanceImpl::OnPolylinePointsChanged(const std::vector<int>& counts) {
-  instance_metrics_.OnPolylinePointsChanged(counts);
+GlicSkillsManager& GlicInstanceImpl::skills_manager() {
+  if (!skills_manager_) {
+    skills_manager_ = std::make_unique<GlicSkillsManagerImpl>(this, profile_);
+  }
+  return *skills_manager_;
 }
 
 std::unique_ptr<WebUIContentsContainer>
@@ -395,11 +328,31 @@ bool GlicInstanceImpl::IsLiveMode() {
   return interaction_mode_ == mojom::WebClientMode::kAudio;
 }
 
+bool GlicInstanceImpl::ShouldShowInactiveSidePanel(
+    const SidePanelShowOptions& options) const {
+  if (!options.tab->IsActivated()) {
+    return true;
+  }
+
+  if (!options.prefer_peek) {
+    return false;
+  }
+
+  EmbedderKey key = CreateSidePanelEmbedderKey(&options.tab.get());
+  if (IsActiveEmbedder(key)) {
+    return false;
+  }
+
+  auto* coordinator = GlicSidePanelCoordinator::GetForTab(&options.tab.get());
+  return coordinator && coordinator->SupportsPeek();
+}
+
 void GlicInstanceImpl::Show(const ShowOptions& options) {
   VLOG(1) << "Glic [InstanceImpl] Show, id=" << id_.value();
 
-  TRACE_EVENT_INSTANT("glic", "GlicInstanceImpl::Show",
-                      perfetto::Flow::FromPointer(this));
+  TRACE_EVENT("glic", "GlicInstanceImpl::Show",
+              perfetto::Flow::FromPointer(this));
+
   if (const auto* side_panel_options =
           std::get_if<SidePanelShowOptions>(&options.embedder_options);
       side_panel_options) {
@@ -410,11 +363,6 @@ void GlicInstanceImpl::Show(const ShowOptions& options) {
   }
 
   EmbedderKey new_key = GetEmbedderKey(options);
-
-  // Look up the current embedder for that tab/key.
-  EmbedderEntry* entry = GetEmbedderEntry(new_key);
-  const bool new_embedder_will_show =
-      !entry || !entry->embedder || !entry->embedder->IsShowing();
 
   GlicUiEmbedder* embedder_to_show = nullptr;
 
@@ -439,14 +387,20 @@ void GlicInstanceImpl::Show(const ShowOptions& options) {
 
   MaybeShowHostUi(embedder_to_show, options.invocation_source,
                   options.prompt_suggestion, options.fre_override);
-  if (new_embedder_will_show) {
+
+  if (instance_metrics().MarkShownAndCheckIfFirstTime(new_key)) {
     instance_metrics().OnOpen(options.invocation_source, options);
     service_->metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
                                                     options.invocation_source);
   }
+
   embedder_to_show->Show(options);
-  if (options.focus_on_show) {
-    embedder_to_show->Focus();
+  // WARNING: Show() may result in deleting the embedder! Check if the embedder
+  // is still active before calling Focus().
+  if (options.focus_on_show && IsActiveEmbedder(new_key)) {
+    if (auto* active_embedder = GetActiveEmbedder()) {
+      active_embedder->Focus();
+    }
   }
 }
 
@@ -496,11 +450,7 @@ void GlicInstanceImpl::Close(EmbedderKey key, const CloseOptions& options) {
     return;
   }
 
-  if (ShouldUnbindOnClose(key, *entry)) {
-    UnbindEmbedder(key);
-    return;
-  }
-
+  // May delete this.
   CloseInternal(key, *entry, options);
 }
 
@@ -509,7 +459,9 @@ void GlicInstanceImpl::CloseInternal(EmbedderKey key,
                                      const CloseOptions& options) {
   service_->metrics()->OnInstanceClosed();
   instance_metrics_.OnClose();
+  instance_metrics_.ResetShownState(key);
   if (entry.embedder) {
+    // May delete this.
     entry.embedder->Close(options);
   }
 }
@@ -533,9 +485,6 @@ bool GlicInstanceImpl::ShouldUnbindOnClose(EmbedderKey key,
           features::kGlicDefaultToLastActiveConversation)) {
     return false;
   }
-  if (entry.user_input_submitted_while_bound) {
-    return false;
-  }
   const auto* tab_key = std::get_if<tabs::TabInterface*>(&key);
   if (!tab_key) {
     return false;
@@ -544,13 +493,14 @@ bool GlicInstanceImpl::ShouldUnbindOnClose(EmbedderKey key,
   // This is the pin trigger used for entrypoint clicks.
   // TODO(b/501090068): Figure out how to separate this from invoke pin
   // triggers.
-  return usage && usage->pin_event.trigger == GlicPinTrigger::kInstanceCreation;
+  return usage &&
+         (usage->pin_event.trigger == GlicPinTrigger::kInstanceCreation &&
+          !entry.user_input_submitted_while_bound);
 }
 
 bool GlicInstanceImpl::Toggle(ShowOptions&& options,
                               bool prevent_close,
-                              glic::mojom::InvocationSource source,
-                              std::optional<std::string> prompt_suggestion) {
+                              glic::mojom::InvocationSource source) {
   VLOG(1) << "Glic [InstanceImpl] Toggle, id=" << id_.value();
   instance_metrics_.OnToggle(source, options, IsShowing());
   EmbedderKey key = GetEmbedderKey(options);
@@ -564,7 +514,6 @@ bool GlicInstanceImpl::Toggle(ShowOptions&& options,
 
   // We assume that a toggle is user initiated so focus on show.
   options.focus_on_show = true;
-  options.prompt_suggestion = prompt_suggestion;
   options.invocation_source = source;
   Show(options);
   return true;
@@ -596,6 +545,10 @@ GlicInstanceImpl::EmbedderEntry* GlicInstanceImpl::GetEmbedderEntry(
 
 GlicSharingManager& GlicInstanceImpl::sharing_manager() {
   return sharing_manager_coordinator_.GetActiveSharingManager();
+}
+
+GlicPinCandidateProvider& GlicInstanceImpl::pin_candidate_provider() {
+  return sharing_manager_coordinator_.pin_candidate_provider();
 }
 
 void GlicInstanceImpl::CloseInstanceAndShutdown() {
@@ -685,100 +638,12 @@ void GlicInstanceImpl::CreateTab(
                                  /*success=*/true, created_tab, source_tab);
 }
 
-void GlicInstanceImpl::CreateTask(
-    base::WeakPtr<actor::ActorTaskDelegate> delegate,
-    actor::webui::mojom::TaskOptionsPtr options,
-    mojom::WebClientHandler::CreateTaskCallback callback) {
-  if (!actor_task_manager_) {
-    std::move(callback).Run(
-        base::unexpected(mojom::CreateTaskErrorReason::kTaskSystemUnavailable));
-    return;
+void GlicInstanceImpl::CreateActorHandler(
+    mojo::PendingReceiver<mojom::ActorHandler> receiver,
+    mojo::PendingRemote<mojom::ActorClient> client) {
+  if (actor_task_manager_) {
+    actor_task_manager_->Bind(std::move(receiver), std::move(client));
   }
-
-  // Conversation ID must be available since a turn is required to create a task
-  // and an ID becomes available at first turn. If you hit this in a test you
-  // probably need to call RegisterConversation on your GlicInstance.
-  // TODO(b/494212836) - The front end currently doesn't guarantee that
-  // RegisterConversation is called first. Allow creating a task without a
-  // conversationId until that's fixed (the conversationId in ActorTask isn't
-  // yet used).
-  std::optional<std::string> id = conversation_id();
-  if (!id.has_value() &&
-      base::FeatureList::IsEnabled(kGlicRequireConversationIdForActorTask)) {
-    std::move(callback).Run(base::unexpected(
-        mojom::CreateTaskErrorReason::kConversationNotRegistered));
-    return;
-  }
-
-  instance_metrics_.OnCreateTask();
-  actor_task_manager_->CreateTask(weak_ptr_factory_.GetWeakPtr(), id,
-                                  std::move(options), std::move(callback));
-}
-
-void GlicInstanceImpl::PerformActions(
-    const std::vector<uint8_t>& actions_proto,
-    mojom::WebClientHandler::PerformActionsCallback callback) {
-  CHECK(actor_task_manager_);
-  instance_metrics_.OnPerformActions();
-  actor_task_manager_->PerformActions(actions_proto, std::move(callback));
-}
-
-void GlicInstanceImpl::CancelActions(
-    actor::TaskId task_id,
-    mojom::WebClientHandler::CancelActionsCallback callback) {
-  CHECK(actor_task_manager_);
-  actor_task_manager_->CancelActions(task_id, std::move(callback));
-}
-
-void GlicInstanceImpl::StopActorTask(actor::TaskId task_id,
-                                     mojom::ActorTaskStopReason stop_reason) {
-  CHECK(actor_task_manager_);
-  instance_metrics_.OnStopActorTask();
-  actor_task_manager_->StopActorTask(task_id, stop_reason);
-}
-
-void GlicInstanceImpl::PauseActorTask(actor::TaskId task_id,
-                                      mojom::ActorTaskPauseReason pause_reason,
-                                      tabs::TabInterface::Handle tab_handle) {
-  CHECK(actor_task_manager_);
-  instance_metrics_.OnPauseActorTask();
-  actor_task_manager_->PauseActorTask(task_id, pause_reason, tab_handle);
-}
-
-void GlicInstanceImpl::ResumeActorTask(
-    actor::TaskId task_id,
-    const mojom::GetTabContextOptions& context_options,
-    glic::mojom::WebClientHandler::ResumeActorTaskCallback callback) {
-  CHECK(actor_task_manager_);
-  instance_metrics_.OnResumeActorTask();
-  actor_task_manager_->ResumeActorTask(task_id, context_options,
-                                       std::move(callback));
-}
-
-void GlicInstanceImpl::InterruptActorTask(
-    actor::TaskId task_id,
-    std::optional<mojom::ActorTaskInterruptReason> interrupt_reason) {
-  CHECK(actor_task_manager_);
-  instance_metrics_.InterruptActorTask();
-  actor_task_manager_->InterruptActorTask(task_id);
-}
-
-void GlicInstanceImpl::UninterruptActorTask(actor::TaskId task_id) {
-  CHECK(actor_task_manager_);
-  instance_metrics_.UninterruptActorTask();
-  actor_task_manager_->UninterruptActorTask(task_id);
-}
-
-void GlicInstanceImpl::CreateActorTab(
-    actor::TaskId task_id,
-    bool open_in_background,
-    const std::optional<int32_t>& initiator_tab_id,
-    const std::optional<int32_t>& initiator_window_id,
-    glic::mojom::WebClientHandler::CreateActorTabCallback callback) {
-  CHECK(actor_task_manager_);
-  actor_task_manager_->CreateActorTab(task_id, open_in_background,
-                                      initiator_tab_id, initiator_window_id,
-                                      std::move(callback));
 }
 
 void GlicInstanceImpl::GetZeroStateSuggestionsAndSubscribe(
@@ -792,10 +657,6 @@ void GlicInstanceImpl::GetZeroStateSuggestionsAndSubscribe(
 }
 
 void GlicInstanceImpl::PrepareForOpen() {
-  GlicKeyedServiceFactory::GetGlicKeyedService(profile_)
-      ->fre_controller()
-      .MaybePreconnect();
-
   // TODO(crbug.com/444463509): Update this when we have per-instance
   // sharing managers set up without auto-focus.
   auto* active_web_contents =
@@ -815,6 +676,7 @@ void GlicInstanceImpl::OnUserInputSubmitted(mojom::WebClientMode mode) {
   for (auto& [key, entry] : embedders_) {
     entry.user_input_submitted_while_bound = true;
   }
+  last_prompt_submission_time_ = base::TimeTicks::Now();
   // TODO(harringtond): The only subscriber to this event is the tab underline
   // controller and I think it makes more sense for it to get that signal from
   // sharing manager instead of going through the keyed service.
@@ -856,7 +718,11 @@ void GlicInstanceImpl::UnbindEmbedder(EmbedderKey key) {
   }
 
   if (auto* entry = GetEmbedderEntry(key)) {
-    CloseInternal(key, *entry, CloseOptions{});
+    base::WeakPtr<GlicInstanceImpl> weak_this = weak_ptr_factory_.GetWeakPtr();
+    CloseInternal(key, *entry, {.suppress_animations = true});
+    if (!weak_this) {
+      return;
+    }
   }
 
   // Deactivate if this was the active embedder. This ensures predictable state
@@ -876,6 +742,26 @@ void GlicInstanceImpl::UnbindEmbedder(EmbedderKey key) {
 
 Host& GlicInstanceImpl::host() {
   return host_;
+}
+
+void GlicInstanceImpl::SendAdditionalContext(
+    mojom::AdditionalContextPtr context) {
+  host_.NotifyAdditionalContext(std::move(context));
+}
+
+void GlicInstanceImpl::FocusIfActive() {
+  if (!IsActive()) {
+    return;
+  }
+  content::WebContents* web_contents = host_.webui_contents();
+  if (!web_contents) {
+    return;
+  }
+  web_contents->Focus();
+}
+
+void GlicInstanceImpl::NotifyActorTaskListRowClicked(int32_t task_id) {
+  host_.NotifyActorTaskListRowClicked(task_id);
 }
 
 void GlicInstanceImpl::GetExperimentalTriggeringUpdates(
@@ -909,14 +795,14 @@ GlicInstanceImpl::AddConversationInfoChangedCallback(
   return conversation_info_changed_callback_list_.Add(std::move(callback));
 }
 
-void GlicInstanceImpl::BindTabForTesting(tabs::TabInterface* tab) {
-  BindTab(tab, GlicPinTrigger::kContextMenu, true);
-}
-
 void GlicInstanceImpl::CancelTask() {
   if (actor_task_manager_) {
     actor_task_manager_->CancelTask();
   }
+}
+
+GlicActorTaskManager* GlicInstanceImpl::GetActorTaskManager() {
+  return actor_task_manager_.get();
 }
 
 void GlicInstanceImpl::FetchZeroStateSuggestions(
@@ -1045,6 +931,12 @@ void GlicInstanceImpl::DeactivateCurrentEmbedder() {
   host_.SetDelegate(&empty_embedder_delegate_);
   it->second.embedder = old_embedder->CreateInactiveEmbedder();
   ClearActiveEmbedderAndNotifyStateChange();
+
+  // Special case: call back to DidCloseFor if the embedder was closed by
+  // deletion (eg. floating embedder).
+  if (!it->second.embedder) {
+    DidCloseFor(key, EmbedderCloseReason::kExplicitlyClosed);
+  }
 }
 
 GlicUiEmbedder* GlicInstanceImpl::CreateActiveEmbedder(
@@ -1087,6 +979,10 @@ GlicUiEmbedder* GlicInstanceImpl::CreateActiveEmbedderForFloaty(
 
 void GlicInstanceImpl::ShowInactiveSidePanelEmbedderFor(
     const SidePanelShowOptions& options) {
+  CHECK(!IsActiveEmbedder(CreateSidePanelEmbedderKey(&options.tab.get())))
+      << "ShowInactiveSidePanelEmbedderFor called for active embedder. "
+         "Converting an active embedder to an inactive one needs to be done "
+         "with DeactivateCurrentEmbedder.";
   auto& entry =
       BindTab(&options.tab.get(), options.pin_trigger, options.pin_on_bind);
   entry.embedder = GlicInactiveSidePanelUi::CreateForBackgroundTab(
@@ -1158,10 +1054,10 @@ void GlicInstanceImpl::MaybeShowHostUi(
   if (!delegate) {
     return;
   }
+  VLOG(2) << "Glic [InstanceImpl] MaybeShowHostUi, id=" << id_.value();
 
   host_.SetDelegate(delegate);
-  host_.webui_contents()->UpdateWebContentsVisibility(
-      content::Visibility::VISIBLE);
+  host_.SetWebContentsVisibility(content::Visibility::VISIBLE);
   host_.NotifyWindowIntentToShow();
 
   NotifyPanelWillOpen(invocation_source, prompt_suggestion, fre_override);
@@ -1191,6 +1087,14 @@ void GlicInstanceImpl::SwitchConversation(
     glic::mojom::ConversationInfoPtr info,
     mojom::WebClientHandler::SwitchConversationCallback callback) {
   instance_metrics_.OnSwitchFromConversation(options, active_embedder_key_);
+
+  // For Floaty: reset the flag, so the conversation switch logs OnOpen when
+  // switching from default Floaty state to a new conversation. This is an edge
+  // case where Floaty embedder is reused without being closed.
+  if (active_embedder_key_ &&
+      std::holds_alternative<FloatingEmbedderKey>(*active_embedder_key_)) {
+    instance_metrics_.ResetShownState(*active_embedder_key_);
+  }
 
   if (coordinator_delegate_) {
     coordinator_delegate_->SwitchConversation(*this, options, std::move(info),
@@ -1281,10 +1185,6 @@ GlicInstanceImpl::EmbedderEntry& GlicInstanceImpl::BindTab(
   new_entry.tab_activation_subscription = tab->RegisterDidActivate(
       base::BindRepeating(&GlicInstanceImpl::OnBoundTabActivated,
                           weak_ptr_factory_.GetWeakPtr()));
-  if (!base::FeatureList::IsEnabled(features::kGlicDaisyChainViaCoordinator)) {
-    new_entry.tab_web_contents_observer =
-        std::make_unique<GlicTabContentsObserver>(tab->GetContents(), this);
-  }
 
   if (pin_on_bind && ShouldPinOnBind()) {
     // Auto-pin on bind.
@@ -1297,8 +1197,13 @@ GlicInstanceImpl::EmbedderEntry& GlicInstanceImpl::BindTab(
 }
 
 void GlicInstanceImpl::BindTabWithoutShowing(tabs::TabInterface* tab,
+                                             GlicPinTrigger pin_trigger,
                                              bool pin_on_bind) {
-  BindTab(tab, GlicPinTrigger::kUnknown, pin_on_bind);
+  BindTab(tab, pin_trigger, pin_on_bind);
+}
+
+void GlicInstanceImpl::SuppressShowOnNextTabAddedToTask(bool suppress) {
+  suppress_show_on_tab_added_to_task_ = suppress;
 }
 
 void GlicInstanceImpl::MaybeInitializeHiddenClient(
@@ -1312,8 +1217,22 @@ void GlicInstanceImpl::MaybeInitializeHiddenClient(
   NotifyPanelWillOpen(invocation_source, std::nullopt, fre_override);
 }
 
-void GlicInstanceImpl::WillCloseFor(EmbedderKey key) {
+void GlicInstanceImpl::DidCloseFor(EmbedderKey key,
+                                   EmbedderCloseReason reason) {
+  // Must be called early to avoid use-after-free if instance is deleted.
+  if (reason == EmbedderCloseReason::kExplicitlyClosed) {
+    instance_metrics().ResetShownState(key);
+  }
+
+  // Deactivation might delete 'this'
   MaybeDeactivateEmbedder(key);
+
+  auto* entry = GetEmbedderEntry(key);
+  if (reason == EmbedderCloseReason::kExplicitlyClosed && entry &&
+      ShouldUnbindOnClose(key, *entry)) {
+    // Unbind might delete 'this'
+    UnbindEmbedder(key);
+  }
 }
 
 void GlicInstanceImpl::ClientReadyToShow(
@@ -1385,6 +1304,21 @@ void GlicInstanceImpl::MaybeActivateForegroundEmbedder() {
 }
 
 void GlicInstanceImpl::OnAllEmbeddersInactive() {
+  TRACE_EVENT("glic", "GlicInstanceImpl::OnAllEmbeddersInactive");
+
+  if (base::FeatureList::IsEnabled(
+          features::kGlicSetWebContentsVisibilityWhenToggling)) {
+    // Make WebContents hidden to avoid frame production and reduce the priority
+    // of its renderer processes.
+    // Some actuations steps need the WebContents to be visible in order to
+    // make progress, so we need to keep it visible in that case.
+    // TODO(crbug.com/513209932): Hide WebContents when Glic is not showing,
+    // regardless of whether it is actuating or not.
+    if (!IsActuating()) {
+      host_.SetWebContentsVisibility(content::Visibility::HIDDEN);
+    }
+  }
+
   NotifyInstanceActivationChanged(false);
   if (actor_task_manager_) {
     // Attempt to show toast on UI deactivated (and not replaced by anything
@@ -1478,6 +1412,13 @@ base::TimeDelta GlicInstanceImpl::GetTimeSinceLastActive() const {
   return base::TimeTicks::Now() - last_deactivation_timestamp_;
 }
 
+base::TimeDelta GlicInstanceImpl::GetTimeSinceLastPromptSubmission() const {
+  if (last_prompt_submission_time_.is_null()) {
+    return base::TimeDelta::Max();
+  }
+  return base::TimeTicks::Now() - last_prompt_submission_time_;
+}
+
 bool GlicInstanceImpl::IsHibernated() const {
   return !host_.webui_contents();
 }
@@ -1559,9 +1500,6 @@ void GlicInstanceImpl::NotifyPanelWillOpen(
 }
 
 void GlicInstanceImpl::OnWebClientCleared() {
-  if (actor_task_manager_) {
-    actor_task_manager_->CancelTask();
-  }
   NotifyPanelWillOpen(mojom::InvocationSource::kDefaultValue, std::nullopt);
 }
 
@@ -1571,8 +1509,12 @@ void GlicInstanceImpl::CloseAllEmbedders() {
   for (auto& [key, entry] : embedders_) {
     keys.push_back(key);
   }
+  base::WeakPtr<GlicInstanceImpl> weak_this = weak_ptr_factory_.GetWeakPtr();
   for (const auto& key : keys) {
     Close(key);
+    if (!weak_this) {
+      return;
+    }
   }
 }
 
@@ -1606,55 +1548,28 @@ void GlicInstanceImpl::OnTabAddedToTask(
                                    /*success=*/false);
     return;
   }
+
+  if (IsActiveEmbedder(CreateSidePanelEmbedderKey(tab))) {
+    return;
+  }
+
   SidePanelShowOptions side_panel_options{*tab};
   side_panel_options.suppress_opening_animation = true;
+  side_panel_options.prefer_peek = true;
 
   if (base::FeatureList::IsEnabled(
           kGlicActorDaisyChainingFromFloatingUiDoesntClose) &&
       IsDetached()) {
     side_panel_options.pin_trigger = GlicPinTrigger::kActuation;
     ShowInactiveSidePanelEmbedderFor(side_panel_options);
+  } else if (suppress_show_on_tab_added_to_task_) {
+    BindTab(tab, GlicPinTrigger::kActuation, /*pin_on_bind=*/true);
+    suppress_show_on_tab_added_to_task_ = false;
   } else {
     Show(ShowOptions{side_panel_options});
   }
   instance_metrics_.OnDaisyChain(DaisyChainSource::kActorAddTab,
                                  /*success=*/true, tab);
-}
-
-void GlicInstanceImpl::RequestToShowCredentialSelectionDialog(
-    actor::TaskId task_id,
-    const base::flat_map<std::string, gfx::Image>& icons,
-    const std::vector<actor_login::Credential>& credentials,
-    actor::ActorTaskDelegate::CredentialSelectedCallback callback) {
-  host_.RequestToShowCredentialSelectionDialog(task_id, icons, credentials,
-                                               std::move(callback));
-}
-
-void GlicInstanceImpl::RequestToShowUserConfirmationDialog(
-    actor::TaskId task_id,
-    const url::Origin& navigation_origin,
-    bool for_blocklisted_origin,
-    actor::ActorTaskDelegate::UserConfirmationDialogCallback callback) {
-  host_.RequestToShowUserConfirmationDialog(
-      task_id, navigation_origin, for_blocklisted_origin, std::move(callback));
-}
-
-void GlicInstanceImpl::RequestToConfirmNavigation(
-    actor::TaskId task_id,
-    const url::Origin& navigation_origin,
-    actor::ActorTaskDelegate::NavigationConfirmationCallback callback) {
-  host_.RequestToConfirmNavigation(task_id, navigation_origin,
-                                   std::move(callback));
-}
-
-void GlicInstanceImpl::RequestToShowAutofillSuggestionsDialog(
-    actor::TaskId task_id,
-    std::vector<autofill::ActorFormFillingRequest> requests,
-    base::WeakPtr<actor::AutofillSelectionDialogEventHandler> event_handler,
-    AutofillSuggestionSelectedCallback callback) {
-  host_.RequestToShowAutofillSuggestionsDialog(task_id, std::move(requests),
-                                               std::move(event_handler),
-                                               std::move(callback));
 }
 
 bool GlicInstanceImpl::HasFocus() {

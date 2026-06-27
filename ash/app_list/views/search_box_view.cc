@@ -51,7 +51,6 @@
 #include "base/i18n/case_conversion.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
 #include "base/rand_util.h"
@@ -70,6 +69,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider_manager.h"
@@ -210,7 +210,11 @@ std::u16string GetCategoryName(SearchResult* search_result) {
 // Returns the check box icon that is shown on the category filter menu item.
 ui::ImageModel GetCheckboxImage(bool checked) {
   return ui::ImageModel::FromVectorIcon(
-      checked ? views::kCheckboxActiveIcon : views::kCheckboxNormalIcon,
+      checked ? ::features::IsRoundedIconsEnabled()
+                    ? views::kCheckBoxFilledIcon
+                    : views::kCheckboxActiveOldIcon
+      : ::features::IsRoundedIconsEnabled() ? views::kCheckBoxOutlineBlankIcon
+                                            : views::kCheckboxNormalOldIcon,
       checked ? cros_tokens::kCrosSysPrimary : cros_tokens::kCrosSysSecondary,
       kAppContextMenuIconSize);
 }
@@ -650,12 +654,8 @@ void SearchBoxView::HandleQueryChange(std::u16string_view query,
     ResetHighlightRange();
 
   if (initiated_by_user) {
-    const base::TimeTicks current_time = base::TimeTicks::Now();
     if (current_query_.empty() && !query.empty()) {
       base::RecordAction(base::UserMetricsAction("AppList_SearchQueryStarted"));
-      // Set 'user_initiated_model_update_time_' when initiating a new query.
-      user_initiated_model_update_time_ = current_time;
-
       if (features::IsWelcomeTourEnabled()) {
         welcome_tour_metrics::RecordInteraction(
             user_education_util::GetLastActiveUserPrefService(),
@@ -663,18 +663,6 @@ void SearchBoxView::HandleQueryChange(std::u16string_view query,
       }
     } else if (!current_query_.empty() && query.empty()) {
       base::RecordAction(base::UserMetricsAction("AppList_LeaveSearch"));
-      // Reset 'user_initiated_model_update_time_' when clearing the search_box.
-      user_initiated_model_update_time_ = base::TimeTicks();
-    } else if (query != current_query_ &&
-               !user_initiated_model_update_time_.is_null()) {
-      if (is_app_list_bubble_) {
-        UMA_HISTOGRAM_TIMES("Ash.SearchModelUpdateTime.ClamshellMode",
-                            current_time - user_initiated_model_update_time_);
-      } else {
-        UMA_HISTOGRAM_TIMES("Ash.SearchModelUpdateTime.TabletMode",
-                            current_time - user_initiated_model_update_time_);
-      }
-      user_initiated_model_update_time_ = current_time;
     }
   }
 
@@ -709,17 +697,15 @@ void SearchBoxView::SetQueryChangedCallback(QueryChangedCallback callback) {
 }
 
 void SearchBoxView::UpdatePlaceholderTextStyle() {
-  SkColor primary_color =
-      GetColorProvider()->GetColor(cros_tokens::kCrosSysOnSurface);
-  SkColor secondary_color =
-      GetColorProvider()->GetColor(cros_tokens::kCrosSysOnSurfaceVariant);
+  ui::ColorId primary_color_id = cros_tokens::kCrosSysOnSurface;
+  ui::ColorId secondary_color_id = cros_tokens::kCrosSysOnSurfaceVariant;
   if (is_app_list_bubble_) {
     // The bubble launcher text is always side-aligned.
     search_box()->set_placeholder_text_draw_flags(
         base::i18n::IsRTL() ? gfx::Canvas::TEXT_ALIGN_RIGHT
                             : gfx::Canvas::TEXT_ALIGN_LEFT);
     // Bubble launcher uses standard text colors (light-on-dark by default).
-    search_box()->set_placeholder_text_color(secondary_color);
+    search_box()->SetPlaceholderTextColorId(secondary_color_id);
     return;
   }
   // Fullscreen launcher centers the text when inactive.
@@ -729,8 +715,8 @@ void SearchBoxView::UpdatePlaceholderTextStyle() {
                                  : gfx::Canvas::TEXT_ALIGN_LEFT)
           : gfx::Canvas::TEXT_ALIGN_CENTER);
   // Fullscreen launcher uses custom colors (dark-on-light by default).
-  search_box()->set_placeholder_text_color(
-      is_search_box_active() ? secondary_color : primary_color);
+  search_box()->SetPlaceholderTextColorId(
+      is_search_box_active() ? secondary_color_id : primary_color_id);
 }
 
 void SearchBoxView::UpdateSearchBoxBorder() {
@@ -778,17 +764,20 @@ void SearchBoxView::OnThemeChanged() {
       GetColorProvider()->GetColor(kColorAshButtonIconColor);
   close_button()->SetImageModel(
       views::ImageButton::STATE_NORMAL,
-      ui::ImageModel::FromVectorIcon(views::kIcCloseIcon, button_icon_color,
-                                     GetSearchBoxIconSize()));
+      ui::ImageModel::FromVectorIcon(
+          ::features::IsRoundedIconsEnabled() ? views::kCloseIcon
+                                              : views::kIcCloseOldIcon,
+          button_icon_color, GetSearchBoxIconSize()));
   // Update the icon of the Sunfish-session button.
   SunfishButtonVisibilityChanged();
 
   if (filter_button()) {
     filter_button()->SetImageModel(
         views::ImageButton::STATE_NORMAL,
-        ui::ImageModel::FromVectorIcon(vector_icons::kFilterIcon,
-                                       button_icon_color,
-                                       GetSearchBoxIconSize()));
+        ui::ImageModel::FromVectorIcon(
+            ::features::IsRoundedIconsEnabled() ? vector_icons::kTuneIcon
+                                                : vector_icons::kFilterOldIcon,
+            button_icon_color, GetSearchBoxIconSize()));
   }
 
   if (focus_ring_layer_) {
@@ -986,7 +975,7 @@ void SearchBoxView::UpdateLayout(AppListState target_state,
   box_layout_view()->SetInsideBorderInsets(
       gfx::Insets::TLBR(0, horizontal_spacing, 0, horizontal_right_padding));
   box_layout_view()->SetBetweenChildSpacing(horizontal_spacing);
-  InvalidateLayout();
+
   // Avoid setting background when animating to kStateApps, background will be
   // set when the animation ends.
   if (target_state != AppListState::kStateApps)
@@ -1237,8 +1226,7 @@ bool SearchBoxView::IsValidAutocompleteText(
 }
 
 void SearchBoxView::UpdateTextColor() {
-  search_box()->SetTextColor(
-      GetColorProvider()->GetColor(cros_tokens::kCrosSysOnSurface));
+  search_box()->SetTextColorId(cros_tokens::kCrosSysOnSurface);
 }
 
 void SearchBoxView::UpdatePlaceholderTextAndAccessibleName() {

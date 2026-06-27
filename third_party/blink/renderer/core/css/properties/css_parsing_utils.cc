@@ -477,7 +477,10 @@ CSSValue* ConsumeShapeRadius(CSSParserTokenStream& args,
                              const CSSParserContext& context,
                              CSSParserLocalContext& local_context) {
   if (IdentMatches<CSSValueID::kClosestSide, CSSValueID::kFarthestSide>(
-          args.Peek().Id())) {
+          args.Peek().Id()) ||
+      (RuntimeEnabledFeatures::BasicShapeCornerRadiusEnabled() &&
+       IdentMatches<CSSValueID::kClosestCorner, CSSValueID::kFarthestCorner>(
+           args.Peek().Id()))) {
     return ConsumeIdent(args);
   }
   return ConsumeLengthOrPercent(args, context, local_context,
@@ -635,7 +638,7 @@ cssvalue::CSSBasicShapeInsetValue* ConsumeBasicShapeInset(
   Complete4Sides(sides);
 
   auto* shape = MakeGarbageCollected<cssvalue::CSSBasicShapeInsetValue>(
-      sides[0], sides[1], sides[2], sides[3]);
+      *sides[0], *sides[1], *sides[2], *sides[3]);
   if (!ConsumeBorderRadiusCommon(args, context, local_context, shape)) {
     return nullptr;
   }
@@ -665,7 +668,7 @@ cssvalue::CSSBasicShapeRectValue* ConsumeBasicShapeRect(
   }
 
   auto* shape = MakeGarbageCollected<cssvalue::CSSBasicShapeRectValue>(
-      lengths[0], lengths[1], lengths[2], lengths[3]);
+      *lengths[0], *lengths[1], *lengths[2], *lengths[3]);
 
   if (!ConsumeBorderRadiusCommon(args, context, local_context, shape)) {
     return nullptr;
@@ -691,7 +694,7 @@ cssvalue::CSSBasicShapeXYWHValue* ConsumeBasicShapeXYWH(
   }
 
   auto* shape = MakeGarbageCollected<cssvalue::CSSBasicShapeXYWHValue>(
-      lengths[0], lengths[1], lengths[2], lengths[3]);
+      *lengths[0], *lengths[1], *lengths[2], *lengths[3]);
 
   if (!ConsumeBorderRadiusCommon(args, context, local_context, shape)) {
     return nullptr;
@@ -950,6 +953,8 @@ bool IsGeneratedImage(const CSSValueID id) {
     case CSSValueID::kPaint:
     case CSSValueID::kCrossFade:
       return true;
+    case CSSValueID::kImage:
+      return RuntimeEnabledFeatures::CSSImageFunctionEnabled();
 
     default:
       return false;
@@ -3602,6 +3607,18 @@ static CSSValue* ConsumeCrossFade(CSSParserTokenStream& stream,
       /*is_legacy_variant=*/false, image_and_percentages);
 }
 
+// https://drafts.csswg.org/css-images-4/#image-notation
+// image() = image( <color> )
+static CSSValue* ConsumeImageFunction(CSSParserTokenStream& stream,
+                                      const CSSParserContext& context,
+                                      CSSParserLocalContext& local_context) {
+  CSSValue* color_value = ConsumeColor(stream, context, local_context);
+  if (!color_value) {
+    return nullptr;
+  }
+  return MakeGarbageCollected<cssvalue::CSSColorImageValue>(color_value);
+}
+
 static CSSValue* ConsumePaint(CSSParserTokenStream& stream,
                               const CSSParserContext& context,
                               CSSParserLocalContext& local_context) {
@@ -3729,6 +3746,9 @@ static CSSValue* ConsumeGeneratedImage(CSSParserTokenStream& stream,
     } else if (RuntimeEnabledFeatures::CSSCrossFadeEnabled() &&
                id == CSSValueID::kCrossFade) {
       result = ConsumeCrossFade(stream, context, local_context);
+    } else if (RuntimeEnabledFeatures::CSSImageFunctionEnabled() &&
+               id == CSSValueID::kImage) {
+      result = ConsumeImageFunction(stream, context, local_context);
     } else if (id == CSSValueID::kPaint) {
       result = context.IsSecureContext()
                    ? ConsumePaint(stream, context, local_context)
@@ -7273,6 +7293,11 @@ bool ConsumeGridTemplateRowsAndAreasAndColumns(
   return true;
 }
 
+// <grid-line> =
+//   auto |
+//   <custom-ident> |
+//   [ [ <integer [-∞,-1]> | <integer [1,∞]> ] && <custom-ident>? ] |
+//   [ span && [ <integer [1,∞]> || <custom-ident> ] ]
 CSSValue* ConsumeGridLine(CSSParserTokenStream& stream,
                           const CSSParserContext& context,
                           CSSParserLocalContext& local_context) {
@@ -7280,72 +7305,94 @@ CSSValue* ConsumeGridLine(CSSParserTokenStream& stream,
     return ConsumeIdent(stream);
   }
 
-  CSSIdentifierValue* span_value = nullptr;
-  CSSCustomIdentValue* grid_line_name = nullptr;
-  CSSPrimitiveValue* numeric_value =
-      ConsumeInteger(stream, context, local_context);
-  if (numeric_value) {
-    grid_line_name =
-        ConsumeCustomIdentForGridLine(stream, context, local_context);
-    span_value = ConsumeIdent<CSSValueID::kSpan>(stream);
-  } else {
-    span_value = ConsumeIdent<CSSValueID::kSpan>(stream);
-    if (span_value) {
-      numeric_value = ConsumeInteger(stream, context, local_context);
-      grid_line_name =
-          ConsumeCustomIdentForGridLine(stream, context, local_context);
-      if (!numeric_value) {
-        numeric_value = ConsumeInteger(stream, context, local_context);
-      }
-    } else {
-      grid_line_name =
-          ConsumeCustomIdentForGridLine(stream, context, local_context);
-      if (grid_line_name) {
-        numeric_value = ConsumeInteger(stream, context, local_context);
-        span_value = ConsumeIdent<CSSValueID::kSpan>(stream);
-        if (!span_value && !numeric_value) {
-          return grid_line_name;
+  // [ span && [ <integer [1,∞]> || <custom-ident> ] ]
+  {
+    CSSParserSavePoint savepoint(stream);
+
+    CSSIdentifierValue* span_value = ConsumeIdent<CSSValueID::kSpan>(stream);
+    CSSPrimitiveValue* span_count = nullptr;
+    CSSCustomIdentValue* line_name = nullptr;
+    do {
+      if (!span_count) {
+        span_count = ConsumeInteger(stream, context, local_context, 1.0);
+        if (span_count) {
+          continue;
         }
-      } else {
+      }
+      if (!line_name) {
+        line_name =
+            ConsumeCustomIdentForGridLine(stream, context, local_context);
+        if (line_name) {
+          continue;
+        }
+      }
+      break;
+    } while (!stream.AtEnd());
+    if (!span_value) {
+      span_value = ConsumeIdent<CSSValueID::kSpan>(stream);
+    }
+
+    if (span_value) {
+      // Just the 'span' ident is not valid.
+      if (!span_count && !line_name) {
         return nullptr;
       }
+
+      CSSValueList* values = CSSValueList::CreateSpaceSeparated();
+      values->Append(*span_value);
+      // If span is present, omit `1` if there's a trailing identifier.
+      if (span_count && (span_count->GetValueIfKnown() != 1 || !line_name)) {
+        values->Append(*span_count);
+      }
+      if (line_name) {
+        values->Append(*line_name);
+      }
+      savepoint.Release();
+      return values;
     }
   }
 
-  if (span_value && !numeric_value && !grid_line_name) {
-    return nullptr;  // "span" keyword alone is invalid.
-  }
-  if (span_value && numeric_value &&
-      numeric_value->GetValueIfKnown().has_value() &&
-      *numeric_value->GetValueIfKnown() < 0) {
-    return nullptr;  // Negative numbers are not allowed for span.
-  }
-  if (numeric_value && numeric_value->GetValueIfKnown() == 0) {
-    return nullptr;  // An <integer> value of zero makes the declaration
-                     // invalid.
+  // <custom-ident> |
+  // [ [ <integer [-∞,-1]> | <integer [1,∞]> ] && <custom-ident>? ]
+  CSSParserSavePoint savepoint(stream);
+
+  CSSPrimitiveValue* line_count = nullptr;
+  CSSCustomIdentValue* line_name = nullptr;
+  do {
+    if (!line_count) {
+      line_count = ConsumeInteger(stream, context, local_context);
+      if (line_count) {
+        continue;
+      }
+    }
+    if (!line_name) {
+      line_name = ConsumeCustomIdentForGridLine(stream, context, local_context);
+      if (line_name) {
+        continue;
+      }
+    }
+    break;
+  } while (!stream.AtEnd());
+
+  if (line_count) {
+    if (line_count->GetValueIfKnown() == 0) {
+      return nullptr;
+    }
+    CSSValueList* values = CSSValueList::CreateSpaceSeparated();
+    values->Append(*line_count);
+    if (line_name) {
+      values->Append(*line_name);
+    }
+    savepoint.Release();
+    return values;
   }
 
-  if (numeric_value && numeric_value->GetValueIfKnown().has_value()) {
-    numeric_value = CSSNumericLiteralValue::Create(
-        ClampTo(*numeric_value->GetValueIfKnown(), -kGridMaxTracks,
-                kGridMaxTracks),
-        CSSPrimitiveValue::UnitType::kInteger);
+  if (line_name) {
+    savepoint.Release();
+    return line_name;
   }
 
-  CSSValueList* values = CSSValueList::CreateSpaceSeparated();
-  if (span_value) {
-    values->Append(*span_value);
-  }
-  // If span is present, omit `1` if there's a trailing identifier.
-  if (numeric_value && (!span_value || !grid_line_name ||
-                        !(numeric_value->GetValueIfKnown() == 1))) {
-    values->Append(*numeric_value);
-  }
-  if (grid_line_name) {
-    values->Append(*grid_line_name);
-  }
-  DCHECK(values->length());
-  return values;
+  return nullptr;
 }
 
 CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
@@ -9999,7 +10046,7 @@ CSSValue* ConsumeAnchoredFallbackQueryValue(
   return ConsumePositionAreaQueryValue(stream);
 }
 
-CSSValue* ConsumeFitText(CSSParserTokenStream& stream,
+CSSValue* ConsumeTextFit(CSSParserTokenStream& stream,
                          const CSSParserContext& context,
                          CSSParserLocalContext& local_context) {
   // The syntax is:

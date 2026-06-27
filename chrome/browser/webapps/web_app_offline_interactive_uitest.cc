@@ -9,16 +9,18 @@
 #include "base/containers/span.h"
 #include "base/metrics/crc32.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_icon_waiter.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
@@ -65,6 +67,11 @@ enum class PageFlagParam {
 
 class WebAppOfflineTest : public InProcessBrowserTest {
  public:
+  WebAppOfflineTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        ::features::kWebAppInstallDialog);
+  }
+
   void SetUpOnMainThread() override {
     base::ScopedAllowBlockingForTesting allow_blocking;
     override_registration_ =
@@ -121,13 +128,16 @@ class WebAppOfflineTest : public InProcessBrowserTest {
   }
 
   void CloseBrowser(content::WebContents* web_contents) {
-    Browser* app_browser = chrome::FindBrowserWithTab(web_contents);
+    BrowserWindowInterface* app_browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents);
     ui_test_utils::BrowserDestroyedObserver observer(app_browser);
-    app_browser->window()->Close();
+    app_browser->GetWindow()->Close();
     observer.Wait();
   }
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<OsIntegrationTestOverrideImpl::BlockingRegistration>
       override_registration_;
 };

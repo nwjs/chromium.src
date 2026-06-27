@@ -11,19 +11,26 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.SystemClock;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.core.app.ServiceCompat;
 
+import org.chromium.base.SplitCompatService;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.base.SplitCompatService;
+import org.chromium.chrome.browser.actor.ActorForegroundServiceUmaHelper.ForegroundLifecycle;
+import org.chromium.chrome.browser.actor.ActorForegroundServiceUmaHelper.StopReason;
 import org.chromium.components.browser_ui.notifications.ForegroundServiceUtils;
 
 /** Implementation of ActorForegroundService. */
 @NullMarked
 public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
     private final IBinder mBinder = new LocalBinder();
+    private long mStartTime;
+    private boolean mIsForeground;
+    private boolean mStopReasonRecorded;
+    private boolean mTaskRemoved;
 
     /**
      * Start the foreground service with this given context.
@@ -56,6 +63,13 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
                             : ServiceCompat.STOP_FOREGROUND_DETACH);
         }
 
+        if (!mIsForeground) {
+            ActorForegroundServiceUmaHelper.recordLifecycleHistogram(ForegroundLifecycle.STARTED);
+            mIsForeground = true;
+        } else {
+            ActorForegroundServiceUmaHelper.recordLifecycleHistogram(ForegroundLifecycle.UPDATED);
+        }
+
         startForegroundInternal(newNotificationId, newNotification);
     }
 
@@ -65,21 +79,66 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
      * @param flags Flags for stopping foreground (e.g., ServiceCompat.STOP_FOREGROUND_REMOVE).
      */
     public void stopActorForegroundService(int flags) {
-        stopForegroundInternal(flags);
+        if (mIsForeground) {
+            ActorForegroundServiceUmaHelper.recordLifecycleHistogram(ForegroundLifecycle.STOPPED);
+            mIsForeground = false;
+        }
+        recordStopReason(StopReason.STOPPED);
+        if (!mTaskRemoved) {
+            stopForegroundInternal(flags);
+        }
         getService().stopSelf();
     }
 
     @Override
     public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+        if (mStartTime == 0) {
+            mStartTime = SystemClock.elapsedRealtime();
+        }
+
         // Return START_NOT_STICKY so the system doesn't attempt to recreate the service if it is
         // killed.
         return Service.START_NOT_STICKY;
     }
 
     @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        recordStopReason(StopReason.TASK_REMOVED);
+        mTaskRemoved = true;
+        // Stop the foreground state while detaching the notification. This ensures the
+        // notification persists in the tray as a regular notification after the service is killed.
+        stopForegroundInternal(ServiceCompat.STOP_FOREGROUND_DETACH);
+
+        ActorForegroundServiceManager manager = ActorForegroundServiceManager.getInstance();
+        if (manager != null) {
+            manager.onAndroidTaskRemoved();
+        }
+        getService().stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+
+    @Override
+    public void onLowMemory() {
+        recordStopReason(StopReason.LOW_MEMORY);
+        super.onLowMemory();
+    }
+
+    @Override
     public void onDestroy() {
+        if (mStartTime > 0) {
+            ActorForegroundServiceUmaHelper.recordDurationHistogram(
+                    SystemClock.elapsedRealtime() - mStartTime);
+            recordStopReason(StopReason.DESTROYED);
+        }
+
         // TODO(ritkagup) : Notify observers so they can perform cleanup or pause active tasks.
         super.onDestroy();
+    }
+
+    private void recordStopReason(@StopReason int stopReason) {
+        if (mStopReasonRecorded || mStartTime == 0) return;
+        ActorForegroundServiceUmaHelper.recordStopReasonHistogram(stopReason);
+        mStopReasonRecorded = true;
     }
 
     @Override
@@ -95,6 +154,10 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
     }
 
     /** Methods for testing. */
+    void setServiceForTesting(SplitCompatService service) {
+        setService(service);
+    }
+
     @VisibleForTesting
     void startForegroundInternal(int notificationId, Notification notification) {
         ForegroundServiceUtils.getInstance()

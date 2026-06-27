@@ -81,6 +81,7 @@
 #include "device/fido/public/public_key_credential_descriptor.h"
 #include "device/fido/public/public_key_credential_params.h"
 #include "google_apis/gaia/gaia_id.h"
+#include "google_apis/gaia/google_service_auth_error.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/http/http_status_code.h"
 #include "services/network/network_service.h"
@@ -306,14 +307,15 @@ class EnclaveManagerTest : public testing::Test, EnclaveManager::Observer {
   base::flat_set<std::string> GaiaAccountsInState() {
     const webauthn_pb::EnclaveLocalState& state =
         manager_.local_state_for_testing();
-    base::flat_set<std::string> ret;
-    for (const auto& it : state.users()) {
-      ret.insert(it.first);
-    }
-    return ret;
+
+    return base::MakeFlatSet<std::string>(
+        state.users(), /*comp=*/{}, [](const auto& it) { return it.first; });
   }
 
-  void OnKeysStored() override { stored_count_++; }
+  void OnKeysStored(const GaiaId& gaia_id) override {
+    stored_count_++;
+    last_stored_gaia_id_ = gaia_id;
+  }
   void OnStateUpdated() override { notified_about_state_update_count_++; }
   void OnOutOfContextRecoveryCompletion(
       EnclaveManager::OutOfContextRecoveryOutcome outcome) override {}
@@ -521,6 +523,7 @@ class EnclaveManagerTest : public testing::Test, EnclaveManager::Observer {
 
   base::test::TaskEnvironment task_env_;
   unsigned stored_count_ = 0;
+  GaiaId last_stored_gaia_id_;
   unsigned notified_about_state_update_count_ = 0;
   const TempDir temp_dir_;
   const std::pair<base::Process, uint16_t> process_and_port_;
@@ -575,6 +578,7 @@ TEST_F(EnclaveManagerTest, Basic) {
   ASSERT_TRUE(manager_.is_idle());
   ASSERT_TRUE(manager_.has_pending_keys());
   EXPECT_EQ(stored_count_, 1u);
+  EXPECT_EQ(last_stored_gaia_id_, gaia_id_);
 
   BoolFuture add_future;
   ASSERT_TRUE(manager_.AddDeviceToAccount(
@@ -703,6 +707,32 @@ TEST_F(EnclaveManagerTest, RegistrationFailureAndRetry) {
                                 .users()
                                 .find(gaia)
                                 ->second.identity_public_key());
+}
+
+TEST_F(EnclaveManagerTest, GetAccessTokenErrorMetric_Success) {
+  base::HistogramTester histogram_tester;
+  ASSERT_TRUE(Register());
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.Enclave.GetAccessTokenError",
+      GoogleServiceAuthError::State::NONE, 1);
+}
+
+TEST_F(EnclaveManagerTest, GetAccessTokenErrorMetric_Failure) {
+  base::HistogramTester histogram_tester;
+  identity_test_env_.SetAutomaticIssueOfAccessTokens(false);
+
+  BoolFuture register_future;
+  manager_.RegisterIfNeeded(register_future.GetCallback());
+
+  identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
+      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+
+  EXPECT_TRUE(register_future.Wait());
+  EXPECT_FALSE(register_future.Get());
+
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.Enclave.GetAccessTokenError",
+      GoogleServiceAuthError::State::INVALID_GAIA_CREDENTIALS, 1);
 }
 
 TEST_F(EnclaveManagerTest, PrimaryUserChange) {
@@ -1718,12 +1748,13 @@ TEST_P(EnclaveManagerRenewPINTest, NoKeyStoreDowngrade) {
   // Downgrade the recovery key store.
   recovery_key_store_->DowngradeCohort();
 
-  // Attempting to renew the PIN should result in an error.
+  // Attempting to renew the PIN should update the last renewal time to prevent
+  // retries.
   BoolFuture renew_future;
   manager_.RenewPIN(renew_future.GetCallback());
   EXPECT_TRUE(renew_future.Wait());
   EXPECT_FALSE(renew_future.Get());
-  EXPECT_EQ(LastPINRenewalTime(), initial_time);
+  EXPECT_GT(*LastPINRenewalTime(), *initial_time);
   EXPECT_EQ(security_domain_service_->num_physical_members(), 1u);
   EXPECT_EQ(security_domain_service_->num_pin_members(), 1u);
   histogram_tester.ExpectUniqueSample(
@@ -2158,6 +2189,25 @@ TEST_F(EnclaveManagerTest, JoiningSecurityDomainFailed) {
   EXPECT_FALSE(local_state.has_wrapped_pin());
   EXPECT_FALSE(local_state.registered());
   EXPECT_FALSE(local_state.joined());
+}
+
+TEST_F(EnclaveManagerTest, AddDeviceToAccountMismatchedGaia) {
+  ASSERT_TRUE(Register());
+  security_domain_service_->pretend_there_are_members();
+
+  std::vector<uint8_t> key(kTestKey.begin(), kTestKey.end());
+  auto lock = manager_.GetStoreKeysLock();
+  manager_.StoreKeys(GaiaId("Not the primary account"),
+                     {trusted_vault::TrustedVaultKeyAndVersion(std::move(key),
+                                                               kSecretVersion)},
+                     /*user_action_trigger=*/std::nullopt);
+  EXPECT_EQ(last_stored_gaia_id_, GaiaId("Not the primary account"));
+
+  BoolFuture add_future;
+  ASSERT_TRUE(manager_.AddDeviceToAccount(
+      /*pin_metadata=*/std::nullopt, add_future.GetCallback()));
+  EXPECT_TRUE(add_future.Wait());
+  EXPECT_FALSE(add_future.Get());
 }
 
 // Tests that attempting to renew a PIN does not make Chrome crash if joining

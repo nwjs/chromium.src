@@ -7,6 +7,7 @@
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
+#include "chrome/browser/ui/focus/browser_focus_controller.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/session_crashed_bubble_view.h"
@@ -15,6 +16,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/buildflags.h"
+#include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/view.h"
@@ -32,7 +34,8 @@ class SessionCrashedBubbleViewTest : public DialogBrowserTest {
   void ShowUi(const std::string& name) override {
     // TODO(pbos): Set up UMA opt-in conditions instead of providing this bool.
     crash_bubble_ = SessionCrashedBubbleView::ShowBubble(
-        browser(), name == "SessionCrashedBubbleOfferUma");
+        browser(), /*uma_opted_in_already=*/false,
+        /*offer_uma_optin=*/name == "SessionCrashedBubbleOfferUma");
   }
 
  protected:
@@ -62,7 +65,8 @@ IN_PROC_BROWSER_TEST_F(SessionCrashedBubbleViewTest,
   focus_manager->ClearFocus();
   EXPECT_FALSE(bubble_focused_view->HasFocus());
 
-  browser_view->FocusInactivePopupForAccessibility();
+  BrowserFocusController::From(browser_view->browser())
+      ->FocusInactivePopupForAccessibility();
   EXPECT_TRUE(bubble_focused_view->HasFocus());
 }
 
@@ -87,10 +91,10 @@ IN_PROC_BROWSER_TEST_F(SessionCrashedBubbleViewTest,
   focus_manager->ClearFocus();
   EXPECT_FALSE(bubble_focused_view->HasFocus());
 
-  browser_view->RotatePaneFocus(true);
+  BrowserFocusController::From(browser_view->browser())->RotatePaneFocus(true);
   // Rotate pane focus is expected to keep the bubble focused until the user
   // deals with it, so a second call should have no effect.
-  browser_view->RotatePaneFocus(true);
+  BrowserFocusController::From(browser_view->browser())->RotatePaneFocus(true);
   EXPECT_TRUE(bubble_focused_view->HasFocus());
 }
 

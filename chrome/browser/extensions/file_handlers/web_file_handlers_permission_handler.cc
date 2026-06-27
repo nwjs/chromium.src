@@ -18,7 +18,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/extensions/extensions_dialogs.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/grit/generated_resources.h"
@@ -269,10 +268,11 @@ const apps::FileHandlers WebFileHandlersPermissionHandler::GetAppsFileHandlers(
          web_file_handler.file_handler.accept.additional_properties) {
       apps::FileHandler::AcceptEntry accept_entry;
       accept_entry.mime_type = mime_type;
-      base::flat_set<std::string> file_extensions;
-      for (const auto& file_extension : file_extension_list.GetList()) {
-        file_extensions.insert(file_extension.GetString());
-      }
+      auto file_extensions = base::MakeFlatSet<std::string>(
+          file_extension_list.GetList(), /*comp=*/{},
+          [&](const auto& file_extension) {
+            return file_extension.GetString();
+          });
       accept_entry.file_extensions = file_extensions;
       accept.emplace_back(accept_entry);
     }

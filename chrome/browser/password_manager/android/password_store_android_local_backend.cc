@@ -28,7 +28,6 @@ PasswordStoreAndroidLocalBackend::PasswordStoreAndroidLocalBackend(
 PasswordStoreAndroidLocalBackend::~PasswordStoreAndroidLocalBackend() = default;
 
 void PasswordStoreAndroidLocalBackend::InitBackend(
-    AffiliatedMatchHelper* affiliated_match_helper,
     RemoteChangesReceived remote_form_changes_received,
     base::RepeatingClosure sync_enabled_or_disabled_cb,
     base::OnceCallback<void(bool)> completion) {
@@ -95,7 +94,8 @@ void PasswordStoreAndroidLocalBackend::RemoveLoginAsync(
     const base::Location& location,
     StoredCredential cred,
     PasswordChangesOrErrorReply callback) {
-  RemoveLoginInternal(std::string(), std::move(cred), std::move(callback));
+  RemoveLoginInternal(std::string(), std::move(cred), location,
+                      std::move(callback));
 }
 
 void PasswordStoreAndroidLocalBackend::RemoveLoginsCreatedBetweenAsync(
@@ -103,8 +103,8 @@ void PasswordStoreAndroidLocalBackend::RemoveLoginsCreatedBetweenAsync(
     base::Time delete_begin,
     base::Time delete_end,
     PasswordChangesOrErrorReply callback) {
-  RemoveLoginsCreatedBetweenInternal(std::string(), delete_begin, delete_end,
-                                     std::move(callback));
+  RemoveLoginsCreatedBetweenInternal(std::string(), location, delete_begin,
+                                     delete_end, std::move(callback));
 }
 
 void PasswordStoreAndroidLocalBackend::DisableAutoSignInForOriginsAsync(

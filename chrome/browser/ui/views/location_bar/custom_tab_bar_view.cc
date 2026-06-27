@@ -13,7 +13,6 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/bubble_anchor_util.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -33,6 +32,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
@@ -320,7 +320,9 @@ void CustomTabBarView::OnThemeChanged() {
   const SkColor foreground_disabled_color =
       color_provider->GetColor(kColorPwaToolbarButtonIconDisabled);
   SetImageFromVectorIconWithColor(
-      close_button_, vector_icons::kCloseRoundedIcon,
+      close_button_,
+      features::IsRoundedIconsEnabled() ? vector_icons::kCloseSmallIcon
+                                        : vector_icons::kCloseRoundedOldIcon,
       GetLayoutConstant(LayoutConstant::kLocationBarIconSize),
       {foreground_color, foreground_disabled_color});
 
@@ -334,6 +336,15 @@ void CustomTabBarView::OnTabChangedAt(tabs::TabInterface* tab,
                                       int index,
                                       TabChangeType change_type) {
   if (delegate_->GetWebContents() == tab->GetContents()) {
+    UpdateContents();
+  }
+}
+
+void CustomTabBarView::OnTabStripModelChanged(
+    TabStripModel* tab_strip_model,
+    const TabStripModelChange& change,
+    const TabStripSelectionChange& selection) {
+  if (selection.active_tab_changed()) {
     UpdateContents();
   }
 }

@@ -6,6 +6,7 @@
 
 #include <string_view>
 
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -262,31 +263,9 @@ BASE_FEATURE(kWebGPUUseSpirv14, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGPUDecomposeUniformBuffers, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kWebGPUUseHLSL2021, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
-
-const base::FeatureParam<std::string> kVulkanBlockListByHardware{
-    &kVulkan, "BlockListByHardware", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByBrand{
-    &kVulkan, "BlockListByBrand", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByDevice{
-    &kVulkan, "BlockListByDevice", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByAndroidBuildId{
-    &kVulkan, "BlockListByAndroidBuildId", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByManufacturer{
-    &kVulkan, "BlockListByManufacturer", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByModel{
-    &kVulkan, "BlockListByModel", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByBoard{
-    &kVulkan, "BlockListByBoard", ""};
-
-const base::FeatureParam<std::string> kVulkanBlockListByAndroidBuildFP{
-    &kVulkan, "BlockListByAndroidBuildFP", ""};
 
 // Blocklists meant for DrDc.
 // crbug.com/1294648, crbug.com/1397578: the screen flickers.
@@ -482,8 +461,9 @@ bool IsUsingVulkan() {
   base::FeatureList* feature_list = base::FeatureList::GetInstance();
   if (feature_list &&
       feature_list->IsFeatureOverriddenFromCommandLine(
-          features::kVulkan.name, base::FeatureList::OVERRIDE_ENABLE_FEATURE))
+          features::kVulkan.name, base::FeatureList::OVERRIDE_ENABLE_FEATURE)) {
     return true;
+  }
 
   // WebView checks, which do not use (and disables) kVulkan.
   // Do this above the Android version check because there are test devices
@@ -491,55 +471,12 @@ bool IsUsingVulkan() {
           switches::kWebViewDrawFunctorUsesVulkan)) {
     return true;
   }
+#endif
 
-  // No support for devices before Q -- exit before checking feature flags
-  // so that devices are not counted in finch trials.
-  if (base::android::android_info::sdk_int() <
-      base::android::android_info::SDK_VERSION_Q) {
-    return false;
-  }
-
-  if (!base::FeatureList::IsEnabled(kVulkan))
-    return false;
-
-  // Check block list against build info.
-  if (IsDeviceBlocked(base::android::android_info::hardware(),
-                      kVulkanBlockListByHardware.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::brand(),
-                      kVulkanBlockListByBrand.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::device(),
-                      kVulkanBlockListByDevice.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::android_build_id(),
-                      kVulkanBlockListByAndroidBuildId.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::manufacturer(),
-                      kVulkanBlockListByManufacturer.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::model(),
-                      kVulkanBlockListByModel.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::board(),
-                      kVulkanBlockListByBoard.Get())) {
-    return false;
-  }
-  if (IsDeviceBlocked(base::android::android_info::android_build_fp(),
-                      kVulkanBlockListByAndroidBuildFP.Get())) {
-    return false;
-  }
-
-  return true;
-
-#else
+#if BUILDFLAG(ENABLE_VULKAN)
   return base::FeatureList::IsEnabled(kVulkan);
+#else
+  return false;
 #endif
 }
 
@@ -878,12 +815,12 @@ bool IncreaseBufferCountForHighFrameRate() {
   // of buffers. So these checks, espeically the RAM one, is to limit the impact
   // of more buffers to devices that can handle them.
   // 8GB of ram with large margin for error.
-  constexpr base::ByteCount RAM_8GB_CUTOFF = base::MiB(7200);
+  constexpr base::ByteSize RAM_8GB_CUTOFF = base::MiBU(7200);
   static bool increase =
       base::android::android_info::sdk_int() >=
           base::android::android_info::SDK_VERSION_R &&
       IsAndroidSurfaceControlEnabled() &&
-      base::SysInfo::AmountOfPhysicalMemory() > RAM_8GB_CUTOFF;
+      base::SysInfo::AmountOfTotalPhysicalMemory() > RAM_8GB_CUTOFF;
   return increase;
 }
 
@@ -938,5 +875,9 @@ const base::FeatureParam<int> kConfigurableGPUWatchdogTimeoutSeconds{
 // early when the renderer process is being initialized, instead of waiting
 // for the renderer to request the GPU channel to the browser process.
 BASE_FEATURE(kSendGPUChannelEarly, base::FEATURE_DISABLED_BY_DEFAULT);
+// If true, only enable the early GPU channel optimization for topchrome WebUI
+// renderers.
+const base::FeatureParam<bool> kSendGPUChannelEarlyTopChromeOnly{
+    &kSendGPUChannelEarly, "for_topchrome_webui_only", false};
 
 }  // namespace features

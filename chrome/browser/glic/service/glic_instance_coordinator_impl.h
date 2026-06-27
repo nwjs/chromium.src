@@ -18,6 +18,7 @@
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/common/glic_tab_observer.h"
+#include "chrome/browser/glic/common/instance_independent_hotkey_manager.h"
 #include "chrome/browser/glic/glic_tab_restore_data.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
@@ -51,6 +52,7 @@ class Point;
 
 namespace glic {
 
+class GlicActiveInstanceSharingManager;
 class ContextualCueingService;
 class WebUIContentsContainer;
 class GlicWebContentsWarmingPool;
@@ -106,11 +108,15 @@ class GlicInstanceCoordinatorImpl
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event_details) override;
 
-  // GlicInstanceCoordinator and GlicInstanceCoordinatorMetrics::DataProvider
-  // implementation
-  std::vector<GlicInstance*> GetInstances() override;
+  // GlicInstanceCoordinatorMetrics::DataProvider implementation
+  int GetVisibleInstanceCount() const override;
+
+  bool IsAnyPanelShowing() const override;
+  bool IsConversationPresent(const std::string& conversation_id) const override;
   // GlicInstanceCoordinator implementation
   GlicInstance* GetInstanceForTab(const tabs::TabInterface* tab) const override;
+  GlicInstance* GetInstanceWithGlicWebContents(
+      content::WebContents* glic_web_contents) const override;
   // Sorts instances by recency and returns the instance id and
   // conversation title of each conversation.
   std::vector<ConversationInfo> GetRecentlyActiveInstances(
@@ -138,15 +144,13 @@ class GlicInstanceCoordinatorImpl
   // sources are user initiated.
   void Toggle(BrowserWindowInterface* browser,
               bool prevent_close,
-              mojom::InvocationSource source,
-              std::optional<std::string> deprecated_prompt_suggestion,
-              std::optional<std::string> deprecated_conversation_id) override;
+              mojom::InvocationSource source) override;
   void EnsurePreload() override;
   // Shuts down all hosts. Only call it before destruction of the instance
   // coordinator.
   void Shutdown() override;
   void Close(const CloseOptions& options) override;
-  base::WeakPtr<GlicInstance> Invoke(GlicInvokeOptions options);
+  base::WeakPtr<GlicInstance> Invoke(GlicInvokeOptions options) override;
   base::WeakPtr<GlicInstance> InvokeWithAutoSubmit(
       InvokeWithAutoSubmitPasskey auto_submit_passkey,
       GlicInvokeOptions options);
@@ -178,6 +182,7 @@ class GlicInstanceCoordinatorImpl
   AddActiveInstanceChangedCallbackAndNotifyImmediately(
       ActiveInstanceChangedCallback callback) override;
   GlicInstance* GetActiveInstance() override;
+  GlicSharingManager& active_instance_sharing_manager() override;
 
   // Returns a pointer to an instance with a Floaty embedder or nullptr.
   GlicInstanceImpl* GetInstanceWithFloaty() const;
@@ -186,6 +191,8 @@ class GlicInstanceCoordinatorImpl
   void SetWarmingEnabledForTesting(bool warming_enabled);
   GlicWebContentsWarmingPool& GetWebContentsWarmingPoolForTesting();
   std::string DescribeForTesting();
+  std::vector<GlicInstanceImpl*> GetInstancesForTesting();
+  GlicInstanceCoordinatorMetrics& GetMetricsForTesting() { return metrics_; }
 
   // Testing support. These methods should not be added to the public interface.
   GlicInstanceImpl* GetInstanceImplFor(const InstanceId& id) const;
@@ -202,7 +209,7 @@ class GlicInstanceCoordinatorImpl
   // Returns a pointer to an instance with the given conversation id or nullptr
   // if no such instance exists.
   GlicInstanceImpl* GetInstanceImplForConversationId(
-      const std::string& conversation_id);
+      const std::string& conversation_id) const;
   GlicInstanceImpl* GetOrCreateInstanceImplForConversationId(
       const std::string& conversation_id,
       const std::optional<std::string>& turn_id);
@@ -217,23 +224,21 @@ class GlicInstanceCoordinatorImpl
   // Helper method to get a list of recently active instances sorted by time.
   std::vector<GlicInstanceImpl*> GetSortedRecentInstances(size_t limit) const;
 
+  // GlicInstanceCoordinatorMetrics::DataProvider implementation
+  std::vector<InstanceWebContents> GetAllUnhibernatedWebContents() override;
+
   void ShowInstanceForTabs(GlicInstanceImpl* instance,
                            const std::vector<tabs::TabInterface*>& tabs,
                            GlicPinTrigger pin_trigger);
 
-  void ToggleFloaty(bool prevent_close,
-                    glic::mojom::InvocationSource source,
-                    std::optional<std::string> prompt_suggestion);
+  void ToggleFloaty(bool prevent_close, glic::mojom::InvocationSource source);
   void ToggleSidePanel(BrowserWindowInterface* browser,
                        bool prevent_close,
-                       glic::mojom::InvocationSource source,
-                       std::optional<std::string> prompt_suggestion,
-                       std::optional<std::string> conversation_id);
+                       glic::mojom::InvocationSource source);
 
   void CloseFloaty(const CloseOptions& options = {});
 
   void OnMemoryPressure(base::MemoryPressureLevel level) override;
-  void CheckMemoryUsage();
   void ApplyMaxAwakeInstancesLimit();
 
   void RemoveInstance(GlicInstanceImpl* instance) override;
@@ -248,6 +253,7 @@ class GlicInstanceCoordinatorImpl
   void OnTabsInserted(const TabStripModelChange::Insert* insert);
   void MaybeDaisyChainNewTab(const TabCreationEvent& event);
   void MaybeDaisyChainFromLinkClick(const TabCreationEvent& event);
+  void MaybeDaisyChainFromBookmark(const TabCreationEvent& event);
 
   void OnInvokeHandlerComplete(GlicInstance* instance,
                                GlicInvokeHandler* handler);
@@ -278,7 +284,6 @@ class GlicInstanceCoordinatorImpl
 
   base::MemoryPressureListenerRegistration
       memory_pressure_listener_registration_;
-  base::RepeatingTimer memory_monitor_timer_;
 
   bool warming_enabled_ = true;
 
@@ -291,6 +296,9 @@ class GlicInstanceCoordinatorImpl
                           signin::IdentityManager::Observer>
       identity_manager_observation_{this};
 
+  std::unique_ptr<InstanceIndependentHotkeyManager> hotkey_manager_;
+  std::unique_ptr<GlicActiveInstanceSharingManager>
+      active_instance_sharing_manager_;
   base::WeakPtrFactory<GlicInstanceCoordinatorImpl> weak_ptr_factory_{this};
 };
 

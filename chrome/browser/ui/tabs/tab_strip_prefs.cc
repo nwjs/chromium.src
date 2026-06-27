@@ -22,7 +22,7 @@
 
 namespace {
 
-std::optional<bool> g_tab_search_trailing_tabstrip_at_startup = std::nullopt;
+std::optional<bool> g_tab_search_trailing_tabstrip_at_startup;
 }
 
 namespace tabs {
@@ -93,7 +93,7 @@ void MigrateTabSearchPref(PrefService* profile_prefs) {
 }
 
 void MigrateHoverCardMemoryPref(PrefService* local_prefs) {
-  if (!base::FeatureList::IsEnabled(features::kTabStripDeclutter) ||
+  if (!features::IsTabStripDeclutterEnabled() ||
       local_prefs->GetBoolean(
           prefs::kHoverCardMemoryUsageDisableMigrationComplete)) {
     return;

@@ -16,6 +16,7 @@
 #include "components/input/render_input_router.mojom.h"
 #include "components/viz/common/vertical_scroll_direction.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/common/drop_data.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -60,6 +61,7 @@ class RenderWidgetHostViewBase;
 class RenderViewHostDelegateView;
 class TextInputManager;
 class VisibleTimeRequestTrigger;
+class WebContents;
 enum class KeyboardEventProcessingResult;
 
 //
@@ -197,7 +199,12 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // in rendering a page, yet keyboard events all arrive at the main frame's
   // RenderWidgetHostView.  When a main frame's RenderWidgetHost is passed in,
   // the function returns the focused frame that should consume keyboard
-  // events. In all other cases, the function returns back |receiving_widget|.
+  // events.
+  // Returns nullptr if the focused frame's renderer process has crashed or
+  // the focused frame is outside of this WebContents that is embedded via
+  // SurfaceEmbed (e.g. this is an inner WebContents and the focused frame
+  // is in the outer WebContents).
+  // In all other cases, the function returns back |receiving_widget|.
   virtual RenderWidgetHostImpl* GetFocusedRenderWidgetHost(
       RenderWidgetHostImpl* receiving_widget);
 
@@ -318,6 +325,14 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // the WebContents.
   virtual VisibleTimeRequestTrigger& GetVisibleTimeRequestTrigger() = 0;
 
+  // Notifies the delegate that a drag has started.
+  virtual void OnStartDragging(
+      DropData* drop_data,
+      const GlobalRenderFrameHostToken& source_rfh_token) {}
+
+  // Notifies the delegate that a drag source has ended.
+  virtual void OnDragSourceEnded() {}
+
   // Returns the delegated ink point renderer associated with this WebContents
   // for dispatching delegated ink points to viz. This also attempts to setup
   // mojo connection using |compositor|, if the DelegatedInkPointRenderer
@@ -333,6 +348,9 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // Get the RenderWidgetHost that should receive page level focus events. This
   // will be the widget that is rendering the main frame of the currently
   // focused WebContents.
+  // Returns nullptr if the focused frame is outside of this WebContents that is
+  // embedded via SurfaceEmbed (e.g. this is an inner WebContents and the
+  // focused frame is in the outer WebContents).
   virtual RenderWidgetHostImpl* GetRenderWidgetHostWithPageFocus();
 
   // In cases with multiple RenderWidgetHosts involved in rendering a page, only

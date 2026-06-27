@@ -185,6 +185,11 @@ BASE_DECLARE_FEATURE(kLensOverlayOptimizationFilter);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayNonBlockingPrivacyNotice);
 
+// Enables using the non-blocking privacy notice for the image search
+// entrypoint.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayNonBlockingPrivacyNoticeForImageSearch);
+
 // Enables using separate request ids for page contents vs page viewport
 // uploads.
 // TODO(crbug.com/479292553): Make this flag apply to the legacy CSB flow.
@@ -207,11 +212,21 @@ BASE_DECLARE_FEATURE(kLensSendRawFileMediaTypes);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensSendUrlsInComposeboxes);
 
+// Enables skipping unresolved urls and Lens files, and only sending AAI for
+// modality chips in composebox queries.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOnlySendAaiForModalityChips);
+
 // Enables restricting annotated page content to same site frames for contextual
 // next queries.
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(
     kLensRestrictAnnotatedPageContentToSameSiteFramesForNextQueries);
+
+// Enables deletion of context if a previously uploaded context is associated
+// with a page that was navigated away from or tab that was closed.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensDeleteContextOnPageNavigation);
 
 // The base URL for Lens.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -695,6 +710,14 @@ int GetLensOverlayImageContextMenuActionsTextReceivedTimeout();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlaySidePanelOpenInNewTabEnabled();
 
+// Whether to enable the unified side panel.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensSidePanelUnificationEnabled();
+
+// Whether to allow routing signed out users to the unified side panel.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensSidePanelUnificationAllowSignedOut();
+
 // Returns whether to use the new optimized request flow which makes a request
 // to get the cluster info prior to uploading any image or page content bytes.
 // This also decouples sending the images and page content bytes in the same
@@ -1095,6 +1118,11 @@ int GetLensAimSuggestionsCount();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayNonBlockingPrivacyNoticeEnabled();
 
+// Whether to use the non-blocking privacy notice for the image search
+// entrypoint.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOverlayNonBlockingPrivacyNoticeForImageSearchEnabled();
+
 // Returns the maximum number of times to show the non-blocking privacy
 // notice. If the notice may appear an unlimited number of times, returns a
 // non-positive value.
@@ -1110,6 +1138,11 @@ extern bool IsLensSendRawFileMediaTypesEnabled();
 // Enables sending URLs from the Query Contextualizer in composeboxes.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensSendUrlsInComposeboxesEnabled();
+
+// Enables skipping unresolved urls and Lens files, and only sending AAI for
+// modality chips in composebox queries.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOnlySendAaiForModalityChipsEnabled();
 
 }  // namespace lens::features
 #endif  // COMPONENTS_LENS_LENS_FEATURES_H_

@@ -15,9 +15,11 @@ import android.graphics.Region;
 import android.transition.Transition;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.LayoutRes;
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
@@ -150,25 +152,40 @@ public final class ViewUtils {
     }
 
     /**
-     *  Converts density-independent pixels (dp) to pixels on the screen (px).
-     *
-     *  @param dp Density-independent pixels are based on the physical density of the screen.
-     *  @return   The physical pixels on the screen which correspond to this many
-     *            density-independent pixels for this screen.
+     * @see #dpToPx(DisplayMetrics, float)
      */
     public static int dpToPx(Context context, float dp) {
         return dpToPx(context.getResources().getDisplayMetrics(), dp);
     }
 
     /**
-     *  Converts density-independent pixels (dp) to pixels on the screen (px).
+     * Converts density-independent pixels (dp) to pixels on the screen (px).
      *
-     *  @param dp Density-independent pixels are based on the physical density of the screen.
-     *  @return   The physical pixels on the screen which correspond to this many
-     *            density-independent pixels for this screen.
+     * @param metrics The {@link DisplayMetrics} for checking the current display pixel density.
+     * @param dp Density-independent pixels are based on the physical density of the screen.
+     * @return The physical pixels on the screen which correspond to this many density-independent
+     *     pixels for this screen.
      */
     public static int dpToPx(DisplayMetrics metrics, float dp) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, metrics));
+    }
+
+    /**
+     * @see #pxToDp(DisplayMetrics, int)
+     */
+    public static int pxToDp(Context context, int px) {
+        return pxToDp(context.getResources().getDisplayMetrics(), px);
+    }
+
+    /**
+     * Converts pixels on the screen (px) to density-independent pixels (dp).
+     *
+     * @param metrics The {@link DisplayMetrics} for checking the current display pixel density.
+     * @param px The physical pixels on the screen.
+     * @return The density-independent pixels that correspond to this many physical pixels.
+     */
+    public static int pxToDp(DisplayMetrics displayMetrics, int px) {
+        return Math.round(px / displayMetrics.density);
     }
 
     /**
@@ -318,5 +335,29 @@ public final class ViewUtils {
                 getAllDescendants(child, outCollection, excludedIds);
             }
         }
+    }
+
+    /**
+     * ViewStub can be given a layout id and inflated at runtime, however this approach does not
+     * respect the padding and margins that the root parent view has specified in its layout file.
+     * This method aims to get around this shortcoming by replacing an existing child view with a
+     * new layout that's directly inflated into the parent to keep the paddings and margins. The old
+     * child can but does not have to be a ViewStub.
+     *
+     * @param oldChild The child view that currently has a parent and should be removed.
+     * @param layoutId The layout that should be inflated, should have a single parent view.
+     * @return The new view that has been created and inserted.
+     * @param <T> The type of the parent most view in the layout that is inflated.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends View> T replace(View oldChild, @LayoutRes int layoutId) {
+        Context context = oldChild.getContext();
+        ViewGroup parent = (ViewGroup) oldChild.getParent();
+        int index = parent.indexOfChild(oldChild);
+        LayoutInflater inflater = LayoutInflater.from(context);
+        T newChild = (T) inflater.inflate(layoutId, parent, /* attachToRoot= */ false);
+        parent.removeViewInLayout(oldChild);
+        parent.addView(newChild, index);
+        return newChild;
     }
 }

@@ -394,19 +394,6 @@ public class ContentSettingsResources {
                         R.string.website_settings_javascript_optimizer_allowed,
                         R.string.website_settings_javascript_optimizer_blocked);
 
-            case ContentSettingsType.LOCAL_NETWORK_ACCESS:
-                return new ResourceItem(
-                        R.drawable.router_24,
-                        R.string.local_network_access_permission_title,
-                        ContentSetting.ASK,
-                        ContentSetting.BLOCK,
-                        R.string.website_settings_category_local_network_access_ask,
-                        R.string.website_settings_category_local_network_access_blocked,
-                        R.string.website_settings_category_local_network_access_a11y,
-                        R.drawable.router_off_24,
-                        R.string.website_settings_local_network_access_ask,
-                        R.string.website_settings_local_network_access_block);
-
             case ContentSettingsType.LOCAL_NETWORK:
                 return new ResourceItem(
                         R.drawable.router_24,
@@ -861,27 +848,6 @@ public class ContentSettingsResources {
      * @param value The ContentSetting for which we want the resource.
      * @param isOneTime Whether the content setting value has a OneTime session model.
      * @param isApproximateGeolocation Whether the geolocation is approximate.
-     */
-    public static int getCategorySummary(
-            @ContentSettingsType.EnumType int type,
-            @ContentSetting int value,
-            boolean isOneTime,
-            boolean isApproximateGeolocation) {
-        return getCategorySummary(
-                type,
-                value,
-                isOneTime,
-                isApproximateGeolocation,
-                /* isOnlyPreciseLocationBlockedInOs= */ false);
-    }
-
-    /**
-     * Returns the string resource id for a given ContentSetting to show with a permission category.
-     *
-     * @param type The ContentSettingsType for which we want the resource.
-     * @param value The ContentSetting for which we want the resource.
-     * @param isOneTime Whether the content setting value has a OneTime session model.
-     * @param isApproximateGeolocation Whether the geolocation is approximate.
      * @param isOnlyPreciseLocationBlockedInOs Whether only precise location is blocked in the OS
      *     (but coarse is granted).
      */
@@ -1108,13 +1074,34 @@ public class ContentSettingsResources {
         } else if (contentType == ContentSettingsType.SENSORS) {
             return new int[] {
                 R.drawable.settings_sensors,
-                R.drawable.settings_sensors,
+                R.drawable.sensors_ask_24px,
                 R.drawable.sensors_off_24px
             };
         }
 
         assert false;
         return null;
+    }
+
+    /**
+     * Returns the resource ID of the icon for a given content settings type and value.
+     *
+     * @param contentType The ContentSettingsType.
+     * @param setting The ContentSetting value.
+     * @return The resource ID of the icon.
+     */
+    public static int getTriStateSettingIcon(int contentType, @ContentSetting int setting) {
+        int[] iconIds = getTriStateSettingIconIDs(contentType);
+        if (iconIds != null) {
+            if (setting == ContentSetting.ALLOW) {
+                return iconIds[0];
+            } else if (setting == ContentSetting.ASK) {
+                return iconIds[1];
+            } else if (setting == ContentSetting.BLOCK) {
+                return iconIds[2];
+            }
+        }
+        return getIcon(contentType);
     }
 
     /**

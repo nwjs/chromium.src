@@ -257,6 +257,86 @@ Called by update_document_policy_enum.py.-->
   <int value="16" label="NetworkEfficiencyGuardrails"/>
 </enum>
 
+<!-- LINT.IfChange(EvpPermissionUiStatus) -->
+
+<enum name="EvpPermissionUiStatus">
+  <int value="0" label="Allowed"/>
+  <int value="1" label="Declined"/>
+  <int value="2" label="UserAborted"/>
+  <int value="3" label="Navigation"/>
+  <int value="4" label="TabGone"/>
+  <int value="5" label="WidgetChanged"/>
+  <int value="6" label="OverlappingPrompt"/>
+  <int value="7" label="Other"/>
+  <int value="8" label="ViewDestroyedDirectly"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/autofill/email_verification_popup_controller.h:EvpPermissionUiStatus) -->
+
+<!-- LINT.IfChange(EvpRequestStatus) -->
+
+<enum name="EvpRequestStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="InvalidEmail"/>
+  <int value="2" label="DnsFetchFailed"/>
+  <int value="3" label="DnsInvalidRecord"/>
+  <int value="4" label="WellKnownHttpNotFound"/>
+  <int value="5" label="WellKnownNoResponse"/>
+  <int value="6" label="WellKnownInvalidResponse"/>
+  <int value="7" label="WellKnownListEmpty"/>
+  <int value="8" label="WellKnownInvalidContentType"/>
+  <int value="9" label="WellKnownMissingIssuanceEndpoint"/>
+  <int value="10" label="WellKnownIssuanceEndpointCrossOrigin"/>
+  <int value="11" label="WellKnownUnsupportedSigningAlgorithm"/>
+  <int value="12" label="TokenHttpNotFound"/>
+  <int value="13" label="TokenNoResponse"/>
+  <int value="14" label="TokenInvalidResponse"/>
+  <int value="15" label="TokenInvalidContentType"/>
+  <int value="16" label="TokenMalformedSdJwt"/>
+  <int value="17" label="TokenInvalidSdJwt"/>
+  <int value="18" label="KeyBindingSigningFailed"/>
+  <int value="19" label="RpOriginIsOpaque"/>
+  <int value="20" label="WellKnownMissingAccountsEndpoint"/>
+  <int value="21" label="UserLoggedOut"/>
+  <int value="22" label="WellKnownAccountsEndpointCrossOrigin"/>
+  <int value="23" label="AccountsHttpNotFound"/>
+  <int value="24" label="AccountsNoResponse"/>
+  <int value="25" label="AccountsInvalidResponse"/>
+  <int value="26" label="AccountsInvalidContentType"/>
+  <int value="27" label="AccountsEmptyList"/>
+  <int value="28" label="EmailVerificationWellKnownHttpNotFound"/>
+  <int value="29" label="EmailVerificationWellKnownNoResponse"/>
+  <int value="30" label="EmailVerificationWellKnownInvalidResponse"/>
+  <int value="31" label="EmailVerificationWellKnownInvalidContentType"/>
+  <int value="32" label="JwksHttpNotFound"/>
+  <int value="33" label="JwksInvalidResponse"/>
+  <int value="34" label="TokenVerificationSdJwtUnsupportedHeaderAlg"/>
+  <int value="35" label="TokenVerificationSdJwtMissingIss"/>
+  <int value="36" label="TokenVerificationSdJwtMissingIat"/>
+  <int value="37" label="TokenVerificationSdJwtMissingCnf"/>
+  <int value="38" label="TokenVerificationSdJwtMissingEmail"/>
+  <int value="39" label="TokenVerificationSdJwtInvalidIssuedAt"/>
+  <int value="40" label="TokenVerificationSdJwtInvalidIssuer"/>
+  <int value="41" label="TokenVerificationSdJwtJwksMissingKeys"/>
+  <int value="42" label="TokenVerificationSdJwtSignatureFailed"/>
+  <int value="43" label="TokenVerificationSdJwtInvalidEmailVerified"/>
+  <int value="44" label="TokenVerificationSdJwtInvalidEmail"/>
+  <int value="45" label="TokenVerificationSdJwtInvalidHolderKey"/>
+  <int value="46" label="TokenVerificationKbInvalidTyp"/>
+  <int value="47" label="TokenVerificationKbMissingAud"/>
+  <int value="48" label="TokenVerificationKbMissingNonce"/>
+  <int value="49" label="TokenVerificationKbMissingIat"/>
+  <int value="50" label="TokenVerificationKbMissingSdHash"/>
+  <int value="51" label="TokenVerificationKbInvalidIssuedAt"/>
+  <int value="52" label="TokenVerificationKbInvalidAudience"/>
+  <int value="53" label="TokenVerificationKbInvalidNonce"/>
+  <int value="54" label="TokenVerificationKbInvalidSdHash"/>
+  <int value="55" label="TokenVerificationKbMissingCnf"/>
+  <int value="56" label="TokenVerificationKbSignatureFailed"/>
+</enum>
+
+<!-- LINT.ThenChange(//third_party/blink/public/mojom/webid/email_verification_request.mojom:EmailVerificationRequestResult) -->
+
 <!-- LINT.IfChange(FeatureObserver) -->
 
 <enum name="FeatureObserver">
@@ -4686,7 +4766,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4225" label="OBSOLETE_FedCmLogout"/>
   <int value="4226" label="OBSOLETE_FedCmLogoutRps"/>
   <int value="4227" label="V8Navigator_DeprecatedReplaceInURN_Method"/>
-  <int value="4228" label="WebAppBorderless"/>
+  <int value="4228" label="OBSOLETE_WebAppBorderless"/>
   <int value="4229" label="PaymentInstruments"/>
   <int value="4230" label="V8PaymentInstruments_Clear_Method"/>
   <int value="4231" label="V8PaymentInstruments_Delete_Method"/>
@@ -4702,12 +4782,12 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4241" label="ScriptSchedulingType_InOrder"/>
   <int value="4242" label="ScriptSchedulingType_Async"/>
   <int value="4243" label="Focusgroup"/>
-  <int value="4244" label="V8HTMLElement_Focusgroup_AttributeGetter"/>
-  <int value="4245" label="V8HTMLElement_Focusgroup_AttributeSetter"/>
-  <int value="4246" label="V8MathMLElement_Focusgroup_AttributeGetter"/>
-  <int value="4247" label="V8MathMLElement_Focusgroup_AttributeSetter"/>
-  <int value="4248" label="V8SVGElement_Focusgroup_AttributeGetter"/>
-  <int value="4249" label="V8SVGElement_Focusgroup_AttributeSetter"/>
+  <int value="4244" label="V8HTMLElement_FocusGroup_AttributeGetter"/>
+  <int value="4245" label="V8HTMLElement_FocusGroup_AttributeSetter"/>
+  <int value="4246" label="V8MathMLElement_FocusGroup_AttributeGetter"/>
+  <int value="4247" label="V8MathMLElement_FocusGroup_AttributeSetter"/>
+  <int value="4248" label="V8SVGElement_FocusGroup_AttributeGetter"/>
+  <int value="4249" label="V8SVGElement_FocusGroup_AttributeSetter"/>
   <int value="4250" label="CSSLegacyPerspectiveOrigin"/>
   <int value="4251" label="CSSLegacyTransformOrigin"/>
   <int value="4252" label="CSSLegacyBorderImage"/>
@@ -6460,7 +6540,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5819" label="SynthesizedMiddleClickAnchor"/>
   <int value="5820" label="SynthesizedMiddleClickArea"/>
   <int value="5821" label="SynthesizedMiddleClickSVGAnchor"/>
-  <int value="5822" label="WebAuthenticationCspDisallowsRpId"/>
+  <int value="5822" label="OBSOLETE_WebAuthenticationCspDisallowsRpId"/>
   <int value="5823" label="HistoryGoBackWouldSkipAd"/>
   <int value="5824" label="HistoryGoForwardWouldSkipAd"/>
   <int value="5825"
@@ -6536,6 +6616,15 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5892" label="CapabilityElementOnPromptDismiss"/>
   <int value="5893" label="CapabilityElementOnValidationStatusChange"/>
   <int value="5894" label="InputParsedParentSelectNoOptions"/>
+  <int value="5895" label="FocusGroupStart"/>
+  <int value="5896" label="WebAuthenticationRemoteCspDisallowsRpId"/>
+  <int value="5897" label="SpeculationMeasurement"/>
+  <int value="5898" label="CryptoAlgorithmMlKem768X25519"/>
+  <int value="5899" label="GeolocationAccuracyModeApproximate"/>
+  <int value="5900" label="SVGAnimVal"/>
+  <int value="5901" label="SubtleCryptoGetPublicKey"/>
+  <int value="5902" label="CapabilityDelegationOfDigitalCredentialsCreate"/>
+  <int value="5903" label="CapabilityDelegationOfDigitalCredentialsGet"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -8359,7 +8448,7 @@ Called by update_use_counter_css.py.-->
   <int value="865" label="corner-block-end-shape"/>
   <int value="866" label="corner-inline-start-shape"/>
   <int value="867" label="corner-inline-end-shape"/>
-  <int value="868" label="corners"/>
+  <int value="868" label="corners (obsolete)"/>
   <int value="869" label="border-shape"/>
   <int value="870" label="animation-trigger-behavior (obsolete)"/>
   <int value="871" label="timeline-trigger-name"/>
@@ -8435,9 +8524,37 @@ Called by update_use_counter_css.py.-->
   <int value="941" label="hanging-punctuation"/>
   <int value="942" label="flex-line-count"/>
   <int value="943" label="text-decoration-skip-spaces"/>
+  <int value="944" label="corner"/>
+  <int value="945" label="scroll-axis-lock"/>
+  <int value="946" label="corner-top-left"/>
+  <int value="947" label="corner-top-right"/>
+  <int value="948" label="corner-bottom-left"/>
+  <int value="949" label="corner-bottom-right"/>
+  <int value="950" label="corner-start-start"/>
+  <int value="951" label="corner-start-end"/>
+  <int value="952" label="corner-end-start"/>
+  <int value="953" label="corner-end-end"/>
+  <int value="954" label="corner-top"/>
+  <int value="955" label="corner-right"/>
+  <int value="956" label="corner-bottom"/>
+  <int value="957" label="corner-left"/>
+  <int value="958" label="corner-block-start"/>
+  <int value="959" label="corner-block-end"/>
+  <int value="960" label="corner-inline-start"/>
+  <int value="961" label="corner-inline-end"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
+
+<!-- LINT.IfChange(OpenId4VpResponseMode) -->
+
+<enum name="OpenId4VpResponseMode">
+  <int value="0" label="dc_api"/>
+  <int value="1" label="dc_api.jwt"/>
+  <int value="2" label="Other"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/digital_credentials/digital_identity_request_impl.cc:OpenId4VpResponseMode) -->
 
 <!-- LINT.IfChange(OriginStatusOnSubresource) -->
 
@@ -8990,6 +9107,10 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="433" label="Webgl"/>
   <int value="434" label="Webgl2"/>
   <int value="435" label="DigitalCredentials"/>
+  <int value="436" label="MediaPseudos"/>
+  <int value="437" label="GapDecorations"/>
+  <int value="438" label="FlexWrapBalance"/>
+  <int value="439" label="TextFit"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

@@ -59,6 +59,10 @@
 #include "ui/views/window/dialog_delegate.h"
 #include "ui/views/window/vector_icons/vector_icons.h"
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 namespace views {
 
 namespace {
@@ -174,7 +178,9 @@ std::unique_ptr<Label> BubbleFrameView::CreateDefaultTitleLabel(
 std::unique_ptr<Button> BubbleFrameView::CreateCloseButton(
     Button::PressedCallback callback) {
   auto close_button = CreateVectorImageButtonWithNativeTheme(
-      std::move(callback), vector_icons::kCloseChromeRefreshIcon);
+      std::move(callback), features::IsRoundedIconsEnabled()
+                               ? vector_icons::kCloseSmallIcon
+                               : vector_icons::kCloseChromeRefreshOldIcon);
   close_button->SetTooltipText(l10n_util::GetStringUTF16(IDS_APP_CLOSE));
   close_button->GetViewAccessibility().SetName(
       l10n_util::GetStringUTF16(IDS_APP_CLOSE));
@@ -189,7 +195,9 @@ std::unique_ptr<Button> BubbleFrameView::CreateCloseButton(
 std::unique_ptr<Button> BubbleFrameView::CreateMinimizeButton(
     Button::PressedCallback callback) {
   auto minimize_button = CreateVectorImageButtonWithNativeTheme(
-      std::move(callback), kWindowControlMinimizeIcon);
+      std::move(callback), features::IsRoundedIconsEnabled()
+                               ? kChromeMinimizeIcon
+                               : kWindowControlMinimizeOldIcon);
   minimize_button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_APP_ACCNAME_MINIMIZE));
   minimize_button->GetViewAccessibility().SetName(
@@ -292,8 +300,9 @@ int BubbleFrameView::NonClientHitTest(const gfx::Point& point) {
   }
 
   if (!non_client_hit_test_callback_.is_null()) {
-    if (auto result = non_client_hit_test_callback_.Run(point); result) {
-      return result.value();
+    int result = non_client_hit_test_callback_.Run(point);
+    if (result != HTNOWHERE) {
+      return result;
     }
   }
 
@@ -499,16 +508,16 @@ void BubbleFrameView::UpdateMainImage() {
 
     const int border_radius = LayoutProvider::Get()->GetCornerRadiusMetric(
         Emphasis::kHigh, gfx::Size());
+    const ui::ColorProvider* color_provider = GetColorProvider();
     main_image_->SetImage(ui::ImageModel::FromImageSkia(
         gfx::ImageSkiaOperations::CreateCroppedCenteredRoundRectImage(
             gfx::Size(main_image_dimension, main_image_dimension),
             border_radius - 2 * kMainImageBorderStrokeThickness,
-            model.GetImage().AsImageSkia())));
+            model.Rasterize(color_provider))));
     main_image_->SetBorder(views::CreateRoundedRectBorder(
         kMainImageBorderStrokeThickness, border_radius, image_insets,
-        GetColorProvider()
-            ? GetColorProvider()->GetColor(ui::kColorBubbleBorder)
-            : gfx::kPlaceholderColor));
+        color_provider ? color_provider->GetColor(ui::kColorBubbleBorder)
+                       : gfx::kPlaceholderColor));
 
     main_image_->SetVisible(true);
   }
@@ -995,10 +1004,23 @@ gfx::Insets BubbleFrameView::GetClientViewInsets() const {
 
 gfx::Rect BubbleFrameView::GetAvailableScreenBounds(
     const gfx::Rect& rect) const {
+  gfx::Rect work_area = display::Screen::Get()
+                            ->GetDisplayNearestPoint(rect.CenterPoint())
+                            .work_area();
+#if BUILDFLAG(IS_OZONE)
+  // When global screen coordinates aren't supported, shift the work area to
+  // (0,0). If two displays are offset, the work area coordinates may not start
+  // at 0 which results in invalid comparisons when positioning bubbles.
+  // TODO(crbug.com/510418617): Consider moving this logic to the display level
+  // in the future rather than hosting it in Views.
+  if (!ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_global_screen_coordinates) {
+    work_area.set_origin(gfx::Point(0, 0));
+  }
+#endif
   // The bubble attempts to fit within the current screen bounds.
-  return display::Screen::Get()
-      ->GetDisplayNearestPoint(rect.CenterPoint())
-      .work_area();
+  return work_area;
 }
 
 gfx::Rect BubbleFrameView::GetAvailableAnchorWindowBounds() const {

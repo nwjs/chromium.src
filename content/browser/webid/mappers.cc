@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/webid/delegation/email_verification_request.h"
 #include "content/browser/webid/flags.h"
 #include "content/browser/webid/metrics.h"
 #include "content/public/browser/webid/identity_credential_source.h"
@@ -23,6 +24,8 @@ using FederatedApiPermissionStatus =
     content::FederatedIdentityApiPermissionContextDelegate::PermissionStatus;
 
 namespace content::webid {
+
+using blink::mojom::EmailVerificationRequestResult;
 
 std::vector<std::string> DisclosureFieldsToStringList(
     const std::vector<IdentityRequestDialogDisclosureField>& fields) {
@@ -277,6 +280,150 @@ IdAssertionFetchStatusToRequestResultAndTokenStatus(FetchStatus status) {
       NOTREACHED() << "EmptyListError is not an option for this fetch";
     case ParseStatus::kSuccess:
       NOTREACHED() << "Should not be invoked with success";
+  }
+}
+
+EmailVerificationRequestResult WellKnownParseStatusToEvpRequestStatus(
+    ParseStatus parse_status) {
+  switch (parse_status) {
+    case ParseStatus::kHttpNotFoundError:
+      return EmailVerificationRequestResult::kWellKnownHttpNotFound;
+    case ParseStatus::kNoResponseError:
+      return EmailVerificationRequestResult::kWellKnownNoResponse;
+    case ParseStatus::kInvalidResponseError:
+      return EmailVerificationRequestResult::kWellKnownInvalidResponse;
+    case ParseStatus::kEmptyListError:
+      return EmailVerificationRequestResult::kWellKnownListEmpty;
+    case ParseStatus::kInvalidContentTypeError:
+      return EmailVerificationRequestResult::kWellKnownInvalidContentType;
+    case ParseStatus::kSuccess:
+      NOTREACHED();
+  }
+}
+
+EmailVerificationRequestResult
+EmailVerificationWellKnownParseStatusToEvpRequestStatus(
+    ParseStatus parse_status) {
+  switch (parse_status) {
+    case ParseStatus::kHttpNotFoundError:
+      return EmailVerificationRequestResult::
+          kEmailVerificationWellKnownHttpNotFound;
+    case ParseStatus::kNoResponseError:
+      return EmailVerificationRequestResult::
+          kEmailVerificationWellKnownNoResponse;
+    case ParseStatus::kInvalidResponseError:
+      return EmailVerificationRequestResult::
+          kEmailVerificationWellKnownInvalidResponse;
+    case ParseStatus::kEmptyListError:
+      NOTREACHED() << "EmptyListError is not an option for this fetch";
+    case ParseStatus::kInvalidContentTypeError:
+      return EmailVerificationRequestResult::
+          kEmailVerificationWellKnownInvalidContentType;
+    case ParseStatus::kSuccess:
+      NOTREACHED();
+  }
+}
+
+EmailVerificationRequestResult AccountsListParseStatusToEvpRequestStatus(
+    ParseStatus parse_status) {
+  switch (parse_status) {
+    case ParseStatus::kHttpNotFoundError:
+      return EmailVerificationRequestResult::kAccountsHttpNotFound;
+    case ParseStatus::kNoResponseError:
+      return EmailVerificationRequestResult::kAccountsNoResponse;
+    case ParseStatus::kInvalidResponseError:
+      return EmailVerificationRequestResult::kAccountsInvalidResponse;
+    case ParseStatus::kEmptyListError:
+      return EmailVerificationRequestResult::kAccountsEmptyList;
+    case ParseStatus::kInvalidContentTypeError:
+      return EmailVerificationRequestResult::kAccountsInvalidContentType;
+    case ParseStatus::kSuccess:
+      NOTREACHED();
+  }
+}
+
+EmailVerificationRequestResult TokenParseStatusToEvpRequestStatus(
+    ParseStatus parse_status) {
+  switch (parse_status) {
+    case ParseStatus::kHttpNotFoundError:
+      return EmailVerificationRequestResult::kTokenHttpNotFound;
+    case ParseStatus::kNoResponseError:
+      return EmailVerificationRequestResult::kTokenNoResponse;
+    case ParseStatus::kInvalidResponseError:
+      return EmailVerificationRequestResult::kTokenInvalidResponse;
+    case ParseStatus::kInvalidContentTypeError:
+      return EmailVerificationRequestResult::kTokenInvalidContentType;
+    case ParseStatus::kEmptyListError:
+    case ParseStatus::kSuccess:
+      NOTREACHED();
+  }
+}
+
+EmailVerificationRequestResult VerificationResultToEvpRequestStatus(
+    EvtVerifier::Result result) {
+  switch (result) {
+    case EvtVerifier::Result::kVerified:
+      return EmailVerificationRequestResult::kSuccess;
+    case EvtVerifier::Result::kInvalidSdJwtKb:
+      return EmailVerificationRequestResult::kTokenMalformedSdJwt;
+    case EvtVerifier::Result::kSdJwtUnsupportedHeaderAlg:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtUnsupportedHeaderAlg;
+    case EvtVerifier::Result::kSdJwtMissingIss:
+      return EmailVerificationRequestResult::kTokenVerificationSdJwtMissingIss;
+    case EvtVerifier::Result::kSdJwtMissingIat:
+      return EmailVerificationRequestResult::kTokenVerificationSdJwtMissingIat;
+    case EvtVerifier::Result::kSdJwtMissingCnf:
+      return EmailVerificationRequestResult::kTokenVerificationSdJwtMissingCnf;
+    case EvtVerifier::Result::kSdJwtMissingEmail:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtMissingEmail;
+    case EvtVerifier::Result::kSdJwtInvalidIssuedAt:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtInvalidIssuedAt;
+    case EvtVerifier::Result::kSdJwtInvalidIssuer:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtInvalidIssuer;
+    case EvtVerifier::Result::kSdJwtJwksMissingKeys:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtJwksMissingKeys;
+    case EvtVerifier::Result::kSdJwtSignatureFailed:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtSignatureFailed;
+    case EvtVerifier::Result::kSdJwtInvalidEmailVerified:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtInvalidEmailVerified;
+    case EvtVerifier::Result::kSdJwtInvalidEmail:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtInvalidEmail;
+    case EvtVerifier::Result::kSdJwtInvalidHolderKey:
+      return EmailVerificationRequestResult::
+          kTokenVerificationSdJwtInvalidHolderKey;
+    case EvtVerifier::Result::kKbInvalidTyp:
+      return EmailVerificationRequestResult::kTokenVerificationKbInvalidTyp;
+    case EvtVerifier::Result::kKbMissingAud:
+      return EmailVerificationRequestResult::kTokenVerificationKbMissingAud;
+    case EvtVerifier::Result::kKbMissingNonce:
+      return EmailVerificationRequestResult::kTokenVerificationKbMissingNonce;
+    case EvtVerifier::Result::kKbMissingIat:
+      return EmailVerificationRequestResult::kTokenVerificationKbMissingIat;
+    case EvtVerifier::Result::kKbMissingSdHash:
+      return EmailVerificationRequestResult::kTokenVerificationKbMissingSdHash;
+    case EvtVerifier::Result::kKbInvalidIssuedAt:
+      return EmailVerificationRequestResult::
+          kTokenVerificationKbInvalidIssuedAt;
+    case EvtVerifier::Result::kKbInvalidAudience:
+      return EmailVerificationRequestResult::
+          kTokenVerificationKbInvalidAudience;
+    case EvtVerifier::Result::kKbInvalidNonce:
+      return EmailVerificationRequestResult::kTokenVerificationKbInvalidNonce;
+    case EvtVerifier::Result::kKbInvalidSdHash:
+      return EmailVerificationRequestResult::kTokenVerificationKbInvalidSdHash;
+    case EvtVerifier::Result::kKbMissingCnf:
+      return EmailVerificationRequestResult::kTokenVerificationKbMissingCnf;
+    case EvtVerifier::Result::kKbSignatureFailed:
+      return EmailVerificationRequestResult::
+          kTokenVerificationKbSignatureFailed;
   }
 }
 

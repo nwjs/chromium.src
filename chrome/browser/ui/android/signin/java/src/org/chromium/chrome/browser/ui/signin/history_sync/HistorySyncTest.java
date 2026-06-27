@@ -44,10 +44,13 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
@@ -62,6 +65,7 @@ import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.ViewUtils;
 
@@ -69,6 +73,7 @@ import org.chromium.ui.test.util.ViewUtils;
 @RunWith(ContentJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DoNotBatch(reason = "This test relies on native initialization")
+@DisableLeakChecks("crbug.com/512492471 (IdentityManagerImpl)")
 public class HistorySyncTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
@@ -208,6 +213,7 @@ public class HistorySyncTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511289299
     public void testPositiveButtonWithNonMinorModeAccount() {
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newBuilder()
@@ -340,6 +346,7 @@ public class HistorySyncTest {
 
     @Test
     @MediumTest
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testButtonsEquallyWeightedWithMinorAccount_portraitMode() {
         Activity historySyncActivity = mActivityTestRule.getActivity();
         ActivityTestUtils.rotateActivityToOrientation(
@@ -395,6 +402,7 @@ public class HistorySyncTest {
 
     @Test
     @MediumTest
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testButtonsUnequallyWeightedWithNonMinorAccount_portraitMode() {
         Activity historySyncActivity = mActivityTestRule.getActivity();
         ActivityTestUtils.rotateActivityToOrientation(

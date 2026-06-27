@@ -491,7 +491,7 @@ bool Extension::OverlapsWithOrigin(const GURL& origin) const {
   return web_extent().OverlapsWith(origin_only_pattern_list);
 }
 
-Extension::ManifestData* Extension::GetManifestData(
+const Extension::ManifestData* Extension::GetManifestData(
     std::string_view key) const {
   DCHECK(finished_parsing_manifest_ || thread_checker_.CalledOnValidThread());
   auto iter = manifest_data_.find(key);
@@ -793,6 +793,8 @@ bool Extension::LoadShortName(std::u16string* error) {
     }
     std::u16string localized_short_name =
         base::UTF8ToUTF16(*localized_short_name_utf8);
+    localized_short_name = base::CollapseWhitespace(localized_short_name, true);
+    base::i18n::SanitizeUserSuppliedString(&localized_short_name);
     base::i18n::AdjustStringForLocaleDirection(&localized_short_name);
     short_name_ = base::UTF16ToUTF8(localized_short_name);
   } else {

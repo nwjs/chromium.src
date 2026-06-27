@@ -6,15 +6,18 @@
 
 #include <optional>
 #include <set>
+#include <utility>
 
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "components/page_content_annotations/core/page_content_store.h"
 #include "url/gurl.h"
 
@@ -121,16 +124,17 @@ void PageContentCache::CachePageContent(
     const GURL& url,
     const base::Time& visit_timestamp,
     const base::Time& extraction_timestamp,
-    const optimization_guide::proto::PageContext& page_context) {
+    optimization_guide::proto::PageContext page_context) {
   if (!store_initialized_) {
     pending_tasks_.push_back(base::BindOnce(
         &PageContentCache::CachePageContent, weak_ptr_factory_.GetWeakPtr(),
-        tab_id, url, visit_timestamp, extraction_timestamp, page_context));
+        tab_id, url, visit_timestamp, extraction_timestamp,
+        std::move(page_context)));
     return;
   }
   store_.AsyncCall(&optimization_guide::PageContentStore::AddPageContent)
-      .WithArgs(url, page_context, visit_timestamp, extraction_timestamp,
-                std::make_optional(tab_id))
+      .WithArgs(url, std::move(page_context), visit_timestamp,
+                extraction_timestamp, std::make_optional(tab_id))
       .Then(base::BindOnce(
           [](base::WeakPtr<PageContentCache> cache, int64_t tab_id,
              bool success) {
@@ -222,7 +226,7 @@ void PageContentCache::CleanUpAndRecordMetrics(
 }
 
 void PageContentCache::OnOsCryptAsyncReady(
-    os_crypt_async::Encryptor encryptor) {
+    scoped_refptr<os_crypt_async::Encryptor> encryptor) {
   store_.AsyncCall(&optimization_guide::PageContentStore::InitWithEncryptor)
       .WithArgs(std::move(encryptor))
       .Then(base::BindOnce(&PageContentCache::OnStoreInitialized,

@@ -47,7 +47,9 @@
 #include "components/enterprise/common/proto/synced/browser_events.pb.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
+#include "components/enterprise/connectors/core/features.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
+#include "components/enterprise/obfuscation/core/download_obfuscator.h"
 #include "components/policy/core/common/cloud/dm_token.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
 #include "components/policy/core/common/policy_pref_names.h"
@@ -177,7 +179,8 @@ chrome::cros::reporting::proto::UnscannedFileEvent CreateUnscannedFileEvent(
     const std::string& content_type,
     size_t content_size,
     chrome::cros::reporting::proto::UnscannedFileEvent::UnscannedReason reason,
-    chrome::cros::reporting::proto::EventResult event_result) {
+    chrome::cros::reporting::proto::EventResult event_result,
+    bool include_referrer = true) {
   chrome::cros::reporting::proto::UnscannedFileEvent event;
 
   event.set_url("https://example.com/download.exe");
@@ -204,6 +207,13 @@ chrome::cros::reporting::proto::UnscannedFileEvent CreateUnscannedFileEvent(
   event.set_content_size(content_size);
   event.set_unscanned_reason(reason);
   event.set_event_result(event_result);
+
+  if (include_referrer &&
+      base::FeatureList::IsEnabled(safe_browsing::kEnhancedFieldsForSecOps)) {
+    auto* referrer = event.add_referrers();
+    referrer->set_url("https://example.com/download.exe");
+    referrer->set_ip("example.com");
+  }
 
   return event;
 }
@@ -484,6 +494,10 @@ class FakeDownloadProtectionService : public DownloadProtectionService {
   enterprise_connectors::BinaryUploadService* GetBinaryUploadService(
       Profile* profile,
       const enterprise_connectors::AnalysisSettings&) override {
+    CHECK(profile);
+    if (binary_upload_service_override_) {
+      return binary_upload_service_override_;
+    }
     return &binary_upload_service_;
   }
 
@@ -491,8 +505,15 @@ class FakeDownloadProtectionService : public DownloadProtectionService {
     return &binary_upload_service_;
   }
 
+  void set_binary_upload_service(
+      enterprise_connectors::BinaryUploadService* service) {
+    binary_upload_service_override_ = service;
+  }
+
  private:
   FakeBinaryUploadService binary_upload_service_;
+  raw_ptr<enterprise_connectors::BinaryUploadService>
+      binary_upload_service_override_ = nullptr;
 };
 
 class DeepScanningRequestTest : public testing::Test {
@@ -952,6 +973,106 @@ TEST_P(DeepScanningRequestAllFeaturesEnabledTest,
 }
 
 class DeepScanningAPPRequestTest : public DeepScanningRequestTest {};
+
+class TestCancellationFakeBinaryUploadService : public FakeBinaryUploadService {
+ public:
+  void set_synchronous_cancel(bool sync) { synchronous_cancel_ = sync; }
+  void SetQuitOnUploadCallback(base::OnceClosure closure) {
+    quit_on_upload_ = std::move(closure);
+  }
+
+  void MaybeUploadForDeepScanning(
+      std::unique_ptr<enterprise_connectors::BinaryUploadRequest> request)
+      override {
+    pending_request_ = std::move(request);
+    if (quit_on_upload_) {
+      std::move(quit_on_upload_).Run();
+    }
+  }
+
+  void MaybeCancelRequests(
+      std::unique_ptr<enterprise_connectors::BinaryUploadCancelRequests> cancel)
+      override {
+    FakeBinaryUploadService::MaybeCancelRequests(std::move(cancel));
+    if (pending_request_ && synchronous_cancel_) {
+      pending_request_->FinishRequest(
+          enterprise_connectors::ScanRequestUploadResult::kUserCancelled,
+          enterprise_connectors::ContentAnalysisResponse());
+      pending_request_.reset();
+    }
+  }
+
+ private:
+  std::unique_ptr<enterprise_connectors::BinaryUploadRequest> pending_request_;
+  bool synchronous_cancel_ = false;
+  base::OnceClosure quit_on_upload_;
+};
+
+class TouchObserver : public DeepScanningRequest::Observer {
+ public:
+  void OnFinish(DeepScanningRequest* request) override { ++on_finish_called_; }
+
+  int on_finish_called() const { return on_finish_called_; }
+
+ private:
+  int on_finish_called_ = 0;
+};
+
+TEST_F(DeepScanningAPPRequestTest, FinishRequestCalledOnceWithCancellation) {
+  for (bool synchronous_cancel : {true, false}) {
+    TestCancellationFakeBinaryUploadService cancel_upload_service;
+    cancel_upload_service.set_synchronous_cancel(synchronous_cancel);
+    download_protection_service_.set_binary_upload_service(
+        &cancel_upload_service);
+
+    enterprise_connectors::AnalysisSettings settings;
+    settings.tags = {{"malware", enterprise_connectors::TagSettings()}};
+
+    std::unique_ptr<DeepScanningRequest> request =
+        std::make_unique<DeepScanningRequest>(
+            CreateMetadata(),
+            DownloadItemWarningData::DeepScanTrigger::TRIGGER_CONSUMER_PROMPT,
+            DownloadCheckResult::SAFE, base::DoNothing(),
+            &download_protection_service_, std::move(settings),
+            /*password=*/std::nullopt);
+
+    TouchObserver touch_observer;
+    request->AddObserver(&touch_observer);
+
+    request->Start();
+    request->OnDownloadDestroyed(&item_);
+
+    // Regardless of whether the cancellation executes synchronously or
+    // asynchronously, the WeakPtr guard inside OnDownloadDestroyed ensures
+    // FinishRequest (and thus OnFinish) is called exactly once to clear state.
+    EXPECT_EQ(touch_observer.on_finish_called(), 1);
+
+    download_protection_service_.set_binary_upload_service(nullptr);
+  }
+}
+
+TEST_F(DeepScanningAPPRequestTest,
+       DownloadDestroyedNullBrowserContextCrashTest) {
+  // Overwrite the item's browser context with nullptr to simulate a normal
+  // download destruction where the browser context is lost.
+  content::DownloadItemUtils::AttachInfoForTesting(&item_, nullptr, nullptr);
+
+  enterprise_connectors::AnalysisSettings settings;
+  settings.tags = {{"malware", enterprise_connectors::TagSettings()}};
+
+  std::unique_ptr<DeepScanningRequest> request =
+      std::make_unique<DeepScanningRequest>(
+          CreateMetadata(),
+          DownloadItemWarningData::DeepScanTrigger::TRIGGER_CONSUMER_PROMPT,
+          DownloadCheckResult::SAFE, base::DoNothing(),
+          &download_protection_service_, std::move(settings),
+          /*password=*/std::nullopt);
+
+  // OnDownloadDestroyed should successfully complete and call FinishRequest /
+  // AcknowledgeRequest without any null-dereference crashes because of the new
+  // null guards.
+  request->OnDownloadDestroyed(&item_);
+}
 
 TEST_F(DeepScanningAPPRequestTest, CancelsUploadOnDownloadDestroyed) {
   enterprise_connectors::AnalysisSettings settings;
@@ -2180,7 +2301,8 @@ TEST_P(DeepScanningReportingSourceTypeTest, MultipleFiles) {
         /*reason=*/
         chrome::cros::reporting::proto::UnscannedFileEvent::MALWARE_SCAN_FAILED,
         /*event_result=*/
-        chrome::cros::reporting::proto::EventResult::EVENT_RESULT_ALLOWED);
+        chrome::cros::reporting::proto::EventResult::EVENT_RESULT_ALLOWED,
+        /*include_referrer=*/GetParam() == MetadataSourceType::kDownloadItem);
     expected_event.set_scan_id(kScanId + std::string("0"));
 
     validator.ExpectUnscannedFileEvent(std::move(expected_event));
@@ -2534,7 +2656,8 @@ TEST_P(DeepScanningReportingSourceTypeTest, Timeout) {
       /*reason=*/
       chrome::cros::reporting::proto::UnscannedFileEvent::TIMEOUT,
       /*event_result=*/
-      chrome::cros::reporting::proto::EventResult::EVENT_RESULT_ALLOWED);
+      chrome::cros::reporting::proto::EventResult::EVENT_RESULT_ALLOWED,
+      /*include_referrer=*/GetParam() == MetadataSourceType::kDownloadItem);
 
   validator.ExpectUnscannedFileEvent(std::move(expected_event));
 
@@ -2544,6 +2667,86 @@ TEST_P(DeepScanningReportingSourceTypeTest, Timeout) {
   validator_run_loop.Run();
 
   EXPECT_EQ(DownloadCheckResult::SAFE, last_result_);
+}
+
+TEST_P(DeepScanningReportingSourceTypeTest, CancelledByUser) {
+  if (GetParam() != MetadataSourceType::kDownloadItem) {
+    return;
+  }
+
+  for (bool enabled : {true, false}) {
+    base::test::ScopedFeatureList scoped_feature_list;
+    if (enabled) {
+      scoped_feature_list.InitAndEnableFeature(
+          enterprise_connectors::kEnableCancelUploadOnContentAnalysis);
+    } else {
+      scoped_feature_list.InitAndDisableFeature(
+          enterprise_connectors::kEnableCancelUploadOnContentAnalysis);
+    }
+
+    // Use TestCancellationFakeBinaryUploadService to support synchronous cancel
+    // callbacks.
+    TestCancellationFakeBinaryUploadService cancel_upload_service;
+    cancel_upload_service.set_synchronous_cancel(true);
+    download_protection_service_.set_binary_upload_service(
+        &cancel_upload_service);
+
+    DeepScanningRequest request(
+        CreateMetadata(),
+        DownloadItemWarningData::DeepScanTrigger::TRIGGER_POLICY,
+        DownloadCheckResult::SAFE, base::DoNothing(),
+        &download_protection_service_, settings().value(),
+        /*password=*/std::nullopt);
+
+    // Set the download item state to CANCELLED.
+    EXPECT_CALL(item_, GetState())
+        .WillRepeatedly(testing::Return(download::DownloadItem::CANCELLED));
+
+    enterprise_connectors::test::EventReportValidator validator(client_.get());
+    base::RunLoop validator_run_loop;
+    validator.SetDoneClosure(validator_run_loop.QuitClosure());
+
+    auto expected_event = CreateUnscannedFileEvent(
+        /*profile_identifier=*/profile_->GetPath().AsUTF8Unsafe(),
+        /*user_name=*/kUserName,
+        /*file_name=*/download_path_.AsUTF8Unsafe(),
+        /*sha256=*/
+        "76E00EB33811F5778A5EE557512C30D9341D4FEB07646BCE3E4DB13F9428573C",
+        /*content_type=*/"application/octet-stream",
+        /*content_size=*/std::string("download contents").size(),
+        /*reason=*/
+        chrome::cros::reporting::proto::UnscannedFileEvent::USER_CANCELLED,
+        /*event_result=*/
+        enabled
+            ? chrome::cros::reporting::proto::EventResult::
+                  EVENT_RESULT_CANCELLED_BY_USER
+            : chrome::cros::reporting::proto::EventResult::EVENT_RESULT_ALLOWED,
+        /*include_referrer=*/true);
+
+    expected_event.clear_scan_id();
+
+    validator.ExpectUnscannedFileEvent(std::move(expected_event));
+
+    base::RunLoop upload_run_loop;
+    cancel_upload_service.SetQuitOnUploadCallback(
+        upload_run_loop.QuitClosure());
+
+    request.Start();
+
+    upload_run_loop.Run();
+
+    // Simulate the download being cancelled by the user, which notifies
+    // observers via OnDownloadUpdated.
+    request.OnDownloadUpdated(&item_);
+
+    // Trigger OnDownloadDestroyed which launches upload cancellation and
+    // resolves reporting.
+    request.OnDownloadDestroyed(&item_);
+
+    validator_run_loop.Run();
+
+    download_protection_service_.set_binary_upload_service(nullptr);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(

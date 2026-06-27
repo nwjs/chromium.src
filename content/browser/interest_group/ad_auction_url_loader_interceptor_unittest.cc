@@ -649,21 +649,22 @@ TEST_F(AdAuctionURLLoaderInterceptorTest,
       url::Origin::Create(GURL("https://foo1.com")),
       base64Decode(kLegitimateAdAuctionResponse)));
 
-  remote_loader->FollowRedirect(/*removed_headers=*/{},
-                                /*modified_headers=*/{},
-                                /*modified_cors_exempt_headers=*/{},
+  remote_loader->FollowRedirect(/*headers_update_params=*/{},
                                 /*new_url=*/std::nullopt);
   base::RunLoop().RunUntilIdle();
 
   const std::vector<FollowRedirectParams>& follow_redirect_params =
       pending_request->test_url_loader->follow_redirect_params();
   EXPECT_EQ(follow_redirect_params.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers[0],
+  EXPECT_EQ(
+      follow_redirect_params[0].headers_update_params.removed_headers.size(),
+      1u);
+  EXPECT_EQ(follow_redirect_params[0].headers_update_params.removed_headers[0],
             "Sec-Ad-Auction-Fetch");
 
-  EXPECT_EQ(follow_redirect_params[0].modified_headers.GetHeader(
-                "Sec-Ad-Auction-Fetch"),
+  EXPECT_EQ(follow_redirect_params[0]
+                .headers_update_params.modified_headers.GetHeader(
+                    "Sec-Ad-Auction-Fetch"),
             std::nullopt);
 
   pending_request->client->OnReceiveResponse(
@@ -778,21 +779,22 @@ TEST_F(AdAuctionURLLoaderInterceptorTest,
       url::Origin::Create(GURL("https://foo1.com")),
       base64Decode(kLegitimateAdAuctionResponse)));
 
-  remote_loader->FollowRedirect(/*removed_headers=*/{},
-                                /*modified_headers=*/{},
-                                /*modified_cors_exempt_headers=*/{},
+  remote_loader->FollowRedirect(/*headers_update_params=*/{},
                                 /*new_url=*/std::nullopt);
   base::RunLoop().RunUntilIdle();
 
   const std::vector<FollowRedirectParams>& follow_redirect_params =
       pending_request->test_url_loader->follow_redirect_params();
   EXPECT_EQ(follow_redirect_params.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers[0],
+  EXPECT_EQ(
+      follow_redirect_params[0].headers_update_params.removed_headers.size(),
+      1u);
+  EXPECT_EQ(follow_redirect_params[0].headers_update_params.removed_headers[0],
             "Sec-Ad-Auction-Fetch");
 
-  EXPECT_EQ(follow_redirect_params[0].modified_headers.GetHeader(
-                "Sec-Ad-Auction-Fetch"),
+  EXPECT_EQ(follow_redirect_params[0]
+                .headers_update_params.modified_headers.GetHeader(
+                    "Sec-Ad-Auction-Fetch"),
             std::nullopt);
 
   pending_request->client->OnReceiveResponse(
@@ -979,21 +981,22 @@ TEST_F(AdAuctionURLLoaderInterceptorTest,
                          {"00000000-0000-0000-0000-000000000000:e30="}));
   base::RunLoop().RunUntilIdle();
 
-  remote_loader->FollowRedirect(/*removed_headers=*/{},
-                                /*modified_headers=*/{},
-                                /*modified_cors_exempt_headers=*/{},
+  remote_loader->FollowRedirect(/*headers_update_params=*/{},
                                 /*new_url=*/std::nullopt);
   base::RunLoop().RunUntilIdle();
 
   const std::vector<FollowRedirectParams>& follow_redirect_params =
       pending_request->test_url_loader->follow_redirect_params();
   EXPECT_EQ(follow_redirect_params.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers[0],
+  EXPECT_EQ(
+      follow_redirect_params[0].headers_update_params.removed_headers.size(),
+      1u);
+  EXPECT_EQ(follow_redirect_params[0].headers_update_params.removed_headers[0],
             "Sec-Ad-Auction-Fetch");
 
-  EXPECT_EQ(follow_redirect_params[0].modified_headers.GetHeader(
-                "Sec-Ad-Auction-Fetch"),
+  EXPECT_EQ(follow_redirect_params[0]
+                .headers_update_params.modified_headers.GetHeader(
+                    "Sec-Ad-Auction-Fetch"),
             std::nullopt);
 
   pending_request->client->OnReceiveResponse(
@@ -1040,9 +1043,7 @@ TEST_F(AdAuctionURLLoaderInterceptorTest, UnsolicitedFollowRedirect) {
 
   // This should trigger ReportBadMessage in
   // SubresourceProxyingURLLoader::FollowRedirect
-  remote_loader->FollowRedirect(/*removed_headers=*/{},
-                                /*modified_headers=*/{},
-                                /*modified_cors_exempt_headers=*/{},
+  remote_loader->FollowRedirect(/*headers_update_params=*/{},
                                 /*new_url=*/std::nullopt);
   remote_loader.FlushForTesting();
   base::RunLoop().RunUntilIdle();

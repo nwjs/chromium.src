@@ -9,6 +9,7 @@
 #import "ios/chrome/browser/assistant/coordinator/assistant_container_commands.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_delegate.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
+#import "ios/chrome/browser/assistant/ui/assistant_container_layout_utils.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_view_controller.h"
 #import "ios/chrome/browser/cobrowse/coordinator/assistant_aim_mediator.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_browser_agent.h"
@@ -28,6 +29,9 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/tabs/model/tab_helper_filter.h"
+#import "ios/chrome/browser/tabs/model/tab_helper_util.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/web/public/web_state.h"
 
 @interface AssistantAIMCoordinator () <AssistantAIMViewControllerDelegate,
@@ -63,6 +67,7 @@ class AssistantAIMUIStateProvider
   ComposeboxModeHolder* _modeHolder;
   std::unique_ptr<AssistantAIMUIStateProvider> _uiStateProvider;
   AssistantContainerDetent _currentDetent;
+  BOOL _isHiding;
 
   // Handler for container related interactions.
   __weak id<AssistantContainerCommands> _containerHandler;
@@ -98,6 +103,9 @@ class AssistantAIMUIStateProvider
   CobrowseContext* context = agent ? agent->GetCobrowseContext() : nil;
   if (!context) {
     context = [CobrowseContext defaultContext];
+    if (agent) {
+      agent->SetCobrowseContext(context);
+    }
   }
   contextual_tasks::ContextualTasksService* contextualTasksService = nullptr;
   if (IsCobrowseAimHistoryEnabled()) {
@@ -105,11 +113,15 @@ class AssistantAIMUIStateProvider
         self.browser->GetProfile());
   }
 
+  std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
+  AttachTabHelpers(webState.get(), TabHelperFilter::kAssistantAim);
+
   _mediator = [[AssistantAIMMediator alloc]
-            initWithWebState:web::WebState::Create(params)
+            initWithWebState:std::move(webState)
                      context:context
             containerHandler:_containerHandler
-      contextualTasksService:contextualTasksService];
+      contextualTasksService:contextualTasksService
+                   URLLoader:UrlLoadingBrowserAgent::FromBrowser(self.browser)];
   _mediator.delegate = self;
   _mediator.consumer = _viewController;
   _viewController.mutator = _mediator;
@@ -169,6 +181,22 @@ class AssistantAIMUIStateProvider
 
   if (_viewController) {
     _viewController = nil;
+    [self dismissAssistantContainerAnimated:NO];
+  }
+}
+
+- (void)setVisible:(BOOL)visible {
+  if (visible) {
+    if (_viewController) {
+      [_containerHandler showAssistantContainerWithContent:_viewController
+                                                  delegate:self];
+      [_containerHandler
+          animateAssistantContainerToDetent:_currentDetent
+                                   duration:kSheetDetentAnimationDuration
+                                      curve:UIViewAnimationCurveEaseInOut];
+    }
+  } else {
+    _isHiding = YES;
     [self dismissAssistantContainerAnimated:YES];
   }
 }
@@ -182,7 +210,11 @@ class AssistantAIMUIStateProvider
 #pragma mark - TabGridStateObserver
 
 - (void)willEnterTabGrid {
-  [self dismissAssistantContainerAnimated:YES];
+  [self setVisible:NO];
+}
+
+- (void)willExitTabGrid {
+  [self setVisible:YES];
 }
 
 #pragma mark - AssistantAIMViewControllerDelegate
@@ -214,6 +246,24 @@ class AssistantAIMUIStateProvider
   [self dismissKeyboard];
 }
 
+- (void)assistantAIMViewControllerDidChangeTraits:
+    (AssistantAIMViewController*)viewController {
+  if (IsIPhoneLandscapeLayout(viewController.traitCollection)) {
+    [_containerHandler
+        setAssistantContainerDetents:{
+                                         AssistantContainerDetent::kMinimized,
+                                         AssistantContainerDetent::kLarge,
+    }];
+    return;
+  }
+  [_containerHandler
+      setAssistantContainerDetents:{
+                                       AssistantContainerDetent::kMinimized,
+                                       AssistantContainerDetent::kMedium,
+                                       AssistantContainerDetent::kLarge,
+  }];
+}
+
 #pragma mark - Private
 
 - (void)dismissKeyboard {
@@ -238,7 +288,10 @@ class AssistantAIMUIStateProvider
 
 - (void)assistantContainer:(AssistantContainerViewController*)container
       didDisappearAnimated:(BOOL)animated {
-  [self stop];
+  if (_isHiding) {
+    _isHiding = NO;
+    return;
+  }
 }
 
 - (void)assistantContainer:(AssistantContainerViewController*)container
@@ -260,6 +313,11 @@ class AssistantAIMUIStateProvider
   if (newDetent == AssistantContainerDetent::kMedium) {
     [self dismissKeyboard];
   }
+}
+
+- (void)assistantContainerDidRequestDismissal:
+    (AssistantContainerViewController*)container {
+  [self dismissAssistantContainerAnimated:YES];
 }
 
 #pragma mark - AssistantAIMMediatorDelegate

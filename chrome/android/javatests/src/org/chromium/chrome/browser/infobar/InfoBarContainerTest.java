@@ -201,7 +201,7 @@ public class InfoBarContainerTest {
         mActivityTestRule.loadUrl(mTestServer.getURL("/chrome/test/data/android/about.html"));
         List<InfoBar> infoBars = mActivityTestRule.getInfoBars();
         Assert.assertEquals(1, infoBars.size());
-        TextView message = (TextView) infoBars.get(0).getView().findViewById(R.id.infobar_message);
+        TextView message = infoBars.get(0).getView().findViewById(R.id.infobar_message);
         Assert.assertEquals(MESSAGE_TEXT, message.getText().toString());
 
         // Close the infobar.
@@ -230,6 +230,7 @@ public class InfoBarContainerTest {
     @Test
     @MediumTest
     @Feature({"Browser"})
+    @DisabledTest(message = "https://crbug.com/517944068")
     public void testInfoBarExpirationNoPrerender() throws Exception {
         // Save prediction preference.
         boolean networkPredictionEnabled =

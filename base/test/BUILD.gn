@@ -48,6 +48,19 @@ rust_static_library("task_environment") {
   ]
 }
 
+rust_static_library("scoped_feature_list") {
+  testonly = true
+  sources = [ "scoped_feature_list.rs" ]
+  crate_root = "scoped_feature_list.rs"
+  cxx_bindings = [ "scoped_feature_list.rs" ]
+  allow_unsafe = true
+  deps = [
+    ":scoped_feature_list_shim",
+    "//base:feature",
+    "//base/allocator/partition_allocator:raw_ptr",
+  ]
+}
+
 source_set("task_environment_shim") {
   testonly = true
   sources = [
@@ -60,9 +73,25 @@ source_set("task_environment_shim") {
   ]
 }
 
+source_set("scoped_feature_list_shim") {
+  testonly = true
+  sources = [
+    "scoped_feature_list_rust_shim.cc",
+    "scoped_feature_list_rust_shim.h",
+  ]
+  deps = [
+    ":test_support",
+    "//base",
+    "//base/allocator/partition_allocator:raw_ptr",
+  ]
+}
+
 group("test_support_rust") {
   testonly = true
-  public_deps = [ ":task_environment" ]
+  public_deps = [
+    ":scoped_feature_list",
+    ":task_environment",
+  ]
 }
 
 static_library("test_support") {
@@ -527,7 +556,8 @@ if (is_android) {
     ]
   }
 
-  # Used by all base test targets: gtests, robolectric, and instrumentation tests.
+  # Used by all base test targets: gtests, robolectric, and instrumentation
+  # tests.
   android_library("test_support_java") {
     testonly = true
 
@@ -601,6 +631,8 @@ if (is_android) {
     deps = [
       ":leak_canary_test_resources",
       "//base:base_java_test_support",
+      "//base:command_line_java",
+      "//base:log_java",
       "//third_party/android_deps:com_squareup_leakcanary_leakcanary_android_core_java",
       "//third_party/android_deps:com_squareup_leakcanary_leakcanary_android_instrumentation_java",
       "//third_party/android_deps:com_squareup_leakcanary_leakcanary_android_java",
@@ -608,6 +640,7 @@ if (is_android) {
       "//third_party/android_deps:com_squareup_leakcanary_shark_java",
       "//third_party/androidx:androidx_work_work_multiprocess_java",
       "//third_party/androidx:androidx_work_work_runtime_java",
+      "//third_party/junit",
       "//third_party/kotlin_stdlib:kotlin_stdlib_java",
     ]
   }

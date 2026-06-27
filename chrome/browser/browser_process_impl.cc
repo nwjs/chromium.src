@@ -211,7 +211,6 @@ void OnLocalStatePrefsLoaded();
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/usb/usb_system_tray_icon.h"
 #include "chrome/browser/web_applications/isolated_web_apps/runtime_init.h"
 #include "chrome/browser/webapps/webapps_client_desktop.h"
@@ -289,7 +288,9 @@ void OnLocalStatePrefsLoaded();
 #endif
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "base/memory/scoped_refptr.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
@@ -485,8 +486,9 @@ void BrowserProcessImpl::Init() {
   // whenever the preference or its controlling policy changes.
   // TODO(b/483043192): We'll need to make similar changes for the
   // kMetricsReportingLevel pref.
-  pref_change_registrar_.Add(metrics::prefs::kMetricsReportingEnabled,
-                             base::BindRepeating(&ApplyMetricsReportingPolicy));
+  pref_change_registrar_.Add(
+      metrics::prefs::kMetricsReportingEnabled,
+      base::BindRepeating(&metrics::ApplyMetricsReportingPolicy));
 
 #if BUILDFLAG(IS_WIN)
   // Pref state is taken from the trusted process isolation state during browser
@@ -824,10 +826,6 @@ void RequestProxyResolvingSocketFactory(
 #endif
 
 }  // namespace
-
-void BrowserProcessImpl::FlushLocalStateAndReply(base::OnceClosure reply) {
-  local_state_->CommitPendingWrite(std::move(reply));
-}
 
 void BrowserProcessImpl::EndSession() {
   // Mark all the profiles as clean.
@@ -1606,7 +1604,8 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 
   // Trigger async initialization of OSCrypt key providers.
   os_crypt_async_->GetInstance(base::BindOnce(
-      [](base::TimeTicks start_time, os_crypt_async::Encryptor encryptor) {
+      [](base::TimeTicks start_time,
+         scoped_refptr<os_crypt_async::Encryptor> encryptor) {
         base::UmaHistogramTimes("OSCrypt.AsyncInitialization.Time",
                                 base::TimeTicks::Now() - start_time);
       },
@@ -1626,7 +1625,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
     ApplyDefaultBrowserPolicy();
   }
 
-  ApplyMetricsReportingPolicy();
+  metrics::ApplyMetricsReportingPolicy();
 
 #if BUILDFLAG(ENABLE_PLUGINS)
   content::PluginService::GetInstance()->SetFilter(

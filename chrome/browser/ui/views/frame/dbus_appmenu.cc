@@ -577,6 +577,23 @@ void DbusAppmenu::TabRestoreServiceChanged(
         ++added_count;
         break;
       }
+      case sessions::tab_restore::Type::SPLIT: {
+        sessions::tab_restore::Split* split =
+            static_cast<sessions::tab_restore::Split*>(entry);
+
+        auto& tabs = split->tabs;
+        if (tabs.empty()) {
+          continue;
+        }
+
+        std::u16string title =
+            l10n_util::GetStringUTF16(IDS_RECENTLY_CLOSED_SPLIT);
+
+        AddEntryToHistoryMenu(split->id, title, index, tabs);
+        ++index;
+        ++added_count;
+        break;
+      }
     }
   }
 

@@ -39,9 +39,11 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicButtonDelegate;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicEnablingJni;
-import org.chromium.chrome.browser.glic.GlicToolbarButtonController;
+import org.chromium.chrome.browser.glic.GlicKeyedService;
+import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab_group_suggestion.toolbar.GroupSuggestionsButtonController;
@@ -65,13 +67,14 @@ public class TabbedAdaptiveToolbarBehaviorTest {
     @Mock private ActorKeyedService mActorKeyedService;
     @Mock private ActorTask mActorTask;
     @Mock private GlicEnabling.Natives mGlicEnablingJniMock;
+    @Mock private GlicKeyedService mGlicKeyedService;
     @Mock private AdaptiveToolbarButtonController mAdaptiveToolbarButtonController;
     @Mock private Runnable mRegisterVoiceSearchRunnable;
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     @Mock private TabCreatorManager mTabCreatorManager;
     @Mock private TabBookmarker mTabBookmarker;
     @Mock private GroupSuggestionsButtonController mGroupSuggestionsButtonController;
-    @Mock private GlicToolbarButtonController.GlicButtonDelegate mGlicButtonDelegate;
+    @Mock private GlicButtonDelegate mGlicButtonDelegate;
     @Mock private ChromeAndroidTask mChromeAndroidTask;
     @Mock private BrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
 
@@ -86,6 +89,7 @@ public class TabbedAdaptiveToolbarBehaviorTest {
     @Before
     public void setUp() {
         GlicEnablingJni.setInstanceForTesting(mGlicEnablingJniMock);
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(false);
         Activity activity = Robolectric.setupActivity(Activity.class);
 
@@ -117,6 +121,8 @@ public class TabbedAdaptiveToolbarBehaviorTest {
         when(mGlicEnablingJniMock.isEnabledForProfile(eq(mProfile))).thenReturn(true);
         ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
         when(mActorKeyedService.getCurrentActiveTask()).thenReturn(mActorTask);
+        when(mActorKeyedService.getActiveTasks()).thenReturn(List.of(mActorTask));
+        mBehavior.registerPerSurfaceButtons(mAdaptiveToolbarButtonController, () -> null);
         assertTopResult(
                 /* segmentationResults= */ List.of(
                         AdaptiveToolbarButtonVariant.SHARE, AdaptiveToolbarButtonVariant.GLIC),

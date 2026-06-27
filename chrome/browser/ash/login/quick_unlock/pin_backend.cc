@@ -7,9 +7,11 @@
 #include <optional>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_login_pref_names.h"
 #include "base/base64.h"
 #include "base/check_deref.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/debug/leak_annotations.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -23,9 +25,7 @@
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_storage.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/osauth/public/auth_session_storage.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
@@ -64,7 +64,7 @@ void PostResponse(PinBackend::AvailabilityCallback result,
 void PostResponse(AuthOperationCallback result,
                   std::unique_ptr<UserContext> user_context,
                   bool success) {
-  std::optional<AuthenticationError> error = std::nullopt;
+  std::optional<AuthenticationError> error;
   if (!success) {
     error = std::make_optional<AuthenticationError>(AuthFailure::UNLOCK_FAILED);
   }
@@ -73,7 +73,7 @@ void PostResponse(AuthOperationCallback result,
                                 std::move(error)));
 }
 
-PinBackend* g_instance_ = nullptr;
+PinBackend* g_instance = nullptr;
 
 // UMA Metrics
 void RecordUMAHistogram(PinBackend::BackfillEvent event) {
@@ -96,26 +96,45 @@ bool ShouldUseCryptohome(bool is_cryptohome_backend_supported,
   return !storage || !storage->pin_storage_prefs()->IsPinSet();
 }
 
+// Helper function for working with the PIN auto submit preference.
+PrefService* GetUserPrefService(const AccountId& account_id) {
+  Profile* profile = ProfileHelper::Get()->GetProfileByAccountId(account_id);
+  if (!profile) {
+    return nullptr;
+  }
+  return profile->GetPrefs();
+}
+
 }  // namespace
+
+void PinBackend::Initialize(PrefService* local_state) {
+  CHECK(!g_instance);
+  g_instance = new PinBackend(local_state);
+  // TODO(crbug.com/498416395): We should destroy the object.
+  ANNOTATE_LEAKING_OBJECT_PTR(g_instance);
+}
 
 // static
 PinBackend* PinBackend::GetInstance() {
-  if (!g_instance_) {
-    g_instance_ = new PinBackend();
-  }
-  return g_instance_;
+  CHECK(g_instance);
+  return g_instance;
 }
 
 // static
 void PinBackend::Shutdown() {
-  if (!g_instance_) {
+  if (!g_instance) {
     return;
   }
 
+  g_instance->local_state_ = nullptr;
+
   // Cancel ongoing PinStorageCryptohome::IsSupported() request if any.
-  g_instance_->weak_ptr_factory_.InvalidateWeakPtrs();
-  g_instance_->on_cryptohome_support_received_.clear();
-  g_instance_->cryptohome_state_.Shutdown();
+  g_instance->weak_ptr_factory_.InvalidateWeakPtrs();
+  g_instance->on_cryptohome_support_received_.clear();
+  g_instance->cryptohome_state_.Shutdown();
+
+  // TODO(crbug.com/498416395): We should destroy the object.
+  g_instance = nullptr;
 }
 
 // static
@@ -143,13 +162,8 @@ std::string PinBackend::ComputeSecret(const std::string& pin,
   return key.GetSecret();
 }
 
-// static
-void PinBackend::ResetForTesting() {
-  delete g_instance_;
-  g_instance_ = nullptr;
-}
-
-PinBackend::PinBackend() {
+PinBackend::PinBackend(PrefService* local_state) : local_state_(local_state) {
+  CHECK(local_state_);
   PinStorageCryptohome::IsSupported(
       base::BindOnce(&PinBackend::OnIsCryptohomeBackendSupported,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -267,7 +281,8 @@ void PinBackend::UpdateCryptohomePinWithContext(
   // Update autosubmit length if it exists. PIN autosubmit is only intended for
   // PINs that are 6-12 digits long. When the user has autosubmit enabled, the
   // stored value in local state is != 0.
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
   const int previous_pin_length = known_user.GetUserPinLength(account_id);
   const int new_pin_length = pin.length();
   if (previous_pin_length != 0) {
@@ -315,17 +330,19 @@ void PinBackend::SetPinAutoSubmitEnabled(const AccountId& account_id,
 
   // If the preference is not user controllable, the auto submit dialog
   // isn't available in Settings, so we return a failure.
-  if (!PrefService(account_id)
-           ->IsUserModifiablePreference(::prefs::kPinUnlockAutosubmitEnabled)) {
+  if (!GetUserPrefService(account_id)
+           ->IsUserModifiablePreference(
+               ash::prefs::kPinUnlockAutosubmitEnabled)) {
     PostResponse(std::move(did_set), false);
     return;
   }
 
   if (!enabled) {
-    user_manager::KnownUser known_user(g_browser_process->local_state());
+    CHECK(local_state_);
+    user_manager::KnownUser known_user(local_state_.get());
     known_user.SetUserPinLength(account_id, 0);
-    PrefService(account_id)
-        ->SetBoolean(::prefs::kPinUnlockAutosubmitEnabled, false);
+    GetUserPrefService(account_id)
+        ->SetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled, false);
     PostResponse(std::move(did_set), true);
     return;
   }
@@ -455,13 +472,14 @@ void PinBackend::TryAuthenticate(std::unique_ptr<UserContext> user_context,
 }
 
 int PinBackend::GetExposedPinLength(const AccountId& account_id) {
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
 
   // Clear the pin length in local state if auto-submit got disabled, for
   // example, via policy. Disabling auto submit through Settings clears it
   // immediately.
-  if (!PrefService(account_id)
-           ->GetBoolean(::prefs::kPinUnlockAutosubmitEnabled)) {
+  if (!GetUserPrefService(account_id)
+           ->GetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled)) {
     known_user.SetUserPinLength(account_id, 0);
     return 0;
   }
@@ -473,7 +491,9 @@ void PinBackend::OnIsCryptohomeBackendSupported(bool is_supported) {
   CHECK(cryptohome_state_.IsResolving());
 
   if (is_supported) {
-    cryptohome_state_.Set(std::make_unique<PinStorageCryptohome>());
+    CHECK(local_state_);
+    cryptohome_state_.Set(
+        std::make_unique<PinStorageCryptohome>(local_state_.get()));
   } else {
     cryptohome_state_.Set(nullptr);
   }
@@ -517,40 +537,34 @@ void PinBackend::OnPinAutosubmitCheckComplete(
     std::optional<AuthenticationError> error) {
   const bool success = !error.has_value();
   const AccountId& account_id = user_context->GetAccountId();
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
   // Set the exposed PIN to zero, if not successful.
   known_user.SetUserPinLength(account_id, success ? pin_length : 0);
-  PrefService(account_id)
-      ->SetBoolean(::prefs::kPinUnlockAutosubmitEnabled, success);
+  GetUserPrefService(account_id)
+      ->SetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled, success);
   PostResponse(std::move(result), success);
-}
-
-PrefService* PinBackend::PrefService(const AccountId& account_id) {
-  auto* profile = ProfileHelper::Get()->GetProfileByAccountId(account_id);
-  if (!profile) {
-    return nullptr;
-  }
-  return profile->GetPrefs();
 }
 
 void PinBackend::UpdatePinAutosubmitOnSet(const AccountId& account_id,
                                           size_t pin_length) {
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
   // A PIN is being set when the auto submit feature is present. This user
   // does not need to be backfilled.
   known_user.PinAutosubmitSetBackfillNotNeeded(account_id);
 
   const bool autosubmit_enabled =
-      PrefService(account_id)
-          ->GetBoolean(::prefs::kPinUnlockAutosubmitEnabled) &&
+      GetUserPrefService(account_id)
+          ->GetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled) &&
       pin_length <= kPinAutosubmitMaxPinLength;
 
   // Explicitly set the user pref to false if the PIN is longer than 12 digits
   // so that the toggle on the Settings page remains unchecked. If the user
   // tries to enable the toggle with a long pin an error is shown.
   if (pin_length > kPinAutosubmitMaxPinLength) {
-    PrefService(account_id)
-        ->SetBoolean(::prefs::kPinUnlockAutosubmitEnabled, false);
+    GetUserPrefService(account_id)
+        ->SetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled, false);
   }
 
   // Expose the true PIN length if enabled
@@ -559,13 +573,14 @@ void PinBackend::UpdatePinAutosubmitOnSet(const AccountId& account_id,
 }
 
 void PinBackend::UpdatePinAutosubmitOnRemove(const AccountId& account_id) {
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
   known_user.SetUserPinLength(account_id, 0);
-  auto* pref_service = PrefService(account_id);
+  auto* pref_service = GetUserPrefService(account_id);
   // There may not be a pref service available if the pin is removed before the
   // user logs in.
   if (pref_service) {
-    pref_service->ClearPref(::prefs::kPinUnlockAutosubmitEnabled);
+    pref_service->ClearPref(ash::prefs::kPinUnlockAutosubmitEnabled);
   }
 }
 
@@ -577,10 +592,11 @@ void PinBackend::UpdatePinAutosubmitOnSuccessfulTryAuth(
   PinAutosubmitBackfill(account_id, pin_length);
 
   const bool autosubmit_enabled =
-      PrefService(account_id)
-          ->GetBoolean(::prefs::kPinUnlockAutosubmitEnabled) &&
+      GetUserPrefService(account_id)
+          ->GetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled) &&
       pin_length <= kPinAutosubmitMaxPinLength;
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
   if (autosubmit_enabled)
     known_user.SetUserPinLength(account_id, pin_length);
 }
@@ -591,16 +607,19 @@ void PinBackend::PinAutosubmitBackfill(const AccountId& account_id,
     return;
   }
 
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  CHECK(local_state_);
+  user_manager::KnownUser known_user(local_state_.get());
   // Don't backfill if its not necessary & Prevent future backfill attempts.
   if (!known_user.PinAutosubmitIsBackfillNeeded(account_id))
     return;
   known_user.PinAutosubmitSetBackfillNotNeeded(account_id);
 
   // Dont backfill if there is a user value set for the pref.
-  if (PrefService(account_id)
-          ->GetUserPrefValue(::prefs::kPinUnlockAutosubmitEnabled) != nullptr)
+  if (GetUserPrefService(account_id)
+          ->GetUserPrefValue(ash::prefs::kPinUnlockAutosubmitEnabled) !=
+      nullptr) {
     return;
+  }
 
   // Track when this operation is being performed.
   base::debug::DumpWithoutCrashing();
@@ -608,23 +627,23 @@ void PinBackend::PinAutosubmitBackfill(const AccountId& account_id,
   // Disabled if not allowed by policy. Since 'kPinUnlockAutosubmitEnabled'
   // is enabled by default, it is only false when recommended/mandatory by
   // policy.
-  if (!PrefService(account_id)
-           ->GetBoolean(::prefs::kPinUnlockAutosubmitEnabled)) {
+  if (!GetUserPrefService(account_id)
+           ->GetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled)) {
     RecordUMAHistogram(BackfillEvent::kDisabledDueToPolicy);
-    PrefService(account_id)
-        ->SetBoolean(::prefs::kPinUnlockAutosubmitEnabled, false);
+    GetUserPrefService(account_id)
+        ->SetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled, false);
     return;
   }
 
   // Only enable auto submit for six digits PINs.
   if (pin_length != kPinAutosubmitBackfillLength) {
     RecordUMAHistogram(BackfillEvent::kDisabledDueToPinLength);
-    PrefService(account_id)
-        ->SetBoolean(::prefs::kPinUnlockAutosubmitEnabled, false);
+    GetUserPrefService(account_id)
+        ->SetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled, false);
   } else {
     RecordUMAHistogram(BackfillEvent::kEnabled);
-    PrefService(account_id)
-        ->SetBoolean(::prefs::kPinUnlockAutosubmitEnabled, true);
+    GetUserPrefService(account_id)
+        ->SetBoolean(ash::prefs::kPinUnlockAutosubmitEnabled, true);
   }
 }
 

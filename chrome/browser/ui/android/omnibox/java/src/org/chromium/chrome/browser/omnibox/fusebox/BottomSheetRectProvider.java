@@ -5,18 +5,23 @@
 package org.chromium.chrome.browser.omnibox.fusebox;
 
 import android.app.Activity;
+import android.content.ComponentCallbacks;
+import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.view.View;
 
 import androidx.window.layout.WindowMetricsCalculator;
 
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.ui.widget.RectProvider;
 
 /** A RectProvider that dynamically tracks the Activity's bottom bounds. */
 @NullMarked
-class BottomSheetRectProvider extends RectProvider implements View.OnLayoutChangeListener {
+class BottomSheetRectProvider extends RectProvider
+        implements View.OnLayoutChangeListener, ComponentCallbacks {
     private final Activity mActivity;
     private final View mAnchorView;
 
@@ -28,6 +33,7 @@ class BottomSheetRectProvider extends RectProvider implements View.OnLayoutChang
         mActivity = activity;
         mAnchorView = anchorView;
         mAnchorView.addOnLayoutChangeListener(this);
+        mActivity.registerComponentCallbacks(this);
 
         updateRect();
     }
@@ -35,21 +41,32 @@ class BottomSheetRectProvider extends RectProvider implements View.OnLayoutChang
     /** Destroy this object. */
     public void destroy() {
         mAnchorView.removeOnLayoutChangeListener(this);
+        mActivity.unregisterComponentCallbacks(this);
     }
 
+    /**
+     * Calculates the target coordinates for the bottom sheet popup.
+     *
+     * <p>This method calculates bounds in window-relative coordinates (where the origin (0, 0) is
+     * the top-left of the Activity's window, not the physical screen). This ensures that popups are
+     * positioned correctly inside split-screen or multi-window layouts.
+     */
     private void updateRect() {
         var windowMetrics =
                 WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(mActivity);
-        var bounds = new Rect(windowMetrics.getBounds());
-        bounds.top = bounds.bottom; // Anchor to the bottom
+        var windowBounds = windowMetrics.getBounds();
+        int width = windowBounds.width();
+        int height = windowBounds.height();
+
+        var bounds = new Rect(0, height, width, height);
 
         // Apply maximum width constraint and center horizontally
         int maxWidth =
                 mActivity
                         .getResources()
                         .getDimensionPixelSize(R.dimen.fusebox_bottom_sheet_max_width);
-        if (bounds.width() > maxWidth) {
-            int centerX = bounds.centerX();
+        if (width > maxWidth) {
+            int centerX = width / 2;
             int halfWidth = maxWidth / 2;
             bounds.left = centerX - halfWidth;
             bounds.right = centerX + halfWidth;
@@ -74,6 +91,16 @@ class BottomSheetRectProvider extends RectProvider implements View.OnLayoutChang
             int oldTop,
             int oldRight,
             int oldBottom) {
+        PostTask.postTask(TaskTraits.UI_DEFAULT, this::updateRect);
+    }
+
+    // ComponentCallbacks implementation.
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
         updateRect();
     }
+
+    @Override
+    public void onLowMemory() {}
 }

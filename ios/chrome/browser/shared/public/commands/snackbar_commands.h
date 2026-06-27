@@ -59,8 +59,26 @@
                   messageAction:(void (^)(void))messageAction
                completionAction:(void (^)(BOOL))completionAction;
 
+// Dismisses the snackbar displaying `messageText`.
+// TODO(crbug.com/509919378): Introduce snackbar ID and use that as a reference
+// instead of the `messageText`.
+- (void)dismissSnackbarWithMessage:(NSString*)messageText
+                          animated:(BOOL)animated;
+
 // Dismisses all presented snackbars.
 - (void)dismissAllSnackbars;
+
+@end
+
+// Protocol for temporary Gemini Actor snackbar commands.
+// TODO(crbug.com/512521102): Remove when the agent prototype is cleaned up.
+@protocol GeminiActorSnackbarCommands <NSObject>
+
+// Shows a snackbar displaying `message` above the Gemini floaty UI without
+// hiding the floaty. `offset` is an additional bottom offset in points added
+// to the default base offset (e.g. to prevent overlapping the floaty UI).
+- (void)showGeminiActorSnackbarMessage:(SnackbarMessage*)message
+                additionalBottomOffset:(CGFloat)offset;
 
 @end
 

@@ -13,7 +13,6 @@
 #include <utility>
 
 #include "base/test/scoped_feature_list.h"
-#include "base/win/atl.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_safearray.h"
 #include "base/win/scoped_variant.h"
@@ -21,7 +20,6 @@
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/platform/ax_fragment_root_win.h"
 #include "ui/accessibility/platform/ax_platform_node_win_unittest.h"
-#include "ui/accessibility/platform/sequence_affine_com_object_root_win.h"
 
 #include <UIAutomationClient.h>
 #include <UIAutomationCoreApi.h>
@@ -213,51 +211,43 @@ namespace ui {
 
 class AXPlatformNodeTextRangeProviderTest : public AXPlatformNodeWinTest {
  public:
+  static AXPlatformNodeTextRangeProviderWin* AsRangeProvider(
+      ITextRangeProvider* provider) {
+    return static_cast<AXPlatformNodeTextRangeProviderWin*>(provider);
+  }
+
   const AXNodePosition::AXPositionInstance& GetStart(
-      const AXPlatformNodeTextRangeProviderWin* text_range) {
-    return text_range->start();
+      ITextRangeProvider* text_range) {
+    return AsRangeProvider(text_range)->start();
   }
 
   const AXNodePosition::AXPositionInstance& GetEnd(
-      const AXPlatformNodeTextRangeProviderWin* text_range) {
-    return text_range->end();
+      ITextRangeProvider* text_range) {
+    return AsRangeProvider(text_range)->end();
   }
 
-  AXPlatformNodeWin* GetOwner(
-      const AXPlatformNodeTextRangeProviderWin* text_range) {
-    return text_range->GetOwner();
+  AXPlatformNodeWin* GetOwner(ITextRangeProvider* text_range) {
+    return AsRangeProvider(text_range)->GetOwner();
   }
 
   void CopyOwnerToClone(ITextRangeProvider* source_range,
                         ITextRangeProvider* destination_range) {
-    ComPtr<ITextRangeProvider> source_provider = source_range;
-    ComPtr<ITextRangeProvider> destination_provider = destination_range;
-
-    ComPtr<AXPlatformNodeTextRangeProviderWin> source_provider_internal;
-    ComPtr<AXPlatformNodeTextRangeProviderWin> destination_provider_internal;
-
-    source_provider->QueryInterface(IID_PPV_ARGS(&source_provider_internal));
-    destination_provider->QueryInterface(
-        IID_PPV_ARGS(&destination_provider_internal));
-    destination_provider_internal->SetOwnerForTesting(
-        source_provider_internal->GetOwner());
+    AsRangeProvider(destination_range)
+        ->SetOwnerForTesting(AsRangeProvider(source_range)->GetOwner());
   }
 
   void SetOwner(AXPlatformNodeWin* owner,
                 ITextRangeProvider* destination_range) {
-    ComPtr<AXPlatformNodeTextRangeProviderWin> destination_provider_internal;
-
-    destination_range->QueryInterface(
-        IID_PPV_ARGS(&destination_provider_internal));
-    destination_provider_internal->SetOwnerForTesting(owner);
+    AsRangeProvider(destination_range)->SetOwnerForTesting(owner);
   }
 
-  void NormalizeTextRange(AXPlatformNodeTextRangeProviderWin* text_range,
+  void NormalizeTextRange(ITextRangeProvider* text_range,
                           AXNodePosition::AXPositionInstance& start,
                           AXNodePosition::AXPositionInstance& end) {
+    auto* provider = AsRangeProvider(text_range);
     DCHECK_EQ(*GetStart(text_range), *start);
     DCHECK_EQ(*GetEnd(text_range), *end);
-    text_range->NormalizeTextRange(start, end);
+    provider->NormalizeTextRange(start, end);
   }
 
   void GetTextRangeProviderFromTextNode(
@@ -276,17 +266,14 @@ class AXPlatformNodeTextRangeProviderTest : public AXPlatformNodeWinTest {
         text_provider->get_DocumentRange(&text_range_provider));
     ASSERT_NE(nullptr, text_range_provider.Get());
 
-    ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider_interal;
-    EXPECT_HRESULT_SUCCEEDED(text_range_provider->QueryInterface(
-        IID_PPV_ARGS(&text_range_provider_interal)));
     AXPlatformNode* ax_platform_node = AXPlatformNodeFromNode(text_node);
     ASSERT_NE(ax_platform_node, nullptr);
-    text_range_provider_interal->SetOwnerForTesting(
-        static_cast<AXPlatformNodeWin*>(ax_platform_node));
+    AsRangeProvider(text_range_provider.Get())
+        ->SetOwnerForTesting(static_cast<AXPlatformNodeWin*>(ax_platform_node));
   }
 
   void CreateTextRangeProviderWin(
-      ComPtr<AXPlatformNodeTextRangeProviderWin>& text_range_provider_win,
+      ComPtr<ITextRangeProvider>& text_range_provider_win,
       AXPlatformNodeWin* owner,
       const AXNode* start_anchor,
       int start_offset,
@@ -299,12 +286,9 @@ class AXPlatformNodeTextRangeProviderTest : public AXPlatformNodeWinTest {
     AXNodePosition::AXPositionInstance range_end =
         CreateTextPosition(*end_anchor, end_offset, end_affinity);
 
-    ComPtr<ITextRangeProvider> text_range_provider;
     AXPlatformNodeTextRangeProviderWin::CreateTextRangeProviderForTesting(
         owner, std::move(range_start), std::move(range_end),
-        &text_range_provider);
-
-    EXPECT_HRESULT_SUCCEEDED(text_range_provider.As(&text_range_provider_win));
+        &text_range_provider_win);
   }
 
   void ComputeWordBoundariesOffsets(const std::string& text,
@@ -920,27 +904,18 @@ class AXPlatformNodeTextRangeProviderTest : public AXPlatformNodeWinTest {
 };
 
 class MockAXPlatformNodeTextRangeProviderWin
-    : public SequenceAffineComObjectRoot,
-      public ITextRangeProvider {
+    : public Microsoft::WRL::RuntimeClass<
+          Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
+          ITextRangeProvider> {
  public:
-  BEGIN_COM_MAP(MockAXPlatformNodeTextRangeProviderWin)
-  COM_INTERFACE_ENTRY(ITextRangeProvider)
-  END_COM_MAP()
-
   MockAXPlatformNodeTextRangeProviderWin() {}
-  ~MockAXPlatformNodeTextRangeProviderWin() {}
+  ~MockAXPlatformNodeTextRangeProviderWin() override {}
 
   static HRESULT CreateMockTextRangeProvider(ITextRangeProvider** provider) {
-    CComObject<MockAXPlatformNodeTextRangeProviderWin>* text_range_provider =
-        nullptr;
-    HRESULT hr =
-        CComObject<MockAXPlatformNodeTextRangeProviderWin>::CreateInstance(
-            &text_range_provider);
-    if (SUCCEEDED(hr)) {
-      *provider = text_range_provider;
-    }
-
-    return hr;
+    auto text_range_provider =
+        Microsoft::WRL::Make<MockAXPlatformNodeTextRangeProviderWin>();
+    *provider = text_range_provider.Detach();
+    return S_OK;
   }
 
   //
@@ -1041,8 +1016,8 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestITextRangeProviderClone) {
   ComPtr<ITextRangeProvider> text_range_provider_clone;
   text_range_provider->Clone(&text_range_provider_clone);
   CopyOwnerToClone(text_range_provider.Get(), text_range_provider_clone.Get());
-  ComPtr<AXPlatformNodeTextRangeProviderWin> original_range;
-  ComPtr<AXPlatformNodeTextRangeProviderWin> clone_range;
+  ComPtr<ITextRangeProvider> original_range;
+  ComPtr<ITextRangeProvider> clone_range;
 
   text_range_provider->QueryInterface(IID_PPV_ARGS(&original_range));
   text_range_provider_clone->QueryInterface(IID_PPV_ARGS(&clone_range));
@@ -1246,6 +1221,123 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
       TextPatternRangeEndpoint_End, document_text_range_provider.Get(),
       TextPatternRangeEndpoint_End, &result));
   EXPECT_EQ(0, result);
+}
+
+TEST_F(AXPlatformNodeTextRangeProviderTest,
+       TestITextRangeProviderCompareEndpointsAcrossHyperlinkBoundary) {
+  // RootWebArea
+  // ├── StaticText "I am "
+  // │   └── InlineTextBox "I am "
+  // ├── Link
+  // │   └── StaticText "ironman"
+  // │       └── InlineTextBox "ironman"
+  // └── StaticText " two"
+  //     └── InlineTextBox " two"
+  AXNodeData root_data;
+  root_data.id = 1;
+  root_data.role = ax::mojom::Role::kRootWebArea;
+  root_data.child_ids = {2, 4, 7};
+
+  AXNodeData before_link_data;
+  before_link_data.id = 2;
+  before_link_data.role = ax::mojom::Role::kStaticText;
+  before_link_data.SetName("I am ");
+  before_link_data.child_ids = {3};
+
+  AXNodeData before_link_inline_data;
+  before_link_inline_data.id = 3;
+  before_link_inline_data.role = ax::mojom::Role::kInlineTextBox;
+  before_link_inline_data.SetName("I am ");
+
+  AXNodeData link_data;
+  link_data.id = 4;
+  link_data.role = ax::mojom::Role::kLink;
+  link_data.child_ids = {5};
+
+  AXNodeData link_text_data;
+  link_text_data.id = 5;
+  link_text_data.role = ax::mojom::Role::kStaticText;
+  link_text_data.SetName("ironman");
+  link_text_data.child_ids = {6};
+
+  AXNodeData link_inline_data;
+  link_inline_data.id = 6;
+  link_inline_data.role = ax::mojom::Role::kInlineTextBox;
+  link_inline_data.SetName("ironman");
+
+  AXNodeData after_link_data;
+  after_link_data.id = 7;
+  after_link_data.role = ax::mojom::Role::kStaticText;
+  after_link_data.SetName(" two");
+  after_link_data.child_ids = {8};
+
+  AXNodeData after_link_inline_data;
+  after_link_inline_data.id = 8;
+  after_link_inline_data.role = ax::mojom::Role::kInlineTextBox;
+  after_link_inline_data.SetName(" two");
+
+  AXTreeUpdate update;
+  update.root_id = root_data.id;
+  update.has_tree_data = true;
+  update.tree_data.tree_id = AXTreeID::CreateNewAXTreeID();
+  update.nodes = {
+      root_data,       before_link_data,      before_link_inline_data,
+      link_data,       link_text_data,        link_inline_data,
+      after_link_data, after_link_inline_data};
+  Init(update);
+
+  AXNode* root_node = GetRoot();
+  AXNode* before_link_text_node = root_node->children()[0];
+  AXNode* link_text_node = root_node->children()[1]->children()[0];
+
+  auto* before_link_owner = static_cast<AXPlatformNodeWin*>(
+      AXPlatformNodeFromNode(before_link_text_node));
+  auto* link_text_owner =
+      static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(link_text_node));
+
+  ComPtr<ITextRangeProvider> before_link_range;
+  CreateTextRangeProviderWin(
+      before_link_range, before_link_owner, before_link_text_node,
+      /*start_offset=*/5, ax::mojom::TextAffinity::kDownstream,
+      before_link_text_node, /*end_offset=*/5,
+      ax::mojom::TextAffinity::kDownstream);
+
+  ComPtr<ITextRangeProvider> link_start_range;
+  CreateTextRangeProviderWin(
+      link_start_range, link_text_owner, link_text_node,
+      /*start_offset=*/0, ax::mojom::TextAffinity::kDownstream, link_text_node,
+      /*end_offset=*/0, ax::mojom::TextAffinity::kDownstream);
+
+  ComPtr<ITextRangeProvider> link_after_first_character_range;
+  CreateTextRangeProviderWin(
+      link_after_first_character_range, link_text_owner, link_text_node,
+      /*start_offset=*/1, ax::mojom::TextAffinity::kDownstream, link_text_node,
+      /*end_offset=*/1, ax::mojom::TextAffinity::kDownstream);
+
+  ComPtr<ITextRangeProvider> link_after_second_character_range;
+  CreateTextRangeProviderWin(
+      link_after_second_character_range, link_text_owner, link_text_node,
+      /*start_offset=*/2, ax::mojom::TextAffinity::kDownstream, link_text_node,
+      /*end_offset=*/2, ax::mojom::TextAffinity::kDownstream);
+
+  auto compare_starts = [](ITextRangeProvider* left,
+                           ITextRangeProvider* right) {
+    int result = 0;
+    EXPECT_HRESULT_SUCCEEDED(
+        left->CompareEndpoints(TextPatternRangeEndpoint_Start, right,
+                               TextPatternRangeEndpoint_Start, &result));
+    return result;
+  };
+
+  // Cross-boundary: "I am " end (flat offset 5) vs after first char of
+  // "ironman" (flat offset 6) — must be strictly before. Without the
+  // embedded-object behavior override this incorrectly returned 0.
+  EXPECT_EQ(-1, compare_starts(before_link_range.Get(),
+                               link_after_first_character_range.Get()));
+
+  // Same-anchor: offsets 1 vs 2 inside "ironman".
+  EXPECT_EQ(-1, compare_starts(link_after_first_character_range.Get(),
+                               link_after_second_character_range.Get()));
 }
 
 TEST_F(AXPlatformNodeTextRangeProviderTest,
@@ -1492,7 +1584,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXNode* root_node = GetRoot();
   ComPtr<ITextRangeProvider> text_range_provider;
   GetTextRangeProviderFromTextNode(text_range_provider, root_node);
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider_internal;
+  ComPtr<ITextRangeProvider> text_range_provider_internal;
   ASSERT_HRESULT_SUCCEEDED(text_range_provider->QueryInterface(
       IID_PPV_ARGS(&text_range_provider_internal)));
 
@@ -3817,7 +3909,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   EXPECT_HRESULT_SUCCEEDED(
       root_node_raw->GetPatternProvider(UIA_TextPatternId, &document_provider));
   ComPtr<ITextRangeProvider> document_text_range_provider;
-  ComPtr<AXPlatformNodeTextRangeProviderWin> document_text_range;
+  ComPtr<ITextRangeProvider> document_text_range;
 
   // Text range related to "some text".
   ComPtr<IRawElementProviderSimple> text_node_raw =
@@ -3826,7 +3918,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   EXPECT_HRESULT_SUCCEEDED(
       text_node_raw->GetPatternProvider(UIA_TextPatternId, &text_provider));
   ComPtr<ITextRangeProvider> text_range_provider;
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range;
+  ComPtr<ITextRangeProvider> text_range;
 
   // Text range related to "more text".
   ComPtr<IRawElementProviderSimple> more_text_node_raw =
@@ -3835,7 +3927,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   EXPECT_HRESULT_SUCCEEDED(more_text_node_raw->GetPatternProvider(
       UIA_TextPatternId, &more_text_provider));
   ComPtr<ITextRangeProvider> more_text_range_provider;
-  ComPtr<AXPlatformNodeTextRangeProviderWin> more_text_range;
+  ComPtr<ITextRangeProvider> more_text_range;
 
   // Move the start of document text range "some textmore text" to the end of
   // itself.
@@ -4541,7 +4633,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     //        annotated_text=some text<> and some other text
     AXPlatformNodeWin* owner =
         static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_node));
-    ComPtr<AXPlatformNodeTextRangeProviderWin> range_with_annotations;
+    ComPtr<ITextRangeProvider> range_with_annotations;
     CreateTextRangeProviderWin(
         range_with_annotations, owner,
         /*start_anchor=*/text_node, /*start_offset=*/5,
@@ -4568,7 +4660,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     //        annotated_text=some<> text and some other text
     AXPlatformNodeWin* owner =
         static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_node));
-    ComPtr<AXPlatformNodeTextRangeProviderWin> range_with_annotations;
+    ComPtr<ITextRangeProvider> range_with_annotations;
     CreateTextRangeProviderWin(
         range_with_annotations, owner,
         /*start_anchor=*/text_node, /*start_offset=*/0,
@@ -4595,7 +4687,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     //        annotated_text=some text and some<> other text
     AXPlatformNodeWin* owner =
         static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_node));
-    ComPtr<AXPlatformNodeTextRangeProviderWin> range_with_annotations;
+    ComPtr<ITextRangeProvider> range_with_annotations;
     CreateTextRangeProviderWin(
         range_with_annotations, owner,
         /*start_anchor=*/text_node, /*start_offset=*/14,
@@ -4621,7 +4713,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     //        annotated_text=some text and some other<> text
     AXPlatformNodeWin* owner =
         static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_node));
-    ComPtr<AXPlatformNodeTextRangeProviderWin> range_with_annotations;
+    ComPtr<ITextRangeProvider> range_with_annotations;
     CreateTextRangeProviderWin(
         range_with_annotations, owner,
         /*start_anchor=*/text_node, /*start_offset=*/19,
@@ -4659,7 +4751,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     //        annotated_text=more text<>
     AXPlatformNodeWin* owner = static_cast<AXPlatformNodeWin*>(
         AXPlatformNodeFromNode(heading_text_node));
-    ComPtr<AXPlatformNodeTextRangeProviderWin> range_with_annotations;
+    ComPtr<ITextRangeProvider> range_with_annotations;
     CreateTextRangeProviderWin(
         range_with_annotations, owner,
         /*start_anchor=*/heading_text_node, /*start_offset=*/5,
@@ -4690,7 +4782,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     //        annotated_text=more text m<a>rked text
     AXPlatformNodeWin* owner = static_cast<AXPlatformNodeWin*>(
         AXPlatformNodeFromNode(heading_text_node));
-    ComPtr<AXPlatformNodeTextRangeProviderWin> mixed_text_range_provider;
+    ComPtr<ITextRangeProvider> mixed_text_range_provider;
     CreateTextRangeProviderWin(
         mixed_text_range_provider, owner,
         /*start_anchor=*/heading_text_node, /*start_offset=*/5,
@@ -4777,7 +4869,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   ASSERT_NE(owner, nullptr);
 
   // Text range inside math should expose AnnotationType_Mathematics.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> math_text_range_provider;
+  ComPtr<ITextRangeProvider> math_text_range_provider;
   CreateTextRangeProviderWin(
       math_text_range_provider, owner,
       /*start_anchor=*/math_text_node,
@@ -4800,7 +4892,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // Text range outside math should not expose AnnotationType_Mathematics and
   // instead return an empty variant for AnnotationTypes.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> outside_text_range_provider;
+  ComPtr<ITextRangeProvider> outside_text_range_provider;
   CreateTextRangeProviderWin(
       outside_text_range_provider, owner,
       /*start_anchor=*/outside_text_node,
@@ -4900,7 +4992,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXNode* comment2_node = root_node->children()[2];
   AXNode* highlighted_node = root_node->children()[3];
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> some_text_range_provider;
+  ComPtr<ITextRangeProvider> some_text_range_provider;
 
   // Create a text range encapsulates |annotation_target_node| with content
   // "some text".
@@ -5034,7 +5126,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // "some text".
   // start: TextPosition, anchor_id=2, text_offset=0, annotated_text=<s>ome text
   // end  : TextPosition, anchor_id=2, text_offset=9, annotated_text=some text<>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> some_text_range_provider;
+  ComPtr<ITextRangeProvider> some_text_range_provider;
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(highlighted_node));
   CreateTextRangeProviderWin(
@@ -5088,7 +5180,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // Validate text range "some textread only" returns mixed attribute.
   // start: TextPosition, anchor_id=2, text_offset=0, annotated_text=<s>ome text
   // end  : TextPosition, anchor_id=3, text_offset=9, annotated_text=read only<>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> mixed_text_range_provider;
+  ComPtr<ITextRangeProvider> mixed_text_range_provider;
   CreateTextRangeProviderWin(
       mixed_text_range_provider, owner,
       /*start_anchor=*/some_text_node, /*start_offset=*/0,
@@ -5220,7 +5312,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // start: TextPosition, anchor_id=4, text_offset=0, annotated_text=<s>ome text
   // end  : TextPosition, anchor_id=5, text_offset=8,
   //        annotated_text=more tex<t>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider_win;
+  ComPtr<ITextRangeProvider> text_range_provider_win;
   CreateTextRangeProviderWin(
       text_range_provider_win, owner,
       /*start_anchor=*/some_text_node, /*start_offset=*/0,
@@ -5251,7 +5343,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestITextRangeProviderSelect) {
       QueryInterfaceFromNode<IRawElementProviderSimple>(root_node);
   ComPtr<ITextProvider> document_provider;
   ComPtr<ITextRangeProvider> document_text_range_provider;
-  ComPtr<AXPlatformNodeTextRangeProviderWin> document_text_range;
+  ComPtr<ITextRangeProvider> document_text_range;
   EXPECT_HRESULT_SUCCEEDED(
       root_node_raw->GetPatternProvider(UIA_TextPatternId, &document_provider));
   EXPECT_HRESULT_SUCCEEDED(
@@ -5267,7 +5359,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestITextRangeProviderSelect) {
   ComPtr<ITextRangeProvider> text_range_provider;
   GetTextRangeProviderFromTextNode(text_range_provider,
                                    root_node->children()[0]);
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range;
+  ComPtr<ITextRangeProvider> text_range;
   EXPECT_HRESULT_SUCCEEDED(
       text_range_provider->QueryInterface(IID_PPV_ARGS(&text_range)));
 
@@ -5276,7 +5368,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestITextRangeProviderSelect) {
   GetTextRangeProviderFromTextNode(more_text_range_provider,
                                    root_node->children()[1]);
   SetOwner(owner_platform, more_text_range_provider.Get());
-  ComPtr<AXPlatformNodeTextRangeProviderWin> more_text_range;
+  ComPtr<ITextRangeProvider> more_text_range;
   more_text_range_provider->QueryInterface(IID_PPV_ARGS(&more_text_range));
 
   AXPlatformNodeDelegate* delegate =
@@ -5436,7 +5528,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_field));
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor=*/text_field, /*start_offset=*/start_offset,
@@ -5652,8 +5744,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestITextRangeProviderFindText) {
   Microsoft::WRL::ComPtr<ITextRangeProvider> text_range_provider_found;
   EXPECT_HRESULT_SUCCEEDED(range->FindText(find_string.Get(), false, false,
                                            &text_range_provider_found));
-  Microsoft::WRL::ComPtr<AXPlatformNodeTextRangeProviderWin>
-      text_range_provider_win;
+  Microsoft::WRL::ComPtr<ITextRangeProvider> text_range_provider_win;
   text_range_provider_found->QueryInterface(
       IID_PPV_ARGS(&text_range_provider_win));
   ASSERT_TRUE(GetStart(text_range_provider_win.Get())->IsTextPosition());
@@ -5688,8 +5779,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   EXPECT_HRESULT_SUCCEEDED(text_range_provider->FindText(find_string.Get(),
                            false, false, &text_range_provider_found));
   ASSERT_TRUE(text_range_provider_found.Get());
-  Microsoft::WRL::ComPtr<AXPlatformNodeTextRangeProviderWin>
-      text_range_provider_win;
+  Microsoft::WRL::ComPtr<ITextRangeProvider> text_range_provider_win;
   text_range_provider_found->QueryInterface(
       IID_PPV_ARGS(&text_range_provider_win));
   ASSERT_TRUE(GetStart(text_range_provider_win.Get())->IsTextPosition());
@@ -5728,7 +5818,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // start: TextPosition, anchor_id=2, text_offset=0, annotated_text=<h>ello
   // world end  : TextPosition, anchor_id=2, text_offset=0,
   // annotated_text=<h>ello world
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider;
+  ComPtr<ITextRangeProvider> text_range_provider;
   CreateTextRangeProviderWin(
       text_range_provider, input_platform_node,
       /*start_anchor=*/input_node, /*start_offset=*/0,
@@ -5831,7 +5921,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=3, text_offset=0, annotated_text=<f>oo
   // end  : TextPosition, anchor_id=3, text_offset=3, annotated_text=foo<>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider;
+  ComPtr<ITextRangeProvider> text_range_provider;
   {
     ScopedAXEmbeddedObjectBehaviorSetter ax_embedded_object_behavior(
         AXEmbeddedObjectBehavior::kSuppressCharacter);
@@ -6504,7 +6594,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
       /*expected_text*/ L"a",
       /*expected_count*/ 2);
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider_win;
+  ComPtr<ITextRangeProvider> text_range_provider_win;
   text_range_provider->QueryInterface(IID_PPV_ARGS(&text_range_provider_win));
 
   const AXNodePosition::AXPositionInstance start_after_move =
@@ -6575,7 +6665,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
       /*expected_text*/ L"a",
       /*expected_count*/ 2);
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider_win;
+  ComPtr<ITextRangeProvider> text_range_provider_win;
   text_range_provider->QueryInterface(IID_PPV_ARGS(&text_range_provider_win));
 
   const AXNodePosition::AXPositionInstance start_after_move =
@@ -6643,7 +6733,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=3, text_offset=1, annotated_text=i<g>nored
   // end  : TextPosition, anchor_id=3, text_offset=6, annotated_text=ignore<d>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> ignored_range_win;
+  ComPtr<ITextRangeProvider> ignored_range_win;
   CreateTextRangeProviderWin(
       ignored_range_win, owner,
       /*start_anchor=*/ignored_node, /*start_offset=*/0,
@@ -6719,7 +6809,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   //         |-----------------------|
   // start: TextPosition, anchor_id=2, text_offset=6, annotated_text=before<>
   // end  : TextPosition, anchor_id=5, text_offset=0, annotated_text=<a>fter
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range_span_ignored_nodes;
+  ComPtr<ITextRangeProvider> range_span_ignored_nodes;
   CreateTextRangeProviderWin(
       range_span_ignored_nodes, owner,
       /*start_anchor=*/before_text_node, /*start_offset=*/6,
@@ -6781,7 +6871,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=3, text_offset=1, annotated_text=/xFFFC<>
   // end  : TextPosition, anchor_id=7, text_offset=0, annotated_text=<p>i
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor=*/line_break_3_node, /*start_offset=*/1,
@@ -6851,7 +6941,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestValidateStartAndEnd) {
 
   // start: TextPosition, anchor_id=1, text_offset=0, annotated_text=<s>ome text
   // end  : TextPosition, anchor_id=3, text_offset=9, annotated_text=more text<>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider;
+  ComPtr<ITextRangeProvider> text_range_provider;
   CreateTextRangeProviderWin(
       text_range_provider, owner,
       /*start_anchor=*/root_node, /*start_offset=*/0,
@@ -7005,7 +7095,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=3, text_offset=0, annotated_text=<s>ome text
   // end  : TextPosition, anchor_id=5, text_offset=9, annotated_text=more text<>
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor*/ text_3_node, /*start_offset*/ 0,
@@ -7065,7 +7155,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
     // start: TextPosition, anchor_id=4, text_offset=0, annotated_text=<s>ome
     // end  : TextPosition, anchor_id=4, text_offset=4, annotated_text=some<>
     const AXNode* text_4_node = tree->GetFromId(text_4.id);
-    ComPtr<AXPlatformNodeTextRangeProviderWin> range_2;
+    ComPtr<ITextRangeProvider> range_2;
     CreateTextRangeProviderWin(
         range_2, owner,
         /*start_anchor*/ text_4_node, /*start_offset*/ 0,
@@ -7167,7 +7257,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=5, text_offset=0
   // end  : TextPosition, anchor_id=7, text_offset=6
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor*/ text_5_node, /*start_offset*/ 0,
@@ -7299,7 +7389,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=5, text_offset=0
   // end  : TextPosition, anchor_id=7, text_offset=6
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor*/ text_6_node, /*start_offset*/ 2,
@@ -7427,7 +7517,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // start: TextPosition, anchor_id=5, text_offset=0
   // end  : TextPosition, anchor_id=7, text_offset=6
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor*/ text_6_node, /*start_offset*/ 2,
@@ -7596,7 +7686,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner = static_cast<AXPlatformNodeWin*>(
       AXPlatformNodeFromNode(tree->GetFromId(1)));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor*/ text_2_node, /*start_offset*/ 0,
@@ -7671,7 +7761,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, CaretAtEndOfTextFieldReadOnly) {
   AXPlatformNodeWin* owner = static_cast<AXPlatformNodeWin*>(
       AXPlatformNodeFromNode(tree->GetFromId(1)));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   base::win::ScopedVariant expected_variant;
 
   CreateTextRangeProviderWin(
@@ -7750,7 +7840,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   base::win::ScopedVariant expected_variant;
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range_1;
+  ComPtr<ITextRangeProvider> range_1;
   CreateTextRangeProviderWin(
       range_1, owner,
       /*start_anchor*/ image_3_node, /*start_offset*/ 1,
@@ -7765,7 +7855,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
                               expected_variant);
   expected_variant.Reset();
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range_2;
+  ComPtr<ITextRangeProvider> range_2;
   CreateTextRangeProviderWin(
       range_2, owner,
       /*start_anchor*/ image_6_node, /*start_offset*/ 1,
@@ -7784,7 +7874,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // separated by a paragraph boundary. This case used to not work because we
   // were relying on NormalizeTextRange to handle generated newlines and
   // normalization doesn't work when the range spans text fields.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range_3;
+  ComPtr<ITextRangeProvider> range_3;
   CreateTextRangeProviderWin(
       range_3, owner,
       /*start_anchor*/ text_field_9_node, /*start_offset*/ 1,
@@ -7822,7 +7912,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner = static_cast<AXPlatformNodeWin*>(
       AXPlatformNodeFromNode(tree->GetFromId(1)));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   base::win::ScopedVariant expected_variant;
 
   CreateTextRangeProviderWin(
@@ -7867,7 +7957,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_field));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> original;
+  ComPtr<ITextRangeProvider> original;
   CreateTextRangeProviderWin(
       original, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 14,
@@ -7895,7 +7985,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // We should expect the TextRangeProvider's offset to decrease by 9 on both
   // the start and end.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> after_deletion_expected;
+  ComPtr<ITextRangeProvider> after_deletion_expected;
   CreateTextRangeProviderWin(
       after_deletion_expected, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 9,
@@ -7935,7 +8025,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_field));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> original;
+  ComPtr<ITextRangeProvider> original;
   CreateTextRangeProviderWin(
       original, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 14,
@@ -7962,7 +8052,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   ASSERT_TRUE(GetTree()->Unserialize(update));
 
   // We should expect the TextRangeProvider's offset to be unaffected
-  ComPtr<AXPlatformNodeTextRangeProviderWin> after_deletion_expected;
+  ComPtr<ITextRangeProvider> after_deletion_expected;
   CreateTextRangeProviderWin(
       after_deletion_expected, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 14,
@@ -8005,7 +8095,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_field));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> original;
+  ComPtr<ITextRangeProvider> original;
   CreateTextRangeProviderWin(
       original, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 20,
@@ -8033,7 +8123,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // We should expect the TextRangeProvider's offset to decrease by 3
   // units since from the deleted range, only "red" affects the offset.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> after_deletion_expected;
+  ComPtr<ITextRangeProvider> after_deletion_expected;
   CreateTextRangeProviderWin(
       after_deletion_expected, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 17,
@@ -8077,7 +8167,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_field));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> original;
+  ComPtr<ITextRangeProvider> original;
   CreateTextRangeProviderWin(
       original, owner,
       /*start_anchor*/ span_node, /*start_offset*/ 3,
@@ -8106,7 +8196,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // We should expect the TextRangeProvider's end offset to decrease by 3
   // units since from the deleted range, since "red" affects the offset, but we
   // should expect the start offset to remain unaffected.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> after_deletion_expected;
+  ComPtr<ITextRangeProvider> after_deletion_expected;
   CreateTextRangeProviderWin(
       after_deletion_expected, owner,
       /*start_anchor*/ span_node, /*start_offset*/ 3,
@@ -8152,7 +8242,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXPlatformNodeWin* owner =
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(text_field));
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> original;
+  ComPtr<ITextRangeProvider> original;
   CreateTextRangeProviderWin(
       original, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 0,
@@ -8188,7 +8278,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   // units since there were 5 deletions and 2 insertions relevant to it but we
   // should expect the start offset to remain unaffected, since none of these
   // were relevant to it.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> after_deletion_expected;
+  ComPtr<ITextRangeProvider> after_deletion_expected;
   CreateTextRangeProviderWin(
       after_deletion_expected, owner,
       /*start_anchor*/ st_node, /*start_offset*/ 0,
@@ -9158,7 +9248,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
       root_node->children()[0]->children()[0]->children()[0];
 
   // Create a degenerate range at the start of inline_box1.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> text_range_provider_win;
+  ComPtr<ITextRangeProvider> text_range_provider_win;
   CreateTextRangeProviderWin(
       text_range_provider_win,
       static_cast<AXPlatformNodeWin*>(AXPlatformNodeFromNode(root_node)),
@@ -9482,7 +9572,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   const AXNode* text1_node = tree->GetFromId(3);
   const AXNode* text2_node = tree->GetFromId(5);
 
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range;
+  ComPtr<ITextRangeProvider> range;
   CreateTextRangeProviderWin(
       range, owner,
       /*start_anchor*/ text1_node, /*start_offset*/ 5,
@@ -9495,7 +9585,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   // Expand backward by one character from the degenerate position at text2:0
   // to verify we correctly pick up the generated newline.
-  ComPtr<AXPlatformNodeTextRangeProviderWin> range2;
+  ComPtr<ITextRangeProvider> range2;
   CreateTextRangeProviderWin(
       range2, owner,
       /*start_anchor*/ text2_node, /*start_offset*/ 0,

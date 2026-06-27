@@ -4,14 +4,20 @@
 
 #include "chromeos/ash/components/boca/session_api/session_parser.h"
 
+#include <string>
+
 #include "ash/constants/ash_features.h"
 #include "base/strings/string_number_conversions.h"
+#include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
 #include "chromeos/ash/components/boca/session_api/constants.h"
 #include "chromeos/ash/components/boca/session_api/json_proto_converters.h"
 #include "google_apis/common/base_requests.h"
 
 namespace ash::boca {
+namespace {
+
+// Enum translation
 ::boca::StudentStatus::StudentState StudentStatusJsonToProto(
     const std::string& status) {
   if (status == "STUDENT_STATE_UNKNOWN") {
@@ -130,6 +136,29 @@ namespace ash::boca {
   }
   return ::boca::ViewScreenConfig::UNKNOWN;
 }
+
+::boca::UrlType UrlTypeJsonToProto(const std::string& url_type) {
+  if (url_type == "URL_TYPE_GEMINI_REGULAR") {
+    return ::boca::URL_TYPE_GEMINI_REGULAR;
+  }
+  if (url_type == "URL_TYPE_GEMINI_GUIDED_LEARNING") {
+    return ::boca::URL_TYPE_GEMINI_GUIDED_LEARNING;
+  }
+  return ::boca::URL_TYPE_UNSPECIFIED;
+}
+
+::boca::GeminiEnablementState GeminiEnablementStateJsonToProto(
+    const std::string& state) {
+  if (state == kGeminiStateEnabled) {
+    return ::boca::GEMINI_ENABLEMENT_STATE_ENABLED;
+  }
+  if (state == kGeminiStateDisabled) {
+    return ::boca::GEMINI_ENABLEMENT_STATE_DISABLED;
+  }
+  return ::boca::GEMINI_ENABLEMENT_STATE_UNSPECIFIED;
+}
+
+}  // namespace
 
 void ParseTeacherProtoFromJson(base::DictValue* session_dict,
                                ::boca::Session* session) {
@@ -254,6 +283,9 @@ void ParseSessionConfigProtoFromJson(base::DictValue* session_dict,
           if (auto* ptr = item_dict->FindString(kFavIcon)) {
             content_configs->set_favicon_url(*ptr);
           }
+          if (auto* ptr = item_dict->FindString(kUrlType)) {
+            content_configs->set_url_type(UrlTypeJsonToProto(*ptr));
+          }
           if (item_dict->FindDict(kLockedNavigationOptions) &&
               item_dict->FindDict(kLockedNavigationOptions)
                   ->FindString(kNavigationType)) {
@@ -312,6 +344,11 @@ void ParseIndividualStudentStatusFromJson(
   // Set the student state
   if (auto* state_ptr = student_status_dict->FindString(kStudentStatusState)) {
     student_status->set_state(StudentStatusJsonToProto(*state_ptr));
+  }
+  if (auto* gemini_status_ptr =
+          student_status_dict->FindString(kGeminiEnablementState)) {
+    student_status->set_gemini_enablement_state(
+        GeminiEnablementStateJsonToProto(*gemini_status_ptr));
   }
   // Parse and set the devices
   if (auto* devices_ptr = student_status_dict->FindDict(kDevices)) {
@@ -483,6 +520,9 @@ void ParseOnTaskConfigJsonFromProto(::boca::OnTaskConfig* on_task_config,
       item.Set(kUrl, content.url());
       item.Set(kTitle, content.title());
       item.Set(kFavIcon, content.favicon_url());
+      if (content.url_type() != ::boca::URL_TYPE_UNSPECIFIED) {
+        item.Set(kUrlType, content.url_type());
+      }
       if (content.has_locked_navigation_options()) {
         base::DictValue navigation_type;
         navigation_type.Set(

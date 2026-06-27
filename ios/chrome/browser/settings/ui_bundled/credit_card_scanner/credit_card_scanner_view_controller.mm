@@ -28,6 +28,7 @@ NSString* const kCreditCardScannerViewID = @"kCreditCardScannerViewID";
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.accessibilityIdentifier = kCreditCardScannerViewID;
+  [self setupEnterManuallyButton];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -35,7 +36,6 @@ NSString* const kCreditCardScannerViewID = @"kCreditCardScannerViewID";
   // Crop the scanner subviews to the size of the `scannerView` to avoid the
   // preview overlay being visible outside the screen bounds while presenting.
   self.scannerView.clipsToBounds = YES;
-  [self setupEnterManuallyButton];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -87,30 +87,31 @@ NSString* const kCreditCardScannerViewID = @"kCreditCardScannerViewID";
     }
   }
 
-  if (!toolbar) {
+  // The toolbar is expected to have exactly 3 items by default, set up in the
+  // base class `ScannerView` (represented as `@[ close, spacer, _torchButton
+  // ]`).
+  if (!toolbar || toolbar.items.count != 3) {
     return;
   }
 
-  UIButtonConfiguration* config =
-      [UIButtonConfiguration plainButtonConfiguration];
-  config.title =
-      l10n_util::GetNSString(IDS_IOS_AUTOFILL_SCAN_CARD_ENTER_MANUALLY);
-  config.baseForegroundColor = [UIColor colorNamed:kBlueColor];
+  // Create a native UIBarButtonItem. On iOS 26, plain bar items on transparent
+  // toolbars automatically get the premium native glass pill style.
+  UIBarButtonItem* enterManuallyItem = [[UIBarButtonItem alloc]
+      initWithTitle:l10n_util::GetNSString(
+                        IDS_IOS_AUTOFILL_SCAN_CARD_ENTER_MANUALLY)
+              style:UIBarButtonItemStylePlain
+             target:self
+             action:@selector(didTapEnterManually:)];
 
-  UIButton* button = [UIButton buttonWithConfiguration:config
-                                         primaryAction:nil];
-  button.translatesAutoresizingMaskIntoConstraints = NO;
-
-  [self.scannerView addSubview:button];
-
-  [NSLayoutConstraint activateConstraints:@[
-    [button.centerXAnchor constraintEqualToAnchor:toolbar.centerXAnchor],
-    [button.centerYAnchor constraintEqualToAnchor:toolbar.centerYAnchor],
-  ]];
-
-  [button addTarget:self
-                action:@selector(didTapEnterManually:)
-      forControlEvents:UIControlEventTouchUpInside];
+  NSMutableArray<UIBarButtonItem*>* items = [toolbar.items mutableCopy];
+  [items insertObject:enterManuallyItem atIndex:2];
+  [items insertObject:
+             [[UIBarButtonItem alloc]
+                 initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
+                                      target:nil
+                                      action:nil]
+              atIndex:3];
+  toolbar.items = items;
 }
 
 - (void)didTapEnterManually:(id)sender {

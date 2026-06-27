@@ -56,7 +56,6 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -87,6 +86,7 @@
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_toolbar_button_container.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/window_controls_overlay_toggle_button.h"
 #include "chrome/browser/ui/views/web_apps/sub_apps_install_dialog_controller.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/views/web_apps/web_app_link_capturing_test_utils.h"
 #include "chrome/browser/ui/views/web_apps/web_app_update_review_dialog.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -706,10 +706,10 @@ class UninstallCompleteWaiter final : public BrowserCollectionObserver,
     if (app_browser != nullptr) {
       LOG(INFO) << base::StringPrintf(
           "An app browser is still open at %p: IsAttemptingToClose(): %v, "
-          "is_delete_scheduled(): %v",
+          "IsDeleteScheduled(): %v",
           app_browser,
           app_browser->capabilities()->IsAttemptingToCloseBrowser(),
-          app_browser->GetBrowserForMigrationOnly()->is_delete_scheduled());
+          app_browser->IsDeleteScheduled());
       return;
     }
 
@@ -873,6 +873,27 @@ class MenuButtonUpdateListener {
   base::CallbackListSubscription list_subscription_;
   base::test::TestFuture<void> menu_update_future_;
 };
+
+// Returns true if any browser window uses an off-the-record profile related
+// to `profile`. Inlined from the previous chrome::IsOffTheRecordBrowserInUse
+// helper in chrome/browser/ui/browser_finder.h.
+bool IsOffTheRecordBrowserInUse(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  bool off_the_record_in_use = false;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        Profile* window_profile = browser->GetProfile();
+        if (window_profile && window_profile->IsSameOrParent(profile) &&
+            window_profile->IsOffTheRecord()) {
+          off_the_record_in_use = true;
+        }
+        return !off_the_record_in_use;
+      });
+  return off_the_record_in_use;
+}
 
 }  // anonymous namespace
 
@@ -1388,15 +1409,20 @@ void WebAppIntegrationTestDriver::CreateShortcut(Site site,
   }
   MaybeNavigateTabbedBrowserInScope(site);
 
-  SetAutoAcceptWebAppDialogForTesting(
-      /*auto_accept=*/true,
-      /*auto_open_in_window=*/open_in_window);
   WebAppTestInstallWithOsHooksObserver observer(profile());
   observer.BeginListening();
   BrowserAddedWaiter browser_added_waiter;
-  CHECK(chrome::ExecuteCommand(browser(), IDC_CREATE_SHORTCUT));
-  active_app_id_ = observer.Wait();
-  SetAutoAcceptWebAppDialogForTesting(false, false);
+  {
+    std::unique_ptr<web_app::test::ScopedAutoCheckChromeOsOpenInWindow>
+        auto_check;
+    if (open_in_window) {
+      auto_check = std::make_unique<
+          web_app::test::ScopedAutoCheckChromeOsOpenInWindow>();
+    }
+    web_app::test::ScopedAutoAcceptCreateShortcutDialog auto_accept;
+    CHECK(chrome::ExecuteCommand(browser(), IDC_CREATE_SHORTCUT));
+    active_app_id_ = observer.Wait();
+  }
   if (open_in_window) {
     browser_added_waiter.Wait();
     app_browser_ = browser_added_waiter.browser_added();
@@ -1415,8 +1441,8 @@ void WebAppIntegrationTestDriver::InstallMenuOption(Site site) {
   BrowserAddedWaiter browser_added_waiter;
   WebAppTestInstallWithOsHooksObserver install_observer(profile());
   install_observer.BeginListening();
-  auto dont_close_bubble_on_deactivate =
-      web_app::SetDontCloseOnDeactivateForTesting();
+  web_app::test::ScopedDontCloseInstallDialogsOnDeactivate
+      dont_close_bubble_on_deactivate;
 
   CHECK(chrome::ExecuteCommand(browser(), IDC_INSTALL_PWA));
 
@@ -1474,8 +1500,8 @@ void WebAppIntegrationTestDriver::InstallOmniboxIcon(InstallableSite site) {
         run_loop.Quit();
       }));
 
-  auto dont_close_bubble_on_deactivate =
-      web_app::SetDontCloseOnDeactivateForTesting();
+  web_app::test::ScopedDontCloseInstallDialogsOnDeactivate
+      dont_close_bubble_on_deactivate;
 
   BrowserAddedWaiter browser_added_waiter;
   views::test::PropertyWaiter(
@@ -1813,13 +1839,18 @@ void WebAppIntegrationTestDriver::LaunchFileExpectDialog(
       target_contents = tab_added_waiter.Wait();
     }
     ASSERT_TRUE(target_contents);
-    auto url_matcher = base::BindRepeating([](const GURL& url) {
-      return base::EndsWith(url.path(), "foo_handler.html") ||
-             base::EndsWith(url.path(), "bar_handler.html");
-    });
-    test::WebAppPageWaiter page_waiter(target_contents);
-    page_waiter.ExpectUrlIf(url_matcher).ManifestOrLoadedNoManifest();
-    ASSERT_TRUE(page_waiter.WaitAndFlushCommands());
+
+    base::flat_set<GURL> valid_urls = {
+        delegate_->EmbeddedTestServer()->GetURL(
+            "/webapps_integration/file_handler/bar_handler.html"),
+        delegate_->EmbeddedTestServer()->GetURL(
+            "/webapps_integration/file_handler/foo_handler.html")
+
+    };
+    ASSERT_TRUE(test::WebAppPageWaiter(target_contents)
+                    .ExpectAnyUrl(valid_urls)
+                    .ManifestOrLoadedNoManifest()
+                    .WaitAndFlushCommands());
   }
 
   AfterStateChangeAction();
@@ -1865,18 +1896,22 @@ void WebAppIntegrationTestDriver::LaunchFileExpectNoDialog(
   bool is_denied = site_remember_deny_open_file_.contains(site);
   std::string expected_fallback_path = GetSiteConfiguration(site).relative_url;
 
-  auto url_matcher = base::BindRepeating(
-      [](bool is_denied, const std::string& fallback_path, const GURL& url) {
-        if (is_denied) {
-          return url.path() == fallback_path;
-        }
-        return base::EndsWith(url.path(), "foo_handler.html") ||
-               base::EndsWith(url.path(), "bar_handler.html");
-      },
-      is_denied, expected_fallback_path);
-  test::WebAppPageWaiter waiter(target_contents);
-  waiter.ExpectUrlIf(url_matcher).ManifestOrLoadedNoManifest();
-  ASSERT_TRUE(waiter.WaitAndFlushCommands());
+  base::flat_set<GURL> valid_urls;
+  if (is_denied) {
+    valid_urls = {
+        delegate_->EmbeddedTestServer()->GetURL(expected_fallback_path)};
+  } else {
+    valid_urls = {delegate_->EmbeddedTestServer()->GetURL(
+                      "/webapps_integration/file_handler/bar_handler.html"),
+                  delegate_->EmbeddedTestServer()->GetURL(
+                      "/webapps_integration/file_handler/foo_handler.html")
+
+    };
+  }
+  ASSERT_TRUE(test::WebAppPageWaiter(target_contents)
+                  .ExpectAnyUrl(valid_urls)
+                  .ManifestOrLoadedNoManifest()
+                  .WaitAndFlushCommands());
 
   AfterStateChangeAction();
 }
@@ -2381,7 +2416,7 @@ void WebAppIntegrationTestDriver::NavigateAppHome() {
   GURL app_home_url = GURL(chrome::kChromeUIAppsURL);
   WindowOpenDisposition win_disposition;
   content::TestNavigationObserver url_observer(app_home_url);
-  if (chrome::IsOffTheRecordBrowserInUse(browser()->profile())) {
+  if (IsOffTheRecordBrowserInUse(browser()->profile())) {
     win_disposition = WindowOpenDisposition::OFF_THE_RECORD;
     url_observer.StartWatchingNewWebContents();
   } else {
@@ -2672,7 +2707,8 @@ void WebAppIntegrationTestDriver::SwitchIncognitoProfile() {
   }
   BrowserAddedWaiter browser_added_waiter;
   CHECK(chrome::ExecuteCommand(browser(), IDC_NEW_INCOGNITO_WINDOW));
-  ASSERT_EQ(1U, chrome::GetIncognitoBrowserCount());
+  ASSERT_EQ(1U,
+            GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount());
   browser_added_waiter.Wait();
   Browser* incognito_browser = browser_added_waiter.browser_added();
   ASSERT_TRUE(incognito_browser);
@@ -5037,7 +5073,8 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
 #endif  // !BUILDFLAG(IS_CHROMEOS)
   enabled_features.push_back(blink::features::kWebAppMigrationApi);
 
-  scoped_feature_list_.InitWithFeatures(enabled_features, {});
+  scoped_feature_list_.InitWithFeatures(enabled_features,
+                                        {features::kWebAppInstallDialog});
 }
 
 WebAppIntegrationTest::~WebAppIntegrationTest() = default;

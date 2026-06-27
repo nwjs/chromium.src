@@ -387,14 +387,25 @@ class PrefHashBrowserTestBase : public extensions::ExtensionBrowserTest {
           user_prefs::tracked::kTrackedPrefHistogramNullInitialized, ALLOW_ANY);
       EXPECT_EQ(protection_level_ > PROTECTION_DISABLED_ON_PLATFORM,
                 num_tracked_prefs_ > 0);
-      // Split tracked prefs are reported as Unchanged not as NullInitialized
-      // when an empty dictionary is encountered on first run (this should only
-      // hit for pref #5 in the current design).
+      // Split tracked prefs are reported as Unchanged, not as NullInitialized,
+      // when an empty dictionary is encountered on first run. This is because
+      // an empty dictionary is a valid container value (no items to validate),
+      // whereas a missing atomic preference is absent and thus NullInitialized.
+      // This should only hit for pref #5 (Extensions) in the current design.
       int num_split_tracked_prefs = GetTrackedPrefHistogramCount(
           user_prefs::tracked::kTrackedPrefHistogramUnchanged,
           BEGIN_ALLOW_SINGLE_BUCKET + 5);
-      EXPECT_EQ(protection_level_ > PROTECTION_DISABLED_ON_PLATFORM ? 1 : 0,
-                num_split_tracked_prefs);
+      // When encrypted pref hashing is enabled, we expect 2 samples for split
+      // tracked prefs (like Extensions) because PrefHashFilter performs
+      // validation twice: once synchronously during startup (without the
+      // encryptor) and once asynchronously after the encryptor is available.
+      int expected_split_prefs =
+          (protection_level_ > PROTECTION_DISABLED_ON_PLATFORM)
+              ? (base::FeatureList::IsEnabled(tracked::kEncryptedPrefHashing)
+                     ? 2
+                     : 1)
+              : 0;
+      EXPECT_EQ(expected_split_prefs, num_split_tracked_prefs);
       if (SupportsRegistryValidation()) {
         // Same checks as above, but for the registry.
         num_tracked_prefs_ = GetTrackedPrefHistogramCount(
@@ -408,11 +419,15 @@ class PrefHashBrowserTestBase : public extensions::ExtensionBrowserTest {
             user_prefs::tracked::kTrackedPrefHistogramUnchanged,
             user_prefs::tracked::kTrackedPrefRegistryValidationSuffix,
             BEGIN_ALLOW_SINGLE_BUCKET + 5);
-        EXPECT_EQ(protection_level_ > PROTECTION_DISABLED_ON_PLATFORM ? 1 : 0,
-                  split_tracked_prefs);
+        // Registry validation does not support encrypted hashing, so the count
+        // does not vary with the feature state.
+        int expected_registry_split_prefs =
+            (protection_level_ > PROTECTION_DISABLED_ON_PLATFORM) ? 1 : 0;
+        EXPECT_EQ(expected_registry_split_prefs, split_tracked_prefs);
       }
 
-      num_tracked_prefs_ += num_split_tracked_prefs;
+      // If any split tracked prefs were found, increment the total count by 1.
+      num_tracked_prefs_ += (num_split_tracked_prefs > 0 ? 1 : 0);
 
       std::string num_tracked_prefs_str =
           base::NumberToString(num_tracked_prefs_);
@@ -1528,6 +1543,49 @@ class PrefHashBrowserTestEncryptedTampered
 };
 
 PREF_HASH_BROWSER_TEST(PrefHashBrowserTestEncryptedTampered, EncryptedTampered);
+
+// Tests that the SuperEncryptedHash is written to the Secure Preferences file.
+class PrefHashBrowserTestSuperEncryptedHashWritten
+    : public PrefHashBrowserTestBase {
+ public:
+  PrefHashBrowserTestSuperEncryptedHashWritten() = default;
+
+  void SetupPreferences() override {
+    // Set a tracked preference to ensure the store is used.
+    profile()->GetPrefs()->SetString(prefs::kHomePage, "http://example.com");
+  }
+
+  void AttackPreferencesOnDisk(
+      base::DictValue* unprotected_preferences,
+      base::DictValue* protected_preferences) override {
+    if (protection_level_ <= PROTECTION_DISABLED_FOR_GROUP) {
+      return;
+    }
+
+    ASSERT_TRUE(protected_preferences);
+
+    // Verify that the super_encrypted_hash exists.
+    const std::string* super_encrypted_hash =
+        protected_preferences->FindStringByDottedPath(
+            "protection.super_encrypted_hash");
+
+    super_encrypted_hash_found_ = (super_encrypted_hash != nullptr);
+  }
+
+  void VerifyReactionToPrefAttack() override {
+    if (protection_level_ <= PROTECTION_DISABLED_FOR_GROUP) {
+      return;
+    }
+
+    EXPECT_TRUE(super_encrypted_hash_found_);
+  }
+
+ private:
+  bool super_encrypted_hash_found_ = false;
+};
+
+PREF_HASH_BROWSER_TEST(PrefHashBrowserTestSuperEncryptedHashWritten,
+                       SuperEncryptedHashWritten);
 
 // Tests the fallback path: loads prefs with only legacy MACs and verifies
 // that new encrypted hashes are created without resetting any values.

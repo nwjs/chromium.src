@@ -139,6 +139,7 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
+#include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/inline/abstract_inline_text_box.h"
@@ -3646,9 +3647,9 @@ String AXNodeObject::AutoComplete() const {
         AriaTokenAttribute(html_names::kAriaAutocompleteAttr);
     // Illegal values must be passed through, according to CORE-AAM.
     if (aria_auto_complete) {
-      return aria_auto_complete == "none" ? String()
-                                          : aria_auto_complete.ToAsciiLower();
-      ;
+      return aria_auto_complete == keywords::kNone
+                 ? String()
+                 : aria_auto_complete.ToAsciiLower();
     }
   }
 
@@ -4921,6 +4922,30 @@ ax::mojom::blink::HasPopup AXNodeObject::HasPopup() const {
 
   if (AXObjectCache().GetAutofillSuggestionAvailability(AXObjectID()) !=
       WebAXAutofillSuggestionAvailability::kNoSuggestions) {
+    return ax::mojom::blink::HasPopup::kMenu;
+  }
+
+  // If this element invokes a menulist via popovertarget OR commandfor, give it
+  // haspopup=menu.
+  Element* invoked_target = nullptr;
+  if (auto* html_element = DynamicTo<HTMLElement>(GetElement())) {
+    if (HTMLElement* command_for_element =
+            DynamicTo<HTMLElement>(html_element->commandForElement())) {
+      CommandEventType command = command_for_element->GetCommandEventType(
+          html_element->command(), html_element->GetExecutionContext());
+      if (command_for_element->IsValidBuiltinPopoverCommand(command)) {
+        invoked_target = command_for_element;
+      }
+    }
+    if (!invoked_target) {
+      if (auto* form_control =
+              DynamicTo<HTMLFormControlElement>(html_element)) {
+        invoked_target = form_control->popoverTargetElement().popover;
+      }
+    }
+  }
+
+  if (invoked_target && IsA<HTMLMenuListElement>(invoked_target)) {
     return ax::mojom::blink::HasPopup::kMenu;
   }
 

@@ -4,7 +4,6 @@
 
 # Fuzzers for content/ components.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//mojo/public/tools/fuzzers/mojolpm.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
@@ -77,8 +76,17 @@ fuzzer_test("renderer_proto_tree_fuzzer") {
     "//third_party/libprotobuf-mutator",
   ]
 
+  # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
+  is_fuzztest_compatible = false
+
   # Increase the memory limit, since the fuzzer exceeds it in Debug builds.
   libfuzzer_options = [ "rss_limit_mb=4096" ]
+  if (is_android) {
+    deps += [
+      # Provides org.chromium.ui.base.ResourceBundle.
+      "//ui/android:ui_no_recycler_view_java",
+    ]
+  }
 }
 
 proto_library("html_tree_proto") {
@@ -262,7 +270,11 @@ content_mojolpm_fuzzer_test("dom_storage_mojolpm_fuzzer") {
 
   proto_deps = [ "//third_party/blink/public/mojom:mojom_platform_mojolpm" ]
 
-  seed_corpus_sources = [ "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/basic_put.textproto" ]
+  seed_corpus_sources = [
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/local_storage_operations.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/multi_area_operations.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/session_storage_operations.textproto",
+  ]
 }
 
 content_mojolpm_fuzzer_test("file_system_manager_mojolpm_fuzzer") {
@@ -326,6 +338,9 @@ fuzzer_test("browser_accessibility_fuzzer") {
     "//storage/browser:test_support",
     "//ui/accessibility:test_support",
   ]
+  if (is_android) {
+    deps += [ "//base/test:test_support" ]
+  }
 }
 
 source_set("indexed_db_fuzzer_support") {
@@ -397,6 +412,9 @@ fuzzer_test("first_party_set_parser_json_fuzzer") {
   if (is_android) {
     deps += [ "//third_party/icu:icu_assets" ]
   }
+
+  # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
+  is_fuzztest_compatible = false
 }
 
 if (use_fuzzing_engine_with_lpm) {
@@ -410,6 +428,9 @@ if (use_fuzzing_engine_with_lpm) {
     if (is_android) {
       deps += [ "//third_party/icu:icu_assets" ]
     }
+
+    # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
+    is_fuzztest_compatible = false
   }
 
   fuzzable_proto_library("related_website_sets_proto") {

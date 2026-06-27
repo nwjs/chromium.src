@@ -260,7 +260,7 @@ public class AdaptiveToolbarSettingsFragmentTest {
                             getButton(AdaptiveToolbarButtonVariant.GLIC).getId());
                     selectButton(AdaptiveToolbarButtonVariant.GLIC);
                     assertButtonCheckedCorrectly(
-                            R.string.glic_button_entrypoint_label,
+                            R.string.glic_button_entrypoint_open_gemini_label,
                             AdaptiveToolbarButtonVariant.GLIC);
                     assertEquals(
                             AdaptiveToolbarButtonVariant.GLIC, mRadioPreference.getSelection());
@@ -298,6 +298,7 @@ public class AdaptiveToolbarSettingsFragmentTest {
     @SmallTest
     public void testTranslateOption_Disabled() {
         // Disable translate.
+        doReturn(true).when(mPrefService).isManagedPreference(Pref.OFFER_TRANSLATE_ENABLED);
         doReturn(false).when(mPrefService).getBoolean(Pref.OFFER_TRANSLATE_ENABLED);
 
         FragmentScenario<AdaptiveToolbarSettingsFragment> scenario = buildFragmentScenario();

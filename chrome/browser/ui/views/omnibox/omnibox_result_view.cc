@@ -426,37 +426,45 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   views::SetImageFromVectorIconWithColor(
       thumbs_up_button_,
       match_.feedback_type == FeedbackType::kThumbsUp
-          ? vector_icons::kThumbUpFilledIcon
-          : vector_icons::kThumbUpIcon,
+          ? features::IsRoundedIconsEnabled()
+                ? vector_icons::kThumbUpFilledIcon
+                : vector_icons::kThumbUpFilledOldIcon
+      : features::IsRoundedIconsEnabled() ? vector_icons::kThumbUpIcon
+                                          : vector_icons::kThumbUpOldIcon,
       GetLayoutConstant(LayoutConstant::kLocationBarIconSize),
       {icon_color_id,
        /* omnibox buttons are never disabled */
-       gfx::kPlaceholderColor});
+       gfx::kPlaceholderColor, icon_color_id});
   if (thumbs_up_button_->GetVisible()) {
-    views::FocusRing::Get(thumbs_up_button_)->SchedulePaint();
+    views::FocusRing::Get(thumbs_up_button_)->Refresh();
   }
 
   views::SetImageFromVectorIconWithColor(
       thumbs_down_button_,
       match_.feedback_type == FeedbackType::kThumbsDown
-          ? vector_icons::kThumbDownFilledIcon
-          : vector_icons::kThumbDownIcon,
+          ? features::IsRoundedIconsEnabled()
+                ? vector_icons::kThumbDownFilledIcon
+                : vector_icons::kThumbDownFilledOldIcon
+      : features::IsRoundedIconsEnabled() ? vector_icons::kThumbDownIcon
+                                          : vector_icons::kThumbDownOldIcon,
       GetLayoutConstant(LayoutConstant::kLocationBarIconSize),
       {icon_color_id,
        /* omnibox buttons are never disabled */
-       gfx::kPlaceholderColor});
+       gfx::kPlaceholderColor, icon_color_id});
   if (thumbs_down_button_->GetVisible()) {
-    views::FocusRing::Get(thumbs_down_button_)->SchedulePaint();
+    views::FocusRing::Get(thumbs_down_button_)->Refresh();
   }
 
   views::SetImageFromVectorIconWithColor(
-      remove_suggestion_button_, vector_icons::kCloseRoundedIcon,
+      remove_suggestion_button_,
+      features::IsRoundedIconsEnabled() ? vector_icons::kCloseSmallIcon
+                                        : vector_icons::kCloseRoundedOldIcon,
       GetLayoutConstant(LayoutConstant::kLocationBarIconSize),
       {icon_color_id,
        /* omnibox buttons are never disabled */
-       gfx::kPlaceholderColor});
+       gfx::kPlaceholderColor, icon_color_id});
   if (remove_suggestion_button_->GetVisible()) {
-    views::FocusRing::Get(remove_suggestion_button_)->SchedulePaint();
+    views::FocusRing::Get(remove_suggestion_button_)->Refresh();
   }
 
   const OmniboxPartState state = GetThemeState();
@@ -518,7 +526,7 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   }
 
   if (suggestion_view_->iph_link_view()->GetVisible()) {
-    views::FocusRing::Get(suggestion_view_->iph_link_view())->SchedulePaint();
+    views::FocusRing::Get(suggestion_view_->iph_link_view())->Refresh();
   }
 }
 

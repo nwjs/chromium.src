@@ -37,6 +37,7 @@ class TabGroupId;
 }
 
 namespace split_tabs {
+enum class SplitTabLayout;
 enum class SplitTabCreatedSource;
 }
 
@@ -140,6 +141,11 @@ class TabStripModelDelegate {
   // |group|.
   virtual void CreateHistoricalGroup(const tab_groups::TabGroupId& group) = 0;
 
+  // Creates an entry in the historical split database for the specified
+  // |split_id|.
+  virtual void CreateHistoricalSplit(
+      const split_tabs::SplitTabId& split_id) = 0;
+
   // Called on group creation after the group has been added to the tabstrip and
   // all tabs have been added.
   virtual void GroupAdded(const tab_groups::TabGroupId& group) = 0;
@@ -153,6 +159,12 @@ class TabStripModelDelegate {
 
   // Notifies the tab restore service that the group is no longer closing.
   virtual void GroupCloseStopped(const tab_groups::TabGroupId& group) = 0;
+
+  // Notifies the tab restore service that the split view is done closing.
+  virtual void SplitClosed(const split_tabs::SplitTabId& split_id) = 0;
+
+  // Notifies the tab restore service that the split view is no longer closing.
+  virtual void SplitCloseStopped(const split_tabs::SplitTabId& split_id) = 0;
 
   // Runs any unload listeners associated with the specified WebContents
   // before it is closed. If there are unload listeners that need to be run,
@@ -199,6 +211,7 @@ class TabStripModelDelegate {
   // `indices` is empty, a new tab navigated to the split tab empty state page
   // will be used for the split view instead.
   virtual void NewSplitTab(std::vector<int> indices,
+                           split_tabs::SplitTabLayout layout,
                            split_tabs::SplitTabCreatedSource source) = 0;
 
   // When performing actions to groups, some features may need to show

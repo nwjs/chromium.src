@@ -20,6 +20,7 @@
 #include "base/check.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/time.h"
@@ -36,6 +37,7 @@
 #include "pdf/pdf_ink_brush.h"
 #include "pdf/pdf_ink_conversions.h"
 #include "pdf/pdf_ink_cursor.h"
+#include "pdf/pdf_ink_ids.h"
 #include "pdf/pdf_ink_metrics_handler.h"
 #include "pdf/pdf_ink_module_client.h"
 #include "pdf/pdf_ink_text.h"
@@ -143,6 +145,13 @@ SkColor GetColorFromDict(const base::DictValue& dict) {
   return SkColorSetRGB(color_r, color_g, color_b);
 }
 
+base::DictValue SkColorToDict(SkColor color) {
+  return base::DictValue()
+      .Set("r", static_cast<int>(SkColorGetR(color)))
+      .Set("g", static_cast<int>(SkColorGetG(color)))
+      .Set("b", static_cast<int>(SkColorGetB(color)));
+}
+
 InkTextBoxAttributes GetTextBoxAttributesFromDict(const base::DictValue& data) {
   const base::DictValue& text_box_rect = *data.FindDict("textBoxRect");
   gfx::RectF textbox(text_box_rect.FindDouble("locationX").value(),
@@ -185,7 +194,8 @@ InkTextBoxAttributes GetTextBoxAttributesFromDict(const base::DictValue& data) {
 
   return InkTextBoxAttributes(textbox, GetColorFromDict(text_attributes),
                               css_font_size, typeface, alignment, orientation,
-                              /*is_bold=*/is_bold, /*is_italic=*/is_italic);
+                              /*is_bold=*/is_bold, /*is_italic=*/is_italic,
+                              *data.FindString("text"));
 }
 
 ink::Rect GetEraserRect(const gfx::PointF& center) {
@@ -1428,10 +1438,60 @@ void PdfInkModule::HandleAnnotationUndoMessage(const base::DictValue& message) {
 
 void PdfInkModule::HandleGetAllTextAnnotationsMessage(
     const base::DictValue& message) {
-  // TODO(crbug.com/408926609): Fill in this method. For now, just return an
-  // empty set of annotations.
+  CHECK(text_id_map_.empty());
+
+  base::ListValue annotations;
+
+  // It is safe to use base::Unretained(&id_generator_) because the callback is
+  // executed synchronously.
+  DocumentInkTextBoxesMap document_text_boxes =
+      client_->LoadTextAnnotationsFromPdf(
+          base::BindRepeating(&PdfInkModule::IdGenerator::GetTextIdAndAdvance,
+                              base::Unretained(&id_generator_)));
+
+  // The backend sets the frontend ID for loaded text annotations.
+  int frontend_id = 0;
+
+  for (auto& [page_index, text_boxes] : document_text_boxes) {
+    for (const auto& item : text_boxes) {
+      text_id_map_[frontend_id] = item.ink_text_id;
+
+      auto text_attributes =
+          base::DictValue()
+              .Set("typeface", TextTypefaceToString(item.attributes.typeface))
+              .Set("size", static_cast<double>(item.attributes.css_font_size))
+              .Set("color", SkColorToDict(item.attributes.color))
+              .Set("alignment",
+                   TextAlignmentToString(item.attributes.alignment))
+              .Set("styles", base::DictValue()
+                                 .Set("bold", item.attributes.is_bold)
+                                 .Set("italic", item.attributes.is_italic));
+
+      const gfx::RectF& rect = item.attributes.rect;
+      auto textbox_rect = base::DictValue()
+                              .Set("height", static_cast<double>(rect.height()))
+                              .Set("locationX", static_cast<double>(rect.x()))
+                              .Set("locationY", static_cast<double>(rect.y()))
+                              .Set("width", static_cast<double>(rect.width()));
+
+      annotations.Append(
+          base::DictValue()
+              .Set("id", frontend_id)
+              .Set("pageIndex", page_index)
+              // The backend always operates at 100% zoom. The frontend ignores
+              // this value.
+              .Set("pdfZoom", 1.0)
+              .Set("text", item.attributes.text)
+              .Set("textAttributes", std::move(text_attributes))
+              .Set("textBoxRect", std::move(textbox_rect))
+              .Set("textOrientation", item.attributes.orientation));
+
+      ++frontend_id;
+    }
+  }
+
   client_->PostMessage(
-      PrepareReplyMessage(message).Set("annotations", base::ListValue()));
+      PrepareReplyMessage(message).Set("annotations", std::move(annotations)));
 }
 
 void PdfInkModule::HandleGetAnnotationBrushMessage(
@@ -1470,10 +1530,7 @@ void PdfInkModule::HandleGetAnnotationBrushMessage(
   data.Set("size", ink_brush.GetSize());
 
   SkColor color = GetSkColorFromInkBrush(ink_brush);
-  data.Set("color", base::DictValue()
-                        .Set("r", static_cast<int>(SkColorGetR(color)))
-                        .Set("g", static_cast<int>(SkColorGetG(color)))
-                        .Set("b", static_cast<int>(SkColorGetB(color))));
+  data.Set("color", SkColorToDict(color));
 
   reply.Set("data", std::move(data));
   client_->PostMessage(std::move(reply));
@@ -1584,12 +1641,75 @@ void PdfInkModule::HandleSetAnnotationModeMessage(
 
 void PdfInkModule::HandleEditTextAnnotationMessage(
     const base::DictValue& message) {
-  // TODO(crbug.com/408976049): Implement.
+  int frontend_id = message.FindInt("data").value();
+  auto it = text_id_map_.find(frontend_id);
+  CHECK(it != text_id_map_.end());
+  client_->UpdateTextActiveAndInvalidate(it->second, /*active=*/false);
 }
 
 void PdfInkModule::HandleFinishTextAnnotationMessage(
     const base::DictValue& message) {
   const base::DictValue& data = *message.FindDict("data");
+  const int frontend_id = data.FindInt("id").value();
+
+  const std::string& source = *data.FindString("source");
+  const bool is_edited = data.FindBool("isEdited").value();
+  if (!is_edited) {
+    // When there are no edits, just reactivate the active text annotation.
+    // i.e. Do the reverse of HandleEditTextAnnotationMessage().
+    // This code path is never used to apply a undo/redo, so `source` must be
+    // the user.
+    CHECK_EQ(source, "user");
+    auto it = text_id_map_.find(frontend_id);
+    CHECK(it != text_id_map_.end());
+    client_->UpdateTextActiveAndInvalidate(it->second, /*active=*/true);
+    return;
+  }
+
+  // Figure out if this message is for a user action, or for handling undo/redo.
+  // If this is for handling undo/redo, then do not modify `undo_redo_model_`.
+  const bool modify_undo_redo_model = source == "user";
+  if (modify_undo_redo_model) {
+    // When there are edits, first process the undo/redo Start() call.
+    base::expected<std::optional<IdType>, std::monostate> lowest_discard =
+        undo_redo_model_.Start();
+    CHECK(lowest_discard.has_value());
+    ApplyUndoRedoDiscards(lowest_discard.value());
+  }
+
+  // The edit can be one of the following, which breaks down into 1 or 2 steps:
+  // - Addition: No existing annotation to delete. Only add new annotation.
+  // - Modification: Delete existing annotation and add new annotation.
+  // - Deletion: Delete existing annotation only.
+  // First do the deletion if needed.
+  if (auto it = text_id_map_.find(frontend_id); it != text_id_map_.end()) {
+    InkTextId existing_id = it->second;
+    // Make sure `existing_id` gets hidden before being discarded.
+    client_->UpdateTextActiveAndInvalidate(existing_id, /*active=*/false);
+    // "HandleFinishTextAnnotationMessageDiscard" note: This method will discard
+    // here before getting a new ID from `id_generator_` below. The block above
+    // this just called `ApplyUndoRedoDiscards()`. This complies with the
+    // assumptions `ApplyUndoRedoDiscards()` made regarding text annotation
+    // discards.
+    client_->DiscardText(existing_id);
+    text_id_map_.erase(it);
+
+    if (modify_undo_redo_model) {
+      CHECK(undo_redo_model_.Remove(existing_id));
+    }
+
+    // Empty text means the annotation is being deleted. Return early since
+    // there is nothing to add.
+    if (data.FindString("text")->empty()) {
+      if (modify_undo_redo_model) {
+        CHECK(undo_redo_model_.Finish());
+      }
+      return;
+    }
+  }
+
+  // If this is a modification or addition, then process the rest of the fields
+  // in `data` and create a new annotation.
   const base::ListValue& typefaces_value = *data.FindList("newTypefaces");
   for (const base::Value& item : typefaces_value) {
     const base::DictValue& item_as_dict = item.GetDict();
@@ -1606,17 +1726,36 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
   std::vector<InkTextInfo> ink_info = InkTextInfo::SplitTypefaceRuns(
       text_info_mojo->text_runs, text_info_mojo->effective_zoom);
 
-  int page_index = data.FindInt("pageIndex").value();
+  const int page_index = data.FindInt("pageIndex").value();
 
   // Note: `pdf_zoom` is similar to GetZoom() but GetZoom() is multiplied by
   // device scale factor while this value isn't. Additionally `pdf_zoom` comes
   // from the frontend at the exact same time as the annotation commit happens
   // to avoid any potential sync race issues between the frontend and backend.
-  double pdf_zoom = data.FindDouble("pdfZoom").value();
+  const double pdf_zoom = data.FindDouble("pdfZoom").value();
 
-  InkTextId new_id = id_generator_.GetTextIdAndAdvance();
+  InkTextId new_id;
+  if (modify_undo_redo_model) {
+    new_id = id_generator_.GetTextIdAndAdvance();
+  } else if (source == "undo") {
+    // This assumes `HandleAnnotationUndoMessage()` for this undo action has not
+    // been called yet.
+    new_id = undo_redo_model_.GetUndoInkTextId().value();
+  } else {
+    // This assumes `HandleAnnotationRedoMessage()` for this redo action has not
+    // been called yet.
+    CHECK_EQ(source, "redo");
+    new_id = undo_redo_model_.GetRedoInkTextId().value();
+  }
+
+  text_id_map_[frontend_id] = new_id;
   client_->DrawText(page_index, new_id, ink_info, pdf_zoom,
                     GetTextBoxAttributesFromDict(data));
+
+  if (modify_undo_redo_model) {
+    CHECK(undo_redo_model_.Add(new_id));
+    CHECK(undo_redo_model_.Finish());
+  }
 }
 
 bool PdfInkModule::IsHighlightingTextAtPosition(
@@ -1726,6 +1865,12 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
   std::set<InkStrokeId> stroke_ids;
   std::set<InkModeledShapeId> shape_ids;
   for (const IdType& id : ids) {
+    if (std::holds_alternative<InkTextId>(id)) {
+      // No need to handle text objects. The frontend will separately send
+      // "finishTextAnnotation" messages and make changes there.
+      continue;
+    }
+
     bool inserted;
     if (std::holds_alternative<InkStrokeId>(id)) {
       inserted = stroke_ids.insert(std::get<InkStrokeId>(id)).second;
@@ -1736,8 +1881,7 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
     CHECK(inserted);
   }
 
-  // Sanity check strokes/shapes exist, if this method is being asked to erase
-  // them.
+  // Verify strokes/shapes exist, if this method is being asked to erase them.
   if (!stroke_ids.empty()) {
     CHECK(!strokes_.empty());
   }
@@ -1839,9 +1983,14 @@ void PdfInkModule::ApplyUndoRedoDiscards(std::optional<IdType> lowest_discard) {
     return;
   }
 
-  // TODO(crbug.com/408976048): Support discarding text objects.
-  CHECK(std::holds_alternative<InkStrokeId>(lowest_discard.value()));
-  InkStrokeId lowest_stroke_id = std::get<InkStrokeId>(lowest_discard.value());
+  // Only discard Ink Strokes:
+  // - InkModeledShapes cannot be discarded
+  // - No need to discard text objects. The frontend will separately send
+  //   "finishTextAnnotation" messages and discard there. See the
+  //   "HandleFinishTextAnnotationMessageDiscard" comment in this file.
+  CHECK(!std::holds_alternative<InkModeledShapeId>(lowest_discard.value()));
+
+  const size_t lowest_discard_value = GetIdTypeValue(lowest_discard.value());
 
   // `page_ink_strokes` values in `strokes_` are in sorted order, so all
   // elements in `page_ink_strokes` with the start ID or larger IDs can be
@@ -1849,10 +1998,10 @@ void PdfInkModule::ApplyUndoRedoDiscards(std::optional<IdType> lowest_discard) {
   std::vector<int> empty_keys_to_erase;
   for (auto& [page_index, page_ink_strokes] : strokes_) {
     // Find the first element in `page_ink_strokes` whose ID >=
-    // `lowest_stroke_id`.
+    // `lowest_discard_value`.
     auto start = std::ranges::lower_bound(
-        page_ink_strokes, lowest_stroke_id, {},
-        [](const FinishedStrokeState& state) { return state.id; });
+        page_ink_strokes, lowest_discard_value, {},
+        [](const FinishedStrokeState& state) { return state.id.value(); });
     auto end = page_ink_strokes.end();
     for (auto it = start; it < end; ++it) {
       client_->DiscardStroke(page_index, it->id);
@@ -1868,7 +2017,7 @@ void PdfInkModule::ApplyUndoRedoDiscards(std::optional<IdType> lowest_discard) {
 
   // Now that some annotations have been discarded, Let the IdGenerator know
   // there are IDs available for reuse.
-  id_generator_.ResetIdTo(GetIdTypeValue(lowest_stroke_id));
+  id_generator_.ResetIdTo(lowest_discard_value);
 }
 
 bool PdfInkModule::MaybeSetDrawingBrush() {

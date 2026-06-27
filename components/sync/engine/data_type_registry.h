@@ -22,8 +22,9 @@ namespace syncer {
 
 class CancelationSignal;
 class CommitContributor;
-class SyncEncryptionHandler;
+class CustomPassphraseBootstrapToken;
 class DataTypeWorker;
+class RequiredPassphraseVerifier;
 class UpdateHandler;
 
 using UpdateHandlerMap =
@@ -55,11 +56,13 @@ class DataTypeRegistry : public DataTypeConnector,
 
   // Implementation of SyncEncryptionHandler::Observer.
   void OnPassphraseRequired(
-      const KeyDerivationParams& key_derivation_params,
-      const sync_pb::EncryptedData& pending_keys) override;
-  void OnPassphraseAccepted() override;
+      std::unique_ptr<RequiredPassphraseVerifier> verifier) override;
+  void OnPassphraseAccepted(
+      const CustomPassphraseBootstrapToken& bootstrap_token) override;
   void OnTrustedVaultKeyRequired() override;
   void OnTrustedVaultKeyAccepted() override;
+  void OnKeystoreKeysRequired() override;
+  void OnKeystoreKeysAccepted() override;
   void OnEncryptedTypesChanged(DataTypeSet encrypted_types,
                                bool encrypt_everything) override;
   void OnCryptographerStateChanged(Cryptographer* cryptographer,

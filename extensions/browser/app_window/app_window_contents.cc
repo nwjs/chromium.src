@@ -27,8 +27,7 @@
 
 namespace extensions {
 
-AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host, std::unique_ptr<content::WebContents> web_contents)
-  :host_(host), web_contents_(std::move(web_contents)) {}
+AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host) : host_(host) {}
 
 AppWindowContentsImpl::~AppWindowContentsImpl() = default;
 
@@ -46,8 +45,7 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
   create_params.opener_render_process_id =
       creator_frame->GetProcess()->GetDeprecatedID();
   create_params.opener_render_frame_id = creator_frame->GetRoutingID();
-  if (!web_contents_)
-    web_contents_ = content::WebContents::Create(create_params);
+  web_contents_ = content::WebContents::Create(create_params);
 
   static_cast<content::WebContentsImpl*>(web_contents_.get())->SetSkipBlockingParser(skip_blocking_parser || new_site);
   Observe(web_contents_.get());

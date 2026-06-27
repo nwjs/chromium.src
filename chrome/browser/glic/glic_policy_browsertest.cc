@@ -8,7 +8,10 @@
 #include "base/scoped_observation.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
+#include "base/test/values_test_util.h"
 #include "base/types/expected.h"
+#include "base/values.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -246,8 +249,10 @@ class GlicPolicyTest : public PolicyTest {
     profile_2_ = nullptr;
   }
 
-  views::LabelButton* GetGlicButtonForBrowser(Browser* browser) {
-    return glic::GlicButtonInterface::FromBrowser(browser);
+  bool IsGlicButtonVisible(Browser* browser) {
+    views::LabelButton* button =
+        glic::GlicButtonInterface::FromBrowser(browser);
+    return button && button->GetVisible();
   }
 
   void SetGlicPolicy(
@@ -259,7 +264,10 @@ class GlicPolicyTest : public PolicyTest {
     using policy::PolicyMap;
     using policy::key::kGeminiSettings;
 
-    PolicyMap policies;
+    PolicyMap policies = provider.policies()
+                             .Get(policy::PolicyNamespace(
+                                 policy::POLICY_DOMAIN_CHROME, std::string()))
+                             .Clone();
     policies.Set(kGeminiSettings, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                  POLICY_SOURCE_ENTERPRISE_DEFAULT,
                  base::Value(static_cast<int>(value)), nullptr);
@@ -375,12 +383,12 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, PolicyAffectsGlicButtonInNewWindows) {
   {
     // A new window in profile 1 shouldn't have the Glic button.
     Browser* new_window_profile_1 = CreateBrowser(profile_1_);
-    EXPECT_FALSE(GetGlicButtonForBrowser(new_window_profile_1)->GetVisible());
+    EXPECT_FALSE(IsGlicButtonVisible(new_window_profile_1));
 
     // A new window in profile 2 should continue to have the Glic button since
     // only profile 1 disabled Glic.
     Browser* new_window_profile_2 = CreateBrowser(profile_2_);
-    EXPECT_TRUE(GetGlicButtonForBrowser(new_window_profile_2)->GetVisible());
+    EXPECT_TRUE(IsGlicButtonVisible(new_window_profile_2));
   }
 
   // Re-enable the policy. Ensure the button is recreated.
@@ -391,7 +399,7 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, PolicyAffectsGlicButtonInNewWindows) {
     // A new window in profile 1 should again get the Glic button now that the
     // policy is re-enabled.
     Browser* new_window_profile_1 = CreateBrowser(profile_1_);
-    EXPECT_TRUE(GetGlicButtonForBrowser(new_window_profile_1)->GetVisible());
+    EXPECT_TRUE(IsGlicButtonVisible(new_window_profile_1));
   }
 }
 
@@ -408,10 +416,10 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, GlicButtonInExistingWindows) {
   Browser* profile_2_window_2 = CreateBrowser(profile_2_);
 
   // Ensure the button was created in each window.
-  EXPECT_TRUE(GetGlicButtonForBrowser(profile_1_window_1)->GetVisible());
-  EXPECT_TRUE(GetGlicButtonForBrowser(profile_1_window_2)->GetVisible());
-  EXPECT_TRUE(GetGlicButtonForBrowser(profile_2_window_1)->GetVisible());
-  EXPECT_TRUE(GetGlicButtonForBrowser(profile_2_window_2)->GetVisible());
+  EXPECT_TRUE(IsGlicButtonVisible(profile_1_window_1));
+  EXPECT_TRUE(IsGlicButtonVisible(profile_1_window_2));
+  EXPECT_TRUE(IsGlicButtonVisible(profile_2_window_1));
+  EXPECT_TRUE(IsGlicButtonVisible(profile_2_window_2));
 
   // Disable the policy in the first profile.
   SetGlicPolicy(policy_for_profile_1(), SettingsPolicyState::kDisabled);
@@ -420,12 +428,12 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, GlicButtonInExistingWindows) {
 
   {
     // The windows in profile 1 should have lost their Glic button.
-    EXPECT_FALSE(GetGlicButtonForBrowser(profile_1_window_1)->GetVisible());
-    EXPECT_FALSE(GetGlicButtonForBrowser(profile_1_window_2)->GetVisible());
+    EXPECT_FALSE(IsGlicButtonVisible(profile_1_window_1));
+    EXPECT_FALSE(IsGlicButtonVisible(profile_1_window_2));
 
     // The windows in profile 2 should have kept their Glic button.
-    EXPECT_TRUE(GetGlicButtonForBrowser(profile_2_window_1)->GetVisible());
-    EXPECT_TRUE(GetGlicButtonForBrowser(profile_2_window_2)->GetVisible());
+    EXPECT_TRUE(IsGlicButtonVisible(profile_2_window_1));
+    EXPECT_TRUE(IsGlicButtonVisible(profile_2_window_2));
   }
 
   // Re-enable the policy. Ensure the button is recreated.
@@ -434,12 +442,12 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, GlicButtonInExistingWindows) {
 
   {
     // The windows in profile 1 should get back their Glic button.
-    EXPECT_TRUE(GetGlicButtonForBrowser(profile_1_window_1)->GetVisible());
-    EXPECT_TRUE(GetGlicButtonForBrowser(profile_1_window_2)->GetVisible());
+    EXPECT_TRUE(IsGlicButtonVisible(profile_1_window_1));
+    EXPECT_TRUE(IsGlicButtonVisible(profile_1_window_2));
 
     // The windows in profile 2 still have their Glic button.
-    EXPECT_TRUE(GetGlicButtonForBrowser(profile_2_window_1)->GetVisible());
-    EXPECT_TRUE(GetGlicButtonForBrowser(profile_2_window_2)->GetVisible());
+    EXPECT_TRUE(IsGlicButtonVisible(profile_2_window_1));
+    EXPECT_TRUE(IsGlicButtonVisible(profile_2_window_2));
   }
 }
 
@@ -534,8 +542,10 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, PolicyDisablesWebUi) {
   service->ToggleUI(/*bwi=*/browser(), /*prevent_close=*/false,
                     /*source=*/mojom::InvocationSource::kOsButton);
 
-  ASSERT_TRUE(
-      base::test::RunUntil([&]() { return !GetGlicInstance()->IsShowing(); }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    auto* instance = GetGlicInstance();
+    return !instance || !instance->IsShowing();
+  }));
 
   // 5. Open the side panel again.
   GlicInstanceTracker instance_tracker2(profile_1_);
@@ -552,6 +562,93 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, PolicyDisablesWebUi) {
     return host->GetPrimaryWebUiState() == mojom::WebUiState::kError;
   }));
 }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+
+enum class GeminiSettingsState { kUnset, kEnabled, kDisabled };
+
+class GeminiEnterpriseSettingsPolicyTest
+    : public GlicPolicyTest,
+      public testing::WithParamInterface<
+          std::tuple<GeminiSettingsState, bool, bool>> {
+ public:
+  GeminiEnterpriseSettingsPolicyTest() = default;
+  ~GeminiEnterpriseSettingsPolicyTest() override = default;
+
+  void SetPolicies(GeminiSettingsState gemini_settings_state,
+                   bool set_enterprise_settings) {
+    using policy::POLICY_LEVEL_MANDATORY;
+    using policy::POLICY_SCOPE_USER;
+    using policy::POLICY_SOURCE_ENTERPRISE_DEFAULT;
+    using policy::PolicyMap;
+
+    PolicyMap policies = policy_for_profile_1()
+                             .policies()
+                             .Get(policy::PolicyNamespace(
+                                 policy::POLICY_DOMAIN_CHROME, std::string()))
+                             .Clone();
+
+    if (gemini_settings_state != GeminiSettingsState::kUnset) {
+      policies.Set(
+          policy::key::kGeminiSettings, POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_USER, POLICY_SOURCE_ENTERPRISE_DEFAULT,
+          base::Value(static_cast<int>(
+              gemini_settings_state == GeminiSettingsState::kEnabled
+                  ? SettingsPolicyState::kEnabled
+                  : SettingsPolicyState::kDisabled)),
+          nullptr);
+    }
+
+    if (set_enterprise_settings) {
+      policies.Set(policy::key::kGeminiEnterpriseSettings,
+                   POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+                   POLICY_SOURCE_ENTERPRISE_DEFAULT,
+                   base::Value(base::DictValue()
+                                   .Set("project_id", "test-project")
+                                   .Set("app_id", "test-engine")
+                                   .Set("location", "global")),
+                   nullptr);
+    }
+
+    policy_for_profile_1().UpdateChromePolicy(policies);
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(GeminiEnterpriseSettingsPolicyTest,
+                       PrefStateMatchesExpectations) {
+  GeminiSettingsState gemini_settings_state = std::get<0>(GetParam());
+  bool gemini_enterprise_settings_set = std::get<1>(GetParam());
+  bool expected_enterprise_settings_pref_set = std::get<2>(GetParam());
+
+  SetPolicies(gemini_settings_state, gemini_enterprise_settings_set);
+
+  const base::DictValue& pref_value = profile_1_->GetPrefs()->GetDict(
+      glic::prefs::kGlicGeminiEnterpriseSettings);
+
+  if (expected_enterprise_settings_pref_set) {
+    EXPECT_THAT(pref_value, base::test::IsJson(R"({
+                  "project_id": "test-project",
+                  "app_id": "test-engine",
+                  "location": "global"
+                })"));
+  } else {
+    EXPECT_TRUE(pref_value.empty());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    GeminiEnterpriseSettingsPolicyTest,
+    testing::Values(
+        std::make_tuple(GeminiSettingsState::kUnset, false, false),
+        std::make_tuple(GeminiSettingsState::kUnset, true, true),
+        std::make_tuple(GeminiSettingsState::kEnabled, false, false),
+        std::make_tuple(GeminiSettingsState::kEnabled, true, true),
+        std::make_tuple(GeminiSettingsState::kDisabled, false, false),
+        std::make_tuple(GeminiSettingsState::kDisabled, true, true)));
+
+#endif
 
 // Same as GlicPolicyTest but starts Chrome with the Glic policy disabled.
 class GlicPolicyDisabledTest : public GlicPolicyTest {
@@ -617,7 +714,8 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, DisableGlicWhenIsOpen) {
   run_loop.Run();
   ClickElementWithId(GetHost()->webui_contents(), "disabledByAdminCloseButton");
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return !GetGlicInstance()->IsShowing();
+    auto* instance = GetGlicInstance();
+    return !instance || !instance->IsShowing();
   })) << "Timed out waiting for glic to close";
 #endif
 }

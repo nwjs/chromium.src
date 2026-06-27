@@ -99,7 +99,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
 
     GetEventRouter(context)->AddListenerForMainThread(mojom::EventListener::New(
-        GetEventListenerOwner(context), event_name, nullptr, std::nullopt));
+        GetEventListenerOwner(context), event_name, std::nullopt));
   }
 
   void SendRemoveUnfilteredEventListenerIPC(
@@ -110,7 +110,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
     GetEventRouter(context)->RemoveListenerForMainThread(
         mojom::EventListener::New(GetEventListenerOwner(context), event_name,
-                                  nullptr, std::nullopt));
+                                  std::nullopt));
   }
 
   void SendAddUnfilteredLazyEventListenerIPC(
@@ -374,14 +374,14 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
     auto event_listener = mojom::EventListener::New(
         mojom::EventListenerOwner::NewExtensionId(context->GetExtensionID()),
-        event_name,
-        mojom::ServiceWorkerContext::New(context->service_worker_scope(),
-                                         context->service_worker_version_id(),
-                                         content::WorkerThread::GetCurrentId()),
-        /*event_filter=*/std::nullopt);
+        event_name, /*event_filter=*/std::nullopt);
+    auto service_worker_context = mojom::ServiceWorkerContext::New(
+        context->service_worker_scope(), context->service_worker_version_id(),
+        content::WorkerThread::GetCurrentId());
     WorkerThreadDispatcher::GetServiceWorkerData()
         ->GetEventRouter()
-        ->AddListenerForServiceWorker(std::move(event_listener));
+        ->AddListenerForServiceWorker(std::move(event_listener),
+                                      std::move(service_worker_context));
   }
 
   void SendRemoveUnfilteredEventListenerIPC(
@@ -394,15 +394,15 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
     auto event_listener = mojom::EventListener::New(
         mojom::EventListenerOwner::NewExtensionId(context->GetExtensionID()),
-        event_name,
-        mojom::ServiceWorkerContext::New(context->service_worker_scope(),
-                                         context->service_worker_version_id(),
-                                         content::WorkerThread::GetCurrentId()),
-        /*event_filter=*/std::nullopt);
+        event_name, /*event_filter=*/std::nullopt);
+    auto service_worker_context = mojom::ServiceWorkerContext::New(
+        context->service_worker_scope(), context->service_worker_version_id(),
+        content::WorkerThread::GetCurrentId());
 
     WorkerThreadDispatcher::GetServiceWorkerData()
         ->GetEventRouter()
-        ->RemoveListenerForServiceWorker(std::move(event_listener));
+        ->RemoveListenerForServiceWorker(std::move(event_listener),
+                                         std::move(service_worker_context));
   }
 
   void SendAddUnfilteredLazyEventListenerIPC(

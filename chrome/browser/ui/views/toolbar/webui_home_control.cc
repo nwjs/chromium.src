@@ -8,7 +8,6 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
@@ -41,6 +40,14 @@ void WebUIHomeControl::Init() {
 
 bool WebUIHomeControl::IsPinned() const {
   return is_pinned_;
+}
+
+void WebUIHomeControl::SetIsOverflowed(bool is_overflowed) {
+  if (is_overflowed_ == is_overflowed) {
+    return;
+  }
+  is_overflowed_ = is_overflowed;
+  UpdateState();
 }
 
 void WebUIHomeControl::HandleContextMenu(
@@ -77,6 +84,11 @@ void WebUIHomeControl::ShowSetHomePageBubble(const GURL& undo_url,
 }
 
 void WebUIHomeControl::OnHomeButtonDropUrl(const GURL& url) {
+  // Disallow javascript: URLs to prevent self-XSS.
+  if (url.SchemeIs(url::kJavaScriptScheme)) {
+    return;
+  }
+
   PrefService* prefs = delegate_->GetBrowser()->GetProfile()->GetPrefs();
   GURL old_url = GURL(prefs->GetString(prefs::kHomePage));
   bool old_is_ntp = prefs->GetBoolean(prefs::kHomePageIsNewTabPage);
@@ -99,7 +111,7 @@ void WebUIHomeControl::OnIsPinnedChanged() {
 
 void WebUIHomeControl::UpdateState() {
   auto state = toolbar_ui_api::mojom::HomeControlState::New();
-  state->should_be_shown = is_pinned_;
+  state->should_be_shown = is_pinned_ && !is_overflowed_;
   state->is_context_menu_visible = menu_runner_ && menu_runner_->IsRunning();
   is_context_menu_visible_ = state->is_context_menu_visible;
 

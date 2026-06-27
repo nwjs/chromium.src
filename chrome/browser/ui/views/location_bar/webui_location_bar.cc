@@ -5,6 +5,9 @@
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 
 #include "base/notimplemented.h"
+#include "build/branding_buildflags.h"
+#include "build/buildflag.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -13,6 +16,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_state_helper.h"
+#include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/location_bar/webui_content_setting_image_control.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter.h"
@@ -26,37 +30,27 @@
 #include "chrome/browser/ui/views/permissions/chip/webui_permission_dashboard.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
+#include "components/favicon/content/content_favicon_driver.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/navigation_entry.h"
+#include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/interaction/element_events.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/display/screen.h"
 #include "ui/views/bubble/bubble_border.h"
+#include "ui/views/button_drag_utils.h"
 #include "ui/views/mouse_constants.h"
+#include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chrome/grit/theme_resources.h"
+#endif
 
 namespace {
-
-toolbar_ui_api::mojom::SecurityChipIcon GetMojoSecurityChipIcon(
-    location_bar::SecurityChipIcon security_chip_icon) {
-  switch (security_chip_icon) {
-    case location_bar::SecurityChipIcon::kHttp:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kHttp;
-    case location_bar::SecurityChipIcon::kSecurePageInfo:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kSecurePageInfo;
-    case location_bar::SecurityChipIcon::kNotSecureWarning:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kNotSecureWarning;
-    case location_bar::SecurityChipIcon::kDangerous:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kDangerous;
-    case location_bar::SecurityChipIcon::kGoogleSuperG:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kGoogleSuperG;
-    case location_bar::SecurityChipIcon::kGoogleGMonochrome:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kGoogleGMonochrome;
-    case location_bar::SecurityChipIcon::kAddContext:
-      return toolbar_ui_api::mojom::SecurityChipIcon::kAddContext;
-  }
-  NOTREACHED();
-}
 
 toolbar_ui_api::mojom::SecurityLevel GetMojoSecurityLevel(
     security_state::SecurityLevel security_level) {
@@ -106,7 +100,7 @@ void WebUILocationBar::Init(WebUIToolbarControlDelegate* delegate) {
       /*omnibox_view=*/omnibox_view_.get(), omnibox_controller_.get(),
       /*location_bar=*/this, /*presenter_delegate=*/*this);
 
-  content_setting_image_control_.Init();
+  content_setting_image_control_.Init(delegate);
 
   // Unretained is safe because `this` owns `moved_subscription_`.
   moved_subscription_ =
@@ -129,63 +123,21 @@ void WebUILocationBar::PropagateOmniboxUpdate(
   toolbar_delegate_->OnOmniboxViewStateChanged(std::move(omnibox_state));
 }
 
-void WebUILocationBar::OnOmniboxAction(
+void WebUILocationBar::OnThemeChanged() {
+  if (!is_initialized_) {
+    return;
+  }
+  // Location icon cares about color scheme.
+  UpdateLhsChipsState();
+}
+
+base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+WebUILocationBar::OnOmniboxAction(
     toolbar_ui_api::mojom::OmniboxActionPtr action) {
-  switch (action->which()) {
-    case toolbar_ui_api::mojom::OmniboxAction::Tag::kFocusChange:
-      OnOmniboxFocusChange(*action->get_focus_change());
-      break;
-    case toolbar_ui_api::mojom::OmniboxAction::Tag::kTextInput:
-      OnOmniboxTextInput(*action->get_text_input());
-      break;
-    case toolbar_ui_api::mojom::OmniboxAction::Tag::kKey:
-      OnOmniboxKey(*action->get_key());
-      break;
-  }
-
+  auto result = omnibox_view_->OnOmniboxAction(std::move(action));
   UpdateLocationBarFlagsState();
-}
-
-void WebUILocationBar::OnOmniboxFocusChange(
-    const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change) {
-  if (focus_change.has_focus) {
-    // TODO(crbug.com/500653057): Key state, though Views impl doesn't have it.
-    omnibox_controller_->edit_model()->OnSetFocus(/*control_down=*/false);
-  } else {
-    omnibox_controller_->edit_model()->OnKillFocus();
-    if (auto* popup_closer =
-            omnibox_controller_->client()->GetOmniboxPopupCloser()) {
-      popup_closer->CloseWithReason(omnibox::PopupCloseReason::kBlur);
-    }
-  }
-}
-
-void WebUILocationBar::OnOmniboxTextInput(
-    const toolbar_ui_api::mojom::OmniboxActionTextInput& text_input) {
-  omnibox_view_->OnBeforePossibleChange();
-  omnibox_view_->SetTextAndSelectedRange(text_input.text,
-                                         text_input.inline_autocompletion,
-                                         gfx::Range(text_input.text.size()));
-  omnibox_view_->OnAfterPossibleChange(/*allow_keyword_ui_change=*/true);
-}
-
-void WebUILocationBar::OnOmniboxKey(
-    const toolbar_ui_api::mojom::OmniboxActionKey& key) {
-  // TODO(crbug.com/500653057): Handle modifier keys.
-  // TODO(crbug.com/500653057): Convert to DomKey (with some caching
-  // since the converter is slow) once the JS end is more selective about
-  // what it sends.
-  if (key.key == "Enter") {
-    omnibox_controller_->edit_model()->OpenCurrentSelection(
-        base::TimeTicks::Now(), WindowOpenDisposition::CURRENT_TAB,
-        /*via_keyboard=*/true);
-  } else if (key.key == "Escape") {
-    omnibox_controller_->edit_model()->OnEscapeKeyPressed();
-  } else if (key.key == "ArrowUp") {
-    omnibox_controller_->edit_model()->OnUpOrDownPressed(false, false);
-  } else if (key.key == "ArrowDown") {
-    omnibox_controller_->edit_model()->OnUpOrDownPressed(true, false);
-  }
+  UpdateSelectedKeywordState();
+  return result;
 }
 
 void WebUILocationBar::FocusLocation(bool is_user_initiated,
@@ -198,7 +150,8 @@ void WebUILocationBar::FocusSearch() {
 }
 
 void WebUILocationBar::UpdateFocusBehavior(bool toolbar_visible) {
-  NOTIMPLEMENTED();
+  // It doesn't seem like we need to do any adjustment, if the toolbar is
+  // invisible the right thing should happen already.
 }
 
 void WebUILocationBar::UpdateContentSettingsIcons() {
@@ -206,11 +159,28 @@ void WebUILocationBar::UpdateContentSettingsIcons() {
   if (!web_contents) {
     return;
   }
+
+  bool permission_dashboard_changed = false;
+  if (base::FeatureList::IsEnabled(
+          content_settings::features::kLeftHandSideActivityIndicators)) {
+    ContentSettingImageModel* media_stream_model =
+        content_setting_image_control_.GetModel(
+            ContentSettingImageModel::ImageType::kMediaStream);
+    if (media_stream_model) {
+      permission_dashboard_changed |=
+          permission_dashboard_controller_->Update(media_stream_model);
+    }
+  }
+
   if (!toolbar_delegate_) {
     return;
   }
   toolbar_delegate_->OnContentSettingChanged(
       content_setting_image_control_.ProcessContentSettingState(web_contents));
+
+  if (permission_dashboard_changed) {
+    UpdateLhsChipsState();
+  }
 }
 
 void WebUILocationBar::SaveStateToContents(content::WebContents* contents) {
@@ -223,6 +193,10 @@ void WebUILocationBar::Revert() {
 
 OmniboxView* WebUILocationBar::GetOmniboxView() {
   return omnibox_view_.get();
+}
+
+OmniboxPopupView* WebUILocationBar::GetOmniboxPopupView() {
+  return omnibox_popup_view_.get();
 }
 
 OmniboxController* WebUILocationBar::GetOmniboxController() {
@@ -284,6 +258,8 @@ Profile* WebUILocationBar::GetProfile() {
 
 void WebUILocationBar::OnChanged() {
   UpdateLhsChipsState();
+  UpdateLocationBarFlagsState();
+  UpdateSelectedKeywordState();
 }
 
 void WebUILocationBar::UpdateWithoutTabRestore() {
@@ -356,33 +332,61 @@ void WebUILocationBar::Update(content::WebContents* contents) {
   }
 
   OnChanged();
-  UpdateLocationBarFlagsState();
 }
 
-void WebUILocationBar::UpdateLhsChipsState() {
+void WebUILocationBar::UpdateLhsChipsState(bool icon_known) {
   if (GetLocationBarWidget() && GetLocationBarWidget()->IsClosed()) {
     return;
   }
   LocationBarModel* model = GetLocationBarModel();
   bool is_editing_or_empty = IsEditingOrEmpty();
 
-  auto security_chip_icon = location_bar::GetSecurityChipIconEnum(
-      model, /*is_add_context_button_shown=*/false);
   std::u16string security_chip_text = location_bar::GetSecurityChipText(
       model, GetWebContents(), is_editing_or_empty);
-  bool is_clickable = location_bar::IsSecurityChipInteractive(
-      is_editing_or_empty, security_chip_icon);
+  bool is_clickable = !is_editing_or_empty;
 
-  auto mojo_security_chip_icon = GetMojoSecurityChipIcon(security_chip_icon);
   auto mojo_security_level = GetMojoSecurityLevel(model->GetSecurityLevel());
 
   bool is_text_dangerous =
       security_chip_text ==
       l10n_util::GetStringUTF16(IDS_DANGEROUS_VERBOSE_STATE);
 
+  // `omnibox_view_` is null in some tests.
+  if (!icon_known && omnibox_view_) {
+    ui::ImageModel maybe_new_icon =
+        UpdateLocationIcon(mojo_security_level, is_text_dangerous);
+    if (!maybe_new_icon.IsEmpty()) {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      if (auto maybe_resource_id =
+              location_bar::MaybeGetGradientGoogleSuperGIcon(maybe_new_icon)) {
+        if (*maybe_resource_id == IDR_GOOGLE_G_GRADIENT_16_ALT) {
+          location_icon_ = toolbar_delegate_->GetIconTable().RegisterColorUrl(
+              "chrome://theme/IDR_GOOGLE_G_GRADIENT_16_ALT");
+        } else {
+          DCHECK_EQ(*maybe_resource_id, IDR_GOOGLE_G_GRADIENT_20);
+          location_icon_ = toolbar_delegate_->GetIconTable().RegisterColorUrl(
+              "chrome://theme/IDR_GOOGLE_G_GRADIENT_20");
+        }
+        // Google logo icons aren't clickable.
+        is_clickable = false;
+      } else
+#endif
+      {
+        location_icon_ =
+            toolbar_delegate_->GetIconTable().RegisterImageModelTryReuse(
+                maybe_new_icon, location_icon_);
+      }
+    }
+  }
+
+  auto accessibility_state = location_bar::GetSecurityChipAccessibilityState(
+      model, is_editing_or_empty, security_chip_text);
+
   auto lhs_chips_state = toolbar_ui_api::mojom::LhsChipsState::New(
       toolbar_ui_api::mojom::SecurityChipState::New(
-          mojo_security_chip_icon, mojo_security_level, security_chip_text,
+          location_icon_, mojo_security_level, security_chip_text,
+          toolbar_ui_api::mojom::SecurityChipAccessibilityState::New(
+              accessibility_state.name, accessibility_state.description),
           is_clickable, is_text_dangerous, !ShouldChipOverrideLocationIcon()),
       std::vector<toolbar_ui_api::mojom::ContentSettingImageStatePtr>(),
       permission_dashboard_->GetState());
@@ -392,6 +396,49 @@ void WebUILocationBar::UpdateLhsChipsState() {
   }
 
   last_update_security_level_ = model->GetSecurityLevel();
+}
+
+ui::ImageModel WebUILocationBar::UpdateLocationIcon(
+    toolbar_ui_api::mojom::SecurityLevel security_level,
+    bool is_text_dangerous) {
+  // TODO(crbug.com/505362587): This duplicates quite some color logic
+  // with the JS side, and also quite a bit of LocationBarView's logic.
+  auto* color_provider = toolbar_delegate_->GetView()->GetColorProvider();
+
+  const ui::ColorId background_id =
+      is_text_dangerous ? kColorOmniboxSecurityChipDangerousBackground
+                        : kColorOmniboxIconBackground;
+
+  bool dark_mode = color_utils::IsDark(color_provider->GetColor(background_id));
+
+  ui::ColorId id = kColorOmniboxText;
+  if (security_level == toolbar_ui_api::mojom::SecurityLevel::kDangerous) {
+    id = kColorOmniboxSecurityChipDangerous;
+  }
+  if (is_text_dangerous) {
+    id = kColorOmniboxSecurityChipText;
+  }
+
+  const int dip_size =
+      GetLayoutConstant(LayoutConstant::kLocationBarLeadingIconSize);
+  if (ShouldShowAddContextButton()) {
+    return GetOmniboxController()->edit_model()->GetAddContextIcon(dip_size);
+  }
+
+  return omnibox_view_->GetIcon(
+      dip_size, color_provider->GetColor(id),
+      color_provider->GetColor(kColorOmniboxResultsIcon),
+      color_provider->GetColor(kColorOmniboxResultsStarterPackIcon),
+      color_provider->GetColor(kColorOmniboxAnswerIconGM3Foreground),
+      base::BindOnce(&WebUILocationBar::OnIconFetched,
+                     weak_ptr_factory_.GetWeakPtr()),
+      dark_mode);
+}
+
+void WebUILocationBar::OnIconFetched(const gfx::Image& image) {
+  location_icon_ = toolbar_delegate_->GetIconTable().RegisterImageModel(
+      ui::ImageModel::FromImage(image));
+  UpdateLhsChipsState(/*icon_known=*/true);
 }
 
 void WebUILocationBar::ResetTabState(content::WebContents* contents) {
@@ -427,7 +474,7 @@ void WebUILocationBar::OnLhsChipMousePressed(
         (PageInfoBubbleView::GetShownBubbleType() !=
          PageInfoBubbleView::BUBBLE_NONE) ||
         (base::TimeTicks::Now() - last_page_info_bubble_close_time_ <
-         views::kMinimumTimeBetweenButtonClicks);
+         suppression_threshold_);
   } else if (identifier ==
              toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest) {
     permission_dashboard_->request_chip()->OnMousePressed();
@@ -510,6 +557,11 @@ void WebUILocationBar::ShowPageInfoBubble() {
   bubble->GetWidget()->Show();
 }
 
+void WebUILocationBar::SetSuppressionThresholdForTesting(
+    base::TimeDelta threshold) {
+  suppression_threshold_ = threshold;
+}
+
 void WebUILocationBar::OnLhsChipPointerEntered(
     toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
   if (identifier ==
@@ -553,6 +605,41 @@ void WebUILocationBar::OnLhsChipCollapseAnimationEnded(
     permission_dashboard_->indicator_chip()->OnCollapseAnimationEnded();
   }
 }
+
+void WebUILocationBar::OnLhsChipDrag(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+    ui::mojom::DragEventSource source) {
+  if (identifier != toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon) {
+    return;
+  }
+
+  content::WebContents* web_contents = GetWebContents();
+  if (!web_contents || !web_contents->GetVisibleURL().is_valid() ||
+      IsEditingOrEmpty()) {
+    return;
+  }
+
+  auto data = std::make_unique<ui::OSExchangeData>();
+  favicon::FaviconDriver* favicon_driver =
+      favicon::ContentFaviconDriver::FromWebContents(web_contents);
+  gfx::ImageSkia favicon = favicon_driver->GetFavicon().AsImageSkia();
+
+  button_drag_utils::SetURLAndDragImage(web_contents->GetVisibleURL(),
+                                        web_contents->GetTitle(), favicon,
+                                        /*press_pt=*/nullptr, data.get());
+
+  int allowed_operations =
+      ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_LINK;
+
+  gfx::Point widget_point = display::Screen::Get()->GetCursorScreenPoint();
+  views::View::ConvertPointFromScreen(GetLocationBarWidget()->GetRootView(),
+                                      &widget_point);
+
+  GetLocationBarWidget()->RunDragDropLoop(toolbar_delegate_->GetView(),
+                                          std::move(data), widget_point,
+                                          allowed_operations, source);
+}
+
 bool WebUILocationBar::ShouldHideContentSettingImage() {
   if (omnibox_controller_->edit_model()->user_input_in_progress()) {
     return true;
@@ -590,14 +677,41 @@ bool WebUILocationBar::ShouldChipOverrideLocationIcon() {
          permission_dashboard_->GetRequestChip()->GetVisible();
 }
 
+bool WebUILocationBar::ShouldShowAddContextButton() {
+  NOTIMPLEMENTED();
+  // TODO(crbug.com/503784580): When AIM popup is supported this can
+  // return true.
+  return false;
+}
+
 void WebUILocationBar::OnMovedOrShown(ui::TrackedElement* element) {
   NotifyBoundsChanged();
 }
 
 void WebUILocationBar::UpdateLocationBarFlagsState() {
+  if (!omnibox_controller_) {  // null in some tests.
+    return;
+  }
+
   auto location_bar_flags = toolbar_ui_api::mojom::LocationBarFlags::New();
   location_bar_flags->user_input_in_progress =
       omnibox_controller_->edit_model()->user_input_in_progress();
   location_bar_flags->popup_open = omnibox_controller_->IsPopupOpen();
   toolbar_delegate_->OnLocationBarFlagsChanged(std::move(location_bar_flags));
+}
+
+void WebUILocationBar::UpdateSelectedKeywordState() {
+  // Purposefully start with null here.
+  toolbar_ui_api::mojom::SelectedKeywordStatePtr keyword_state;
+  if (omnibox_controller_ &&
+      omnibox_controller_->edit_model()->is_keyword_selected()) {
+    keyword_state = toolbar_ui_api::mojom::SelectedKeywordState::New();
+    SelectedKeywordView::KeywordLabelNames keyword_labels =
+        SelectedKeywordView::GetKeywordLabelNames(
+            omnibox_controller_->edit_model()->keyword(),
+            TemplateURLServiceFactory::GetForProfile(browser_->profile()));
+    keyword_state->short_name = keyword_labels.short_name;
+    keyword_state->full_name = keyword_labels.full_name;
+  }
+  toolbar_delegate_->OnSelectedKeywordChanged(std::move(keyword_state));
 }

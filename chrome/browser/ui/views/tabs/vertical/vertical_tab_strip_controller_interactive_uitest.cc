@@ -16,7 +16,7 @@
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_view.h"
 #include "chrome/browser/ui/views/test/vertical_tabs_interactive_test_mixin.h"
-#include "chrome/grit/generated_resources.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/tabs/public/tab_group.h"
@@ -393,6 +393,57 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
                   2));
 }
 
+// TODO(crbug.com/505768540): Investigate why test fails to show the duplicate
+// menu item on windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_TabOpenedWhileUsingTabContextMenu \
+  DISABLED_TabOpenedWhileUsingTabContextMenu
+#else
+#define MAYBE_TabOpenedWhileUsingTabContextMenu \
+  TabOpenedWhileUsingTabContextMenu
+#endif
+IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
+                       MAYBE_TabOpenedWhileUsingTabContextMenu) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTabId);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kThirdTabId);
+  RunTestSequence(
+      // Verify Vertical Tabs is showing.
+      WaitForShow(kVerticalTabStripBottomContainerElementId),
+      // Add a second tab and open its context menu.
+      AddInstrumentedTab(kSecondTabId, GURL("https://www.example.com/")),
+      NameDescendantViewByType<VerticalTabView>(kBrowserViewElementId,
+                                                kSecondTabName, 1),
+      MoveMouseTo(kSecondTabName),
+      MayInvolveNativeContextMenu(ClickMouse(ui_controls::RIGHT)),
+      // Wait for the menu to show before opening a third tab, otherwise the
+      // context menu could be opened on that third tab.
+      WaitForShow(TabMenuModel::kDuplicateMenuItem),
+      // Add a third tab at the index of the second tab, while the context menu
+      // is still open.
+      AddInstrumentedTab(kThirdTabId, chrome::ChromeUINewTabPageURLAsGURL(), 1),
+      // Select the duplicate tab menu item.
+      MayInvolveNativeContextMenu(
+          WaitForShow(TabMenuModel::kDuplicateMenuItem),
+          SelectMenuItem(TabMenuModel::kDuplicateMenuItem)),
+      // Verify that the original tab that the context menu was opened on is the
+      // one that was duplicated, not the tab inserted after the context menu
+      // was opened.
+      CheckResult([this]() { return browser()->tab_strip_model()->count(); },
+                  4),
+      CheckResult(
+          [this]() { return browser()->tab_strip_model()->active_index(); }, 3),
+      CheckResult(
+          [this]() {
+            return browser()
+                ->tab_strip_model()
+                ->GetActiveTab()
+                ->GetContents()
+                ->GetLastCommittedURL()
+                .spec();
+          },
+          "https://www.example.com/"));
+}
+
 class VerticalTabStripControllerTabGroupFocusingInteractiveUiTest
     : public VerticalTabsInteractiveTestMixin<InteractiveBrowserTest> {
  public:
@@ -506,8 +557,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
                 ->GetTabStripView();
         VerticalTabStripView* vertical_tab_strip_view =
             views::AsViewClass<VerticalTabStripView>(tab_strip_view);
-        vertical_tab_strip_view->unpinned_tabs_scroll_view_for_testing()
-            ->ScrollByOffset({0, -100});
+        vertical_tab_strip_view->unpinned_tabs_scroll_view()->ScrollByOffset(
+            {0, -100});
       }),
       WaitForHide(TabHoverCardBubbleView::kHoverCardBubbleElementId));
 }
@@ -529,8 +580,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
                 ->GetTabStripView();
         VerticalTabStripView* vertical_tab_strip_view =
             views::AsViewClass<VerticalTabStripView>(tab_strip_view);
-        vertical_tab_strip_view->unpinned_tabs_scroll_view_for_testing()
-            ->ScrollByOffset({0, -100});
+        vertical_tab_strip_view->unpinned_tabs_scroll_view()->ScrollByOffset(
+            {0, -100});
       }),
       WaitForHide(kTabGroupEditorBubbleId));
 }

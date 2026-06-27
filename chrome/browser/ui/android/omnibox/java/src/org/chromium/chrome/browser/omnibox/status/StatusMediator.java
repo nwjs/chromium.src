@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
 import org.chromium.chrome.browser.omnibox.SearchEngineUtils.SearchEngineIconObserver;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxFeatureUtils;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator.PageInfoAction;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.PermissionIconResource;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
@@ -54,7 +55,10 @@ import org.chromium.components.content_settings.CookieControlsObserver;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput.SiteSearchData;
+import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.ToolModeUtils;
 import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -62,6 +66,7 @@ import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServ
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.BrowserContextHandle;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
@@ -95,6 +100,8 @@ public class StatusMediator
     private final Callback<@FuseboxState Integer> mOnFuseboxStateChanged =
             this::onFuseboxStateChanged;
     private final Callback<@Nullable GURL> mOnExactMatchUrlChanged = this::onExactMatchUrlChanged;
+    private final Callback<@AutocompleteRequestType Integer> mOnAutocompleteRequestTypeChanged =
+            this::onAutocompleteRequestTypeChanged;
 
     private boolean mUrlHasFocus;
     private boolean mVerboseStatusSpaceAvailable;
@@ -115,6 +122,7 @@ public class StatusMediator
     private @Nullable StatusIconResource mSearchEngineIcon;
     private @Nullable NullableObservableSupplier<SiteSearchData> mSiteSearchDataSupplier;
     private @Nullable OnClickListener mOnStatusIconNavigateBackButtonPress;
+    private @Nullable FuseboxSessionState mInputSessionState;
     private int mLastTabId;
     private boolean mCurrentTabCrashed;
     private Drawable mDefaultStatusBackground;
@@ -199,6 +207,7 @@ public class StatusMediator
                     mSearchEngineUtils = SearchEngineUtils.getForProfile(p);
                     mSearchEngineUtils.addIconObserver(this);
                     mImageSupplier.setProfile(p);
+                    updateLocationBarIcon(IconTransitionType.CROSSFADE);
                 });
 
         updateColorTheme();
@@ -324,7 +333,7 @@ public class StatusMediator
         if (mUrlHasFocus) return;
 
         mUrlHasFocus = true;
-        setSiteSearchDataSupplier(sessionState.getAutocompleteInput().getSiteSearchDataSupplier());
+        setFuseboxSessionState(sessionState);
         updateVerboseStatusTextVisibility();
         updateLocationBarIcon(IconTransitionType.CROSSFADE);
         updateStatusViewVisibility();
@@ -342,7 +351,7 @@ public class StatusMediator
         if (!mUrlHasFocus) return;
 
         mUrlHasFocus = false;
-        setSiteSearchDataSupplier(null);
+        setFuseboxSessionState(null);
         updateVerboseStatusTextVisibility();
         updateLocationBarIcon(IconTransitionType.CROSSFADE);
         updateStatusViewVisibility();
@@ -350,6 +359,29 @@ public class StatusMediator
 
         @DimenRes int cornerRes = R.dimen.omnibox_search_engine_logo_composed_half_size;
         mModel.set(StatusProperties.STATUS_ICON_CORNER_RADIUS, cornerRes);
+    }
+
+    private void setFuseboxSessionState(@Nullable FuseboxSessionState sessionState) {
+        if (sessionState == mInputSessionState) return;
+
+        if (mInputSessionState != null) {
+            setSiteSearchDataSupplier(null);
+            mInputSessionState
+                    .getAutocompleteInput()
+                    .getRequestTypeSupplier()
+                    .removeObserver(mOnAutocompleteRequestTypeChanged);
+        }
+
+        mInputSessionState = sessionState;
+
+        if (mInputSessionState != null) {
+            setSiteSearchDataSupplier(
+                    mInputSessionState.getAutocompleteInput().getSiteSearchDataSupplier());
+            mInputSessionState
+                    .getAutocompleteInput()
+                    .getRequestTypeSupplier()
+                    .addSyncObserver(mOnAutocompleteRequestTypeChanged);
+        }
     }
 
     private void updateStatusViewMinWidth() {
@@ -460,6 +492,16 @@ public class StatusMediator
                 && mLocationBarDataProvider.getNewTabPageDelegate().isCurrentlyVisible();
     }
 
+    private boolean shouldShowNtpPlusButton() {
+        Profile profile = mProfileSupplier.get();
+        TemplateUrlService templateUrlService = mTemplateUrlServiceSupplier.get();
+        return isNtpVisible()
+                && !mUrlHasFocus
+                && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)
+                && FuseboxFeatureUtils.shouldShowNtpPlusButton(
+                        mContext, profile, templateUrlService);
+    }
+
     /**
      * Returns whether the Incognito NewTabPage is currently shown to the user.
      *
@@ -496,6 +538,12 @@ public class StatusMediator
         Bitmap bitmap = null;
 
         boolean exactMatch = OmniboxFeatures.sExactMatchFavicons.isEnabled();
+        @AutocompleteRequestType
+        int requestType =
+                mInputSessionState == null
+                        ? AutocompleteRequestType.SEARCH
+                        : mInputSessionState.getAutocompleteInput().getRequestType();
+
         if (isHubSearch()) {
             mPermissionStatusHandler.reset(/* shouldDismissNativePrompt= */ false);
             updateStatusViewVisibility();
@@ -512,7 +560,16 @@ public class StatusMediator
         } else if (exactMatch && mExactMatchFavicon != null) {
             mPermissionStatusHandler.reset(/* shouldDismissNativePrompt= */ false);
             bitmap = mExactMatchFavicon;
-        } else if (mFuseboxStateSupplier.get() == FuseboxState.COMPACT) {
+        } else if (OmniboxCapabilities.isDesktopPlatform()
+                && mInputSessionState != null
+                && ToolModeUtils.isAimRequest(requestType)) {
+            mPermissionStatusHandler.reset(/* shouldDismissNativePrompt= */ false);
+            tintRes = mNavigationIconTintRes;
+            iconRes = R.drawable.search_spark_black_24dp;
+            descRes = R.string.accessibility_omnibox_open_context_popup;
+            doubleTapDescriptionRes = Resources.ID_NULL;
+        } else if (mFuseboxStateSupplier.get() == FuseboxState.COMPACT
+                || shouldShowNtpPlusButton()) {
             mPermissionStatusHandler.reset(/* shouldDismissNativePrompt= */ false);
             tintRes = mNavigationIconTintRes;
             iconRes = R.drawable.ic_add_round_20dp_with_inset;
@@ -579,7 +636,11 @@ public class StatusMediator
         updateStatusViewVisibility();
     }
 
-    void onFuseboxStateChanged(int state) {
+    private void onFuseboxStateChanged(@FuseboxState int state) {
+        updateLocationBarIcon(IconTransitionType.CROSSFADE);
+    }
+
+    private void onAutocompleteRequestTypeChanged(@AutocompleteRequestType int type) {
         updateLocationBarIcon(IconTransitionType.CROSSFADE);
     }
 
@@ -806,7 +867,8 @@ public class StatusMediator
         maybeUpdateStatusIconForSearchEngineIcon();
     }
 
-    void setSiteSearchDataSupplier(@Nullable NullableObservableSupplier<SiteSearchData> supplier) {
+    private void setSiteSearchDataSupplier(
+            @Nullable NullableObservableSupplier<SiteSearchData> supplier) {
         if (mSiteSearchDataSupplier != null) {
             mSiteSearchDataSupplier.removeObserver(mSiteSearchDataObserver);
         }
@@ -858,6 +920,7 @@ public class StatusMediator
             }
             mLastTabId = currentTab.getId();
         }
+        updateLocationBarIcon(IconTransitionType.CROSSFADE);
     }
 
     public void onTabCrashed() {

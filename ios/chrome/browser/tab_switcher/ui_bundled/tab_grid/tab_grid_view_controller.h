@@ -42,6 +42,7 @@ enum class IPHDismissalReasonType;
 @protocol TabGridToolbarsCommandsWrangler;
 @class TabGridTopToolbar;
 @class TabGroupsPanelViewController;
+@class LayoutState;
 
 // Configurations for tab grid pages.
 enum class TabGridPageConfiguration {
@@ -150,6 +151,9 @@ enum class TabGridPageConfiguration {
 // The layout guide center to use to refer to the bottom toolbar.
 @property(nonatomic, strong) LayoutGuideCenter* layoutGuideCenter;
 
+// The layout state of the scene.
+@property(nonatomic, weak) LayoutState* layoutState;
+
 // Top and bottom toolbars. Those must be set before -viewDidLoad is called.
 @property(nonatomic, strong) TabGridTopToolbar* topToolbar;
 @property(nonatomic, strong) TabGridBottomToolbar* bottomToolbar;
@@ -203,6 +207,11 @@ enum class TabGridPageConfiguration {
 
 // Signal that child view controllers were setup externally. For testing only.
 - (void)didSetupChildViewsForTesting;
+
+// Hides or shows tab grid content views. Used to hide the tab grid content
+// while the active browser is being displayed, which prevents any visual
+// glitches or TabGrid leakage when the grid should not be visible.
+- (void)setContentVisible:(BOOL)visible;
 
 @end
 

@@ -77,6 +77,13 @@ class ComposeboxQueryControllerTest;
 class ComposeboxQueryController
     : public contextual_search::ContextualSearchContextController {
  public:
+  // LINT.IfChange(ComposeboxImageUploadType)
+  enum class UploadImageType {
+    kViewport = 0,
+    kFile = 1,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/lens/histograms.xml:ComposeboxImageUploadType)
+
   ComposeboxQueryController(
       signin::IdentityManager* identity_manager,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
@@ -215,6 +222,11 @@ class ComposeboxQueryController
     // use_separate_request_ids_for_viewport_images_ is true.
     std::unique_ptr<lens::LensOverlayRequestId> viewport_request_id_;
 
+    // Caches the latest search URL request ID generated for this file,
+    // allowing stateless recontextualization updates to maintain sequence
+    // monotonicity.
+    std::optional<lens::LensOverlayRequestId> request_id_for_updates;
+
     // The headers to attach to the request. Will be set asynchronously after
     // StartFileUploadFlow() is called.
     std::unique_ptr<std::vector<std::string>> request_headers_;
@@ -251,6 +263,7 @@ class ComposeboxQueryController
       std::optional<GURL> page_url,
       std::optional<std::string> page_title,
       std::optional<std::string> file_name,
+      UploadImageType image_type,
       lens::ImageData image_data);
 
   // Creates the request body proto for an image and calls the callback with the
@@ -262,6 +275,7 @@ class ComposeboxQueryController
       std::optional<GURL> page_url,
       std::optional<std::string> page_title,
       std::optional<std::string> file_name,
+      UploadImageType image_type,
       RequestBodyProtoCreatedCallback callback);
 
   // Returns the EndpointFetcher to use with the given params. Protected to
@@ -427,6 +441,7 @@ class ComposeboxQueryController
                                       std::optional<GURL> page_url,
                                       std::optional<std::string> page_title,
                                       std::optional<std::string> file_name,
+                                      UploadImageType image_type,
                                       const SkBitmap& bitmap);
 
   // Creates the request body protos for the file and viewport upload requests

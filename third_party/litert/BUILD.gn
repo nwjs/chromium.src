@@ -4,7 +4,6 @@
 
 import("//build/buildflag_header.gni")
 import("//build/config/android/config.gni")
-import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build_overrides/build.gni")
 import("//third_party/cpuinfo/cpuinfo.gni")
@@ -22,7 +21,8 @@ buildflag_header("buildflags") {
 
 config("warnings_config") {
   cflags = [
-    # TODO(crbug.com/463723474): Try to clean/remove these suppressions if possible.
+    # TODO(crbug.com/463723474): Try to clean/remove these suppressions if
+    # possible.
     "-Wno-mismatched-tags",
     "-Wno-implicit-const-int-float-conversion",
     "-Wno-deprecated-declarations",
@@ -53,7 +53,6 @@ group("litert") {
   public_deps = [ ":litert_headers" ]
   deps = [
     ":litert_c",
-    ":litert_cc",
     ":litert_compiler",
     ":litert_core",
     ":litert_runtime",
@@ -88,6 +87,7 @@ config("litert_config") {
 
 config("tflite_config") {
   include_dirs = [
+    "//third_party/tflite/shims/third_party/tflite/src",
     "$root_gen_dir/third_party/litert/src",
     "$root_gen_dir/third_party/tflite/src",
     "//third_party/tflite/shims",
@@ -146,6 +146,7 @@ config("tflite_flags") {
   ]
 
   defines = [
+    "EIGEN_ALLOW_UNALIGNED_SCALARS",
     "FARMHASH_NO_CXX_STRING",
     "NEON2SSE_DISABLE_PERFORMANCE_WARNING",
     "TFL_STATIC_LIBRARY_BUILD",
@@ -327,6 +328,12 @@ source_set("litert_headers") {
         [ "src/litert/runtime/accelerators/xnnpack/xnnpack_accelerator.h" ]
   }
 
+  if (is_win) {
+    public += [ "src/litert/cc/internal/scoped_file_win.h" ]
+  } else {
+    public += [ "src/litert/cc/internal/scoped_file_posix.h" ]
+  }
+
   public_deps = [
     ":mutable_tflite_schema",
     "//third_party/abseil-cpp:absl",
@@ -358,7 +365,6 @@ source_set("litert_headers") {
   visibility = [
     ":litert",
     ":litert_c",
-    ":litert_cc",
     ":litert_compiler",
     ":litert_core",
     ":litert_runtime",
@@ -380,7 +386,6 @@ static_library("litert_c") {
     "src/litert/c/internal/litert_external_litert_buffer_context.cc",
     "src/litert/c/internal/litert_logging.cc",
     "src/litert/c/internal/litert_runtime_context.cc",
-    "src/litert/c/internal/litert_static_accelerator_registry.cc",
     "src/litert/c/internal/litert_tensor_buffer_registry.cc",
     "src/litert/c/litert_builder.cc",
     "src/litert/c/litert_common.cc",
@@ -414,41 +419,6 @@ static_library("litert_c") {
   visibility = [ ":litert" ]
 }
 
-static_library("litert_cc") {
-  sources = [
-    "src/litert/cc/internal/litert_op_options.cc",
-    "src/litert/cc/internal/litert_runtime_builtin.cc",
-    "src/litert/cc/internal/litert_shared_library.cc",
-    "src/litert/cc/internal/litert_tensor_buffer_utils.cc",
-    "src/litert/cc/internal/scoped_file.cc",
-    "src/litert/cc/litert_compiled_model.cc",
-    "src/litert/cc/litert_macros.cc",
-    "src/litert/cc/litert_model.cc",
-    "src/litert/cc/litert_options.cc",
-    "src/litert/cc/litert_tensor_buffer.cc",
-    "src/litert/cc/options/litert_compiler_options.cc",
-    "src/litert/cc/options/litert_cpu_options.cc",
-    "src/litert/cc/options/litert_google_tensor_options.cc",
-    "src/litert/cc/options/litert_gpu_options.cc",
-    "src/litert/cc/options/litert_intel_openvino_options.cc",
-    "src/litert/cc/options/litert_magic_number_options.cc",
-    "src/litert/cc/options/litert_mediatek_options.cc",
-    "src/litert/cc/options/litert_qualcomm_options.cc",
-    "src/litert/cc/options/litert_runtime_options.cc",
-    "src/litert/cc/options/litert_samsung_options.cc",
-    "src/litert/cc/options/litert_webnn_options.cc",
-  ]
-  if (is_win) {
-    sources += [ "src/litert/cc/internal/scoped_file_win.cc" ]
-  } else {
-    sources += [ "src/litert/cc/internal/scoped_file_posix.cc" ]
-  }
-  deps = [ ":litert_headers" ]
-  configs -= [ "//build/config/compiler:chromium_code" ]
-  configs += [ "//build/config/compiler:no_chromium_code" ]
-  visibility = [ ":litert" ]
-}
-
 static_library("litert_compiler") {
   sources = [
     "src/litert/compiler/plugin/algo.cc",
@@ -467,7 +437,19 @@ static_library("litert_compiler") {
 }
 
 static_library("litert_runtime_accelerators") {
-  sources = [ "src/litert/runtime/accelerators/auto_registration.cc" ]
+  sources = [
+    "src/litert/runtime/accelerators/auto_registration.cc",
+    "src/litert/runtime/accelerators/cpu_registry.cc",
+    "src/litert/runtime/accelerators/cpu_registry.h",
+    "src/litert/runtime/accelerators/gpu_registry.cc",
+    "src/litert/runtime/accelerators/gpu_registry.h",
+    "src/litert/runtime/accelerators/npu_registry.cc",
+    "src/litert/runtime/accelerators/npu_registry.h",
+    "src/litert/runtime/accelerators/registration_helper.cc",
+    "src/litert/runtime/accelerators/registration_helper.h",
+    "src/litert/runtime/accelerators/webnn_registry.cc",
+    "src/litert/runtime/accelerators/webnn_registry.h",
+  ]
 
   if (build_litert_with_xnnpack) {
     sources +=
@@ -678,6 +660,8 @@ if (use_litert_tflite) {
       "//third_party/tflite:tflite_op_resolver_proto",
     ]
 
+    conditional_public_deps = [ ":tflite" ]
+
     configs_to_remove = [ "//build/config/compiler:chromium_code" ]
     configs_to_add = [
       "//build/config/compiler:no_chromium_code",
@@ -703,6 +687,8 @@ if (use_litert_tflite) {
   source_set("tflite_public_headers") {
     public = [
       "//third_party/tflite/shims/tensorflow/lite/types/fp16.h",
+      "src/tflite/acceleration/configuration/flatbuffer_to_proto.h",
+      "src/tflite/acceleration/configuration/proto_to_flatbuffer.h",
       "src/tflite/allocation.h",
       "src/tflite/arena_planner.h",
       "src/tflite/array.h",
@@ -710,8 +696,11 @@ if (use_litert_tflite) {
       "src/tflite/c/builtin_op_data.h",
       "src/tflite/context.h",
       "src/tflite/context_util.h",
+      "src/tflite/converter/allocation.h",
+      "src/tflite/converter/core/model_builder_base.h",
       "src/tflite/converter/schema/schema_generated.h",
       "src/tflite/converter/schema/schema_utils.h",
+      "src/tflite/core/api/profiler.h",
       "src/tflite/core/c/c_api_types.h",
       "src/tflite/core/c/common.h",
       "src/tflite/core/interpreter.h",
@@ -719,6 +708,7 @@ if (use_litert_tflite) {
       "src/tflite/core/macros.h",
       "src/tflite/core/model_builder.h",
       "src/tflite/core/subgraph.h",
+      "src/tflite/delegates/xnnpack/xnnpack_delegate.h",
       "src/tflite/error_reporter.h",
       "src/tflite/graph_info.h",
       "src/tflite/logger.h",
@@ -727,6 +717,7 @@ if (use_litert_tflite) {
       "src/tflite/mutable_op_resolver.h",
       "src/tflite/op_resolver.h",
       "src/tflite/optional_debug_tools.h",
+      "src/tflite/profiling/profile_buffer.h",
       "src/tflite/signature_runner.h",
       "src/tflite/stderr_reporter.h",
       "src/tflite/string_type.h",
@@ -917,7 +908,6 @@ if (use_litert_tflite) {
     ]
 
     public_deps = [
-      "//third_party/gemmlowp",
       "//third_party/neon_2_sse",
       "//third_party/ruy",
     ]
@@ -929,6 +919,7 @@ if (use_litert_tflite) {
       "//third_party/farmhash",
       "//third_party/flatbuffers",
       "//third_party/fp16",
+      "//third_party/gemmlowp",
       "//third_party/tflite:fft2d_deps",
     ]
 
@@ -1206,8 +1197,10 @@ if (use_litert_tflite) {
       ":tflite_public_headers",
       "//third_party/abseil-cpp:absl",
       "//third_party/flatbuffers",
-      "//third_party/gemmlowp",
     ]
+
+    deps = [ "//third_party/gemmlowp" ]
+
     visibility = [
       ":*",
       "//third_party/tflite:*",
@@ -1404,10 +1397,9 @@ if (use_litert_tflite) {
       ":tflite_proto",
       ":tflite_public_headers",
       "//third_party/flatbuffers",
-      "//third_party/gemmlowp",
       "//third_party/ruy",
     ]
-
+    deps = [ "//third_party/gemmlowp" ]
     configs_to_remove = [ "//build/config/compiler:chromium_code" ]
     configs_to_add = [
       "//build/config/compiler:no_chromium_code",

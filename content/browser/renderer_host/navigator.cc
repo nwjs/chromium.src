@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/navigator.h"
 
+#include <tuple>
 #include <utility>
 
 #include "base/check_op.h"
@@ -633,14 +634,17 @@ void Navigator::DidNavigate(
   // activation, and does not need to match the same-site checks used in the
   // process model. See: crbug.com/736415, and crbug.com/40228985 for the
   // specific regression that resulted in this requirement.
+  //
+  // Since we're only clearing or providing a new activation, we don't care if
+  // `UpdateUserActivationState` succeeds or not.
   if (!was_within_same_document) {
     if (!navigation_request->commit_params()
              .should_have_sticky_user_activation) {
-      frame_tree_node->UpdateUserActivationState(
+      std::ignore = frame_tree_node->UpdateUserActivationState(
           blink::mojom::UserActivationUpdateType::kClearActivation,
           blink::mojom::UserActivationNotificationType::kNone);
     } else {
-      frame_tree_node->UpdateUserActivationState(
+      std::ignore = frame_tree_node->UpdateUserActivationState(
           blink::mojom::UserActivationUpdateType::kNotifyActivationStickyOnly,
           blink::mojom::UserActivationNotificationType::kNone);
     }
@@ -1091,7 +1095,8 @@ void Navigator::RequestOpenURL(
     const std::string& href_translate,
     scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
     const std::optional<blink::Impression>& impression,
-    bool has_rel_opener) {
+    bool has_rel_opener,
+    bool started_by_ad) {
   // Note: This can be called for subframes (even when OOPIFs are not possible)
   // if the disposition calls for a different window.
 
@@ -1141,6 +1146,7 @@ void Navigator::RequestOpenURL(
   params.initiator_base_url = initiator_base_url;
   params.initiator_frame_token = base::OptionalFromPtr(initiator_frame_token);
   params.initiator_process_id = initiator_process_id;
+  params.started_by_ad = started_by_ad;
 
   // RequestOpenURL is used only for local frames, so we can get here only if
   // the navigation is initiated by a frame in the same SiteInstance as this
@@ -1717,9 +1723,7 @@ Navigator::GetNavigationEntryForRendererInitiatedNavigation(
   entry->set_reload_type(NavigationRequest::NavigationTypeToReloadType(
       common_params.navigation_type));
   entry->SetIsOverridingUserAgent(override_user_agent);
-
   controller_.SetPendingEntry(std::move(entry));
-  delegate_->NotifyChangedNavigationState(content::INVALIDATE_TYPE_URL);
 
   return controller_.GetPendingEntry();
 }

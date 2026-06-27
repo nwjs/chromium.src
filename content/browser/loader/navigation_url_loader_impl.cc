@@ -319,7 +319,7 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
   }
 
   new_request->upgrade_if_insecure = request_info.upgrade_if_insecure;
-  new_request->throttling_profile_id = request_info.devtools_frame_token;
+  new_request->throttling_profile_id = request_info.devtools_throttling_token;
   new_request->transition_type = request_info.common_params->transition;
   new_request->is_reload_navigation = NavigationTypeUtils::IsReload(
       request_info.common_params->navigation_type);
@@ -331,11 +331,21 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
         *request_info.begin_params->trust_token_params;
   }
 
-  new_request->storage_access_api_status =
+  const bool is_storage_access_grant_eligible =
       frame_tree_node->current_frame_host()
-              ->document_associated_data()
-              .cookie_setting_overrides()
-              .Has(net::CookieSettingOverride::kStorageAccessGrantEligible)
+          ->document_associated_data()
+          .cookie_setting_overrides()
+          .Has(net::CookieSettingOverride::kStorageAccessGrantEligible);
+
+  const bool is_same_origin_initiator =
+      request_info.begin_params->initiator_frame_token ==
+          frame_tree_node->current_frame_host()->GetFrameToken() &&
+      request_info.common_params->initiator_origin &&
+      request_info.common_params->initiator_origin->IsSameOriginWith(
+          request_info.common_params->url);
+
+  new_request->storage_access_api_status =
+      is_storage_access_grant_eligible && is_same_origin_initiator
           ? net::StorageAccessApiStatus::kAccessViaAPI
           : net::StorageAccessApiStatus::kNone;
 
@@ -575,6 +585,10 @@ void CheckParsedHeadersEquals(const network::mojom::ParsedHeadersPtr& lhs,
                      rhs->observe_browsing_topics));
   CHECK(mojo::Equals(adjusted_lhs->allow_cross_origin_event_reporting,
                      rhs->allow_cross_origin_event_reporting));
+  CHECK(mojo::Equals(adjusted_lhs->declarative_performance_observer_policy,
+                     rhs->declarative_performance_observer_policy));
+  CHECK(mojo::Equals(adjusted_lhs->prefetch_activation_beacon_endpoint,
+                     rhs->prefetch_activation_beacon_endpoint));
   NOTREACHED() << "The parsed headers don't match, but we don't know which "
                   "field does not match. Please add a DCHECK before this one "
                   "checking for the missing field.";
@@ -952,7 +966,7 @@ void NavigationURLLoaderImpl::LoaderHolder::ResetInternal() {
 
   response_loader_receiver_.reset();
   url_loader_.reset();
-  modified_headers_on_redirect_.reset();
+  headers_update_params_.reset();
 
   state_ = State::kNone;
   CheckState();
@@ -1066,7 +1080,7 @@ void NavigationURLLoaderImpl::LoaderHolder::BindReceiver(
     mojo::PendingReceiver<network::mojom::URLLoaderClient> pending_receiver,
     scoped_refptr<base::SequencedTaskRunner> task_runner) {
   // TODO(https://crbug.com/434182226): Remove DUMP_WILL_BE_.
-  DUMP_WILL_BE_CHECK(!modified_headers_on_redirect_);
+  DUMP_WILL_BE_CHECK(!headers_update_params_);
   DUMP_WILL_BE_CHECK_EQ(state_, State::kLoadingViaLoader);
   CheckState();
 
@@ -1082,7 +1096,7 @@ void NavigationURLLoaderImpl::LoaderHolder::BindReceiver(
 void NavigationURLLoaderImpl::LoaderHolder::SetLoader(
     std::unique_ptr<blink::ThrottlingURLLoader> url_loader) {
   // TODO(https://crbug.com/434182226): Remove DUMP_WILL_BE_.
-  DUMP_WILL_BE_CHECK(!modified_headers_on_redirect_);
+  DUMP_WILL_BE_CHECK(!headers_update_params_);
   DUMP_WILL_BE_CHECK_EQ(state_, State::kNone);
   CheckState();
 
@@ -1135,49 +1149,28 @@ void NavigationURLLoaderImpl::LoaderHolder::CheckState() const {
   }
 }
 
-NavigationURLLoaderImpl::LoaderHolder::ModifiedHeadersOnRedirect::
-    ModifiedHeadersOnRedirect(
-        std::vector<std::string> removed_headers,
-        net::HttpRequestHeaders modified_headers,
-        net::HttpRequestHeaders modified_cors_exempt_headers)
-    : removed_headers_(std::move(removed_headers)),
-      modified_headers_(std::move(modified_headers)),
-      modified_cors_exempt_headers_(std::move(modified_cors_exempt_headers)) {}
-
-NavigationURLLoaderImpl::LoaderHolder::ModifiedHeadersOnRedirect::
-    ~ModifiedHeadersOnRedirect() = default;
-
-void NavigationURLLoaderImpl::LoaderHolder::SetModifiedHeadersOnRedirect(
-    std::vector<std::string> removed_headers,
-    net::HttpRequestHeaders modified_headers,
-    net::HttpRequestHeaders modified_cors_exempt_headers) {
+void NavigationURLLoaderImpl::LoaderHolder::SetHeadersUpdateParamsOnRedirect(
+    network::HttpRequestHeadersUpdateParams headers_update_params) {
   // TODO(https://crbug.com/434182226): Remove DUMP_WILL_BE_.
-  DUMP_WILL_BE_CHECK(!modified_headers_on_redirect_);
-  modified_headers_on_redirect_.emplace(
-      std::move(removed_headers), std::move(modified_headers),
-      std::move(modified_cors_exempt_headers));
+  DUMP_WILL_BE_CHECK(!headers_update_params_);
+  headers_update_params_.emplace(std::move(headers_update_params));
 }
 
 void NavigationURLLoaderImpl::LoaderHolder::ResetForFollowRedirect(
     network::ResourceRequest& resource_request) {
   if (url_loader_) {
-    CHECK(modified_headers_on_redirect_);
-    url_loader_->ResetForFollowRedirect(
-        resource_request, modified_headers_on_redirect_->removed_headers_,
-        modified_headers_on_redirect_->modified_headers_,
-        modified_headers_on_redirect_->modified_cors_exempt_headers_);
+    CHECK(headers_update_params_);
+    url_loader_->ResetForFollowRedirect(resource_request,
+                                        std::move(*headers_update_params_));
   }
   Reset();
 }
 
 void NavigationURLLoaderImpl::LoaderHolder::FollowRedirect() {
   CHECK(url_loader_);
-  CHECK(modified_headers_on_redirect_);
-  url_loader_->FollowRedirect(
-      std::move(modified_headers_on_redirect_->removed_headers_),
-      std::move(modified_headers_on_redirect_->modified_headers_),
-      std::move(modified_headers_on_redirect_->modified_cors_exempt_headers_));
-  modified_headers_on_redirect_.reset();
+  CHECK(headers_update_params_);
+  url_loader_->FollowRedirect(std::move(*headers_update_params_));
+  headers_update_params_.reset();
 }
 
 bool NavigationURLLoaderImpl::LoaderHolder::receiver_is_bound_for_check()
@@ -2199,8 +2192,6 @@ NavigationURLLoaderImpl::CreateTerminalNonNetworkLoaderFactory(
 
   if (url.GetScheme() == url::kFileSystemScheme) {
     bool is_nav_allowed =
-        base::FeatureList::IsEnabled(
-            blink::features::kFileSystemUrlNavigationForChromeAppsOnly) &&
         GetContentClient()->browser()->IsFileSystemURLNavigationAllowed(
             storage_partition->browser_context(), url);
     if (is_nav_allowed ||
@@ -2325,9 +2316,7 @@ NavigationURLLoaderImpl::CreateNetworkLoaderFactory(
 }
 
 void NavigationURLLoaderImpl::FollowRedirect(
-    std::vector<std::string> removed_headers,
-    net::HttpRequestHeaders modified_headers,
-    net::HttpRequestHeaders modified_cors_exempt_headers) {
+    network::HttpRequestHeadersUpdateParams headers_update_params) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!redirect_info_.new_url.is_empty());
 
@@ -2342,7 +2331,7 @@ void NavigationURLLoaderImpl::FollowRedirect(
   // This is also applied to `resource_request().headers` via
   // `net::RedirectUtil::UpdateHttpRequest()`.
   if (redirect_info_.is_signed_exchange_fallback_redirect) {
-    modified_headers.SetHeader(
+    headers_update_params.modified_headers.SetHeader(
         net::HttpRequestHeaders::kAccept,
         FrameAcceptHeaderValue(/*allow_sxg_responses=*/false,
                                browser_context_));
@@ -2360,7 +2349,8 @@ void NavigationURLLoaderImpl::FollowRedirect(
   bool should_clear_upload = false;
   net::RedirectUtil::UpdateHttpRequest(
       resource_request().url, resource_request().method, redirect_info_,
-      removed_headers, modified_headers, &resource_request_->headers,
+      headers_update_params.removed_headers,
+      headers_update_params.modified_headers, &resource_request_->headers,
       &should_clear_upload);
   if (should_clear_upload) {
     // The request body is no longer applicable.
@@ -2397,9 +2387,8 @@ void NavigationURLLoaderImpl::FollowRedirect(
 
   // Need to cache modified headers for `url_loader_` since it doesn't use
   // `resource_request()` during redirect.
-  loader_holder_.SetModifiedHeadersOnRedirect(
-      std::move(removed_headers), std::move(modified_headers),
-      std::move(modified_cors_exempt_headers));
+  loader_holder_.SetHeadersUpdateParamsOnRedirect(
+      std::move(headers_update_params));
 
   Restart();
 }

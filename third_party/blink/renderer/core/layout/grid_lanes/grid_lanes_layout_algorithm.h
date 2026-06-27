@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/layout/block_break_token.h"
 #include "third_party/blink/renderer/core/layout/box_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_track_sizing_algorithm.h"
+#include "third_party/blink/renderer/core/layout/grid_lanes/grid_lanes_item_group.h"
 #include "third_party/blink/renderer/core/layout/grid_lanes/grid_lanes_node.h"
 #include "third_party/blink/renderer/core/layout/layout_algorithm.h"
 
@@ -51,9 +52,8 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       const GridPlacementData& placement_data,
       const GridLayoutData& layout_data,
       const ComputedStyle& grid_lanes_style,
-      const BoxStrut& borders,
-      const LogicalSize& border_box_size,
-      GridItemData* out_of_flow_item);
+      const LogicalRect& padding_box_rect,
+      GridItemData* item);
 
   // Builds the sizing collection for the given `track_direction`. For the
   // stacking axis this is a no-op. For the grid axis, this builds virtual items
@@ -68,7 +68,7 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       GridLayoutData& layout_data,
       SizingConstraint sizing_constraint = SizingConstraint::kLayout,
       bool needs_intrinsic_track_size = false,
-      GridItems** opt_virtual_items = nullptr) const;
+      VirtualItems** opt_virtual_items = nullptr) const;
 
   // `containing_grid_area` is an optional out parameter that holds the computed
   // grid area (offset and size) of the specified grid item.
@@ -93,6 +93,16 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
     kFinalPlacement,
   };
 
+  // Builds the grid-lanes sizing tree, runs track sizing (including any
+  // intrinsic repeat passes), and baseline alignment. Grid items are moved out
+  // via the `grid_items` parameter. `opt_oof_children` is an optional vector of
+  // out-of-flow direct children of the grid-lanes container.
+  GridSizingTree ComputeGridLanesSizingTree(
+      SizingConstraint sizing_constraint,
+      bool should_apply_inline_size_containment,
+      GridItems** grid_items,
+      HeapVector<Member<LayoutBox>>* opt_oof_children = nullptr);
+
   // Computes the grid-lanes geometry by running track sizing (including any
   // intrinsic repeat passes), baseline alignment, and finalization. Returns
   // the finalized layout subtree. Grid items are moved out via the
@@ -109,13 +119,16 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // resolved position is translated based on the cached start offset.
   // Placement of the items is finalized within this method. `running_positions`
   // is an output parameter that can be used to find the intrinsic inline size
-  // when the stacking axis is the inline axis.
+  // when the stacking axis is the inline axis. `opt_sizing_subtree` is required
+  // when `sizing_constraint` is for measure so that subgridded item data can be
+  // accessed for proper sizing.
   void PlaceGridLanesItems(
       GridItems& grid_items,
       const GridLayoutSubtree* layout_subtree,
       GridLayoutData& layout_data,
       GridLanesRunningPositions& running_positions,
-      std::optional<SizingConstraint> sizing_constraint = std::nullopt);
+      std::optional<SizingConstraint> sizing_constraint = std::nullopt,
+      const GridSizingSubtree* opt_sizing_subtree = nullptr);
 
   // Iterates through and lays out each item in `grid_lanes_items`. If
   // `placement_phase` is kCalculateBaselines, this method measures items and
@@ -127,7 +140,9 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // are positioned. The `running_positions` output parameter tracks the
   // cumulative positions along the stacking axis for each track. The
   // `baseline_accumulator` output parameter accumulates container-level
-  // baselines from the items.
+  // baselines from the items. `opt_sizing_subtree` is required
+  // when `sizing_constraint` is for measure so that subgridded item data can be
+  // accessed for proper sizing.
   void RunGridLanesPlacementPhase(
       GridItems& grid_items,
       const GridLayoutSubtree* layout_subtree,
@@ -136,7 +151,8 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       LayoutUnit stacking_axis_gap,
       PlacementPhase placement_phase,
       BaselineAccumulator* baseline_accumulator,
-      GridLanesRunningPositions& running_positions);
+      GridLanesRunningPositions& running_positions,
+      const GridSizingSubtree* opt_sizing_subtree = nullptr);
 
   // Places all out-of-flow (OOF) grid-lanes items. For each item, this method
   // computes the size and location of the containing block rectangle within the
@@ -181,6 +197,18 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
                                     GridSizingTree* sizing_tree,
                                     bool needs_intrinsic_track_size) const;
 
+  // Completes track sizing for the standalone axis of subgrids in
+  // `sizing_subtree`. This only applies when the grid-lanes' grid axis is rows
+  // (or when the standalone axis is columns); for column grid-lanes the
+  // standalone-axis (row) sizing is handled later because Grid requires columns
+  // to be sized before rows.
+  //
+  // TODO(almaher): Can we get the column case working as well? Will that
+  // require an additional pass?
+  void CompleteTrackSizingAlgorithmInStandaloneAxis(
+      const GridSizingSubtree& sizing_subtree,
+      SizingConstraint sizing_constraint) const;
+
   // Resolves non-definite track sizes for the grid axis.
   void ComputeUsedTrackSizes(const GridSizingSubtree& sizing_subtree,
                              SizingConstraint sizing_constraint,
@@ -221,26 +249,26 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // From https://drafts.csswg.org/css-grid-3/#track-sizing-performance:
   //   "... synthesize a virtual masonry item that has the maximum of every
   //   intrinsic size contribution among the items in that group."
-  // Returns a collection of items that reflect the intrinsic contributions from
-  // the item groups, which will be used to resolve the grid axis' track sizes.
-  // If `needs_intrinsic_track_size` is true, that means that we are in the
-  // first track size pass required to compute intrinsic track sizes within a
-  // repeat definition, which requires adjustments to virtual item creation and
-  // track sizing per
+  // This method returns a collection of virtual items, with empty intrinsic
+  // contribution sizes, as these get calculated after track initialization has
+  // occurred. If `needs_intrinsic_track_size` is true, that means that we are
+  // in the first track size pass required to compute intrinsic track sizes
+  // within a repeat definition, which requires adjustments to virtual item
+  // creation and track sizing per
   // https://www.w3.org/TR/css-grid-3/#masonry-intrinsic-repeat.
-  GridItems* BuildVirtualGridLanesItems(const GridLineResolver& line_resolver,
-                                        const GridItems& grid_lanes_items,
-                                        const bool needs_intrinsic_track_size,
-                                        SizingConstraint sizing_constraint,
-                                        const wtf_size_t auto_repetition_count,
-                                        wtf_size_t& start_offset,
-                                        bool& has_baseline_aligned_items) const;
+  VirtualItems* BuildVirtualGridLanesItems(
+      const GridLineResolver& line_resolver,
+      const GridItems& grid_lanes_items,
+      const bool needs_intrinsic_track_size,
+      const wtf_size_t auto_repetition_count,
+      wtf_size_t& start_offset) const;
 
   // Computes the block-axis contribution of a virtual grid-lanes item for track
   // sizing. Also computes a baseline shim for the item and sets `baseline_shim`
   // to that value, which accounts for extra space needed to align the item's
   // baseline with the shared baseline of its track.
   LayoutUnit ComputeGridLanesItemBlockContribution(
+      const GridSizingSubtree& sizing_subtree,
       GridTrackSizingDirection track_direction,
       SizingConstraint sizing_constraint,
       const ConstraintSpace space_for_measure,
@@ -260,29 +288,46 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // Return the inline contribution of `grid_lanes_item` calculated to either
   // the min-width or the max-width based on `sizing_constraint`.
   LayoutUnit CalculateItemInlineContribution(
+      const GridSizingSubtree& sizing_subtree,
       const GridItemData& grid_lanes_item,
-      const GridLayoutTrackCollection& track_collection,
       SizingConstraint sizing_constraint);
 
   ConstraintSpace CreateConstraintSpaceForMeasure(
       const SubgriddedItemData& subgridded_item,
       std::optional<LayoutUnit> opt_fixed_inline_size = std::nullopt,
-      const GridLayoutTrackCollection* track_collection = nullptr,
+      bool make_grid_axis_definite = false,
       bool is_for_min_max_sizing = false) const;
 
   // Computes the shared baseline for items within a single virtual item group
   // (i.e., items that share the same span and baseline alignment). Returns the
   // maximum baseline among all items in the group.
   LayoutUnit ComputeSharedBaselineForGroup(
+      const GridSizingSubtree& sizing_subtree,
       const GridItems::GridItemDataVector& group_items,
       GridTrackSizingDirection grid_axis_direction,
       SizingConstraint sizing_constraint) const;
+
+  // From https://drafts.csswg.org/css-grid-3/#track-sizing-performance:
+  //   "... synthesize a virtual masonry item that has the maximum of every
+  //   intrinsic size contribution among the items in that group."
+  // This method calculates the intrinsic contribution sizes and per-track
+  // shared baselines for each virtual item group and updates the corresponding
+  // virtual item(s) associated with each group accordingly, which will be used
+  // to resolve the grid axis' track sizes. If `needs_intrinsic_track_size` is
+  // true, that means that we are in the first track size pass required to
+  // compute intrinsic track sizes within a repeat definition, which requires
+  // adjustments to virtual item creation and track sizing per
+  // https://www.w3.org/TR/css-grid-3/#masonry-intrinsic-repeat.
+  void MeasureVirtualGridLanesItems(const GridSizingSubtree& sizing_subtree,
+                                    SizingConstraint sizing_constraint,
+                                    bool needs_intrinsic_track_size) const;
 
   // Lays out `grid_lanes_item` for measurement using `space_for_measure`. If
   // the available inline size is indefinite (e.g., for an orthogonal virtual
   // item), falls back to using the item's max-content contribution as its
   // inline size.
   const LayoutResult* LayoutItemForMeasureWithFallback(
+      const GridSizingSubtree& sizing_subtree,
       GridItemData* grid_lanes_item,
       const ConstraintSpace& space_for_measure,
       SizingConstraint sizing_constraint) const;

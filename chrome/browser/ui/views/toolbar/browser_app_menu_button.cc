@@ -12,24 +12,12 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/branding_buildflags.h"
-#include "cc/paint/paint_flags.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/themes/theme_properties.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_otr_state.h"
-#include "chrome/browser/ui/color/chrome_color_id.h"
-#include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
-#include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
-#include "chrome/browser/user_education/tutorial_identifiers.h"
-#include "chrome/browser/user_education/user_education_service.h"
-#include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/grit/browser_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
@@ -63,38 +51,7 @@
 namespace {
 constexpr int kChromeRefreshImageLabelPadding = 2;
 constexpr int kGlowUpImageLabelPadding = 4;
-constexpr base::TimeDelta kAnimationDuration = base::Milliseconds(300);
-
-class LottieIconSource : public gfx::CanvasImageSource {
- public:
-  LottieIconSource(lottie::Animation* animation,
-                   float progress,
-                   int size,
-                   SkColor color)
-      : gfx::CanvasImageSource(gfx::Size(size, size)),
-        animation_(animation),
-        progress_(progress),
-        color_(color) {}
-  LottieIconSource(const LottieIconSource&) = delete;
-  LottieIconSource& operator=(const LottieIconSource&) = delete;
-  ~LottieIconSource() override = default;
-
-  // gfx::CanvasImageSource:
-  void Draw(gfx::Canvas* canvas) override {
-    cc::PaintFlags flags;
-    flags.setColorFilter(cc::ColorFilter::MakeBlend(
-        SkColor4f::FromColor(color_), SkBlendMode::kSrcIn));
-    canvas->SaveLayerWithFlags(flags);
-    animation_->PaintFrame(canvas, progress_, size());
-    canvas->Restore();
-  }
-
- private:
-  const raw_ptr<lottie::Animation> animation_;
-  const float progress_;
-  const SkColor color_;
-};
-
+constexpr int kHideTextForFlexPadding = 4;
 }  // namespace
 
 // static
@@ -105,19 +62,13 @@ BrowserAppMenuButton::BrowserAppMenuButton(ToolbarView* toolbar_view)
                                         base::Unretained(this))),
       toolbar_view_(toolbar_view) {
   SetHorizontalAlignment(gfx::ALIGN_RIGHT);
-  SetImageLabelSpacing(base::FeatureList::IsEnabled(features::kToolbarGlowUp)
+  SetImageLabelSpacing(features::IsToolbarGlowUpEnabled()
                            ? kGlowUpImageLabelPadding
                            : kChromeRefreshImageLabelPadding);
   label()->SetPaintToLayer();
   label()->SetSkipSubpixelRenderingOpacityCheck(true);
   label()->layer()->SetFillsBoundsOpaquely(false);
   label()->SetSubpixelRenderingEnabled(false);
-  if (base::FeatureList::IsEnabled(features::kToolbarGlowUp)) {
-    SetAnimateOnStateChange(true);
-    SetAnimationDuration(kAnimationDuration);
-    click_animation_ = std::make_unique<gfx::ThrobAnimation>(this);
-    click_animation_->SetSlideDuration(kAnimationDuration);
-  }
 }
 
 BrowserAppMenuButton::~BrowserAppMenuButton() = default;
@@ -146,7 +97,8 @@ void BrowserAppMenuButton::ShowMenu(int run_types) {
 
   // Allow highlighting menu items when the menu was opened while
   // certain tutorials are running.
-  AlertMenuItem alert_item = GetAlertItemForRunningTutorial();
+  AlertMenuItem alert_item =
+      AppMenuModel::GetAlertItemForRunningTutorial(browser);
 
   RunMenu(std::make_unique<AppMenuModel>(
               toolbar_view_, browser, toolbar_view_->app_menu_icon_controller(),
@@ -154,28 +106,18 @@ void BrowserAppMenuButton::ShowMenu(int run_types) {
           browser, run_types);
 }
 
-AlertMenuItem BrowserAppMenuButton::GetAlertItemForRunningTutorial() {
-  Browser* browser = toolbar_view_->browser();
-  BrowserWindow* browser_window = browser->window();
-
-  if (browser_window == nullptr) {
-    return AlertMenuItem::kNone;
-  }
-
-  auto* const service =
-      UserEducationServiceFactory::GetForBrowserContext(browser->profile());
-  if (service && service->tutorial_service().IsRunningTutorial(
-                     kPasswordManagerTutorialId)) {
-    return AlertMenuItem::kPasswordManager;
-  }
-
-  return AlertMenuItem::kNone;
-}
-
 void BrowserAppMenuButton::OnMenuClosed() {
-  if (base::FeatureList::IsEnabled(features::kToolbarGlowUp)) {
-    click_animation_->Hide();
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (features::IsToolbarGlowUpEnabled()) {
+    views::SingleAnimatedImageContainer::AnimationConfig config{
+        .direction =
+            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+        .end_behavior =
+            views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset};
+    animated_image_container().PlayAnimation(
+        {IDR_CHROME_TO_DOTS_LOTTIE, GetForegroundColor(GetState())}, config);
   }
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   AppMenuButton::OnMenuClosed();
 }
 
@@ -198,50 +140,25 @@ void BrowserAppMenuButton::UpdateThemeBasedState() {
 }
 
 void BrowserAppMenuButton::UpdateIcon() {
-  const gfx::VectorIcon& icon = ui::TouchUiController::Get()->touch_ui()
-                                    ? kBrowserToolsTouchIcon
-                                    : kBrowserToolsChromeRefreshIcon;
-
-  const double click_animation_value =
-      base::FeatureList::IsEnabled(features::kToolbarGlowUp)
-          ? click_animation_->GetCurrentValue()
-          : 0;
+  const gfx::VectorIcon& icon =
+      ui::TouchUiController::Get()->touch_ui()
+          ? features::IsRoundedIconsEnabled() ? kMoreVertIcon
+                                              : kBrowserToolsTouchOldIcon
+      : features::IsRoundedIconsEnabled() ? kMoreVertIcon
+                                          : kBrowserToolsChromeRefreshOldIcon;
   const int icon_size = GetIconSize();
 
   for (auto state : kButtonStates) {
     SkColor icon_color = GetForegroundColor(state);
     ui::ImageModel model =
         ui::ImageModel::FromVectorIcon(icon, icon_color, icon_size);
-
-    if (base::FeatureList::IsEnabled(features::kToolbarGlowUp) &&
-        click_animation_value > 0 && GetColorProvider()) {
-      if (!lottie_animation_) {
-        std::optional<std::vector<uint8_t>> lottie_bytes =
-            ui::ResourceBundle::GetSharedInstance().GetLottieData(
-                IDR_APP_MENU_BUTTON_HOVER_LOTTIE);
-        CHECK(lottie_bytes);
-        scoped_refptr<cc::SkottieWrapper> skottie =
-            cc::SkottieWrapper::UnsafeCreateSerializable(
-                std::move(*lottie_bytes));
-        lottie_animation_ = std::make_unique<lottie::Animation>(skottie);
-      }
-
-      model = ui::ImageModel::FromImageSkia(
-          gfx::CanvasImageSource::MakeImageSkia<LottieIconSource>(
-              lottie_animation_.get(), click_animation_value, icon_size,
-              icon_color));
-    }
     SetImageModel(state, model);
   }
 }
 
-void BrowserAppMenuButton::AnimationProgressed(
-    const gfx::Animation* animation) {
-  if (base::FeatureList::IsEnabled(features::kToolbarGlowUp) &&
-      animation == click_animation_.get()) {
-    UpdateIcon();
-  }
-  AppMenuButton::AnimationProgressed(animation);
+void BrowserAppMenuButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {
+  ToolbarButton::OnBoundsChanged(previous_bounds);
+  UpdateLayoutInsets();
 }
 
 void BrowserAppMenuButton::UpdateInkdrop() {
@@ -255,10 +172,18 @@ void BrowserAppMenuButton::UpdateInkdrop() {
 }
 
 bool BrowserAppMenuButton::IsLabelPresentAndVisible() const {
-  if (!label()) {
+  if (!label() || !label()->GetVisible() || label()->GetText().empty()) {
     return false;
   }
-  return label()->GetVisible() && !label()->GetText().empty();
+  if (!base::FeatureList::IsEnabled(features::kToolbarAppMenuLabelResizing)) {
+    return true;
+  }
+  // If the chip is narrow enough that text doesn't fit, return false. The min
+  // width is the height of the button but add padding because at slightly
+  // larger widths, text isn't visible due to eliding and this simplifies
+  // ToolbarView layout.
+  const int icon_width = GetTargetSize().height() + kHideTextForFlexPadding;
+  return GetLocalBounds().width() > icon_width;
 }
 
 SkColor BrowserAppMenuButton::GetForegroundColor(ButtonState state) const {
@@ -288,8 +213,10 @@ bool BrowserAppMenuButton::ShouldPaintBorder() const {
 void BrowserAppMenuButton::UpdateLayoutInsets() {
   if (IsLabelPresentAndVisible()) {
     SetLayoutInsets(::GetLayoutInsets(BROWSER_APP_MENU_CHIP_PADDING));
+    SetHorizontalAlignment(gfx::ALIGN_RIGHT);
   } else {
     SetLayoutInsets(::GetLayoutInsets(TOOLBAR_BUTTON));
+    SetHorizontalAlignment(gfx::ALIGN_CENTER);
   }
 }
 
@@ -332,9 +259,17 @@ void BrowserAppMenuButton::ButtonPressed(const ui::Event& event) {
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  if (base::FeatureList::IsEnabled(features::kToolbarGlowUp)) {
-    click_animation_->Show();
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (features::IsToolbarGlowUpEnabled() && !IsMenuShowing()) {
+    views::SingleAnimatedImageContainer::AnimationConfig config{
+        .direction =
+            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+        .end_behavior =
+            views::SingleAnimatedImageContainer::AnimationEndBehavior::kPause};
+    animated_image_container().PlayAnimation(
+        {IDR_DOTS_TO_CHROME_LOTTIE, GetForegroundColor(GetState())}, config);
   }
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   ShowMenu(event.IsKeyEvent() ? (views::MenuRunner::SHOULD_SHOW_MNEMONICS |
                                  views::MenuRunner::INVOKED_FROM_KEYBOARD)
@@ -354,6 +289,11 @@ bool BrowserAppMenuButton::HandleAccessibleAction(
     return true;
   }
   return AppMenuButton::HandleAccessibleAction(action_data);
+}
+
+gfx::Size BrowserAppMenuButton::GetMinimumSize() const {
+  const int size = GetTargetSize().height();
+  return gfx::Size(size, size);
 }
 
 BEGIN_METADATA(BrowserAppMenuButton)

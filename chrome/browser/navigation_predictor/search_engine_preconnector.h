@@ -45,6 +45,7 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectBackoffBaseTime);
 BASE_DECLARE_FEATURE_PARAM(double, kPreconnectBackoffMultiplier);
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectNetworkChangeInterval);
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectInitialRetryInterval);
+BASE_DECLARE_FEATURE(kResetConnectionFailureOnSessionUsed);
 }  // namespace features
 
 // Class to keep track of the current visibility. It is used to determine if the
@@ -117,7 +118,7 @@ class SearchEnginePreconnector
   bool IsPreconnectEnabled() override;
 
   // network::mojom::ConnectionChangeObserverClient
-  void OnSessionClosed() override;
+  void OnSessionClosed(bool was_ever_used_to_create_streams) override;
   void OnNetworkEvent(net::NetworkChangeEvent event) override;
   void OnConnectionFailed() override;
 
@@ -239,7 +240,7 @@ class SearchEnginePreconnector
   base::ClampedNumeric<int32_t> consecutive_connection_failure_ = 0;
 
   // Used for testing. Override the short session value.
-  std::optional<bool> is_short_session_for_testing_ = std::nullopt;
+  std::optional<bool> is_short_session_for_testing_;
 
   base::WeakPtrFactory<SearchEnginePreconnector> weak_factory_{this};
 };

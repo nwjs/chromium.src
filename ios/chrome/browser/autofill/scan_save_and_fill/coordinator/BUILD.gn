@@ -39,6 +39,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//components/autofill/core/browser",
     "//components/autofill/ios/browser",
+    "//components/autofill/ios/browser:test_support",
     "//components/autofill/ios/form_util",
     "//ios/chrome/browser/autofill/model",
     "//ios/chrome/browser/autofill/model/bottom_sheet",
@@ -52,6 +53,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/tabs/model",
     "//ios/chrome/test:test_support",
     "//ios/web/public/test",
+    "//ios/web/public/test/fakes",
     "//testing/gtest",
     "//third_party/ocmock",
   ]

@@ -45,8 +45,6 @@
 #include "chromecast/browser/cast_web_preferences.h"
 #include "chromecast/browser/cast_web_service.h"
 #include "chromecast/browser/devtools/cast_devtools_manager_delegate.h"
-#include "chromecast/browser/general_audience_browsing_navigation_throttle.h"
-#include "chromecast/browser/general_audience_browsing_service.h"
 #include "chromecast/browser/media/media_caps_impl.h"
 #include "chromecast/browser/service/cast_service_simple.h"
 #include "chromecast/browser/service_connector.h"
@@ -283,8 +281,7 @@ CastContentBrowserClient::CreateAudioManager(
       std::move(audio_thread), audio_log_factory, cast_session_id_map,
       base::BindRepeating(&CastContentBrowserClient::GetCmaBackendFactory,
                           base::Unretained(this)),
-      content::GetUIThreadTaskRunner({}), GetMediaTaskRunner(),
-      /* use_mixer= */ false);
+      content::GetUIThreadTaskRunner({}), GetMediaTaskRunner());
 #elif BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(kEnableChromeAudioManagerAndroid)) {
     LOG(INFO) << "Use AudioManagerAndroid instead of CastAudioManagerAndroid.";
@@ -302,8 +299,7 @@ CastContentBrowserClient::CreateAudioManager(
       std::move(audio_thread), audio_log_factory, cast_session_id_map,
       base::BindRepeating(&CastContentBrowserClient::GetCmaBackendFactory,
                           base::Unretained(this)),
-      content::GetUIThreadTaskRunner({}), GetMediaTaskRunner(),
-      /* use_mixer= */ false);
+      content::GetUIThreadTaskRunner({}), GetMediaTaskRunner());
 #endif
 }
 
@@ -494,10 +490,6 @@ void CastContentBrowserClient::OverrideWebPreferences(
 
   prefs->hide_scrollbars = true;
 
-  // Disable images rendering in Cast for Audio configuration
-#if BUILDFLAG(IS_CAST_AUDIO_ONLY)
-  prefs->images_enabled = false;
-#endif
 
 #if BUILDFLAG(IS_ANDROID)
   // Enable the television style for viewport so that all cast apps have a
@@ -797,16 +789,6 @@ CastContentBrowserClient::CreateCrashHandlerHost(
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-void CastContentBrowserClient::CreateThrottlesForNavigation(
-    content::NavigationThrottleRegistry& registry) {
-  if (chromecast::IsFeatureEnabled(kEnableGeneralAudienceBrowsing)) {
-    registry.AddThrottle(
-        std::make_unique<GeneralAudienceBrowsingNavigationThrottle>(
-            registry,
-            general_audience_browsing_service_.get()));
-  }
-}
-
 void CastContentBrowserClient::RegisterNonNetworkSubresourceURLLoaderFactories(
     int render_process_id,
     int render_frame_id,
@@ -867,14 +849,6 @@ CastContentBrowserClient::ShouldOverrideLocalNetworkAccessRequestPolicy(
 
 std::string CastContentBrowserClient::GetUserAgent() {
   return chromecast::GetUserAgent();
-}
-
-void CastContentBrowserClient::CreateGeneralAudienceBrowsingService() {
-  DCHECK(!general_audience_browsing_service_);
-  general_audience_browsing_service_ =
-      std::make_unique<GeneralAudienceBrowsingService>(
-          browser_main_parts()->connector(),
-          cast_network_contexts_->GetSystemSharedURLLoaderFactory());
 }
 
 }  // namespace shell

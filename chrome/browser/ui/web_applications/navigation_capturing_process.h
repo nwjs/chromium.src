@@ -146,6 +146,10 @@ class NavigationCapturingProcess
   // any possible redirects have happened. Will only be called after this class
   // has been attached to a NavigationHandle, and will CHECK-fail otherwise.
   using ThrottleCheckResult = content::NavigationThrottle::ThrottleCheckResult;
+  struct RedirectDecision {
+    ThrottleCheckResult action;
+    std::optional<webapps::AppId> launched_app_id;
+  };
   ThrottleCheckResult HandleRedirect();
 
   content::NavigationHandle* navigation_handle() const {
@@ -170,6 +174,8 @@ class NavigationCapturingProcess
 
   std::optional<NavigationCapturingOverride> HandleIsolatedWebAppNavigation(
       const NavigateParams& params);
+
+  RedirectDecision HandleRedirectImpl();
 
   // Checks if a newly created `WebContents` was programmatically opened by an
   // Isolated Web App and notifies the
@@ -244,8 +250,9 @@ class NavigationCapturingProcess
   // attached to a `NavigationHandle`, also creates or updates the
   // `WebAppLaunchNavigationHandleUserData` for that handle. A nullopt `app_id`
   // will cause the launch data to be cleared.
-  void SetLaunchedAppId(std::optional<webapps::AppId> app_id,
-                        bool force_iph_off = false);
+  void SetLaunchedAppIdAndUpdateLaunchParams(
+      std::optional<webapps::AppId> app_id,
+      bool force_iph_off = false);
 
   // Returns true if `initial_nav_handling_result_` is one of the values where
   // the navigation was captured by an app.
@@ -310,7 +317,7 @@ class NavigationCapturingProcess
   // Debug information persisted to chrome://web-app-internals on destruction of
   // this class.
   base::DictValue debug_data_;
-  std::optional<int64_t> navigation_handle_id_ = std::nullopt;
+  std::optional<int64_t> navigation_handle_id_;
 
   // Stores the exact time when the navigation capturing process starts
   // "handling" the current navigation when asked from Navigate().

@@ -20,13 +20,13 @@
 #include "base/types/expected.h"
 #include "components/unexportable_keys/background_task_origin.h"
 #include "components/unexportable_keys/features.h"
-#include "components/unexportable_keys/mock_unexportable_key.h"
 #include "components/unexportable_keys/mock_unexportable_key_service.h"
-#include "components/unexportable_keys/scoped_mock_unexportable_key_provider.h"
 #include "components/unexportable_keys/unexportable_key_service.h"
 #include "components/unexportable_keys/unexportable_key_service_impl.h"
 #include "components/unexportable_keys/unexportable_key_task_manager.h"
+#include "crypto/mock_unexportable_key.h"
 #include "crypto/scoped_fake_unexportable_key_provider.h"
+#include "crypto/scoped_mock_unexportable_key_provider.h"
 #include "crypto/unexportable_key.h"
 #include "net/base/features.h"
 #include "net/base/schemeful_site.h"
@@ -39,6 +39,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace net::device_bound_sessions {
 
@@ -94,6 +95,12 @@ std::unique_ptr<Session> CreateSessionHelper(
     std::string_view origin = "https://foo.test") {
   SessionParams::Scope scope;
   scope.origin = origin;
+  if (url::Origin::Create(GURL(url_string)) !=
+      url::Origin::Create(GURL(origin))) {
+    // Cross-origin mock sessions must specify include_site = true to pass
+    // validation.
+    scope.include_site = true;
+  }
   std::string cookie_attr = "Secure; Domain=" + GURL(url_string).GetHost();
   std::vector<SessionParams::Credential> cookie_credentials(
       {SessionParams::Credential{"test_cookie", cookie_attr}});
@@ -231,12 +238,11 @@ class SessionStoreImplTest : public net::TestWithTaskEnvironment {
     run_loop.Run();
   }
 
-  unexportable_keys::ScopedMockUnexportableKeyProvider&
-  SwitchToMockKeyProvider() {
+  crypto::ScopedMockUnexportableKeyProvider& SwitchToMockKeyProvider() {
     // Using `emplace()` to destroy the existing scoped object before
     // constructing a new one.
     return scoped_key_provider_
-        .emplace<unexportable_keys::ScopedMockUnexportableKeyProvider>();
+        .emplace<crypto::ScopedMockUnexportableKeyProvider>();
   }
 
  protected:
@@ -245,7 +251,7 @@ class SessionStoreImplTest : public net::TestWithTaskEnvironment {
  private:
   base::ScopedTempDir temp_dir_;
   std::variant<crypto::ScopedFakeUnexportableKeyProvider,
-               unexportable_keys::ScopedMockUnexportableKeyProvider>
+               crypto::ScopedMockUnexportableKeyProvider>
       scoped_key_provider_;
   unexportable_keys::UnexportableKeyTaskManager unexportable_key_task_manager_;
   unexportable_keys::UnexportableKeyServiceImpl unexportable_key_service_{
@@ -641,7 +647,7 @@ TEST_F(SessionStoreImplTest, GarbageCollectsStaleKeys) {
   base::HistogramTester histograms;
   feature_list_.InitAndEnableFeature(
       unexportable_keys::kUnexportableKeyDeletion);
-  unexportable_keys::MockUnexportableKeyProvider& mock_key_provider =
+  crypto::MockUnexportableKeyProvider& mock_key_provider =
       SwitchToMockKeyProvider().mock();
 
   CreateStoreAndLoadSessions();
@@ -652,9 +658,9 @@ TEST_F(SessionStoreImplTest, GarbageCollectsStaleKeys) {
   const std::vector<uint8_t> kStaleWrappedKey = {7, 8, 9};
 
   EXPECT_CALL(mock_key_provider, GetAllKeysSlowly).WillRepeatedly([=] {
-    auto key1 = std::make_unique<unexportable_keys::MockUnexportableKey>();
-    auto key2 = std::make_unique<unexportable_keys::MockUnexportableKey>();
-    auto stale_key = std::make_unique<unexportable_keys::MockUnexportableKey>();
+    auto key1 = std::make_unique<crypto::MockUnexportableSigningKey>();
+    auto key2 = std::make_unique<crypto::MockUnexportableSigningKey>();
+    auto stale_key = std::make_unique<crypto::MockUnexportableSigningKey>();
 
     ON_CALL(*key1, GetWrappedKey).WillByDefault(Return(kWrappedKey1));
     ON_CALL(*key2, GetWrappedKey).WillByDefault(Return(kWrappedKey2));
@@ -726,7 +732,7 @@ TEST_F(SessionStoreImplTest, GarbageCollectsStaleKeys) {
 TEST_F(SessionStoreImplTest, GarbageCollectionDoesNotTriggerIfFeatureDisabled) {
   feature_list_.InitAndDisableFeature(
       unexportable_keys::kUnexportableKeyDeletion);
-  unexportable_keys::MockUnexportableKeyProvider& mock_key_provider =
+  crypto::MockUnexportableKeyProvider& mock_key_provider =
       SwitchToMockKeyProvider().mock();
 
   EXPECT_CALL(mock_key_provider, GetAllKeysSlowly).Times(0);

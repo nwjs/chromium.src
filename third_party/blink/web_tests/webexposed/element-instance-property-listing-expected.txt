@@ -87,7 +87,6 @@ namespace http://www.w3.org/1999/xhtml
     property ariaValueMin
     property ariaValueNow
     property ariaValueText
-    property ariaVirtualContent
     property assignedSlot
     property attachInternals
     property attachShadow
@@ -133,7 +132,8 @@ namespace http://www.w3.org/1999/xhtml
     property firstChild
     property firstElementChild
     property focus
-    property focusgroup
+    property focusGroup
+    property focusGroupStart
     property getAnimations
     property getAttribute
     property getAttributeNS
@@ -364,6 +364,7 @@ namespace http://www.w3.org/1999/xhtml
     property setPointerCapture
     property shadowRoot
     property showPopover
+    property showUnboundedElement
     property slot
     property spellcheck
     property startViewTransition
@@ -388,6 +389,7 @@ namespace http://www.w3.org/1999/xhtml
     property toggleAttribute
     property togglePopover
     property translate
+    property unbounded
     property virtualKeyboardPolicy
     property webkitMatchesSelector
     property webkitRequestFullScreen
@@ -1468,7 +1470,6 @@ namespace http://www.w3.org/2000/svg
     property ariaValueMin
     property ariaValueNow
     property ariaValueText
-    property ariaVirtualContent
     property assignedSlot
     property attachShadow
     property attributeStyleMap
@@ -1506,7 +1507,8 @@ namespace http://www.w3.org/2000/svg
     property firstChild
     property firstElementChild
     property focus
-    property focusgroup
+    property focusGroup
+    property focusGroupStart
     property getAnimations
     property getAttribute
     property getAttributeNS

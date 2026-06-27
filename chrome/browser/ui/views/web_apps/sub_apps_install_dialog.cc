@@ -36,6 +36,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/image_skia.h"
@@ -60,7 +61,9 @@ constexpr int kSubAppIconSize = 32;
 
 ui::ImageModel GetInstallAppIcon() {
   return ui::ImageModel::FromVectorIcon(
-      omnibox::kInstallDesktopIcon, ui::kColorIcon,
+      features::IsRoundedIconsEnabled() ? omnibox::kInstallDesktopIcon
+                                        : omnibox::kInstallDesktopOldIcon,
+      ui::kColorIcon,
       views::LayoutProvider::Get()->GetDistanceMetric(
           views::DISTANCE_BUBBLE_HEADER_VECTOR_ICON_SIZE));
 }
@@ -112,6 +115,22 @@ PermissionsExplanation(int num_sub_apps,
                  offsets.back() + manage_permissions_link_string.length()),
       views::StyledLabel::RangeStyleInfo::CreateForLink(
           std::move(settings_page_callback)));
+
+  return std::make_unique<views::BubbleDialogModelHost::CustomView>(
+      std::move(label), views::BubbleDialogModelHost::FieldType::kText);
+}
+
+std::unique_ptr<views::BubbleDialogModelHost::CustomView>
+DataSharingExplanation(std::u16string parent_app_name) {
+  std::u16string explanation_string = l10n_util::GetStringFUTF16(
+      IDS_SUB_APPS_INSTALL_DIALOG_PRIVACY_DESCRIPTION, parent_app_name);
+
+  auto label = std::make_unique<views::StyledLabel>();
+  label->SetText(explanation_string);
+  label->SetDefaultTextStyle(views::style::STYLE_SECONDARY);
+  label->SetID(std::to_underlying(
+      SubAppsInstallDialogController::SubAppsInstallDialogViewID::
+          DATA_SHARING_EXPLANATION));
 
   return std::make_unique<views::BubbleDialogModelHost::CustomView>(
       std::move(label), views::BubbleDialogModelHost::FieldType::kText);
@@ -248,6 +267,7 @@ void ShowSubAppsInstallDialog(
               num_sub_apps, parent_app_name_u16,
               base::BindRepeating(OpenAppSettingsForParentApp, parent_app_id,
                                   profile->GetWeakPtr())))
+          .AddCustomField(DataSharingExplanation(parent_app_name_u16))
           .AddOkButton(
               base::BindOnce(&SubAppsInstallDialogController::OnAccept,
                              weak_ptr),

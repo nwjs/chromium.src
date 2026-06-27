@@ -4,8 +4,6 @@
 
 #include "extensions/browser/app_window/app_web_contents_helper.h"
 
-#include "content/public/browser/navigation_controller.h"
-
 #include "base/strings/stringprintf.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/page_navigator.h"
@@ -42,28 +40,12 @@ content::WebContents* AppWebContentsHelper::OpenURLFromTab(
   // TODO(mihaip): Can we check for user gestures instead?
   WindowOpenDisposition disposition = params.disposition;
   if (disposition == WindowOpenDisposition::CURRENT_TAB) {
-    if (GetExtension()->is_nwjs_app()) {
-      content::NavigationController::LoadURLParams load_url_params(params.url);
-      load_url_params.source_site_instance = params.source_site_instance;
-      load_url_params.referrer = params.referrer;
-      load_url_params.frame_tree_node_id = params.frame_tree_node_id;
-      load_url_params.redirect_chain = params.redirect_chain;
-      load_url_params.transition_type = params.transition;
-      load_url_params.extra_headers = params.extra_headers;
-      load_url_params.should_replace_current_entry =
-        params.should_replace_current_entry;
-      load_url_params.is_renderer_initiated = params.is_renderer_initiated;
-
-      web_contents_->GetController().LoadURLWithParams(load_url_params);
-      return web_contents_;
-    } else {
-      web_contents_->GetPrimaryMainFrame()->AddMessageToConsole(
+    web_contents_->GetPrimaryMainFrame()->AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kError,
         base::StringPrintf(
             "Can't open same-window link to \"%s\"; try target=\"_blank\".",
             params.url.spec().c_str()));
-      return nullptr;
-    }
+    return nullptr;
   }
 
   // These dispositions aren't really navigations.

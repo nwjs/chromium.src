@@ -341,6 +341,13 @@ void KeyframeEffect::RefreshTarget() {
   }
 }
 
+void KeyframeEffect::UpdateEffectTarget(PseudoElement* new_effect_target) {
+  DetachTarget(GetAnimation());
+  effect_target_ = new_effect_target;
+  AttachTarget(GetAnimation());
+  InvalidateAndNotifyOwner();
+}
+
 V8CompositeOperation KeyframeEffect::composite() const {
   return V8CompositeOperation(
       EffectModel::CompositeOperationToEnum(CompositeInternal()));
@@ -538,11 +545,11 @@ bool KeyframeEffect::CancelAnimationOnCompositor(
   }
 
   DCHECK(Model());
-  for (const auto& compositor_keyframe_model_id :
-       compositor_keyframe_model_ids_) {
-    CompositorAnimations::CancelAnimationOnCompositor(
-        *effect_target_, compositor_animation, compositor_keyframe_model_id,
-        *Model());
+  if (compositor_animation) {
+    for (const auto& compositor_keyframe_model_id :
+         compositor_keyframe_model_ids_) {
+      compositor_animation->RemoveKeyframeModel(compositor_keyframe_model_id);
+    }
   }
   compositor_keyframe_model_ids_.clear();
   return true;

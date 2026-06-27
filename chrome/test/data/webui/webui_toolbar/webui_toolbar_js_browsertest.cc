@@ -32,6 +32,10 @@ IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, ReadOnlyOmnibox) {
   RunTest("webui_toolbar/readonly_omnibox_test.js", "mocha.run();");
 }
 
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, ContentSettingIcon) {
+  RunTest("webui_toolbar/content_setting_icon_test.js", "mocha.run();");
+}
+
 IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, PinnedToolbarAction) {
   RunTest("webui_toolbar/pinned_toolbar_action_test.js", "mocha.run();");
 }
@@ -42,4 +46,20 @@ IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, LocationBar) {
 
 IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, LocationIcon) {
   RunTest("webui_toolbar/location_icon_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, IconFromTable) {
+  RunTest("webui_toolbar/icon_from_table_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, PermissionChip) {
+  RunTest("webui_toolbar/permission_chip_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, ToolbarButton) {
+  RunTest("webui_toolbar/toolbar_button_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(WebUiToolbarJsTest, ToolbarApp) {
+  RunTest("webui_toolbar/toolbar_app_test.js", "mocha.run();");
 }

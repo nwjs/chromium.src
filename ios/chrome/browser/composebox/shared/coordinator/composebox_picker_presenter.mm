@@ -8,7 +8,9 @@
 
 #import "base/memory/weak_ptr.h"
 #import "components/lens/lens_features.h"
+#import "ios/chrome/browser/composebox/public/composebox_input_item_source.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_image_result.h"
+#import "ios/chrome/browser/composebox/shared/ui/composebox_snackbar_presenter.h"
 #import "ios/chrome/browser/shared/public/commands/tab_picker_commands.h"
 #import "ios/chrome/browser/tab_picker/coordinator/tab_picker_coordinator.h"
 #import "ios/chrome/browser/tab_picker/coordinator/tab_picker_logger.h"
@@ -28,6 +30,9 @@
   // Coordinator for the tab picker.
   TabPickerCoordinator* _tabPickerCoordinator;
   base::WeakPtr<Browser> _browser;
+
+  // Presents snackbars.
+  ComposeboxSnackbarPresenter* _snackbarPresenter;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)baseViewController
@@ -119,9 +124,13 @@
   NSItemProvider* provider = [[NSItemProvider alloc] initWithObject:image];
   [self.delegate
       composeboxPickerPresenter:self
-                  didPickImages:@[ [[ComposeboxPickerImageResult alloc]
-                                    initWithImageProvider:provider
-                                                  assetID:nil] ]];
+                  didPickImages:@[
+                    [[ComposeboxPickerImageResult alloc]
+                        initWithImageProvider:provider
+                                      assetID:nil
+                                       source:ComposeboxInputItemSource::
+                                                  kCameraPicker]
+                  ]];
 }
 
 - (void)imagePickerControllerDidCancel:(UIImagePickerController*)picker {
@@ -145,8 +154,8 @@
       initWithBaseViewController:_baseViewController
                          browser:_browser.get()];
   // TODO(crbug.com/40280872): Integrate logger and snackbar presenter
-  //  _tabPickerCoordinator.logger = self.debugLogger;
-  //  _tabPickerCoordinator.snackbarPresenter = _snackbarPresenter;
+  [self createSnackbarPresenterIfNeeded];
+  _tabPickerCoordinator.snackbarPresenter = _snackbarPresenter;
   _tabPickerCoordinator.delegate = self;
   _tabPickerCoordinator.tabPickerHandler = self;
   [_tabPickerCoordinator start];
@@ -173,7 +182,9 @@
   for (PHPickerResult* result in results) {
     [imageItems addObject:[[ComposeboxPickerImageResult alloc]
                               initWithImageProvider:result.itemProvider
-                                            assetID:result.assetIdentifier]];
+                                            assetID:result.assetIdentifier
+                                             source:ComposeboxInputItemSource::
+                                                        kGalleryPicker]];
   }
 
   [self.delegate composeboxPickerPresenter:self didPickImages:imageItems];
@@ -186,26 +197,21 @@
   [self.delegate composeboxPickerPresenter:self didPickFilesWithURLs:urls];
 }
 
-#pragma mark - TabPickerSelectionDelegate
-
 // Returns the associated IDs for all currently attached tabs.
 - (std::set<web::WebStateID>)allAttachedWebStateIDs {
-  std::set<web::WebStateID> ids;
-  return ids;
+  return [self.dataSource allAttachedWebStateIDsForPresenter:self];
 }
 
 // Returns the associated IDs for currently attached tabs from the current web
 // state context. Tabs attached from different web states (not visible in the
 // tab picker) will be excluded.
 - (std::set<web::WebStateID>)attachedWebStateIDsInCurrentContext {
-  std::set<web::WebStateID> ids;
-  return ids;
+  return [self.dataSource attachedWebStateIDsInCurrentContextForPresenter:self];
 }
 
 // Returns the max number of tab attachments.
 - (NSUInteger)maxTabAttachmentCount {
-  // TODO(crbug.com/506956060): Add correct limit.
-  return 5;
+  return [self.dataSource maxTabAttachmentCountForPresenter:self];
 }
 
 // Attaches the selected tabs. `cachedWebStateIDs` contains the IDs of the
@@ -217,6 +223,16 @@
   [self.delegate composeboxPickerPresenter:self
          handleSelectedTabsWithWebStateIDs:selectedWebStateIDs
                          cachedWebStateIDs:cachedWebStateIDs];
+}
+
+#pragma mark - Private
+
+- (void)createSnackbarPresenterIfNeeded {
+  if (_snackbarPresenter || !_browser) {
+    return;
+  }
+  _snackbarPresenter =
+      [[ComposeboxSnackbarPresenter alloc] initWithBrowser:_browser.get()];
 }
 
 @end

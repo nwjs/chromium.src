@@ -7,7 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
-#import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
+#import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
 
 // Delegate protocol for handling view state changes.
 @protocol GeminiViewStateDelegate <NSObject>
@@ -23,6 +23,12 @@
             (ios::provider::GeminiClientMode)processingStatus
                         sessionID:(NSString*)sessionID
                    conversationID:(NSString*)conversationID;
+
+// Called when the user taps the Live button in Gemini UI.
+- (void)geminiLiveUserDidTapLiveButton;
+
+// Called when the user barges in during Gemini Live session.
+- (void)geminiLiveUserDidBargeIn;
 
 @end
 

@@ -53,7 +53,7 @@ class DOMViewTransition::WaitUntilPromiseSettledCallback
   Member<ViewTransition> view_transition_;
 };
 
-DOMViewTransition::DOMViewTransition(ExecutionContext& execution_context,
+DOMViewTransition::DOMViewTransition(ExecutionContext* execution_context,
                                      ViewTransition& view_transition)
     : DOMViewTransition(execution_context,
                         view_transition,
@@ -69,23 +69,31 @@ DOMViewTransition::DOMViewTransition(ExecutionContext& execution_context,
 }
 
 DOMViewTransition::DOMViewTransition(
-    ExecutionContext& execution_context,
+    ExecutionContext* execution_context,
     ViewTransition& view_transition,
     V8ViewTransitionCallback* update_dom_callback)
-    : ExecutionContextLifecycleObserver(&execution_context),
-      execution_context_(&execution_context),
+    : ExecutionContextLifecycleObserver(execution_context),
+      execution_context_(execution_context),
       view_transition_{&view_transition},
       update_dom_callback_(update_dom_callback),
       finished_promise_property_(
-          MakeGarbageCollected<PromiseProperty>(execution_context_)),
+          execution_context_
+              ? MakeGarbageCollected<PromiseProperty>(execution_context_)
+              : nullptr),
       ready_promise_property_(
-          MakeGarbageCollected<PromiseProperty>(execution_context_)),
+          execution_context_
+              ? MakeGarbageCollected<PromiseProperty>(execution_context_)
+              : nullptr),
       dom_updated_promise_property_(
-          MakeGarbageCollected<PromiseProperty>(execution_context_)),
-      task_state_(update_dom_callback_
+          execution_context_
+              ? MakeGarbageCollected<PromiseProperty>(execution_context_)
+              : nullptr),
+      task_state_(update_dom_callback_ && execution_context_
                       ? CaptureCurrentTaskState(execution_context_)
                       : nullptr) {
-  CHECK(execution_context_->GetAgent());
+  if (execution_context_) {
+    CHECK(execution_context_->GetAgent());
+  }
 }
 
 DOMViewTransition::~DOMViewTransition() = default;
@@ -100,17 +108,30 @@ void DOMViewTransition::skipTransition() {
 
 ScriptPromise<IDLUndefined> DOMViewTransition::finished(
     ScriptState* script_state) const {
-  return finished_promise_property_->Promise(script_state->World());
+  return finished_promise_property_
+             ? finished_promise_property_->Promise(script_state->World())
+             : ScriptPromise<IDLUndefined>::FromV8Value(
+                   script_state, v8::Undefined(script_state->GetIsolate()));
 }
 
 ScriptPromise<IDLUndefined> DOMViewTransition::ready(
     ScriptState* script_state) const {
-  return ready_promise_property_->Promise(script_state->World());
+  return ready_promise_property_
+             ? ready_promise_property_->Promise(script_state->World())
+             : ScriptPromise<IDLUndefined>::RejectWithDOMException(
+                   script_state, MakeGarbageCollected<DOMException>(
+                                     DOMExceptionCode::kAbortError,
+                                     "Transition was skipped"));
 }
 
 ScriptPromise<IDLUndefined> DOMViewTransition::updateCallbackDone(
     ScriptState* script_state) const {
-  return dom_updated_promise_property_->Promise(script_state->World());
+  return dom_updated_promise_property_
+             ? dom_updated_promise_property_->Promise(script_state->World())
+             : ScriptPromise<IDLUndefined>::RejectWithDOMException(
+                   script_state, MakeGarbageCollected<DOMException>(
+                                     DOMExceptionCode::kAbortError,
+                                     "Transition was skipped"));
 }
 
 void DOMViewTransition::waitUntil(ScriptState* script_state,
@@ -303,6 +324,14 @@ void DOMViewTransition::InvokeDOMChangeCallback() {
   ScriptState* script_state =
       update_dom_callback_ ? update_dom_callback_->CallbackRelevantScriptState()
                            : ToScriptStateForMainWorld(execution_context_);
+  if (!script_state || !script_state->ContextIsValid()) {
+    HandlePromise(ViewTransition::PromiseResponse::kRejectAbort,
+                  dom_updated_promise_property_);
+    HandlePromise(ViewTransition::PromiseResponse::kRejectAbort,
+                  finished_promise_property_);
+    view_transition_->NotifyInvokeDOMChangeCallback();
+    return;
+  }
   ScriptState::Scope scope(script_state);
 
   if (update_dom_callback_) {
@@ -388,7 +417,7 @@ void DOMViewTransition::HandlePromise(ViewTransition::PromiseResponse response,
   ScriptState* main_world_script_state =
       ToScriptStateForMainWorld(execution_context_);
 
-  if (!main_world_script_state) {
+  if (!main_world_script_state || !main_world_script_state->ContextIsValid()) {
     return;
   }
 

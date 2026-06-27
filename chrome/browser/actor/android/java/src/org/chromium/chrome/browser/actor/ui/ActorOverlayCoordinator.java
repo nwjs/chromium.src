@@ -4,6 +4,11 @@
 
 package org.chromium.chrome.browser.actor.ui;
 
+import static java.util.Collections.emptySet;
+
+import android.transition.ChangeBounds;
+import android.transition.Transition;
+import android.transition.TransitionSet;
 import android.view.View;
 import android.view.ViewStub;
 
@@ -13,6 +18,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ActorKeyedService;
 import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
+import org.chromium.chrome.browser.actor.ActorTask;
 import org.chromium.chrome.browser.actor.ActorTaskId;
 import org.chromium.chrome.browser.actor.ActorTaskState;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
@@ -22,10 +28,19 @@ import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
+import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistry;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+
+import java.util.ArrayList;
+import java.util.Collection;
 
 /** Coordinates the Actor Overlay component. */
 @NullMarked
@@ -39,6 +54,8 @@ public class ActorOverlayCoordinator {
     private final SnackbarManager.SnackbarController mSnackbarController;
     private final MonotonicObservableSupplier<Profile> mProfileSupplier;
     private final Callback<Profile> mProfileObserver;
+    private final @Nullable SideUiStateProvider mSideUiStateProvider;
+    private @Nullable SideUiObserver mSideUiObserver;
     private @Nullable ActorKeyedService mActorKeyedService;
     private ActorKeyedService.@Nullable Observer mActorObserver;
 
@@ -53,6 +70,8 @@ public class ActorOverlayCoordinator {
      * @param backPressHandlerRegistry The BackPressHandlerRegistry to handle back press.
      * @param layoutManagerSupplier The LayoutManager supplier to observe layout changes.
      * @param profileSupplier The Profile supplier to observe profile changes.
+     * @param bottomSheetController The BottomSheetController to observe bottom sheet states.
+     * @param sideUiStateProvider The {@link SideUiStateProvider} providing state on the side UI.
      */
     public ActorOverlayCoordinator(
             ViewStub viewStub,
@@ -62,7 +81,9 @@ public class ActorOverlayCoordinator {
             SnackbarManager snackbarManager,
             BackPressHandlerRegistry backPressHandlerRegistry,
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
-            MonotonicObservableSupplier<Profile> profileSupplier) {
+            MonotonicObservableSupplier<Profile> profileSupplier,
+            BottomSheetController bottomSheetController,
+            @Nullable SideUiStateProvider sideUiStateProvider) {
         mView = (ActorOverlayView) viewStub.inflate();
         mSnackbarManager = snackbarManager;
         mBackPressHandlerRegistry = backPressHandlerRegistry;
@@ -71,10 +92,23 @@ public class ActorOverlayCoordinator {
         mModel =
                 new PropertyModel.Builder(ActorOverlayProperties.ALL_KEYS)
                         .with(ActorOverlayProperties.VISIBLE, false)
+                        .with(ActorOverlayProperties.LEFT_MARGIN, 0)
                         .with(ActorOverlayProperties.TOP_MARGIN, 0)
+                        .with(ActorOverlayProperties.RIGHT_MARGIN, 0)
                         .with(ActorOverlayProperties.BOTTOM_MARGIN, 0)
                         .with(ActorOverlayProperties.ON_CLICK_LISTENER, v -> handleOnClick())
+                        .with(
+                                ActorOverlayProperties.ON_TAKE_OVER_CLICK_LISTENER,
+                                v -> handleTakeOverTask())
+                        .with(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE, false)
                         .build();
+
+        mSideUiStateProvider = sideUiStateProvider;
+        if (mSideUiStateProvider != null) {
+            mSideUiObserver = new MarginAdjusterForSideUi(mView, mModel);
+            mSideUiStateProvider.addObserver(mSideUiObserver);
+        }
+
         mChangeProcessor =
                 PropertyModelChangeProcessor.create(mModel, mView, ActorOverlayViewBinder::bind);
 
@@ -88,12 +122,45 @@ public class ActorOverlayCoordinator {
                         browserControlsVisibilityManager,
                         tabObscuringHandler,
                         layoutManagerSupplier,
+                        bottomSheetController,
                         this::showInteractionLimitedSnackbar,
                         this::dismissInteractionLimitedSnackbar);
         mBackPressHandlerRegistry.addHandler(mMediator, BackPressHandler.Type.ACTOR_OVERLAY);
 
         mProfileObserver = this::onProfileAdded;
         mProfileSupplier.addSyncObserverAndCallIfNonNull(mProfileObserver);
+    }
+
+    private static class MarginAdjusterForSideUi implements SideUiObserver {
+        private final View mView;
+        private final PropertyModel mModel;
+
+        MarginAdjusterForSideUi(View view, PropertyModel model) {
+            mView = view;
+            mModel = model;
+        }
+
+        @Override
+        public @Nullable Transition onPreSideUiSpecsChange(
+                SideUiCoordinator.SideUiSpecs sideUiSpecs) {
+            TransitionSet transitionSet = new TransitionSet();
+            Collection<View> descendants = new ArrayList<>();
+            ViewUtils.getAllDescendants(mView, descendants, emptySet());
+
+            Transition transition = new ChangeBounds();
+            transition.addTarget(mView);
+            for (View view : descendants) {
+                transition.addTarget(view);
+            }
+            transitionSet.addTransition(transition);
+            return transitionSet;
+        }
+
+        @Override
+        public void onSideUiSpecsChanged(SideUiCoordinator.SideUiSpecs sideUiSpecs) {
+            mModel.set(ActorOverlayProperties.LEFT_MARGIN, sideUiSpecs.getWidth(AnchorSide.LEFT));
+            mModel.set(ActorOverlayProperties.RIGHT_MARGIN, sideUiSpecs.getWidth(AnchorSide.RIGHT));
+        }
     }
 
     private void onProfileAdded(Profile profile) {
@@ -121,6 +188,14 @@ public class ActorOverlayCoordinator {
 
     private void handleOnClick() {
         showInteractionLimitedSnackbar();
+    }
+
+    private void handleTakeOverTask() {
+        assert mActorKeyedService != null;
+        ActorTask activeTask = mActorKeyedService.getCurrentActiveTask();
+        if (activeTask != null) {
+            activeTask.takeOverTask();
+        }
     }
 
     private void showInteractionLimitedSnackbar() {
@@ -160,6 +235,9 @@ public class ActorOverlayCoordinator {
 
     /** Cleans up the coordinator. */
     public void destroy() {
+        if (mSideUiStateProvider != null && mSideUiObserver != null) {
+            mSideUiStateProvider.removeObserver(mSideUiObserver);
+        }
         if (mActorKeyedService != null && mActorObserver != null) {
             mActorKeyedService.removeObserver(mActorObserver);
         }

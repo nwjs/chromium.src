@@ -22,6 +22,7 @@
 #include "chrome/browser/glic/public/glic_close_options.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
 #include "content/public/browser/web_contents.h"
@@ -56,9 +57,14 @@ class GlicInstanceCoordinator {
   GlicInstanceCoordinator() = default;
   virtual ~GlicInstanceCoordinator() = default;
 
-  virtual std::vector<GlicInstance*> GetInstances() = 0;
+  virtual bool IsAnyPanelShowing() const = 0;
+  virtual bool IsConversationPresent(
+      const std::string& conversation_id) const = 0;
   virtual GlicInstance* GetInstanceForTab(
       const tabs::TabInterface* tab) const = 0;
+  virtual GlicSharingManager& active_instance_sharing_manager() = 0;
+  virtual GlicInstance* GetInstanceWithGlicWebContents(
+      content::WebContents* glic_web_contents) const = 0;
   virtual void CreateNewConversationForTabs(
       const std::vector<tabs::TabInterface*>& tabs) = 0;
   virtual void ShowInstanceForTabs(const std::vector<tabs::TabInterface*>& tabs,
@@ -73,14 +79,13 @@ class GlicInstanceCoordinator {
       base::span<const tabs::TabHandle> tab_handles,
       GlicUnpinTrigger trigger) = 0;
 
+  virtual base::WeakPtr<GlicInstance> Invoke(GlicInvokeOptions options) = 0;
+
   // Show, summon, or activate the panel if needed, or close it if it's already
   // active and prevent_close is false.
-  virtual void Toggle(
-      BrowserWindowInterface* bwi,
-      bool prevent_close,
-      mojom::InvocationSource source,
-      std::optional<std::string> deprecated_prompt_suggestion,
-      std::optional<std::string> deprecated_conversation_id) = 0;
+  virtual void Toggle(BrowserWindowInterface* bwi,
+                      bool prevent_close,
+                      mojom::InvocationSource source) = 0;
 
   // Readies glic to show.
   virtual void EnsurePreload() = 0;

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
+import("//build/config/chromeos/args.gni")
 import("//pdf/features.gni")
 
 assert(is_chromeos)
@@ -141,6 +141,7 @@ static_library("file_manager") {
     "//ash/webui/file_manager:constants",
     "//base:i18n",
     "//chrome/app:generated_resources",
+    "//chrome/browser:file_util_service",
     "//chrome/browser/ash/app_list",
     "//chrome/browser/ash/app_list/search",
     "//chrome/browser/ash/arc:arc_util",
@@ -162,6 +163,7 @@ static_library("file_manager") {
     "//chrome/browser/profiles",
     "//chrome/browser/sync:factories",
     "//chrome/browser/ui/webui/ash/cloud_upload:mojo_bindings_shared",
+    "//chrome/browser/ui/webui/extensions:headers",
     "//chrome/browser/web_applications",
     "//chrome/common",
     "//chrome/common:chrome_features",
@@ -431,7 +433,6 @@ source_set("browser_tests") {
     "//ash/webui/file_manager:constants",
     "//ash/webui/file_manager:file_manager_ui",
     "//ash/webui/file_manager/resources:file_manager_swa_resources",
-    "//ash/webui/system_apps/public:system_web_app_type",
     "//base",
     "//base:base_static",
     "//base/test:test_support",
@@ -439,6 +440,7 @@ source_set("browser_tests") {
     "//build/config/coverage:buildflags",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:file_util_service",
     "//chrome/browser:global_features",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service:app_registry_cache_waiter",
@@ -505,6 +507,8 @@ source_set("browser_tests") {
     "//chromeos/ash/components/settings:test_support",
     "//chromeos/ash/components/smbfs",
     "//chromeos/ash/components/smbfs/mojom",
+    "//chromeos/ash/components/system_web_apps:system_web_app_type",
+    "//chromeos/ash/components/timezone:util",
     "//chromeos/ash/experiences/arc:arc_base_utils",
     "//chromeos/ash/experiences/arc:arc_features",
     "//chromeos/ash/experiences/arc:arc_test_support",

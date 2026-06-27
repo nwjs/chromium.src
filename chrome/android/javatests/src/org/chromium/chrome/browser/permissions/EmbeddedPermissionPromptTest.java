@@ -29,6 +29,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Restriction;
@@ -50,6 +51,7 @@ import org.chromium.components.permissions.EmbeddedPermissionDialogMediator;
 import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.permissions.PermissionsAndroidFeatureList;
 import org.chromium.content_public.browser.test.util.DOMUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
@@ -64,6 +66,7 @@ import java.util.concurrent.TimeUnit;
 @Features.EnableFeatures(PermissionsAndroidFeatureList.BYPASS_PEPC_SECURITY_FOR_TESTING)
 @Batch(Batch.PER_CLASS)
 @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO}) // crbug.com/394097674
+@DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288462
 public class EmbeddedPermissionPromptTest {
     public enum EmbeddedPermissiontResponse {
         NEGATIVE,
@@ -182,7 +185,7 @@ public class EmbeddedPermissionPromptTest {
                 expectedPositiveButtonText,
                 expectedPositiveEphemeralButtonText,
                 expectedNegativeButtonText,
-                /*expectedPermission*/ "",
+                /* expectedPermission= */ "",
                 "promptdismiss");
     }
 
@@ -360,7 +363,7 @@ public class EmbeddedPermissionPromptTest {
                 response,
                 "You previously didn't allow location for this site",
                 "Continue not allowing",
-                /* expectedPositiveEphemeralButtonText */ "",
+                /* expectedPositiveEphemeralButtonText= */ "",
                 "Allow this time",
                 expectedPermission,
                 expectedTitle);
@@ -392,7 +395,7 @@ public class EmbeddedPermissionPromptTest {
                 response,
                 "You have allowed location on " + LOOPBACK_ADDRESS,
                 "Continue allowing",
-                /* expectedPositiveEphemeralButtonText */ "",
+                /* expectedPositiveEphemeralButtonText= */ "",
                 "Stop allowing",
                 expectedPermission,
                 expectedTitle);
@@ -462,7 +465,7 @@ public class EmbeddedPermissionPromptTest {
                 ContentSetting.BLOCK,
                 "You previously didn't allow location for this site",
                 "Continue not allowing",
-                /* expectedPositiveEphemeralButtonText */ "",
+                /* expectedPositiveEphemeralButtonText= */ "",
                 "Allow this time");
     }
 
@@ -487,7 +490,7 @@ public class EmbeddedPermissionPromptTest {
                 ContentSetting.ALLOW,
                 "You have allowed location on " + LOOPBACK_ADDRESS,
                 "Continue allowing",
-                /* expectedPositiveEphemeralButtonText */ "",
+                /* expectedPositiveEphemeralButtonText= */ "",
                 "Stop allowing");
     }
 
@@ -516,7 +519,7 @@ public class EmbeddedPermissionPromptTest {
                 ContentSetting.BLOCK,
                 "To use your location on this site, give " + productName + " access",
                 "Android settings",
-                /* expectedPositiveEphemeralButtonText */ "",
+                /* expectedPositiveEphemeralButtonText= */ "",
                 "Cancel");
     }
 
@@ -539,7 +542,7 @@ public class EmbeddedPermissionPromptTest {
                 ContentSetting.ALLOW,
                 "To use your location on this site, give " + productName + " access",
                 "Android settings",
-                /* expectedPositiveEphemeralButtonText */ "",
+                /* expectedPositiveEphemeralButtonText= */ "",
                 "Cancel");
     }
 

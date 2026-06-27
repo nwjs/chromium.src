@@ -33,6 +33,7 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/config/gpu_finch_features.h"
+#include "gpu/config/gpu_switches.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_utils.h"
@@ -174,6 +175,31 @@ class ScopedScissorTestReset {
   GLboolean scissor_test_;
 };
 
+class ScopedRasterizerDiscardReset {
+ public:
+  explicit ScopedRasterizerDiscardReset(gl::GLApi* api,
+                                        bool rasterizer_discard_available)
+      : api_(api), rasterizer_discard_available_(rasterizer_discard_available) {
+    if (rasterizer_discard_available_) {
+      api_->glGetBooleanvFn(GL_RASTERIZER_DISCARD, &rasterizer_discard_);
+    }
+  }
+  ~ScopedRasterizerDiscardReset() {
+    if (rasterizer_discard_available_) {
+      if (rasterizer_discard_) {
+        api_->glEnableFn(GL_RASTERIZER_DISCARD);
+      } else {
+        api_->glDisableFn(GL_RASTERIZER_DISCARD);
+      }
+    }
+  }
+
+ private:
+  raw_ptr<gl::GLApi> api_;
+  const bool rasterizer_discard_available_;
+  GLboolean rasterizer_discard_;
+};
+
 template <typename ClientType, typename ServiceType, typename DeleteFunction>
 void DeleteServiceObjects(ClientServiceMap<ClientType, ServiceType>* id_map,
                           bool have_context,
@@ -275,14 +301,12 @@ static constexpr const char* kOptionalFunctionalityExtensions[] = {
 // List of extensions needed to implement WebGL extensions and other command
 // decoder client functionality.
 constexpr const char* kValidRequestableExtensions[] = {
-    "GL_ANGLE_base_vertex_base_instance",
     "GL_ANGLE_clip_cull_distance",
     "GL_ANGLE_compressed_texture_etc",
     "GL_ANGLE_instanced_arrays",
     "GL_ANGLE_multi_draw",
     "GL_ANGLE_polygon_mode",
     "GL_ANGLE_provoking_vertex",
-    "GL_ANGLE_shader_pixel_local_storage",
     "GL_ANGLE_stencil_texturing",
     "GL_ANGLE_texture_compression_dxt1",
     "GL_ANGLE_texture_compression_dxt3",
@@ -339,6 +363,13 @@ constexpr const char* kValidRequestableExtensions[] = {
     "GL_OES_vertex_array_object",
     "GL_OVR_multiview2",
     "GL_QCOM_render_shared_exponent",
+};
+
+// List of extensions needed to implement draft (not-yet-released)
+// WebGL extensions.
+constexpr const char* kValidRequestableWebGLDraftExtensions[] = {
+    "GL_ANGLE_base_vertex_base_instance",
+    "GL_ANGLE_shader_pixel_local_storage",
 };
 
 void RequestExtensions(gl::GLApi* api,
@@ -480,6 +511,16 @@ bool PassthroughResources::ResumeSharedImageAccessIfNeeded(gl::GLApi* api) {
   return success;
 }
 
+void PassthroughResources::MarkContextLost() {
+  texture_object_map.ForEach(
+      [](GLuint client_id, scoped_refptr<TexturePassthrough> texture) {
+        texture->MarkContextLost();
+      });
+  for (auto& pair : texture_shared_image_map) {
+    pair.second.representation()->OnContextLost();
+  }
+}
+
 void PassthroughResources::Destroy(gl::GLApi* api,
                                    gl::ProgressReporter* progress_reporter) {
   bool have_context = !!api;
@@ -586,6 +627,8 @@ void PassthroughResources::SharedImageData::EnsureClear(
     auto texture = representation_->GetTexturePassthrough();
     const bool use_oes_draw_buffers_indexed =
         impl->features().oes_draw_buffers_indexed;
+    bool has_rasterizer_discard =
+        impl->GetFeatureInfo()->gl_version_info().IsAtLeastGLES(3, 0);
 
     // Back up all state we are about to change.
     gl::GLApi* api = impl->api();
@@ -598,6 +641,8 @@ void PassthroughResources::SharedImageData::EnsureClear(
     ScopedColorMaskZeroReset color_mask_reset(api,
                                               use_oes_draw_buffers_indexed);
     ScopedScissorTestReset scissor_test_reset(api);
+    ScopedRasterizerDiscardReset rasterizer_discard_reset(
+        api, has_rasterizer_discard);
 
     // Generate a new framebuffer and bind the shared image's uncleared texture
     // to it.
@@ -615,6 +660,9 @@ void PassthroughResources::SharedImageData::EnsureClear(
     else
       api->glColorMaskFn(true, true, true, true);
     api->glDisableFn(GL_SCISSOR_TEST);
+    if (has_rasterizer_discard) {
+      api->glDisableFn(GL_RASTERIZER_DISCARD);
+    }
     api->glClearFn(GL_COLOR_BUFFER_BIT);
 
     if (api->glCheckFramebufferStatusEXTFn(GL_FRAMEBUFFER) ==
@@ -1157,7 +1205,7 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
     constexpr const char* kSwiftShaderFallbackDeprcationMessage =
         "Automatic fallback to software WebGL has been deprecated. Please use "
         "the --enable-unsafe-swiftshader "
-        "(about:flags#enable-unsafe-swiftshader) flag to opt in to lower "
+        "flag to opt in to lower "
         "security guarantees for trusted content.";
     logger_.LogMessage(__FILE__, __LINE__,
                        kSwiftShaderFallbackDeprcationMessage);
@@ -1644,6 +1692,27 @@ void GLES2DecoderPassthroughImpl::MarkContextLost(
     return;
   }
 
+  bool have_context = context_ && context_->IsCurrent(nullptr);
+  if (have_context) {
+    for (auto& bound_texture_type : bound_textures_) {
+      for (auto& bound_texture : bound_texture_type) {
+        if (bound_texture.texture) {
+          bound_texture.texture->MarkContextLost();
+        }
+      }
+    }
+
+    if (resources_) {
+      resources_->MarkContextLost();
+    }
+
+    // SECURITY: crbug.com/500187083. Unconditionally clear the debug callback
+    // if current context IsCurrent before it gets lost to prevent UAF.
+    if (api()) {
+      api()->glDebugMessageCallbackKHRFn(nullptr, nullptr);
+    }
+  }
+
   // Don't make GL calls in here, the context might not be current.
   command_buffer_service()->SetContextLostReason(reason);
   context_lost_ = true;
@@ -1894,50 +1963,6 @@ INSTANTIATE_PATCH_NUMERIC_RESULTS(GLint64);
 INSTANTIATE_PATCH_NUMERIC_RESULTS(GLfloat);
 INSTANTIATE_PATCH_NUMERIC_RESULTS(GLboolean);
 #undef INSTANTIATE_PATCH_NUMERIC_RESULTS
-
-template <typename T>
-error::Error GLES2DecoderPassthroughImpl::PatchGetBufferResults(GLenum target,
-                                                                GLenum pname,
-                                                                GLsizei bufsize,
-                                                                GLsizei* length,
-                                                                T* params) {
-  if (pname != GL_BUFFER_ACCESS_FLAGS) {
-    return error::kNoError;
-  }
-
-  // If there was no error, the buffer target should exist
-  DCHECK(bound_buffers_.find(target) != bound_buffers_.end());
-  if (target == GL_ELEMENT_ARRAY_BUFFER) {
-    LazilyUpdateCurrentlyBoundElementArrayBuffer();
-  }
-  GLuint current_client_buffer = bound_buffers_[target];
-
-  auto mapped_buffer_info_iter =
-      resources_->mapped_buffer_map.find(current_client_buffer);
-  if (mapped_buffer_info_iter == resources_->mapped_buffer_map.end()) {
-    // Buffer is not mapped, nothing to do
-    return error::kNoError;
-  }
-
-  // Buffer is mapped, patch the result with the original access flags
-  DCHECK_GE(bufsize, 1);
-  DCHECK_EQ(*length, 1);
-  params[0] = mapped_buffer_info_iter->second.original_access;
-  return error::kNoError;
-}
-
-template error::Error GLES2DecoderPassthroughImpl::PatchGetBufferResults(
-    GLenum target,
-    GLenum pname,
-    GLsizei bufsize,
-    GLsizei* length,
-    GLint64* params);
-template error::Error GLES2DecoderPassthroughImpl::PatchGetBufferResults(
-    GLenum target,
-    GLenum pname,
-    GLsizei bufsize,
-    GLsizei* length,
-    GLint* params);
 
 error::Error GLES2DecoderPassthroughImpl::
     PatchGetFramebufferPixelLocalStorageParameterivANGLE(GLint plane,
@@ -2245,6 +2270,16 @@ void GLES2DecoderPassthroughImpl::BuildRequestableExtensionString() {
   for (const char* valid_requestable_ext : kValidRequestableExtensions) {
     if (driver_requestable_extensions.contains(valid_requestable_ext)) {
       requestable_extensions_.insert(valid_requestable_ext);
+    }
+  }
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableWebGLDraftExtensions)) {
+    for (const char* valid_requestable_draft_webgl_ext :
+         kValidRequestableWebGLDraftExtensions) {
+      if (driver_requestable_extensions.contains(
+              valid_requestable_draft_webgl_ext)) {
+        requestable_extensions_.insert(valid_requestable_draft_webgl_ext);
+      }
     }
   }
 

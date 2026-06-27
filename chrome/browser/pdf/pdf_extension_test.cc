@@ -1950,7 +1950,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionLinkClickTest, NWJSClick) {
      embedded_test_server()->GetURL("/pdf/test-link.pdf"));
   ASSERT_TRUE(extension_host);
 
-  ASSERT_EQ(1U, chrome::GetTotalBrowserCount());
+  ASSERT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   WebContents* web_contents = GetActiveWebContents();
 
@@ -1959,10 +1959,10 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionLinkClickTest, NWJSClick) {
                        GetLinkPosition(extension_host));
   ui_test_utils::WaitForBrowserToOpen();
 
-  ASSERT_EQ(2U, chrome::GetTotalBrowserCount());
+  ASSERT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   WebContents* active_web_contents =
-      chrome::FindLastActive()->GetTabStripModel()->GetActiveWebContents();
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser()->GetTabStripModel()->GetActiveWebContents();
   ASSERT_NE(web_contents, active_web_contents);
 
   const GURL& url = active_web_contents->GetVisibleURL();

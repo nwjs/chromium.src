@@ -124,9 +124,7 @@ class RedirectURLLoader : public network::mojom::URLLoader {
  private:
   // network::mojom::URLLoader overrides:
   void FollowRedirect(
-      const std::vector<std::string>& removed_headers,
-      const net::HttpRequestHeaders& modified_headers,
-      const net::HttpRequestHeaders& modified_cors_exempt_headers,
+      network::HttpRequestHeadersUpdateParams headers_update_params,
       const std::optional<GURL>& new_url) override {
     NOTREACHED();
   }
@@ -247,7 +245,11 @@ void InterceptNavigationDelegate::ShouldIgnoreNavigation(
   bool hidden_cross_frame = false;
   // Only main frame navigations use this path, so we only need to check if the
   // navigation is cross-frame to the main frame.
-  if (navigation_handle->GetInitiatorFrameToken() &&
+  // Also, if this is the first non-empty document, allow the navigation as we
+  // only care about preventing spoofing of a site performing a navigation it
+  // didn't initiate.
+  if (!navigation_handle->IsNavigatingFromInitialEmptyDocument() &&
+      navigation_handle->GetInitiatorFrameToken() &&
       navigation_handle->GetInitiatorFrameToken() !=
           navigation_handle->GetWebContents()
               ->GetPrimaryMainFrame()

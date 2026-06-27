@@ -20,11 +20,8 @@ namespace glic {
 class GlicButtonController;
 class GlicIphController;
 class GlicNudgeController;
-}  // namespace glic
-
-namespace tabs {
 class GlicActorNudgeController;
-}  // namespace tabs
+}  // namespace glic
 
 class ActorUiWindowController;
 class ContextHighlightWindowFeature;
@@ -42,6 +39,7 @@ class BrowserElements;
 class BrowserInstantController;
 class BrowserLiveTabContext;
 class BrowserLocationBarModelDelegate;
+class BrowserFocusController;
 class BrowserSyncedWindowDelegate;
 class BrowserUserEducationInterface;
 class BrowserView;
@@ -61,6 +59,7 @@ class ContextualTasksCloseButtonController;
 class CookieControlsBubbleCoordinator;
 class DataSharingBubbleController;
 class DesktopBrowserWindowCapabilities;
+class WindowFeatureController;
 class DevtoolsUIController;
 class EmbedderBrowserWindowFeatures;
 class ExtensionInstalledWatcher;
@@ -86,6 +85,7 @@ class RecentActivityBubbleCoordinator;
 class BrowserSelectFileDialogController;
 class ScrimViewController;
 class SearchboxContextData;
+class SessionServiceBrowserHelper;
 class SidePanelCoordinator;
 class SidePanelRegistry;
 class SidePanelUI;
@@ -97,6 +97,7 @@ class TabsFromOtherDevicesSidePanelCoordinator;
 class TabListBridge;
 class TabStripModel;
 class TabStripServiceFeature;
+class TabDragServiceFeature;
 class ToastController;
 class ToastService;
 class TranslateBubbleController;
@@ -384,6 +385,10 @@ class BrowserWindowFeatures {
     return tab_strip_service_feature_.get();
   }
 
+  TabDragServiceFeature* tab_drag_service_feature() {
+    return tab_drag_service_feature_.get();
+  }
+
   tabs_api::TabStripUIControllerImpl* tab_strip_ui_controller() {
     return tab_strip_ui_controller_.get();
   }
@@ -528,6 +533,8 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<BrowserWindowFullscreenController> fullscreen_controller_;
 
+  std::unique_ptr<WindowFeatureController> window_feature_controller_;
+
   std::unique_ptr<BrowserActions> browser_actions_;
 
   std::unique_ptr<chrome::BrowserCommandController> browser_command_controller_;
@@ -612,6 +619,8 @@ class BrowserWindowFeatures {
   std::unique_ptr<tab_groups::SessionServiceTabGroupSyncObserver>
       session_service_tab_group_sync_observer_;
 
+  std::unique_ptr<SessionServiceBrowserHelper> session_service_browser_helper_;
+
   std::unique_ptr<ttc::AiOverlayDialogController> ai_overlay_dialog_controller_;
 
   std::unique_ptr<ToastService> toast_service_;
@@ -666,7 +675,7 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<glic::GlicNudgeController> glic_nudge_controller_;
 
-  std::unique_ptr<tabs::GlicActorNudgeController> glic_actor_nudge_controller_;
+  std::unique_ptr<glic::GlicActorNudgeController> glic_actor_nudge_controller_;
   std::unique_ptr<ActorTaskListBubbleController>
       actor_task_list_bubble_controller_;
   std::unique_ptr<glic::GlicButtonController> glic_button_controller_;
@@ -688,6 +697,8 @@ class BrowserWindowFeatures {
       shared_tab_group_feedback_controller_;
 
   std::unique_ptr<TranslateBubbleController> translate_bubble_controller_;
+
+  std::unique_ptr<BrowserFocusController> browser_focus_controller_;
 
   std::unique_ptr<TabSearchToolbarButtonController>
       tab_search_toolbar_button_controller_;
@@ -740,6 +751,7 @@ class BrowserWindowFeatures {
 
   // This is an experimental API that interacts with the TabStripModel.
   std::unique_ptr<TabStripServiceFeature> tab_strip_service_feature_;
+  std::unique_ptr<TabDragServiceFeature> tab_drag_service_feature_;
 
   // Controller for managing TabStrip UI decoupled TabStrip platform.
   std::unique_ptr<tabs_api::TabStripUIControllerImpl> tab_strip_ui_controller_;

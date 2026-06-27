@@ -8,11 +8,15 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/base64.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -31,10 +35,12 @@
 #include "base/version.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "components/enterprise/browser/groups/groups_prefs.h"
 #include "components/language/core/browser/locale_util.h"
 #include "components/metrics/field_trials_provider.h"
 #include "components/metrics/metrics_state_manager.h"
 #include "components/prefs/pref_service.h"
+#include "components/prefs/scoped_user_pref_update.h"
 #include "components/variations/active_field_trials.h"
 #include "components/variations/entropy_provider.h"
 #include "components/variations/field_trial_config/field_trial_util.h"
@@ -185,6 +191,17 @@ Study::Channel ConvertProductChannelToStudyChannel(
       return Study::UNKNOWN;
   }
   NOTREACHED();
+}
+
+void AddGroupsFromList(const base::ListValue& input_groups,
+                       base::flat_set<std::string>& output_groups) {
+  for (const auto& group_value : input_groups) {
+    const std::string* group = group_value.GetIfString();
+    if (!group || group->empty()) {
+      continue;
+    }
+    output_groups.insert(*group);
+  }
 }
 
 // No-op feature used to test sticky activation functionality.
@@ -386,9 +403,12 @@ VariationsFieldTrialCreator::GetClientFilterableStateForVersion(
   auto GoogleGroupsCallback = base::BindRepeating(
       &VariationsFieldTrialCreator::GetGoogleGroupsFromPrefs,
       base::Unretained(this));
+  auto EnterpriseGroupsCallback = base::BindRepeating(
+      &VariationsFieldTrialCreator::GetEnterpriseGroupsFromPrefs,
+      base::Unretained(this));
   std::unique_ptr<ClientFilterableState> state =
-      std::make_unique<ClientFilterableState>(IsEnterpriseCallback,
-                                              GoogleGroupsCallback);
+      std::make_unique<ClientFilterableState>(
+          IsEnterpriseCallback, GoogleGroupsCallback, EnterpriseGroupsCallback);
   state->locale = application_locale_;
   state->reference_date = GetSeedStore()->GetTimeForStudyDateChecks(
       /*is_safe_seed=*/false);
@@ -400,6 +420,8 @@ VariationsFieldTrialCreator::GetClientFilterableStateForVersion(
   state->cpu_architecture = GetCurrentCpuArchitecture();
   state->platform = GetPlatform();
   state->hardware_class = ClientFilterableState::GetHardwareClass();
+  state->hardware_manufacturer =
+      ClientFilterableState::GetHardwareManufacturer();
 #if BUILDFLAG(IS_ANDROID)
   // This is set on Android only currently, because the IsLowEndDevice() API
   // on other platforms has no intrinsic meaning outside of a field trial that
@@ -604,8 +626,7 @@ bool VariationsFieldTrialCreator::HasSeedExpired() {
   return has_seed_expired;
 }
 
-bool VariationsFieldTrialCreator::IsSeedForFutureMilestone(
-    bool is_safe_seed) {
+bool VariationsFieldTrialCreator::IsSeedForFutureMilestone(bool is_safe_seed) {
   int seed_milestone = is_safe_seed ? GetSeedStore()->GetSafeSeedMilestone()
                                     : GetSeedStore()->GetLatestMilestone();
 
@@ -619,6 +640,28 @@ bool VariationsFieldTrialCreator::IsSeedForFutureMilestone(
   return seed_milestone > client_milestone;
 }
 
+base::flat_set<std::string>
+VariationsFieldTrialCreator::GetEnterpriseGroupsFromPrefs() {
+  base::flat_set<std::string> groups;
+  if (!client_->IsChromeEnterpriseCoreSupported()) {
+    return groups;
+  }
+
+  RemovePrefsForDeletedProfiles(
+      enterprise_groups::kEnterpriseGroupsProfilePref);
+
+  AddGroupsFromList(
+      local_state()->GetList(enterprise_groups::kEnterpriseGroupsBrowserPref),
+      groups);
+
+  const base::DictValue& profiles_dict =
+      local_state()->GetDict(enterprise_groups::kEnterpriseGroupsProfilePref);
+  for (const auto profile : profiles_dict) {
+    AddGroupsFromList(profile.second.GetList(), groups);
+  }
+  return groups;
+}
+
 base::flat_set<uint64_t>
 VariationsFieldTrialCreator::GetGoogleGroupsFromPrefs() {
   // Before using Google groups information, ensure that there any information
@@ -628,7 +671,7 @@ VariationsFieldTrialCreator::GetGoogleGroupsFromPrefs() {
   // reason it is currently done here is simply to allow a safer gradual
   // rollout of the initial feature, as this code is only run if there is at
   // least one study that filters by Google group membership.
-  client_->RemoveGoogleGroupsFromPrefsForDeletedProfiles(local_state());
+  RemovePrefsForDeletedProfiles(prefs::kVariationsGoogleGroups);
 
   base::flat_set<uint64_t> groups = base::flat_set<uint64_t>();
 
@@ -821,6 +864,32 @@ void VariationsFieldTrialCreator::LoadSeedFromJsonFile(
 
 VariationsSeedStore* VariationsFieldTrialCreator::GetSeedStore() {
   return seed_store_.get();
+}
+
+void VariationsFieldTrialCreator::RemovePrefsForDeletedProfiles(
+    std::string_view pref_name) {
+  std::optional<base::flat_set<std::string>> existing_profiles =
+      client_->GetAllProfilesKeys(local_state());
+  if (!existing_profiles.has_value()) {
+    return;
+  }
+
+  // Get the current value of the local state dict.
+  const base::DictValue& cached_variations_profiles =
+      local_state()->GetDict(pref_name);
+  std::vector<std::string> variations_profiles_to_delete;
+  for (const auto&& [profile_key, unused_value] : cached_variations_profiles) {
+    if (!existing_profiles->contains(profile_key)) {
+      variations_profiles_to_delete.push_back(profile_key);
+    }
+  }
+
+  ScopedDictPrefUpdate variations_prefs_update(local_state(), pref_name);
+  std::ranges::for_each(
+      variations_profiles_to_delete,
+      [&variations_prefs_update](const std::string& profile_key) {
+        variations_prefs_update->Remove(profile_key);
+      });
 }
 
 }  // namespace variations

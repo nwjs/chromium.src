@@ -13,16 +13,18 @@
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
+#include "chrome/browser/ui/tabs/tab_drag_api/tab_drag_service_feature.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/controllers/tab_strip_ui_controller_impl.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_feature.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
+#include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_extensions_container.h"
 #include "chrome/browser/ui/webui_browser/bookmark_bar_page_handler.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
-#include "chrome/browser/ui/webui_browser/webui_browser_extensions_container.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_page_handler.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_side_panel_ui.h"
+#include "chrome/browser/ui/webui_browser/webui_browser_window.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -42,6 +44,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/webui/tracked_element/tracked_element_handler.h"
+#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #include "ui/webui/webui_util.h"
 
 namespace {
@@ -93,6 +96,8 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   Profile* profile = Profile::FromWebUI(web_ui);
   browser_ = webui_browser_window->browser();
 
+  webui::SetBrowserWindowInterface(web_ui->GetWebContents(), browser_);
+
   // Set up the chrome://webui-browser source.
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(),
@@ -137,6 +142,20 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
+
+  if (browser_) {
+    // This use of unretained is safe because the
+    // TrackedElementHandlerDocumentSingleton only stores the callback for at
+    // most the lifetime of the WebContents, which is always shorter than the
+    // Browser.
+    ui::TrackedElementHandlerDocumentSingleton::Register(
+        this, GetKnownElementIdentifiers(),
+        base::BindRepeating(
+            [](Browser* browser) {
+              return BrowserElements::From(browser)->GetContext();
+            },
+            base::Unretained(browser_)));
+  }
 }
 
 WebUIBrowserUI::~WebUIBrowserUI() = default;
@@ -203,21 +222,19 @@ void WebUIBrowserUI::BindInterface(
 }
 
 void WebUIBrowserUI::BindInterface(
+    mojo::PendingReceiver<tabs_api::mojom::TabDragService> receiver) {
+  auto* tab_drag_service_feature =
+      browser_->browser_window_features()->tab_drag_service_feature();
+  CHECK(tab_drag_service_feature) << "Browser missing TabDragService";
+  tab_drag_service_feature->AcceptDragService(std::move(receiver));
+}
+
+void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<tabs_api::mojom::TabStripUIController> receiver) {
   auto* ui_controller =
       browser_->browser_window_features()->tab_strip_ui_controller();
   CHECK(ui_controller) << "Browser missing TabStripUIController";
   ui_controller->Bind(std::move(receiver));
-}
-
-void WebUIBrowserUI::BindInterface(
-    mojo::PendingReceiver<tracked_element::mojom::TrackedElementHandler>
-        receiver) {
-  const ui::ElementContext context =
-      BrowserElements::From(browser_)->GetContext();
-  tracked_element_handler_ = std::make_unique<ui::TrackedElementHandler>(
-      web_ui()->GetWebContents(), std::move(receiver), context,
-      GetKnownElementIdentifiers());
 }
 
 base::WeakPtr<WebUIBrowserUI> WebUIBrowserUI::GetWeakPtr() {
@@ -245,7 +262,7 @@ void WebUIBrowserUI::CreatePageHandler(
 void WebUIBrowserUI::CreatePageHandler(
     mojo::PendingRemote<extensions_bar::mojom::Page> page,
     mojo::PendingReceiver<extensions_bar::mojom::PageHandler> receiver) {
-  static_cast<WebUIBrowserExtensionsContainer*>(
+  static_cast<WebUIToolbarExtensionsContainer*>(
       ExtensionsContainer::From(*browser()))
       ->Bind(std::move(page), std::move(receiver));
 }

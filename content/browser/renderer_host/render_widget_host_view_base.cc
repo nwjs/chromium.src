@@ -167,6 +167,29 @@ bool RenderWidgetHostViewBase::IsSurfaceAvailableForCopy() {
   return false;
 }
 
+// static
+bool RenderWidgetHostViewBase::TransformPointAndRectToRootView(
+    RenderWidgetHostViewBase* view,
+    RenderWidgetHostViewBase* root_view,
+    gfx::Point* transformed_point,
+    gfx::Rect* transformed_rect) {
+  gfx::Transform transform_to_main_frame;
+  if (!view->GetTransformToViewCoordSpace(root_view,
+                                          &transform_to_main_frame)) {
+    return false;
+  }
+
+  if (transformed_point) {
+    *transformed_point = transform_to_main_frame.MapPoint(*transformed_point);
+  }
+
+  if (transformed_rect) {
+    *transformed_rect = transform_to_main_frame.MapRect(*transformed_rect);
+  }
+
+  return true;
+}
+
 void RenderWidgetHostViewBase::CopyMainAndPopupFromSurface(
     base::WeakPtr<RenderWidgetHostImpl> main_host,
     base::WeakPtr<DelegatedFrameHost> main_frame_host,
@@ -628,6 +651,11 @@ display::ScreenInfos RenderWidgetHostViewBase::GetScreenInfos() const {
 
 void RenderWidgetHostViewBase::ResetGestureDetection() {}
 
+void RenderWidgetHostViewBase::SetShouldUseDefaultDeadlineOnResize(
+    bool enable) {
+  NOTIMPLEMENTED() << "Not supported on platform";
+}
+
 float RenderWidgetHostViewBase::GetDeviceScaleFactor() const {
   return GetScreenInfos().current().device_scale_factor;
 }
@@ -638,7 +666,7 @@ RenderWidgetHostViewBase::GetInputWeakPtr() {
 }
 
 input::RenderInputRouter* RenderWidgetHostViewBase::GetViewRenderInputRouter() {
-  return host()->GetRenderInputRouter();
+  return host() ? host()->GetRenderInputRouter() : nullptr;
 }
 
 void RenderWidgetHostViewBase::SetScaleOverrideForCapture(float scale) {
@@ -657,6 +685,10 @@ void RenderWidgetHostViewBase::OnAutoscrollStart() {
 
   // End the current scrolling seqeunce when autoscrolling starts.
   GetMouseWheelPhaseHandler()->DispatchPendingWheelEndEvent();
+}
+
+void RenderWidgetHostViewBase::OnAutoscrollTargetResolved(bool success) {
+  host()->OnAutoscrollTargetResolved(success);
 }
 
 DevicePosturePlatformProvider*
@@ -781,10 +813,6 @@ bool RenderWidgetHostViewBase::IsRenderWidgetHostViewChildFrame() const {
 
 bool RenderWidgetHostViewBase::HasSize() const {
   return true;
-}
-
-void RenderWidgetHostViewBase::Show() {
-  ShowWithVisibility(PageVisibilityState::kVisible);
 }
 
 void RenderWidgetHostViewBase::Destroy() {
@@ -995,6 +1023,11 @@ void RenderWidgetHostViewBase::UpdateFrameSinkIdRegistration() {
 void RenderWidgetHostViewBase::SetViewTransitionResources(
     std::unique_ptr<ScopedViewTransitionResources> resources) {
   view_transition_resources_ = std::move(resources);
+}
+
+std::optional<uint32_t>
+RenderWidgetHostView::GetForceSpecifiedDeadlineForTesting() {
+  return std::nullopt;
 }
 
 }  // namespace content

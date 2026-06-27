@@ -41,7 +41,7 @@
           "realm": "chromeos:chrome",
           "server": "https://chromeos-swarming.appspot.com",
           "service_account": "chromeos-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 4
+          "shards": 2
         },
         "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
         "trigger_script": {
@@ -427,14 +427,14 @@
       }
     ]
   },
-  "android-pixel25-ultra-perf": {
+  "android-pixel10-perf": {
     "isolated_scripts": [
       {
         "args": [
           "-v",
           "--browser=android-trichrome-chrome-google-64-32-bundle",
           "--upload-results",
-          "--test-shard-map-filename=android-pixel25-ultra-perf_map.json",
+          "--test-shard-map-filename=android-pixel10-perf_map.json",
           "--ignore-benchmark-exit-code"
         ],
         "merge": {
@@ -454,7 +454,7 @@
           "dimensions": {
             "device_os": "B",
             "device_os_flavor": "google",
-            "device_type": "mustang",
+            "device_type": "frankel",
             "os": "Android",
             "pool": "chrome.tests.perf"
           },
@@ -462,7 +462,7 @@
           "hard_timeout": 14400,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 4
+          "shards": 25
         },
         "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
         "trigger_script": {
@@ -476,14 +476,14 @@
       }
     ]
   },
-  "android-pixel25-ultra-xl-perf": {
+  "android-pixel10_webview-perf": {
     "isolated_scripts": [
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-webview-standalone-google",
           "--upload-results",
-          "--test-shard-map-filename=android-pixel25-ultra-xl-perf_map.json",
+          "--test-shard-map-filename=android-pixel10_webview-perf_map.json",
           "--ignore-benchmark-exit-code"
         ],
         "merge": {
@@ -492,28 +492,28 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_webview_test_suite",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_webview_test_suite",
         "resultdb": {
           "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "device_os": "B",
+            "device_os": "BP4A.260105.004.E1",
             "device_os_flavor": "google",
-            "device_type": "blazer",
+            "device_type": "frankel",
             "os": "Android",
-            "pool": "chrome.tests.perf"
+            "pool": "chrome.tests.perf-webview"
           },
           "expiration": 7200,
           "hard_timeout": 14400,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 3
+          "shards": 23
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_webview_test_suite",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -718,55 +718,6 @@
       }
     ]
   },
-  "android-pixel6-perf": {
-    "isolated_scripts": [
-      {
-        "args": [
-          "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
-          "--upload-results",
-          "--test-shard-map-filename=android-pixel6-perf_map.json",
-          "--ignore-benchmark-exit-code"
-        ],
-        "merge": {
-          "args": [
-            "--upload-skia-json"
-          ],
-          "script": "//tools/perf/process_perf_results.py"
-        },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-        "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-        "resultdb": {
-          "enable": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimensions": {
-            "device_os": "AP1A.240405.002",
-            "device_os_flavor": "google",
-            "device_type": "oriole",
-            "os": "Android",
-            "pool": "chrome.tests.perf"
-          },
-          "expiration": 7200,
-          "hard_timeout": 14400,
-          "io_timeout": 21600,
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 14
-        },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-        "trigger_script": {
-          "args": [
-            "--multiple-dimension-script-verbose",
-            "True"
-          ],
-          "requires_simultaneous_shard_dispatch": true,
-          "script": "//testing/trigger_scripts/perf_device_trigger.py"
-        }
-      }
-    ]
-  },
   "android-pixel6-perf-pgo": {
     "isolated_scripts": [
       {
@@ -803,55 +754,6 @@
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 8
-        },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-        "trigger_script": {
-          "args": [
-            "--multiple-dimension-script-verbose",
-            "True"
-          ],
-          "requires_simultaneous_shard_dispatch": true,
-          "script": "//testing/trigger_scripts/perf_device_trigger.py"
-        }
-      }
-    ]
-  },
-  "android-pixel6-pro-perf": {
-    "isolated_scripts": [
-      {
-        "args": [
-          "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
-          "--upload-results",
-          "--test-shard-map-filename=android-pixel6-pro-perf_map.json",
-          "--ignore-benchmark-exit-code"
-        ],
-        "merge": {
-          "args": [
-            "--upload-skia-json"
-          ],
-          "script": "//tools/perf/process_perf_results.py"
-        },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-        "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-        "resultdb": {
-          "enable": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimensions": {
-            "device_os": "AP1A.240405.002",
-            "device_os_flavor": "google",
-            "device_type": "raven",
-            "os": "Android",
-            "pool": "chrome.tests.perf"
-          },
-          "expiration": 7200,
-          "hard_timeout": 14400,
-          "io_timeout": 21600,
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 10
         },
         "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
         "trigger_script": {

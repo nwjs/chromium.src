@@ -10,14 +10,49 @@ source_set("language_code") {
   sources = [
     "language_code.cc",
     "language_code.h",
+    "language_code_builder.cc",
+    "language_code_builder.h",
+    "language_code_matcher.cc",
+    "language_code_matcher.h",
+    "language_codes.cc",
+    "language_codes.h",
   ]
 
   defines = [ "BASE_I18N_IMPLEMENTATION" ]
 
   public_deps = [ ":base_i18n_export" ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//base/i18n/internal",
+    "//base/i18n/internal:canonical_language_codes",
+    "//base/i18n/internal:i18n_icu_bridge_ffi",
+  ]
   visibility = [
     ":*",
+    "//base:*",
+  ]
+}
+
+source_set("unicodestring") {
+  sources = [ "unicodestring.h" ]
+  public_deps = [ "//third_party/icu" ]
+}
+
+source_set("time_formatting_types") {
+  sources = [ "time_formatting_types.h" ]
+}
+
+source_set("unittests") {
+  testonly = true
+  sources = [
+    "language_code_matcher_unittest.cc",
+    "language_code_unittest.cc",
+  ]
+  deps = [
+    "//base",
     "//base:i18n",
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
   ]
 }

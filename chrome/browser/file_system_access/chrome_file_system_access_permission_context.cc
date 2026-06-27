@@ -47,7 +47,6 @@
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/file_system_access/file_system_access_dialogs.h"
 #include "chrome/browser/ui/file_system_access/file_system_access_restricted_directory_dialog.h"
 #include "chrome/common/chrome_paths.h"
@@ -73,6 +72,7 @@
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/display/types/display_constants.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -990,9 +990,13 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
     }
 
     // Drop fullscreen mode so that the user sees the URL bar.
-    base::ScopedClosureRunner fullscreen_block =
-        web_contents->ForSecurityDropFullscreen(
-            /*display_id=*/display::kInvalidDisplayId);
+    auto blocker = web_contents->ForSecurityDropFullscreen(
+        /*display_id=*/display::kInvalidDisplayId);
+    if (!blocker) {
+      RunCallbackAndRecordPermissionRequestOutcome(
+          std::move(callback), PermissionRequestOutcome::kRequestAborted);
+      return;
+    }
 
     if (context_->IsEligibleToUpgradePermissionRequestToRestorePrompt(
             origin_, path_info_.path, handle_type_, user_action_, type_)) {
@@ -1004,7 +1008,7 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
            origin_, request_data_list},
           base::BindOnce(&PermissionGrantImpl::OnRestorePermissionRequestResult,
                          this, std::move(callback)),
-          std::move(fullscreen_block));
+          std::move(*blocker));
       return;
     }
 
@@ -1022,7 +1026,7 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
          {file_request_data}},
         base::BindOnce(&PermissionGrantImpl::OnPermissionRequestResult, this,
                        std::move(callback)),
-        std::move(fullscreen_block));
+        std::move(*blocker));
   }
 
   const url::Origin& origin() const {
@@ -1201,26 +1205,16 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
     }
   }
 
-  // Downgrades the in-memory read permission grant for the `path` if it exist
-  //  in `grants`. This is different from
+  // Downgrades the in-memory read permission grant. This is different from
   // ChromeFileSystemAccessPermissionContext::RevokeGrant in that this method
   // does not reset the persisted permission state.
-  static void DowngradeReadGrantInMemory(
-      std::map<base::FilePath, raw_ptr<PermissionGrantImpl, CtnExperimental>>&
-          grants,
-      const content::PathInfo& path) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  void DowngradeActiveReadGrant() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-    auto entry_it = std::ranges::find_if(grants, [&path](const auto& entry) {
-      return entry.first == path.path;
-    });
-    if (entry_it == grants.end()) {
+    if (GetActivePermissionStatus() != PermissionStatus::GRANTED) {
       return;
     }
 
-    DCHECK_EQ(entry_it->second->GetActivePermissionStatus(),
-              PermissionStatus::GRANTED);
-    auto* const grant_impl = entry_it->second.get();
     // Updates the in-memory status of the grant synchronously. This ensures
     // that any existing handle instances that hold a `scoped_refptr` to this
     // grant will immediately see the updated permission status.
@@ -1233,9 +1227,8 @@ class ChromeFileSystemAccessPermissionContext::PermissionGrantImpl
     // asynchronously after a `remove()`, a subsequent query for a new handle
     // (e.g., from IndexedDB) could read the stale on-disk state and
     // incorrectly return `GRANTED`.
-    grant_impl->SetStatus(
-        PermissionStatus::DENIED,
-        PersistedPermissionOptions::kDoNotUpdatePersistedPermission);
+    SetStatus(PermissionStatus::DENIED,
+              PersistedPermissionOptions::kDoNotUpdatePersistedPermission);
   }
 
  protected:
@@ -2627,24 +2620,41 @@ void ChromeFileSystemAccessPermissionContext::NotifyEntryRemoved(
     return;
   }
 
+  auto is_path_or_descendant = [&](const base::FilePath& file_path) {
+    return file_path == path.path || path.path.IsParent(file_path);
+  };
+
   bool updated = false;
   auto it = active_permissions_map_.find(origin);
   if (it != active_permissions_map_.end()) {
-    PermissionGrantImpl::DowngradeReadGrantInMemory(it->second.read_grants,
-                                                    path);
-    // Marks the path as downgraded so that it can be restored later.
-    it->second.downgraded_read_paths.insert(path.path);
+    auto& origin_state = it->second;
+    // Always insert the removed path itself into downgraded read paths.
+    origin_state.downgraded_read_paths.insert(path.path);
     updated = true;
+
+    // Revoke active read grants for the removed entry and its descendants.
+    for (auto& [grant_path, grant] : origin_state.read_grants) {
+      if (!is_path_or_descendant(grant_path)) {
+        continue;
+      }
+      grant->DowngradeActiveReadGrant();
+      origin_state.downgraded_read_paths.insert(grant_path);
+    }
   }
 
   if (base::FeatureList::IsEnabled(
           features::kFileSystemAccessPersistentPermissions)) {
     // Active grants are a subset of persisted grants, so we also need to update
-    // persisted grants, which is not covered by
-    // `PermissionGrantImpl::DowngradeReadGrantInMemory()` above.
-    const std::unique_ptr<Object> object =
-        GetGrantedObject(origin, PathAsPermissionKey(path.path));
-    if (object) {
+    // persisted grants, which is not covered by `DowngradeActiveReadGrant()`
+    // above.
+    // Revoke persisted read grants for the removed entry and its descendants.
+    for (const auto& object : GetGrantedObjects(origin)) {
+      std::optional<base::FilePath> grant_path =
+          base::ValueToFilePath(object->value.Find(kPermissionPathKey));
+      if (!grant_path || !is_path_or_descendant(*grant_path)) {
+        continue;
+      }
+
       base::DictValue new_object = object->value.Clone();
       new_object.Set(GetGrantKeyFromGrantType(GrantType::kRead), false);
       UpdateObjectPermission(origin, object->value, std::move(new_object));
@@ -3718,24 +3728,18 @@ void ChromeFileSystemAccessPermissionContext::DoUsageIconUpdate() {
         if (browser_window_interface->GetProfile() != profile()) {
           return true;
         }
-        if (IsPageActionMigrated(PageActionIconType::kFileSystemAccess)) {
-          tabs::TabInterface* const tab_interface =
-              browser_window_interface->GetActiveTabInterface();
-          // TODO(crbug.com/411109399): DoUsageIconUpdate() can be run during
-          // browser destruction, and therefore we need to check for null here.
-          // This should be updated to never run during browser destruction.
-          if (!tab_interface) {
-            return true;
-          }
-          auto* const tab_features = tab_interface->GetTabFeatures();
-          CHECK(tab_features);
-          UpdatePageAction(
-              tab_features->file_system_access_page_action_controller());
-        } else {
-          browser_window_interface->GetBrowserForMigrationOnly()
-              ->window()
-              ->UpdatePageActionIcon(PageActionIconType::kFileSystemAccess);
+        tabs::TabInterface* const tab_interface =
+            browser_window_interface->GetActiveTabInterface();
+        // TODO(crbug.com/411109399): DoUsageIconUpdate() can be run during
+        // browser destruction, and therefore we need to check for null here.
+        // This should be updated to never run during browser destruction.
+        if (!tab_interface) {
+          return true;
         }
+        auto* const tab_features = tab_interface->GetTabFeatures();
+        CHECK(tab_features);
+        UpdatePageAction(
+            tab_features->file_system_access_page_action_controller());
         return true;
       });
 #endif

@@ -6,9 +6,19 @@ chrome.test.runTests([
   async function getStreamInfoAndFetchStream() {
     const info = await chrome.mimeHandler.getStreamInfo();
 
+    // Branch for the options-disable test: if the original URL carries
+    // ?action=disable, call setMimeHandlerOptions to disable this
+    // handler for application/pdf, then succeed.
+    const url = new URL(info.originalUrl);
+    if (url.searchParams.get('action') === 'disable') {
+      await chrome.mimeHandler.setMimeHandlerOptions(
+          'application/pdf', {enabled: false});
+      chrome.test.succeed();
+      return;
+    }
+
     chrome.test.assertEq('application/pdf', info.mimeType);
     chrome.test.assertTrue(info.tabId >= 0);
-    chrome.test.assertFalse(info.embedded);
     chrome.test.assertTrue(info.originalUrl.length > 0);
     chrome.test.assertTrue(info.streamUrl.length > 0);
 

@@ -169,6 +169,8 @@ StyleRule::RuleType RuleTypeForMutableDeclaration(
       return StyleRule::kPositionTry;
     case kCSSFunctionDescriptorsMode:
       return StyleRule::kFunction;
+    case kCSSCounterStyleRuleMode:
+      return StyleRule::kCounterStyle;
     default:
       return StyleRule::kStyle;
   }
@@ -2081,8 +2083,9 @@ StyleRuleCounterStyle* CSSParserImpl::ConsumeCounterStyleRule(
   }
 
   return MakeGarbageCollected<StyleRuleCounterStyle>(
-      name, CreateCSSPropertyValueSet(parsed_properties_, context_->Mode(),
-                                      context_->GetDocument()));
+      name,
+      CreateCSSPropertyValueSet(parsed_properties_, kCSSCounterStyleRuleMode,
+                                context_->GetDocument()));
 }
 
 StyleRuleFontPaletteValues* CSSParserImpl::ConsumeFontPaletteValuesRule(
@@ -3402,7 +3405,8 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
       (rule_type == StyleRule::kStyle || rule_type == StyleRule::kScope ||
        rule_type == StyleRule::kKeyframe || rule_type == StyleRule::kProperty ||
        rule_type == StyleRule::kPositionTry ||
-       rule_type == StyleRule::kFontFace ||
+       rule_type == StyleRule::kFontFace || rule_type == StyleRule::kFunction ||
+       rule_type == StyleRule::kCounterStyle ||
        rule_type == StyleRule::kFontPaletteValues)) {
     if (!id) {
       // If we skipped the relevant Consume*() calls above due to an invalid

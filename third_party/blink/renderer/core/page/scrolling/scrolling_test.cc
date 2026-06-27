@@ -185,7 +185,7 @@ class ScrollingTest : public testing::Test, public PaintTestConfigurations {
     if (!scrollable_area)
       return nullptr;
     auto* property_trees = RootCcLayer()->layer_tree_host()->property_trees();
-    return property_trees->scroll_tree_mutable().FindNodeFromElementId(
+    return property_trees->scroll_tree_mutable().MutableFindNodeFromElementId(
         scrollable_area->GetScrollElementId());
   }
 
@@ -2297,7 +2297,8 @@ TEST_P(ScrollingTest, IframeCompositedScrolling) {
   // non_composited_scroll_hit_test_rects on any layer.
   for (auto& layer : RootCcLayer()->children()) {
     EXPECT_TRUE(layer->main_thread_scroll_hit_test_region().IsEmpty());
-    EXPECT_FALSE(layer->non_composited_scroll_hit_test_rects());
+    EXPECT_TRUE(!layer->non_composited_scroll_hit_test_rects() ||
+                layer->non_composited_scroll_hit_test_rects()->empty());
   }
 }
 

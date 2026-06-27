@@ -127,7 +127,6 @@
 #include "chrome/browser/sync/test/integration/sync_test_utils_android.h"
 #else  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
@@ -1285,7 +1284,7 @@ std::string SetupSyncModeAsString(SyncTest::SetupSyncMode sync_test_mode) {
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(64 == syncer::GetNumDataTypes(),
+  static_assert(63 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1344,6 +1343,11 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::SAVED_TAB_GROUP);
     allowed_types.Put(syncer::SESSIONS);
     allowed_types.Put(syncer::USER_EVENTS);
+#if BUILDFLAG(IS_CHROMEOS)
+    allowed_types.Put(syncer::PRINTERS);
+    allowed_types.Put(syncer::WIFI_CONFIGURATIONS);
+    allowed_types.Put(syncer::WORKSPACE_DESK);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_CHROMEOS)
     allowed_types.Put(syncer::WEB_APPS);
@@ -1392,10 +1396,6 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::THEMES_IOS);
   }
 
-  if (base::FeatureList::IsEnabled(syncer::kSyncAccessibilityAnnotation)) {
-    allowed_types.Put(syncer::ACCESSIBILITY_ANNOTATION);
-  }
-
   if (base::FeatureList::IsEnabled(syncer::kNewTabPageCustomizationThemeSync)) {
     allowed_types.Put(syncer::THEMES_ANDROID);
   }
@@ -1411,6 +1411,18 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::CONTEXTUAL_TASK);
   }
 
+  if (base::FeatureList::IsEnabled(
+          syncer::kSeparateLocalAndAccountSearchEngines) &&
+      // Support for transport mode for search engines is implemented alongside
+      // that of preferences.
+      base::FeatureList::IsEnabled(switches::kEnablePreferencesAccountStorage)
+#if BUILDFLAG(IS_ANDROID)
+      && base::FeatureList::IsEnabled(syncer::kSyncSearchEnginesAndroidLFF)
+#endif
+  ) {
+    allowed_types.Put(syncer::SEARCH_ENGINES);
+  }
+
 #if BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
     allowed_types.Put(syncer::WEB_APKS);
@@ -1418,15 +1430,6 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
 #else   // BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(syncer::kSeparateLocalAndAccountThemes)) {
     allowed_types.Put(syncer::THEMES);
-  }
-
-  if (base::FeatureList::IsEnabled(
-          syncer::kSeparateLocalAndAccountSearchEngines) &&
-      // Support for transport mode for search engines is implemented alongside
-      // that of preferences.
-      base::FeatureList::IsEnabled(
-          switches::kEnablePreferencesAccountStorage)) {
-    allowed_types.Put(syncer::SEARCH_ENGINES);
   }
 
   // These types are excluded on Android as they run outside Chrome.

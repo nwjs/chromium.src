@@ -62,6 +62,7 @@ class OSCryptAsync;
 namespace syncer {
 
 class BackendMigrator;
+class CustomPassphraseBootstrapToken;
 class SyncFeatureStatusForMigrationsRecorder;
 class SyncPrefsPolicyHandler;
 
@@ -207,8 +208,11 @@ class SyncServiceImpl : public SyncService,
   void ReconfigureDataTypesDueToCrypto() override;
   void PassphraseTypeChanged(PassphraseType passphrase_type) override;
   std::optional<PassphraseType> GetPassphraseType() const override;
-  void SetEncryptionBootstrapToken(const std::string& bootstrap_token) override;
-  std::string GetEncryptionBootstrapToken() const override;
+  void SetEncryptionBootstrapToken(
+      const CustomPassphraseBootstrapToken& bootstrap_token,
+      const os_crypt_async::Encryptor& encryptor) override;
+  CustomPassphraseBootstrapToken GetEncryptionBootstrapToken(
+      const os_crypt_async::Encryptor& encryptor) const override;
 
   // SyncUserSettingsImpl::Delegate implementation.
   bool IsCustomPassphraseAllowed() const override;
@@ -260,8 +264,6 @@ class SyncServiceImpl : public SyncService,
   // server.
   void HasUnsyncedItemsForTest(base::OnceCallback<void(bool)> cb) const;
 
-  // Used by MigrationWatcher.  May return null.
-  BackendMigrator* GetBackendMigratorForTest();
 
   // Used by tests to inspect interaction with the access token fetcher.
   bool IsRetryingAccessTokenFetchForTest() const;
@@ -375,8 +377,9 @@ class SyncServiceImpl : public SyncService,
   void TryStart();
 
   // The actual synchronous implementation of TryStart().
-  void TryStartImpl(base::TimeTicks try_start_time,
-                    std::vector<os_crypt_async::Encryptor> encryptors);
+  void TryStartImpl(
+      base::TimeTicks try_start_time,
+      std::vector<scoped_refptr<os_crypt_async::Encryptor>> encryptors);
 
   // Whether sync has been authenticated with an account ID.
   bool IsSignedIn() const;

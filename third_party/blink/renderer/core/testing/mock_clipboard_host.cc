@@ -124,7 +124,20 @@ void MockClipboardHost::IsFormatAvailable(
 void MockClipboardHost::ReadText(mojom::ClipboardBuffer clipboard_buffer,
                                  ReadTextCallback callback) {
   ++read_text_call_count_;
+  if (defer_read_text_callback_) {
+    // Stash the reply callback so the test can verify that the renderer
+    // does not block on this IPC. The callback will be invoked later via
+    // RunDeferredReadTextCallback().
+    deferred_read_text_callback_ = std::move(callback);
+    return;
+  }
   std::move(callback).Run(plain_text_);
+}
+
+void MockClipboardHost::RunDeferredReadTextCallback() {
+  CHECK(deferred_read_text_callback_)
+      << "RunDeferredReadTextCallback called with no pending callback";
+  std::move(deferred_read_text_callback_).Run(plain_text_);
 }
 
 void MockClipboardHost::ReadHtml(mojom::ClipboardBuffer clipboard_buffer,
@@ -217,6 +230,11 @@ void MockClipboardHost::ReadAvailableCustomAndStandardFormats(
   Vector<String> format_names = ReadStandardFormatNames();
   for (const auto& item : unsanitized_custom_data_map_)
     format_names.emplace_back(item.key);
+  // TOCTOU race hook: lets tests mutate clipboard state inside the async
+  // gap. See crbug.com/498411773.
+  if (read_available_formats_hook_for_testing_) {
+    read_available_formats_hook_for_testing_.Run(this);
+  }
   std::move(callback).Run(std::move(format_names));
 }
 

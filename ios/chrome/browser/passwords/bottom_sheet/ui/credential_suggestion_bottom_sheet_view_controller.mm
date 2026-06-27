@@ -15,6 +15,7 @@
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/ios/shared_password_controller.h"
 #import "components/url_formatter/elide_url.h"
+#import "components/webauthn/ios/features.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/ui/credential_suggestion_bottom_sheet_delegate.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/ui/credential_suggestion_bottom_sheet_handler.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/create_password_manager_title_view.h"
@@ -142,7 +143,10 @@ void LogSuggestionAcceptedMetrics(BOOL is_backup_suggestion,
         url_formatter::FormatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
             _URL);
     self.subtitleString = l10n_util::GetNSStringF(
-        IDS_IOS_CREDENTIAL_BOTTOM_SHEET_SUBTITLE, formattedURL);
+        IsConditionalPasskeyLoginEnabled()
+            ? IDS_IOS_CREDENTIAL_BOTTOM_SHEET_SUBTITLE_WITH_PASSKEYS
+            : IDS_IOS_CREDENTIAL_BOTTOM_SHEET_SUBTITLE,
+        formattedURL);
   }
 
   [super viewDidLoad];
@@ -466,7 +470,7 @@ void LogSuggestionAcceptedMetrics(BOOL is_backup_suggestion,
   configuration.title = GetSuggestionDisplayUsername(formSuggestion);
   configuration.titleNumberOfLines = 1;
   configuration.titleLineBreakMode = NSLineBreakByTruncatingMiddle;
-  configuration.subtitle = _domain;
+  configuration.subtitle = [self cellSubtitleForSuggestion:formSuggestion];
   configuration.subtitleNumberOfLines = 1;
   configuration.subtitleLineBreakMode = NSLineBreakByTruncatingMiddle;
   // Note that both the credentials and URLs will use middle truncation, as it
@@ -493,6 +497,29 @@ void LogSuggestionAcceptedMetrics(BOOL is_backup_suggestion,
   cell.backgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
 
   return cell;
+}
+
+// Returns the subtitle to display for the given suggestion.
+- (NSString*)cellSubtitleForSuggestion:(FormSuggestion*)formSuggestion {
+  if (!IsConditionalPasskeyLoginEnabled()) {
+    return _domain;
+  }
+
+  if (formSuggestion.type == SuggestionType::kWebauthnCredential) {
+    return formSuggestion.displayDescription;
+  }
+
+  NSString* credentialType =
+      l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_PASSWORD_SUBTEXT);
+
+  NSString* suggestionHost = formSuggestion.displayDescription;
+  if (suggestionHost && suggestionHost.length > 0 &&
+      ![suggestionHost isEqualToString:_domain]) {
+    return
+        [NSString stringWithFormat:@"%@ • %@", credentialType, suggestionHost];
+  }
+
+  return credentialType;
 }
 
 @end

@@ -239,6 +239,10 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
                         g_browser_process->GetApplicationLocale())
                         .spec());
 
+  source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
+                                            ? "webui-refresh-2026"
+                                            : "");
+
   return source;
 }
 

@@ -86,11 +86,6 @@ int AppWindowFrameViewWin::NonClientHitTest(const gfx::Point& point) {
     return HTNOWHERE;
   }
 
-  int client_component = widget_->client_view()->NonClientHitTest(point);
-  if (client_component != HTNOWHERE) {
-    return client_component;
-  }
-
   // Check the frame first, as we allow a small area overlapping the contents
   // to be used for resize handles.
   bool can_ever_resize = widget_->widget_delegate()
@@ -105,6 +100,11 @@ int AppWindowFrameViewWin::NonClientHitTest(const gfx::Point& point) {
       kResizeAreaCornerSize - resize_border, can_ever_resize);
   if (frame_component != HTNOWHERE) {
     return frame_component;
+  }
+
+  int client_component = widget_->client_view()->NonClientHitTest(point);
+  if (client_component != HTNOWHERE) {
+    return client_component;
   }
 
   // Caption is a safe default.

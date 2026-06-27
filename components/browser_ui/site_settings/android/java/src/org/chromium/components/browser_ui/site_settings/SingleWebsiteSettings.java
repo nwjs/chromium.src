@@ -22,7 +22,6 @@ import androidx.annotation.ColorRes;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
@@ -199,8 +198,6 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                 return "clipboard_permission_list";
             case ContentSettingsType.FILE_SYSTEM_WRITE_GUARD:
                 return "file_system_write_guard_permission_list";
-            case ContentSettingsType.LOCAL_NETWORK_ACCESS:
-                return "local_network_access";
             case ContentSettingsType.LOCAL_NETWORK:
                 return "local_network";
             case ContentSettingsType.LOOPBACK_NETWORK:
@@ -837,58 +834,34 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         return true;
     }
 
+    // Sets up a preference with  a "subscribe" button for granting notifications permission.
     @RequiresNonNull({"mSite"})
-    private void setUpNotificationsPreference(Preference preference, boolean isEmbargoed) {
-        @ContentSettingsType.EnumType int notificationType = ContentSettingsType.NOTIFICATIONS;
-        final @ContentSetting @Nullable Integer value =
-                mSite.getContentSetting(getBrowserContextHandle(), notificationType);
-        // If `mHasRequestedNotificationsPermission`is true, this means the user clicked on the
-        // "Manage" button in the notification permission prompt, and we should display the
-        // permission request UI in PageInfo. `setupAppDelegatePreference` should not be called if
-        // there is an active permission request.
-        if (!mHasRequestedNotificationsPermission
-                && setupAppDelegatePreference(
-                        preference,
-                        R.string.website_notification_settings,
-                        notificationType,
-                        value)) {
-            return;
-        }
+    private void setupNotificationsSubscribeButtonPreference(Preference preference) {
+        String overrideSummary =
+                getString(
+                        ContentSettingsResources.getCategorySummary(
+                                ContentSetting.BLOCK, /* isOneTime= */ false));
+        ChromeButtonPreference buttonPreference =
+                replaceWithReadOnlyButtonPreference(
+                        preference, overrideSummary, ContentSetting.BLOCK);
+        // For the Permissions row with the subscribe button we do not want for the whole row to
+        // be selectable. It will lead to TalkBack issues.
+        buttonPreference.setSelectable(false);
+        buttonPreference.setButton(
+                R.string.notifications_permission_subscribe,
+                R.string.notifications_permission_subscribe_a11y,
+                view -> {
+                    if (mWebsiteSettingsObserver != null) {
+                        mWebsiteSettingsObserver.onNotificationSubscribeClicked();
+                    }
+                });
+    }
 
-        // `mHasRequestedNotificationsPermission` indicates that the notification permission is
-        // currently being requested, as it is not technically allowed yet, we should display
-        // the "BLOCK" state. Because the requested permission's state is ASK, `mSite` will not
-        // contain a value for this permission.
-        if (mHasRequestedNotificationsPermission) {
-            String overrideSummary =
-                    getString(
-                            ContentSettingsResources.getCategorySummary(
-                                    ContentSetting.BLOCK, /* isOneTime= */ false));
-            ChromeButtonPreference buttonPreference =
-                    replaceWithReadOnlyButtonPreference(
-                            preference, overrideSummary, ContentSetting.BLOCK);
-            // For the Permissions row with the subscribe button we do not want for the whole row to
-            // be selectable. It will lead to TalkBack issues.
-            buttonPreference.setSelectable(false);
-            buttonPreference.setButton(
-                    R.string.notifications_permission_subscribe,
-                    R.string.notifications_permission_subscribe_a11y,
-                    view -> {
-                        if (mWebsiteSettingsObserver != null) {
-                            mWebsiteSettingsObserver.onNotificationSubscribeClicked();
-                        }
-                    });
-            return;
-        }
-
-        if (value == null || (value != ContentSetting.ALLOW && value != ContentSetting.BLOCK)) {
-            // TODO(crbug.com/40526685): Figure out if this is the correct thing to do, for
-            // values that are non-null, but not ALLOW or BLOCK either. (In
-            // setupContentSettingsPreference we treat non-ALLOW settings as BLOCK, but here we
-            // are simply not adding it.)
-            return;
-        }
-
+    // Sets up a preference that displays the current notifications setting and links to OS channel
+    // settings on click.
+    @RequiresNonNull({"mSite"})
+    private void setupNotificationsChannelPreference(
+            Preference preference, @ContentSetting int value, boolean isEmbargoed) {
         String overrideSummary =
                 isEmbargoed
                         ? getString(R.string.automatically_blocked)
@@ -912,6 +885,46 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                     launchOsChannelSettingsFromPreference(preference);
                     return true;
                 });
+    }
+
+    @RequiresNonNull({"mSite"})
+    private void setUpNotificationsPreference(Preference preference, boolean isEmbargoed) {
+        @ContentSettingsType.EnumType int notificationType = ContentSettingsType.NOTIFICATIONS;
+        final @ContentSetting @Nullable Integer value =
+                mSite.getContentSetting(getBrowserContextHandle(), notificationType);
+
+        // If `mHasRequestedNotificationsPermission`is true, this means the user clicked on the
+        // "Manage" button in the notification permission prompt, and we should display the
+        // permission request UI in PageInfo. `setupAppDelegatePreference` should not be called if
+        // there is an active permission request.
+        if (!mHasRequestedNotificationsPermission
+                && setupAppDelegatePreference(
+                        preference,
+                        R.string.website_notification_settings,
+                        notificationType,
+                        value)) {
+            return;
+        }
+
+        // `mHasRequestedNotificationsPermission` indicates that the notification permission has
+        // been requested. If permission has not been granted or manually blocked yet, show a
+        // Subscribe button.
+        if (mHasRequestedNotificationsPermission
+                && (value == null
+                        || value == ContentSetting.ASK
+                        || (value == ContentSetting.BLOCK && isEmbargoed))) {
+            setupNotificationsSubscribeButtonPreference(preference);
+            return;
+        }
+
+        if (value == null || (value != ContentSetting.ALLOW && value != ContentSetting.BLOCK)) {
+            // TODO(crbug.com/40526685): Figure out if this is the correct thing to do, for
+            // values that are non-null, but not ALLOW or BLOCK either. (In
+            // setupContentSettingsPreference we treat non-ALLOW settings as BLOCK, but here we
+            // are simply not adding it.)
+            return;
+        }
+        setupNotificationsChannelPreference(preference, value, isEmbargoed);
     }
 
     /**
@@ -1122,9 +1135,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                             return true;
                         });
                 if (info.getContentSettingType() == mHighlightedPermission) {
-                    preference.setBackgroundColor(
-                            AppCompatResources.getColorStateList(getContext(), mHighlightColor)
-                                    .getDefaultColor());
+                    preference.setBackgroundColor(getContext().getColor(mHighlightColor));
                 }
 
                 preference.setOrder(++mMaxPermissionOrder);
@@ -1358,12 +1369,17 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         preference.setOnPreferenceChangeListener(this);
 
         String summary;
+        boolean isOnlyPreciseLocationBlockedInOs = false;
         if (isEmbargoed) {
             summary = getString(R.string.automatically_blocked);
-        } else if (contentType == ContentSettingsType.GEOLOCATION_WITH_OPTIONS) {
-
-            LocationCategory locationCategory =
-                    new LocationCategory(getBrowserContextHandle(), !mHasApproximateLocationGrant);
+        } else {
+            if (contentType == ContentSettingsType.GEOLOCATION_WITH_OPTIONS) {
+                LocationCategory locationCategory =
+                        new LocationCategory(
+                                getBrowserContextHandle(), !mHasApproximateLocationGrant);
+                isOnlyPreciseLocationBlockedInOs =
+                        locationCategory.hasPreciseOnlyBlockedWarning(getContext());
+            }
             summary =
                     getString(
                             ContentSettingsResources.getCategorySummary(
@@ -1371,12 +1387,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                                     value,
                                     isOneTime,
                                     mHasApproximateLocationGrant,
-                                    locationCategory.hasPreciseOnlyBlockedWarning(getContext())));
-        } else {
-            summary =
-                    getString(
-                            ContentSettingsResources.getCategorySummary(
-                                    contentType, value, isOneTime, mHasApproximateLocationGrant));
+                                    isOnlyPreciseLocationBlockedInOs));
         }
         preference.setSummary(summary);
         if (preference instanceof ChromeImageViewPreference) {
@@ -1404,11 +1415,23 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
             }
         } else {
             ChromeSwitchPreference switchPreference = (ChromeSwitchPreference) preference;
-            switchPreference.setChecked(value == getEnabledValue(contentType));
+            @ContentSetting int enabledValue = getEnabledValue(contentType);
+            switchPreference.setChecked(value == enabledValue);
+
+            if (!isEmbargoed) {
+                String a11ySummary =
+                        getString(
+                                ContentSettingsResources.getCategorySummary(
+                                        contentType,
+                                        enabledValue,
+                                        isOneTime,
+                                        mHasApproximateLocationGrant,
+                                        isOnlyPreciseLocationBlockedInOs));
+                switchPreference.setSummaryOverrideForScreenReader(a11ySummary);
+            }
+
             if (contentType == mHighlightedPermission) {
-                switchPreference.setBackgroundColor(
-                        AppCompatResources.getColorStateList(getContext(), mHighlightColor)
-                                .getDefaultColor());
+                switchPreference.setBackgroundColor(getContext().getColor(mHighlightColor));
             }
         }
     }

@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.ui.bottombar;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
@@ -13,10 +15,10 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 import androidx.annotation.ColorInt;
-import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
 import org.chromium.ui.util.ColorUtils;
@@ -24,11 +26,19 @@ import org.chromium.ui.util.ColorUtils;
 /** Custom view for the bottom bar. */
 @NullMarked
 public class BottomBarView extends LinearLayout {
-    private View mHomeContainer;
+    private BottomBarButtonContainer mHomeContainer;
+    private BottomBarButtonContainer mExtraContainer;
+    private BottomBarButtonContainer mNewTabContainer;
+    private BottomBarButtonContainer mTabSwitcherContainer;
+    private BottomBarButtonContainer mAppMenuContainer;
     private View mNewTabButton;
     private Drawable mNewTabBackground;
     private RippleDrawable mNewTabRippleBackground;
     private RippleDrawable mNewTabRippleNoBackground;
+    private BottomBarButtonContainer[] mOtherContainers;
+    private RippleDrawable[] mOtherRipples;
+    private @Nullable Boolean mIsIncognito;
+    private boolean mNewTabBackgroundVisible;
 
     public BottomBarView(Context context, @Nullable AttributeSet attributeSet) {
         super(context, attributeSet);
@@ -38,27 +48,39 @@ public class BottomBarView extends LinearLayout {
     protected void onFinishInflate() {
         super.onFinishInflate();
         mHomeContainer = findViewById(R.id.home_button_container);
+        mExtraContainer = findViewById(R.id.extra_button_container);
+
         mNewTabButton = findViewById(R.id.new_tab_button);
+        mNewTabContainer = (BottomBarButtonContainer) mNewTabButton.getParent();
+
+        View tabSwitcherButton = findViewById(R.id.tab_switcher_button);
+        mTabSwitcherContainer = (BottomBarButtonContainer) tabSwitcherButton.getParent();
+
+        mAppMenuContainer = findViewById(R.id.app_menu_button_container);
 
         mNewTabBackground =
-                AppCompatResources.getDrawable(
-                                getContext(), R.drawable.bottom_bar_new_tab_background)
+                assertNonNull(getContext().getDrawable(R.drawable.bottom_bar_new_tab_background))
                         .mutate();
 
         mNewTabRippleBackground =
                 new RippleDrawable(ColorStateList.valueOf(0), mNewTabBackground, mNewTabBackground);
 
-        mNewTabRippleNoBackground = new RippleDrawable(ColorStateList.valueOf(0), null, null);
-        mNewTabRippleNoBackground.setRadius(
-                getResources().getDimensionPixelSize(R.dimen.bottom_bar_ripple_radius));
+        mNewTabRippleNoBackground = createHoverableRipple(/* isIncognito= */ false);
+
+        mOtherContainers =
+                new BottomBarButtonContainer[] {
+                    mHomeContainer, mExtraContainer, mTabSwitcherContainer, mAppMenuContainer
+                };
+        mOtherRipples = new RippleDrawable[mOtherContainers.length];
     }
 
     void setColorScheme(@BrandedColorScheme int colorScheme) {
-        setBackgroundColor(BottomBarUtils.getBottomBarBackgroundColor(getContext(), colorScheme));
-        mNewTabBackground.setTint(BottomBarUtils.getColorSurfaceBright(getContext(), colorScheme));
+        Context context = getContext();
+        setBackgroundColor(BottomBarUtils.getBottomBarBackgroundColor(context, colorScheme));
+        mNewTabBackground.setTint(BottomBarUtils.getColorSurfaceBright(context, colorScheme));
 
         boolean isIncognito = colorScheme == BrandedColorScheme.INCOGNITO;
-        @ColorInt int onSurface = IncognitoColors.getColorOnSurface(getContext(), isIncognito);
+        @ColorInt int onSurface = IncognitoColors.getColorOnSurface(context, isIncognito);
 
         @ColorInt
         int rippleColorBackground = ColorUtils.setAlphaComponentWithFloat(onSurface, 0.08f);
@@ -66,18 +88,80 @@ public class BottomBarView extends LinearLayout {
 
         @ColorInt
         int rippleColorNoBackground = ColorUtils.setAlphaComponentWithFloat(onSurface, 0.10f);
-        mNewTabRippleNoBackground.setColor(ColorStateList.valueOf(rippleColorNoBackground));
+
+        if (mIsIncognito == null || mIsIncognito != isIncognito) {
+            mIsIncognito = isIncognito;
+            for (int i = 0; i < mOtherContainers.length; i++) {
+                mOtherRipples[i] = createHoverableRipple(isIncognito);
+                mOtherContainers[i].setTargetBackground(mOtherRipples[i]);
+            }
+            mNewTabRippleNoBackground = createHoverableRipple(isIncognito);
+            if (!mNewTabBackgroundVisible) {
+                mNewTabButton.setBackground(mNewTabRippleNoBackground);
+            }
+        }
+
+        ColorStateList noBackgroundTint = ColorStateList.valueOf(rippleColorNoBackground);
+        for (RippleDrawable ripple : mOtherRipples) {
+            if (ripple != null) {
+                ripple.setColor(noBackgroundTint);
+            }
+        }
+        mNewTabRippleNoBackground.setColor(noBackgroundTint);
+
+        ColorStateList tint = BottomBarUtils.getIconColorStateList(context, colorScheme);
+
+        mHomeContainer.setIconTint(tint);
+        mExtraContainer.setIconTint(tint);
+        mNewTabContainer.setIconTint(tint);
+        mTabSwitcherContainer.setIconTint(tint);
+        mAppMenuContainer.setIconTint(tint);
     }
 
-    void setHomeButtonVisible(boolean visible) {
-        mHomeContainer.setVisibility(visible ? View.VISIBLE : View.GONE);
+    private RippleDrawable createHoverableRipple(boolean isIncognito) {
+        int rippleResId =
+                isIncognito
+                        ? R.drawable.default_icon_background_baseline
+                        : R.drawable.default_icon_background;
+        return (RippleDrawable) assertNonNull(getContext().getDrawable(rippleResId)).mutate();
     }
 
-    void setNewTabBackgroundVisible(boolean visible) {
+    /*package*/ void setNewTabBackgroundVisible(boolean visible) {
+        mNewTabBackgroundVisible = visible;
         if (visible) {
             mNewTabButton.setBackground(mNewTabRippleBackground);
         } else {
             mNewTabButton.setBackground(mNewTabRippleNoBackground);
+        }
+    }
+
+    /**
+     * Sets the visibility of the button container associated with the given action ID.
+     *
+     * @param actionId The ID of the action.
+     * @param visible True to make visible, false to make GONE.
+     */
+    public void setButtonVisibility(int actionId, boolean visible) {
+        BottomBarButtonContainer container = getContainerForAction(actionId);
+        if (container != null) {
+            container.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    @Nullable BottomBarButtonContainer getContainerForAction(@ActionId int actionId) {
+        switch (actionId) {
+            case ActionId.HOME_BUTTON:
+                return mHomeContainer;
+            case ActionId.GLIC:
+                return mExtraContainer;
+            case ActionId.NEW_TAB:
+                return mNewTabContainer;
+            case ActionId.TAB_SWITCHER:
+                return mTabSwitcherContainer;
+            case ActionId.APP_MENU:
+                return mAppMenuContainer;
+            default:
+                return null;
         }
     }
 }

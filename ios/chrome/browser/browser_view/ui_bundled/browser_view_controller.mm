@@ -19,7 +19,6 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
-#import "ios/chrome/browser/app_bar/ui/app_bar_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/re_signin_infobar_delegate.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/browser_content/ui_bundled/browser_content_view_controller.h"
@@ -57,6 +56,7 @@
 #import "ios/chrome/browser/popup_menu/coordinator/popup_menu_coordinator.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -107,7 +107,6 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
 #import "ios/public/provider/chrome/browser/fullscreen/fullscreen_api.h"
 #import "ios/public/provider/chrome/browser/voice_search/voice_search_controller.h"
 #import "ios/web/public/ui/crw_web_view_proxy.h"
@@ -183,6 +182,7 @@ bool IsFullscreenNextIAEnabled() {
 @interface BrowserViewController () <CardSwipeViewDelegate,
                                      FullscreenBrowserAgentObserving,
                                      FullscreenUIElement,
+                                     LayoutStateObserver,
                                      LogoAnimationControllerOwnerOwner,
                                      MainContentUI,
                                      SideSwipeUIControllerDelegate,
@@ -271,10 +271,15 @@ bool IsFullscreenNextIAEnabled() {
   // view.
   BOOL _lensOverlayVisible;
 
+  // Tracks if the secondary toolbar is currently above the keyboard.
+  BOOL _isSecondaryToolbarAboveKeyboard;
+
   __weak id<BrowserCoordinatorCommands> _browserCoordinatorHandler;
   __weak id<ToolbarCommands> _toolbarHandler;
 
   NSArray<NSLayoutConstraint*>* _NTPConstraints;
+  // The last recorded view size to avoid redundant updates on layout.
+  CGSize _lastViewSize;
 }
 
 // Activates/deactivates the object. This will enable/disable the ability for
@@ -488,6 +493,9 @@ bool IsFullscreenNextIAEnabled() {
 
 - (void)setBroadcasting:(BOOL)broadcasting {
   if (IsFullscreenRefactoringEnabled()) {
+    if (broadcasting && _fullscreenBrowserAgent) {
+      _fullscreenBrowserAgent->InvalidateInsetRange();
+    }
     // Broadcasting is not needed for FullscreenRefactoring.
     return;
   }
@@ -586,11 +594,17 @@ bool IsFullscreenNextIAEnabled() {
   if (_isShutdown) {
     return UIEdgeInsetsZero;
   }
-  UIEdgeInsets safeArea = self.safeAreaProvider.safeArea;
 
-  return UIEdgeInsetsEqualToEdgeInsets(safeArea, UIEdgeInsetsZero)
-             ? self.view.safeAreaInsets
-             : safeArea;
+  UIEdgeInsets safeArea = self.safeAreaProvider.safeArea;
+  if (!UIEdgeInsetsEqualToEdgeInsets(safeArea, UIEdgeInsetsZero)) {
+    return safeArea;
+  }
+
+  if ([self isViewLoaded]) {
+    return self.view.safeAreaInsets;
+  }
+
+  return UIEdgeInsetsZero;
 }
 
 - (CGFloat)headerHeight {
@@ -641,6 +655,33 @@ bool IsFullscreenNextIAEnabled() {
   self.primaryToolbarOffsetConstraint.constant = inset;
   [self updateToolbarState];
   [self.view setNeedsLayout];
+}
+
+- (void)setLayoutState:(LayoutState*)layoutState {
+  if (_layoutState == layoutState) {
+    return;
+  }
+  [_layoutState removeObserver:self];
+  _layoutState = layoutState;
+  [_layoutState addObserver:self];
+  if (layoutState) {
+    [self updateToolbarConstraints];
+    [self updateSecondaryToolbarBottomConstraint];
+  }
+}
+
+#pragma mark - LayoutStateObserver
+
+- (void)layoutState:(LayoutState*)layoutState
+    didChangeAppBarPosition:(AppBarPosition)appBarPosition {
+  if (!self.view.window) {
+    return;
+  }
+
+  [self updateToolbarConstraints];
+  [self updateSecondaryToolbarBottomConstraint];
+  [self animateTransition];
+  [self invalidateFullscreenInsets];
 }
 
 #pragma mark - Public methods
@@ -824,6 +865,8 @@ bool IsFullscreenNextIAEnabled() {
   self.toolbarCoordinator = nil;
   _sideSwipeCoordinator = nil;
   [_voiceSearchController disconnect];
+  [_layoutState removeObserver:self];
+  _layoutState = nil;
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   _bookmarksCoordinator = nil;
 
@@ -884,6 +927,9 @@ bool IsFullscreenNextIAEnabled() {
 #pragma mark - UIViewController
 
 - (void)viewDidLoad {
+  if (IsFullscreenRefactoringEnabled()) {
+    self.view.translatesAutoresizingMaskIntoConstraints = NO;
+  }
   [self registerNotifications];
 
   CGRect initialViewsRect = self.view.bounds;
@@ -966,6 +1012,9 @@ bool IsFullscreenNextIAEnabled() {
       setBottomOmniboxOffsetForPopup:secondaryToolbarHeightWithInset];
   self.secondaryToolbarHeightConstraint.constant =
       secondaryToolbarHeightWithInset;
+  if (IsChromeNextIaEnabled()) {
+    [self updateForFullscreenProgress:self.footerFullscreenProgress];
+  }
 }
 
 - (void)viewWillLayoutSubviews {
@@ -977,6 +1026,7 @@ bool IsFullscreenNextIAEnabled() {
   // in the upcoming pass, avoiding a redundant extra layout pass.
   if (IsFullscreenNextIAEnabled() && self.view.window) {
     [self addConstraintsToAppBar];
+    [self updateToolbarConstraints];
     [self updateSecondaryToolbarBottomConstraint];
   }
 }
@@ -999,6 +1049,17 @@ bool IsFullscreenNextIAEnabled() {
         self.webUsageEnabled) {
       self.ntpCoordinator.viewController.view.frame =
           [self ntpFrameForCurrentWebState];
+    }
+    if (!ios::provider::IsFullscreenSmoothScrollingSupported()) {
+      if (!CGSizeEqualToSize(_lastViewSize, self.view.bounds.size)) {
+        _lastViewSize = self.view.bounds.size;
+        // When BVC view bounds size changes, UIKit automatically resizes the
+        // WebView via autoresizing mask, shifting its y-position (e.g., from 62
+        // to 77). In order to force Fullscreen to resize the WebView, we toggle
+        // the toolbar height to zero and force a recalculation of its size.
+        _toolbarsSize.expandedTopToolbarHeight = 0;
+        [self updateToolbarState];
+      }
     }
   }
 }
@@ -1087,16 +1148,6 @@ bool IsFullscreenNextIAEnabled() {
   // dialogs.
   [self.helpHandler hideAllHelpBubbles];
 
-  __weak BrowserViewController* weakSelf = self;
-
-  [coordinator
-      animateAlongsideTransition:^(
-          id<UIViewControllerTransitionCoordinatorContext>) {
-        [weakSelf animateTransition];
-        [weakSelf invalidateFullscreenInsets];
-      }
-                      completion:nil];
-
   crash_keys::SetCurrentOrientation(GetInterfaceOrientation(),
                                     [[UIDevice currentDevice] orientation]);
 }
@@ -1123,7 +1174,6 @@ bool IsFullscreenNextIAEnabled() {
     self.fullscreenController->ResizeHorizontalViewport();
   }
 
-  [self updateToolbarConstraints];
   [self.popupMenuCommandsHandler adjustPopupSize];
 }
 
@@ -1341,7 +1391,7 @@ bool IsFullscreenNextIAEnabled() {
   if (!IsFullscreenNextIAEnabled()) {
     return;
   }
-  AppBarPosition position = AppBarPositionForView(self.view);
+  AppBarPosition position = self.layoutState.appBarPosition;
   switch (position) {
     case AppBarPosition::kLeft:
       _toolbarLeadingConstraint.constant = kAppBarHeight;
@@ -1380,8 +1430,8 @@ bool IsFullscreenNextIAEnabled() {
     // (Landscape).
     self.secondaryToolbarRegularBottomConstraint = [toolbarView.bottomAnchor
         constraintEqualToAnchor:self.view.bottomAnchor];
-    self.secondaryToolbarRegularBottomConstraint.active = YES;
-
+    self.secondaryToolbarRegularBottomConstraint.active =
+        (self.layoutState.appBarPosition != AppBarPosition::kBottom);
   } else {
     [toolbarView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]
         .active = YES;
@@ -1393,13 +1443,13 @@ bool IsFullscreenNextIAEnabled() {
   if (self.secondaryToolbarAppBarBottomConstraint) {
     return;
   }
-  LayoutGuideCenter* globalCenter = LayoutGuideCenterForBrowser(nil);
-  UIView* appBar = [globalCenter referencedViewUnderName:kAppBarGuide];
+  UIView* appBar = [_layoutGuideCenter referencedViewUnderName:kAppBarGuide];
   CHECK(appBar);
   UIView* toolbarView =
       self.toolbarCoordinator.secondaryToolbarViewController.view;
   self.secondaryToolbarAppBarBottomConstraint =
       [toolbarView.bottomAnchor constraintEqualToAnchor:appBar.topAnchor];
+  [self updateSecondaryToolbarBottomConstraint];
 }
 
 // Adds constraints to the primary and secondary toolbars, anchoring them to the
@@ -1533,6 +1583,7 @@ bool IsFullscreenNextIAEnabled() {
         view.translatesAutoresizingMaskIntoConstraints = NO;
         AddSameConstraints(self.browserContentViewController.view, view);
       }
+      [self invalidateFullscreenInsets];
     }
     // Resize horizontal viewport if Smooth Scrolling is on.
     if (!IsFullscreenRefactoringEnabled() &&
@@ -1596,7 +1647,7 @@ bool IsFullscreenNextIAEnabled() {
 // Calls `callback` for each edge that has a safe area inset.
 - (void)getSafeAreaInsets:(void (^)(UIRectEdge edge, CGFloat amount))callback {
   callback(UIRectEdgeTop, [self topInset]);
-  AppBarPosition position = AppBarPositionForView(self.view);
+  AppBarPosition position = self.layoutState.appBarPosition;
   UIEdgeInsets insets = self.rootSafeAreaInsets;
   if (position == AppBarPosition::kRight && insets.left > 0) {
     callback(UIRectEdgeLeft, insets.left);
@@ -1647,11 +1698,7 @@ bool IsFullscreenNextIAEnabled() {
   // toolbar.
   BOOL useTopViewEdge = NO;
   if (IsChromeNextIaEnabled()) {
-    /// TODO(crbug.com/508170459): Implement toolbar visibility logic in split
-    /// toolbar mode and update this to allow using view edges when in split
-    /// toolbar mode.
-    useTopViewEdge =
-        !canShowTabStrip && !isSplitToolbarMode && !_isOffTheRecord;
+    useTopViewEdge = !canShowTabStrip && !_isOffTheRecord;
   } else {
     useTopViewEdge = !canShowTabStrip && isSplitToolbarMode && !_isOffTheRecord;
   }
@@ -1660,8 +1707,7 @@ bool IsFullscreenNextIAEnabled() {
   // If ChromeNextIa is disabled, it always pins to the view edge.
   BOOL useBottomViewEdge = NO;
   if (IsChromeNextIaEnabled()) {
-    useBottomViewEdge =
-        !canShowTabStrip && !isSplitToolbarMode && !_isOffTheRecord;
+    useBottomViewEdge = !canShowTabStrip && !_isOffTheRecord;
   }
 
   NSLayoutYAxisAnchor* topAnchor =
@@ -1674,13 +1720,15 @@ bool IsFullscreenNextIAEnabled() {
                         : self.toolbarCoordinator.secondaryToolbarViewController
                               .view.topAnchor;
 
+  UIView* primaryToolbarView =
+      self.toolbarCoordinator.primaryToolbarViewController.view;
   _NTPConstraints = @[
     [NTPViewController.view.topAnchor constraintEqualToAnchor:topAnchor],
     [NTPViewController.view.bottomAnchor constraintEqualToAnchor:bottomAnchor],
     [NTPViewController.view.leadingAnchor
-        constraintEqualToAnchor:self.view.leadingAnchor],
+        constraintEqualToAnchor:primaryToolbarView.leadingAnchor],
     [NTPViewController.view.trailingAnchor
-        constraintEqualToAnchor:self.view.trailingAnchor],
+        constraintEqualToAnchor:primaryToolbarView.trailingAnchor],
   ];
   [NSLayoutConstraint activateConstraints:_NTPConstraints];
 }
@@ -2157,16 +2205,21 @@ bool IsFullscreenNextIAEnabled() {
 // Updates the bottom constraint of the secondary toolbar depending on the
 // AppBar's position.
 - (void)updateSecondaryToolbarBottomConstraint {
-  BOOL shouldUseAppBar =
-      (AppBarPositionForView(self.view) == AppBarPosition::kBottom);
-
-  // Return early if the constraint is already in the correct state.
-  if (self.secondaryToolbarAppBarBottomConstraint.active == shouldUseAppBar) {
+  if (!self.view.window) {
     return;
   }
 
-  self.secondaryToolbarAppBarBottomConstraint.active = shouldUseAppBar;
-  self.secondaryToolbarRegularBottomConstraint.active = !shouldUseAppBar;
+  BOOL shouldUseAppBar =
+      (self.layoutState.appBarPosition == AppBarPosition::kBottom) &&
+      (self.secondaryToolbarAppBarBottomConstraint != nil);
+
+  if (shouldUseAppBar) {
+    self.secondaryToolbarRegularBottomConstraint.active = NO;
+    self.secondaryToolbarAppBarBottomConstraint.active = YES;
+  } else {
+    self.secondaryToolbarAppBarBottomConstraint.active = NO;
+    self.secondaryToolbarRegularBottomConstraint.active = YES;
+  }
 }
 
 // Returns the height difference between the fully expanded and fully collapsed
@@ -2209,6 +2262,11 @@ bool IsFullscreenNextIAEnabled() {
 // Resizes the secondary toolbar according to `progress`, where a progress of
 // 1.0 fully expands the toolbar and a progress of 0.0 collapses it.
 - (void)updateNextIASecondaryToolbarForFullscreenProgress:(CGFloat)progress {
+  // Early return if the toolbar is currently managed by keyboard avoidance.
+  if (_isSecondaryToolbarAboveKeyboard) {
+    return;
+  }
+
   const CGFloat expandedHeight = [self secondaryToolbarHeightWithInset];
   if (expandedHeight <= 0.0) {
     return;
@@ -2263,9 +2321,11 @@ bool IsFullscreenNextIAEnabled() {
     if (self.secondaryToolbarHeightConstraint.constant != height) {
       self.secondaryToolbarHeightConstraint.constant = height;
       // Force a layout to cause the frame to be recalculated.
-      UIView* view = self.view;
-      [view setNeedsLayout];
-      [view layoutIfNeeded];
+      if ([self isViewLoaded]) {
+        UIView* view = self.view;
+        [view setNeedsLayout];
+        [view layoutIfNeeded];
+      }
     }
   }
 }
@@ -2463,7 +2523,8 @@ bool IsFullscreenNextIAEnabled() {
 
   SwipeView* swipeView = [[SwipeView alloc]
       initWithFrame:self.contentArea.frame
-          topMargin:[self snapshotEdgeInsetsForWebState:webState].top];
+          topMargin:[self snapshotEdgeInsetsForWebState:webState].top
+       bottomMargin:[self snapshotEdgeInsetsForWebState:webState].bottom];
 
   [swipeView setTopToolbarImage:topToolbarImage];
   [swipeView setBottomToolbarImage:bottomToolbarImage];
@@ -2528,6 +2589,86 @@ bool IsFullscreenNextIAEnabled() {
   }
 }
 
+// Returns the frame for the new tab page view for the given web state.
+- (CGRect)newPageFrameForWebState:(web::WebState*)webState {
+  GURL tabURL = webState->GetVisibleURL();
+  BOOL isNTP = tabURL == kChromeUINewTabURL;
+
+  // The frame should cover the visible space: either the full view if it is a
+  // non-incognito NTP or the area between the toolbars.
+  if (isNTP && !_isOffTheRecord && !CanShowTabStrip(self)) {
+    return self.view.bounds;
+  }
+  if (self.ntpCoordinator.isNTPActiveForCurrentWebState &&
+      self.webUsageEnabled) {
+    return [self ntpFrameForCurrentWebState];
+  }
+  return self.contentArea.bounds;
+}
+
+// Returns the frame for the foreground tab animation view.
+- (CGRect)foregroundTabAnimationViewFrameForWebState:(web::WebState*)webState {
+  GURL tabURL = webState->GetVisibleURL();
+  BOOL isNTP = tabURL == kChromeUINewTabURL;
+
+  CGRect frameInView = self.view.bounds;
+  // On iPhone landscape, the AppBar is covering part of screen under which the
+  // NTP is not displayed.
+  if (isNTP && !_isOffTheRecord && !CanShowTabStrip(self) &&
+      IsChromeNextIaEnabled()) {
+    AppBarPosition position = self.layoutState.appBarPosition;
+    UIEdgeInsets insets = UIEdgeInsetsZero;
+
+    if (position == AppBarPosition::kLeft) {
+      insets.left = kAppBarHeight;
+    } else if (position == AppBarPosition::kRight) {
+      insets.right = kAppBarHeight;
+    }
+    frameInView = UIEdgeInsetsInsetRect(frameInView, insets);
+  }
+  return [self.contentArea convertRect:frameInView fromView:self.view];
+}
+
+// Completes the new tab animation.
+- (void)completeNewTabAnimationWithNewPage:(UIView*)newPage
+                              webStateView:(UIView*)webStateView
+                                identifier:(NSInteger)identifier
+                                     isNTP:(BOOL)isNTP
+                               isIncognito:(BOOL)isIncognito
+                                completion:(ProceduralBlock)completion {
+  newPage.userInteractionEnabled = YES;
+  if (IsFullscreenRefactoringEnabled()) {
+    newPage.translatesAutoresizingMaskIntoConstraints = NO;
+  }
+
+  // Do not resize the same view.
+  if (webStateView != newPage) {
+    webStateView.frame = self.contentArea.bounds;
+  }
+
+  if (identifier != _NTPAnimationIdentifier) {
+    // Prevent the completion block from being executed if a new animation has
+    // started in between. `self.foregroundTabWasAddedCompletionBlock` isn't
+    // called because it is overridden when a new animation is started.
+    // Calling it here would call the block from the lastest animation that
+    // haved started.
+    return;
+  }
+
+  self.inNewTabAnimation = NO;
+
+  [self webStateSelected];
+  if (completion) {
+    completion();
+  }
+
+  if (isNTP && isIncognito) {
+    [_toolbarHandler focusLocationBarForVoiceOver];
+  }
+
+  [self executeAndClearForegroundTabWasAddedCompletionBlock:YES];
+}
+
 - (void)animateNewTabForWebState:(web::WebState*)webState
       inForegroundWithCompletion:(ProceduralBlock)completion {
   // Create the new page image, and load with the new tab snapshot except if
@@ -2544,6 +2685,9 @@ bool IsFullscreenNextIAEnabled() {
   BOOL isNTP = tabURL == kChromeUINewTabURL;
   BOOL isIncognito = _isOffTheRecord;
   BOOL useDeviceCornerRadius = NO;
+
+  newPage.frame = [self newPageFrameForWebState:webState];
+
   if (isNTP && !isIncognito && !CanShowTabStrip(self)) {
     // Add a snapshot of the primary toolbar to the background as the
     // animation runs.
@@ -2554,64 +2698,23 @@ bool IsFullscreenNextIAEnabled() {
     toolbarSnapshot.frame = [self.contentArea convertRect:toolbarSnapshot.frame
                                                  fromView:self.view];
     [self.contentArea addSubview:toolbarSnapshot];
-    newPage.frame = self.view.bounds;
     // `newPage` takes the full screen and the corner radius should be the same
     // as the device's.
     useDeviceCornerRadius = YES;
-  } else {
-    if (self.ntpCoordinator.isNTPActiveForCurrentWebState &&
-        self.webUsageEnabled) {
-      newPage.frame = [self ntpFrameForCurrentWebState];
-    } else {
-      newPage.frame = self.contentArea.bounds;
-    }
   }
+
   newPage.userInteractionEnabled = NO;
   NSInteger currentAnimationIdentifier = ++_NTPAnimationIdentifier;
 
-  __weak id<ToolbarCommands> toolbarHandler = _toolbarHandler;
-
-  // Cleanup steps needed for both UI Refresh and stack-view style animations.
   UIView* webStateView = [self viewForWebState:webState];
   __weak __typeof(self) weakSelf = self;
   auto commonCompletion = ^{
-    __strong __typeof(self) strongSelf = weakSelf;
-    newPage.userInteractionEnabled = YES;
-    if (IsFullscreenRefactoringEnabled()) {
-      newPage.translatesAutoresizingMaskIntoConstraints = NO;
-    }
-
-    // Check for nil because we need to access an ivar below.
-    if (!strongSelf) {
-      return;
-    }
-
-    // Do not resize the same view.
-    if (webStateView != newPage) {
-      webStateView.frame = strongSelf.contentArea.bounds;
-    }
-
-    if (currentAnimationIdentifier != strongSelf->_NTPAnimationIdentifier) {
-      // Prevent the completion block from being executed if a new animation has
-      // started in between. `self.foregroundTabWasAddedCompletionBlock` isn't
-      // called because it is overridden when a new animation is started.
-      // Calling it here would call the block from the lastest animation that
-      // haved started.
-      return;
-    }
-
-    strongSelf.inNewTabAnimation = NO;
-
-    [strongSelf webStateSelected];
-    if (completion) {
-      completion();
-    }
-
-    if (isNTP && isIncognito) {
-      [toolbarHandler focusLocationBarForVoiceOver];
-    }
-
-    [strongSelf executeAndClearForegroundTabWasAddedCompletionBlock:YES];
+    [weakSelf completeNewTabAnimationWithNewPage:newPage
+                                    webStateView:webStateView
+                                      identifier:currentAnimationIdentifier
+                                           isNTP:isNTP
+                                     isIncognito:isIncognito
+                                      completion:completion];
   };
 
   // Skip animation if animations are disabled (e.g. new search action from
@@ -2623,13 +2726,16 @@ bool IsFullscreenNextIAEnabled() {
   }
 
   CGPoint origin = [self lastTapPoint];
+  CGRect frame = [self foregroundTabAnimationViewFrameForWebState:webState];
 
-  CGRect frame = [self.contentArea convertRect:self.view.bounds
-                                      fromView:self.view];
   ForegroundTabAnimationView* animatedView =
       [[ForegroundTabAnimationView alloc] initWithFrame:frame];
   animatedView.contentView = newPage;
+  newPage.frame = animatedView.bounds;
   animatedView.useDeviceCornerRadius = useDeviceCornerRadius;
+  if (IsChromeNextIaEnabled()) {
+    animatedView.appBarPosition = self.layoutState.appBarPosition;
+  }
   animatedView.backgroundView =
       [self.contentArea snapshotViewAfterScreenUpdates:NO];
 
@@ -2874,12 +2980,16 @@ bool IsFullscreenNextIAEnabled() {
 }
 
 - (void)secondaryToolbarMovedAboveKeyboard {
+  _isSecondaryToolbarAboveKeyboard = YES;
+
   // Lower the height constraint priority, allowing UIKeyboardLayoutGuide to
   // move the toolbar above the keyboard.
   self.secondaryToolbarHeightConstraint.priority = UILayoutPriorityDefaultHigh;
 }
 
 - (void)secondaryToolbarRemovedFromKeyboard {
+  _isSecondaryToolbarAboveKeyboard = NO;
+
   // Return to required priority, otherwise UIKeyboardLayoutGuide would set the
   // toolbar minimum height to the bottom safe area.
   self.secondaryToolbarHeightConstraint.priority = UILayoutPriorityRequired - 1;
@@ -2890,17 +3000,16 @@ bool IsFullscreenNextIAEnabled() {
                                        duration:(NSTimeInterval)duration
                                           curve:(UIViewAnimationCurve)curve {
   CHECK(ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET);
+  _isSecondaryToolbarAboveKeyboard = (keyboardHeight > 0);
   CGFloat keyboardAttachedOffset =
       keyboardHeight +
       self.toolbarCoordinator.keyboardAttachedBottomOmniboxHeight;
   if (IsChromeNextIaEnabled()) {
-    // When the App Bar is at the bottom, the secondary toolbar is already
-    // taller by the height of the App Bar. If the App Bar is not at the bottom
-    // (e.g., in landscape), we subtract the safe area instead.
-    if (AppBarPositionForView(self.view) == AppBarPosition::kBottom) {
+    // When the App Bar is at the bottom (Portrait), the secondary toolbar is
+    // already taller by the height of the App Bar, so we subtract the App Bar
+    // height.
+    if (self.layoutState.appBarPosition == AppBarPosition::kBottom) {
       keyboardAttachedOffset -= kAppBarHeightFullscreen;
-    } else {
-      keyboardAttachedOffset -= self.view.safeAreaInsets.bottom;
     }
   }
   CGFloat baseHeight = [self secondaryToolbarHeightWithInset];

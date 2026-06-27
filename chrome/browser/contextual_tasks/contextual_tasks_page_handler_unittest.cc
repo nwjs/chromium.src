@@ -39,6 +39,7 @@
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -83,6 +84,33 @@ class TestContextualTasksUI : public ContextualTasksUI {
   MOCK_METHOD(BrowserWindowInterface*, GetBrowser, (), (override));
 };
 
+class MockContextualTasksUiServiceForThreadLink
+    : public MockContextualTasksUiService {
+ public:
+  MockContextualTasksUiServiceForThreadLink(
+      Profile* profile,
+      ContextualTasksService* service,
+      signin::IdentityManager* identity_manager,
+      AimEligibilityService* aim_eligibility_service,
+      std::unique_ptr<ContextualTasksEligibilityManager> eligibility_manager,
+      std::unique_ptr<ContextualTasksCookieSynchronizer> cookie_synchronizer)
+      : MockContextualTasksUiService(profile,
+                                     service,
+                                     identity_manager,
+                                     aim_eligibility_service,
+                                     std::move(eligibility_manager),
+                                     std::move(cookie_synchronizer)) {}
+  ~MockContextualTasksUiServiceForThreadLink() override = default;
+
+  MOCK_METHOD(void,
+              OnThreadLinkClicked,
+              (const GURL& url,
+               base::Uuid task_id,
+               base::WeakPtr<tabs::TabInterface> tab,
+               base::WeakPtr<BrowserWindowInterface> browser),
+              (override));
+};
+
 class ContextualTasksPageHandlerTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
@@ -103,9 +131,14 @@ class ContextualTasksPageHandlerTest : public ChromeRenderViewHostTestHarness {
         profile(), base::BindOnce([](content::BrowserContext* context) {
           Profile* profile = Profile::FromBrowserContext(context);
           return std::unique_ptr<KeyedService>(
-              std::make_unique<NiceMock<MockContextualTasksUiService>>(
+              std::make_unique<
+                  NiceMock<MockContextualTasksUiServiceForThreadLink>>(
                   profile,
-                  ContextualTasksServiceFactory::GetForProfile(profile)));
+                  ContextualTasksServiceFactory::GetForProfile(profile),
+                  /*identity_manager=*/nullptr,
+                  /*aim_eligibility_service=*/nullptr,
+                  /*eligibility_manager=*/nullptr,
+                  /*cookie_synchronizer=*/nullptr));
         }));
 
     mock_panel_controller_ =
@@ -122,7 +155,7 @@ class ContextualTasksPageHandlerTest : public ChromeRenderViewHostTestHarness {
     mock_contextual_tasks_service_ = static_cast<MockContextualTasksService*>(
         ContextualTasksServiceFactory::GetForProfile(profile()));
     mock_contextual_tasks_ui_service_ =
-        static_cast<MockContextualTasksUiService*>(
+        static_cast<MockContextualTasksUiServiceForThreadLink*>(
             ContextualTasksUiServiceFactory::GetForBrowserContext(profile()));
 
     profile()->GetPrefs()->SetBoolean(prefs::kPinContextualTaskButton, false);
@@ -152,7 +185,8 @@ class ContextualTasksPageHandlerTest : public ChromeRenderViewHostTestHarness {
   std::unique_ptr<NiceMock<TestContextualTasksUI>> contextual_tasks_ui_;
   std::unique_ptr<ContextualTasksPageHandler> page_handler_;
   raw_ptr<MockContextualTasksService> mock_contextual_tasks_service_;
-  raw_ptr<MockContextualTasksUiService> mock_contextual_tasks_ui_service_;
+  raw_ptr<MockContextualTasksUiServiceForThreadLink>
+      mock_contextual_tasks_ui_service_;
   NiceMock<MockContextualTasksPage> page_;
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
@@ -261,10 +295,16 @@ TEST_F(ContextualTasksPageHandlerTest, GetUrlForTask_InitialUrlExists) {
   EXPECT_CALL(*mock_contextual_tasks_ui_service_, GetInitialUrlForTask(task_id))
       .WillOnce(Return(expected_url));
 
+  contextual_search::MockContextualSearchSessionHandle mock_session;
+  EXPECT_CALL(*contextual_tasks_ui_, GetOrCreateContextualSessionHandle())
+      .WillOnce(Return(&mock_session));
+
   base::RunLoop run_loop;
   page_handler_->GetUrlForTask(task_id,
                                base::BindLambdaForTesting([&](const GURL& url) {
                                  EXPECT_EQ(url, expected_url);
+                                 EXPECT_EQ(mock_session.previous_query(),
+                                           "test");
                                  run_loop.Quit();
                                }));
   run_loop.Run();
@@ -715,6 +755,43 @@ TEST_F(ContextualTasksPageHandlerTest,
   page_handler_->OnWebviewMessage(serialized);
 }
 
+TEST_F(ContextualTasksPageHandlerTest,
+       OnWebviewMessage_OpenLinkInSidePanelMode) {
+  lens::AimToClientMessage message;
+  auto* open_link = message.mutable_open_link_in_side_panel_mode();
+  open_link->set_url("https://example.com");
+
+  size_t size = message.ByteSizeLong();
+  std::vector<uint8_t> serialized(size);
+  message.SerializeToArray(serialized.data(), size);
+
+  EXPECT_CALL(*mock_contextual_tasks_ui_service_,
+              OnThreadLinkClicked(GURL("https://example.com"), base::Uuid(),
+                                  testing::Eq(nullptr), testing::Eq(nullptr)))
+      .Times(1);
+
+  page_handler_->OnWebviewMessage(serialized);
+}
+
+// Link click events where the URL is not HTTP or HTTPS should not trigger the
+// thread link click event.
+TEST_F(ContextualTasksPageHandlerTest,
+       OnWebviewMessage_NotifyLinkClicked_InvalidScheme) {
+  lens::AimToClientMessage message;
+  auto* open_link = message.mutable_open_link_in_side_panel_mode();
+  open_link->set_url("chrome://settings");
+
+  size_t size = message.ByteSizeLong();
+  std::vector<uint8_t> serialized(size);
+  message.SerializeToArray(serialized.data(), size);
+
+  EXPECT_CALL(*mock_contextual_tasks_ui_service_,
+              OnThreadLinkClicked(_, _, _, _))
+      .Times(0);
+
+  page_handler_->OnWebviewMessage(serialized);
+}
+
 TEST_F(ContextualTasksPageHandlerTest, OpenMyActivityUi) {
   // Navigation smoke test. We provide a null browser to safely exit early
   // and avoid crashes in Navigate() which requires a full TabStripModel.
@@ -1054,6 +1131,10 @@ TEST_F(ContextualTasksPageHandlerTest,
 
   page_handler_->OnWebviewMessage(serialized);
   run_loop.Run();
+}
+
+TEST_F(ContextualTasksPageHandlerTest, OnContextMenuOpened) {
+  page_handler_->OnContextMenuOpened();
 }
 
 }  // namespace contextual_tasks

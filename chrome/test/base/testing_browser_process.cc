@@ -40,6 +40,7 @@
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
 #include "components/metrics/metrics_service.h"
+#include "components/metrics_services_manager/metrics_services_manager.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/permissions/permissions_client.h"
@@ -322,18 +323,11 @@ void TestingBrowserProcess::Init() {
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
-void TestingBrowserProcess::FlushLocalStateAndReply(base::OnceClosure reply) {
-  // This could be implemented the same way as in BrowserProcessImpl but it's
-  // not currently expected to be used by TestingBrowserProcess users so we
-  // don't bother.
-  NOTREACHED();
-}
-
 void TestingBrowserProcess::EndSession() {}
 
 metrics_services_manager::MetricsServicesManager*
 TestingBrowserProcess::GetMetricsServicesManager() {
-  return nullptr;
+  return metrics_services_manager_;
 }
 
 metrics::MetricsService* TestingBrowserProcess::metrics_service() {
@@ -370,6 +364,12 @@ TestingBrowserProcess::network_quality_tracker() {
 
 ProfileManager* TestingBrowserProcess::profile_manager() {
   return profile_manager_.get();
+}
+
+void TestingBrowserProcess::SetMetricsServicesManager(
+    metrics_services_manager::MetricsServicesManager*
+        metrics_services_manager) {
+  metrics_services_manager_ = metrics_services_manager;
 }
 
 void TestingBrowserProcess::SetMetricsService(
@@ -632,7 +632,8 @@ TestingBrowserProcess::network_time_tracker() {
     network_time_tracker_ = std::make_unique<network_time::NetworkTimeTracker>(
         std::unique_ptr<base::Clock>(new base::DefaultClock()),
         std::unique_ptr<base::TickClock>(new base::DefaultTickClock()),
-        local_state(), nullptr, std::nullopt);
+        local_state(), nullptr,
+        network_time::NetworkTimeTracker::FETCHES_ON_DEMAND_ONLY);
   }
   return network_time_tracker_.get();
 }

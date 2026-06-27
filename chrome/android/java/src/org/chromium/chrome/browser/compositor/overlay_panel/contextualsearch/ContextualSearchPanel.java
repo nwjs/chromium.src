@@ -40,12 +40,14 @@ import org.chromium.chrome.browser.contextualsearch.ResolvedSearchTerm.CardTag;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneOverlayLayer;
+import org.chromium.chrome.browser.overlay_panel.PanelState;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
@@ -130,7 +132,7 @@ public class ContextualSearchPanel extends OverlayPanel implements SideUiObserve
     private boolean mHasContentBeenTouched;
 
     /** The compositor layer used for drawing the panel. */
-    private final ContextualSearchSceneLayer mSceneLayer;
+    private ContextualSearchSceneLayer mSceneLayer;
 
     /**
      * A ScrimManager for adjusting the Status Bar's brightness when a scrim is present (when the
@@ -372,9 +374,14 @@ public class ContextualSearchPanel extends OverlayPanel implements SideUiObserve
 
     @Override
     public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
+        int leftWidth = sideUiSpecs.getWidth(AnchorSide.LEFT);
+        int rightWidth = sideUiSpecs.getWidth(AnchorSide.RIGHT);
+        int startMargin = LocalizationUtils.isLayoutRtl() ? rightWidth : leftWidth;
+        int endMargin = LocalizationUtils.isLayoutRtl() ? leftWidth : rightWidth;
+
         setLayoutMargins(
-                sideUiSpecs.mStartContainerWidth * mPxToDp,
-                sideUiSpecs.mEndContainerWidth * mPxToDp);
+                /* layoutMarginStart= */ startMargin * mPxToDp,
+                /* layoutMarginEnd= */ endMargin * mPxToDp);
         resizePanelContentView();
     }
 
@@ -454,10 +461,15 @@ public class ContextualSearchPanel extends OverlayPanel implements SideUiObserve
     }
 
     @Override
+    @SuppressWarnings("NullAway")
     public void destroy() {
         if (mSideUiStateProvider != null) {
             mSideUiStateProvider.removeObserver(this);
             mSideUiStateProvider = null;
+        }
+        if (mSceneLayer != null) {
+            mSceneLayer.destroy();
+            mSceneLayer = null;
         }
         super.destroy();
     }

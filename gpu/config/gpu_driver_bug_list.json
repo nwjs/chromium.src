@@ -3101,36 +3101,6 @@
       ]
     },
     {
-      "id": 430,
-      "cr_bugs": [
-        341327464
-      ],
-      "description": "Block all Intel NPU drivers versions less than 4404 except those between 3159 and 4023 for WebNN",
-      "vendor_id": "0x8086",
-      "driver_version": {
-        "op": "<",
-        "value": "32.0.100.4404"
-      },
-      "os": {
-        "type": "win"
-      },
-      "multi_gpu_category": "npu",
-      "exceptions": [
-        {
-          "multi_gpu_category": "npu",
-          "vendor_id": "0x8086",
-          "driver_version": {
-            "op": "between",
-            "value": "32.0.100.3159",
-            "value2": "32.0.100.4023"
-          }
-        }
-      ],
-      "features": [
-        "disable_webnn_for_npu"
-      ]
-    },
-    {
       "id": 431,
       "cr_bugs": [
         1501767
@@ -3758,6 +3728,19 @@
     },
     {
       "id": 475,
+      "description": "Disable accelerated video decoding on AMD Strix Halo to prevent kernel hanging",
+      "cr_bugs": [447709687],
+      "os": {
+        "type": "linux"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x1586"],
+      "features": [
+        "disable_vaapi"
+      ]
+    },
+    {
+      "id": 476,
       "description": "Qualcomm GPUs crash when invalidating incomplete framebuffers",
       "cr_bugs": [507508103],
       "os": {
@@ -3770,6 +3753,31 @@
       },
       "features": [
         "dont_invalidate_incomplete_fbos"
+      ]
+    },
+    {
+      "id": 477,
+      "description": "Recreate FBO upon flush/finish/fencesync under certain conditions on Qualcomm GPUs",
+      "gl_vendor": "Qualcomm.*",
+      "driver_version": {
+        "op": "<",
+        "value": "878"
+      },
+      "features": [
+        "recreate_fbo_upon_flush"
+      ]
+    },
+    {
+      "id": 478,
+      "description": "Program binaries don't contain transform feedback varyings on Mali GPUs",
+      "cr_bugs": [510589906],
+      "os": {
+        "type": "linux"
+      },
+      "gl_vendor": "ARM.*",
+      "gl_renderer": "Mali.*",
+      "features": [
+        "disable_program_caching_for_transform_feedback"
       ]
     }
   ]

@@ -42,12 +42,16 @@ source_set("actor") {
 
   public_deps = [
     "//base",
-    "//components/page_content_annotations/content/renderer",
+    "//components/actor/core:task_id",
     "//content/public/renderer",
   ]
 
   deps = [
     "//chrome/common",
+    "//components/actor/core:journal",
+    "//components/actor/core:logging",
+    "//components/page_content_annotations/content/renderer",
+    "//components/page_content_annotations/core",
     "//third_party/blink/public:blink",
   ]
 }

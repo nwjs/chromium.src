@@ -209,6 +209,12 @@ public class FirstRunIntegrationTest {
 
         FirstRunActivity.disableAnimationForTesting(false);
         FirstRunStatus.setFirstRunSkippedByPolicy(false);
+
+        for (ActivityMonitor monitor : mMonitorMap.values()) {
+            mInstrumentation.removeMonitor(monitor);
+        }
+        mMonitorMap.clear();
+        mLastActivity = null;
     }
 
     private ActivityMonitor getMonitor(Class activityClass) {
@@ -681,6 +687,7 @@ public class FirstRunIntegrationTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisabledTest(message = "crbug.com/430594808")
     public void managedAccountContinueButtonClickShowsManagementNotice() {
         mSigninTestRule.addAccount(TestAccounts.MANAGED_ACCOUNT);
         initializePreferences(new FirstRunPagesTestCase().setShouldShowHistorySyncPromo(true));

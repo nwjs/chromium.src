@@ -22,12 +22,14 @@
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "components/contextual_tasks/public/query_contextualizer.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
+#include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox.mojom-shared.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/common/omnibox_focus_state.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/native_ui_types.h"
@@ -54,7 +56,7 @@ class OmniboxEditModel {
           const std::u16string& user_text,
           const std::u16string& keyword,
           const std::u16string& keyword_placeholder,
-          bool is_keyword_hint,
+          KeywordState keyword_state,
           metrics::OmniboxEventProto::KeywordModeEntryMethod
               keyword_mode_entry_method,
           OmniboxFocusState focus_state,
@@ -67,7 +69,7 @@ class OmniboxEditModel {
     const std::u16string user_text;
     const std::u16string keyword;
     const std::u16string keyword_placeholder;
-    const bool is_keyword_hint;
+    const KeywordState keyword_state;
     metrics::OmniboxEventProto::KeywordModeEntryMethod
         keyword_mode_entry_method;
     OmniboxFocusState focus_state;
@@ -113,6 +115,7 @@ class OmniboxEditModel {
   virtual ~OmniboxEditModel();
 
   void set_view(OmniboxView* view) { view_ = view; }
+  OmniboxView* view() const { return view_; }
   void set_popup_view(OmniboxPopupView* popup_view);
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -259,16 +262,13 @@ class OmniboxEditModel {
                       AutocompleteMatch* match,
                       GURL* alternate_nav_url) const;
 
-  void RecordAiModeButtonClick();
-
   // Navigates to AI Mode, with the contents of the currently selected match, if
-  // any.
-  // `via_keyboard` is set to `true` if AI Mode was invoked via keyboard event
-  // and is set to `false` if AI Mode was invoked via mouse / gesture event.
-  // Virtual for testing.
-  // `via_context_menu` is used to differentiate between users that open
+  // any. `via_keyboard` is set to `true` if AI Mode was invoked via keyboard
+  // event and is set to `false` if AI Mode was invoked via mouse / gesture
+  // event. `via_context_menu` is used to differentiate between users that open
   // the popup via the AI mode button vs context menu and allow for the popup
   // to open rather than navigate to the Google AI page when context is added.
+  // Virtual for testing.
   virtual void OpenAiMode(bool via_keyboard, bool via_context_menu);
 
   // Returns true if the popup is open and is in in AI-Mode.
@@ -307,14 +307,21 @@ class OmniboxEditModel {
   }
 
   // Accessors for keyword-related state (see comments on `keyword_`,
-  // `keyword_placeholder_` and `is_keyword_hint_`).
+  // `keyword_placeholder_` and `keyword_state_`).
   const std::u16string& keyword() const { return keyword_; }
   const std::u16string& keyword_placeholder() const {
     return keyword_placeholder_;
   }
-  bool is_keyword_hint() const { return is_keyword_hint_; }
+
+  bool is_keyword_hint() const { return is_keyword_hint(keyword_state_); }
   bool is_keyword_selected() const {
-    return !is_keyword_hint_ && !keyword_.empty();
+    return is_keyword_selected(keyword_state_);
+  }
+  static bool is_keyword_hint(KeywordState keyword_state) {
+    return keyword_state == KeywordState::kHint;
+  }
+  static bool is_keyword_selected(KeywordState keyword_state) {
+    return keyword_state == KeywordState::kKeyword;
   }
 
   // Accepts the current keyword hint as a keyword. `entry_method` indicates how
@@ -417,9 +424,10 @@ class OmniboxEditModel {
   //   `destination_for_temporary_text_change` is NULL (if temporary text should
   //     not change) or the pre-change destination URL (if temporary text should
   //     change) so we can save it off to restore later.
-  //   `keyword` is the keyword to show a hint for if `is_keyword_hint` is true,
-  //     or the currently selected keyword if `is_keyword_hint` is false (see
-  //     comments on keyword_ and is_keyword_hint_).
+  //   `keyword` is the keyword to show a hint for if `keyword_state` is
+  //     `KeywordState::kHint`, or the currently selected keyword if
+  //     `keyword_state` is `KeywordState::kKeyword` (see comments on `keyword_`
+  //     and `keyword_state_`).
   //   `additional_text` is additional omnibox text to be displayed adjacent to
   //     the omnibox view.
   //   `new_match` is the selected match when the user is changing selection,
@@ -431,7 +439,7 @@ class OmniboxEditModel {
                                   const std::u16string& inline_autocompletion,
                                   const std::u16string& keyword,
                                   const std::u16string& keyword_placeholder,
-                                  bool is_keyword_hint,
+                                  KeywordState keyword_state,
                                   const std::u16string& additional_text,
                                   const AutocompleteMatch& new_match);
 
@@ -697,12 +705,15 @@ class OmniboxEditModel {
   // - youtube[.com] -> youtube |  (a space replaced other text after a keyword)
   // Returns false when pressing space at the end of a keyword *prefix*:
   // - youtub[e.com] -> youtub |
+  // Does not verify the text matched a valid (enabled, substituting, etc)
+  // keyword.
   bool ShouldAcceptKeywordAfterInsertingSpaceAtEnd(
       const std::u16string& new_text);
 
   // Whether the user inserted a space into `old_text` and by doing so created a
   // `new_text` that looks like "<keyword> <search phrase>":
   // - youtube|query -> youtube |query
+  // Does verify the text matched a valid (enabled, substituting, etc) keyword.
   bool ShouldAcceptKeywordAfterInsertingSpaceInMiddle(
       std::u16string_view old_text,
       std::u16string_view new_text,
@@ -733,10 +744,12 @@ class OmniboxEditModel {
   // primary data source, this should not be called when there's no view.
   std::u16string GetText() const;
 
-  // Always use these to set keyword members instead of mutating them directly.
-  void SetKeyword(const std::u16string& keyword);
-  void SetKeywordPlaceholder(const std::u16string& keyword_placeholder);
-  void SetIsKeywordHint(bool is_keyword_hint);
+  // Always use this to set keyword members instead of mutating them directly.
+  void SetKeywordInfo(KeywordState keyword_state,
+                      const std::u16string& keyword,
+                      const std::u16string& keyword_placeholder,
+                      metrics::OmniboxEventProto::KeywordModeEntryMethod
+                          keyword_mode_entry_method);
 
   // Record various UMA metrics associated with the AIM page action.
   // `query_text` represents the text entered by the user at activation time.
@@ -747,21 +760,47 @@ class OmniboxEditModel {
                            bool activated,
                            bool via_keyboard);
 
-  void OnContextualizationComplete(
+  // TODO(niharm): Add comment.
+  void RecordAiModeButtonClick();
+
+  // Helper for `OpenAiMode()` to determine whether the AIM popup should open or
+  // a navigation should occur.
+  bool ShouldOpenAimPopup(bool via_context_menu,
+                          AutocompleteMatchType::Type current_match_type);
+
+  // Helper for `OpenAiMode()` to initialize `query_contextualizer_`. No-op if
+  // called before. `query_contextualizer_` may be null after this is called.
+  void InitializeQueryContextualizerIfNeeded();
+
+  // TODO(hujasonx): Add comment.
+  // Helper for `InitializeQueryContextualizerIfNeeded()`...
+  contextual_search::ContextualSearchSessionHandle*
+  GetOrCreateContextualSearchSessionHandle(Profile* profile);
+
+  // TODO(hujasonx): Add comment.
+  // Helper for `OpenAiMode()`...
+  void NavigateToAiModeWithContextualizer(std::u16string query_text);
+
+  // TODO(hujasonx): Add comment and possibly rename.
+  // Helper for `OpenAiMode()`...
+  void NavigateToAiModeWithContextualizerOnContextualizationComplete(
       const std::u16string& query_text,
       WindowOpenDisposition disposition,
       base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
           session_handle);
 
-  contextual_search::ContextualSearchSessionHandle*
-  GetOrCreateContextualSearchSessionHandle(Profile* profile);
-
-  void NavigateToUrlWithSession(
+  // TODO(hujasonx): Add comment and possibly rename.
+  // Helper for `OpenAiMode()`...
+  void NavigateToAiModeWithContextualizerNavigateToUrlWithSession(
       base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
           session_handle,
       const std::u16string& query_text,
       WindowOpenDisposition disposition,
       GURL url);
+
+  // Helper for `OpenAiMode()` to navigate to the DSE's AI mode page without
+  // including context.
+  void NavigateToAiModeWithoutContextualizer(std::u16string query_text);
 
   // Owns this.
   const raw_ptr<OmniboxController> controller_;
@@ -861,20 +900,20 @@ class OmniboxEditModel {
   // whether to trigger "ctrl-enter" behavior.
   ControlKeyState control_key_state_ = ControlKeyState::kUp;
 
+  // True if the keyword associated with this match is merely a hint, i.e. the
+  // user hasn't actually selected a keyword yet.  When this is true, we can use
+  // keyword_ to show a "Press <tab> to search" sort of hint.
+  KeywordState keyword_state_ = KeywordState::kNone;
+
   // The keyword associated with the current match.  The user may have an actual
   // selected keyword, or just some input text that looks like a keyword (so we
   // can show a hint to press <tab>).  This is the keyword in either case;
-  // is_keyword_hint_ (below) distinguishes the two cases.
+  // `keyword_state_` (below) distinguishes the two cases.
   std::u16string keyword_;
 
   // The placeholder text displayed for the keyword the user has selected.
   // Usually empty. Only used when the user input is empty.
   std::u16string keyword_placeholder_;
-
-  // True if the keyword associated with this match is merely a hint, i.e. the
-  // user hasn't actually selected a keyword yet.  When this is true, we can use
-  // keyword_ to show a "Press <tab> to search" sort of hint.
-  bool is_keyword_hint_ = false;
 
   // Indicates how the user entered keyword mode if the user is actually in
   // keyword mode.  Otherwise, the value of this variable is INVALID.  This

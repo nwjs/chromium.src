@@ -60,7 +60,7 @@
 #include "cc/trees/layer_tree_mutator.h"
 #include "cc/trees/layer_tree_settings.h"
 #include "cc/trees/managed_memory_policy.h"
-#include "cc/trees/mutator_host_client.h"
+#include "cc/trees/mutator_host_delegate.h"
 #include "cc/trees/presentation_time_callback_buffer.h"
 #include "cc/trees/raster_capabilities.h"
 #include "cc/trees/render_frame_metadata.h"
@@ -98,7 +98,6 @@ class DebugRectHistory;
 class EvictionTilePriorityQueue;
 class ImageAnimationController;
 class ImageDecodeCache;
-class LCDTextMetricsReporter;
 class LatencyInfoSwapPromiseMonitor;
 class LayerContext;
 class LayerImpl;
@@ -136,8 +135,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                                     public BrowserControlsOffsetManagerClient,
                                     public ScrollbarAnimationControllerClient,
                                     public VideoFrameControllerClient,
-                                    public MutatorHostClient,
-                                    public ImageAnimationController::Client,
+                                    public MutatorHostDelegate,
+                                    public ImageAnimationController::Delegate,
                                     public CompositorDelegateForInput,
                                     public EventLatencyTracker {
  public:
@@ -202,11 +201,11 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                              base::TimeTicks scroll_timestamp);
   bool OnlyExpandTopControlsAtPageTop() const override;
   bool HaveRootScrollNode() const override;
-  void SetNeedsCommit() override;
+  void SetNeedsCommit(
+      BeginMainFrameReason reason = BeginMainFrameReason::kOther) override;
   base::TimeDelta CurrentFrameInterval() const override;
-  float RenderedDeviceScaleFactor() const override;
 
-  // ImageAnimationController::Client implementation.
+  // ImageAnimationController::Delegate implementation.
   void RequestBeginFrameForAnimatedImages() override;
   void RequestInvalidationForAnimatedImages() override;
 
@@ -233,7 +232,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool Mutate(base::TimeTicks monotonic_time);
   void ActivateAnimations();
   void Animate();
-  void AnimatePendingTreeAfterCommit();
   void DidAnimateScrollOffset();
   void SetFullViewportDamage();
   void SetViewportDamage(const gfx::Rect& damage_rect);
@@ -338,6 +336,15 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
     return may_throttle_if_undrawn_frames_;
   }
 
+  void SetScreenshotDestinationToken(base::UnguessableToken token) {
+    screenshot_destination_ = std::move(token);
+  }
+  base::UnguessableToken TakeScreenshotDestinationToken() {
+    base::UnguessableToken token = std::move(screenshot_destination_);
+    screenshot_destination_ = base::UnguessableToken();
+    return token;
+  }
+
   // Analogous to a commit, this function is used to create a sync tree and
   // add impl-side invalidations to it.
   // virtual for testing.
@@ -351,7 +358,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool InProtectedSequence() const override;
   void WaitForProtectedSequenceCompletion() const override;
 
-  // MutatorHostClient implementation.
+  // MutatorHostDelegate implementation.
   bool IsElementInPropertyTrees(ElementId element_id,
                                 ElementListType list_type) const override;
   void SetMutatorsNeedCommit() override;
@@ -413,9 +420,11 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void DidDrawAllLayers(const FrameData& frame);
 
   // Pushes differential updates to the display tree via a LayerContext.
-  base::TimeTicks UpdateDisplayTree(FrameData& frame,
-                                    std::vector<ui::LatencyInfo> latency_info,
-                                    bool is_flush = false);
+  base::TimeTicks UpdateDisplayTree(
+      FrameData& frame,
+      std::vector<ui::LatencyInfo> latency_info,
+      viz::TrackedElementRects tracked_element_rects,
+      bool is_flush = false);
 
   // Synchronizes the current tree state to Viz without triggering a draw.
   void FlushDisplayTree();
@@ -439,6 +448,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   // Resets all of the trees to an empty state.
   void ResetTreesForTesting();
+
+  virtual void DidSendEarlyFinalBeginMainFrame();
 
   size_t SourceAnimationFrameNumberForTesting() const;
 
@@ -558,6 +569,15 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   ImageDecodeCache* GetImageDecodeCache() const;
 
   uint32_t next_frame_token() const;
+
+  void set_tracked_element_rects_from_client(
+      viz::TrackedElementRects tracked_element_rects) {
+    tracked_element_rects_from_client_ = std::move(tracked_element_rects);
+  }
+
+  const viz::TrackedElementRects& tracked_element_rects_from_client() const {
+    return tracked_element_rects_from_client_;
+  }
 
   // Buffers `callback` until a relevant presentation feedback arrives, at which
   // point the callback will be posted to run on the main thread. A presentation
@@ -879,7 +899,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
       RasterDarkModeFilter* dark_mode_filter,
       int id,
       scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
-      LayerTreeHostSchedulingClient* scheduling_client);
+      LayerTreeHostSchedulingDelegate* scheduling_delegate);
 
   // Virtual for testing.
   virtual bool AnimateLayers(base::TimeTicks monotonic_time,
@@ -897,7 +917,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   static void RemoveRenderPasses(FrameData* frame);
 
   const raw_ptr<LayerTreeHostImplDelegate> delegate_;
-  const raw_ptr<LayerTreeHostSchedulingClient> scheduling_client_;
+  const raw_ptr<LayerTreeHostSchedulingDelegate> scheduling_delegate_;
   const raw_ptr<TaskRunnerProvider> task_runner_provider_;
 
   BeginFrameTracker current_begin_frame_tracker_;
@@ -919,23 +939,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void AnimateInternal();
 
   void RenewTreePriority();
-
-  // The function is called to update state on the sync tree after a commit
-  // finishes or after the sync tree was created to invalidate content on the
-  // impl thread.
-  void UpdateSyncTreeAfterCommitOrImplSideInvalidation();
-
-  // Returns a job map for all 'dirty' PaintWorklets, e.g. PaintWorkletInputs
-  // that do not map to a PaintRecord.
-  PaintWorkletJobMap GatherDirtyPaintWorklets(PaintImageIdFlatSet*) const;
-
-  // Called when all PaintWorklet results are ready (i.e. have been painted) for
-  // the current pending tree.
-  void OnPaintWorkletResultsReady(PaintWorkletJobMap results);
-
-  // Called when the pending tree has been fully painted, i.e. all required data
-  // is available to raster the tree.
-  void NotifyPendingTreeFullyPainted();
 
   void UpdateRasterCapabilities();
 
@@ -1228,10 +1231,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // <meta name="viewport" content="initial-scale=1.0">
   bool is_viewport_mobile_optimized_ = false;
 
-  // If true, forwards a request to viz/ to use ADPF's
-  // setPreferEfficientScheduling API on Android. No-op for other platforms.
-  bool prefer_efficient_scheduling_ = false;
-
   bool prefers_reduced_motion_ = false;
 
   bool may_throttle_if_undrawn_frames_ = true;
@@ -1304,8 +1303,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   EventsMetricsManager events_metrics_manager_;
 
-  std::unique_ptr<LCDTextMetricsReporter> lcd_text_metrics_reporter_;
-
   bool has_input_for_frame_interval_ = false;
   DelayedUniqueNotifier has_input_resetter_;
   bool has_non_fling_input_since_last_frame_ = false;
@@ -1322,7 +1319,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   ThrottleDecider throttle_decider_;
 
   bool downsample_metrics_ = true;
-  base::MetricsSubSampler metrics_subsampler_;
 
   // See `CommitState::screenshot_destination_token`.
   base::UnguessableToken screenshot_destination_;
@@ -1366,6 +1362,10 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // InputDelegate, which normally provides this information, is not present
   // in the Viz process.
   bool is_handling_interaction_from_client_ = false;
+
+  // Only used in TreesInViz mode. Stores tracked element rects passed from the
+  // client so that they can be added to generated frame metadata in Viz.
+  viz::TrackedElementRects tracked_element_rects_from_client_;
 
   // Settings whether we dump generated compositor frame during DrawLayers.
   // They are for debug purposes for TreesInViz and TreeAnimationsInViz.

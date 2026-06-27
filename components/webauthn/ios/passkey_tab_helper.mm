@@ -6,6 +6,7 @@
 
 #import "base/check_deref.h"
 #import "base/debug/dump_without_crashing.h"
+#import "base/functional/callback.h"
 #import "base/logging.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/notreached.h"
@@ -188,10 +189,15 @@ void PasskeyTabHelper::HandleGetRequestedEvent(AssertionRequestParams params) {
     return;
   }
 
+  if (!passkey_model_->IsReady()) {
+    requests_waiting_for_passkey_model_.emplace_back(std::move(params));
+    return;
+  }
+
   web::WebFrame* web_frame = GetWebFrame(request_info.frame_id);
   if (!web_frame) {
     // Buffer this request until the frame becomes available.
-    pending_requests_by_frame_[request_info.frame_id].emplace_back(
+    requests_waiting_for_web_frame_[request_info.frame_id].emplace_back(
         std::move(params));
     return;
   }
@@ -203,6 +209,12 @@ void PasskeyTabHelper::HandleGetRequestedEvent(web::WebFrame* web_frame,
                                                AssertionRequestParams params) {
   const std::string& passkey_request_id = params.RequestId();
   const PasskeyRequestParams::RequestType request_type = params.Type();
+  if (OriginAllowedToMakeWebAuthnRequests(web_frame->GetSecurityOrigin()) !=
+      ValidationStatus::kSuccess) {
+    DeferToRenderer(web_frame, passkey_request_id, request_type);
+    return;
+  }
+
   CHECK(!passkey_request_id.empty());
   CHECK(web_frame);
   CHECK(request_type == PasskeyRequestParams::RequestType::kConditionalGet ||
@@ -224,15 +236,36 @@ void PasskeyTabHelper::HandleGetRequestedEvent(web::WebFrame* web_frame,
 }
 
 void PasskeyTabHelper::HandleAssertion(AssertionRequestParams params) {
+  std::optional<autofill::RemoteFrameToken> remote_frame_token =
+      params.RemoteFrameToken();
+
+  if (!remote_frame_token.has_value()) {
+    DeferToRenderer(params.RequestInfo(), params.Type());
+    return;
+  }
+
+  auto get_delegate_callback =
+      base::BindOnce(&PasskeyTabHelper::OnWebAuthnCredentialsDelegateResolved,
+                     weak_factory_.GetWeakPtr(), std::move(params));
+
+  IOSWebAuthnCredentialsDelegateFactory::GetFactory(web_state_.get())
+      ->GetDelegateForRemoteFrameToken(*remote_frame_token,
+                                       std::move(get_delegate_callback));
+}
+
+void PasskeyTabHelper::OnWebAuthnCredentialsDelegateResolved(
+    AssertionRequestParams params,
+    IOSWebAuthnCredentialsDelegate* delegate) {
+  if (!delegate) {
+    // On a malformed or empty remote frame ID, defer to renderer.
+    DeferToRenderer(params.RequestInfo(), params.Type());
+    return;
+  }
+
   // Get available passkeys for the request.
   std::vector<password_manager::PasskeyCredential> filtered_passkeys =
       password_manager::PasskeyCredential::FromCredentialSpecifics(
           GetFilteredPasskeys(params));
-
-  IOSWebAuthnCredentialsDelegate* delegate =
-      IOSWebAuthnCredentialsDelegateFactory::GetFactory(web_state_.get())
-          ->GetDelegateForFrameId(params.FrameId());
-  CHECK(delegate);
 
   const std::string& passkey_request_id = params.RequestId();
   // Send available passkeys to the WebAuthnCredentialsDelegate.
@@ -264,6 +297,7 @@ bool PasskeyTabHelper::PerformRemoteRpIdValidation(
     base::OnceCallback<void(ValidationStatus)> callback) {
   std::unique_ptr<RemoteValidation> loader = RemoteValidation::Create(
       origin, rp_id, web_state_->GetBrowserState()->GetSharedURLLoaderFactory(),
+      /*content_security_policies=*/{}, base::OnceClosure(),
       std::move(callback));
   if (loader) {
     loaders_[passkey_request_id] = std::move(loader);
@@ -307,10 +341,15 @@ void PasskeyTabHelper::HandleCreateRequestedEvent(
     return;
   }
 
+  if (!passkey_model_->IsReady()) {
+    requests_waiting_for_passkey_model_.emplace_back(std::move(params));
+    return;
+  }
+
   web::WebFrame* web_frame = GetWebFrame(request_info.frame_id);
   if (!web_frame) {
     // Buffer this request until the frame becomes available.
-    pending_requests_by_frame_[request_info.frame_id].emplace_back(
+    requests_waiting_for_web_frame_[request_info.frame_id].emplace_back(
         std::move(params));
     return;
   }
@@ -323,15 +362,16 @@ void PasskeyTabHelper::HandleCreateRequestedEvent(
     RegistrationRequestParams params) {
   const std::string& passkey_request_id = params.RequestId();
   const PasskeyRequestParams::RequestType request_type = params.Type();
+  if (OriginAllowedToMakeWebAuthnRequests(web_frame->GetSecurityOrigin()) !=
+      ValidationStatus::kSuccess) {
+    DeferToRenderer(web_frame, passkey_request_id, request_type);
+    return;
+  }
+
   CHECK(!passkey_request_id.empty());
   CHECK(web_frame);
   CHECK(request_type == PasskeyRequestParams::RequestType::kConditionalCreate ||
         request_type == PasskeyRequestParams::RequestType::kModal);
-
-  if (HasExcludedPasskey(params)) {
-    DeferToRenderer(web_frame, passkey_request_id, request_type);
-    return;
-  }
 
   const url::Origin& origin = web_frame->GetSecurityOrigin();
   const std::string& rp_id = params.RpId();
@@ -374,8 +414,12 @@ bool PasskeyTabHelper::CanPerformAutomaticPasskeyUpgrade(
 
 void PasskeyTabHelper::HandleRegistration(RegistrationRequestParams params) {
   IOSPasskeyClient::RequestInfo request_info = params.RequestInfo();
-
   PasskeyRequestParams::RequestType request_type = params.Type();
+
+  if (HasExcludedPasskey(params)) {
+    DeferToRenderer(std::move(request_info), request_type);
+    return;
+  }
 
   // This check is performed after the Incognito interstitial (if applicable)
   // has been shown and the user has chosen to proceed. This is intentional
@@ -418,6 +462,9 @@ bool PasskeyTabHelper::HasPendingValidationForTesting() const {
 
 bool PasskeyTabHelper::HasCredential(const std::string& rp_id,
                                      const std::string& credential_id) const {
+  if (!passkey_model_->IsReady()) {
+    return false;
+  }
   return passkey_model_
       ->GetPasskey(rp_id, credential_id,
                    webauthn::PasskeyModel::ShadowedCredentials::kExclude)
@@ -442,11 +489,28 @@ PasskeyTabHelper::PasskeyTabHelper(
               web_state)) {
     web_frames_manager->AddObserver(this);
   }
+
+  passkey_model_observation_.Observe(&passkey_model_.get());
 }
 
 void PasskeyTabHelper::SetIOSPasskeyClientCommandsHandler(
     id<IOSPasskeyClientCommands> handler) {
   client_->SetIOSPasskeyClientCommandsHandler(handler);
+}
+
+PasskeyTabHelper::FrameHierarchy PasskeyTabHelper::GetFrameHierarchy(
+    web::WebFrame* web_frame) const {
+  web::WebFramesManager* web_frames_manager =
+      PasskeyJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          web_state_.get());
+  web::WebFrame* main_frame =
+      web_frames_manager ? web_frames_manager->GetMainWebFrame() : nullptr;
+  url::Origin top_origin =
+      main_frame ? main_frame->GetSecurityOrigin() : url::Origin();
+  bool is_cross_origin_iframe =
+      !web_frame ||
+      !web_frame->GetSecurityOrigin().IsSameOriginWith(top_origin);
+  return FrameHierarchy{top_origin, is_cross_origin_iframe};
 }
 
 web::WebFrame* PasskeyTabHelper::GetWebFrame(
@@ -559,11 +623,13 @@ void PasskeyTabHelper::StartPasskeyCreation(std::string request_id) {
     return;
   }
 
-  // TODO(crbug.com/460485333): Use proper top origin.
+  PasskeyTabHelper::FrameHierarchy frame_hierarchy =
+      GetFrameHierarchy(web_frame);
+
   std::string client_data_json = BuildClientDataJson(
       {ClientDataRequestType::kWebAuthnCreate, web_frame->GetSecurityOrigin(),
-       /*top_origin=*/url::Origin(), params.Challenge(),
-       /*is_cross_origin_iframe=*/false},
+       frame_hierarchy.top_origin, params.Challenge(),
+       frame_hierarchy.is_cross_origin_iframe},
       /*payment_json=*/std::nullopt);
 
   client_->FetchKeys(ReauthenticatePurpose::kEncrypt,
@@ -674,6 +740,23 @@ std::string PasskeyTabHelper::UsernameForRequest(
   return "";
 }
 
+std::string PasskeyTabHelper::RelyingPartyIdForRequest(
+    const std::string& request_id) {
+  // Check registration requests first.
+  auto registration_it = registration_requests_.find(request_id);
+  if (registration_it != registration_requests_.end()) {
+    return registration_it->second.RpId();
+  }
+
+  // Check assertion requests next.
+  auto assertion_it = assertion_requests_.find(request_id);
+  if (assertion_it != assertion_requests_.end()) {
+    return assertion_it->second.RpId();
+  }
+
+  return "";
+}
+
 std::optional<bool> PasskeyTabHelper::ShouldPerformUserVerification(
     const std::string& request_id,
     bool is_biometric_authentication_enabled) const {
@@ -754,11 +837,13 @@ void PasskeyTabHelper::StartPasskeyAssertion(std::string request_id,
     return;
   }
 
-  // TODO(crbug.com/460485333): Use proper top origin.
+  PasskeyTabHelper::FrameHierarchy frame_hierarchy =
+      GetFrameHierarchy(web_frame);
+
   std::string client_data_json = BuildClientDataJson(
       {ClientDataRequestType::kWebAuthnGet, web_frame->GetSecurityOrigin(),
-       /*top_origin=*/url::Origin(), params.Challenge(),
-       /*is_cross_origin_iframe=*/false},
+       frame_hierarchy.top_origin, params.Challenge(),
+       frame_hierarchy.is_cross_origin_iframe},
       /*payment_json=*/std::nullopt);
 
   client_->FetchKeys(
@@ -831,14 +916,14 @@ void PasskeyTabHelper::WebFrameBecameAvailable(
   }
   const std::string frame_id = web_frame->GetFrameId();
 
-  auto it = pending_requests_by_frame_.find(frame_id);
-  if (it == pending_requests_by_frame_.end()) {
+  auto it = requests_waiting_for_web_frame_.find(frame_id);
+  if (it == requests_waiting_for_web_frame_.end()) {
     return;
   }
 
   // Move out the pending vector to process without reentrancy issues.
   std::vector<PendingRequest> pending = std::move(it->second);
-  pending_requests_by_frame_.erase(it);
+  requests_waiting_for_web_frame_.erase(it);
 
   for (auto& request : pending) {
     if (std::holds_alternative<AssertionRequestParams>(request)) {
@@ -897,6 +982,33 @@ void PasskeyTabHelper::OnGetPasswordStoreResultsOrErrorFrom(
     } else {
       DeferToRenderer(params.RequestInfo(), params.Type());
       registration_requests_.erase(it);
+    }
+  }
+}
+
+void PasskeyTabHelper::OnPasskeysChanged(
+    const std::vector<PasskeyModelChange>& changes) {}
+
+void PasskeyTabHelper::OnPasskeyModelShuttingDown() {
+  passkey_model_observation_.Reset();
+}
+
+void PasskeyTabHelper::OnPasskeyModelIsReady(bool is_ready) {
+  if (!is_ready) {
+    return;
+  }
+
+  std::vector<PendingRequest> pending =
+      std::move(requests_waiting_for_passkey_model_);
+  requests_waiting_for_passkey_model_.clear();
+
+  for (auto& request : pending) {
+    if (std::holds_alternative<AssertionRequestParams>(request)) {
+      HandleGetRequestedEvent(
+          std::move(std::get<AssertionRequestParams>(request)));
+    } else {
+      HandleCreateRequestedEvent(
+          std::move(std::get<RegistrationRequestParams>(request)));
     }
   }
 }

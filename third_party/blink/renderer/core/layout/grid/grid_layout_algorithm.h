@@ -45,9 +45,8 @@ class CORE_EXPORT GridLayoutAlgorithm
       const GridPlacementData& placement_data,
       const GridLayoutData& layout_data,
       const ComputedStyle& grid_style,
-      const BoxStrut& borders,
-      const LogicalSize& border_box_size,
-      GridItemData* out_of_flow_item);
+      const LogicalRect& padding_box_rect,
+      GridItemData* item);
 
   GridLineResolver BuildGridLineResolver(
       const GridArea& subgrid_area = GridArea(),
@@ -64,7 +63,7 @@ class CORE_EXPORT GridLayoutAlgorithm
       GridLayoutData& layout_data,
       SizingConstraint sizing_constraint = SizingConstraint::kLayout,
       bool needs_intrinsic_track_size = false,
-      GridItems** opt_virtual_items = nullptr) const;
+      VirtualItems** opt_virtual_items = nullptr) const;
 
   // `containing_grid_area` is an optional out parameter that holds the computed
   // grid area (offset and size) of the specified grid item.

@@ -233,6 +233,7 @@ void FakeLocalFrame::AddResourceTimingEntryForFailedSubframeNavigation(
     ::base::TimeTicks redirect_time,
     ::base::TimeTicks request_start,
     ::base::TimeTicks response_start,
+    ::base::TimeTicks completion_time,
     uint32_t response_code,
     const std::string& mime_type,
     const ::net::LoadTimingInfo& load_timing_info,
@@ -241,7 +242,7 @@ void FakeLocalFrame::AddResourceTimingEntryForFailedSubframeNavigation(
     bool is_secure_transport,
     bool is_validated,
     const std::string& normalized_server_timing,
-    const ::network::URLLoaderCompletionStatus& completion_status) {}
+    blink::mojom::SubframeResourceLengthsPtr resource_lengths) {}
 
 void FakeLocalFrame::BindFrameHostReceiver(
     mojo::ScopedInterfaceEndpointHandle handle) {
@@ -257,6 +258,17 @@ void FakeLocalFrame::UpdatePrerenderURL(const ::GURL& matched_url,
 void FakeLocalFrame::GetScrollPosition(GetScrollPositionCallback callback) {
   std::move(callback).Run(gfx::Point(0, 0));
 }
+
+void FakeLocalFrame::InvokeScriptToolForInspector(
+    const base::UnguessableToken& invocation_id,
+    const std::string& tool_name,
+    const std::string& input_arguments,
+    InvokeScriptToolForInspectorCallback callback) {
+  std::move(callback).Run(false);
+}
+
+void FakeLocalFrame::NotifyInspectorOfCrossDocumentScriptToolResult(
+    const base::UnguessableToken& invocation_id) {}
 
 #if BUILDFLAG(IS_ANDROID)
 void FakeLocalFrame::PerformFullContentSpellCheck() {}

@@ -10,7 +10,7 @@
 #include <string>
 
 #include "build/build_config.h"
-#include "chrome/common/actor/task_id.h"
+#include "components/actor/core/task_id.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/offline_pages/core/request_header/offline_page_navigation_ui_data.h"
 #include "content/public/browser/navigation_ui_data.h"
@@ -121,7 +121,7 @@ class ChromeNavigationUIData : public content::NavigationUIData {
   bool force_no_https_upgrade_ = false;
 
   // Id of the bookmark which started this navigation.
-  std::optional<int64_t> bookmark_id_ = std::nullopt;
+  std::optional<int64_t> bookmark_id_;
 
   // True if the navigation was initiated in response to a sync message. This is
   // used in tab group sync to identify the sync initiated navigations and

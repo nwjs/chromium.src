@@ -12,6 +12,7 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gtest_util.h"
@@ -24,6 +25,8 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "components/os_crypt/async/browser/test_utils.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -32,13 +35,15 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/sync/base/command_line_switches.h"
+#include "components/sync/base/custom_passphrase_bootstrap_token.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/pref_names.h"
 #include "components/sync/base/sync_util.h"
 #include "components/sync/base/user_selectable_type.h"
-#include "components/sync/engine/nigori/key_derivation_params.h"
 #include "components/sync/engine/sync_status.h"
+#include "components/sync/nigori/key_derivation_params.h"
+#include "components/sync/nigori/required_passphrase_verifier_impl.h"
 #include "components/sync/service/bookmark_sync_error_state.h"
 #include "components/sync/service/sync_service_observer.h"
 #include "components/sync/service/sync_token_status.h"
@@ -70,6 +75,11 @@ using testing::NotNull;
 using testing::Pair;
 using testing::Return;
 using testing::UnorderedElementsAre;
+
+MATCHER_P(MatchesToken, expected_token, "") {
+  return arg.ToProto().SerializeAsString() ==
+         expected_token.ToProto().SerializeAsString();
+}
 
 namespace syncer {
 
@@ -259,7 +269,8 @@ class SyncServiceImplTest : public ::testing::Test {
 
   void TriggerPassphraseRequired() {
     service_->GetEncryptionObserverForTest()->OnPassphraseRequired(
-        KeyDerivationParams::CreateForPbkdf2(), sync_pb::EncryptedData());
+        std::make_unique<RequiredPassphraseVerifierImpl>(
+            KeyDerivationParams::CreateForPbkdf2(), sync_pb::EncryptedData()));
   }
 
   void RunUntilSyncTransportState(SyncService::TransportState expected_state) {
@@ -513,6 +524,58 @@ TEST_F(SyncServiceImplTest, DisabledByPolicyBeforeInitThenPolicyRemoved) {
   EXPECT_TRUE(service()->IsSyncFeatureEnabled());
   EXPECT_TRUE(service()->IsSyncFeatureActive());
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+TEST_F(
+    SyncServiceImplTest,
+    DisabledByPolicyBeforeInit_DisablesOsTypesWhenFlagEnabledAndNoSyncConsent) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
+
+  prefs()->SetManagedPref(prefs::internal::kSyncManaged, base::Value(true));
+  SignInWithoutSyncConsent();
+
+  InitializeService();
+  base::RunLoop().RunUntilIdle();
+
+  // Sync was disabled due to the policy.
+  ASSERT_EQ(SyncService::DisableReasonSet(
+                {SyncService::DISABLE_REASON_ENTERPRISE_POLICY}),
+            service()->GetDisableReasons());
+
+  // It should NOT set SyncFeatureDisabledViaDashboard.
+  EXPECT_FALSE(
+      service()->GetUserSettings()->IsSyncFeatureDisabledViaDashboard());
+
+  // But it should disable OS types.
+  EXPECT_FALSE(service()->GetUserSettings()->IsSyncAllOsTypesEnabled());
+  EXPECT_TRUE(service()->GetUserSettings()->GetSelectedOsTypes().empty());
+}
+
+TEST_F(SyncServiceImplTest,
+       DisabledByPolicyBeforeInit_DoesNotDisableOsTypesWithSyncConsent) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
+
+  prefs()->SetManagedPref(prefs::internal::kSyncManaged, base::Value(true));
+  SignInWithSyncConsent();
+
+  InitializeService();
+  base::RunLoop().RunUntilIdle();
+
+  // Sync was disabled due to the policy.
+  ASSERT_EQ(SyncService::DisableReasonSet(
+                {SyncService::DISABLE_REASON_ENTERPRISE_POLICY}),
+            service()->GetDisableReasons());
+
+  // It should set SyncFeatureDisabledViaDashboard.
+  EXPECT_TRUE(
+      service()->GetUserSettings()->IsSyncFeatureDisabledViaDashboard());
+
+  // But it should NOT disable OS types.
+  EXPECT_TRUE(service()->GetUserSettings()->IsSyncAllOsTypesEnabled());
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Verify that disable by enterprise policy works even after the backend has
 // been initialized.
@@ -772,7 +835,7 @@ TEST_F(
   // This call represents the initial passphrase type coming in from the server.
   service()->PassphraseTypeChanged(PassphraseType::kCustomPassphrase);
 
-#if !(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // UserSelectableType::kAutofill should have been disabled.
   EXPECT_FALSE(service()->GetUserSettings()->GetSelectedTypes().Has(
       UserSelectableType::kAutofill));
@@ -823,7 +886,7 @@ TEST_F(
   // This call represents the initial passphrase type coming in from the server.
   service()->PassphraseTypeChanged(PassphraseType::kCustomPassphrase);
 
-#if !(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // UserSelectableType::kAutofill should have been disabled.
   EXPECT_FALSE(service()->GetUserSettings()->GetSelectedTypes().Has(
       UserSelectableType::kAutofill));
@@ -1586,8 +1649,15 @@ TEST_F(SyncServiceImplTest, DisableSyncOnClientClearsPassphrasePrefForAccount) {
       identity_manager()
           ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
           .gaia;
-  sync_prefs.SetEncryptionBootstrapTokenForAccount("token", gaia_id);
-  ASSERT_EQ("token", sync_prefs.GetEncryptionBootstrapTokenForAccount(gaia_id));
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  CustomPassphraseBootstrapToken token =
+      CustomPassphraseBootstrapToken::CreateFakeForTesting(1);
+
+  sync_prefs.SetEncryptionBootstrapTokenForAccount(token, *encryptor, gaia_id);
+  ASSERT_THAT(
+      sync_prefs.GetEncryptionBootstrapTokenForAccount(*encryptor, gaia_id),
+      MatchesToken(token));
 
   // Clear sync from the dashboard.
   SyncProtocolError client_cmd;
@@ -1598,7 +1668,8 @@ TEST_F(SyncServiceImplTest, DisableSyncOnClientClearsPassphrasePrefForAccount) {
   // The passphrase for account pref cleared when sync is cleared from
   // dashboard.
   EXPECT_TRUE(
-      sync_prefs.GetEncryptionBootstrapTokenForAccount(gaia_id).empty());
+      sync_prefs.GetEncryptionBootstrapTokenForAccount(*encryptor, gaia_id)
+          .IsEmpty());
 }
 
 TEST_F(SyncServiceImplTest,
@@ -1623,8 +1694,15 @@ TEST_F(SyncServiceImplTest,
       identity_manager()
           ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
           .gaia;
-  sync_prefs.SetEncryptionBootstrapTokenForAccount("token", gaia_id);
-  ASSERT_EQ("token", sync_prefs.GetEncryptionBootstrapTokenForAccount(gaia_id));
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  CustomPassphraseBootstrapToken token =
+      CustomPassphraseBootstrapToken::CreateFakeForTesting(1);
+
+  sync_prefs.SetEncryptionBootstrapTokenForAccount(token, *encryptor, gaia_id);
+  ASSERT_THAT(
+      sync_prefs.GetEncryptionBootstrapTokenForAccount(*encryptor, gaia_id),
+      MatchesToken(token));
 
   // Clear sync from the dashboard.
   SyncProtocolError client_cmd;
@@ -1635,7 +1713,8 @@ TEST_F(SyncServiceImplTest,
   // The passphrase for account pref cleared when sync is cleared from
   // dashboard.
   EXPECT_TRUE(
-      sync_prefs.GetEncryptionBootstrapTokenForAccount(gaia_id).empty());
+      sync_prefs.GetEncryptionBootstrapTokenForAccount(*encryptor, gaia_id)
+          .IsEmpty());
 }
 
 TEST_F(SyncServiceImplTest, EncryptionObsoleteClearsPassphrasePrefForAccount) {
@@ -1658,8 +1737,15 @@ TEST_F(SyncServiceImplTest, EncryptionObsoleteClearsPassphrasePrefForAccount) {
       identity_manager()
           ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
           .gaia;
-  sync_prefs.SetEncryptionBootstrapTokenForAccount("token", gaia_id);
-  ASSERT_EQ("token", sync_prefs.GetEncryptionBootstrapTokenForAccount(gaia_id));
+  scoped_refptr<os_crypt_async::Encryptor> encryptor =
+      os_crypt_async::GetTestEncryptorForTesting();
+  CustomPassphraseBootstrapToken token =
+      CustomPassphraseBootstrapToken::CreateFakeForTesting(1);
+
+  sync_prefs.SetEncryptionBootstrapTokenForAccount(token, *encryptor, gaia_id);
+  ASSERT_THAT(
+      sync_prefs.GetEncryptionBootstrapTokenForAccount(*encryptor, gaia_id),
+      MatchesToken(token));
 
   SyncProtocolError client_cmd;
   client_cmd.action = DISABLE_SYNC_ON_CLIENT;
@@ -1668,7 +1754,8 @@ TEST_F(SyncServiceImplTest, EncryptionObsoleteClearsPassphrasePrefForAccount) {
 
   // The passphrase for account pref should be cleared.
   EXPECT_TRUE(
-      sync_prefs.GetEncryptionBootstrapTokenForAccount(gaia_id).empty());
+      sync_prefs.GetEncryptionBootstrapTokenForAccount(*encryptor, gaia_id)
+          .IsEmpty());
 }
 
 // Verify a that local sync mode isn't impacted by sync being disabled.
@@ -1835,6 +1922,45 @@ TEST_F(SyncServiceImplTest, ShouldEnableAndDisableInvalidationsForSessions) {
               SetInterestedDataTypes(Not(ContainsDataType(SESSIONS))));
   service()->SetInvalidationsForSessionsEnabled(false);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+TEST_F(SyncServiceImplTest,
+       ShouldAlwaysSubscribeToSessionsListingsIfFeatureEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kAlwaysRegisterSessionsInvalidationsAndroid);
+
+  AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
+      kTestUser, signin::ConsentLevel::kSignin);
+  SyncPrefs(prefs()).SetSelectedTypeForAccount(UserSelectableType::kTabs, true,
+                                               account_info.gaia);
+
+  std::vector<FakeControllerInitParams> params;
+  params.emplace_back(DEVICE_INFO, /*enable_transport_mode=*/true);
+  params.emplace_back(SESSIONS, /*enable_transport_mode=*/true);
+  InitializeService(std::move(params));
+
+  // SESSIONS should be included regardless of
+  // SetInvalidationsForSessionsEnabled.
+  EXPECT_CALL(*sync_invalidations_service(),
+              SetInterestedDataTypes(ContainsDataType(SESSIONS)));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return service()->GetTransportState() ==
+           SyncService::TransportState::ACTIVE;
+  }));
+
+  // Calling with false should not trigger an update or remove SESSIONS.
+  EXPECT_CALL(*sync_invalidations_service(),
+              SetInterestedDataTypes(Not(ContainsDataType(SESSIONS))))
+      .Times(0);
+
+  service()->SetInvalidationsForSessionsEnabled(false);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return service()->GetTransportState() ==
+           SyncService::TransportState::ACTIVE;
+  }));
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 TEST_F(SyncServiceImplTest, ShouldNotSubscribeToProxyTypes) {
   PopulatePrefsForInitialSyncFeatureSetupComplete();

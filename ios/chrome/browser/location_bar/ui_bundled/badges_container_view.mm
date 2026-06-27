@@ -201,6 +201,14 @@ const CGFloat kSeparatorVerticalPadding = 12.0;
       (state != ContextualPanelEntrypointState::kAvailable);
 }
 
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  if (_badgeBackgroundView) {
+    _badgeBackgroundView.layer.cornerRadius =
+        _badgeBackgroundView.bounds.size.height / 2.0;
+  }
+}
+
 - (void)setIncognitoBadgeView:(UIView*)incognitoBadgeView {
   if (_incognitoBadgeView) {
     return;
@@ -288,7 +296,14 @@ const CGFloat kSeparatorVerticalPadding = 12.0;
     _placeholderView.translatesAutoresizingMaskIntoConstraints = NO;
     SetViewHiddenIfNecessary(_placeholderView, YES);
     [_placeholderViewWrapper addSubview:_placeholderView];
-    AddSameConstraints(_placeholderViewWrapper, _placeholderView);
+    [NSLayoutConstraint activateConstraints:@[
+      [_placeholderView.leadingAnchor
+          constraintEqualToAnchor:_placeholderViewWrapper.leadingAnchor],
+      [_placeholderView.trailingAnchor
+          constraintEqualToAnchor:_placeholderViewWrapper.trailingAnchor],
+      [_placeholderView.centerYAnchor
+          constraintEqualToAnchor:_placeholderViewWrapper.centerYAnchor],
+    ]];
   }
   [self updateViewsVisibility];
 }
@@ -296,7 +311,7 @@ const CGFloat kSeparatorVerticalPadding = 12.0;
 - (void)setIncognito:(BOOL)incognito {
   _incognito = incognito;
   if (IsProactiveSuggestionsFrameworkEnabled()) {
-    if (!incognito) {
+    if (!incognito || IsChromeNextIaEnabled()) {
       if (!_badgeBackgroundView) {
         [self setupUnifiedBadgeBackground];
       }
@@ -337,8 +352,8 @@ const CGFloat kSeparatorVerticalPadding = 12.0;
   if (IsProactiveSuggestionsFrameworkEnabled()) {
     // When framework enabled, reader mode chip visibility follows desired state
     // directly.
-    readerModeChipShouldBeVisibleFinal =
-        _readerModeChipShouldBeVisible && _incognito;
+    readerModeChipShouldBeVisibleFinal = _readerModeChipShouldBeVisible &&
+                                         _incognito && !IsChromeNextIaEnabled();
   } else {
     // The Reader mode chip (which wants to be visible when Reader mode is
     // active) should not be visible if the contextual panel is currently
@@ -451,7 +466,8 @@ const CGFloat kSeparatorVerticalPadding = 12.0;
     [self updateTapOverlayButtonVisibility];
   }
 
-  if (IsProactiveSuggestionsFrameworkEnabled() && _incognito) {
+  if (IsProactiveSuggestionsFrameworkEnabled() && _incognito &&
+      !IsChromeNextIaEnabled()) {
     _containerStackView.userInteractionEnabled = YES;
   }
 }

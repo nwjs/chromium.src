@@ -297,7 +297,7 @@
       <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_SUBTITLE" desc="Subtitle text of the Credential Provider Exention promo. [iOS only]">
         Get easy access to your passwords and passkeys with Chromium for AutoFill
       </message>
-      <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_TITLE_IOS18" desc="Title text of the Credential Provider Exention promo for iOS 18 and above. [iOS only]">
+      <message name="IDS_IOS_CREDENTIAL_PROVIDER_PROMO_TITLE" desc="Title text of the Credential Provider Exention promo for iOS 18 and above. [iOS only]">
         Sign in with your saved passwords &amp; passkeys from any app using Chromium for AutoFill
       </message>
       <message name="IDS_IOS_DATA_NOT_UPLOADED_SWITCH_DIALOG_BODY" desc="Body of a dialog that is shown when the user starts to switch accounts; the user chooses to sync some or all data types, but some data hasn't been saved in their Google Account yet (for example, if there was an error). This string follows the heading 'Some Data Isn't Saved Yet', and the user can choose to tap on the buttons 'Cancel' or 'Delete and Switch'. If the user chooses to continue to switch accounts, then any of their data (such as bookmarks, passwords, history, settings, and more) that isn't saved in their account will be deleted. The tone should be helpful and instructive. [iOS only]">
@@ -755,6 +755,9 @@ Things to consider:
       </message>
       <message name="IDS_IOS_MINI_MAP_URL_FOOTER_STRING" desc="The text of the footer string displayed at the bottom of the native preview for maps links [iOS only].">
         Chromium uses Google Maps to give you directions and local info on maps links
+      </message>
+      <message name="IDS_IOS_NEW_IA_PROMO_IPH_GEMINI_TITLE" desc="Title for the second in-product help bubble suggesting Gemini built-in. [Length: unlimited] [iOS only]">
+        Gemini in Chromium
       </message>
       <message name="IDS_IOS_NEW_SYNC_ENCRYPTION_PASSPHRASE_INFO_UNO" desc="The information text for encrypting sync using a passphrase, shown on the passphrase screen [iOS only]">
         Payment methods and addresses won’t be encrypted. Browsing history from Chromium won’t sync.

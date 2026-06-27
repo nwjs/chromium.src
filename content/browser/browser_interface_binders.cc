@@ -30,6 +30,7 @@
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/browsing_topics/browsing_topics_document_host.h"
+#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/contacts/contacts_manager_impl.h"
 #include "content/browser/content_index/content_index_service_impl.h"
 #include "content/browser/cookie_store/cookie_store_manager.h"
@@ -84,6 +85,8 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/permission_controller.h"
+#include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/service_worker_version_base_info.h"
 #include "content/public/browser/shape_detection_service.h"
@@ -197,6 +200,7 @@
 #include "third_party/blink/public/mojom/storage_access/storage_access_handle.mojom.h"
 #include "third_party/blink/public/mojom/usb/web_usb_service.mojom.h"
 #include "third_party/blink/public/mojom/wake_lock/wake_lock.mojom.h"
+#include "third_party/blink/public/mojom/web_install/web_install.mojom.h"
 #include "third_party/blink/public/mojom/webaudio/audio_context_manager.mojom.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "third_party/blink/public/mojom/webid/digital_identity_request.mojom.h"
@@ -397,12 +401,8 @@ void BindDateTimeChooserForFrame(
 void BindTextSuggestionHostForFrame(
     RenderFrameHost* host,
     mojo::PendingReceiver<blink::mojom::TextSuggestionHost> receiver) {
-  auto* view =
-      RenderWidgetHostViewAndroid::FromRenderWidgetHostView(host->GetView());
-  if (!view || !view->text_suggestion_host())
-    return;
-
-  view->text_suggestion_host()->BindTextSuggestionHost(std::move(receiver));
+  TextSuggestionHostAndroid::GetOrCreateForCurrentDocument(host)
+      ->BindTextSuggestionHost(std::move(receiver));
 }
 #endif
 
@@ -754,6 +754,44 @@ void BindRenderFrameHostImpl(RenderFrameHost* host,
   (RenderFrameHostImpl::From(host)->*Method)(std::move(receiver));
 }
 
+void BindMidiSessionProvider(
+    RenderFrameHost* host,
+    mojo::PendingReceiver<midi::mojom::MidiSessionProvider> receiver) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  BrowserContext* browser_context = host->GetBrowserContext();
+  PermissionController* permission_controller =
+      browser_context->GetPermissionController();
+
+  auto midi_descriptor =
+      PermissionDescriptorUtil::CreatePermissionDescriptorForPermissionType(
+          blink::PermissionType::MIDI);
+  if (permission_controller->GetPermissionStatusForCurrentDocument(
+          midi_descriptor, host) ==
+      blink::mojom::PermissionStatus::GRANTED) {
+    ChildProcessSecurityPolicyImpl::GetInstance()->GrantSendMidiMessage(
+        host->GetProcess()->GetID().GetUnsafeValue());
+  }
+
+  auto midi_sysex_descriptor =
+      PermissionDescriptorUtil::CreatePermissionDescriptorForPermissionType(
+          blink::PermissionType::MIDI_SYSEX);
+  if (permission_controller->GetPermissionStatusForCurrentDocument(
+          midi_sysex_descriptor, host) ==
+      blink::mojom::PermissionStatus::GRANTED) {
+    ChildProcessSecurityPolicyImpl::GetInstance()->GrantSendMidiSysExMessage(
+        host->GetProcess()->GetID().GetUnsafeValue());
+  }
+
+  if (BrowserMainLoop::GetInstance()) {
+    GetIOThreadTaskRunner({})->PostTask(
+        FROM_HERE,
+        base::BindOnce(&MidiHost::BindReceiver, host->GetProcess()->GetID(),
+                       BrowserMainLoop::GetInstance()->midi_service(),
+                       std::move(receiver)));
+  }
+}
+
 }  // namespace
 
 // Documents/frames
@@ -776,6 +814,8 @@ void PopulateBinderMapWithContext(
       &EmptyBinderForFrame<blink::mojom::LCPCriticalPathPredictorHost>);
   map->Add<blink::mojom::ScriptToolHost>(
       &EmptyBinderForFrame<blink::mojom::ScriptToolHost>);
+  map->Add<blink::mojom::WebInstallService>(
+      &EmptyBinderForFrame<blink::mojom::WebInstallService>);
 
   // Currently defined in content/shell/common/shell_switches.h which we cannot
   // have a DEPS on.
@@ -865,8 +905,19 @@ void PopulateBinderMapWithContext(
         &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetFontAccessManager>);
   }
 
-  map->Add<device::mojom::GamepadHapticsManager>(
-      &device::GamepadHapticsManager::Create);
+  map->Add<device::mojom::GamepadHapticsManager>(base::BindRepeating(
+      [](RenderFrameHost* host,
+         mojo::PendingReceiver<device::mojom::GamepadHapticsManager> receiver) {
+        if (!host->IsFeatureEnabled(
+                network::mojom::PermissionsPolicyFeature::kGamepad)) {
+          bad_message::ReceivedBadMessage(
+              host->GetProcess(),
+              bad_message::BadMessageReason::
+                  BIBI_BIND_GAMEPAD_HAPTICS_MANAGER_BLOCKED_BY_PERMISSIONS_POLICY);
+          return;
+        }
+        device::GamepadHapticsManager::Create(host, std::move(receiver));
+      }));
 
   map->Add<blink::mojom::GeolocationService>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetGeolocationService>);
@@ -882,10 +933,7 @@ void PopulateBinderMapWithContext(
   // BrowserMainLoop::GetInstance() may be null on unit tests.
   if (BrowserMainLoop::GetInstance()) {
     map->Add<midi::mojom::MidiSessionProvider>(
-        base::BindRepeating(&MidiHost::BindReceiver,
-                            host->GetProcess()->GetID(),
-                            BrowserMainLoop::GetInstance()->midi_service()),
-        GetIOThreadTaskRunner({}));
+        base::BindRepeating(&BindMidiSessionProvider));
   }
 
   map->Add<media::mojom::MediaPlayerObserverClient>(
@@ -975,7 +1023,19 @@ void PopulateBinderMapWithContext(
       base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE}));
 
-  map->Add<device::mojom::GamepadMonitor>(&device::GamepadMonitor::Create);
+  map->Add<device::mojom::GamepadMonitor>(base::BindRepeating(
+      [](RenderFrameHost* host,
+         mojo::PendingReceiver<device::mojom::GamepadMonitor> receiver) {
+        if (!host->IsFeatureEnabled(
+                network::mojom::PermissionsPolicyFeature::kGamepad)) {
+          bad_message::ReceivedBadMessage(
+              host->GetProcess(),
+              bad_message::BadMessageReason::
+                  BIBI_BIND_GAMEPAD_MONITOR_BLOCKED_BY_PERMISSIONS_POLICY);
+          return;
+        }
+        device::GamepadMonitor::Create(host, std::move(receiver));
+      }));
 
   map->Add<blink::mojom::WebSensorProvider>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetSensorProvider>);
@@ -1014,10 +1074,12 @@ void PopulateBinderMapWithContext(
         BrowserMainLoop::GetInstance()->media_stream_manager();
 
     map->Add<blink::mojom::MediaDevicesDispatcherHost>(
-        base::BindRepeating(&MediaDevicesDispatcherHost::Create,
-                            host->GetMainFrame()->GetGlobalFrameToken(),
-                            host->GetGlobalId(),
-                            base::Unretained(media_stream_manager)),
+        base::BindRepeating(
+            &MediaDevicesDispatcherHost::Create,
+            host->GetMainFrame()->GetGlobalFrameToken(), host->GetGlobalId(),
+            base::Unretained(media_stream_manager),
+            /*is_outermost_main_frame=*/host->GetParentOrOuterDocument() ==
+                nullptr),
         GetIOThreadTaskRunner({}));
 
     map->Add<blink::mojom::MediaStreamDispatcherHost>(

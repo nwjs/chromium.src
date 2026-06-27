@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_keyboard_event_init.h"
@@ -28,6 +29,7 @@
 #include "third_party/blink/renderer/core/testing/null_execution_context.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 using ::testing::Truly;
 
@@ -148,6 +150,39 @@ TEST_F(HTMLInputElementTest, FilteredDataListOptionsDynamicContain) {
   EXPECT_EQ("Hozelock Auto Reel 20m - 2401", options[1]->value().Utf8());
   EXPECT_EQ("Hozelock Auto Reel 30m - 2403", options[2]->value().Utf8());
   EXPECT_EQ("Hozelock Auto Reel 40m - 2595", options[3]->value().Utf8());
+}
+
+TEST_F(HTMLInputElementTest, FilteredDataListOptionsCaseFoldingSharpS) {
+  // Datalist option has Eszett ("ß"), and we want to match it with "ß" input.
+  // The bug was that typing "ß" (8-bit) matched the option, but copy-pasting
+  // "ß" (16-bit) did not (see crbug.com/493179860 for more details).
+
+  // Case A (Simulating Typing): Input is "ß" (8-bit), Option is "ß" (8-bit).
+  // They both fold to "ß" (pre-fix) or both to "ss" (post-fix), so they match.
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <input id=test value="&#xDF;" list=dl_sharps>
+    <datalist id=dl_sharps>
+      <option>&#xDF;</option>
+    </datalist>
+  )HTML");
+  auto options = TestElement().FilteredDataListOptions();
+  EXPECT_EQ(1u, options.size());
+  EXPECT_EQ(0xDF, options[0]->value()[0]);
+
+  // Case B (Simulating Pasting): Input is "ß" (forced 16-bit), Option is "ß"
+  // (8-bit). Previously, 16-bit input folded to "ss" but 8-bit option folded to
+  // "ß", resulting in no match. With the fix, both fold to "ss" and match.
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <input id=test list=dl_sharps2>
+    <datalist id=dl_sharps2>
+      <option>&#xDF;</option>
+    </datalist>
+  )HTML");
+  const UChar sharps_16bit[] = {0xDF, 0};
+  TestElement().SetValue(String(sharps_16bit));
+  options = TestElement().FilteredDataListOptions();
+  EXPECT_EQ(1u, options.size());
+  EXPECT_EQ(0xDF, options[0]->value()[0]);
 }
 
 TEST_F(HTMLInputElementTest, create) {
@@ -520,5 +555,64 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(PasswordFieldResetParam{"password", "some_value", true},
                       PasswordFieldResetParam{"text", "some_value", true},
                       PasswordFieldResetParam{"range", "51", false}));
+
+TEST_F(HTMLInputElementTest, TrackPasswordTrackingElementRect) {
+  ScopedAIPageContentTrackedElementsPasswordForTest scoped_feature(true);
+
+  viz::TrackedElementFeature tracking_feature =
+      viz::TrackedElementFeature::kPasswordTracking;
+
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<input id=test type=password value='abc'>");
+  auto* input = To<HTMLInputElement>(GetDocument().body()->firstChild());
+  ASSERT_TRUE(input);
+
+  EXPECT_TRUE(input->GetTrackedElementSubRect(tracking_feature));
+
+  input->setType(input_type_names::kCheckbox);
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(input->GetTrackedElementSubRect(tracking_feature));
+
+  input->setType(input_type_names::kPassword);
+  GetDocument().UpdateStyleAndLayoutTree();
+  // value is still "abc", so it should track.
+  EXPECT_TRUE(input->GetTrackedElementSubRect(tracking_feature));
+
+  input->SetValue(AtomicString(""));
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(input->GetTrackedElementSubRect(tracking_feature));
+
+  input->SetValue(AtomicString("def"));
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(input->GetTrackedElementSubRect(tracking_feature));
+}
+
+TEST_F(HTMLInputElementTest,
+       TrackPasswordTrackingElementRectJSHeuristicTypeChange) {
+  ScopedAIPageContentTrackedElementsPasswordForTest scoped_feature(true);
+
+  viz::TrackedElementFeature tracking_feature =
+      viz::TrackedElementFeature::kPasswordTracking;
+
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<input id=test type=text>");
+  auto& input = TestElement();
+  GetDocument().UpdateStyleAndLayoutTree();
+
+  // Programmatic value change to a masked pattern triggers tracking.
+  input.SetValue("****a");
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(input.GetTrackedElementSubRect(tracking_feature));
+
+  // Changing to a non-text field should stop tracking.
+  input.setType(input_type_names::kCheckbox);
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(input.GetTrackedElementSubRect(tracking_feature));
+
+  // Changing back to text should resume tracking.
+  input.setType(input_type_names::kText);
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(input.GetTrackedElementSubRect(tracking_feature));
+}
 
 }  // namespace blink

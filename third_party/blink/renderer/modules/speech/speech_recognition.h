@@ -60,6 +60,7 @@ class LocalDOMWindow;
 class MediaStreamTrack;
 class SpeechRecognitionOptions;
 class SpeechRecognitionController;
+class SpeechRecognitionMediaStreamAudioSink;
 class V8ObservableArraySpeechRecognitionPhrase;
 
 class MODULES_EXPORT SpeechRecognition final
@@ -87,6 +88,10 @@ class MODULES_EXPORT SpeechRecognition final
   bool interimResults() const { return interim_results_; }
   void setInterimResults(bool interim_results) {
     interim_results_ = interim_results;
+  }
+  bool unspokenPunctuation() const { return unspoken_punctuation_; }
+  void setUnspokenPunctuation(bool unspoken_punctuation) {
+    unspoken_punctuation_ = unspoken_punctuation;
   }
   unsigned maxAlternatives() const { return max_alternatives_; }
   void setMaxAlternatives(unsigned max_alternatives) {
@@ -171,6 +176,7 @@ class MODULES_EXPORT SpeechRecognition final
   void SchedulePhrasesUpdate();
   void CheckAvailabilityAndStart(ExceptionState* exception_state);
   void StartInternal();
+  void ResetAudioSink();
   void StartController(
       mojo::PendingReceiver<media::mojom::blink::SpeechRecognitionSession>
           session_receiver,
@@ -180,11 +186,13 @@ class MODULES_EXPORT SpeechRecognition final
       std::optional<media::AudioParameters> audio_parameters = std::nullopt);
 
   Member<MediaStreamTrack> stream_track_;
+  Member<SpeechRecognitionMediaStreamAudioSink> audio_sink_;
   Member<SpeechGrammarList> grammars_;
   Member<V8ObservableArraySpeechRecognitionPhrase> phrases_;
   String lang_;
   bool continuous_ = false;
   bool interim_results_ = false;
+  bool unspoken_punctuation_ = false;
   uint32_t max_alternatives_ = 1;
   bool process_locally_ = false;
   V8SpeechRecognitionQuality quality_{

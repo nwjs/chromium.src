@@ -15,6 +15,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/values.h"
 #include "components/multistep_filter/core/data_models/url_filter_suggestion.h"
 #include "url/gurl.h"
 
@@ -81,6 +82,7 @@ class FilterSuggestionGenerator {
       std::string_view domain,
       std::vector<std::vector<FilterAnnotation>> filter_annotations);
   void OnFilterSuggestionCandidatesFetched(
+      const GURL& url,
       base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>
           success_callback,
       base::ScopedClosureRunner failure_callback,
@@ -88,6 +90,9 @@ class FilterSuggestionGenerator {
       int64_t navigation_id,
       std::string_view domain,
       std::optional<std::vector<FilterSuggestionCandidate>> candidates);
+
+  // Loads the cue configuration from file or feature flag.
+  void LoadCueConfig();
 
   // The client used to fetch supported task types and URL filter suggestions.
   // This is a non-owning reference. The lifetime of the `AnnotationIndexClient`
@@ -103,6 +108,9 @@ class FilterSuggestionGenerator {
 
   // Log router for the internals page.
   const raw_ptr<MultistepFilterLogRouter> log_router_;
+
+  // JSON config for cues, loaded from file or Finch.
+  base::DictValue cue_config_;
 
   // This should be kept at the end so that it is the first member to be
   // destroyed.

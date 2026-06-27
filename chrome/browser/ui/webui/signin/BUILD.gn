@@ -405,6 +405,7 @@ if (!is_chromeos) {
       "//chrome/browser:resources",
       "//chrome/browser/enterprise/browser_management:management_identity",
       "//chrome/browser/glic/resources:browser_resources",
+      "//chrome/browser/lifetime",
       "//chrome/browser/new_tab_page",
       "//chrome/browser/new_tab_page/chrome_colors:generate_chrome_colors_info",
       "//chrome/browser/profiles",
@@ -443,6 +444,7 @@ if (!is_chromeos) {
       "//ui/resources",
       "//ui/strings:ui_strings",
       "//ui/webui",
+      "//ui/webui/tracked_element",
       "//url",
     ]
   }

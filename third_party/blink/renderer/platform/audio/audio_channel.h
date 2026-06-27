@@ -59,14 +59,14 @@ class PLATFORM_EXPORT AudioChannel final {
   // Methods for internal allocation.
   bool TryAllocate(uint32_t length);
 
-  void Set(base::span<float> storage, uint32_t length) {
+  void Set(base::span<float> storage) {
     mem_buffer_.reset();  // cleanup managed storage
-    data_span_ = storage.first(length);
+    data_span_ = storage;
     silent_ = false;
   }
 
   // How many sample-frames do we contain?
-  uint32_t length() const { return data_span_.size(); }
+  uint32_t length() const { return static_cast<uint32_t>(data_span_.size()); }
 
   // ResizeSmaller() can only be called with a new length <= the current length.
   // The data stored in the bus will remain undisturbed.

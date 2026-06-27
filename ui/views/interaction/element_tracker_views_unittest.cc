@@ -16,6 +16,7 @@
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
+#include "build/build_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -36,6 +37,10 @@
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
 
 namespace views {
 
@@ -950,6 +955,54 @@ TEST_F(ElementTrackerViewsTest, WidgetShownAfterAdd) {
       kTestElementID, context));
 }
 
+// Check that the element can be found when moving from a hidden container to
+// a visible one.
+TEST_F(ElementTrackerViewsTest, ReparentVisibilityChange) {
+  auto widget = CreateWidget();
+  View* const contents = widget->SetContentsView(std::make_unique<View>());
+  View* const c1 = contents->AddChildView(std::make_unique<View>());
+  View* const c2 = contents->AddChildView(std::make_unique<View>());
+  auto v = std::make_unique<View>();
+  c1->AddChildView(v.get());
+  v->SetProperty(kElementIdentifierKey, kTestElementID);
+  c1->SetVisible(false);
+  c2->SetVisible(true);
+  widget->Show();
+
+  // Since `v` is in invisible `c1`, it shouldn't be found.
+  EXPECT_EQ(nullptr,
+            ElementTrackerViews::GetInstance()->GetElementForView(v.get()));
+
+  // Move `v` from `c1` to `c2`. It should be found now.
+  c2->AddChildView(v.get());
+  EXPECT_NE(nullptr,
+            ElementTrackerViews::GetInstance()->GetElementForView(v.get()));
+}
+
+// Check that the element stops being found when moving from visible container
+// to hidden one.
+TEST_F(ElementTrackerViewsTest, ReparentVisibilityChange2) {
+  auto widget = CreateWidget();
+  View* const contents = widget->SetContentsView(std::make_unique<View>());
+  View* const c1 = contents->AddChildView(std::make_unique<View>());
+  View* const c2 = contents->AddChildView(std::make_unique<View>());
+  auto v = std::make_unique<View>();
+  c1->AddChildView(v.get());
+  v->SetProperty(kElementIdentifierKey, kTestElementID);
+  c1->SetVisible(true);
+  c2->SetVisible(false);
+  widget->Show();
+
+  // Since `v` is in visible `c1`, it should be found.
+  EXPECT_NE(nullptr,
+            ElementTrackerViews::GetInstance()->GetElementForView(v.get()));
+
+  // Move `v` from `c1` to `c2`. It should be null now since `c2` is hidden.
+  c2->AddChildView(v.get());
+  EXPECT_EQ(nullptr,
+            ElementTrackerViews::GetInstance()->GetElementForView(v.get()));
+}
+
 // ------------------------------------------------------------------
 // Corner Cases
 
@@ -1086,6 +1139,12 @@ TEST_F(ElementTrackerViewsTest, MinimizeMaximizeWhileHiddenDoesNotSendEvents) {
 }
 
 TEST_F(ElementTrackerViewsTest, MinimizeMaximizeWhileShownDoesNotSendEvents) {
+#if BUILDFLAG(IS_MAC)
+  if (base::mac::MacOSMajorVersion() <= 13) {
+    GTEST_SKIP()
+        << "Flaky on MacOS 13 builders; see https://crbug.com/507411988";
+  }
+#endif
   auto widget = CreateWidget();
   const auto context = ElementTrackerViews::GetContextForWidget(widget.get());
   UNCALLED_MOCK_CALLBACK(ui::ElementTracker::Callback, shown);
@@ -1128,6 +1187,12 @@ TEST_F(ElementTrackerViewsTest, MinimizeHideMaximizeSendsHideEvent) {
 }
 
 TEST_F(ElementTrackerViewsTest, MinimizeShowMaximizeSendsShowEvent) {
+#if BUILDFLAG(IS_MAC)
+  if (base::mac::MacOSMajorVersion() <= 13) {
+    GTEST_SKIP()
+        << "Flaky on MacOS 13 builders; see https://crbug.com/507411988";
+  }
+#endif
   auto widget = CreateWidget();
   const auto context = ElementTrackerViews::GetContextForWidget(widget.get());
   UNCALLED_MOCK_CALLBACK(ui::ElementTracker::Callback, shown);

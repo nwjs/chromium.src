@@ -91,9 +91,17 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchMultipleActiveSetSizeLimitForBase);
 CONTENT_EXPORT extern const base::FeatureParam<size_t>
     kPrefetchMultipleActiveSetSizeLimitForBaseValue;
 
-// Kill switch for fixing header modifications upon redirects.
-// TODO(crbug.com/467177773): Remove it after confirming stability.
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchFixHeaderUpdatesOnRedirect);
+// Controls the limit for Eager prefetches.
+CONTENT_EXPORT
+BASE_DECLARE_FEATURE(kPrefetchEagerLimit);
+CONTENT_EXPORT extern const base::FeatureParam<size_t>
+    kMaxNumberOfEagerPrefetchesPerPage;
+
+// Controls the limit for Moderate prefetches.
+CONTENT_EXPORT
+BASE_DECLARE_FEATURE(kPrefetchModerateLimit);
+CONTENT_EXPORT extern const base::FeatureParam<size_t>
+    kMaxNumberOfModeratePrefetchesPerPage;
 
 // Force the off-the-main-thread prefetch code path for testing, to anyway
 // increase the test coverage of off-the-main-thread prefetch.
@@ -103,6 +111,17 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchFixHeaderUpdatesOnRedirect);
 //
 // To enable this, also enable `kPrefetchOffTheMainThread`.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchOffTheMainThreadForceForTesting);
+
+// If enabled, prefetch activation beacon will be sent when a prefetch is
+// activated.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchActivationBeacon);
+
+// Cancels unrelated prefetch when a navigation is started.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchCancelUnrelatedPrefetch);
+
+// Kill switch for making `PrefetchHandle`'s callbacks async.
+// TODO(crbug.com/480271813): Remove it after confirming stability.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchAsyncPrefetchHandleCallback);
 
 }  // namespace features
 

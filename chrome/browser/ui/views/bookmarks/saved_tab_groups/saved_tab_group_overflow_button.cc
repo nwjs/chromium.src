@@ -43,7 +43,7 @@ SavedTabGroupOverflowButton::SavedTabGroupOverflowButton(
   SetTooltipText(
       l10n_util::GetStringUTF16(IDS_TAB_GROUPS_EVERYTHING_BUTTON_TOOLTIP));
   SetFlipCanvasOnPaintForRTLUI(true);
-  ConfigureInkDropForToolbar(this);
+  ConfigureInkDrop(this);
   SetImageLabelSpacing(ChromeLayoutProvider::Get()->GetDistanceMetric(
       DISTANCE_RELATED_LABEL_HORIZONTAL_LIST));
   SetProperty(views::kElementIdentifierKey,
@@ -64,7 +64,9 @@ void SavedTabGroupOverflowButton::OnThemeChanged() {
   views::MenuButton::OnThemeChanged();
 
   ui::ColorProvider* color_provider = GetColorProvider();
-  const gfx::VectorIcon& icon = kSavedTabGroupBarEverythingIcon;
+  const gfx::VectorIcon& icon = features::IsRoundedIconsEnabled()
+                                    ? kGridViewIcon
+                                    : kSavedTabGroupBarEverythingOldIcon;
   const int icon_size = kUIUpdateIconSize;
   SetImageModel(
       views::Button::STATE_NORMAL,

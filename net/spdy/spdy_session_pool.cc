@@ -398,7 +398,8 @@ void SpdySessionPool::RemoveUnavailableSession(
   std::unique_ptr<SpdySession> owned_session(*it);
   sessions_.erase(it);
 
-  NotifyOnSessionClosed(owned_session->spdy_session_key());
+  NotifyOnSessionClosed(owned_session->spdy_session_key(),
+                        owned_session->WasEverUsedToCreateStreams());
 }
 
 // Make a copy of |sessions_| in the Close* functions below to avoid
@@ -622,7 +623,8 @@ void SpdySessionPool::CloseCurrentSessionsHelper(Error error,
 
     session->CloseSessionOnError(error, description);
 
-    NotifyOnSessionClosed(session->spdy_session_key());
+    NotifyOnSessionClosed(session->spdy_session_key(),
+                          session->WasEverUsedToCreateStreams());
     DCHECK(!IsSessionAvailable(session));
     DCHECK(!session || session->IsDraining());
   }
@@ -812,7 +814,11 @@ base::WeakPtr<SpdySession> SpdySessionPool::FindMatchingIpSession(
     for (auto alias_it = range.first; alias_it != range.second; ++alias_it) {
       // Found a potential alias.
       const SpdySessionKey& alias_key = alias_it->second;
-      CHECK(alias_key.socket_tag() == SocketTag());
+      if (alias_key.socket_tag() != key.socket_tag()) {
+        // TODO(crbug.com/346835898): Consider changing session's socket tag
+        // if possible, in a way similar to OnHostResolutionCompleteShared().
+        continue;
+      }
 
       auto available_session_it = LookupAvailableSessionByKey(alias_key);
       CHECK(available_session_it != available_sessions_.end());
@@ -873,10 +879,12 @@ void SpdySessionPool::NotifyOnNetworkEvent(net::NetworkChangeEvent event) {
   NOTIMPLEMENTED() << "SpdySessionPool does not support NotifyOnNetworkEvent";
 }
 
-void SpdySessionPool::NotifyOnSessionClosed(const SpdySessionKey& session_key) {
+void SpdySessionPool::NotifyOnSessionClosed(
+    const SpdySessionKey& session_key,
+    bool was_ever_used_to_create_streams) {
   auto notifier = connection_change_notifier_map_.find(session_key);
   if (notifier != connection_change_notifier_map_.end()) {
-    notifier->second->OnSessionClosed();
+    notifier->second->OnSessionClosed(was_ever_used_to_create_streams);
   }
 }
 
@@ -944,7 +952,8 @@ bool SpdySessionPool::OnHostResolutionCompleteShared(
             old_key.host_port_pair(), old_key.privacy_mode(),
             old_key.proxy_chain(), old_key.session_usage(), key.socket_tag(),
             old_key.network_anonymization_key(), old_key.secure_dns_policy(),
-            old_key.disable_cert_verification_network_fetches());
+            old_key.disable_cert_verification_network_fetches(),
+            old_key.target_network());
 
         // If there is already a session with |new_key|, skip this one.
         // It will be found in |aliases_| in a future iteration.
@@ -992,7 +1001,8 @@ bool SpdySessionPool::OnHostResolutionCompleteShared(
               it->host_port_pair(), it->privacy_mode(), it->proxy_chain(),
               it->session_usage(), key.socket_tag(),
               it->network_anonymization_key(), it->secure_dns_policy(),
-              it->disable_cert_verification_network_fetches());
+              it->disable_cert_verification_network_fetches(),
+              it->target_network());
           auto old_it = it;
           ++it;
           available_session->RemovePooledAlias(*old_it);

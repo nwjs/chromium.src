@@ -469,7 +469,7 @@ RequestResult WebUIContentsPreloadManager::Request(
   preload_state->pending_request = false;
   // Non-preloaded WebUIs are logged by WebUIMainFrameObserver.
   if (preload_state->preloaded) {
-    webui::LogWebUIShown(web_contents_ret->GetSiteInstance()->GetSiteURL());
+    webui::LogWebUIShown(webui_url);
   }
 
   RequestResult result;
@@ -623,8 +623,10 @@ void WebUIContentsPreloadManager::OnWebContentsPrimaryPageChanged(
     visible_url.Set(web_contents->GetVisibleURL().possibly_invalid_spec());
     static crash_reporter::CrashKeyString<1024> site_instance_url(
         "webui-preload-site-instance-url");
-    site_instance_url.Set(
-        web_contents->GetSiteInstance()->GetSiteURL().possibly_invalid_spec());
+    site_instance_url.Set(web_contents->GetSiteInstance()
+                              ->GetSecurityPrincipal()
+                              .GetDeprecatedSiteURL()
+                              .possibly_invalid_spec());
 
     const bool should_auto_reisze_host =
         TopChromeWebUIConfig::From(web_contents->GetBrowserContext(),

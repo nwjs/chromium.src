@@ -764,8 +764,8 @@ void SiteInstanceImpl::ConvertToDefaultOrSetSite(const UrlInfo& url_info) {
 void SiteInstanceImpl::MaybeSetDefaultSiteInstanceGroup() {
   CHECK(ShouldUseDefaultSiteInstanceGroup());
   if (!browsing_instance_->has_default_site_instance_group() &&
-      CanBePlacedInDefaultSiteInstanceOrGroup(GetIsolationContext(),
-                                              GetSiteURL(), site_info_)) {
+      CanBePlacedInDefaultSiteInstanceOrGroup(
+          GetIsolationContext(), site_info_.site_url(), site_info_)) {
     CHECK(HasProcess());
     CHECK(has_group());
     browsing_instance_->set_default_site_instance_group(
@@ -775,17 +775,13 @@ void SiteInstanceImpl::MaybeSetDefaultSiteInstanceGroup() {
 
 bool SiteInstanceImpl::CanPutSiteInstanceInDefaultGroup() {
   return ShouldUseDefaultSiteInstanceGroup() &&
-         CanBePlacedInDefaultSiteInstanceOrGroup(GetIsolationContext(),
-                                                 GetSiteURL(), site_info_);
+         CanBePlacedInDefaultSiteInstanceOrGroup(
+             GetIsolationContext(), site_info_.site_url(), site_info_);
 }
 
 SiteInstanceProcessAssignment
 SiteInstanceImpl::GetLastProcessAssignmentOutcome() {
   return process_assignment_;
-}
-
-const GURL& SiteInstanceImpl::GetSiteURL() const {
-  return site_info_.site_url();
 }
 
 const SiteInfo& SiteInstanceImpl::GetSiteInfo() const {
@@ -1190,7 +1186,7 @@ bool SiteInstanceImpl::IsNavigationSameSite(
 
   // Similarly, do not consider PDF and non-PDF documents to be same-site; they
   // should never share a SiteInstance. See https://crbug.com/359345045.
-  if (IsPdf() != dest_url_info.is_pdf) {
+  if (IsPdf() != dest_url_info.embedder_isolation_info.is_pdf()) {
     return false;
   }
 

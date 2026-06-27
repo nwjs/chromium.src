@@ -82,7 +82,7 @@ class PasswordAffiliationSourceAdapterTest : public testing::Test {
   void SetUp() override {
     mock_source_observer_ =
         std::make_unique<testing::StrictMock<MockAffiliationSourceObserver>>();
-    password_store()->Init(/*affiliated_match_helper=*/nullptr);
+    password_store()->Init();
     adapter_ = std::make_unique<PasswordAffiliationSourceAdapter>();
     adapter_->RegisterPasswordStore(password_store());
     RunUntilIdle();
@@ -101,12 +101,13 @@ class PasswordAffiliationSourceAdapterTest : public testing::Test {
   void RunUntilIdle() { task_environment_.RunUntilIdle(); }
 
   void AddLoginAndWait(const PasswordForm& form) {
-    password_store()->AddLogin(form);
+    password_store()->AddLogin(password_manager::FromPasswordForm(form));
     RunUntilIdle();
   }
 
   void RemoveLoginAndWait(const PasswordForm& form) {
-    password_store_->RemoveLogin(FROM_HERE, form);
+    password_store_->RemoveLogin(FROM_HERE,
+                                 password_manager::FromPasswordForm(form));
     RunUntilIdle();
   }
 
@@ -255,7 +256,9 @@ TEST_F(PasswordAffiliationSourceAdapterTest,
   PasswordForm old_form(GetTestCredential(kTestAndroidRealmAlpha3));
   PasswordForm new_form(old_form);
   new_form.username_value = u"NewUserName";
-  password_store()->UpdateLoginWithPrimaryKey(new_form, old_form);
+  password_store()->UpdateLoginWithPrimaryKey(
+      password_manager::FromPasswordForm(std::move(new_form)),
+      password_manager::FromPasswordForm(std::move(old_form)));
   RunUntilIdle();
 }
 

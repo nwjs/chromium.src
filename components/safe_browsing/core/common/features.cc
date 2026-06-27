@@ -103,6 +103,9 @@ const base::FeatureParam<std::string> kCsdClipboardCopyApiRemoteRunners{
 const base::FeatureParam<std::string> kCsdClipboardCopyApiDecoders{
     &kClientSideDetectionClipboardCopyApi, "Decoders",
     /*default_value=*/"base32,base64"};
+const base::FeatureParam<bool> kCSDClipboardCopyApiSuspiciousTokenFilter{
+    &kClientSideDetectionClipboardCopyApi, "SuspiciousTokenFilter",
+    /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionCreditCardForm,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -133,9 +136,6 @@ const base::FeatureParam<bool> kCsdCreditCardFormEnableInteractionTrigger{
 const base::FeatureParam<bool> kCsdCreditCardFormEnableDetectionTrigger{
     &kClientSideDetectionCreditCardForm, "EnableDetectionTrigger",
     /*default_value=*/false};
-
-BASE_FEATURE(kClientSideDetectionDeprecateDOMModel,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -359,21 +359,9 @@ BASE_FEATURE(kNoticeQueueForEsb, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNotificationTelemetry, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kNotificationTelemetrySwb, base::FEATURE_DISABLED_BY_DEFAULT);
-constexpr base::FeatureParam<double>
-    kNotificationTelemetrySwbReportingProbability{
-        &kNotificationTelemetrySwb,
-        "NotificationTelemetrySwbReportingProbability", /*default_value=*/1.0};
-constexpr base::FeatureParam<bool> kNotificationTelemetrySwbSendReports{
-    &kNotificationTelemetrySwb, "NotificationTelemetrySwbSendReports",
-    /*default_value=*/true};
-constexpr base::FeatureParam<int> kNotificationTelemetrySwbPollingInterval{
-    &kNotificationTelemetrySwb, "NotificationTelemetrySwbPollingInterval",
-    /*default_value=*/60};
+BASE_FEATURE(kNotificationTelemetrySwb, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kProactivePasswordProtection,
-             "ProactivePasswordProtection",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kProactivePasswordProtection, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<double> kCsdProactivePasswordProtectionSampleRate{
     &kProactivePasswordProtection, "CsdProactivePasswordProtectionSampleRate",
     0.0};
@@ -440,6 +428,8 @@ BASE_FEATURE(kSkipImageClassificationScoringForNonPageLoadTriggers,
 BASE_FEATURE(kSuspiciousSiteTriggerQuotaFeature,
              "SafeBrowsingSuspiciousSiteTriggerQuota",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSuspiciousSiteWarnings, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTailoredSecurityIntegration, base::FEATURE_ENABLED_BY_DEFAULT);
 

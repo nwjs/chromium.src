@@ -11,7 +11,6 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
@@ -20,6 +19,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
@@ -186,9 +186,11 @@ ui::ImageModel DeviceChooserContentView::GetIcon(size_t row) {
   DCHECK_LT(row, RowCount());
 
   if (chooser_controller_->IsConnected(row)) {
-    return ui::ImageModel::FromVectorIcon(vector_icons::kBluetoothConnectedIcon,
-                                          ui::kColorIcon,
-                                          TableModel::kIconSize);
+    return ui::ImageModel::FromVectorIcon(
+        features::IsRoundedIconsEnabled()
+            ? vector_icons::kBluetoothConnectedIcon
+            : vector_icons::kBluetoothConnectedOldIcon,
+        ui::kColorIcon, TableModel::kIconSize);
   }
 
   int level = chooser_controller_->GetSignalStrengthLevel(row);
@@ -295,7 +297,8 @@ std::unique_ptr<views::View> DeviceChooserContentView::CreateExtraView() {
     help_button = views::ImageButton::CreateIconButton(
         base::BindRepeating(&permissions::ChooserController::OpenHelpCenterUrl,
                             base::Unretained(chooser_controller_.get())),
-        vector_icons::kHelpOutlineIcon,
+        features::IsRoundedIconsEnabled() ? vector_icons::kHelpIcon
+                                          : vector_icons::kHelpOutlineOldIcon,
         l10n_util::GetStringUTF16(IDS_LEARN_MORE),
         views::ImageButton::MaterialIconStyle::kLarge,
         views::LayoutProvider::Get()->GetInsetsMetric(

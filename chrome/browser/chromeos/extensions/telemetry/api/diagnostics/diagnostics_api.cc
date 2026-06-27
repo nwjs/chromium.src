@@ -8,7 +8,6 @@
 #include <string>
 #include <utility>
 
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
@@ -20,12 +19,14 @@
 #include "chrome/browser/chromeos/extensions/telemetry/api/routines/diagnostic_routine_manager.h"
 #include "chrome/common/chromeos/extensions/api/diagnostics.h"
 #include "chromeos/ash/components/telemetry_extension/diagnostics/mojo_utils.h"
+#include "chromeos/ash/components/telemetry_extension/routines/routine_converters.h"
 #include "chromeos/ash/services/cros_healthd/public/cpp/service_connection.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd.mojom.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_diagnostics.mojom.h"
+#include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_exception.mojom.h"
+#include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_routines.mojom.h"
 #include "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom.h"
 #include "chromeos/crosapi/mojom/telemetry_extension_exception.mojom.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/permissions/permissions_data.h"
 
 namespace chromeos {
@@ -36,32 +37,24 @@ namespace cx_diag = api::os_diagnostics;
 
 base::expected<cx_diag::RoutineSupportStatusInfo, std::string>
 ParseRoutineArgumentSupportResult(
-    crosapi::mojom::TelemetryExtensionSupportStatusPtr result) {
-  switch (result->which()) {
-    case crosapi::mojom::TelemetryExtensionSupportStatus::Tag::
-        kUnmappedUnionField:
+    const ash::cros_healthd::mojom::SupportStatus& result) {
+  switch (result.which()) {
+    case ash::cros_healthd::mojom::SupportStatus::Tag::kUnmappedUnionField:
       return base::unexpected("API internal error.");
-    case crosapi::mojom::TelemetryExtensionSupportStatus::Tag::kException:
-      return base::unexpected(result->get_exception()->debug_message);
-    case crosapi::mojom::TelemetryExtensionSupportStatus::Tag::kSupported: {
+    case ash::cros_healthd::mojom::SupportStatus::Tag::kException:
+      return base::unexpected(result.get_exception()->debug_message);
+    case ash::cros_healthd::mojom::SupportStatus::Tag::kSupported: {
       cx_diag::RoutineSupportStatusInfo info;
       info.status = cx_diag::RoutineSupportStatus::kSupported;
-
       return base::ok(std::move(info));
     }
-    case crosapi::mojom::TelemetryExtensionSupportStatus::Tag::kUnsupported: {
+    case ash::cros_healthd::mojom::SupportStatus::Tag::kUnsupported: {
       cx_diag::RoutineSupportStatusInfo info;
       info.status = cx_diag::RoutineSupportStatus::kUnsupported;
-
       return base::ok(std::move(info));
     }
   }
   NOTREACHED();
-}
-
-bool IsPendingApprovalRoutine(
-    const crosapi::mojom::TelemetryDiagnosticRoutineArgumentPtr& arg) {
-  return false;
 }
 
 }  // namespace
@@ -521,14 +514,6 @@ void OsDiagnosticsCreateRoutineFunction::RunIfAllowed() {
     return;
   }
 
-  // Block unreleased features behind the feature flag.
-  if (IsPendingApprovalRoutine(mojo_arg.value()) &&
-      !base::FeatureList::IsEnabled(
-          extensions_features::kTelemetryExtensionPendingApprovalApi)) {
-    mojo_arg = crosapi::mojom::TelemetryDiagnosticRoutineArgument::
-        NewUnrecognizedArgument(false);
-  }
-
   RecordRoutineCreation(mojo_arg.value()->which());
 
   // Network bandwidth routine is guarded by `os.diagnostics.network_info_mlab`
@@ -625,7 +610,7 @@ void OsDiagnosticsCreateVolumeButtonRoutineFunction::RunIfAllowed() {
   auto volume_button_arg =
       crosapi::mojom::TelemetryDiagnosticVolumeButtonRoutineArgument::New();
   volume_button_arg->type =
-      converters::diagnostics::ConvertVolumeButtonRoutineButtonType(
+      converters::diagnostics::ConvertVolumeButtonRoutineButtonTypeCrosapi(
           params.value().args.button_type);
   volume_button_arg->timeout =
       base::Seconds(params.value().args.timeout_seconds);
@@ -764,20 +749,13 @@ void OsDiagnosticsIsRoutineArgumentSupportedFunction::RunIfAllowed() {
     return;
   }
 
+  // TODO(crbug.com/510951937): Do not use crosapi struct.
   std::optional<crosapi::mojom::TelemetryDiagnosticRoutineArgumentPtr>
       mojo_arg = converters::diagnostics::ConvertRoutineArgumentsUnion(
           std::move(params->args));
   if (!mojo_arg.has_value()) {
     RespondWithError("Routine arguments are invalid.");
     return;
-  }
-
-  // Block unreleased features behind the feature flag.
-  if (IsPendingApprovalRoutine(mojo_arg.value()) &&
-      !base::FeatureList::IsEnabled(
-          extensions_features::kTelemetryExtensionPendingApprovalApi)) {
-    mojo_arg = crosapi::mojom::TelemetryDiagnosticRoutineArgument::
-        NewUnrecognizedArgument(false);
   }
 
   RecordRoutineSupportedStatusQuery(mojo_arg.value()->which());
@@ -795,22 +773,23 @@ void OsDiagnosticsIsRoutineArgumentSupportedFunction::RunIfAllowed() {
     return;
   }
 
-  auto* routines_manager = DiagnosticRoutineManager::Get(browser_context());
-  routines_manager->IsRoutineArgumentSupported(
-      std::move(mojo_arg.value()),
-      base::BindOnce(&OsDiagnosticsIsRoutineArgumentSupportedFunction::OnResult,
-                     this));
+  ash::cros_healthd::ServiceConnection::GetInstance()
+      ->GetRoutinesService()
+      ->IsRoutineArgumentSupported(
+          ash::converters::ConvertRoutinePtr(std::move(mojo_arg.value())),
+          base::BindOnce(
+              &OsDiagnosticsIsRoutineArgumentSupportedFunction::OnResult,
+              this));
 }
 
 void OsDiagnosticsIsRoutineArgumentSupportedFunction::OnResult(
-    crosapi::mojom::TelemetryExtensionSupportStatusPtr result) {
+    ash::cros_healthd::mojom::SupportStatusPtr result) {
   if (result.is_null()) {
     RespondWithError("API internal error.");
     return;
   }
 
-  auto response = ParseRoutineArgumentSupportResult(std::move(result));
-
+  auto response = ParseRoutineArgumentSupportResult(*result);
   if (!response.has_value()) {
     RespondWithError(response.error());
     return;
@@ -828,29 +807,27 @@ void OsDiagnosticsIsMemoryRoutineArgumentSupportedFunction::RunIfAllowed() {
     return;
   }
 
-  auto* routines_manager = DiagnosticRoutineManager::Get(browser_context());
-  auto mem_args =
-      crosapi::mojom::TelemetryDiagnosticMemoryRoutineArgument::New();
+  auto mem_args = ash::cros_healthd::mojom::MemoryRoutineArgument::New();
   mem_args->max_testing_mem_kib = params.value().args.max_testing_mem_kib;
 
-  auto args = crosapi::mojom::TelemetryDiagnosticRoutineArgument::NewMemory(
-      std::move(mem_args));
-  routines_manager->IsRoutineArgumentSupported(
-      std::move(args),
-      base::BindOnce(
-          &OsDiagnosticsIsMemoryRoutineArgumentSupportedFunction::OnResult,
-          this));
+  ash::cros_healthd::ServiceConnection::GetInstance()
+      ->GetRoutinesService()
+      ->IsRoutineArgumentSupported(
+          ash::cros_healthd::mojom::RoutineArgument::NewMemory(
+              std::move(mem_args)),
+          base::BindOnce(
+              &OsDiagnosticsIsMemoryRoutineArgumentSupportedFunction::OnResult,
+              this));
 }
 
 void OsDiagnosticsIsMemoryRoutineArgumentSupportedFunction::OnResult(
-    crosapi::mojom::TelemetryExtensionSupportStatusPtr result) {
+    ash::cros_healthd::mojom::SupportStatusPtr result) {
   if (result.is_null()) {
     RespondWithError("API internal error.");
     return;
   }
 
-  auto response = ParseRoutineArgumentSupportResult(std::move(result));
-
+  auto response = ParseRoutineArgumentSupportResult(*result);
   if (!response.has_value()) {
     RespondWithError(response.error());
     return;
@@ -873,35 +850,33 @@ void OsDiagnosticsIsVolumeButtonRoutineArgumentSupportedFunction::
     return;
   }
 
-  auto* routines_manager = DiagnosticRoutineManager::Get(browser_context());
   auto volume_button_args =
-      crosapi::mojom::TelemetryDiagnosticVolumeButtonRoutineArgument::New();
+      ash::cros_healthd::mojom::VolumeButtonRoutineArgument::New();
   volume_button_args->type =
       converters::diagnostics::ConvertVolumeButtonRoutineButtonType(
           params.value().args.button_type);
   volume_button_args->timeout =
       base::Seconds(params.value().args.timeout_seconds);
 
-  auto args =
-      crosapi::mojom::TelemetryDiagnosticRoutineArgument::NewVolumeButton(
-          std::move(volume_button_args));
-  routines_manager->IsRoutineArgumentSupported(
-      std::move(args),
-      base::BindOnce(
-          &OsDiagnosticsIsVolumeButtonRoutineArgumentSupportedFunction::
-              OnResult,
-          this));
+  ash::cros_healthd::ServiceConnection::GetInstance()
+      ->GetRoutinesService()
+      ->IsRoutineArgumentSupported(
+          ash::cros_healthd::mojom::RoutineArgument::NewVolumeButton(
+              std::move(volume_button_args)),
+          base::BindOnce(
+              &OsDiagnosticsIsVolumeButtonRoutineArgumentSupportedFunction::
+                  OnResult,
+              this));
 }
 
 void OsDiagnosticsIsVolumeButtonRoutineArgumentSupportedFunction::OnResult(
-    crosapi::mojom::TelemetryExtensionSupportStatusPtr result) {
+    ash::cros_healthd::mojom::SupportStatusPtr result) {
   if (result.is_null()) {
     RespondWithError("API internal error.");
     return;
   }
 
-  auto response = ParseRoutineArgumentSupportResult(std::move(result));
-
+  auto response = ParseRoutineArgumentSupportResult(*result);
   if (!response.has_value()) {
     RespondWithError(response.error());
     return;
@@ -920,26 +895,24 @@ void OsDiagnosticsIsFanRoutineArgumentSupportedFunction::RunIfAllowed() {
     return;
   }
 
-  auto* routines_manager = DiagnosticRoutineManager::Get(browser_context());
-  auto fan_args = crosapi::mojom::TelemetryDiagnosticFanRoutineArgument::New();
-
-  auto args = crosapi::mojom::TelemetryDiagnosticRoutineArgument::NewFan(
-      std::move(fan_args));
-  routines_manager->IsRoutineArgumentSupported(
-      std::move(args),
-      base::BindOnce(
-          &OsDiagnosticsIsFanRoutineArgumentSupportedFunction::OnResult, this));
+  ash::cros_healthd::ServiceConnection::GetInstance()
+      ->GetRoutinesService()
+      ->IsRoutineArgumentSupported(
+          ash::cros_healthd::mojom::RoutineArgument::NewFan(
+              ash::cros_healthd::mojom::FanRoutineArgument::New()),
+          base::BindOnce(
+              &OsDiagnosticsIsFanRoutineArgumentSupportedFunction::OnResult,
+              this));
 }
 
 void OsDiagnosticsIsFanRoutineArgumentSupportedFunction::OnResult(
-    crosapi::mojom::TelemetryExtensionSupportStatusPtr result) {
+    ash::cros_healthd::mojom::SupportStatusPtr result) {
   if (result.is_null()) {
     RespondWithError("API internal error.");
     return;
   }
 
-  auto response = ParseRoutineArgumentSupportResult(std::move(result));
-
+  auto response = ParseRoutineArgumentSupportResult(*result);
   if (!response.has_value()) {
     RespondWithError(response.error());
     return;

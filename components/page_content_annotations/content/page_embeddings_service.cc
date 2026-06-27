@@ -12,11 +12,13 @@
 
 #include "base/check.h"
 #include "base/notimplemented.h"
+#include "base/strings/utf_string_conversions.h"
 #include "components/page_content_annotations/content/embeddings_candidate_generator.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/passage_embeddings/core/passage_embeddings_features.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace page_content_annotations {
 
@@ -47,7 +49,7 @@ struct PageEmbeddingsService::Pending {
 
 // Embedding computation is currently in progress for the page.
 struct PageEmbeddingsService::Computing {
-  passage_embeddings::Embedder::TaskId task_id;
+  passage_embeddings::Embedder::Job job;
 };
 
 // Embeddings have been successfully computed for the page and are available.
@@ -85,6 +87,15 @@ class PageEmbeddingsService::WebContentsEventsObserver
     if (visibility == content::Visibility::HIDDEN) {
       page_embeddings_service_->ComputeEmbeddingsOnHide(
           web_contents()->GetPrimaryPage());
+    }
+  }
+
+  void PrimaryPageChanged(content::Page& page) override {
+    auto loc =
+        page_embeddings_service_->web_contents_states_.find(web_contents());
+    if (loc != page_embeddings_service_->web_contents_states_.end()) {
+      loc->second.page = nullptr;
+      loc->second.embeddings_state = Unavailable{};
     }
   }
 
@@ -265,15 +276,7 @@ PageEmbeddingsService::GetEmbedderMetadataProvider() {
 
 void PageEmbeddingsService::OnPageContentExtracted(content::Page& page,
                                                    PageContent page_content) {
-  if (IsPDFTextPtr(page_content)) {
-    // TODO(b/487632737): Support embeddings generation from PDF text.
-    NOTIMPLEMENTED();
-    return;
-  }
-
-  RefCountedAnnotatedPageContentPtr annotated_page_content_ptr =
-      GetAnnotatedPageContentPtrFromPageContent(page_content);
-  if (!annotated_page_content_ptr) {
+  if (!IsPageContentValid(page_content)) {
     return;
   }
 
@@ -288,15 +291,25 @@ void PageEmbeddingsService::OnPageContentExtracted(content::Page& page,
   }
 
   WebContentsState& state = loc->second;
-  if (auto* computing = std::get_if<Computing>(&state.embeddings_state)) {
-    embedder_->TryCancel(computing->task_id);
+  if (std::holds_alternative<Computing>(state.embeddings_state)) {
+    state.embeddings_state = Unavailable{};
   }
 
   state.page = page.GetWeakPtr();
 
   std::vector<std::pair<std::string, EmbeddingPassageType>> pending_passages =
-      candidates_generator_.Run(annotated_page_content_ptr->data,
-                                passage_embeddings::kMaxPassagesPerPage.Get());
+      candidates_generator_.Run(
+          page_content,
+          std::visit(absl::Overload{
+                         [](RefCountedAnnotatedPageContentPtr) {
+                           return passage_embeddings::kMaxPassagesPerPage.Get();
+                         },
+                         [](RefCountedPDFTextPtr) {
+                           return passage_embeddings::kMaxPassagesFromPDF.Get();
+                         }},
+                     page_content),
+          base::UTF16ToUTF8(web_contents->GetTitle()),
+          web_contents->GetLastCommittedURL().spec());
 
   if (!pending_passages.empty()) {
     state.embeddings_state = Pending{.passages = std::move(pending_passages)};
@@ -336,13 +349,14 @@ void PageEmbeddingsService::ComputeEmbeddings(content::Page& page) {
     passage_types.push_back(passage.second);
   }
 
-  auto task_id = embedder_->ComputePassagesEmbeddings(
-      ConvertToPassagePriority(current_priority_), std::move(string_passages),
-      base::BindOnce(&PageEmbeddingsService::OnEmbeddingsComputed,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(passage_types),
-                     web_contents->GetWeakPtr(), state.page));
-
-  state.embeddings_state = Computing{.task_id = task_id};
+  state.embeddings_state =
+      Computing{.job = embedder_->ComputePassagesEmbeddings(
+                    ConvertToPassagePriority(current_priority_),
+                    std::move(string_passages),
+                    base::BindOnce(&PageEmbeddingsService::OnEmbeddingsComputed,
+                                   weak_ptr_factory_.GetWeakPtr(),
+                                   std::move(passage_types),
+                                   web_contents->GetWeakPtr(), state.page))};
 }
 
 void PageEmbeddingsService::ComputeEmbeddingsOnHide(content::Page& page) {
@@ -390,7 +404,7 @@ void PageEmbeddingsService::OnEmbeddingsComputed(
   }
 
   auto* computing = std::get_if<Computing>(&loc->second.embeddings_state);
-  if (!computing || computing->task_id != task_id) {
+  if (!computing || computing->job.task_id() != task_id) {
     return;
   }
 
@@ -437,7 +451,7 @@ PageEmbeddingsService::Priority PageEmbeddingsService::GetActivePriority(
 }
 
 void PageEmbeddingsService::UpdateTaskPriorities(Priority priority) {
-  if (priority == current_priority_) {
+  if (current_priority_ == priority) {
     return;
   }
 
@@ -447,7 +461,7 @@ void PageEmbeddingsService::UpdateTaskPriorities(Priority priority) {
   for (const auto& [web_contents, web_contents_state] : web_contents_states_) {
     if (auto* computing =
             std::get_if<Computing>(&web_contents_state.embeddings_state)) {
-      tasks.insert(computing->task_id);
+      tasks.insert(computing->job.task_id());
     }
   }
 

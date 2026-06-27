@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/spellcheck/spellcheck_build_features.gni")
 
 assert(is_chromeos)
@@ -53,7 +52,6 @@ static_library("extensions") {
     "//ash/public/cpp",
     "//ash/webui/mall:app_id",
     "//ash/webui/projector_app/public/cpp",
-    "//ash/webui/system_apps/public:system_web_app_type",
     "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser/ash/app_list",
@@ -79,6 +77,7 @@ static_library("extensions") {
     "//chromeos/ash/components/file_manager:constants",
     "//chromeos/ash/components/language_packs",
     "//chromeos/ash/components/settings",
+    "//chromeos/ash/components/system_web_apps:system_web_app_type",
     "//chromeos/ash/experiences/arc:arc_app_constants",
     "//chromeos/components/kiosk",
     "//chromeos/constants",

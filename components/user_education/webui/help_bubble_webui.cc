@@ -5,9 +5,10 @@
 #include "components/user_education/webui/help_bubble_webui.h"
 
 #include "components/user_education/webui/help_bubble_handler.h"
-#include "components/user_education/webui/tracked_element_help_bubble_webui_anchor.h"
 #include "ui/base/interaction/element_identifier.h"
-#include "ui/base/interaction/framework_specific_implementation.h"
+#include "ui/base/interaction/safe_castable.h"
+#include "ui/webui/tracked_element/tracked_element_handler.h"
+#include "ui/webui/tracked_element/tracked_element_web_ui.h"
 
 namespace user_education {
 
@@ -45,7 +46,7 @@ bool HelpBubbleWebUI::Close(CloseReason reason) {
   return on_close.is_valid();
 }
 
-DEFINE_FRAMEWORK_SPECIFIC_METADATA(HelpBubbleWebUI)
+DEFINE_SAFE_CAST_TARGET(HelpBubbleWebUI)
 
 HelpBubbleFactoryWebUI::HelpBubbleFactoryWebUI() = default;
 HelpBubbleFactoryWebUI::~HelpBubbleFactoryWebUI() = default;
@@ -53,16 +54,22 @@ HelpBubbleFactoryWebUI::~HelpBubbleFactoryWebUI() = default;
 std::unique_ptr<HelpBubble> HelpBubbleFactoryWebUI::CreateBubble(
     ui::TrackedElement* element,
     HelpBubbleParams params) {
-  HelpBubbleHandlerBase* const handler =
-      element->AsA<TrackedElementHelpBubbleWebUIAnchor>()->handler();
-  return handler->CreateHelpBubble(element->identifier(), std::move(params));
+  HelpBubbleHandlerBase* handler = element->AsA<ui::TrackedElementWebUI>()
+                                       ->handler()
+                                       ->GetHelpBubbleHandler();
+  return handler ? handler->CreateHelpBubble(element->identifier(),
+                                             std::move(params))
+                 : nullptr;
 }
 
 bool HelpBubbleFactoryWebUI::CanBuildBubbleForTrackedElement(
     const ui::TrackedElement* element) const {
-  return element->IsA<TrackedElementHelpBubbleWebUIAnchor>();
+  if (const auto* element_webui = element->AsA<ui::TrackedElementWebUI>()) {
+    return element_webui->handler()->GetHelpBubbleHandler() != nullptr;
+  }
+  return false;
 }
 
-DEFINE_FRAMEWORK_SPECIFIC_METADATA(HelpBubbleFactoryWebUI)
+DEFINE_SAFE_CAST_TARGET(HelpBubbleFactoryWebUI)
 
 }  // namespace user_education

@@ -112,7 +112,6 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/webui/projector_app/public/cpp/projector_app_constants.h"  // nogncheck
-#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "chrome/browser/ash/guest_os/guest_os_terminal.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
@@ -124,6 +123,7 @@
 #include "chrome/browser/web_applications/chromeos_web_app_experiments.h"
 #include "chrome/browser/web_applications/policy/app_service_web_app_policy.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/ash/experiences/system_web_apps/types/system_web_app_data.h"
 #include "chromeos/ash/experiences/system_web_apps/types/system_web_app_delegate.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -1134,7 +1134,7 @@ void WebAppPublisherHelper::LaunchAppWithParams(
       params.intent);
 
   bool is_system_web_app = false;
-  std::optional<GURL> override_url = std::nullopt;
+  std::optional<GURL> override_url;
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Terminal SWA has custom launch code and manages its own restore data.
@@ -1606,7 +1606,7 @@ void WebAppPublisherHelper::OnWebAppDisabledStateChanged(
 
   // If the disable mode is hidden, update the visibility of the new disabled
   // app.
-  std::optional<ash::SystemWebAppType> system_app_type = std::nullopt;
+  std::optional<ash::SystemWebAppType> system_app_type;
   auto* swa_manager = ash::SystemWebAppManager::Get(profile());
   if (swa_manager) {
     system_app_type = swa_manager->GetSystemAppTypeForAppId(app->app_id);
@@ -1866,7 +1866,7 @@ apps::PackageId WebAppPublisherHelper::GetPackageId(
 
 #if BUILDFLAG(IS_CHROMEOS)
 void WebAppPublisherHelper::UpdateAppDisabledMode(apps::App& app) {
-  std::optional<ash::SystemWebAppType> system_app_type = std::nullopt;
+  std::optional<ash::SystemWebAppType> system_app_type;
   auto* swa_manager = ash::SystemWebAppManager::Get(profile());
   if (swa_manager) {
     system_app_type = swa_manager->GetSystemAppTypeForAppId(app.app_id);

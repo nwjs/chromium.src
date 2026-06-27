@@ -15,20 +15,20 @@
 #include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
-#include "base/notimplemented.h"
-#include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/types/expected.h"
 #include "base/types/optional_ref.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
-#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/network/autofill_ai/private_pass_conversion_util.h"
+#include "components/consent_auditor/consent_auditor.h"
 #include "components/wallet/core/browser/network/wallet_http_client.h"
 #include "components/wallet/core/browser/proto/private_pass.pb.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 namespace autofill {
 
@@ -139,7 +139,7 @@ void WalletPassAccessManagerImpl::GetUnmaskedWalletEntityInstance(
     std::move(callback).Run(std::nullopt);
     return;
   }
-  CHECK(masked_entity->IsMaskedServerEntity());
+  CHECK(masked_entity->IsMaskedEntity() && masked_entity->IsServerInstance());
   auto maybe_cache_response = base::BindOnce(
       [](base::WeakPtr<WalletPassAccessManagerImpl> access_manager,
          std::optional<EntityInstance> entity) {
@@ -178,7 +178,8 @@ WalletPassAccessManagerImpl::GetUnmaskResponseToUnmaskedEntityCallback(
         CHECK(!unmasked_pass_number->masked());
         EntityInstance unmasked_entity = masked_entity.CopyWithUpdatedAttribute(
             std::move(*unmasked_pass_number));
-        CHECK(unmasked_entity.IsUnmaskedServerEntity());
+        CHECK(unmasked_entity.IsUnmaskedEntity());
+        CHECK(unmasked_entity.IsServerInstance());
         return unmasked_entity;
       },
       masked_entity);
@@ -188,7 +189,8 @@ base::OnceCallback<std::optional<EntityInstance>(
     const base::expected<PrivatePass, WalletRequestError>&)>
 WalletPassAccessManagerImpl::GetUpsertResponseToMaskedEntityCallback(
     const EntityInstance& unmasked_entity) const {
-  CHECK(unmasked_entity.IsUnmaskedServerEntity());
+  CHECK(unmasked_entity.IsUnmaskedEntity() &&
+        unmasked_entity.IsServerInstance());
   return base::BindOnce(
       [](EntityInstance unmasked_entity,
          const base::expected<PrivatePass, WalletRequestError>& response)
@@ -209,7 +211,8 @@ WalletPassAccessManagerImpl::GetUpsertResponseToMaskedEntityCallback(
                 .CopyWithNewEntityId(
                     EntityInstance::EntityId(response->pass_id()))
                 .CopyWithUpdatedAttribute(std::move(*masked_pass_number));
-        CHECK(masked_entity.IsMaskedServerEntity());
+        CHECK(masked_entity.IsMaskedEntity() &&
+              masked_entity.IsServerInstance());
         return masked_entity;
       },
       unmasked_entity);

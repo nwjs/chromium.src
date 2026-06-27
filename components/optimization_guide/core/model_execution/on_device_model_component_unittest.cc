@@ -25,6 +25,7 @@
 #include "build/build_config.h"
 #include "components/optimization_guide/core/model_execution/model_broker_state.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_names.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
@@ -207,7 +208,7 @@ TEST_F(OnDeviceModelComponentTest, AlreadyInstalledFlow) {
   ASSERT_TRUE(WaitUntilInstallerRegistered());
   histograms_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution."
-      "OnDeviceModelInstalledAtRegistrationTime",
+      "OnDeviceModelInstalledAtRegistrationTime.Unknown",
       true, 1);
   histograms_.ExpectTotalCount(
       "OptimizationGuide.OnDeviceModel.NewModelInstalled", 0);
@@ -220,7 +221,7 @@ TEST_F(OnDeviceModelComponentTest, NotYetInstalledFlow) {
   ASSERT_TRUE(WaitUntilInstallerRegistered());
   histograms_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution."
-      "OnDeviceModelInstalledAtRegistrationTime",
+      "OnDeviceModelInstalledAtRegistrationTime.V3Nano",
       false, 1);
 }
 
@@ -446,7 +447,7 @@ TEST_F(OnDeviceModelComponentTest, UninstallNeededDueToDiskSpace) {
       [&] { return broker_.component_state().uninstall_called(); }));
 
   histograms_.ExpectUniqueSample(
-      "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason.Unknown",
+      "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason.V3Nano",
       OnDeviceModelComponentStateManager::RegistrationCriteria::
           UninstallReason::kInsufficientDisk,
       1);
@@ -585,7 +586,7 @@ TEST_F(OnDeviceModelComponentTest, SetReady) {
                                1);
   histograms_.ExpectUniqueSample(
       "OptimizationGuide.OnDeviceModel.NewModelInstalled",
-      0 /*BaseModel::kUnknown*/, 1);
+      static_cast<int>(OnDeviceBaseModel::kUnknown), 1);
   EXPECT_FALSE(state->GetInstallDirectory().empty());
   EXPECT_EQ(state->GetComponentVersion(), base::Version("0.0.1"));
 

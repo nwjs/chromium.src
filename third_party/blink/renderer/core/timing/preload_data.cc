@@ -4,25 +4,24 @@
 
 #include "third_party/blink/renderer/core/timing/preload_data.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/v8_cross_origin_mode.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
-#include "third_party/blink/renderer/core/loader/preload_helper.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
+#include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 
 namespace blink {
 
 PreloadData::PreloadData(const KURL& url,
-                         ResourceType resource_type,
+                         const String& as,
                          CrossOriginAttributeValue crossorigin,
+                         bool early_hints,
                          std::optional<base::TimeTicks> used_time)
     : url_(url),
-      resource_type_(resource_type),
+      as_(as),
       crossorigin_(crossorigin),
+      early_hints_(early_hints),
       used_time_(used_time) {}
-
-String PreloadData::as() const {
-  return PreloadHelper::GetAsAttributeFromResourceType(resource_type_);
-}
 
 V8CrossOriginMode PreloadData::crossorigin() const {
   switch (crossorigin_) {

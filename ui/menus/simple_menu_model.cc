@@ -343,6 +343,12 @@ void SimpleMenuModel::SetIcon(size_t index, const ui::ImageModel& icon) {
   MenuItemsChanged();
 }
 
+void SimpleMenuModel::SetIconForCommandId(int command_id,
+                                          const ui::ImageModel& icon) {
+  std::optional<size_t> index = GetIndexOfCommandId(command_id);
+  SetIcon(index.value(), icon);
+}
+
 void SimpleMenuModel::SetLabel(size_t index, const std::u16string& label) {
   items_[ValidateItemIndex(index)].label = label;
   MenuItemsChanged();
@@ -372,6 +378,13 @@ void SimpleMenuModel::SetMinorTextIsUrlAt(size_t index, bool is_url) {
 void SimpleMenuModel::SetMinorIcon(size_t index,
                                    const ui::ImageModel& minor_icon) {
   items_[ValidateItemIndex(index)].minor_icon = minor_icon;
+}
+
+void SimpleMenuModel::SetMinorIconOnRight(
+    MenuModel::MinorIconOnRightPasskey passkey,
+    bool minor_icon_on_right) {
+  items_[ValidateItemIndex(passkey.index())].minor_icon_on_right =
+      minor_icon_on_right;
 }
 
 void SimpleMenuModel::SetEnabledAt(size_t index, bool enabled) {
@@ -486,6 +499,11 @@ bool SimpleMenuModel::GetMinorTextIsUrlAt(size_t index) const {
 
 ImageModel SimpleMenuModel::GetMinorIconAt(size_t index) const {
   return items_[ValidateItemIndex(index)].minor_icon;
+}
+
+bool SimpleMenuModel::GetMinorIconOnRight(
+    MenuModel::MinorIconOnRightPasskey passkey) const {
+  return items_[ValidateItemIndex(passkey.index())].minor_icon_on_right;
 }
 
 bool SimpleMenuModel::IsItemDynamicAt(size_t index) const {

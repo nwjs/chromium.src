@@ -300,6 +300,14 @@ NSString* LeakedPasswordDescription() {
                                     ReauthenticationResult::kSuccess];
 }
 
+- (void)tearDownHelper {
+  [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
+                                   error:nil];
+  [PasswordSettingsAppInterface clearPasswordStores];
+  [PasswordSettingsAppInterface clearPasskeyStore];
+  [super tearDownHelper];
+}
+
 #pragma mark - Tests
 
 // Tests the safe state of the Password Checkup Homepage.
@@ -502,11 +510,7 @@ NSString* LeakedPasswordDescription() {
 
 // Tests that the Password Checkup Homepage header image view is correctly
 // shown/hidden depending on the device's orientation.
-// TODO(crbug.com/435095080): Reenable this test.
 - (void)testPasswordCheckupHomepageDeviceOrientation {
-  if (![ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Failing on iPhone Simulator");
-  }
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(@"Landscape orientation doesn't change the look of "
                            @"the Password Checkup Homepage.");
@@ -714,7 +718,8 @@ NSString* LeakedPasswordDescription() {
 
 // Tests resolving the last reused passwords issue by editing a password through
 // Password Checkup.
-- (void)testResolveLastIssueByEditingPassword {
+// TODO(crbug.com/511159692): Mark it as flaky and re-enable it once fixed.
+- (void)FLAKY_testResolveLastIssueByEditingPassword {
   SaveReusedPasswordFormsToProfileStore();
 
   OpenPasswordCheckupHomepage(

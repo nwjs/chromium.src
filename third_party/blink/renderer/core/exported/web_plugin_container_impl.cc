@@ -176,6 +176,12 @@ void WebPluginContainerImpl::Paint(const PaintInfo& paint_info,
 
   GraphicsContext& context = paint_info.context;
 
+  if ((paint_info.GetPaintFlags() & PaintFlag::kPrivacyPreserving) &&
+      !element_->GetExecutionContext()->GetSecurityOrigin()->CanReadContent(
+          element_->GetDocument().CompleteURL(element_->Url()))) {
+    return;
+  }
+
   if (WantsWheelEvents()) {
     context.GetPaintController().RecordHitTestData(
         *GetLayoutEmbeddedContent(), visual_rect, TouchAction::kAuto,
@@ -195,7 +201,7 @@ void WebPluginContainerImpl::Paint(const PaintInfo& paint_info,
         *GetLayoutEmbeddedContent(), visual_rect, *sub_rects);
   }
 
-  if (layer_) {
+  if (layer_ && !paint_info.ShouldOmitCompositingInfo()) {
     layer_->SetBounds(Size());
     layer_->SetIsDrawable(true);
     layer_->SetHitTestable(true);
@@ -868,7 +874,8 @@ void WebPluginContainerImpl::HandleDragEvent(MouseEvent& event) {
     return;
 
   DataTransfer* data_transfer = event.dataTransfer();
-  WebDragData drag_data = data_transfer->GetDataObject()->ToWebDragData();
+  WebDragData drag_data =
+      data_transfer->GetDataObject()->ToWebDragData(nullptr);
   DragOperationsMask drag_operation_mask = data_transfer->SourceOperation();
   gfx::PointF drag_screen_location(event.screenX(), event.screenY());
   gfx::Point location(Location());

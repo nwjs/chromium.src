@@ -134,9 +134,9 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   // Note: This is currently used for WebView initiated prefetches
   // so consideration should be taken if updating the
   // underlying implementation (or its dependencies).
-  bool IsPrefetchDuplicate(
-      const GURL& url,
-      const std::optional<net::HttpNoVarySearchData>& no_vary_search_hint);
+  bool IsPrefetchDuplicate(const GURL& url,
+                           const std::optional<net::HttpNoVarySearchData>&
+                               no_vary_search_hint) const;
 
   // Whether the prefetch attempt for `key` has failed or discarded.
   // Note: the semantics of this method is not super clear and thus is exposed
@@ -147,7 +147,9 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
 
   // An interface to notify `PrefetchService` that the given `PrefetchContainer`
   // is no longer needed from outside of the service.
-  void MayReleasePrefetch(base::WeakPtr<PrefetchContainer> prefetch_container);
+  void MayReleasePrefetch(
+      base::WeakPtr<PrefetchContainer> prefetch_container,
+      std::optional<PrefetchStatus> prefetch_status_on_destruction);
 
   // Called by PrefetchDocumentManager when it finishes processing the latest
   // update of speculation candidates.
@@ -207,7 +209,7 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   // referring origin matches the storage_key_filter.
   void EvictPrefetchesForBrowsingDataRemoval(
       const StoragePartition::StorageKeyMatcherFunction& storage_key_filter,
-      PrefetchStatus status);
+      PrefetchStatus prefetch_status_on_destruction);
 
   // Returns candidate `PrefetchContainer`s and servable states for matching
   // process. Corresponds to 3.4. of
@@ -254,6 +256,14 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   mojo::Remote<network::mojom::NetworkContext>
   CreateIsolatedNetworkContextForTesting(
       bool is_proxy_required_when_cross_origin);
+
+  // Cancels unrelated prefetches.
+  //
+  // See `CancelUnrelatedPrefetchURLLoaderThrottle`.
+  void CancelUnrelatedPrefetchForNavigation();
+
+  const PrefetchContainer* GetPrefetchContainerForTesting(
+      const PrefetchKey& key) const;
 
   base::WeakPtr<PrefetchService> GetWeakPtr();
 
@@ -372,10 +382,13 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   void OnPrefetchCompletedOrFailed(
       const PrefetchContainer& prefetch_container) override;
 
+  // When `prefetch_status_on_destruction` has a value, it's set as the final
+  // `PrefetchStatus` of `prefetch_container` for metrics.
   // If `should_progress` is true, calls `PrefetchScheduler::ProgressAsync()`
   // (implicitly).
   void ResetPrefetchContainer(
       base::WeakPtr<PrefetchContainer> prefetch_container,
+      std::optional<PrefetchStatus> prefetch_status_on_destruction,
       bool should_progress = true);
 
   // Methods for scheduling
@@ -383,9 +396,11 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   void ScheduleAndProgressAsync(
       base::WeakPtr<PrefetchContainer> prefetch_container);
   void ResetPrefetchContainerAndProgressAsync(
-      base::WeakPtr<PrefetchContainer> prefetch_container);
+      base::WeakPtr<PrefetchContainer> prefetch_container,
+      std::optional<PrefetchStatus> prefetch_status_on_destruction);
   void ResetPrefetchContainersAndProgressAsync(
-      std::vector<base::WeakPtr<PrefetchContainer>> prefetch_containers);
+      std::vector<base::WeakPtr<PrefetchContainer>> prefetch_containers,
+      std::optional<PrefetchStatus> prefetch_status_on_destruction);
   // CAUTION: This doesn't call `ResetPrefetchContainer()` to preserve current
   // behavior.
   void RemoveFromSchedulerAndProgressAsync(

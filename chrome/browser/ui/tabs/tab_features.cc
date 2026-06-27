@@ -16,6 +16,7 @@
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
+#include "chrome/browser/commerce/in_stock_notification/in_stock_notification_manager.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
@@ -46,6 +47,7 @@
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/autofill/bubble_manager.h"
+#include "chrome/browser/ui/autofill/payments/omnibox_autofill_page_action_controller.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
@@ -53,10 +55,10 @@
 #include "chrome/browser/ui/cookie_controls/roll_back_mode_b_infobar_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/page_action/action_ids.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
-#include "chrome/browser/ui/page_actions/action_ids.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
-#include "chrome/browser/ui/page_actions/page_action_properties_provider.h"
+#include "chrome/browser/ui/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_chip_controller.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_chip_tab_helper.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
@@ -83,7 +85,6 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_page_action_controller.h"
 #include "chrome/browser/ui/views/commerce/discounts_page_action_view_controller.h"
 #include "chrome/browser/ui/views/commerce/price_insights_page_action_view_controller.h"
-#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_page_action_controller.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_page_action_controller.h"
 #include "chrome/browser/ui/views/intent_picker/intent_picker_view_page_action_controller.h"
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_page_action_controller.h"
@@ -96,6 +97,7 @@
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/pwa_install_page_action.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/enterprise/browser/reporting/reporting_features.h"
 #include "components/multistep_filter/core/features.h"
@@ -108,6 +110,11 @@
 #include "chrome/browser/wallet/chrome_walletable_pass_client.h"
 #include "components/record_replay/core/common/record_replay_features.h"
 #endif
+
+#if BUILDFLAG(IS_WIN)
+#include "chrome/browser/ui/search_promotion/search_promotion_navigation_observer.h"
+#include "components/feature_engagement/public/feature_constants.h"
+#endif
 #include "chrome/browser/glic/browser_ui/glic_tab_indicator_helper.h"
 #include "chrome/browser/glic/glic_selection_observer.h"
 #include "chrome/browser/glic/public/features.h"
@@ -119,11 +126,13 @@
 #include "chrome/browser/skills/skills_ui_tab_controller.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/tab_attachment_tracker.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/browsing_topics/browsing_topics_service.h"
+#include "components/commerce/core/commerce_feature_list.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/passage_embeddings/core/passage_embeddings_features.h"
@@ -209,10 +218,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           std::make_unique<IntentPickerViewPageActionController>(tab);
     }
 
-    if (IsPageActionMigrated(PageActionIconType::kFileSystemAccess)) {
-      file_system_access_page_action_controller_ =
-          std::make_unique<FileSystemAccessPageActionController>(tab);
-    }
+    file_system_access_page_action_controller_ =
+        std::make_unique<FileSystemAccessPageActionController>(tab);
 
     if (IsPageActionMigrated(PageActionIconType::kZoom)) {
       zoom_view_controller_ = std::make_unique<zoom::ZoomViewController>(
@@ -247,14 +254,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           GetUserDataFactory()
               .CreateInstance<LensOverlayHomeworkPageActionController>(
                   tab, tab, *profile, *page_action_controller_);
-    }
-
-    if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks) &&
-        (contextual_tasks::kShowEntryPoint.Get() ==
-         contextual_tasks::EntryPointOption::kPageActionRevisit)) {
-      contextual_tasks_page_action_controller_ =
-          GetUserDataFactory()
-              .CreateInstance<ContextualTasksPageActionController>(tab, &tab);
     }
 
     if (IsPageActionMigrated(PageActionIconType::kBookmarkStar) &&
@@ -348,6 +347,13 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                   *collaboration_messaging_tab_data_);
     }
 
+    if (base::FeatureList::IsEnabled(commerce::kInStockNotification) &&
+        !profile->IsIncognitoProfile()) {
+      in_stock_notification_manager_ =
+          GetUserDataFactory()
+              .CreateInstance<commerce::InStockNotificationManager>(tab, &tab);
+    }
+
     if (glic::GlicEnabling::IsProfileEligible(profile)) {
       glic_instance_helper_ =
           GetUserDataFactory().CreateInstance<glic::GlicInstanceHelper>(tab,
@@ -359,7 +365,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           GetUserDataFactory().CreateInstance<glic::SelectionOverlayController>(
               tab, &tab, profile->GetPrefs());
 
-      if (base::FeatureList::IsEnabled(features::kGlicSelectionPrompt)) {
+      if (glic::GlicEnabling::IsSelectionPromptEnabledForProfile(profile)) {
         glic_selection_observer_ =
             std::make_unique<glic::GlicSelectionObserver>(tab.GetContents());
       }
@@ -386,9 +392,6 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           GetUserDataFactory().CreateInstance<actor::ui::ActorUiTabController>(
               tab, tab, actor::ActorKeyedService::Get(profile));
     }
-    actor_tab_data_ =
-        GetUserDataFactory().CreateInstance<actor::ActorTabData>(tab, &tab);
-
     if (base::FeatureList::IsEnabled(features::kSkillsEnabled)) {
       skills_ui_tab_controller_ =
           GetUserDataFactory().CreateInstance<skills::SkillsUiTabController>(
@@ -405,6 +408,11 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
     }
   }  // IsInNormalWindow() end.
 
+  if (base::FeatureList::IsEnabled(features::kGlicActor)) {
+    actor_tab_data_ =
+        GetUserDataFactory().CreateInstance<actor::ActorTabData>(tab, &tab);
+  }
+
   // This block instantiates the page action controllers that depends on the
   // `commerce_ui_tab_helper_` and not need to be created before.
   if (commerce_ui_tab_helper_) {
@@ -417,6 +425,13 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
     autofill_bubble_manager_ = autofill::BubbleManager::Create(&tab);
+  }
+
+  if (base::FeatureList::IsEnabled(
+          autofill::features::kAutofillEnableOmniboxAutofill)) {
+    omnibox_autofill_page_action_controller_ =
+        std::make_unique<autofill::OmniboxAutofillPageActionController>(
+            tab, *page_action_controller_);
   }
 
   customize_chrome_side_panel_controller_ =
@@ -474,6 +489,9 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   tab_creation_metrics_controller_ =
       std::make_unique<TabCreationMetricsController>(&tab);
 
+  tab_attachment_tracker_ =
+      GetUserDataFactory().CreateInstance<TabAttachmentTracker>(tab, &tab);
+
   tab_ui_helper_ = GetUserDataFactory().CreateInstance<TabUIHelper>(tab, tab);
 
   task_manager::WebContentsTags::CreateForTabContents(tab.GetContents());
@@ -491,8 +509,18 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
 
   if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasksContext)) {
     contextual_tasks_tab_visit_tracker_ =
-        std::make_unique<contextual_tasks::ContextualTasksTabVisitTracker>(
-            tab.GetContents());
+        GetUserDataFactory()
+            .CreateInstance<contextual_tasks::ContextualTasksTabVisitTracker>(
+                tab, tab);
+  }
+#endif
+
+#if BUILDFLAG(IS_WIN)
+  if (base::FeatureList::IsEnabled(
+          feature_engagement::kIPHSearchPromotionFeature)) {
+    search_promotion_navigation_observer_ =
+        GetUserDataFactory().CreateInstance<SearchPromotionNavigationObserver>(
+            tab, tab);
   }
 #endif
 

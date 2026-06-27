@@ -30,13 +30,24 @@ public class RecyclerViewSelectionController extends SelectionController
 
     @Override
     protected int getItemCount() {
-        return mLayoutManager.getItemCount();
+        return mLayoutManager == null ? 0 : mLayoutManager.getItemCount();
     }
 
     @Override
     public void reset() {
         super.reset();
-        mLastSelectedItemIndex = RecyclerView.NO_POSITION;
+        if (isParkedAtSentinel()) {
+            mLastSelectedItemIndex = RecyclerView.NO_POSITION;
+        }
+    }
+
+    @Override
+    boolean setPosition(int newPosition) {
+        boolean retVal = super.setPosition(newPosition);
+        if (isParkedAtSentinel()) {
+            mLastSelectedItemIndex = RecyclerView.NO_POSITION;
+        }
+        return retVal;
     }
 
     @Override

@@ -145,6 +145,11 @@ std::vector<const char*> GetDisabledToggles(
     disabled_toggles.push_back(toggle.c_str());
   }
 
+  if (!features::kSkiaGraphiteDawnBackendDebugLabels.Get()) {
+    // Note: This toggle needs to be explicitly enabled or disabled.
+    disabled_toggles.push_back("use_user_defined_labels_in_backend");
+  }
+
   // TODO(crbug.com/486866985): Remove this once dynamic rendering perf
   // regressions are investigated.
   disabled_toggles.push_back("vulkan_use_dynamic_rendering");
@@ -172,6 +177,7 @@ std::vector<const char*> GetEnabledToggles(
   // The following toggles are all device-scoped toggles so it's not necessary
   // to pass them when creating the Instance above.
   if (features::kSkiaGraphiteDawnBackendDebugLabels.Get()) {
+    // Note: This toggle needs to be explicitly enabled or disabled.
     enabled_toggles.push_back("use_user_defined_labels_in_backend");
   }
 
@@ -299,6 +305,7 @@ std::vector<wgpu::FeatureName> GetRequiredFeatures(
       wgpu::FeatureName::SharedTextureMemoryAHardwareBuffer,
       wgpu::FeatureName::SharedFenceSyncFD,
       wgpu::FeatureName::RenderPassRenderArea,
+      wgpu::FeatureName::OpaqueYCbCrAndroidForExternalTexture,
 
       // The following features are always supported by the the D3D backends.
       wgpu::FeatureName::SharedTextureMemoryD3D11Texture2D,

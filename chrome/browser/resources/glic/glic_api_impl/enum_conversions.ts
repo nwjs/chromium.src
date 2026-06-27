@@ -9,6 +9,7 @@
 
 import type * as mojomGlic from '../glic.mojom-webui.js';
 import type * as mojomActor from '../actor_webui.mojom-webui.js';
+import type * as mojomGlicEnums from '../glic_enums.mojom-webui.js';
 import type * as glicApi from '../glic_api/glic_api.js';
 
 export function enumToClient(
@@ -96,10 +97,10 @@ export function enumToClient(
   val: mojomGlic.ExperimentalTriggeringUpdateType | null):
     glicApi.ExperimentalTriggeringUpdateType | undefined;
 export function enumToClient(
-  val: mojomGlic.FeatureMode):
+  val: mojomGlicEnums.FeatureMode):
     glicApi.FeatureMode;
 export function enumToClient(
-  val: mojomGlic.FeatureMode | null):
+  val: mojomGlicEnums.FeatureMode | null):
     glicApi.FeatureMode | undefined;
 export function enumToClient(
   val: mojomGlic.FormFactor):
@@ -173,6 +174,12 @@ export function enumToClient(
 export function enumToClient(
   val: mojomGlic.RegisterConversationErrorReason | null):
     glicApi.RegisterConversationErrorReason | undefined;
+export function enumToClient(
+  val: mojomGlic.SbThreatType):
+    glicApi.SbThreatType;
+export function enumToClient(
+  val: mojomGlic.SbThreatType | null):
+    glicApi.SbThreatType | undefined;
 export function enumToClient(
   val: mojomGlic.ScreenshotCompressionQuality):
     glicApi.ScreenshotCompressionQuality;
@@ -341,10 +348,10 @@ export function enumFromClient(
     mojomGlic.ExperimentalTriggeringUpdateType | null;
 export function enumFromClient(
   val: glicApi.FeatureMode):
-    mojomGlic.FeatureMode;
+    mojomGlicEnums.FeatureMode;
 export function enumFromClient(
   val: glicApi.FeatureMode | undefined):
-    mojomGlic.FeatureMode | null;
+    mojomGlicEnums.FeatureMode | null;
 export function enumFromClient(
   val: glicApi.FormFactor):
     mojomGlic.FormFactor;
@@ -417,6 +424,12 @@ export function enumFromClient(
 export function enumFromClient(
   val: glicApi.RegisterConversationErrorReason | undefined):
     mojomGlic.RegisterConversationErrorReason | null;
+export function enumFromClient(
+  val: glicApi.SbThreatType):
+    mojomGlic.SbThreatType;
+export function enumFromClient(
+  val: glicApi.SbThreatType | undefined):
+    mojomGlic.SbThreatType | null;
 export function enumFromClient(
   val: glicApi.ScreenshotCompressionQuality):
     mojomGlic.ScreenshotCompressionQuality;

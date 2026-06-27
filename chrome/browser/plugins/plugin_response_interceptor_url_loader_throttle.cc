@@ -20,13 +20,16 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_attach_helper.h"
+#include "extensions/browser/mime_handler/mime_handler_body_cache.h"
 #include "extensions/browser/mime_handler/mime_handler_page.h"
+#include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handlers/mime_types_handler.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "pdf/buildflags.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
@@ -40,6 +43,9 @@
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace {
+
+using MimeHandlerStreamManager =
+    extensions::mime_handler::MimeHandlerStreamManager;
 
 void ClearAllButFrameAncestors(network::mojom::URLResponseHead* response_head) {
   response_head->headers->RemoveHeader("Content-Security-Policy");
@@ -90,6 +96,38 @@ void ClearAllButFrameAncestors(network::mojom::URLResponseHead* response_head) {
   csp.swap(cleared);
 }
 
+// A no-op `network::mojom::URLLoader` used on the cached-body fallback
+// path. The browser synthesizes a complete response (a buffered body
+// pipe + a synchronous `OnComplete`) for the renderer; the renderer
+// never calls back into the loader. Keeping the receiver bound
+// prevents a Mojo disconnect from racing the `OnComplete` message on
+// the `URLLoaderClient` pipe (cross-pipe ordering is not guaranteed,
+// and some renderer paths treat URLLoader-pipe disconnect as request
+// cancellation).
+class NoopURLLoader final : public network::mojom::URLLoader {
+ public:
+  // Creates a `NoopURLLoader` and binds it to `receiver` via
+  // `mojo::MakeSelfOwnedReceiver`, so the URLLoader pipe stays alive
+  // until the peer drops its `Remote<URLLoader>`.
+  static void CreateAndBind(
+      mojo::PendingReceiver<network::mojom::URLLoader> receiver) {
+    mojo::MakeSelfOwnedReceiver(std::make_unique<NoopURLLoader>(),
+                                std::move(receiver));
+  }
+
+  NoopURLLoader() = default;
+  NoopURLLoader(const NoopURLLoader&) = delete;
+  NoopURLLoader& operator=(const NoopURLLoader&) = delete;
+  ~NoopURLLoader() override = default;
+
+  // network::mojom::URLLoader:
+  void FollowRedirect(
+      network::HttpRequestHeadersUpdateParams headers_update_params,
+      const std::optional<GURL>& new_url) override {}
+  void SetPriority(net::RequestPriority priority,
+                   int32_t intra_priority_value) override {}
+};
+
 }  // namespace
 
 PluginResponseInterceptorURLLoaderThrottle::
@@ -120,8 +158,41 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
     return;
   }
 
-  std::string extension_id = PluginUtils::GetExtensionIdForMimeType(
-      web_contents->GetBrowserContext(), response_head->mime_type);
+  const bool embedded =
+      request_destination_ != network::mojom::RequestDestination::kDocument;
+
+  std::string extension_id;
+  std::optional<MimeHandlerStreamManager::CachedFallbackBody> cached_body;
+  if (response_head->mime_type == pdf::kPDFMimeType) {
+    // A generic MIME handler extension called
+    // chrome.mimeHandler.abortAndFallbackToNativeHandler() on a prior
+    // navigation for this embedder frame. Peek (not consume) at the
+    // fallback mark so the aborted extension does not re-claim its own
+    // response across the whole redirect chain -- the mark is cleared in
+    // `DidFinishNavigation()` once the re-fetch settles. Route the
+    // application/pdf response to the user agent's built-in PDF viewer.
+    // When the prior stream buffered the response body, take it now and
+    // replay it below instead of re-reading the reload's network body.
+    // The cached body is consumable only by the OOPIF PDF stream
+    // pipeline; the legacy MimeHandlerView GuestView path has no hook
+    // for a pre-fetched body pipe, so leave the pipe parked and let the
+    // reload re-fetch from the network.
+    auto* stream_manager =
+        MimeHandlerStreamManager::FromWebContents(web_contents);
+    if (stream_manager &&
+        stream_manager->IsPendingNativeFallback(frame_tree_node_id_)) {
+      extension_id = extension_misc::kPdfExtensionId;
+      if (chrome_pdf::features::IsOopifPdfEnabled()) {
+        cached_body =
+            stream_manager->TakeCachedFallbackBody(frame_tree_node_id_);
+      }
+    }
+  }
+
+  if (extension_id.empty()) {
+    extension_id = PluginUtils::GetExtensionIdForMimeType(
+        web_contents->GetBrowserContext(), response_head->mime_type, embedded);
+  }
 
   if (extension_id.empty()) {
     return;
@@ -167,7 +238,7 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
           extensions::ExtensionRegistry::Get(web_contents->GetBrowserContext())
               ->enabled_extensions()
               .GetByID(extension_id)) {
-    if (MimeTypesHandler* handler = MimeTypesHandler::GetHandler(extension)) {
+    if (const MimeTypesHandler* handler = MimeTypesHandler::Get(*extension)) {
       is_for_generic_mime_handler = !handler->IsPluginExtension();
     }
   }
@@ -253,21 +324,73 @@ void PluginResponseInterceptorURLLoaderThrottle::WillProcessResponse(
   transferrable_loader->url = GURL(
       extensions::Extension::GetBaseURLFromExtensionId(extension_id).spec() +
       base::Uuid::GenerateRandomV4().AsLowercaseString());
-  transferrable_loader->url_loader = std::move(original_loader);
-  transferrable_loader->url_loader_client = std::move(original_client);
   transferrable_loader->head = std::move(deep_copied_response);
   transferrable_loader->head->intercepted_by_plugin = true;
-  transferrable_loader->body = std::move(consumer_handle);
 
-  bool embedded =
-      request_destination_ != network::mojom::RequestDestination::kDocument;
+  scoped_refptr<extensions::MimeHandlerBodyCache> body_cache;
+  if (cached_body.has_value()) {
+    // Replay the body the extension buffered via
+    // chrome.mimeHandler.abortAndFallbackToNativeHandler() on the prior
+    // load. The renderer's `URLLoaderRelay` forwards client events to
+    // the PDF viewer's real client, so synthesize `OnComplete` here --
+    // without it the load never settles and the viewer renders empty.
+    mojo::PendingRemote<network::mojom::URLLoader> noop_loader;
+    NoopURLLoader::CreateAndBind(noop_loader.InitWithNewPipeAndPassReceiver());
+    transferrable_loader->url_loader = std::move(noop_loader);
+    mojo::Remote<network::mojom::URLLoaderClient> completion_client;
+    transferrable_loader->url_loader_client =
+        completion_client.BindNewPipeAndPassReceiver();
+    transferrable_loader->body = std::move(cached_body->pipe);
+
+    // `decoded_body_length` is the post-decoding byte count from the
+    // cache (not `response_head->content_length`, which is the wire
+    // `Content-Length` and would be wrong for content-encoded
+    // responses).
+    network::URLLoaderCompletionStatus completion_status(net::OK);
+    completion_status.decoded_body_length =
+        base::checked_cast<int64_t>(cached_body->decoded_body_size);
+    if (response_head->content_length >= 0) {
+      completion_status.encoded_body_length = response_head->content_length;
+    }
+    if (response_head->encoded_data_length >= 0) {
+      completion_status.encoded_data_length =
+          response_head->encoded_data_length;
+    }
+    completion_client->OnComplete(completion_status);
+  } else {
+    transferrable_loader->url_loader = std::move(original_loader);
+    transferrable_loader->url_loader_client = std::move(original_client);
+    // Buffer the response body in memory while forwarding the bytes to
+    // the handler, so a later
+    // chrome.mimeHandler.abortAndFallbackToNativeHandler() call can hand
+    // the cached bytes back on reload and skip re-reading the body from
+    // the network pipe. The cache is only consumable when the reload
+    // routes to the OOPIF PDF stream pipeline -- the legacy
+    // MimeHandlerView GuestView path has no hook for a pre-fetched body
+    // pipe, and the throttle's fallback-take path is PDF-mime-only. So
+    // gate creation on generic-handler + application/pdf + OOPIF; for
+    // every other generic-handler response, skip the cost. On
+    // forwarding-pipe creation failure the original source handle is
+    // returned via `forwarding_pipe`, so the body is never lost.
+    if (is_for_generic_mime_handler &&
+        original_mime_type == pdf::kPDFMimeType &&
+        chrome_pdf::features::IsOopifPdfEnabled()) {
+      mojo::ScopedDataPipeConsumerHandle forwarding_pipe;
+      body_cache = extensions::MimeHandlerBodyCache::Create(
+          std::move(consumer_handle), &forwarding_pipe);
+      transferrable_loader->body = std::move(forwarding_pipe);
+    } else {
+      transferrable_loader->body = std::move(consumer_handle);
+    }
+  }
+
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE,
       base::BindOnce(
           &extensions::mime_handlers::SendExecuteMimeTypeHandlerEvent,
           extension_id, stream_id, embedded, frame_tree_node_id_,
           std::move(transferrable_loader), response_url, internal_id,
-          original_mime_type));
+          original_mime_type, std::move(body_cache)));
 
   if (use_oopif_path) {
     // Schedule `ResumeLoad()` for after the SendExecuteMimeTypeHandlerEvent()

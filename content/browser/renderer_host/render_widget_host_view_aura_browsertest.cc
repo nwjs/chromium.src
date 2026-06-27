@@ -5,6 +5,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_aura.h"
 
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/run_until.h"
@@ -27,6 +28,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/public/test/hit_test_region_observer.h"
 #include "content/shell/browser/shell.h"
 #include "content/shell/common/shell_switches.h"
 #include "net/dns/mock_host_resolver.h"
@@ -35,6 +37,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/display/screen.h"
+#include "ui/events/event_handler.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/rect.h"
@@ -155,7 +158,7 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraBrowserTest,
 
   // Hide the view and evict the frame. This should trigger a copy of the stale
   // frame content.
-  GetRenderWidgetHostView()->Hide();
+  shell()->web_contents()->WasHidden();
   auto* dfh = GetDelegatedFrameHost();
   static_cast<viz::FrameEvictorClient*>(dfh)->EvictDelegatedFrame(
       dfh->GetFrameEvictorForTesting()->CollectSurfaceIdsForEviction());
@@ -171,7 +174,7 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraBrowserTest,
 
   // Unhidding the view should reset the stale content layer to show the new
   // frame content.
-  GetRenderWidgetHostView()->Show();
+  shell()->web_contents()->WasShown();
   EXPECT_FALSE(
       GetDelegatedFrameHost()->stale_content_layer_->has_external_content());
 }
@@ -196,14 +199,14 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraBrowserTest,
 
   // Hide the view and evict the frame. This should trigger a copy of the stale
   // frame content.
-  GetRenderWidgetHostView()->Hide();
+  shell()->web_contents()->WasHidden();
   auto* dfh = GetDelegatedFrameHost();
   static_cast<viz::FrameEvictorClient*>(dfh)->EvictDelegatedFrame(
       dfh->GetFrameEvictorForTesting()->CollectSurfaceIdsForEviction());
   EXPECT_EQ(GetDelegatedFrameHost()->frame_eviction_state_,
             DelegatedFrameHost::FrameEvictionState::kPendingEvictionRequests);
 
-  GetRenderWidgetHostView()->Show();
+  shell()->web_contents()->WasShown();
   EXPECT_EQ(GetDelegatedFrameHost()->frame_eviction_state_,
             DelegatedFrameHost::FrameEvictionState::kNotStarted);
 
@@ -237,7 +240,7 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraBrowserTest,
 
   // Hide the view and evict the frame. This should not trigger a copy of the
   // stale frame content as the WebContentDelegate returns false.
-  GetRenderWidgetHostView()->Hide();
+  shell()->web_contents()->WasHidden();
   auto* dfh = GetDelegatedFrameHost();
   static_cast<viz::FrameEvictorClient*>(dfh)->EvictDelegatedFrame(
       dfh->GetFrameEvictorForTesting()->CollectSurfaceIdsForEviction());
@@ -580,12 +583,14 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraDSFBrowserTest,
   // done in `WebFrameWidgetImpl`.
   const base::ListValue eval_result =
       EvalJs(wc, "getSelectionBounds();").TakeValue().TakeList();
-  const int x = floor(eval_result[0].GetDouble());
-  const int right = ceil(eval_result[1].GetDouble());
-  const int y = floor(eval_result[2].GetDouble());
-  const int bottom = ceil(eval_result[3].GetDouble());
-  const int expected_dip_width = floor(right / scale()) - ceil(x / scale());
-  const int expected_dip_height = floor(bottom / scale()) - ceil(y / scale());
+  const double x = eval_result[0].GetDouble();
+  const double right = eval_result[1].GetDouble();
+  const double y = eval_result[2].GetDouble();
+  const double bottom = eval_result[3].GetDouble();
+  const int expected_dip_width = floor(ceil(right * scale()) / scale()) -
+                                 ceil(floor(x * scale()) / scale());
+  const int expected_dip_height = floor(ceil(bottom * scale()) / scale()) -
+                                  ceil(floor(y * scale()) / scale());
 
   // Verify the DIP size of the bounding box.
   const gfx::Rect selection_bounds =
@@ -838,6 +843,71 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraEventBrowserTest,
 
   EXPECT_EQ(content::TouchpadScrollPhaseState::TOUCHPAD_SCROLL_STATE_UNKNOWN,
             mouse_wheel_phase_handler.touchpad_scroll_phase_state_for_test());
+}
+
+namespace {
+class ViewDestroyingPreTargetHandler : public ui::EventHandler {
+ public:
+  explicit ViewDestroyingPreTargetHandler(aura::Window* root_window,
+                                          RenderWidgetHostViewAura* view)
+      : root_window_(root_window), view_(view) {
+    root_window_->AddPreTargetHandler(this);
+  }
+
+  ~ViewDestroyingPreTargetHandler() override {
+    if (root_window_) {
+      root_window_->RemovePreTargetHandler(this);
+    }
+  }
+
+  void OnGestureEvent(ui::GestureEvent* event) override {
+    if (event->type() == ui::EventType::kGestureTapDown && view_) {
+      RenderWidgetHostViewAura* view_to_destroy = view_;
+      view_ = nullptr;
+      view_to_destroy->Destroy();
+      gesture_tap_down_seen_ = true;
+      root_window_->RemovePreTargetHandler(this);
+      root_window_ = nullptr;
+    }
+  }
+
+  bool gesture_tap_down_seen() const { return gesture_tap_down_seen_; }
+
+ private:
+  raw_ptr<aura::Window> root_window_;
+  raw_ptr<RenderWidgetHostViewAura> view_;
+  bool gesture_tap_down_seen_ = false;
+};
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewAuraBrowserTest,
+                       ProcessAckedTouchEventUseAfterFree) {
+  GURL page(
+      "data:text/html;charset=utf-8,"
+      "<!DOCTYPE html>"
+      "<html>"
+      "<body style='width: 100vw; height: 100vh;'>"
+      "</body>"
+      "</html>");
+  EXPECT_TRUE(NavigateToURL(shell(), page));
+
+  auto* web_contents = shell()->web_contents();
+  SimulateEndOfPaintHoldingOnPrimaryMainFrame(web_contents);
+  WaitForHitTestData(web_contents->GetPrimaryMainFrame());
+
+  auto* rwhva = GetRenderWidgetHostView();
+  ASSERT_TRUE(rwhva);
+  auto* root_window = rwhva->GetNativeView()->GetRootWindow();
+  ASSERT_TRUE(root_window);
+
+  ViewDestroyingPreTargetHandler handler(root_window, rwhva);
+
+  ui::test::EventGenerator generator(root_window, rwhva->GetNativeView());
+  generator.MoveTouch(rwhva->GetNativeView()->bounds().CenterPoint());
+  generator.PressTouch();
+
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return handler.gesture_tap_down_seen(); }));
 }
 
 }  // namespace content

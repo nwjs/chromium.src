@@ -52,7 +52,7 @@ std::string TrackedElementViews::ToString() const {
   return result;
 }
 
-DEFINE_FRAMEWORK_SPECIFIC_METADATA(TrackedElementViews)
+DEFINE_SAFE_CAST_TARGET(TrackedElementViews)
 
 // Tracks views associated with a specific ui::ElementIdentifier, whether or not
 // they are visible or attached to a widget.
@@ -205,6 +205,16 @@ class ElementTrackerViews::ElementDataViews : public ViewObserver {
 
   void OnViewIsDeleting(View* observed_view) override {
     RemoveView(observed_view);
+  }
+
+  void OnViewHierarchyChanged(
+      View* observed_view,
+      const ViewHierarchyChangedDetails& details) override {
+    // Only pay attention to the add portion of a move, since that has the
+    // new state.
+    if (details.is_add && details.move_view) {
+      UpdateVisible(observed_view);
+    }
   }
 
   // Returns whether the specified view is visible to the user. Takes the view

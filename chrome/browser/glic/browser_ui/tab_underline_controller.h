@@ -65,8 +65,7 @@ class TabUnderlineController
   void OnIndicatorStatusChanged(bool enabled);
 
   // Called when the glic set of pinned tabs changes.
-  void OnPinnedTabsChanged(
-      const std::vector<content::WebContents*>& pinned_contents);
+  void OnPinnedTabsChanged(const std::vector<tabs::TabInterface*>& pinned_tabs);
 
   // GlicInstanceCoordinator::StateObserver:
   void PanelStateChanged(const glic::mojom::PanelState& panel_state) override;
@@ -132,6 +131,9 @@ class TabUnderlineController
   // being shared via pinning or active following.
   void UpdateUnderlineView(UpdateUnderlineReason reason);
 
+  // Helper to observe contextual tasks if enabled and not already observing.
+  void MaybeObserveContextualTasks();
+
   // Off to On. Throw away everything we have and start the animation from
   // the beginning.
   void ShowAndAnimateUnderline(bool triggered_by_glic);
@@ -143,7 +145,7 @@ class TabUnderlineController
 
   void ShowOrAnimatePinnedUnderline(bool triggered_by_glic);
 
-  bool IsGlicWindowShowing() const;
+  bool IsAnyGlicPanelShowing() const;
 
   std::string UpdateReasonToString(UpdateUnderlineReason reason);
 

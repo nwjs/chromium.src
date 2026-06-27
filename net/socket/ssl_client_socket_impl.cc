@@ -53,6 +53,7 @@
 #include "net/http/transport_security_state.h"
 #include "net/log/net_log_event_type.h"
 #include "net/log/net_log_values.h"
+#include "net/net_buildflags.h"
 #include "net/ssl/cert_compression.h"
 #include "net/ssl/openssl_ssl_util.h"
 #include "net/ssl/ssl_cert_request_info.h"
@@ -109,7 +110,9 @@ base::DictValue NetLogSSLInfoParams(SSLClientSocketImpl* socket) {
       .Set("key_exchange_group", ssl_info.key_exchange_group)
       .Set("peer_signature_algorithm", ssl_info.peer_signature_algorithm)
       .Set("encrypted_client_hello", ssl_info.encrypted_client_hello)
-      .Set("next_proto", NextProtoToString(socket->GetNegotiatedProtocol()));
+      .Set("next_proto", NextProtoToString(socket->GetNegotiatedProtocol()))
+      .Set("requested_server_padding", ssl_info.server_padding_requested)
+      .Set("received_server_padding", ssl_info.server_padding_received);
 }
 
 base::DictValue NetLogSSLAlertParams(const void* bytes, size_t len) {
@@ -510,6 +513,9 @@ bool SSLClientSocketImpl::GetSSLInfo(SSLInfo* ssl_info) {
   ssl_info->is_fatal_cert_error = is_fatal_cert_error_;
   ssl_info->signed_certificate_timestamps = server_cert_verify_result_.scts;
   ssl_info->ct_policy_compliance = server_cert_verify_result_.policy_compliance;
+#if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+  ssl_info->crs_root_id = server_cert_verify_result_.crs_root_id;
+#endif
 
   const SSL_CIPHER* cipher = SSL_get_current_cipher(ssl_.get());
   CHECK(cipher);
@@ -528,6 +534,13 @@ bool SSLClientSocketImpl::GetSSLInfo(SSLInfo* ssl_info) {
                                  : SSLInfo::HANDSHAKE_FULL;
 
   ssl_info->early_data_accepted = SSL_early_data_accepted(ssl_.get());
+
+  ssl_info->server_padding_requested =
+      ssl_config_.server_padding_to_request.has_value();
+  if (ssl_info->server_padding_requested) {
+    ssl_info->server_padding_received =
+        SSL_server_sent_requested_padding(ssl_.get());
+  }
 
   return true;
 }
@@ -878,6 +891,12 @@ int SSLClientSocketImpl::Init() {
           x509_util::TrustAnchorIDsToString(x509_util::ParseTlsTrustAnchorIDs(
               *ssl_config_.trust_anchor_ids)));
     });
+  }
+
+  // Configure BoringSSL to ask for server padding, if provided.
+  if (ssl_config_.server_padding_to_request.has_value()) {
+    SSL_set_server_padding_request(
+        ssl_.get(), ssl_config_.server_padding_to_request.value());
   }
 
   // The compliance policy must be the last thing configured in order to have

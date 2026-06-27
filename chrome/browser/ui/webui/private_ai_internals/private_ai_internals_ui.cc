@@ -54,19 +54,15 @@ PrivateAiInternalsUI::PrivateAiInternalsUI(content::WebUI* web_ui)
       profile, chrome::kChromeUIPrivateAiInternalsHost);
 
   webui::SetupWebUIDataSource(
-      source, base::span(kPrivateAiInternalsResources),
+      source, kPrivateAiInternalsResources,
       IDR_PRIVATE_AI_INTERNALS_PRIVATE_AI_INTERNALS_HTML);
 
   source->AddString("default_url", kPrivateAiUrl.Get());
   source->AddString("default_api_key",
-                    private_ai::kPrivateAiApiKey.Get().empty()
+                    PrivateAiService::GetApiKey().empty()
                         ? ""
                         : PrivateAiInternalsPageHandler::kApiKeyPlaceholder);
   source->AddString("default_proxy_url", kPrivateAiProxyServerUrl.Get());
-  source->AddString(
-      "default_feature_name",
-      proto::FeatureName_Name(
-          proto::FeatureName::FEATURE_NAME_DEMO_GEMINI_GENERATE_CONTENT));
   source->AddBoolean(
       "default_use_token_attestation",
       base::FeatureList::IsEnabled(kPrivateAiUseTokenAttestation));

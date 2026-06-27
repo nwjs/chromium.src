@@ -25,6 +25,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/compositor.h"
@@ -76,7 +77,10 @@ QuickInsertSearchFieldView::QuickInsertSearchFieldView(
           views::Builder<views::ImageButton>(
               std::make_unique<IconButton>(
                   std::move(back_callback), IconButton::Type::kSmallFloating,
-                  &vector_icons::kArrowBackIcon, IDS_ACCNAME_BACK))
+                  &(::features::IsRoundedIconsEnabled()
+                        ? vector_icons::kArrowBackIcon
+                        : vector_icons::kArrowBackOldIcon),
+                  IDS_ACCNAME_BACK))
               .CopyAddressTo(&back_button_)
               .SetProperty(views::kMarginsKey, kButtonHorizontalMargin)
               .SetVisible(false),
@@ -98,7 +102,10 @@ QuickInsertSearchFieldView::QuickInsertSearchFieldView(
                         base::BindRepeating(
                             &QuickInsertSearchFieldView::ClearButtonPressed,
                             base::Unretained(this)),
-                        IconButton::Type::kSmallFloating, &views::kIcCloseIcon,
+                        IconButton::Type::kSmallFloating,
+                        &(::features::IsRoundedIconsEnabled()
+                              ? views::kCloseIcon
+                              : views::kIcCloseOldIcon),
                         IDS_APP_LIST_CLEAR_SEARCHBOX))
                     .CopyAddressTo(&clear_button_)
                     .SetProperty(views::kMarginsKey, kButtonHorizontalMargin)

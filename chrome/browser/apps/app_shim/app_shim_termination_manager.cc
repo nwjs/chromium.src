@@ -61,15 +61,12 @@ class AppShimTerminationManagerImpl : public AppShimTerminationManager,
 
   // BrowserCollectionObserver:
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
-    // fix https://github.com/nwjs/nw.js/issues/7226 for nw1
-    // browser_session_running_ will set to true once devtool is opened
-    // hence the TerminateIfNoAppWindows function will never be called
-    //browser_session_running_ = true;
+    browser_session_running_ = true;
   }
 
  private:
   void OnClosingAllBrowsersChanged(bool closing) {
-    //browser_session_running_ = !closing;
+    browser_session_running_ = !closing;
   }
 
   // TODO(crbug.com/495686112): remove when the AppShimTerminationManagerImpl

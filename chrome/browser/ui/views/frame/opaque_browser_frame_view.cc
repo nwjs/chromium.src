@@ -38,6 +38,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/theme_provider.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
@@ -52,6 +53,7 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/metadata/view_factory.h"
 #include "ui/views/resources/grit/views_resources.h"
+#include "ui/views/vector_icons.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/window/frame_background.h"
 #include "ui/views/window/frame_caption_button.h"
@@ -69,6 +71,8 @@
 using content::WebContents;
 
 namespace {
+
+constexpr int kRoundedCaptionButtonSize = 16;
 
 class CaptionButtonBackgroundImageSource : public gfx::CanvasImageSource {
  public:
@@ -145,8 +149,8 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
   }
 
   if (browser_view->AppUsesUnframedMode()) {
-    layout_->SetBorderlessModeEnabled(browser_view->IsUnframedModeEnabled(),
-                                      this);
+    layout_->SetUnframedModeEnabled(browser_view->IsUnframedModeEnabled(),
+                                    this);
   }
   if (frameless_)
     return;
@@ -170,16 +174,23 @@ void OpaqueBrowserFrameView::InitViews() {
   if (GetFrameButtonStyle() == FrameButtonStyle::kMdButton) {
     minimize_button_ = CreateFrameCaptionButton(
         views::CAPTION_BUTTON_ICON_MINIMIZE, HTMINBUTTON,
-        views::kWindowControlMinimizeIcon);
+        features::IsRoundedIconsEnabled()
+            ? views::kChromeMinimizeIcon
+            : views::kWindowControlMinimizeOldIcon);
     maximize_button_ = CreateFrameCaptionButton(
         views::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE, HTMAXBUTTON,
-        views::kWindowControlMaximizeIcon);
-    restore_button_ =
-        CreateFrameCaptionButton(views::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE,
-                                 HTMAXBUTTON, views::kWindowControlRestoreIcon);
-    close_button_ =
-        CreateFrameCaptionButton(views::CAPTION_BUTTON_ICON_CLOSE, HTMAXBUTTON,
-                                 views::kWindowControlCloseIcon);
+        features::IsRoundedIconsEnabled()
+            ? views::kChromeMaximizeIcon
+            : views::kWindowControlMaximizeOldIcon);
+    restore_button_ = CreateFrameCaptionButton(
+        views::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE, HTMAXBUTTON,
+        features::IsRoundedIconsEnabled()
+            ? views::kChromeRestoreFilledIcon
+            : views::kWindowControlRestoreOldIcon);
+    close_button_ = CreateFrameCaptionButton(
+        views::CAPTION_BUTTON_ICON_CLOSE, HTMAXBUTTON,
+        features::IsRoundedIconsEnabled() ? views::kCloseIcon
+                                          : views::kWindowControlCloseOldIcon);
   } else if (GetFrameButtonStyle() == FrameButtonStyle::kImageButton) {
     minimize_button_ =
         CreateImageButton(IDR_MINIMIZE, IDR_MINIMIZE_H, IDR_MINIMIZE_P,
@@ -600,7 +611,7 @@ bool OpaqueBrowserFrameView::IsTabStripVisible() const {
   return GetBrowserView()->GetTabStripVisible();
 }
 
-bool OpaqueBrowserFrameView::GetBorderlessModeEnabled() const {
+bool OpaqueBrowserFrameView::GetUnframedModeEnabled() const {
   return GetBrowserView()->IsUnframedModeEnabled();
 }
 
@@ -767,7 +778,10 @@ views::Button* OpaqueBrowserFrameView::CreateFrameCaptionButton(
   views::FrameCaptionButton* button = new views::FrameCaptionButton(
       views::Button::PressedCallback(), icon_type, ht_component);
   button->SetImage(button->GetIcon(), views::FrameCaptionButton::Animate::kNo,
-                   icon_image);
+                   icon_image,
+                   features::IsRoundedIconsEnabled()
+                       ? std::make_optional<int>(kRoundedCaptionButtonSize)
+                       : std::nullopt);
   return button;
 }
 

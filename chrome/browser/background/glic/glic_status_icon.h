@@ -13,6 +13,10 @@
 #include "chrome/browser/status_icons/status_icon_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/background/glic/os_icon_provider_mac.h"
+#endif
+
 class StatusIcon;
 class StatusIconMenuModel;
 class StatusTray;
@@ -21,20 +25,21 @@ class GlobalBrowserCollection;
 
 namespace glic {
 
-class GlicController;
+class GlicBackgroundDelegate;
 
-// This class abstracts away the details for creating a status tray icon and it
+// This class abstracts away the details for creating a status tray icon and its
 // context menu for the glic background mode manager. It is responsible for
-// notifying the GlicController when the UI needs to be shown in response to the
-// status icon being clicked or menu item being triggered.
+// notifying the GlicBackgroundDelegate when the UI needs to be shown in
+// response to the status icon being clicked or menu item being triggered.
 class GlicStatusIcon : public StatusIconObserver,
                        public StatusIconMenuModel::Delegate,
                        public BrowserCollectionObserver {
  public:
-  static std::unique_ptr<GlicStatusIcon> Create(GlicController* controller,
-                                                StatusTray* status_tray);
+  static std::unique_ptr<GlicStatusIcon> Create(
+      GlicBackgroundDelegate* delegate,
+      StatusTray* status_tray);
 
-  GlicStatusIcon(GlicController* controller, StatusTray* status_tray);
+  GlicStatusIcon(GlicBackgroundDelegate* delegate, StatusTray* status_tray);
 
   GlicStatusIcon(const GlicStatusIcon&) = delete;
   GlicStatusIcon& operator=(const GlicStatusIcon&) = delete;
@@ -57,6 +62,9 @@ class GlicStatusIcon : public StatusIconObserver,
 
   void UpdateVisibilityOfExitInContextMenu();
 
+  // Virtual for testing.
+  virtual void SetIcon(const gfx::ImageSkia& icon);
+
   StatusIconMenuModel* GetContextMenuForTesting() { return context_menu_; }
 
  protected:
@@ -67,14 +75,18 @@ class GlicStatusIcon : public StatusIconObserver,
 
   std::unique_ptr<StatusIconMenuModel> CreateStatusIconMenu();
 
-  raw_ptr<GlicController> controller_;
+  raw_ptr<GlicBackgroundDelegate> delegate_;
 
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};
 
-  raw_ptr<StatusTray> status_tray_;
-  raw_ptr<StatusIcon> status_icon_;
-  raw_ptr<StatusIconMenuModel> context_menu_;
+  raw_ptr<StatusTray> status_tray_ = nullptr;
+  raw_ptr<StatusIcon> status_icon_ = nullptr;
+  raw_ptr<StatusIconMenuModel> context_menu_ = nullptr;
+
+#if BUILDFLAG(IS_MAC)
+  OSIconProviderMac os_icon_provider_mac_;
+#endif
 };
 
 }  // namespace glic

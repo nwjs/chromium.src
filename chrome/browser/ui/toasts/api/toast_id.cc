@@ -81,8 +81,16 @@ std::string_view GetToastName(ToastId toast_id) {
       return "SendTabToSelfTabsOpenedInBackground";
     case ToastId::kSendTabToSelfSuccess:
       return "SendTabToSelfSuccess";
+    case ToastId::kSendTabToSelfFailure:
+      return "SendTabToSelfFailure";
+    case ToastId::kSendTabToSelfSuccessThrottled:
+      return "SendTabToSelfSuccessThrottled";
     case ToastId::kReportUnsafeSiteConfirmation:
       return "ReportUnsafeSiteConfirmation";
+    case ToastId::kDefaultBrowserUpdateSuccess:
+      return "DefaultBrowserUpdateSuccess";
+    case ToastId::kSendTabToSelfNoInternetConnection:
+      return "SendTabToSelfNoInternetConnection";
   }
 
   NOTREACHED();

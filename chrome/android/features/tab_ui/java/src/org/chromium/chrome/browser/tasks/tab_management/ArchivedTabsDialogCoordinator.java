@@ -54,16 +54,16 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherUtils;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.tasks.tab_management.TabActionButtonData.TabActionButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListItemSizeChangedObserver;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.NavigationProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
-import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.GridCardOnClickListenerProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListItemOnClickListenerProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
@@ -105,7 +105,6 @@ import java.util.function.Supplier;
 public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarManageable {
 
     private static final int ANIM_DURATION_MS = 250;
-    public static final String COMPONENT_NAME = "ArchivedTabsDialog";
 
     /** Interface exposing functionality to the menu items for the archived tabs dialog */
     public interface ArchiveDelegate {
@@ -227,17 +226,17 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
             };
 
     /** Used to override the default tab click behavior to restore/open the tab. */
-    private final GridCardOnClickListenerProvider mGridCardOnClickListenerProvider =
-            new GridCardOnClickListenerProvider() {
+    private final TabListItemOnClickListenerProvider mTabListItemOnClickListenerProvider =
+            new TabListItemOnClickListenerProvider() {
                 @Nullable
                 @Override
-                public TabActionListener openTabGridDialog(Tab tab) {
+                public TabActionListener onTabGroupClicked(Tab tab) {
                     return null;
                 }
 
                 @Nullable
                 @Override
-                public TabActionListener openTabGridDialog(String syncId) {
+                public TabActionListener onTabGroupClicked(String syncId) {
                     return new TabActionListener() {
                         @Override
                         public void run(
@@ -275,7 +274,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                                     syncId,
                                     mTabGroupSyncService,
                                     mTabGroupUiActionHandlerSupplier.get(),
-                                    assumeNonNull(mCurrentTabGroupModelFilterSupplier.get()),
+                                    assumeNonNull(mCurrentTabModelSupplier.get()),
                                     requestOpenTabGroupDialog);
                             RecordUserAction.record("TabGroups.RestoreSingleTabGroup");
                             RecordHistogram.recordCount1000Histogram(
@@ -311,6 +310,22 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                                         });
                                 RecordUserAction.record("Tabs.RestoreSingleTab");
                             });
+                }
+
+                @Nullable
+                @Override
+                public Boolean isTabGroupSelected(Tab tab, PropertyModel model) {
+                    return null;
+                }
+
+                @Nullable
+                @Override
+                public TabActionButtonData getTabGroupActionButtonData(
+                        Tab tab,
+                        PropertyModel model,
+                        Supplier<TabActionListener> defaultOverflowListenerSupplier) {
+                    return new TabActionButtonData(
+                            TabActionButtonType.OVERFLOW, defaultOverflowListenerSupplier.get());
                 }
             };
 
@@ -427,8 +442,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
     private final @Nullable TabGroupSyncService mTabGroupSyncService;
     private final Supplier<PaneManager> mPaneManagerSupplier;
     private final Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
-    private final NullableObservableSupplier<TabGroupModelFilter>
-            mCurrentTabGroupModelFilterSupplier;
+    private final NullableObservableSupplier<TabModel> mCurrentTabModelSupplier;
     private final DestroyChecker mDestroyChecker = new DestroyChecker();
 
     private EdgeToEdgePadAdjuster mEdgeToEdgePadAdjuster;
@@ -459,8 +473,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
      * @param tabGroupSyncService The {@link TabGroupSyncService} used for tab group sync.
      * @param paneManagerSupplier Used to switch and communicate with other panes.
      * @param tabGroupUiActionHandlerSupplier Used to open hidden tab groups.
-     * @param currentTabGroupModelFilterSupplier The supplier of the current {@link
-     *     TabGroupModelFilter}.
+     * @param currentTabModelSupplier The supplier of the current {@link TabModel}.
      */
     public ArchivedTabsDialogCoordinator(
             Activity activity,
@@ -480,7 +493,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
             @Nullable TabGroupSyncService tabGroupSyncService,
             Supplier<PaneManager> paneManagerSupplier,
             Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
-            NullableObservableSupplier<TabGroupModelFilter> currentTabGroupModelFilterSupplier) {
+            NullableObservableSupplier<TabModel> currentTabModelSupplier) {
         mActivity = activity;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mTabContentManager = tabContentManager;
@@ -530,7 +543,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         mTabGroupSyncService = tabGroupSyncService;
         mPaneManagerSupplier = paneManagerSupplier;
         mTabGroupUiActionHandlerSupplier = tabGroupUiActionHandlerSupplier;
-        mCurrentTabGroupModelFilterSupplier = currentTabGroupModelFilterSupplier;
+        mCurrentTabModelSupplier = currentTabModelSupplier;
 
         if (mTabGroupSyncService != null) {
             mTabGroupSyncService.addObserver(mTabGroupSyncObserver);
@@ -815,7 +828,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                         /* parentView= */ mDialogView.findViewById(R.id.tab_list_editor_container),
                         mBrowserControlsStateProvider,
                         assumeNonNull(mArchivedTabModelOrchestrator.getTabModelSelector())
-                                .getCurrentTabGroupModelFilterSupplier(),
+                                .getCurrentTabModelSupplier(),
                         mTabContentManager,
                         /* clientTabListRecyclerViewPositionSetter= */ CallbackUtils
                                 .emptyCallback(),
@@ -824,14 +837,14 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                         mSnackbarManager,
                         /* bottomSheetController= */ null,
                         TabProperties.TabActionState.CLOSABLE,
-                        mGridCardOnClickListenerProvider,
+                        mTabListItemOnClickListenerProvider,
                         mModalDialogManager,
                         mDesktopWindowStateManager,
                         /* edgeToEdgeSupplier= */ null,
                         CreationMode.FULL_SCREEN,
                         /* itemPickerSelectionHandler= */ null,
                         mUndoBarController,
-                        COMPONENT_NAME,
+                        TabComponentId.ARCHIVED_TABS_DIALOG,
                         TabListEditorCoordinator.UNLIMITED_SELECTION,
                         /* isSingleContextMode= */ false);
     }
@@ -874,7 +887,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                                 tabCount,
                                 tabCount);
         mActionConfirmationDialog.show(
-                new ConfirmationDialogParams(mActivity)
+                new ConfirmationDialogParams.Builder(mActivity)
                         .withTitle(title)
                         .withDescription(
                                 R.string
@@ -882,7 +895,8 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                         .withPositiveButton(
                                 R.string.archive_dialog_close_all_inactive_tabs_confirmation)
                         .withNegativeButton(R.string.cancel)
-                        .withSupportStopShowing(false),
+                        .withSupportStopShowing(false)
+                        .build(),
                 (dismissHandler, buttonClickResult, stopShowing) -> {
                     if (buttonClickResult == ButtonClickResult.POSITIVE) {
                         mArchivedTabModel
@@ -1064,8 +1078,8 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         return mDialogView;
     }
 
-    GridCardOnClickListenerProvider getGridCardOnClickListenerProviderForTesting() {
-        return mGridCardOnClickListenerProvider;
+    TabListItemOnClickListenerProvider getTabListItemOnClickListenerProviderForTesting() {
+        return mTabListItemOnClickListenerProvider;
     }
 
     /** Returns the Edge to edge pad adjuster. */

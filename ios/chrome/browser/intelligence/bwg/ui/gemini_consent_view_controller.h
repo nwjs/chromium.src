@@ -7,9 +7,9 @@
 
 #import <UIKit/UIKit.h>
 
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_configuration.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_view_controller_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_fre_view_controller_protocol.h"
-
-enum class GeminiFREType;
 
 @protocol GeminiConsentMutator;
 
@@ -17,12 +17,9 @@ enum class GeminiFREType;
 @interface GeminiConsentViewController
     : UIViewController <GeminiFREViewControllerProtocol>
 
-// Initializer for the consent VC with the properties needed to determine what
-// UI to present. `country` is an optional field, leaving it as nil will show
-// the default consent UI.
-- (instancetype)initWithIsAccountManaged:(BOOL)isAccountManaged
-                                 FREType:(GeminiFREType)FREType
-                                 country:(NSString*)country;
+// Initializer with the layout configuration.
+- (instancetype)initWithConfiguration:(GeminiConsentConfiguration*)configuration
+    NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithNibName:(NSString*)nibNameOrNil
@@ -31,6 +28,9 @@ enum class GeminiFREType;
 
 // The mutator for this view controller to communicate to the mediator.
 @property(nonatomic, weak) id<GeminiConsentMutator> mutator;
+
+// The delegate to handle height changes and accordion toggles.
+@property(nonatomic, weak) id<GeminiConsentViewControllerDelegate> delegate;
 
 @end
 

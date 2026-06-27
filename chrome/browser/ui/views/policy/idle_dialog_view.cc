@@ -11,9 +11,9 @@
 #include "base/functional/bind.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -23,6 +23,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
@@ -98,7 +99,9 @@ std::u16string IdleDialogView::GetWindowTitle() const {
 
 ui::ImageModel IdleDialogView::GetWindowIcon() {
   return ui::ImageModel::FromVectorIcon(
-      vector_icons::kBusinessIcon, ui::kColorIcon,
+      features::IsRoundedIconsEnabled() ? vector_icons::kDomainIcon
+                                        : vector_icons::kBusinessOldIcon,
+      ui::kColorIcon,
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           views::DISTANCE_BUBBLE_HEADER_VECTOR_ICON_SIZE));
 }
@@ -143,11 +146,11 @@ IdleDialogView::IdleDialogView(base::TimeDelta dialog_duration,
                       base::BindRepeating(&IdleDialogView::UpdateCountdown,
                                           base::Unretained(this)));
 
-  // TODO(nicolaso): In 90%+ of cases, chrome::GetIncognitoBrowserCount() is
-  // correct.
+  // TODO(nicolaso): In 90%+ of cases, GetIncognitoBrowserCount() is correct.
   // But sometimes, it reports the wrong number. There can be profiles that
   // _aren't_ closing, but have Incognito browsers.
-  incognito_count_ = chrome::GetIncognitoBrowserCount();
+  incognito_count_ =
+      GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount();
 
   int main_message_id;
   if (actions_.close && actions_.clear) {

@@ -37,6 +37,32 @@ std::u16string ConfirmInfoBarDelegate::GetTitleText() const {
   return std::u16string();
 }
 
+std::u16string ConfirmInfoBarDelegate::GetMessageTextTemplate() const {
+  return std::u16string();
+}
+
+std::vector<MessageSubstitution>
+ConfirmInfoBarDelegate::GetMessageSubstitutions() const {
+  return {};
+}
+
+MessageSubstitution::MessageSubstitution(
+    std::u16string text,
+    bool is_link,
+    std::optional<std::u16string> accessible_name)
+    : text(std::move(text)),
+      is_link(is_link),
+      accessible_name(std::move(accessible_name)) {}
+
+MessageSubstitution::MessageSubstitution(const MessageSubstitution& other) =
+    default;
+MessageSubstitution::MessageSubstitution(MessageSubstitution&& other) = default;
+MessageSubstitution& MessageSubstitution::operator=(
+    const MessageSubstitution& other) = default;
+MessageSubstitution& MessageSubstitution::operator=(
+    MessageSubstitution&& other) = default;
+MessageSubstitution::~MessageSubstitution() = default;
+
 gfx::ElideBehavior ConfirmInfoBarDelegate::GetMessageElideBehavior() const {
   return gfx::ELIDE_TAIL;
 }
@@ -83,6 +109,10 @@ int ConfirmInfoBarDelegate::GetLinkSpacingWhenPositionedBeforeButton() const {
 bool ConfirmInfoBarDelegate::UseIconBackgroundTint() const {
   return true;
 }
+
+bool ConfirmInfoBarDelegate::IgnoreIconColorWithTint() const {
+  return true;
+}
 #endif
 
 bool ConfirmInfoBarDelegate::Accept() {
@@ -94,6 +124,12 @@ bool ConfirmInfoBarDelegate::Accept() {
 
 bool ConfirmInfoBarDelegate::Cancel() {
   return true;
+}
+
+bool ConfirmInfoBarDelegate::InlineSubstitutionLinkClicked(
+    size_t index,
+    WindowOpenDisposition disposition) {
+  return false;
 }
 
 void ConfirmInfoBarDelegate::AddObserver(Observer* observer) {

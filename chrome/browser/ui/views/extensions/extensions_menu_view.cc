@@ -13,6 +13,7 @@
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -31,6 +32,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -72,7 +74,7 @@ ExtensionMenuItemView* GetAsMenuItemView(views::View* view) {
 
 ExtensionsMenuView::ExtensionsMenuView(
     views::View* anchor_view,
-    Browser* browser,
+    BrowserWindowInterface* browser,
     ExtensionsContainer* extensions_container,
     ExtensionsContainerViews* extensions_container_views)
     : BubbleDialogDelegateView(views::BubbleAnchor(anchor_view),
@@ -80,7 +82,7 @@ ExtensionsMenuView::ExtensionsMenuView(
       browser_(browser),
       extensions_container_(CHECK_DEREF(extensions_container)),
       extensions_container_views_(extensions_container_views),
-      toolbar_model_(ToolbarActionsModel::Get(browser_->profile())),
+      toolbar_model_(ToolbarActionsModel::Get(browser_->GetProfile())),
       cant_access_{nullptr, nullptr,
                    IDS_EXTENSIONS_MENU_CANT_ACCESS_SITE_DATA_SHORT,
                    IDS_EXTENSIONS_MENU_CANT_ACCESS_SITE_DATA,
@@ -94,7 +96,7 @@ ExtensionsMenuView::ExtensionsMenuView(
           IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA,
           extensions::SitePermissionsHelper::SiteInteraction::kGranted} {
   toolbar_model_observation_.Observe(toolbar_model_.get());
-  browser_->tab_strip_model()->AddObserver(this);
+  browser_->GetTabStripModel()->AddObserver(this);
   set_margins(gfx::Insets(0));
 
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
@@ -182,12 +184,14 @@ void ExtensionsMenuView::Populate() {
   footer->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(
       footer->GetInsets().top(), dialog_insets.left() + icon_spacing)));
   footer->SetImageLabelSpacing(footer->GetImageLabelSpacing() + icon_spacing);
-  footer->SetImageModel(
-      views::Button::STATE_NORMAL,
-      ui::ImageModel::FromVectorIcon(
-          vector_icons::kSettingsChromeRefreshIcon, ui::kColorIcon,
-          provider->GetDistanceMetric(
-              DISTANCE_EXTENSIONS_MENU_BUTTON_ICON_SIZE)));
+  footer->SetImageModel(views::Button::STATE_NORMAL,
+                        ui::ImageModel::FromVectorIcon(
+                            features::IsRoundedIconsEnabled()
+                                ? vector_icons::kSettingsIcon
+                                : vector_icons::kSettingsChromeRefreshOldIcon,
+                            ui::kColorIcon,
+                            provider->GetDistanceMetric(
+                                DISTANCE_EXTENSIONS_MENU_BUTTON_ICON_SIZE)));
 
   manage_extensions_button_ = footer.get();
   AddChildView(std::move(footer));
@@ -331,7 +335,7 @@ void ExtensionsMenuView::InsertMenuItem(ExtensionMenuItemView* menu_item) {
   DCHECK(!Contains(menu_item))
       << "Trying to insert a menu item that is already added in a section!";
   auto site_interaction = menu_item->view_model()->GetSiteInteraction(
-      browser_->tab_strip_model()->GetActiveWebContents());
+      browser_->GetTabStripModel()->GetActiveWebContents());
   Section* const section = GetSectionForSiteInteraction(site_interaction);
   // Add the view at the end. Note that this *doesn't* insert the item at the
   // correct spot or ensure the view is visible; it's assumed that any callers
@@ -354,7 +358,7 @@ void ExtensionsMenuView::UpdateSectionVisibility() {
 
 void ExtensionsMenuView::Update() {
   content::WebContents* const web_contents =
-      browser_->tab_strip_model()->GetActiveWebContents();
+      browser_->GetTabStripModel()->GetActiveWebContents();
   auto move_children_between_sections_if_necessary =
       [this, web_contents](Section* section) {
         // Note: Collect the views to move separately, so that we don't change
@@ -389,7 +393,7 @@ void ExtensionsMenuView::Update() {
 void ExtensionsMenuView::SanityCheck() {
 #if DCHECK_IS_ON()
   content::WebContents* web_contents =
-      browser_->tab_strip_model()->GetActiveWebContents();
+      browser_->GetTabStripModel()->GetActiveWebContents();
 
   // Sanity checks: verify that all extensions are properly sorted and in the
   // correct section.
@@ -507,7 +511,7 @@ base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
 // static
 views::Widget* ExtensionsMenuView::ShowBubble(
     views::View* anchor_view,
-    Browser* browser,
+    BrowserWindowInterface* browser,
     ExtensionsContainer* extensions_container,
     ExtensionsContainerViews* extensions_container_views) {
   DCHECK(!g_extensions_dialog);

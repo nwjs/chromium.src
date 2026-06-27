@@ -20,14 +20,15 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui_base.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/find_bar_host.h"
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_extensions_container.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_client_view.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_exclusive_access_context.h"
-#include "chrome/browser/ui/webui_browser/webui_browser_extensions_container.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_modal_dialog_host.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_side_panel_ui.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
@@ -143,8 +144,8 @@ WebUIBrowserWindow::WebUIBrowserWindow(Browser* browser) : browser_(browser) {
       std::make_unique<WebShellWebContentsUserData>(this));
 
   modal_dialog_host_ = std::make_unique<WebUIBrowserModalDialogHost>(this);
-  extensions_container_ =
-      std::make_unique<WebUIBrowserExtensionsContainer>(*browser_, *this);
+  extensions_container_ = std::make_unique<WebUIToolbarExtensionsContainer>(
+      *browser_, widget_.get(), ui_web_contents->GetWeakPtr());
   scoped_extensions_container_user_data_ =
       std::make_unique<ui::ScopedUnownedUserData<ExtensionsContainer>>(
           browser_->GetUnownedUserDataHost(), *extensions_container_);
@@ -173,6 +174,13 @@ WebUIBrowserWindow::WebUIBrowserWindow(Browser* browser) : browser_(browser) {
         base::BindRepeating(&WebUIBrowserWindow::ZoomChangedForActiveTab,
                             base::Unretained(this)));
   }
+
+  contents_element_shown_subscription_ =
+      ui::ElementTracker::GetElementTracker()->AddElementShownCallback(
+          kContentsContainerViewElementId,
+          views::ElementTrackerViews::GetContextForWidget(widget_.get()),
+          base::BindRepeating(&WebUIBrowserWindow::OnContentsElementShown,
+                              base::Unretained(this)));
 
   LoadAccelerators();
 }
@@ -274,7 +282,7 @@ bool WebUIBrowserWindow::IsVisible() const {
 }
 
 void WebUIBrowserWindow::SetBounds(const gfx::Rect& bounds) {
-  NOTIMPLEMENTED_LOG_ONCE();
+  widget_->SetBounds(bounds);
 }
 
 void WebUIBrowserWindow::Close() {
@@ -290,16 +298,15 @@ void WebUIBrowserWindow::Close() {
 }
 
 void WebUIBrowserWindow::Activate() {
-  NOTIMPLEMENTED_LOG_ONCE();
+  widget_->Activate();
 }
 
 void WebUIBrowserWindow::Deactivate() {
-  NOTIMPLEMENTED_LOG_ONCE();
+  widget_->Deactivate();
 }
 
 bool WebUIBrowserWindow::IsActive() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  return widget_->IsActive();
 }
 
 void WebUIBrowserWindow::FlashFrame(bool flash) {
@@ -514,12 +521,6 @@ gfx::Rect WebUIBrowserWindow::GetContentsBoundsInScreen() const {
   return content_region ? content_region->GetScreenBounds() : gfx::Rect();
 }
 
-ui::TrackedElement* WebUIBrowserWindow::GetExtensionsMenuButtonAnchor() const {
-  return ui::ElementTracker::GetElementTracker()->GetFirstMatchingElement(
-      kExtensionsMenuButtonElementId,
-      views::ElementTrackerViews::GetContextForWidget(widget_.get()));
-}
-
 void WebUIBrowserWindow::ProcessFullscreen(bool fullscreen) {
   widget_->SetFullscreen(fullscreen);
 
@@ -704,8 +705,32 @@ gfx::Size WebUIBrowserWindow::GetContentsSize() const {
   return GetContentsBoundsInScreen().size();
 }
 
+bool WebUIBrowserWindow::IsContentsElementReady() const {
+  BrowserElements* elements = BrowserElements::From(browser_);
+  return elements && elements->GetElement(kContentsContainerViewElementId);
+}
+
 void WebUIBrowserWindow::SetContentsSize(const gfx::Size& size) {
-  NOTIMPLEMENTED_LOG_ONCE();
+  if (!IsContentsElementReady()) {
+    deferred_contents_size_ = size;
+    return;
+  }
+
+  if (size == GetContentsSize()) {
+    deferred_contents_size_.reset();
+    return;
+  }
+
+  gfx::Rect bounds = GetBounds();
+  bounds.set_size(bounds.size() + size - GetContentsSize());
+  SetBounds(bounds);
+  deferred_contents_size_.reset();
+}
+
+void WebUIBrowserWindow::OnContentsElementShown(ui::TrackedElement* element) {
+  if (deferred_contents_size_.has_value()) {
+    SetContentsSize(deferred_contents_size_.value());
+  }
 }
 
 void WebUIBrowserWindow::UpdatePageActionIcon(PageActionIconType type) {
@@ -782,18 +807,6 @@ void WebUIBrowserWindow::OnFocusBookmarksToolbar() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
-void WebUIBrowserWindow::FocusInactivePopupForAccessibility() {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WebUIBrowserWindow::RotatePaneFocus(bool forwards) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WebUIBrowserWindow::FocusWebContentsPane() {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
 bool WebUIBrowserWindow::IsTabStripEditable() const {
   return true;
 }
@@ -852,12 +865,6 @@ ShowTranslateBubbleResult WebUIBrowserWindow::ShowTranslateBubble(
   return ShowTranslateBubbleResult::kBrowserWindowNotValid;
 }
 
-void WebUIBrowserWindow::StartPartialTranslate(
-    const std::string& source_language,
-    const std::string& target_language,
-    const std::u16string& text_selection) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
 
 DownloadBubbleUIController*
 WebUIBrowserWindow::GetDownloadBubbleUIController() {

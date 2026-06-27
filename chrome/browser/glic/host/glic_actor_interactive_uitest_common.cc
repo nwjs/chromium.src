@@ -18,6 +18,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
 #include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/common/actor/action_result.h"
@@ -86,8 +88,11 @@ GlicActorUiTest::GlicActorUiTest() {
       {// Increase timeout since tests are timing out with ASAN builds.
        {features::kGlicWebClientLoadTimes,
         {{features::kGlicMaxLoadingTimeMs.name, "30000"}}},
+       // Decrease the timeout for observation delays to prevent test timeouts
+       // on slow builders.
        {features::kGlicActor,
-        {{features::kGlicActorPolicyControlExemption.name, "true"}}},
+        {{features::kGlicActorPolicyControlExemption.name, "true"},
+         {"actor-observation-delay-timeout", "3s"}}},
        {features::kGlicActorToctouValidation, {}},
        {optimization_guide::features::
             kAnnotatedPageContentWithActionableElements,
@@ -643,7 +648,7 @@ MultiStep GlicActorUiTest::GetPageContextForActorTab() {
     EXPECT_NE(tab_handle_, TabHandle::Null())
         << "GetPageContextForActorTab must be called after starting a task in "
            "a tab, e.g. using StartActorTaskInNewTab";
-    GetGlicInstance()->host().sharing_manager().GetContextForActorFromTab(
+    GetGlicInstanceImpl()->host().sharing_manager().GetContextForActorFromTab(
         tab_handle_, *options.get(),
         base::BindLambdaForTesting([&](GlicGetContextResult result) {
           if (result.has_value()) {
@@ -658,7 +663,8 @@ MultiStep GlicActorUiTest::GetPageContextForActorTab() {
             actor::ActorTabData* tab_data =
                 actor::ActorTabData::From(tab_handle_.Get());
             if (tab_data) {
-              tab_data->DidObserveContent(*annotated_page_content_);
+              tab_data->DidObserveContent(*annotated_page_content_,
+                                          actor::ApcSource::kActor);
             }
           }
           run_loop.Quit();

@@ -26,14 +26,14 @@ using ::testing::_;
 using Embedding = passage_embeddings::Embedding;
 using TaskId = passage_embeddings::Embedder::TaskId;
 
-constexpr TaskId kTaskId = 0;
+constexpr TaskId kTaskId = 1;
 
 class MockEmbedder : public passage_embeddings::TestEmbedder {
  public:
   MockEmbedder() = default;
   ~MockEmbedder() override = default;
 
-  MOCK_METHOD(TaskId,
+  MOCK_METHOD(passage_embeddings::Embedder::Job,
               ComputePassagesEmbeddings,
               (passage_embeddings::PassagePriority priority,
                std::vector<std::string> passages,
@@ -53,14 +53,24 @@ class ContentAnnotatorSemanticMatchClassifierTest : public testing::Test {
 
   std::unique_ptr<ContentAnnotatorSemanticMatchClassifier> CreateClassifier(
       std::string_view rules_json) {
-    base::test::TestFuture<
-        std::unique_ptr<ContentAnnotatorSemanticMatchClassifier>>
+    base::test::TestFuture<SemanticMatchRulesMap, std::vector<Embedding>,
+                           passage_embeddings::ComputeEmbeddingsStatus>
         future;
 
-    CreateSemanticMatchClassifier(rules_json, mock_embedder_.get(),
-                                  future.GetCallback());
+    std::optional<passage_embeddings::Embedder::Job> job =
+        ComputeEmbeddingsForSemanticMatchClassifier(
+            rules_json, mock_embedder_.get(), future.GetCallback());
+    if (!job) {
+      return nullptr;
+    }
 
-    return future.Take();
+    auto [rules, embeddings, status] = future.Take();
+    if (status != passage_embeddings::ComputeEmbeddingsStatus::kSuccess) {
+      return nullptr;
+    }
+
+    return ContentAnnotatorSemanticMatchClassifier::Create(
+        std::move(rules), std::move(embeddings));
   }
 
   void MockEmbedderResponse(
@@ -68,7 +78,7 @@ class ContentAnnotatorSemanticMatchClassifierTest : public testing::Test {
       std::vector<std::string>* captured_passages = nullptr) {
     EXPECT_CALL(*mock_embedder_, ComputePassagesEmbeddings(_, _, _))
         .WillOnce(
-            [keyword_to_embedding, captured_passages](
+            [this, keyword_to_embedding, captured_passages](
                 passage_embeddings::PassagePriority,
                 std::vector<std::string> passages,
                 passage_embeddings::Embedder::ComputePassagesEmbeddingsCallback
@@ -85,7 +95,8 @@ class ContentAnnotatorSemanticMatchClassifierTest : public testing::Test {
               std::move(callback).Run(
                   passages, std::move(embeddings), kTaskId,
                   passage_embeddings::ComputeEmbeddingsStatus::kSuccess);
-              return kTaskId;
+              return passage_embeddings::Embedder::Job(
+                  mock_embedder_->GetWeakPtr(), kTaskId);
             });
   }
 
@@ -95,17 +106,33 @@ class ContentAnnotatorSemanticMatchClassifierTest : public testing::Test {
 
 TEST_F(ContentAnnotatorSemanticMatchClassifierTest,
        CreateFailsWithInvalidJson) {
-  auto classifier = CreateClassifier("invalid json");
-  EXPECT_FALSE(classifier);
+  base::test::TestFuture<SemanticMatchRulesMap, std::vector<Embedding>,
+                         passage_embeddings::ComputeEmbeddingsStatus>
+      future;
+  std::optional<passage_embeddings::Embedder::Job> job =
+      ComputeEmbeddingsForSemanticMatchClassifier(
+          "invalid json", mock_embedder_.get(), future.GetCallback());
+  EXPECT_FALSE(job);
 }
 
-TEST_F(ContentAnnotatorSemanticMatchClassifierTest, FailsWithNullEmbedder) {
+TEST_F(ContentAnnotatorSemanticMatchClassifierTest,
+       CreateFailsWhenEmbeddingFails) {
   const char kRules[] = R"JSON({ "category1": ["keyword1"] })JSON";
-  base::test::TestFuture<
-      std::unique_ptr<ContentAnnotatorSemanticMatchClassifier>>
-      future;
-  CreateSemanticMatchClassifier(kRules, nullptr, future.GetCallback());
-  EXPECT_FALSE(future.Take());
+  EXPECT_CALL(*mock_embedder_, ComputePassagesEmbeddings(_, _, _))
+      .WillOnce(
+          [this](passage_embeddings::PassagePriority,
+                 std::vector<std::string> passages,
+                 passage_embeddings::Embedder::ComputePassagesEmbeddingsCallback
+                     callback) {
+            std::move(callback).Run(
+                passages, {}, kTaskId,
+                passage_embeddings::ComputeEmbeddingsStatus::kExecutionFailure);
+            return passage_embeddings::Embedder::Job(
+                mock_embedder_->GetWeakPtr(), kTaskId);
+          });
+
+  auto classifier = CreateClassifier(kRules);
+  EXPECT_FALSE(classifier);
 }
 
 TEST_F(ContentAnnotatorSemanticMatchClassifierTest, CreateSucceeds) {

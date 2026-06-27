@@ -809,7 +809,7 @@ TEST_F(AllocatorShimTest, InterceptCLibraryFunctions) {
   // accept that allocations and deallocations will not be matched at all times.
   // It is however essential for PartitionAlloc, which is exercized in the test
   // below.
-#ifndef COMPONENT_BUILD
+#if !PA_BUILDFLAG(IS_COMPONENT_BUILD)
   // Calls vasprintf() indirectly, see below.
   counts_before = counts_after;
   std::stringstream stream;
@@ -817,7 +817,7 @@ TEST_F(AllocatorShimTest, InterceptCLibraryFunctions) {
   EXPECT_GT(stream.view().size(), 30u);
   counts_after = total_counts(allocs_intercepted_by_size);
   EXPECT_GT(counts_after, counts_before);
-#endif  // COMPONENT_BUILD
+#endif  // !PA_BUILDFLAG(IS_COMPONENT_BUILD)
 
   RemoveAllocatorDispatchForTesting(&g_mock_dispatch);
 }
@@ -876,6 +876,36 @@ TEST_F(AllocatorShimTest, MallocGoodSize) {
   constexpr size_t kTestSize = 100;
   size_t good_size = malloc_good_size(kTestSize);
   EXPECT_GE(good_size, kTestSize);
+}
+
+// Regression test: MallocZoneSize crash on freed direct-mapped allocation.
+// On macOS, the system (CoreFoundation/AppKit) may call malloc_zone_size()
+// for any pointer, including pointers in super pages that have been freed
+// and decommitted. Without the fix, this would SIGBUS when accessing
+// decommitted metadata.
+TEST_F(AllocatorShimTest, MallocSizeOnFreedDirectMapDoesNotCrash) {
+  // Allocate a large block that will be direct-mapped by PartitionAlloc.
+  // Direct-mapped allocations are immediately unmapped (via UnmapNow) when
+  // freed, so the super page metadata becomes inaccessible.
+  constexpr size_t kLargeSize = 2 * 1024 * 1024;  // 2 MiB
+  void* ptr = malloc(kLargeSize);
+  ASSERT_NE(ptr, nullptr);
+
+  // Verify malloc_size works while the allocation is alive.
+  size_t size_before_free = malloc_size(ptr);
+  EXPECT_GE(size_before_free, kLargeSize);
+
+  // Free the allocation. For direct-mapped allocations, this calls UnmapNow
+  // which decommits the super page and its metadata.
+  free(ptr);
+
+  // Now call malloc_size on the freed pointer. This exercises the same code
+  // path as the crash: MallocZoneSize -> ShimGetSizeEstimate ->
+  // GetSizeEstimate. Before the fix, this would SIGBUS on decommitted
+  // metadata. After the fix, the ReservationOffsetTable check returns 1
+  // (claiming ownership without accessing decommitted metadata).
+  size_t size_after_free = malloc_size(ptr);
+  EXPECT_EQ(size_after_free, 1u);
 }
 
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(IS_APPLE)
@@ -942,11 +972,11 @@ class AllocatorShimCppOperatorTest : public AllocatorShimTest {
 
  protected:
   static constexpr size_t GetAllocSize(size_t size, size_t alignment) {
-#if !PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD)
+#if !PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD)
     return size;
 #else
     return partition_alloc::internal::base::bits::AlignUp(size, alignment);
-#endif  // !PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD)
+#endif  // !PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD)
   }
 
   // Tests `operator new()` and `operator delete()` against `T`.
@@ -1075,12 +1105,12 @@ class AllocatorShimCppOperatorTest : public AllocatorShimTest {
 // On Apple component-builds, all deallocations are routed to `try_free_default`
 // and size information will be missing.
 #if PA_BUILDFLAG(SHIM_SUPPORTS_SIZED_DEALLOC) && \
-    (!PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD))
+    (!PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD))
 #define ASSERT_TRUE_IFF_SIZED(a) ASSERT_TRUE(a)
 #else
 #define ASSERT_TRUE_IFF_SIZED(a) ASSERT_FALSE(a)
 #endif  // PA_BUILDFLAG(SHIM_SUPPORTS_SIZED_DEALLOC) && (!PA_BUILDFLAG(IS_APPLE)
-        // || !defined(COMPONENT_BUILD))
+        // || !PA_BUILDFLAG(IS_COMPONENT_BUILD))
 
 TEST_F(AllocatorShimCppOperatorTest, NewAndDeleteGlobalOperator) {
   InsertAllocatorDispatch(&g_mock_dispatch);
@@ -1189,9 +1219,9 @@ TEST_F(AllocatorShimCppOperatorTest,
       frees_intercepted_by_size[GetAllocSize(kSize, kAlignment)]);
   // On Apple component build `try_free_default` is used and alignment
   // information is missing.
-#if !PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD)
+#if !PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD)
   ASSERT_TRUE(frees_intercepted_by_alignment[kAlignment]);
-#endif  // !PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD)
+#endif  // !PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD)
 
   RemoveAllocatorDispatchForTesting(&g_mock_dispatch);
 }
@@ -1305,9 +1335,9 @@ TEST_F(AllocatorShimCppOperatorTest,
       frees_intercepted_by_size[GetAllocSize(kSize, kAlignment)]);
   // On Apple component build `try_free_default` is used and alignment
   // information is missing.
-#if !PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD)
+#if !PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD)
   ASSERT_TRUE(frees_intercepted_by_alignment[kAlignment]);
-#endif  // !PA_BUILDFLAG(IS_APPLE) || !defined(COMPONENT_BUILD)
+#endif  // !PA_BUILDFLAG(IS_APPLE) || !PA_BUILDFLAG(IS_COMPONENT_BUILD)
 
   RemoveAllocatorDispatchForTesting(&g_mock_dispatch);
 }
@@ -1845,6 +1875,20 @@ void MockAlignedFreeWithAdvancedChecks(void* address, void* context) {
                                                                   context);
 }
 
+class ScopedCustomDispatchSwapForTesting {
+ public:
+  explicit ScopedCustomDispatchSwapForTesting(AllocatorDispatch* dispatch) {
+    original_dispatch_ = GetCustomDispatchForTesting();
+    InstallCustomDispatchForTesting(dispatch);
+  }
+  ~ScopedCustomDispatchSwapForTesting() {
+    InstallCustomDispatchForTesting(original_dispatch_);
+  }
+
+ private:
+  const AllocatorDispatch* original_dispatch_;
+};
+
 TEST_F(AllocatorShimTest, InstallDispatchToPartitionAllocWithAdvancedChecks) {
   // To prevent flakiness introduced by sampling-based dispatch inserted,
   // replace the chain head within this test.
@@ -1865,16 +1909,18 @@ TEST_F(AllocatorShimTest, InstallDispatchToPartitionAllocWithAdvancedChecks) {
   EXPECT_GE(frees_intercepted_by_addr[Hash(alloc_ptr)], 1u);
   EXPECT_EQ(g_mock_free_with_advanced_checks_count, 0u);
 
-  InstallCustomDispatchForTesting(&g_mock_dispatch_for_advanced_checks);
+  {
+    ScopedCustomDispatchSwapForTesting swap(
+        &g_mock_dispatch_for_advanced_checks);
 
-  alloc_ptr = new int;
-  delete alloc_ptr;
+    alloc_ptr = new int;
+    delete alloc_ptr;
 
-  // `free()` -> `g_mock_dispatch` -> `dispatch` -> default allocator.
-  EXPECT_GE(frees_intercepted_by_addr[Hash(alloc_ptr)], 1u);
-  EXPECT_GE(g_mock_free_with_advanced_checks_count, 1u);
+    // `free()` -> `g_mock_dispatch` -> `dispatch` -> default allocator.
+    EXPECT_GE(frees_intercepted_by_addr[Hash(alloc_ptr)], 1u);
+    EXPECT_GE(g_mock_free_with_advanced_checks_count, 1u);
+  }
 
-  UninstallCustomDispatch();
   g_mock_free_with_advanced_checks_count = 0u;
 
   alloc_ptr = new int;

@@ -86,6 +86,7 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
   bool AllowScriptExtensions() override;
 
   bool HasWebView() const override;
+  bool IsForInitialWebUI() const override;
   bool InShadowTree() const override;
   void WillBeDetached() override;
   void Detached(FrameDetachType) override;
@@ -106,7 +107,8 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
       bool is_client_redirect,
       bool is_browser_initiated,
       bool should_skip_screenshot,
-      base::UnguessableToken same_document_metrics_token) override;
+      base::UnguessableToken same_document_metrics_token,
+      bool caused_by_ad) override;
   void DidFailAsyncSameDocumentCommit() override;
   void DispatchDidOpenDocumentInputStream(const KURL& url) override;
   void DispatchDidReceiveTitle(const String&) override;

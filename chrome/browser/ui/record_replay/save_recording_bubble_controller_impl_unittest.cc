@@ -5,61 +5,11 @@
 #include "chrome/browser/ui/record_replay/save_recording_bubble_controller_impl.h"
 
 #include "base/test/mock_callback.h"
-#include "components/record_replay/core/browser/recording.pb.h"
-#include "components/record_replay/core/browser/recording_data_manager.h"
+#include "components/record_replay/core/common/test_support/mock_task_store.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace record_replay {
-
-class MockRecordingDataManager : public RecordingDataManager {
- public:
-  MOCK_METHOD(void,
-              AddRecording,
-              (Recording recording, base::OnceCallback<void(int64_t)> callback),
-              (override));
-  MOCK_METHOD(void,
-              GetRecordingsByUrl,
-              (std::string url,
-               base::OnceCallback<void(std::vector<Recording>)> callback),
-              (override));
-  MOCK_METHOD(void,
-              SaveActivityAnnotation,
-              (std::optional<int64_t> annotation_id,
-               ActivityAnnotation annotation,
-               std::string target_url,
-               std::optional<int64_t> recording_id,
-               base::OnceClosure callback),
-              (override));
-  MOCK_METHOD(
-      void,
-      GetActivityAnnotation,
-      (int64_t annotation_id,
-       base::OnceCallback<void(std::optional<ActivityAnnotation>)> callback),
-      (override));
-  MOCK_METHOD(
-      void,
-      GetActivityAnnotationsByUrl,
-      (std::string url,
-       base::OnceCallback<
-           void(std::vector<std::pair<int64_t, ActivityAnnotation>>)> callback),
-      (override));
-  MOCK_METHOD(void,
-              SaveActivityData,
-              (int64_t annotation_id,
-               ActivityData data,
-               base::OnceCallback<void(bool)> callback),
-              (override));
-  MOCK_METHOD(void,
-              GetActivityData,
-              (int64_t annotation_id,
-               base::OnceCallback<void(std::optional<ActivityData>)> callback),
-              (override));
-  MOCK_METHOD(void,
-              DeleteActivityData,
-              (int64_t annotation_id, base::OnceCallback<void(bool)> callback),
-              (override));
-};
 
 class SaveRecordingBubbleControllerImplTest : public testing::Test {};
 
@@ -67,11 +17,11 @@ TEST_F(SaveRecordingBubbleControllerImplTest, OnSave_SavesRecording) {
   Recording recording;
   recording.set_url("http://example.com");
 
-  MockRecordingDataManager mock_manager;
+  MockTaskStore mock_task_store;
   base::MockCallback<base::OnceCallback<void(std::string_view)>> show_toast;
   base::MockCallback<base::OnceClosure> on_close;
 
-  EXPECT_CALL(mock_manager, AddRecording(testing::_, testing::_))
+  EXPECT_CALL(mock_task_store, AddRecording(testing::_, testing::_))
       .WillOnce([](Recording r, base::OnceCallback<void(int64_t)> callback) {
         EXPECT_EQ(r.url(), "http://example.com");
         EXPECT_EQ(r.name(), "Test Name");
@@ -80,7 +30,7 @@ TEST_F(SaveRecordingBubbleControllerImplTest, OnSave_SavesRecording) {
   EXPECT_CALL(show_toast, Run(testing::Eq("Recording saved")));
 
   auto controller = std::make_unique<SaveRecordingBubbleControllerImpl>(
-      std::move(recording), &mock_manager, show_toast.Get(), on_close.Get());
+      std::move(recording), &mock_task_store, show_toast.Get(), on_close.Get());
 
   controller->OnSave(u"Test Name");
   controller->OnBubbleClosed();
@@ -88,15 +38,15 @@ TEST_F(SaveRecordingBubbleControllerImplTest, OnSave_SavesRecording) {
 
 TEST_F(SaveRecordingBubbleControllerImplTest, OnCancel_DoesNotSave) {
   Recording recording;
-  MockRecordingDataManager mock_manager;
+  MockTaskStore mock_task_store;
   base::MockCallback<base::OnceCallback<void(std::string_view)>> show_toast;
   base::MockCallback<base::OnceClosure> on_close;
 
-  EXPECT_CALL(mock_manager, AddRecording(testing::_, testing::_)).Times(0);
+  EXPECT_CALL(mock_task_store, AddRecording(testing::_, testing::_)).Times(0);
   EXPECT_CALL(show_toast, Run(testing::_)).Times(0);
 
   auto controller = std::make_unique<SaveRecordingBubbleControllerImpl>(
-      std::move(recording), &mock_manager, show_toast.Get(), on_close.Get());
+      std::move(recording), &mock_task_store, show_toast.Get(), on_close.Get());
 
   controller->OnCancel();
   controller->OnBubbleClosed();

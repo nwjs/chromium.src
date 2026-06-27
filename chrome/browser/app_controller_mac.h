@@ -25,6 +25,7 @@
 #include "components/prefs/pref_change_registrar.h"
 
 class BookmarkMenuBridge;
+@class ConfirmQuitPanelController;
 class GURL;
 class HistoryMenuBridge;
 class Profile;
@@ -68,11 +69,11 @@ class ColorProvider;
 - (void)didEndMainMessageLoop;
 
 // Try to close all browser windows, and if that succeeds then quit.
-- (BOOL)tryToTerminateApplication:(NSApplication*)app;
+- (void)tryToTerminateApplication;
 
 // Stop trying to terminate the application. That is, prevent the final browser
 // window closure from causing the application to quit.
-- (void)stopTryingToTerminateApplication:(NSApplication*)app;
+- (void)stopTryingToTerminateApplication;
 
 // Run the quit confirmation panel and return whether or not to continue
 // quitting.
@@ -144,6 +145,7 @@ class ColorProvider;
 - (BOOL)windowHasBrowserTabs:(NSWindow*)window;
 
 // Testing API.
+- (ConfirmQuitPanelController*)confirmQuitPanelControllerForTesting;
 - (void)setCmdWMenuItemForTesting:(NSMenuItem*)menuItem;
 - (void)setShiftCmdWMenuItemForTesting:(NSMenuItem*)menuItem;
 

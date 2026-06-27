@@ -1,7 +1,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/guest_view/buildflags/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//testing/test.gni")
@@ -37,8 +36,9 @@ config("component_implementation") {
 group("extensions_resources") {
   public_deps = [
     ":extensions_browser_resources",
-    ":extensions_renderer_resources",
     ":extensions_resources_grd",
+    "//extensions/renderer/resources:extensions_renderer_generated_resources",
+    "//extensions/renderer/resources:extensions_renderer_resources",
   ]
 }
 
@@ -58,24 +58,6 @@ grit("extensions_browser_resources") {
     "grit/extensions_browser_resources_map.h",
     "extensions_browser_resources_100_percent.pak",
     "extensions_browser_resources_200_percent.pak",
-  ]
-}
-
-grit("extensions_renderer_resources") {
-  source = "renderer/resources/extensions_renderer_resources.grd"
-  outputs = [
-    "grit/extensions_renderer_resources.h",
-    "extensions_renderer_resources.pak",
-  ]
-  grit_flags = [
-    "-E",
-    "mojom_root=" + rebase_path(root_gen_dir, root_build_dir),
-  ]
-
-  deps = [
-    "//extensions/common:mojom_js",
-    "//extensions/common/api:mojom_js",
-    "//services/device/public/mojom:mojom_js",
   ]
 }
 
@@ -217,6 +199,7 @@ static_library("test_support") {
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
+# TODO(crbug.com/40425056): Rename to test_pak.
 repack("shell_and_test_pak") {
   testonly = true
 
@@ -224,6 +207,7 @@ repack("shell_and_test_pak") {
     "$root_gen_dir/content/content_resources.pak",
     "$root_gen_dir/content/shell/shell_resources.pak",
     "$root_gen_dir/extensions/extensions_browser_resources_100_percent.pak",
+    "$root_gen_dir/extensions/extensions_renderer_generated_resources.pak",
     "$root_gen_dir/extensions/extensions_renderer_resources.pak",
     "$root_gen_dir/extensions/extensions_resources.pak",
     "$root_gen_dir/extensions/strings/extensions_strings_en-US.pak",
@@ -238,6 +222,7 @@ repack("shell_and_test_pak") {
     "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
   ]
 
+  # TODO(crbug.com/40425056): Rename to extensions_test.pak.
   output = "$root_out_dir/extensions_shell_and_test.pak"
 
   deps = [
@@ -257,12 +242,10 @@ repack("shell_and_test_pak") {
   if (enable_extensions) {
     sources += [
       "$root_gen_dir/device/bluetooth/strings/bluetooth_strings_en-US.pak",
-      "$root_gen_dir/extensions/shell/app_shell_resources.pak",
     ]
 
     deps += [
       "//device/bluetooth/strings",
-      "//extensions/shell:resources",
     ]
   }
   if (nwjs_sdk) {
@@ -328,11 +311,5 @@ test("extensions_unittests") {
       "//gin:v8_snapshot_assets",
       "//ui/android:ui_full_java",
     ]
-  }
-
-  # TODO(https://crbug.com/356905053): Gradually include more of these sources
-  # in the desktop-android build.
-  if (enable_extensions) {
-    deps += [ "//extensions/shell:unit_tests" ]
   }
 }

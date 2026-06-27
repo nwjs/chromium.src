@@ -21,7 +21,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AlertDialog;
 
 import org.chromium.base.Callback;
-import org.chromium.base.CallbackUtils;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -30,7 +29,6 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.components.browser_ui.widget.ContextMenuDialog;
 import org.chromium.components.embedder_support.contextmenu.ChipDelegate;
-import org.chromium.components.embedder_support.contextmenu.ChipRenderParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuNativeDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuUi;
@@ -287,6 +285,7 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
                         mActivity,
                         params,
                         Profile.fromWebContents(mWebContents),
+                        mWebContents,
                         mNativeDelegate,
                         mIsCustomItemPresent);
         ContextMenuMediator mediator =
@@ -362,12 +361,13 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
 
     @Override
     public ContextMenuDialog createAndShowFlyoutPopup(
-            ListItem item, View view, Runnable dismissRunnable) {
+            List<ListItem> items, View view, Runnable dismissRunnable) {
         assert view != null;
         assert mUsePopupWindow;
 
         final View menu = LayoutInflater.from(mActivity).inflate(R.layout.context_menu, null);
-        ModelList listItems = ListMenuUtils.getModelListSubtree(item);
+        ModelList listItems = new ModelList();
+        listItems.addAll(items);
         ModelListAdapter adapter = createAdapter(listItems);
 
         ContextMenuListView listView = menu.findViewById(R.id.context_menu_list_view);
@@ -494,65 +494,15 @@ public class ContextMenuCoordinator implements ContextMenuUi, FlyoutHandler<Cont
         }
     }
 
-    Callback<ChipRenderParams> getChipRenderParamsCallbackForTesting(ChipDelegate chipDelegate) {
-        return (chipRenderParams) -> {
-            FlyoutController<ContextMenuDialog> controller =
-                    mHierarchicalMenuController.getFlyoutController();
-            assert controller != null;
-
-            if (chipDelegate.isValidChipRenderParams(chipRenderParams)
-                    && controller.getMainPopup().isShowing()) {
-                assumeNonNull(mChipController).showChip(chipRenderParams);
-            }
-        };
-    }
-
     void initializeHeaderCoordinatorForTesting(
             Activity activity,
             ContextMenuParams params,
             Profile profile,
+            WebContents webContents,
             ContextMenuNativeDelegate nativeDelegate) {
         mHeaderCoordinator =
-                new ContextMenuHeaderCoordinator(activity, params, profile, nativeDelegate);
-    }
-
-    void simulateShoppyImageClassificationForTesting() {
-        // Don't need to initialize controller because that should be triggered by
-        // forcing feature flags.
-        ChipRenderParams chipRenderParamsForTesting = new ChipRenderParams();
-        chipRenderParamsForTesting.titleResourceId =
-                R.string.contextmenu_shop_image_with_google_lens;
-        chipRenderParamsForTesting.onClickCallback = CallbackUtils.emptyRunnable();
-        assumeNonNull(mChipController).showChip(chipRenderParamsForTesting);
-    }
-
-    void simulateTranslateImageClassificationForTesting() {
-        // Don't need to initialize controller because that should be triggered by
-        // forcing feature flags.
-        ChipRenderParams chipRenderParamsForTesting = new ChipRenderParams();
-        chipRenderParamsForTesting.titleResourceId =
-                R.string.contextmenu_translate_image_with_google_lens;
-        chipRenderParamsForTesting.onClickCallback = CallbackUtils.emptyRunnable();
-        assumeNonNull(mChipController).showChip(chipRenderParamsForTesting);
-    }
-
-    ChipRenderParams simulateImageClassificationForTesting() {
-        // Don't need to initialize controller because that should be triggered by
-        // forcing feature flags.
-        ChipRenderParams chipRenderParamsForTesting = new ChipRenderParams();
-        return chipRenderParamsForTesting;
-    }
-
-    // Public only to allow references from ContextMenuUtils.java
-    public void clickChipForTesting() {
-        assumeNonNull(mChipController).clickChipForTesting(); // IN-TEST
-    }
-
-    // Public only to allow references from ContextMenuUtils.java
-    public @Nullable AnchoredPopupWindow getCurrentPopupWindowForTesting() {
-        // Don't need to initialize controller because that should be triggered by
-        // forcing feature flags.
-        return assumeNonNull(mChipController).getCurrentPopupWindowForTesting(); // IN-TEST
+                new ContextMenuHeaderCoordinator(
+                        activity, params, profile, webContents, nativeDelegate);
     }
 
     public void clickListItemForTesting(int id) {

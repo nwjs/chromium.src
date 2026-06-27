@@ -88,7 +88,6 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
-#include "device/fido/public/features.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -984,12 +983,11 @@ void PasswordsPrivateDelegateImpl::ShowExportedFileInShell(
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
   DCHECK(browser);
-#if !BUILDFLAG(IS_WIN)
-  base::FilePath path(file_path);
-#else
-  base::FilePath path(base::UTF8ToWide(file_path));
-#endif
-  platform_util::ShowItemInFolder(browser->GetProfile(), path);
+  // TODO(b/516745102): Move this logic to PasswordExportController after
+  // splitting PasswordManagerPorter.
+  if (!last_exported_path_.empty()) {
+    platform_util::ShowItemInFolder(browser->GetProfile(), last_exported_path_);
+  }
 }
 
 void PasswordsPrivateDelegateImpl::ChangePasswordManagerPin(
@@ -1145,6 +1143,14 @@ void PasswordsPrivateDelegateImpl::MaybeShowPasswordShareButtonIPH(
 
 void PasswordsPrivateDelegateImpl::OnPasswordsExportProgress(
     const password_manager::PasswordExportInfo& progress) {
+  if (progress.status == password_manager::ExportProgressStatus::kSucceeded) {
+#if !BUILDFLAG(IS_WIN)
+    last_exported_path_ = base::FilePath(progress.file_path);
+#else
+    last_exported_path_ = base::FilePath(base::UTF8ToWide(progress.file_path));
+#endif
+  }
+
   PasswordsPrivateEventRouter* router =
       PasswordsPrivateEventRouterFactory::GetForProfile(profile_);
   if (router) {
@@ -1315,7 +1321,7 @@ void PasswordsPrivateDelegateImpl::OnLoginsChanged(
 
 void PasswordsPrivateDelegateImpl::OnLoginsRetained(
     password_manager::PasswordStoreInterface*,
-    const std::vector<password_manager::PasswordForm>&) {}
+    const std::vector<password_manager::StoredCredential>&) {}
 
 void PasswordsPrivateDelegateImpl::OnErrorStateChanged(
     password_manager::PasswordStoreInterface* store,
@@ -1453,11 +1459,7 @@ PasswordsPrivateDelegateImpl::CreatePasswordUiEntryFromCredentialUiEntry(
             /*pattern=*/"MMM dd"));
     entry.backup_password = std::move(backup_password_info);
   }
-  // Gate this behind a flag since other clients may be setting `hidden` to
-  // `true` before the Chrome desktop feature is ready.
-  if (base::FeatureList::IsEnabled(device::kWebAuthnSignalApiHidePasskeys)) {
-    entry.hidden = credential.hidden;
-  }
+  entry.hidden = credential.hidden;
   entry.id = credential_id_generator_.GenerateId(std::move(credential));
   return entry;
 }

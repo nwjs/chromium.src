@@ -10,7 +10,6 @@
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/background/glic/glic_controller.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/background/glic/glic_status_icon.h"
 #include "chrome/browser/browser_process.h"
@@ -147,12 +146,10 @@ class GlicBackgroundModeManager::AcceleratorRegistrar
 
 GlicBackgroundModeManager::GlicBackgroundModeManager(StatusTray* status_tray)
     : configuration_(std::make_unique<GlicLauncherConfiguration>(this)),
-      controller_(std::make_unique<GlicController>()),
       status_tray_(status_tray),
       enabled_pref_(GlicLauncherConfiguration::IsEnabled()),
       expected_registered_hotkeys_(
-          {GlicLauncherConfiguration::GetGlobalHotkey(),
-           GlicLauncherConfiguration::GetSelectionGlobalHotkey()}) {
+          {GlicLauncherConfiguration::GetGlobalHotkey()}) {
   g_browser_process->profile_manager()->AddObserver(this);
   // Start tracking any profiles that already exist.
   for (auto* profile :
@@ -187,8 +184,7 @@ void GlicBackgroundModeManager::OnEnabledChanged(bool enabled) {
 
 void GlicBackgroundModeManager::OnGlobalHotkeyChanged() {
   std::vector<ui::Accelerator> new_hotkeys = {
-      GlicLauncherConfiguration::GetGlobalHotkey(),
-      GlicLauncherConfiguration::GetSelectionGlobalHotkey()};
+      GlicLauncherConfiguration::GetGlobalHotkey()};
 
   if (expected_registered_hotkeys_ == new_hotkeys) {
     return;
@@ -196,6 +192,18 @@ void GlicBackgroundModeManager::OnGlobalHotkeyChanged() {
 
   expected_registered_hotkeys_ = std::move(new_hotkeys);
   UpdateState();
+}
+
+void GlicBackgroundModeManager::ToggleUI(bool prevent_close,
+                                         mojom::InvocationSource source) {
+  Profile* profile = GlicProfileManager::GetInstance()->GetProfileForLaunch();
+  if (!profile) {
+    return;
+  }
+
+  GlicKeyedService* glic_keyed_service =
+      GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+  glic_keyed_service->ToggleUI(nullptr, prevent_close, source);
 }
 
 void GlicBackgroundModeManager::HandleHotkey(
@@ -207,7 +215,7 @@ void GlicBackgroundModeManager::HandleHotkey(
   switch (static_cast<HotkeyIndex>(
       std::distance(actual_registered_hotkeys_.begin(), it))) {
     case HotkeyIndex::kPanelKey: {
-      controller_->Toggle(mojom::InvocationSource::kOsHotkey);
+      ToggleUI(/*prevent_close=*/false, mojom::InvocationSource::kOsHotkey);
       // Record hotkey usage.
       const ui::Accelerator default_hotkey =
           GlicLauncherConfiguration::GetDefaultHotkey();
@@ -215,10 +223,6 @@ void GlicBackgroundModeManager::HandleHotkey(
                                     accelerator == default_hotkey
                                         ? glic::HotkeyUsage::kDefault
                                         : glic::HotkeyUsage::kCustom);
-      break;
-    }
-    case HotkeyIndex::kSelectionKey: {
-      controller_->RequestCaptureRegion();
       break;
     }
   }
@@ -278,7 +282,7 @@ void GlicBackgroundModeManager::EnterBackgroundMode() {
   }
 
   if (!status_icon_) {
-    status_icon_ = GlicStatusIcon::Create(controller_.get(), status_tray_);
+    status_icon_ = GlicStatusIcon::Create(this, status_tray_);
     status_icon_->Init();
   }
 }

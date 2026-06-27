@@ -31,7 +31,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
-#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view_controller.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mutator.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_quick_actions_view_controller.h"
@@ -98,6 +98,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 // Constraint for the height of the container view surrounding the feed.
 @property(nonatomic, strong) NSLayoutConstraint* feedContainerHeightConstraint;
 
+// Whether the NTP is currently transitioning to landscape orientation.
+@property(nonatomic, assign, getter=isTransitioningToLandscape)
+    BOOL transitioningToLandscape;
+
 // `YES` if the NTP starting content offset should be set to a previous scroll
 // state (when navigating away and back), and `NO` if it should be the top of
 // the NTP.
@@ -113,9 +117,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 // Whether the omnibox should be focused once the collection view appears.
 @property(nonatomic, assign) BOOL shouldFocusFakebox;
 
-// Array of all view controllers above the feed.
-@property(nonatomic, strong)
-    NSMutableArray<UIViewController*>* viewControllersAboveFeed;
+// Array of all objects (views or view controllers) above the feed.
+@property(nonatomic, strong) NSMutableArray<id>* objectsAboveFeed;
 
 // Identity disc shown in the NTP.
 @property(nonatomic, weak) UIButton* identityDiscButton;
@@ -202,7 +205,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 - (instancetype)init {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
-    _viewControllersAboveFeed = [[NSMutableArray alloc] init];
+    _objectsAboveFeed = [[NSMutableArray alloc] init];
 
     _tapGestureRecognizer = [[UITapGestureRecognizer alloc]
         initWithTarget:self
@@ -261,7 +264,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   [self layoutContentInParentCollectionView];
 
-  self.identityDiscButton = [self.headerViewController identityDiscButton];
+  self.identityDiscButton = [self.headerView identityDiscButton];
   DCHECK(self.identityDiscButton);
 
   self.viewDidFinishLoading = YES;
@@ -289,8 +292,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   [super viewWillAppear:animated];
   _appearing = YES;
 
-  self.headerViewController.view.alpha = 1;
-  self.headerViewController.showing = YES;
+  self.headerView.alpha = 1;
+  self.headerView.showing = YES;
 
   [self updateNTPLayout];
 
@@ -301,12 +304,15 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   }
 
   if (self.focusAccessibilityOmniboxWhenViewAppears && !self.omniboxFocused) {
-    [self.headerViewController focusAccessibilityOnOmnibox];
+    [self.headerView focusAccessibilityOnOmnibox];
   }
 }
 
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
+  [self.headerView didAppear];
+
+  [self updateHeightAboveFeed];
 
   // `-feedLayoutDidEndUpdates` handles the need to either scroll to the top of
   // go back to a previous scroll state when the feed is enabled. This handles
@@ -333,8 +339,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   if (self.feedVisible) {
     [self updateFeedInsetsForMinimumHeight];
-  } else {
-    [self setMinimumHeight];
   }
 
   if (self.feedVisible &&
@@ -389,12 +393,12 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 - (void)viewDidDisappear:(BOOL)animated {
   [super viewDidDisappear:animated];
-  self.headerViewController.showing = NO;
+  self.headerView.showing = NO;
 }
 
 - (void)viewWillLayoutSubviews {
   [super viewWillLayoutSubviews];
-  [self updateModuleWidth];
+  [self updateModuleWidthWithWidth:self.view.frame.size.width];
 }
 
 #pragma mark - UIContentContainer
@@ -404,50 +408,22 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
            (id<UIViewControllerTransitionCoordinator>)coordinator {
   [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 
-  __weak NewTabPageViewController* weakSelf = self;
+  __weak __typeof(self) weakSelf = self;
 
-  CGFloat yOffsetBeforeRotation = [self scrollPosition];
-  CGFloat heightAboveFeedBeforeRotation = [self heightAboveFeed];
+  void (^transitionBlock)(id<UIViewControllerTransitionCoordinatorContext>) =
+      ^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        [weakSelf updateLayoutForSize:size
+                      previousYOffset:[self scrollPosition]
+              previousHeightAboveFeed:[self heightAboveFeed]];
+      };
 
-  void (^alongsideBlock)(id<UIViewControllerTransitionCoordinatorContext>) = ^(
-      id<UIViewControllerTransitionCoordinatorContext> context) {
-    [self updateModuleWidth];
-    [weakSelf handleStickyElementsForScrollPosition:[weakSelf scrollPosition]
-                                              force:YES];
+  void (^completionBlock)(id<UIViewControllerTransitionCoordinatorContext>) =
+      ^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        [weakSelf completeLayoutSizeUpdate];
+      };
 
-    CGFloat heightAboveFeedDifference =
-        [weakSelf heightAboveFeed] - heightAboveFeedBeforeRotation;
-
-    // Rotating the device can change the content suggestions height. This
-    // ensures that it is adjusted if necessary.
-    if (yOffsetBeforeRotation < 0) {
-      weakSelf.collectionView.contentOffset =
-          CGPointMake(0, yOffsetBeforeRotation - heightAboveFeedDifference);
-      [weakSelf updateNTPLayoutForWidth:size.width];
-    }
-    [weakSelf.view setNeedsLayout];
-    [weakSelf.view layoutIfNeeded];
-
-    // Pinned offset is different based on the orientation, so we reevaluate the
-    // minimum scroll position upon device rotation.
-    CGFloat pinnedOffsetY = [weakSelf pinnedOffsetY];
-    if (weakSelf.omniboxFocused && [weakSelf scrollPosition] < pinnedOffsetY) {
-      weakSelf.collectionView.contentOffset = CGPointMake(0, pinnedOffsetY);
-    }
-    if (!weakSelf.feedVisible) {
-      [weakSelf setMinimumHeight];
-    }
-  };
-  [coordinator
-      animateAlongsideTransition:alongsideBlock
-                      completion:^(
-                          id<UIViewControllerTransitionCoordinatorContext>) {
-                        [self updateNTPLayout];
-                        if (self.feedVisible) {
-                          [self updateFeedInsetsForMinimumHeight];
-                        }
-                        [self updateFeedContainerSizeAndPosition];
-                      }];
+  [coordinator animateAlongsideTransition:transitionBlock
+                               completion:completionBlock];
 
   if ([self isOrientationLandscapeForSize:size]) {
     [self.mutator notifyNtpDisplayedInLandscape];
@@ -539,38 +515,36 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   // Adds the feed top section to the view hierarchy if it exists.
   if (self.feedTopSectionViewController) {
-    [self addViewControllerAboveFeed:self.feedTopSectionViewController];
+    [self addObjectAboveFeed:self.feedTopSectionViewController];
   }
 
   // Configures the feed header in the view hierarchy if it is visible. Add it
-  // in the order that guarantees it is behind `headerViewController` and in
+  // in the order that guarantees it is behind `headerView` and in
   // front of all other views.
   if (self.feedHeaderViewController) {
-    [self addViewControllerAboveFeed:self.feedHeaderViewController];
+    [self addObjectAboveFeed:self.feedHeaderViewController];
   }
 
   if (self.magicStackVisible) {
-    [self addViewControllerAboveFeed:self.magicStackCollectionView];
+    [self addObjectAboveFeed:self.magicStackCollectionView];
   }
 
   if (self.mostVisitedVisible) {
-    [self addViewControllerAboveFeed:self.contentSuggestionsViewController];
+    [self addObjectAboveFeed:self.contentSuggestionsViewController];
   }
 
   if (self.quickActionsVisible) {
-    [self addViewControllerAboveFeed:_quickActionsViewController];
+    [self addObjectAboveFeed:_quickActionsViewController];
   }
 
-  [self addViewControllerAboveFeed:self.headerViewController];
+  [self addObjectAboveFeed:self.headerView];
 
-  DCHECK(
-      [self.headerViewController.view isDescendantOfView:self.containerView]);
+  DCHECK([self.headerView isDescendantOfView:self.containerView]);
 
-  // The view controllers have to be added in reverse order, so the array is
+  // The objects have to be added in reverse order, so the array is
   // then reversed to reflect the visible order.
-  self.viewControllersAboveFeed =
-      [[[self.viewControllersAboveFeed reverseObjectEnumerator] allObjects]
-          mutableCopy];
+  self.objectsAboveFeed = [[[self.objectsAboveFeed reverseObjectEnumerator]
+      allObjects] mutableCopy];
 
   // The contentCollectionView width might be narrower than the
   // ContentSuggestions view. This causes elements to be hidden, so we set
@@ -636,13 +610,13 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     _feedVisualEffectBackgroundView = nil;
   }
 
-  [self removeFromViewHierarchy:self.feedWrapperViewController];
-  [self removeFromViewHierarchy:self.magicStackCollectionView];
-  [self removeFromViewHierarchy:self.contentSuggestionsViewController];
-  for (UIViewController* viewController in self.viewControllersAboveFeed) {
-    [self removeFromViewHierarchy:viewController];
+  [self removeObjectFromViewHierarchy:self.feedWrapperViewController];
+  [self removeObjectFromViewHierarchy:self.magicStackCollectionView];
+  [self removeObjectFromViewHierarchy:self.contentSuggestionsViewController];
+  for (id obj in self.objectsAboveFeed) {
+    [self removeObjectFromViewHierarchy:obj];
   }
-  [self.viewControllersAboveFeed removeAllObjects];
+  [self.objectsAboveFeed removeAllObjects];
 }
 
 - (void)resetStateUponReload {
@@ -680,18 +654,19 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 - (CGFloat)heightAboveFeed {
   CGFloat heightAboveFeed = 0;
-  for (UIViewController* viewController in self.viewControllersAboveFeed) {
-    heightAboveFeed += viewController.view.frame.size.height;
+  for (id obj in self.objectsAboveFeed) {
+    UIView* view = [self viewForAboveFeedObject:obj];
+    heightAboveFeed += view.frame.size.height;
 
-    // If the current view controller represents a module, account for the
+    // If the current object represents a module, account for the
     // vertical spacing between modules.
-    if (viewController == self.magicStackCollectionView ||
-        viewController == self.contentSuggestionsViewController ||
-        viewController == self.feedHeaderViewController) {
+    if (obj == self.magicStackCollectionView ||
+        obj == self.contentSuggestionsViewController ||
+        obj == self.feedHeaderViewController) {
       heightAboveFeed += kSpaceBetweenModules;
     }
 
-    if (viewController == _quickActionsViewController) {
+    if (obj == _quickActionsViewController) {
       // First, subtract off the "standard" space that was added in the
       // previous iteration of the loop because this module uses custom
       // top and bottom spacing.
@@ -716,7 +691,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   CGFloat minimumNTPHeight = self.collectionView.bounds.size.height;
   minimumNTPHeight -= [self feedHeaderHeight];
   if ([self shouldPinFakeOmnibox]) {
-    minimumNTPHeight -= ([self.headerViewController headerHeight] +
+    minimumNTPHeight -= ([self.headerView headerHeight] +
                          ntp_header::kScrolledToTopOmniboxBottomMargin);
   }
 
@@ -754,7 +729,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 }
 
 - (void)invalidate {
-  _viewControllersAboveFeed = nil;
+  _objectsAboveFeed = nil;
   [self.overscrollActionsController invalidate];
   self.overscrollActionsController = nil;
   self.NTPContentDelegate = nil;
@@ -786,7 +761,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 - (void)restoreScrollPosition:(CGFloat)scrollPosition {
   [self.view layoutIfNeeded];
-  if (scrollPosition > -[self heightAboveFeed]) {
+  if (scrollPosition != -CGFLOAT_MAX) {
     [self setSavedContentOffset:scrollPosition];
   } else {
     // Remove this if NTPs are ever scoped back to the WebState.
@@ -808,12 +783,12 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 }
 
 - (CGFloat)pinnedOffsetY {
-  return [self.headerViewController pinnedOffsetY] - [self heightAboveFeed];
+  return [self.headerView pinnedOffsetY] - [self heightAboveFeed];
 }
 
 - (void)omniboxDidBecomeFirstResponder {
   self.omniboxFocused = YES;
-  self.headerViewController.view.alpha = 0.01;
+  self.headerView.alpha = 0.01;
 }
 
 - (void)omniboxWillResignFirstResponder {
@@ -827,14 +802,14 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 }
 
 - (void)omniboxDidEndEditing {
-  if (![self.headerViewController isShowing] && !self.scrolledToMinimumHeight) {
+  if (![self.headerView isShowing] && !self.scrolledToMinimumHeight) {
     return;
   }
 
   // Do not trigger defocus animation if the user is already navigating away
   // from the NTP.
   if (self.NTPVisible) {
-    [self.headerViewController omniboxDidEndEditing];
+    [self.headerView omniboxDidEndEditing];
     [self shiftTilesDownForOmniboxDefocus];
   }
 }
@@ -852,11 +827,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   _isAIMAllowed = allowed;
 }
 
-#pragma mark - NewTabPageHeaderViewControllerDelegate
+#pragma mark - NewTabPageHeaderViewDelegate
 
-- (void)didChangeOmniboxPosition:
-    (NewTabPageHeaderViewController*)viewController {
-  CHECK_EQ(viewController, self.headerViewController);
+- (void)didChangeOmniboxPosition:(NewTabPageHeaderView*)headerView {
+  CHECK_EQ(headerView, self.headerView);
   [self updateFakeOmniboxForScrollPosition];
 }
 
@@ -867,7 +841,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   // created, stopped or updated and is not ready to handle scroll events. Doing
   // so could cause unexpected behavior, such as breaking the layout or causing
   // crashes.
-  if (!self.feedWrapperViewController || !self.viewControllersAboveFeed) {
+  if (!self.feedWrapperViewController || !self.objectsAboveFeed) {
     return;
   }
   // Scroll events might still be queued for a previous scroll view which was
@@ -1021,7 +995,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     // return to it on defocus.
     self.collectionShiftingOffset =
         MAX(-[self heightAboveFeed],
-            AlignValueToPixel([self.headerViewController pinnedOffsetY] -
+            AlignValueToPixel([self.headerView pinnedOffsetY] -
                               [self adjustedOffset].y));
   }
 
@@ -1040,9 +1014,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
                          [weakSelf resetFakeOmniboxConstraints];
                        }];
     }
-    [self.headerViewController
-        completeHeaderFakeOmniboxFocusAnimationWithFinalPosition:
-            UIViewAnimatingPositionEnd];
+    [self.headerView completeHeaderFakeOmniboxFocusAnimationWithFinalPosition:
+                         UIViewAnimatingPositionEnd];
     [self.NTPContentDelegate focusOmnibox];
     return;
   }
@@ -1055,7 +1028,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     strongSelf.collectionView.contentOffset =
         CGPointMake(0, [strongSelf pinnedOffsetY]);
     // Layout the header for the constraints to be animated.
-    [strongSelf.headerViewController layoutHeader];
+    [strongSelf.headerView layoutHeader];
   };
 
   self.animator = [[UIViewPropertyAnimator alloc]
@@ -1070,9 +1043,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
               if (strongSelf.collectionView.contentOffset.y <
                   [strongSelf pinnedOffsetY]) {
                 self.disableScrollAnimation = YES;
-                [strongSelf.headerViewController expandHeaderForFocus];
+                [strongSelf.headerView expandHeaderForFocus];
                 shiftOmniboxToTop();
-                [strongSelf.headerViewController
+                [strongSelf.headerView
                     completeHeaderFakeOmniboxFocusAnimationWithFinalPosition:
                         UIViewAnimatingPositionEnd];
                 [strongSelf.NTPContentDelegate focusOmnibox];
@@ -1104,7 +1077,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
     strongSelf.scrolledToMinimumHeight = YES;
     strongSelf.disableScrollAnimation = NO;
-    [strongSelf.headerViewController
+    [strongSelf.headerView
         completeHeaderFakeOmniboxFocusAnimationWithFinalPosition:finalPosition];
     strongSelf.isAnimatingOmniboxFocus = NO;
   }];
@@ -1178,10 +1151,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   return _isAIMAllowed && IsAimEnabledInNtp();
 }
 
-// Returns YES if scroll should be skipped when focusing the omnibox.
 - (BOOL)shouldSkipScrollToFocusOmnibox {
-  return self.scrolledToMinimumHeight ||
-         (IsSplitToolbarMode(self) && !CanShowTabStrip(self));
+  return self.scrolledToMinimumHeight || [self shouldPinFakeOmnibox];
 }
 
 // Returns the collection view containing all NTP content.
@@ -1231,6 +1202,61 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   }
 }
 
+// Helper for the animated transition in
+// `-viewWillTransitionToSize:withTransitionCoordinator:`. Updates the layout of
+// the NTP during a transition to `size`, based on the previous scroll position
+// and height above feed.
+- (void)updateLayoutForSize:(CGSize)size
+            previousYOffset:(CGFloat)previousYOffset
+    previousHeightAboveFeed:(CGFloat)previousHeightAboveFeed {
+  self.transitioningToLandscape =
+      IsChromeNextIaEnabled() && [self isOrientationLandscapeForSize:size];
+
+  [self updateModuleWidthWithWidth:size.width];
+  [self handleStickyElementsForScrollPosition:[self scrollPosition] force:YES];
+
+  CGFloat heightAboveFeedDifference =
+      [self heightAboveFeed] - previousHeightAboveFeed;
+
+  // Rotating the device can change the content suggestions height. This
+  // ensures that it is adjusted if necessary.
+  if (previousYOffset < 0) {
+    self.collectionView.contentOffset =
+        CGPointMake(0, previousYOffset - heightAboveFeedDifference);
+    [self updateNTPLayoutForWidth:size.width];
+  }
+
+  [self.view setNeedsLayout];
+  [self.view layoutIfNeeded];
+
+  // Pinned offset is different based on the orientation, so we reevaluate
+  // the minimum scroll position upon device rotation.
+  CGFloat pinnedOffsetY = [self pinnedOffsetY];
+  if (self.omniboxFocused && [self scrollPosition] < pinnedOffsetY) {
+    self.collectionView.contentOffset = CGPointMake(0, pinnedOffsetY);
+  }
+
+  if (!self.feedVisible) {
+    [self setMinimumHeight];
+  }
+}
+
+// Helper for the transition completion in
+// `viewWillTransitionToSize:withTransitionCoordinator:`. Finishes updating the
+// layout of the NTP after a size transition.
+- (void)completeLayoutSizeUpdate {
+  if (IsChromeNextIaEnabled()) {
+    self.transitioningToLandscape = NO;
+  }
+
+  [self updateNTPLayout];
+
+  if (self.feedVisible) {
+    [self updateFeedInsetsForMinimumHeight];
+  }
+  [self updateFeedContainerSizeAndPosition];
+}
+
 // Either signals to the omnibox to cancel its focused state or just update the
 // NTP state for an unfocused state.
 - (void)unfocusOmnibox {
@@ -1274,26 +1300,26 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   // Use a simple animation to scroll back into position.
   CGFloat yOffset = MAX([self pinnedOffsetY] - self.collectionShiftingOffset,
                         -[self heightAboveFeed]);
-  self.headerViewController.view.alpha = 1;
+  self.headerView.alpha = 1;
   __weak __typeof(self) weakSelf = self;
   self.inhibitScrollPositionUpdates = YES;
-  self.headerViewController.allowFontScaleAnimation = YES;
+  self.headerView.allowFontScaleAnimation = YES;
   [self updateFakeOmniboxForScrollPosition];
-  [self.headerViewController layoutHeader];
+  [self.headerView layoutHeader];
   self.animator = [[UIViewPropertyAnimator alloc]
       initWithDuration:kMaterialDuration6
                  curve:UIViewAnimationCurveEaseInOut
             animations:^{
               weakSelf.collectionView.contentOffset = CGPoint(0, yOffset);
-              [weakSelf.headerViewController layoutHeader];
+              [weakSelf.headerView layoutHeader];
             }];
   [self.animator addCompletion:^(UIViewAnimatingPosition finalPosition) {
     weakSelf.inhibitScrollPositionUpdates = NO;
     weakSelf.collectionShiftingOffset = 0;
-    weakSelf.headerViewController.view.alpha = 1;
+    weakSelf.headerView.alpha = 1;
     weakSelf.collectionView.contentOffset = CGPoint(0, yOffset);
     weakSelf.scrolledToMinimumHeight = NO;
-    weakSelf.headerViewController.allowFontScaleAnimation = NO;
+    weakSelf.headerView.allowFontScaleAnimation = NO;
     weakSelf.shiftDownInProgress = NO;
   }];
   self.animator.interruptible = YES;
@@ -1317,13 +1343,13 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   // If `self.headerViewController` is nil after removing it from the view
   // hierarchy it means its no longer owned by anyone (e.g. The coordinator
   // might have been stopped.) and we shouldn't try to add it again.
-  if (!self.headerViewController) {
+  if (!self.headerView) {
     return;
   }
 
   [NSLayoutConstraint deactivateConstraints:self.fakeOmniboxConstraints];
 
-  self.headerTopAnchor = [self.headerViewController.view.bottomAnchor
+  self.headerTopAnchor = [self.headerView.bottomAnchor
       constraintEqualToAnchor:self.feedWrapperViewController.view
                                   .safeAreaLayoutGuide.topAnchor
                      constant:[self stickyOmniboxHeight]];
@@ -1332,10 +1358,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   // And landscape is when it doesn't matter.
   self.fakeOmniboxConstraints = @[
     self.headerTopAnchor,
-    [self.headerViewController.view.leadingAnchor
+    [self.headerView.leadingAnchor
         constraintEqualToAnchor:self.feedWrapperViewController.view
                                     .leadingAnchor],
-    [self.headerViewController.view.trailingAnchor
+    [self.headerView.trailingAnchor
         constraintEqualToAnchor:self.feedWrapperViewController.view
                                     .trailingAnchor],
   ];
@@ -1349,17 +1375,18 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   // If all modules are disabled, the fake omnibox doesn't need additional
   // constraints.
-  if ([self.viewControllersAboveFeed lastObject] == self.headerViewController) {
+  if ([self.objectsAboveFeed lastObject] == self.headerView) {
     self.fakeOmniboxConstraints = @[];
   } else {
     // Otherwise, anchor the header to the module below it.
     NSInteger headerIndex =
-        [self.viewControllersAboveFeed indexOfObject:self.headerViewController];
+        [self.objectsAboveFeed indexOfObject:self.headerView];
     UIView* viewBelowHeader =
-        [self.viewControllersAboveFeed objectAtIndex:(headerIndex + 1)].view;
+        [self viewForAboveFeedObject:[self.objectsAboveFeed
+                                         objectAtIndex:(headerIndex + 1)]];
     self.fakeOmniboxConstraints = @[
       [viewBelowHeader.topAnchor
-          constraintEqualToAnchor:self.headerViewController.view.bottomAnchor
+          constraintEqualToAnchor:self.headerView.bottomAnchor
                          constant:self.quickActionsVisible
                                       ? kQuickActionSpacingTop
                                       : kSpaceBetweenModules],
@@ -1379,13 +1406,21 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     // -viewDidLayoutSubviews.  Since self.collectionView and it's superview
     // should always have the same safeArea, this should be safe.
     UIEdgeInsets insets = self.collectionView.superview.safeAreaInsets;
-    [self.headerViewController
-        updateFakeOmniboxForOffset:[self adjustedOffset].y
-                       screenWidth:width
-                    safeAreaInsets:insets
-            animateScrollAnimation:!self.disableScrollAnimation];
+    CGFloat offset;
+    if (IsChromeNextIaEnabled()) {
+      // Passing 0.0 offset during rotation to landscape because in landscape
+      // orientation the header is fully visible while on the screen.
+      offset = self.isTransitioningToLandscape ? 0.0 : [self adjustedOffset].y;
+    } else {
+      offset = [self adjustedOffset].y;
+    }
+
+    [self.headerView updateFakeOmniboxForOffset:offset
+                                    screenWidth:width
+                                 safeAreaInsets:insets
+                         animateScrollAnimation:!self.disableScrollAnimation];
   } else {
-    [self.headerViewController updateFakeOmniboxForWidth:width];
+    [self.headerView updateFakeOmniboxForWidth:width];
   }
 }
 
@@ -1401,17 +1436,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   }
 
   if (self.shouldAnimateHeader) {
+    BOOL animateScrollAnimation =
+        IsChromeNextIaEnabled() ? YES : !self.disableScrollAnimation;
     UIEdgeInsets insets = self.collectionView.safeAreaInsets;
-
-    BOOL animateScrollAnimation = !self.disableScrollAnimation;
-    if (IsChromeNextIaEnabled() && !IsSplitToolbarMode(self) &&
-        !CanShowTabStrip(self)) {
-      /// TODO(crbug.com/508170459): Implement NTP toolbars for split toolbar
-      /// mode.
-      animateScrollAnimation = NO;
-    }
-
-    [self.headerViewController
+    [self.headerView
         updateFakeOmniboxForOffset:[self adjustedOffset].y
                        screenWidth:self.collectionView.frame.size.width
                     safeAreaInsets:insets
@@ -1548,7 +1576,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
       ]];
     }
   }
-  UIView* lastView = [self.viewControllersAboveFeed lastObject].view;
+  UIView* lastView =
+      [self viewForAboveFeedObject:[self.objectsAboveFeed lastObject]];
   [NSLayoutConstraint activateConstraints:@[
     [self.collectionView.topAnchor
         constraintEqualToAnchor:lastView.bottomAnchor],
@@ -1568,9 +1597,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   [NSLayoutConstraint activateConstraints:@[
     [[self containerView].safeAreaLayoutGuide.leadingAnchor
-        constraintEqualToAnchor:self.headerViewController.view.leadingAnchor],
+        constraintEqualToAnchor:self.headerView.leadingAnchor],
     [[self containerView].safeAreaLayoutGuide.trailingAnchor
-        constraintEqualToAnchor:self.headerViewController.view.trailingAnchor],
+        constraintEqualToAnchor:self.headerView.trailingAnchor],
   ]];
   if (self.mostVisitedVisible) {
     [NSLayoutConstraint activateConstraints:@[
@@ -1594,34 +1623,35 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
         NO;
     [NSLayoutConstraint activateConstraints:@[
       [_quickActionsViewController.view.leadingAnchor
-          constraintEqualToAnchor:_headerViewController.fakeOmniboxView
+          constraintEqualToAnchor:self.headerView.fakeOmniboxView
                                       .leadingAnchor],
       [_quickActionsViewController.view.trailingAnchor
-          constraintEqualToAnchor:_headerViewController.fakeOmniboxView
+          constraintEqualToAnchor:self.headerView.fakeOmniboxView
                                       .trailingAnchor],
     ]];
   }
 
   // Anchor each module except the one directly below the header, since it will
   // dynamically update its top anchor when the fake omnibox is pinned.
-  if ([self.viewControllersAboveFeed lastObject] != self.headerViewController) {
+  if ([self.objectsAboveFeed lastObject] != self.headerView) {
     // Start with the bottom module's index, which is either the feed header if
     // enabled, or the last object of the module array if not.
     NSUInteger startIndex =
         self.feedHeaderViewController
-            ? [self.viewControllersAboveFeed
+            ? [self.objectsAboveFeed
                   indexOfObject:self.feedHeaderViewController]
-            : self.viewControllersAboveFeed.count - 1;
+            : self.objectsAboveFeed.count - 1;
 
     // While the current module's index is not the view directly below the
     // header, anchor to the module above it.
     NSUInteger headerIndex =
-        [self.viewControllersAboveFeed indexOfObject:self.headerViewController];
+        [self.objectsAboveFeed indexOfObject:self.headerView];
     for (NSUInteger index = startIndex; index > headerIndex + 1; --index) {
-      BOOL isQuickActions = _quickActionsViewController ==
-                            self.viewControllersAboveFeed[index - 1];
-      UIView* view = self.viewControllersAboveFeed[index].view;
-      UIView* viewAbove = self.viewControllersAboveFeed[index - 1].view;
+      BOOL isQuickActions =
+          _quickActionsViewController == self.objectsAboveFeed[index - 1];
+      UIView* view = [self viewForAboveFeedObject:self.objectsAboveFeed[index]];
+      UIView* viewAbove =
+          [self viewForAboveFeedObject:self.objectsAboveFeed[index - 1]];
 
       CGFloat spacingToUse =
           isQuickActions ? kQuickActionSpacingBottom : kSpaceBetweenModules;
@@ -1693,8 +1723,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     return;
   }
   NSMutableArray* elements = [[NSMutableArray alloc] init];
-  for (UIViewController* viewController in self.viewControllersAboveFeed) {
-    [elements addObject:viewController.view];
+  for (id obj in self.objectsAboveFeed) {
+    [elements addObject:[self viewForAboveFeedObject:obj]];
   }
   [elements addObject:self.collectionView];
   self.containerView.accessibilityElements = elements;
@@ -1738,11 +1768,11 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 }
 
 // Updates the width constraint of `moduleLayoutGuide`.
-- (void)updateModuleWidth {
+- (void)updateModuleWidthWithWidth:(CGFloat)viewWidth {
   CGFloat oldWidth = _moduleWidth.constant;
   CGFloat widthMultiplier = (100 - kHomeModuleMinimumPadding) / 100;
-  CGFloat width = MIN(self.view.frame.size.width * widthMultiplier,
-                      kDiscoverFeedContentMaxWidth);
+  CGFloat width =
+      MIN(viewWidth * widthMultiplier, kDiscoverFeedContentMaxWidth);
 
   BOOL existingConstraintUpdated = NO;
   if (!_moduleWidth) {
@@ -1814,7 +1844,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 - (CGFloat)minimumNTPHeight {
   CGFloat collectionViewHeight = self.collectionView.bounds.size.height;
-  CGFloat headerHeight = [self.headerViewController headerHeight];
+  CGFloat headerHeight = [self.headerView headerHeight];
 
   // The minimum height for the collection view content should be the height
   // of the header plus the height of the collection view minus the height of
@@ -1824,7 +1854,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   CGFloat minimumHeight = collectionViewHeight + headerHeight;
   if (!CanShowTabStrip(self.collectionView)) {
     minimumHeight -= self.collectionView.contentInset.bottom;
-    if (IsSplitToolbarMode(self)) {
+    if ([self shouldPinFakeOmnibox]) {
       minimumHeight -= [self stickyOmniboxHeight];
     } else {
       // Add in half of the margin between the fakebox and the rest of the
@@ -1870,7 +1900,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 // should stick to the top of the NTP.
 - (CGFloat)offsetToStickOmnibox {
   return AlignValueToPixel(-([self heightAboveFeed] -
-                             [self.headerViewController headerHeight] +
+                             [self.headerView headerHeight] +
                              [self stickyOmniboxHeight]));
 }
 
@@ -1917,7 +1947,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     }
   }
 
-  [self ensureView:self.headerViewController.view
+  [self ensureView:self.headerView
              isSubviewOf:self.collectionView
       withRelationshipID:BrokenNTPHierarchyRelationship::
                              kContentSuggestionsHeaderParent];
@@ -1960,38 +1990,66 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   self.scrolledToMinimumHeight = scrollPosition >= minimumHeightOffset;
 }
 
-// Adds `viewController` as a child of `parentViewController` and adds
-// `viewController`'s view as a subview of `self.collectionView`.
-- (void)addViewControllerAboveFeed:(UIViewController*)viewController {
+- (UIView*)viewForAboveFeedObject:(id)obj {
+  if ([obj isKindOfClass:[UIViewController class]]) {
+    return ((UIViewController*)obj).view;
+  } else if ([obj isKindOfClass:[UIView class]]) {
+    return (UIView*)obj;
+  }
+  NOTREACHED();
+}
+
+// Adds `obj` (view or view controller) above the feed.
+- (void)addObjectAboveFeed:(id)obj {
   // Gets the current parent view controller based on feed visibility.
   UIViewController* parentViewController =
       self.feedVisible ? self.feedWrapperViewController.feedViewController
                        : self.feedWrapperViewController;
 
-  // Adds view controller and its view as children of the parent view
-  // controller.
-  [viewController willMoveToParentViewController:parentViewController];
-  [parentViewController addChildViewController:viewController];
-  viewController.view.translatesAutoresizingMaskIntoConstraints = NO;
-  [self.collectionView addSubview:viewController.view];
-  [viewController didMoveToParentViewController:parentViewController];
+  UIView* view = [self viewForAboveFeedObject:obj];
+  UIViewController* vc = [obj isKindOfClass:[UIViewController class]]
+                             ? (UIViewController*)obj
+                             : nil;
 
-  // Adds view controller to array of view controllers above feed.
-  [self.viewControllersAboveFeed addObject:viewController];
+  if (vc) {
+    [vc willMoveToParentViewController:parentViewController];
+    [parentViewController addChildViewController:vc];
+  }
+
+  view.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.collectionView addSubview:view];
+
+  if (vc) {
+    [vc didMoveToParentViewController:parentViewController];
+  }
+
+  [self.objectsAboveFeed addObject:obj];
 }
 
-// Removes `viewController` and its corresponding view from the view hierarchy.
-- (void)removeFromViewHierarchy:(UIViewController*)viewController {
-  [viewController willMoveToParentViewController:nil];
-  [viewController.view removeFromSuperview];
-  [viewController removeFromParentViewController];
-  [viewController didMoveToParentViewController:nil];
+// Removes `obj` from the view hierarchy.
+- (void)removeObjectFromViewHierarchy:(id)obj {
+  UIViewController* vc = [obj isKindOfClass:[UIViewController class]]
+                             ? (UIViewController*)obj
+                             : nil;
+  UIView* view = [self viewForAboveFeedObject:obj];
+
+  if (vc) {
+    [vc willMoveToParentViewController:nil];
+  }
+  [view removeFromSuperview];
+  if (vc) {
+    [vc removeFromParentViewController];
+    [vc didMoveToParentViewController:nil];
+  }
 }
 
 // Whether the fake omnibox gets pinned to the top, or becomes the real primary
 // toolbar. The former is for narrower devices like portait iPhones, and the
 // latter is for wider devices like iPads and landscape iPhones.
 - (BOOL)shouldPinFakeOmnibox {
+  if (IsChromeNextIaEnabled()) {
+    return NO;
+  }
   return !CanShowTabStrip(self) && IsSplitToolbarMode(self);
 }
 

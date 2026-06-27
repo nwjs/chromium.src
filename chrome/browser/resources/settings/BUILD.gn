@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/common/features.gni")
 import("//crypto/features.gni")
 import("//ui/webui/resources/tools/build_webui.gni")
@@ -67,6 +66,7 @@ build_webui("build") {
     "ai_page/ai_suggestions_page.ts",
     "ai_page/history_search_page.ts",
     "ai_page/offer_writing_help_page.ts",
+    "ai_page/skills_page.ts",
     "appearance_page/appearance_fonts_page.ts",
     "appearance_page/appearance_page.ts",
     "appearance_page/appearance_page_index.ts",
@@ -109,9 +109,12 @@ build_webui("build") {
     "on_startup_page/startup_url_dialog.ts",
     "on_startup_page/startup_url_entry.ts",
     "on_startup_page/startup_urls_page.ts",
+    "people_page/account_page.ts",
+    "people_page/google_services_page.ts",
     "people_page/people_page.ts",
     "people_page/people_page_index.ts",
     "people_page/signout_dialog.ts",
+    "people_page/sync_account_control.ts",
     "people_page/sync_controls.ts",
     "people_page/sync_controls_page.ts",
     "people_page/sync_encryption_options.ts",
@@ -226,7 +229,6 @@ build_webui("build") {
     "site_settings/javascript_page.ts",
     "site_settings/keyboard_lock_page.ts",
     "site_settings/local_fonts_page.ts",
-    "site_settings/local_network_access_page.ts",
     "site_settings/local_network_page.ts",
     "site_settings/loopback_network_page.ts",
     "site_settings/media_picker.ts",
@@ -284,11 +286,8 @@ build_webui("build") {
       "languages_page/languages_page_index.ts",
       "languages_page/spell_check_page.ts",
       "languages_page/translate_page.ts",
-      "people_page/account_page.ts",
-      "people_page/google_services_page.ts",
       "people_page/import_data_dialog.ts",
       "people_page/manage_profile.ts",
-      "people_page/sync_account_control.ts",
       "relaunch_confirmation_dialog.ts",
       "system_page/system_page.ts",
     ]
@@ -459,6 +458,7 @@ build_webui("build") {
     "//chrome/browser/resources/settings_shared:build_ts",
     "//third_party/lit/v3_0:build_ts",
     "//third_party/polymer/v3_0:library",
+    "//ui/webui/resources/cr_components/color_change_listener:build_ts",
     "//ui/webui/resources/cr_components/cr_shortcut_input:build_ts",
     "//ui/webui/resources/cr_components/customize_color_scheme_mode:build_ts",
     "//ui/webui/resources/cr_components/help_bubble:build_ts",

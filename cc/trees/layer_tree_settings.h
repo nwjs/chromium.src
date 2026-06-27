@@ -203,7 +203,7 @@ class CC_EXPORT LayerTreeSettings {
 
   // Enables ThrottleDecider which produces a list of FrameSinkIds that are
   // candidates for throttling.
-  // LayerTreeHostSingleThreadClient::FrameSinksToThrottleUpdated() will be
+  // LayerTreeHostSingleThreadDelegate::FrameSinksToThrottleUpdated() will be
   // called with candidates.
   bool enable_compositing_based_throttling = false;
 
@@ -239,6 +239,9 @@ class CC_EXPORT LayerTreeSettings {
 
   // Whether to use variable refresh rates when generating begin frames.
   bool enable_variable_refresh_rate = false;
+
+  // Whether the unbounded element API is enabled.
+  bool enable_unbounded_element = false;
 };
 
 }  // namespace cc

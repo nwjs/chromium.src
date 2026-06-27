@@ -26,6 +26,7 @@ source_set("ui") {
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
       "//components/multistep_filter/content",
+      "//components/multistep_filter/core/logging",
       "//components/tabs:public",
       "//content/public/browser",
       "//ui/base",
@@ -57,6 +58,7 @@ source_set("unit_tests") {
   if (!is_android && !is_ios) {
     sources += [ "filter_ui_controller_unittest.cc" ]
     deps += [
+      ":test_support",
       ":ui",
       "//base/test:test_support",
       "//chrome/browser/multistep_filter/core",
@@ -66,7 +68,9 @@ source_set("unit_tests") {
       "//components/multistep_filter/content",
       "//components/multistep_filter/core",
       "//components/multistep_filter/core:features",
+      "//components/multistep_filter/core/annotation_index:test_support",
       "//components/tabs:test_support",
+      "//components/unified_consent",
       "//content/test:test_support",
       "//testing/gmock",
       "//testing/gtest",

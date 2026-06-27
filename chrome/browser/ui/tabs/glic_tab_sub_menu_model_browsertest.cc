@@ -20,6 +20,7 @@
 #include "chrome/browser/glic/service/glic_ui_types.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -110,6 +111,7 @@ class GlicTabSubMenuModelTest : public InProcessBrowserTest {
     glic::GlicKeyedService::Get(browser()->profile())
         ->enabling()
         .SetCompletedFre(glic::prefs::FreStatus::kCompleted);
+    browser()->window()->Activate();
   }
 
   void TearDownOnMainThread() override {
@@ -311,9 +313,8 @@ IN_PROC_BROWSER_TEST_F(GlicTabSubMenuModelTest, SwitchToRecentConversation) {
 
     glic_instance_coordinator->Toggle(
         browser(),
-        /*prevent_close=*/true, glic::mojom::InvocationSource::kTopChromeButton,
-        /*deprecated_prompt_suggestion=*/std::nullopt,
-        /*deprecated_conversation_id=*/std::nullopt);
+        /*prevent_close=*/true,
+        glic::mojom::InvocationSource::kTopChromeButton);
 
     // Wait for the instance to be shown and associated with the current tab.
     GlicInstance* instance = nullptr;

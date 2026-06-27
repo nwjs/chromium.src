@@ -7,6 +7,7 @@
 #include <string>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/constants/chrome_webui_url_constants.h"
@@ -14,6 +15,7 @@
 #include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -34,10 +36,12 @@
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_capabilities.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/signin/public/identity_manager/tribool.h"
+#include "components/sync/base/features.h"
 #include "components/sync/base/pref_names.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
@@ -49,28 +53,6 @@
 namespace {
 
 constexpr char kUserActionContinue[] = "continue";
-constexpr char kUserActionLacrosSync[] = "sync-everything";
-constexpr char kUserActionLacrosCustom[] = "sync-custom";
-constexpr char kUserActionLacrosDecline[] = "lacros-decline";
-// OS Sync type options
-constexpr char kOsApps[] = "osApps";
-constexpr char kOsPreferences[] = "osPreferences";
-constexpr char kOsWifiConfigurations[] = "osWifiConfigurations";
-constexpr char kOsWallpaper[] = "osWallpaper";
-
-// This helper function to convert user selected items to UserSelectableOsType.
-void GetUserSelectedSyncOsType(const base::DictValue& os_sync_items,
-                               syncer::UserSelectableOsTypeSet& os_sync_set) {
-  if (os_sync_items.FindBool(kOsApps).value()) {
-    os_sync_set.Put(syncer::UserSelectableOsType::kOsApps);
-  }
-  if (os_sync_items.FindBool(kOsPreferences).value()) {
-    os_sync_set.Put(syncer::UserSelectableOsType::kOsPreferences);
-  }
-  if (os_sync_items.FindBool(kOsWifiConfigurations).value()) {
-    os_sync_set.Put(syncer::UserSelectableOsType::kOsWifiConfigurations);
-  }
-}
 
 }  // namespace
 
@@ -130,8 +112,6 @@ std::string SyncConsentScreen::GetResultString(Result result) {
   switch (result) {
     case Result::NEXT:
       return "Next";
-    case Result::DECLINE:
-      return "DeclineOnLacros";
     case Result::NOT_APPLICABLE:
       return BaseScreen::kNotApplicable;
   }
@@ -156,7 +136,13 @@ void SyncConsentScreen::MaybeLaunchSyncConsentSettings(Profile* profile) {
               profile->GetPrefs()->ClearPref(
                   ::prefs::kShowSyncSettingsOnSessionStart);
               chrome::ShowSettingsSubPageForProfile(
-                  profile, ash::chrome_urls::kSyncSetupSubPage);
+                  profile,
+                  (base::FeatureList::IsEnabled(
+                       syncer::kReplaceSyncPromosWithSignInPromos) &&
+                   base::FeatureList::IsEnabled(
+                       ::switches::kChromeOsUseConsentLevelSigninForNewUsers))
+                      ? ash::chrome_urls::kAccountSubPage
+                      : ash::chrome_urls::kSyncSetupSubPage);
             },
             base::Unretained(profile)),
         kSyncConsentSettingsShowDelay);
@@ -330,8 +316,9 @@ SyncConsentScreen::SyncScreenBehavior SyncConsentScreen::GetSyncScreenBehavior(
 
   // Skip if the sync consent screen is disabled by policy, for example, in
   // education scenarios. https://crbug.com/41387934
-  if (!profile_->GetPrefs()->GetBoolean(::prefs::kEnableSyncConsent))
+  if (!profile_->GetPrefs()->GetBoolean(ash::prefs::kEnableSyncConsent)) {
     return SyncScreenBehavior::kSkipAndEnableScreenPolicy;
+  }
 
   // Skip if sync-the-feature is disabled by policy.
   if (IsProfileSyncDisabledByPolicy())
@@ -502,13 +489,6 @@ void SyncConsentScreen::RecordAllConsents(
   }
 }
 
-void SyncConsentScreen::OnLacrosContinue(
-    const base::ListValue& consent_description_list,
-    const std::string& consent_confirmation) {
-  RecordAllConsents(/*opted_in=*/true, consent_description_list,
-                    consent_confirmation);
-}
-
 void SyncConsentScreen::OnUserAction(const base::ListValue& args) {
   const std::string& action_id = args[0].GetString();
   if (action_id == kUserActionContinue) {
@@ -519,86 +499,6 @@ void SyncConsentScreen::OnUserAction(const base::ListValue& args) {
     const std::string& consent_confirmation = args[4].GetString();
     OnAshContinue(opted_in, review_sync, consent_description_list,
                   consent_confirmation);
-    return;
-  }
-  if (action_id == kUserActionLacrosSync) {
-    CHECK_EQ(args.size(), 3u);
-
-    const base::ListValue& consent_description_list = args[1].GetList();
-    const std::string& consent_confirmation = args[2].GetString();
-
-    OnLacrosContinue(consent_description_list, consent_confirmation);
-
-    syncer::SyncService* sync_service = GetSyncService(profile_);
-    syncer::SyncUserSettings* sync_settings = sync_service->GetUserSettings();
-
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.SyncEverything", true);
-
-    syncer::UserSelectableOsTypeSet os_empty_set;
-    sync_settings->SetSelectedOsTypes(/*sync_all_os_types=*/true, os_empty_set);
-
-    exit_callback_.Run(Result::NEXT);
-
-    return;
-  }
-  if (action_id == kUserActionLacrosDecline) {
-    CHECK_EQ(args.size(), 1u);
-    syncer::SyncService* sync_service = GetSyncService(profile_);
-    syncer::SyncUserSettings* sync_settings = sync_service->GetUserSettings();
-
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.SyncEverything", false);
-
-    syncer::UserSelectableOsTypeSet os_empty_set;
-    sync_settings->SetSelectedOsTypes(/*sync_all_os_types=*/false,
-                                      os_empty_set);
-
-    exit_callback_.Run(Result::DECLINE);
-    return;
-  }
-  if (action_id == kUserActionLacrosCustom) {
-    CHECK_EQ(args.size(), 4u);
-    const base::DictValue& osSyncItemsStatus = args[1].GetDict();
-    syncer::UserSelectableOsTypeSet os_sync_set;
-
-    const base::ListValue& consent_description_list = args[2].GetList();
-    const std::string& consent_confirmation = args[3].GetString();
-
-    OnLacrosContinue(consent_description_list, consent_confirmation);
-
-    GetUserSelectedSyncOsType(osSyncItemsStatus, os_sync_set);
-
-    syncer::SyncService* sync_service = GetSyncService(profile_);
-    syncer::SyncUserSettings* sync_settings = sync_service->GetUserSettings();
-
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.SyncEverything", false);
-
-    sync_settings->SetSelectedOsTypes(/*sync_all_os_types=*/false, os_sync_set);
-
-    bool wallpaper_synced = osSyncItemsStatus.FindBool(kOsWallpaper).value();
-
-    if (wallpaper_synced) {
-      DCHECK(osSyncItemsStatus.FindBool(kOsPreferences).value());
-    }
-
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.DataType.SyncWallpaper",
-        wallpaper_synced);
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.DataType.SyncApps",
-        osSyncItemsStatus.FindBool(kOsApps).value());
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.DataType.SyncSettings",
-        osSyncItemsStatus.FindBool(kOsPreferences).value());
-    base::UmaHistogramBoolean(
-        "OOBE.SyncConsentScreen.LacrosSyncOptIns.DataType.SyncWifi",
-        osSyncItemsStatus.FindBool(kOsWifiConfigurations).value());
-    profile_->GetPrefs()->SetBoolean(settings::prefs::kSyncOsWallpaper,
-                                     wallpaper_synced);
-
-    exit_callback_.Run(Result::NEXT);
     return;
   }
   BaseScreen::OnUserAction(args);

@@ -30,7 +30,6 @@ const autofill::CreditCard* ManualFillVirtualCardCache::GetUnmaskedCard(
   return nullptr;
 }
 
-
 void ManualFillVirtualCardCache::DidFinishNavigation(
     web::WebState* web_state,
     web::NavigationContext* navigation_context) {

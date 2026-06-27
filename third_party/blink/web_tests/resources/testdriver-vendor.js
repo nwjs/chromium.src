@@ -346,6 +346,14 @@
     return internals.getComputedRole(element);
   }
 
+  window.test_driver_internal.get_accessibility_properties_for_element = function(element) {
+    return internals.getAccessibilityPropertiesForElement(element);
+  }
+
+  window.test_driver_internal.get_accessibility_properties_for_accessibility_node = function(accessibilityId) {
+    return internals.getAccessibilityPropertiesForAccessibilityNode(document.documentElement, accessibilityId);
+  }
+
   window.test_driver_internal.minimize_window = async () => {
     window.testRunner.setFrameWindowHidden(true);
     // Wait until the new state is reflected in the document
@@ -425,8 +433,8 @@
   }
 
   window.test_driver_internal.update_virtual_pressure_source = function(
-      source_type, state, own_contribution_estimate = -1.0) {
-    return internals.updateVirtualPressureSource(source_type, state, own_contribution_estimate);
+      source_type, sample) {
+    return internals.updateVirtualPressureSource(source_type, sample);
   }
 
   window.test_driver_internal.remove_virtual_pressure_source = function(

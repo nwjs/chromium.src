@@ -50,16 +50,9 @@ blink::mojom::AIPageContentOptionsPtr GetAIPageContentOptions() {
   // WebContents where password change is happening is hidden, and renderer
   // won't capture a snapshot unless it becomes visible again or
   // on_critical_path is set to true.
-  blink::mojom::AIPageContentOptionsPtr options;
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::
-              kUseActionablesForImprovedPasswordChange)) {
-    options = optimization_guide::ActionableAIPageContentOptions(
-        /*on_critical_path =*/true);
-  } else {
-    options = optimization_guide::DefaultAIPageContentOptions(
-        /*on_critical_path =*/true);
-  }
+  blink::mojom::AIPageContentOptionsPtr options =
+      optimization_guide::ActionableAIPageContentOptions(
+          /*on_critical_path =*/true);
   options->include_same_site_only = true;
   return options;
 }
@@ -136,6 +129,7 @@ void ChangePasswordFormFinder::OnPageStableInitially() {
               base::BindOnce(&ChangePasswordFormFinder::OnFormNotFoundInitially,
                              weak_ptr_factory_.GetWeakPtr()))
           .IgnoreHiddenForms()
+          .SetLogsUploader(logs_uploader_)
           .Build();
 }
 
@@ -228,9 +222,7 @@ void ChangePasswordFormFinder::OnExecutionResponseCallback(
             response.value().open_form_data().page_type());
 
   PageType page_type = response.value().open_form_data().page_type();
-  if (page_type == kInterventionNeededPage &&
-      base::FeatureList::IsEnabled(
-          password_manager::features::kUserInterventionForPasswordChange)) {
+  if (page_type == kInterventionNeededPage) {
     std::move(failure_callback_).Run(ErrorCase::kInterruptionDetected);
     return;
   }
@@ -243,6 +235,7 @@ void ChangePasswordFormFinder::OnExecutionResponseCallback(
   }
 
   form_waiter_.reset();
+  button_click_attempted_ = true;
   click_helper_ = std::make_unique<ButtonClickHelper>(
       web_contents_, client_, dom_node_id,
       base::BindOnce(&ChangePasswordFormFinder::OnButtonClicked,
@@ -281,6 +274,7 @@ void ChangePasswordFormFinder::OnPageStableAfterClick() {
           base::BindOnce(
               &ChangePasswordFormFinder::OnChangePasswordFormFoundAfterClick,
               weak_ptr_factory_.GetWeakPtr()))
+          .SetLogsUploader(logs_uploader_)
           .Build();
 }
 
@@ -298,7 +292,14 @@ void ChangePasswordFormFinder::OnChangePasswordFormFoundAfterClick(
 
 void ChangePasswordFormFinder::OnFormNotFound() {
   LogMessage(client_, Logger::STRING_AUTOMATED_PASSWORD_CHANGE_FORM_NOT_FOUND);
-  logs_uploader_->FormNotDetectedAfterOpening();
+  if (button_click_attempted_) {
+    logs_uploader_->FormNotDetectedAfterOpening();
+  } else {
+    logs_uploader_->SetFlowInterrupted(
+        kOpenFormFlowStep,
+        ModelQualityLogsUploader::QualityStatus::
+            PasswordChangeQuality_StepQuality_SubmissionStatus_TIME_OUT);
+  }
 
   CHECK(failure_callback_);
   std::move(failure_callback_).Run(ErrorCase::kFormNotFound);

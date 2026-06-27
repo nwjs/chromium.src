@@ -1,7 +1,9 @@
 include_rules = [
   "+ios/web/public",
   "+net/test/embedded_test_server",
+  "+components/autofill/core/common",
   "+components/autofill/ios/browser",
+  "+components/autofill/ios/form_util",
   "+components/password_manager/core/browser",
   "+components/password_manager/ios",
   "+components/strings/grit",
@@ -10,7 +12,7 @@ include_rules = [
 ]
 
 specific_include_rules = {
-  ".*unittest\.mm": [
+  ".*unittest\\.mm": [
     "+services/network/test/test_url_loader_factory.h",
   ],
 }

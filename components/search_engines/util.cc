@@ -20,9 +20,12 @@
 #include "base/check_op.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/not_fatal_until.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "components/country_codes/country_codes.h"
@@ -37,6 +40,7 @@
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engines_pref_names.h"
+#include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_data_util.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
@@ -105,6 +109,7 @@ GURL GetBaseSearchUrl(TemplateURLService* turl_service,
       turl_service->GetDefaultSearchProvider()->url_ref();
   TemplateURLRef::SearchTermsArgs search_term_args =
       TemplateURLRef::SearchTermsArgs(query_text);
+  search_term_args.append_extra_query_params_from_command_line = true;
   GURL result_url = GURL(url_ref.ReplaceSearchTerms(
       search_term_args, turl_service->search_terms_data()));
 
@@ -149,6 +154,18 @@ GURL GetBaseSearchUrl(TemplateURLService* turl_service,
       base::NumberToString(
           query_submission_time.InMillisecondsSinceUnixEpoch()));
   return result_url;
+}
+
+std::string StringifyDuplicates(
+    const std::map<int, size_t>& duplicate_counts_by_id) {
+  if (duplicate_counts_by_id.empty()) {
+    return "none";
+  }
+  std::vector<std::string> pieces;
+  for (const auto& [id, count] : duplicate_counts_by_id) {
+    pieces.push_back(base::StringPrintf("%d:%zu", id, count + 1));
+  }
+  return base::JoinString(pieces, ", ");
 }
 
 const PrepopulatedEngine* GetMigrationSource(int migrated_engine_id) {
@@ -273,8 +290,11 @@ bool IsSearchEngineKeywordValidToUse(const std::u16string& keyword_input,
     return false;
   }
 
+  std::u16string normalized_keyword =
+      base::i18n::ToLower(keyword_input_trimmed);
+
   const TemplateURL* turl_with_keyword =
-      service->GetTemplateURLForKeyword(keyword_input_trimmed);
+      service->GetTemplateURLForKeyword(normalized_keyword);
   return (!turl_with_keyword || turl_with_keyword == existing_url);
 }
 
@@ -637,8 +657,12 @@ MatchIncomingPrepopulatedEntry(
       // prepopulated ID.
 
       const TemplateURL* existing_url = existing_url_iter->second;
-      if (template_url_data_resolver.MatchesEngineUnderMigration(
-              existing_url->data(), pre_migration_engine)) {
+      TemplateURLPrepopulateData::Resolver::MigrationMatch match =
+          template_url_data_resolver.CompareEngineUnderMigration(
+              existing_url->data(), pre_migration_engine);
+      base::UmaHistogramEnumeration(
+          "Omnibox.TemplateUrl.DBRefresh.MigrationMatch", match);
+      if (TemplateURLPrepopulateData::Resolver::IsMatch(match)) {
         return {existing_url_iter,
                 TemplateURLMergeOption::kSplitPrepopulatedEntry};
       }
@@ -673,6 +697,8 @@ ActionsFromCurrentData CreateActionsFromCurrentPrepopulateData(
   // have a non-zero prepopulate_id()).
   std::map<int, TemplateURL*> id_to_turl;
 
+  std::map<int, size_t> duplicate_counts_by_id;
+
   // Tracking of existing entries that match the DSP, and of the one that is
   // selected as best representative for it.
   int entries_matching_dsp_to_reconcile = 0;
@@ -687,6 +713,9 @@ ActionsFromCurrentData CreateActionsFromCurrentPrepopulateData(
     }
     int prepopulate_id = turl->prepopulate_id();
     if (prepopulate_id > 0) {
+      if (id_to_turl.contains(prepopulate_id)) {
+        ++duplicate_counts_by_id[prepopulate_id];
+      }
       id_to_turl[prepopulate_id] = turl.get();
     }
     if (MatchesDefaultSearchProvider(turl.get(), default_search_provider,
@@ -705,9 +734,78 @@ ActionsFromCurrentData CreateActionsFromCurrentPrepopulateData(
   RecordDefaultSearchMatchCount(entries_matching_dsp_to_reconcile,
                                 /*is_unreconciled_count=*/false);
 
+  if (base::FeatureList::IsEnabled(switches::kKwdbRefreshDebugging)) {
+    size_t total_duplicates = 0;
+    for (const auto& [id, count] : duplicate_counts_by_id) {
+      total_duplicates += count;
+    }
+    base::UmaHistogramCounts100("Omnibox.TemplateUrl.DBRefresh.TotalDuplicates",
+                                total_duplicates);
+
+    // Debugging https://crbug.com/507355138
+    SCOPED_CRASH_KEY_BOOL("KwdbRefresh", "has_dsp_match", dsp_match != nullptr);
+
+    // Breakdown of the accepted explanations for a DSP mismatch.
+    bool has_mismatch_explanation =
+        // There is no DSP.
+        !default_search_provider ||
+        // There is no set of existing turls to get a match from.
+        existing_urls.empty();
+
+    // - Confirmed and expected reasons:
+    //   * No DSP preloaded from prefs.
+    SCOPED_CRASH_KEY_BOOL("KwdbRefresh", "has_no_preloaded_dsp",
+                          default_search_provider == nullptr);
+    //   * No existing URLs to get a match from.
+    SCOPED_CRASH_KEY_NUMBER("KwdbRefresh", "existing_urls_count",
+                            existing_urls.size());
+
+    // - Other hypotheses
+    //   Not confirmed because they should normally not be brought up through
+    //   pre-loading DSP, or their first appearance should come after the
+    //   keywords DB is loaded, and then they should have been added to it.
+    SCOPED_CRASH_KEY_BOOL("KwdbRefresh", "is_dsp_prepopulated",
+                          default_search_provider &&
+                              default_search_provider->prepopulate_id() > 0);
+
+    SCOPED_CRASH_KEY_BOOL("KwdbRefresh", "is_dsp_from_policy",
+                          default_search_provider &&
+                              default_search_provider->enforced_by_policy());
+
+    SCOPED_CRASH_KEY_BOOL(
+        "KwdbRefresh", "is_dsp_from_extension",
+        default_search_provider &&
+            (default_search_provider->type() ==
+                 TemplateURL::OMNIBOX_API_EXTENSION ||
+             default_search_provider->type() ==
+                 TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION));
+
+    SCOPED_CRASH_KEY_BOOL(
+        "KwdbRefresh", "is_from_reg_program",
+        default_search_provider &&
+            default_search_provider->CreatedByRegulatoryProgram());
+
+    SCOPED_CRASH_KEY_NUMBER("KwdbRefresh", "entries_matching_dsp",
+                            entries_matching_dsp_to_reconcile);
+
+    SCOPED_CRASH_KEY_STRING256("KwdbRefresh", "prepop_duplicates",
+                               StringifyDuplicates(duplicate_counts_by_id));
+
+    if (!dsp_match && !has_mismatch_explanation) {
+      // This is not implemented with a `CHECK` for various reasons:
+      // - It's a pre-existing behaviour
+      // - Some of the ways to trigger it are explicitly not blocked upstream on
+      //   some platforms, during prefs loading.
+      // So we keep this as a `DumpWithoutCrashing` to avoid causing test
+      // failures, while still allowing to collect data, validating the logic in
+      // this function and following-up with some defensive checks.
+      base::debug::DumpWithoutCrashing();
+    }
+  }
+
   // We expect to only have one regulatory program engine at a time, see
   // `TemplateURLService::ResetPlayAPISearchEngine()`.
-  CHECK_LE(regulatory_entries.size(), 1u, base::NotFatalUntil::M150);
+  CHECK_LE(regulatory_entries.size(), 1u, base::NotFatalUntil::M152);
 
   // For each current prepopulated URL, check whether |template_urls| contained
   // a matching prepopulated URL.  If so, update the passed-in URL to match the
@@ -1037,10 +1135,16 @@ bool IsAimURL(const GURL& url) {
 
 bool IsAimZeroStateURL(const GURL& url) {
   if (!google_util::IsGoogleDomainUrl(
-          url, google_util::ALLOW_SUBDOMAIN,
+          url, google_util::DISALLOW_SUBDOMAIN,
           google_util::DISALLOW_NON_STANDARD_PORTS)) {
     return false;
   }
+
+  std::string_view path = url.path();
+  if (path != "/search" && !google_util::IsGoogleHomePageUrl(url)) {
+    return false;
+  }
+
   std::string udm;
   bool has_udm = net::GetValueForKeyInQuery(url, "udm", &udm);
   return has_udm && udm == kAimUdmQueryParameterValue &&

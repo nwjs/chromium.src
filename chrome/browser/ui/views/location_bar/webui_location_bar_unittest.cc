@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/bind.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/views/permissions/chip/webui_permission_chip.h"
@@ -19,6 +20,7 @@
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/gfx/paint_vector_icon.h"
 
@@ -106,20 +108,16 @@ TEST_F(WebUILocationBarTest, StateManagement_SecurityChip) {
     std::string_view name;
     security_state::SecurityLevel security_level;
     std::u16string display_text;
-    toolbar_ui_api::mojom::SecurityChipIcon expected_icon;
+    std::u16string accessibility_text;
     toolbar_ui_api::mojom::SecurityLevel expected_mojo_level;
   } kTestCases[] = {
       {"Secure", security_state::SECURE, std::u16string(),
-       toolbar_ui_api::mojom::SecurityChipIcon::kSecurePageInfo,
-       toolbar_ui_api::mojom::SecurityLevel::kSecure},
+       u"Connection is secure", toolbar_ui_api::mojom::SecurityLevel::kSecure},
       {"Dangerous", security_state::DANGEROUS, u"Dangerous",
-       toolbar_ui_api::mojom::SecurityChipIcon::kDangerous,
-       toolbar_ui_api::mojom::SecurityLevel::kDangerous},
-      {"Warning", security_state::WARNING, u"Not secure",
-       toolbar_ui_api::mojom::SecurityChipIcon::kNotSecureWarning,
+       u"Site is dangerous", toolbar_ui_api::mojom::SecurityLevel::kDangerous},
+      {"Warning", security_state::WARNING, u"Not secure", u"Site is not secure",
        toolbar_ui_api::mojom::SecurityLevel::kWarning},
-      {"None", security_state::NONE, std::u16string(),
-       toolbar_ui_api::mojom::SecurityChipIcon::kHttp,
+      {"None", security_state::NONE, std::u16string(), u"Site info",
        toolbar_ui_api::mojom::SecurityLevel::kNone},
   };
 
@@ -128,6 +126,8 @@ TEST_F(WebUILocationBarTest, StateManagement_SecurityChip) {
 
     location_bar_model_->set_security_level(test_case.security_level);
     location_bar_model_->set_secure_display_text(test_case.display_text);
+    location_bar_model_->set_secure_accessibility_text(
+        test_case.accessibility_text);
 
     // Force update
     location_bar_->OnChanged();
@@ -140,9 +140,22 @@ TEST_F(WebUILocationBarTest, StateManagement_SecurityChip) {
 
     const auto& chip =
         state->location_bar_state->lhs_chips_state->security_chip;
-    EXPECT_EQ(chip->icon, test_case.expected_icon);
     EXPECT_EQ(chip->security_level, test_case.expected_mojo_level);
     EXPECT_EQ(chip->text, test_case.display_text);
+
+    // To keep screen reader announcements concise, "name" and "description"
+    // are mutually exclusive for the security chip. If the visual text is
+    // present, it's used as the name and the description is kept empty.
+    // If there's no visual text, the descriptive accessibility string is
+    // passed as the description.
+    if (test_case.display_text.empty()) {
+      EXPECT_EQ(chip->accessibility_state->description,
+                test_case.accessibility_text);
+      EXPECT_TRUE(chip->accessibility_state->label.empty());
+    } else {
+      EXPECT_EQ(chip->accessibility_state->label, test_case.display_text);
+      EXPECT_TRUE(chip->accessibility_state->description.empty());
+    }
     EXPECT_TRUE(chip->is_clickable);
   }
 }
@@ -151,7 +164,8 @@ TEST_F(WebUILocationBarTest, StateManagement_PermissionChip) {
   WebUIPermissionChip chip(location_bar_);
 
   chip.SetVisible(true);
-  chip.SetChipIcon(kCameraIcon);
+  chip.SetChipIcon(features::IsRoundedIconsEnabled() ? kPhotoCameraIcon
+                                                     : kCameraOldIcon);
   chip.SetMessage(u"Camera in use");
   chip.SetTooltipText(u"Tooltip");
   chip.SetTheme(PermissionChipTheme::kInUseActivityIndicator);
@@ -163,7 +177,9 @@ TEST_F(WebUILocationBarTest, StateManagement_PermissionChip) {
 
   auto state = chip.GetState();
   EXPECT_TRUE(state->is_visible);
-  EXPECT_EQ(state->icon_name, "kCameraIcon");
+  EXPECT_EQ(state->icon_name, features::IsRoundedIconsEnabled()
+                                  ? kPhotoCameraIcon.name
+                                  : kCameraOldIcon.name);
   EXPECT_EQ(state->message, u"Camera in use");
   EXPECT_EQ(state->tooltip, u"Tooltip");
   EXPECT_EQ(
@@ -225,4 +241,70 @@ TEST_F(WebUILocationBarTest, MouseClickSuppression) {
       toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon,
       /*is_mouse_interaction=*/true);
   EXPECT_FALSE(GetSuppressLhsChipClicked());
+}
+
+TEST_F(WebUILocationBarTest, OnLhsChipDrag) {
+  // Should not crash when called with various identifiers, even with null
+  // web contents.
+  location_bar_->OnLhsChipDrag(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon,
+      ui::mojom::DragEventSource::kMouse);
+  location_bar_->OnLhsChipDrag(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
+      ui::mojom::DragEventSource::kMouse);
+  location_bar_->OnLhsChipDrag(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
+      ui::mojom::DragEventSource::kMouse);
+}
+
+class MockPermissionChipObserver : public PermissionChipInterface::Observer {
+ public:
+  MOCK_METHOD(void, OnMousePressed, (), (override));
+};
+
+TEST_F(WebUILocationBarTest, PermissionChipMouseEvents) {
+  // Ensure the permission dashboard is initialized.
+  ASSERT_TRUE(permission_dashboard());
+
+  bool request_chip_clicked = false;
+  bool indicator_chip_clicked = false;
+
+  permission_dashboard()->request_chip()->SetPressedCallback(
+      base::BindLambdaForTesting([&]() { request_chip_clicked = true; }));
+  permission_dashboard()->indicator_chip()->SetPressedCallback(
+      base::BindLambdaForTesting([&]() { indicator_chip_clicked = true; }));
+
+  testing::StrictMock<MockPermissionChipObserver> request_observer;
+  testing::StrictMock<MockPermissionChipObserver> indicator_observer;
+  permission_dashboard()->request_chip()->AddObserver(&request_observer);
+  permission_dashboard()->indicator_chip()->AddObserver(&indicator_observer);
+
+  // Test Mouse Pressed events are forwarded.
+  EXPECT_CALL(request_observer, OnMousePressed());
+  location_bar_->OnLhsChipMousePressed(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest);
+  testing::Mock::VerifyAndClearExpectations(&request_observer);
+
+  EXPECT_CALL(indicator_observer, OnMousePressed());
+  location_bar_->OnLhsChipMousePressed(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator);
+  testing::Mock::VerifyAndClearExpectations(&indicator_observer);
+
+  // Test Click events are forwarded.
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest,
+      /*is_mouse_interaction=*/true);
+  EXPECT_TRUE(request_chip_clicked);
+  EXPECT_FALSE(indicator_chip_clicked);
+
+  request_chip_clicked = false;
+
+  location_bar_->OnLhsChipClicked(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
+      /*is_mouse_interaction=*/false);
+  EXPECT_TRUE(indicator_chip_clicked);
+  EXPECT_FALSE(request_chip_clicked);
+
+  permission_dashboard()->request_chip()->RemoveObserver(&request_observer);
+  permission_dashboard()->indicator_chip()->RemoveObserver(&indicator_observer);
 }

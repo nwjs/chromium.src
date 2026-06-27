@@ -42,10 +42,6 @@ namespace blink {
 
 namespace {
 
-inline icu::Locale CurrentTextBreakIcuLocale() {
-  return icu::Locale(CurrentTextBreakLocaleID());
-}
-
 class LineBreakIteratorPool final {
   USING_FAST_MALLOC(LineBreakIteratorPool);
 
@@ -462,14 +458,14 @@ UText* TextOpenLatin1(UTextWithBuffer* ut_with_buffer,
   return text;
 }
 
-inline TextContext TextUTF16GetCurrentContext(const UText* text) {
+inline TextContext TextUtf16GetCurrentContext(const UText* text) {
   if (!text->chunkContents) {
     return kNoContext;
   }
   return text->chunkContents == text->p ? kPrimaryContext : kPriorContext;
 }
 
-void TextUTF16MoveInPrimaryContext(UText* text,
+void TextUtf16MoveInPrimaryContext(UText* text,
                                    int64_t native_index,
                                    int64_t native_length,
                                    UBool forward) {
@@ -497,16 +493,16 @@ void TextUTF16MoveInPrimaryContext(UText* text,
                                text->chunkLength);
 }
 
-void TextUTF16SwitchToPrimaryContext(UText* text,
+void TextUtf16SwitchToPrimaryContext(UText* text,
                                      int64_t native_index,
                                      int64_t native_length,
                                      UBool forward) {
   DCHECK(!text->chunkContents || text->chunkContents == text->q);
   text->chunkContents = static_cast<const UChar*>(text->p);
-  TextUTF16MoveInPrimaryContext(text, native_index, native_length, forward);
+  TextUtf16MoveInPrimaryContext(text, native_index, native_length, forward);
 }
 
-void TextUTF16MoveInPriorContext(UText* text,
+void TextUtf16MoveInPriorContext(UText* text,
                                  int64_t native_index,
                                  int64_t native_length,
                                  UBool forward) {
@@ -530,16 +526,16 @@ void TextUTF16MoveInPriorContext(UText* text,
                                text->chunkLength);
 }
 
-void TextUTF16SwitchToPriorContext(UText* text,
+void TextUtf16SwitchToPriorContext(UText* text,
                                    int64_t native_index,
                                    int64_t native_length,
                                    UBool forward) {
   DCHECK(!text->chunkContents || text->chunkContents == text->p);
   text->chunkContents = static_cast<const UChar*>(text->q);
-  TextUTF16MoveInPriorContext(text, native_index, native_length, forward);
+  TextUtf16MoveInPriorContext(text, native_index, native_length, forward);
 }
 
-UBool TextUTF16Access(UText* text, int64_t native_index, UBool forward) {
+UBool TextUtf16Access(UText* text, int64_t native_index, UBool forward) {
   if (!text->context) {
     return false;
   }
@@ -550,32 +546,32 @@ UBool TextUTF16Access(UText* text, int64_t native_index, UBool forward) {
     return is_accessible;
   }
   native_index = TextPinIndex(native_index, native_length - 1);
-  TextContext current_context = TextUTF16GetCurrentContext(text);
+  TextContext current_context = TextUtf16GetCurrentContext(text);
   TextContext new_context = TextGetContext(text, native_index, forward);
   DCHECK_NE(new_context, kNoContext);
   if (new_context == current_context) {
     if (current_context == kPrimaryContext) {
-      TextUTF16MoveInPrimaryContext(text, native_index, native_length, forward);
+      TextUtf16MoveInPrimaryContext(text, native_index, native_length, forward);
     } else {
-      TextUTF16MoveInPriorContext(text, native_index, native_length, forward);
+      TextUtf16MoveInPriorContext(text, native_index, native_length, forward);
     }
   } else if (new_context == kPrimaryContext) {
-    TextUTF16SwitchToPrimaryContext(text, native_index, native_length, forward);
+    TextUtf16SwitchToPrimaryContext(text, native_index, native_length, forward);
   } else {
     DCHECK_EQ(new_context, kPriorContext);
-    TextUTF16SwitchToPriorContext(text, native_index, native_length, forward);
+    TextUtf16SwitchToPriorContext(text, native_index, native_length, forward);
   }
   return true;
 }
 
-constexpr struct UTextFuncs kTextUTF16Funcs = {
+constexpr struct UTextFuncs kTextUtf16Funcs = {
     sizeof(UTextFuncs),
     0,
     0,
     0,
     TextClone,
     TextNativeLength,
-    TextUTF16Access,
+    TextUtf16Access,
     TextExtract,
     nullptr,
     nullptr,
@@ -587,7 +583,7 @@ constexpr struct UTextFuncs kTextUTF16Funcs = {
     nullptr,
 };
 
-UText* TextOpenUTF16(UText* text,
+UText* TextOpenUtf16(UText* text,
                      base::span<const UChar> string,
                      const UChar* prior_context,
                      int prior_context_length,
@@ -608,7 +604,7 @@ UText* TextOpenUTF16(UText* text,
     DCHECK(!text);
     return nullptr;
   }
-  TextInit(text, &kTextUTF16Funcs, string.data(),
+  TextInit(text, &kTextUtf16Funcs, string.data(),
            base::checked_cast<unsigned>(string.size()), prior_context,
            prior_context_length);
   return text;
@@ -638,16 +634,6 @@ bool SetText8(TextBreakIterator* break_iter, base::span<const LChar> string) {
 
   utext_close(text);
   return true;
-}
-
-void SetText16(TextBreakIterator* iter, base::span<const UChar> string) {
-  UErrorCode error_code = U_ZERO_ERROR;
-  UText u_text = UTEXT_INITIALIZER;
-  utext_openUChars(&u_text, string.data(), string.size(), &error_code);
-  if (U_FAILURE(error_code)) {
-    return;
-  }
-  iter->setText(&u_text, error_code);
 }
 
 class WordBreakIteratorPool {
@@ -701,6 +687,16 @@ TextBreakIterator* WordBreakIteratorPool::Get(base::span<const UChar> string) {
 }
 
 }  // namespace
+
+void SetText16(icu::BreakIterator* iter, base::span<const UChar> string) {
+  UErrorCode error_code = U_ZERO_ERROR;
+  UText u_text = UTEXT_INITIALIZER;
+  utext_openUChars(&u_text, string.data(), string.size(), &error_code);
+  if (U_FAILURE(error_code)) {
+    return;
+  }
+  iter->setText(&u_text, error_code);
+}
 
 TextBreakIterator* WordBreakIterator(base::span<const UChar> string) {
   DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<WordBreakIteratorPool>, pool,
@@ -786,10 +782,10 @@ PooledBreakIterator AcquireLineBreakIterator(
   UText text_local = UTEXT_INITIALIZER;
 
   UErrorCode open_status = U_ZERO_ERROR;
-  UText* text = TextOpenUTF16(&text_local, string, prior_context,
+  UText* text = TextOpenUtf16(&text_local, string, prior_context,
                               prior_context_length, &open_status);
   if (U_FAILURE(open_status)) {
-    DLOG(ERROR) << "textOpenUTF16 failed with status " << open_status;
+    DLOG(ERROR) << "textOpenUtf16 failed with status " << open_status;
     return nullptr;
   }
 
@@ -819,125 +815,6 @@ void ReturnBreakIteratorToPool::operator()(void* ptr) const {
   LineBreakIteratorPool::SharedPool().Put(iterator);
 }
 
-//
-// A simple pool of `icu::BreakIterator` without any keys, as
-// `CharacterBreakIterator` is locale-independent.
-//
-class CharacterBreakIterator::Pool {
- public:
-  static Pool& Get() {
-    DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<Pool>, pool, ());
-    return *pool;
-  }
-
-  PooledIterator TakeOrCreate() {
-    if (!pool_.empty()) {
-      PooledIterator iterator(pool_.back().release());
-      pool_.pop_back();
-      return iterator;
-    }
-
-    ICUError error_code;
-    PooledIterator iterator(icu::BreakIterator::createCharacterInstance(
-        CurrentTextBreakIcuLocale(), error_code));
-    DCHECK(U_SUCCESS(error_code) && iterator)
-        << "ICU could not open a break iterator: " << u_errorName(error_code)
-        << " (" << error_code << ")";
-    return iterator;
-  }
-
-  void Put(icu::BreakIterator* iterator) { pool_.push_back(iterator); }
-
- private:
-  static constexpr size_t kCapacity = 4;
-  Vector<std::unique_ptr<icu::BreakIterator>, kCapacity> pool_;
-};
-
-void CharacterBreakIterator::ReturnToPool::operator()(void* ptr) const {
-  icu::BreakIterator* iterator = static_cast<icu::BreakIterator*>(ptr);
-  DCHECK(iterator);
-  Pool::Get().Put(iterator);
-}
-
-CharacterBreakIterator::CharacterBreakIterator(const StringView& string) {
-  if (string.empty()) {
-    is_8bit_ = true;
-    return;
-  }
-
-  is_8bit_ = string.Is8Bit();
-
-  if (is_8bit_) {
-    base::span<const LChar> chars = string.Span8();
-    charaters8_ = chars.data();
-    offset_ = 0;
-    // static_cast<> is safe because `chars` came from a StringView.
-    length_ = static_cast<unsigned>(chars.size());
-    return;
-  }
-
-  CreateIteratorForBuffer(string.Span16());
-}
-
-CharacterBreakIterator::CharacterBreakIterator(base::span<const UChar> buffer) {
-  CreateIteratorForBuffer(buffer);
-}
-
-void CharacterBreakIterator::CreateIteratorForBuffer(
-    base::span<const UChar> buffer) {
-  iterator_ = Pool::Get().TakeOrCreate();
-  SetText16(iterator_.get(), buffer);
-}
-
-int CharacterBreakIterator::Next() {
-  if (!is_8bit_) {
-    return iterator_->next();
-  }
-
-  if (offset_ >= length_) {
-    return kTextBreakDone;
-  }
-
-  offset_ += ClusterLengthStartingAt(offset_);
-  return offset_;
-}
-
-int CharacterBreakIterator::Current() {
-  if (!is_8bit_) {
-    return iterator_->current();
-  }
-  return offset_;
-}
-
-bool CharacterBreakIterator::IsBreak(int offset) const {
-  if (!is_8bit_) {
-    return iterator_->isBoundary(offset);
-  }
-  return !IsLfAfterCr(offset);
-}
-
-int CharacterBreakIterator::Preceding(int offset) const {
-  if (!is_8bit_) {
-    return iterator_->preceding(offset);
-  }
-  if (offset <= 0) {
-    return kTextBreakDone;
-  }
-  if (IsLfAfterCr(offset)) {
-    return offset - 2;
-  }
-  return offset - 1;
-}
-
-int CharacterBreakIterator::Following(int offset) const {
-  if (!is_8bit_) {
-    return iterator_->following(offset);
-  }
-  if (static_cast<unsigned>(offset) >= length_) {
-    return kTextBreakDone;
-  }
-  return offset + ClusterLengthStartingAt(offset);
-}
 
 TextBreakIterator* SentenceBreakIterator(base::span<const UChar> string) {
   UErrorCode open_status = U_ZERO_ERROR;

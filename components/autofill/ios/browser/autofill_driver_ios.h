@@ -136,8 +136,10 @@ class AutofillDriverIOS final : public AutofillDriver,
       uint32_t number_of_ancestor_levels_to_search,
       base::OnceCallback<void(const std::string& amount)> response_callback)
       override;
-  void DispatchEmailVerifiedEvent(
-      FieldGlobalId field_id,
+  void SendEmailVerificationToken(
+      FieldGlobalId email_field_id,
+      const std::string& email,
+      FieldGlobalId token_field_id,
       const std::string& presentation_token) override;
 
   void RendererShouldSetSuggestionAvailability(

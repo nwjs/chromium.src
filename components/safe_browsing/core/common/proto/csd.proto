@@ -367,7 +367,10 @@ message ClientPhishingRequest {
   // the score meets the image embedding's minimum threshold.
   optional EmbeddingMatchMetadata target_image_embedding_score = 34;
 
-  // next available tag number: 35.
+  // The HTTP response code of the loaded page.
+  optional uint32 http_response_code = 35;
+
+  // next available tag number: 36.
 }
 
 message ClipboardExtractedData {
@@ -1937,6 +1940,8 @@ message ClientSafeBrowsingReportRequest {
     ANDROID_SAFEBROWSING = 8;
     // Client-side phishing.
     CLIENT_SIDE_DETECTION = 9;
+    // Glic Counter Abuse.
+    GLIC = 10;
   }
 
   // The information propagated from the client about various environment

@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_CR_COMPONENTS_SEARCHBOX_CONTEXTUAL_SEARCHBOX_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_CR_COMPONENTS_SEARCHBOX_CONTEXTUAL_SEARCHBOX_HANDLER_H_
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -16,6 +17,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/unguessable_token.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
@@ -32,6 +35,7 @@
 #include "components/lens/contextual_input.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/composebox/composebox_query.mojom.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
@@ -39,10 +43,16 @@
 #include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/views/drive_picker_host/drive_picker_result_handler.mojom.h"
+#endif
+
 class Profile;
 class SkBitmap;
+class DrivePickerHostController;
 
 namespace contextual_tasks {
+class ActiveTaskContextProvider;
 class ContextualTasksContextService;
 class DesktopQueryContextualizerDelegate;
 }  // namespace contextual_tasks
@@ -93,7 +103,12 @@ class ContextualSearchboxHandler
     : public contextual_search::ContextualSearchContextController::
           ContextUploadStatusObserver,
       public SearchboxHandler,
-      public TabListInterfaceObserver {
+      public TabListInterfaceObserver
+#if !BUILDFLAG(IS_ANDROID)
+    ,
+      public drive_picker_host::mojom::DrivePickerResultHandler
+#endif
+{
  public:
   using RecontextualizeTabCallback = base::OnceCallback<void(bool)>;
 
@@ -119,7 +134,10 @@ class ContextualSearchboxHandler
   void OnDriveUploadClicked(OnDriveUploadClickedCallback callback) override;
   void DeleteContext(const base::UnguessableToken& file_token,
                      bool from_automatic_chip) override;
+  void DeleteContextFromBrowser(const base::UnguessableToken& file_token,
+                                bool from_automatic_chip);
   void ClearFiles(bool should_block_auto_suggested_tabs) override;
+  void ClearFiles(bool should_block_auto_suggested_tabs, bool query_submitted);
   void SubmitQuery(const std::string& query_text,
                    uint8_t mouse_button,
                    bool alt_key,
@@ -143,7 +161,16 @@ class ContextualSearchboxHandler
       ShouldShowDriveDisclaimerCallback callback) override;
   void OnDriveDisclaimerAccepted() override;
   void QueryAutocomplete(const std::u16string& input,
-                         bool prevent_inline_autocomplete) override;
+                         bool prevent_inline_autocomplete,
+                         uint32_t cursor_position) override;
+
+#if !BUILDFLAG(IS_ANDROID)
+  // drive_picker_host::mojom::DrivePickerResultHandler:
+  void OnSelection(
+      std::vector<drive_picker_host::mojom::DriveFilePtr> files) override;
+  void OnCancel() override;
+  void OnError(drive_picker_host::mojom::DrivePickerError error) override;
+#endif
 
   // Returns true if smart tab sharing is active for the current query.
   virtual bool IsSmartTabSharingActive() const;
@@ -152,6 +179,9 @@ class ContextualSearchboxHandler
   virtual void GetSmartTabSharingActive(
       composebox::mojom::PageHandler::GetSmartTabSharingActiveCallback
           callback);
+
+  // Returns the list of selected tab IDs that should be transferred.
+  virtual std::vector<int32_t> GetSelectedTabIds() const;
 
   // Continues the process of adding tab context for a given `tab_id`.
   // This method is used when a `context_token` has already been generated
@@ -216,9 +246,16 @@ class ContextualSearchboxHandler
     OnInputStateChanged(state);
   }
 
+  // Map of context tokens (frontend) to tab IDs (backend);
+  // used for determining which tabs to underline based on frontend changes, and
+  // for sending `tabID`s to cobrowsing when going from an AIM entrypoint to
+  // cobrowsing.
+  std::map<base::UnguessableToken, int32_t> selected_tabs;
+
  protected:
   // SearchboxHandler:
   omnibox::InputState GetInputState() const override;
+  std::string GetPreviousQuery() override;
 
   virtual void OpenUrl(GURL url, const WindowOpenDisposition disposition);
 
@@ -282,10 +319,12 @@ class ContextualSearchboxHandler
   void RecordTabAddedMetric(tabs::TabInterface* const tab,
                             bool is_tab_suggestion_chip);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Returns true if the query should be opened in the Lens side panel.
   bool ShouldOpenInLensSidePanel(
       content::WebContents* active_web_contents,
       contextual_search::ContextualSearchSessionHandle* session_handle);
+#endif
 
   virtual void InitializeInputStateModel();
 
@@ -332,13 +371,9 @@ class ContextualSearchboxHandler
                           std::unique_ptr<lens::ContextualInputData>>>
       tab_context_snapshot_;
 
-  // TODO(b/502297163): Implement for Android.
-#if !BUILDFLAG(IS_ANDROID)
-  // Delegate handling desktop-specific operations for QueryContextualizer.
   std::unique_ptr<contextual_tasks::DesktopQueryContextualizerDelegate>
       desktop_delegate_;
   std::unique_ptr<contextual_tasks::QueryContextualizer> query_contextualizer_;
-#endif  // !BUILDFLAG(IS_ANDROID)
 
   raw_ptr<contextual_tasks::ContextualTasksContextService>
       contextual_tasks_context_service_;
@@ -358,6 +393,10 @@ class ContextualSearchboxHandler
 
  protected:
   std::optional<bool> smart_tab_sharing_active_for_thread_;
+  bool has_incremented_sts_activation_count_ = false;
+
+  // Gets the `ActiveTaskContextProvider` to update tab underlines.
+  contextual_tasks::ActiveTaskContextProvider* GetActiveTaskContextProvider();
 
   // Checks eligibility and triggers the smart tab sharing IPH promo logic.
   void MaybeTriggerSmartTabSharingPromo(
@@ -369,7 +408,20 @@ class ContextualSearchboxHandler
   virtual void OnRelevantTabsReceivedToMaybeShowPromo(
       std::vector<base::WeakPtr<content::WebContents>> relevant_tabs);
 
+  // Cleans up the drive picker controller and result handler receiver.
+  void CleanupDrivePicker();
+
+#if !BUILDFLAG(IS_ANDROID)
+  void OnDrivePickerDisconnected();
+
+  mojo::Receiver<drive_picker_host::mojom::DrivePickerResultHandler>
+      drive_picker_result_handler_receiver_{this};
+
+  std::unique_ptr<DrivePickerHostController> drive_picker_controller_;
+#endif
+
+  OnDriveUploadClickedCallback drive_upload_click_callback_;
+
   base::WeakPtrFactory<ContextualSearchboxHandler> weak_ptr_factory_{this};
 };
-
 #endif  // CHROME_BROWSER_UI_WEBUI_CR_COMPONENTS_SEARCHBOX_CONTEXTUAL_SEARCHBOX_HANDLER_H_

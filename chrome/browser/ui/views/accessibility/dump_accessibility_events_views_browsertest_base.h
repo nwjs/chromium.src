@@ -89,6 +89,8 @@ class DumpAccessibilityEventsViewsTestBase
 
   base::FilePath GetExpectationDirectory() const;
 
+  // Returns event-log filters shared by tests in a fixture. Event logs are
+  // denied by default; tests must allow the platform events they assert.
   virtual std::vector<ui::AXPropertyFilter> DefaultFilters() const;
 
   Widget* widget() { return widget_.get(); }
@@ -123,6 +125,11 @@ class DumpAccessibilityEventsViewsTestBase
 
   virtual void OnDiffFailed();
 
+  // Collects event logs from the recorder, applies filters, and optionally
+  // sorts them. Subclasses can override to post-process event strings (e.g.,
+  // strip properties that vary between ViewsAX enabled/disabled paths).
+  virtual std::vector<std::string> CollectEventLogs();
+
   // Waits for any pending WidgetAXManager serialization to complete.
   // Use this instead of RunUntilIdle(), which is brittle because it
   // guesses async timing rather than waiting for a specific signal.
@@ -135,7 +142,6 @@ class DumpAccessibilityEventsViewsTestBase
   void StopRecordingAndCompare(const std::string& test_name);
 
   base::FilePath GetExpectationFilePath(const std::string& test_name) const;
-  std::vector<std::string> CollectEventLogs();
   std::vector<std::string> FilterEventLogs(
       const std::vector<std::string>& event_logs) const;
   bool ValidateAgainstExpectation(const std::string& test_name,

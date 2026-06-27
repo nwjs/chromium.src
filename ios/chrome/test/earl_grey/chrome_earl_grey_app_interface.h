@@ -73,6 +73,10 @@ enum class TipsNotificationType;
 // Opens `URL` using some connected scene.
 + (void)sceneOpenURL:(NSString*)spec;
 
+// Continues `userActivity` using some connected scene with a specific URL.
++ (void)sceneContinueUserActivityWithType:(NSString*)activityType
+                                      url:(NSString*)urlString;
+
 // Loads the URL `spec` in the current WebState with transition type
 // ui::PAGE_TRANSITION_TYPED and returns without waiting for the page to load.
 + (void)startLoadingURL:(NSString*)spec;
@@ -162,6 +166,12 @@ enum class TipsNotificationType;
 // internal NavigationItem to trigger scroll restoration upon page load.
 + (void)openNewTabWithURL:(NSString*)url textFragment:(NSString*)textFragment;
 
+// Opens a new tab with the given URL, text fragment, and marks it as
+// originating from Send Tab To Self with the given entry GUID.
++ (void)openSendTabToSelfNewTabWithURL:(NSString*)url
+                          textFragment:(NSString*)textFragment
+                             entryGUID:(NSString*)guid;
+
 // Simulates opening a custom `URL` from another application.
 + (void)simulateExternalAppURLOpeningWithURL:(NSURL*)URL;
 
@@ -212,6 +222,9 @@ enum class TipsNotificationType;
 
 // Returns the index of active tab in normal mode.
 + (NSUInteger)indexOfActiveNormalTab;
+
+// Returns YES if the current active WebState is showing a new tab page.
++ (BOOL)isCurrentTabNTP;
 
 #pragma mark - Window utilities (EG2)
 
@@ -269,6 +282,9 @@ enum class TipsNotificationType;
 // well together, so EG often fails to interact with the tools menu in secondary
 // windows.
 + (void)openSettingsInWindowWithNumber:(int)windowNumber;
+
+// Returns the interface orientation of the scene.
++ (UIInterfaceOrientation)interfaceOrientation;
 
 #pragma mark - WebState Utilities (EG2)
 
@@ -422,6 +438,25 @@ enum class TipsNotificationType;
 // Injects device info to sync FakeServer.
 + (void)addFakeSyncServerDeviceInfo:(NSString*)deviceName
                lastUpdatedTimestamp:(base::Time)lastUpdatedTimestamp;
+
+// Injects a send tab to self entry to sync FakeServer.
++ (void)addFakeSyncServerSendTabToSelfEntryWithURL:(NSString*)URL
+                                             title:(NSString*)title
+                                        deviceName:(NSString*)deviceName
+                                  targetDeviceGUID:(NSString*)targetDeviceGUID;
+
+// Adds a fake Send Tab To Self entry to the fake sync server and returns its
+// GUID. `formFieldData` is a dictionary where keys are form control names and
+// values are the values to fill.
++ (NSString*)addFakeSendTabToSelfEntryWithURL:(NSString*)url
+                                        title:(NSString*)title
+                                formFieldData:
+                                    (NSDictionary<NSString*, NSString*>*)
+                                        formFieldData;
+
+// Checks if the local Send Tab To Self model contains an entry with the given
+// GUID.
++ (BOOL)hasSendTabToSelfEntryWithGUID:(NSString*)guid;
 
 // Returns the generated text fragment for the given URL, or nil if no entry
 // exists or no fragment is set.
@@ -579,8 +614,8 @@ enum class TipsNotificationType;
 // Returns whether the ComposeboxIOS feature is enabled.
 + (BOOL)isComposeboxIOSEnabled;
 
-// Returns the interface orientation of the scene.
-+ (UIInterfaceOrientation)interfaceOrientation;
+// Returns whether chrome next is enabled.
++ (BOOL)isChromeNextEnabled;
 
 #pragma mark - ContentSettings
 
@@ -785,6 +820,10 @@ enum class TipsNotificationType;
 
 // Waits for the MessagingBackendService to be initialized.
 + (NSError*)waitForMessagingBackendServiceInitialized;
+
+// Returns YES if the view with `accessibilityID` or any of its ancestors is
+// animating.
++ (BOOL)isViewAnimatingWithAccessibilityID:(NSString*)accessibilityID;
 
 @end
 

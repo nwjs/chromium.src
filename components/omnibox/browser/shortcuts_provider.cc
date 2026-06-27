@@ -525,13 +525,12 @@ AutocompleteMatch ShortcutsProvider::ShortcutMatchToACMatch(
         (input.prefer_keyword() && keyword_matches);
     match.search_terms_args =
         std::make_unique<TemplateURLRef::SearchTermsArgs>(match.contents);
+    match.search_terms_args->page_classification =
+        input.current_page_classification();
   }
 
   const bool match_has_explicit_keyword =
-      !match
-           .GetSubstitutingExplicitlyInvokedKeyword(
-               client_->GetTemplateURLService())
-           .empty();
+      match.IsExplicitlyInvokedKeyword(client_->GetTemplateURLService());
   bool match_from_dsp = default_search_provider &&
                         match.keyword == default_search_provider->keyword();
 

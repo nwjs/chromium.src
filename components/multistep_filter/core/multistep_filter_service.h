@@ -21,6 +21,10 @@ namespace signin {
 class IdentityManager;
 }
 
+namespace unified_consent {
+class UrlKeyedDataCollectionConsentHelper;
+}
+
 namespace multistep_filter {
 
 class AnnotationIndexClient;
@@ -51,6 +55,8 @@ class MultistepFilterService : public KeyedService {
       std::unique_ptr<AnnotationIndexClient> annotation_index_client,
       std::unique_ptr<FilterStore> filter_store,
       signin::IdentityManager* identity_manager,
+      std::unique_ptr<unified_consent::UrlKeyedDataCollectionConsentHelper>
+          consent_helper,
       MultistepFilterLogRouter* log_router);
 
   MultistepFilterService(const MultistepFilterService&) = delete;
@@ -70,6 +76,11 @@ class MultistepFilterService : public KeyedService {
       const GURL& url,
       base::OnceCallback<void(std::optional<UrlFilterSuggestion>)> callback);
 
+  // Deletes all annotations for the given `task_type`.
+  virtual void DeleteAnnotationsForTask(std::string_view task_type,
+                                        int64_t navigation_id,
+                                        std::string_view domain);
+
  private:
   friend class MultistepFilterServiceTestApi;
 
@@ -84,6 +95,9 @@ class MultistepFilterService : public KeyedService {
   // Returns true if the user is currently signed in. The Multistep Filter
   // feature is only available for signed-in users.
   bool IsUserSignedIn() const;
+
+  // Returns true if the user has enabled URL-keyed data collection.
+  bool IsUrlKeyedDataCollectionEnabled() const;
 
   raw_ptr<ObserverForTest> observer_for_test_ = nullptr;
 
@@ -103,10 +117,14 @@ class MultistepFilterService : public KeyedService {
 
   // Used to check if the user is signed in, as the feature is only available
   // for signed-in users.
-  const raw_ptr<signin::IdentityManager> identity_manager_;
+  raw_ptr<signin::IdentityManager> identity_manager_;
+
+  // Used to check for URL-keyed data collection consent.
+  std::unique_ptr<unified_consent::UrlKeyedDataCollectionConsentHelper>
+      consent_helper_;
 
   // Log router for the internals page.
-  const raw_ptr<MultistepFilterLogRouter> log_router_;
+  raw_ptr<MultistepFilterLogRouter> log_router_;
 
   // This should be kept at the end so that it is the first member to be
   // destroyed.

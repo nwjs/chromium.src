@@ -14,6 +14,12 @@ import "skia/public/mojom/bitmap.mojom";
 // For detailed type definition.
 // TODO(b/356405813): Refactor documentation.
 
+// Represents the url type.
+enum UrlType {
+  kGeminiRegular,
+  kGeminiGuidedLearning,
+};
+
 // Represents the tab information within browser window.
 struct TabInfo {
   // Tab id. Only present for local tab info. Will be absent for teacher-sent
@@ -25,6 +31,8 @@ struct TabInfo {
   url.mojom.Url url;
   // Tab favicon URL.
   url.mojom.Url favicon;
+  // Tab url type.
+  UrlType? url_type;
 };
 
 
@@ -57,6 +65,7 @@ enum MaterialType {
   kYoutubeVideo,
   kLink,
   kForm,
+  kGuidedLearning,
 };
 
 // Represents a material attached to a course assignment.
@@ -217,6 +226,15 @@ enum StudentStatusDetail {
   kMultipleDeviceSignedIn = 9,
 };
 
+enum GeminiEnablementState {
+  // Gemini enablement is unknown.
+  kUnknown,
+  // Gemini is enabled by admin.
+  kEnabled,
+  // Gemini is disabled by admin.
+  kDisabled,
+};
+
 struct StudentActivity {
   // The student's status detail.
   StudentStatusDetail student_status_detail;
@@ -233,6 +251,8 @@ struct StudentActivity {
   JoinMethod join_method;
   // A string-format code to connect to student's device.
   string? view_screen_session_code;
+  // The student's Gemini enablement status.
+  GeminiEnablementState gemini_state;
 };
 
 struct IdentifiedActivity{
@@ -416,6 +436,8 @@ interface PageHandler {
   PresentOwnScreen(string receiver_id) => (bool success);
   // Stop the current screen share presentation for the teacher.
   StopPresentingOwnScreen() => (bool success);
+  // Get Gemini enabled status.
+  GetGeminiStatus() => (bool enabled);
 };
 
 // Implemented by renderer process. There is an implementation in the browser

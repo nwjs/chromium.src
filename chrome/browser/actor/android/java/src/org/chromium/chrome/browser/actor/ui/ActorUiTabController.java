@@ -6,19 +6,29 @@ package org.chromium.chrome.browser.actor.ui;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.content.Context;
+
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.UserData;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
+import org.chromium.chrome.browser.actor.StoppedReason;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
+import org.chromium.content_public.browser.ImeAdapter;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.url.GURL;
 
 /** Java-side representation of the C++ ActorUiTabControllerAndroid. */
 @JNINamespace("actor::ui")
@@ -180,10 +190,22 @@ public class ActorUiTabController implements UserData {
         return true;
     }
 
-    /** Instance method to update state and notify observers. */
+    /**
+     * Updates the tab's cached visual state, manages dynamic features like soft keyboard
+     * suppression based on actor ownership, and notifies all registered observers.
+     *
+     * @param state The new visual and control ownership state of the tab.
+     */
     @VisibleForTesting
     void onUiTabStateChange(UiTabState state) {
         mCurrentState = state;
+        if (mTab.getWebContents() != null) {
+            ImeAdapter imeAdapter = ImeAdapter.fromWebContents(mTab.getWebContents());
+            if (imeAdapter != null) {
+                boolean isSuppressed = state.handoffButton.controller == ControlOwnership.ACTOR;
+                imeAdapter.setKeyboardSuppressed(isSuppressed);
+            }
+        }
         for (Observer observer : mObservers) {
             observer.onUiTabStateChanged(state);
         }
@@ -192,6 +214,57 @@ public class ActorUiTabController implements UserData {
     @Override
     public void destroy() {
         mObservers.clear();
+    }
+
+    @CalledByNative
+    @SuppressWarnings("unused")
+    boolean maybeDeferNavigation(
+            @JniType("GURL") GURL url, Callback<Boolean> navigationConfirmedCallback) {
+        return showConfirmationDialog(navigationConfirmedCallback);
+    }
+
+    /** Returns true if an Actor task is currently active on this tab. */
+    public boolean isActorActive() {
+        return mCurrentState != null && mCurrentState.actorOverlay.isActive;
+    }
+
+    /**
+     * Shows the confirmation dialog if an Actor task is active. If the user confirms, stops the
+     * Actor task and runs the provided Runnable.
+     *
+     * @param onConfirmedRunnable Runnable to execute when confirmed.
+     * @return True if the dialog was shown.
+     */
+    public boolean showTaskAbortConfirmationDialog(Runnable onConfirmedRunnable) {
+        if (!isActorActive()) return false;
+        return showConfirmationDialog(
+                (confirmed) -> {
+                    if (confirmed) {
+                        stopActorTask();
+                        onConfirmedRunnable.run();
+                    }
+                });
+    }
+
+    private boolean showConfirmationDialog(Callback<Boolean> callback) {
+        if (mTab.getWindowAndroid() == null) return false;
+        ModalDialogManager modalDialogManager = mTab.getWindowAndroid().getModalDialogManager();
+        if (modalDialogManager == null) return false;
+        Context context = mTab.getContext();
+        if (context == null) return false;
+
+        ActorNavigationConfirmationDialog.show(context, modalDialogManager, callback);
+        return true;
+    }
+
+    void stopActorTask() {
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(mTab.getProfile());
+        if (service != null) {
+            Integer taskId = service.getActiveTaskIdOnTab(mTab.getId());
+            if (taskId != null) {
+                service.stopTask(taskId, StoppedReason.USER_NAVIGATED_AWAY);
+            }
+        }
     }
 
     @NativeMethods

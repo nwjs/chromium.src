@@ -17,11 +17,12 @@ include_rules = [
   "+components/passage_embeddings",
   "+components/search",
   "+components/search_engines",
+  "+components/viz/common/surfaces",
   "+net/base",
   "+services/metrics/public",
   "+sql",
   "+third_party/omnibox_proto",
   "+third_party/tensorflow_models/src",
   "+third_party/tflite_support",
-  "+ui/base/l10n",
+  "+ui/base",
 ]

@@ -41,8 +41,6 @@ BASE_DECLARE_FEATURE(kActorLoginSyncsPasswordPermissions);
 #if !BUILDFLAG(IS_IOS)
 // Enables logging quality for actor login.
 BASE_DECLARE_FEATURE(kActorLoginQualityLogs);
-// Enables finding and filling forms in same-site iframes for actor login.
-BASE_DECLARE_FEATURE(kActorLoginSameSiteIframeSupport);
 #endif  // !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -72,11 +70,6 @@ BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
 BASE_DECLARE_FEATURE(kAwaitPageStabilityForPasswordChange);
 extern const base::FeatureParam<base::TimeDelta> kAwaitPageStabilityTimeout;
 
-// Undoes the effect of WebAuthnUsePasskeyFromAnotherDeviceInContextMenu by
-// adding the hybrid item back into the dropdown. It also adds the entry point
-// to autofill dropdowns.
-// Needs autofill::features::AutofillAndPasswordsInSameSurface to be enabled.
-BASE_DECLARE_FEATURE(kAutofillReintroduceHybridPasskeyDropdownItem);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Retries capturing annotated page context during automated password change if
@@ -127,9 +120,6 @@ BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApi);
 // Later change password url is used during password change.
 BASE_DECLARE_FEATURE(kFetchChangePasswordUrlForPasswordChange);
 
-// Enables filling of change password form by typing.
-BASE_DECLARE_FEATURE(kFillChangePasswordFormByTyping);
-
 // Enables the experiment for the password manager to only fill on account
 // selection, rather than autofilling on page load, with highlighting of fields.
 BASE_DECLARE_FEATURE(kFillOnAccountSelect);
@@ -168,6 +158,13 @@ BASE_DECLARE_FEATURE(kMarkAllCredentialsAsLeaked);
 #if BUILDFLAG(IS_ANDROID)
 // Enables OTP phishing checks.
 BASE_DECLARE_FEATURE(kOtpPhishGuard);
+
+// The minimum GMS version required to send deletion origin to Android Backend.
+extern const base::FeatureParam<int> kPassDeletionOriginMinGmsVersion;
+
+// When enabled, DeletionOrigin is sent to Android Backend for password
+// deletions.
+BASE_DECLARE_FEATURE(kPassDeletionOriginToAndroidBackend);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Populate the `date_last_filled` timestamp for passwords.
@@ -197,12 +194,6 @@ BASE_DECLARE_FEATURE(kPreventPasswordManagerOnFederatedLogin);
 // Prevents offering Automatic Password Change on federated login.
 BASE_DECLARE_FEATURE(kPreventAPCOnFederatedLogin);
 
-// Updates password change flow to await for local ML model availability. The
-// model has a superior performance compared to existing password manager
-// classifications.
-BASE_DECLARE_FEATURE(kProactivelyDownloadModelForPasswordChange);
-
-
 // Triggers password change glow invoking Glic from settings.
 // This flag is only for the prototype version.
 BASE_DECLARE_FEATURE(kPasswordCheckupPrototype);
@@ -212,9 +203,9 @@ BASE_DECLARE_FEATURE(kPasswordCheckupPrototype);
 BASE_DECLARE_FEATURE(kRestartToGainAccessToKeychain);
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
-// Runs the Password Change flow (enabled by kImprovedPasswordChangeService
-// feature flag) in a user-visible background tab.
-BASE_DECLARE_FEATURE(kRunPasswordChangeInBackgroundTab);
+// Shows a confirmation dialog before filling grouped credentials from the
+// manual fallback popup on Desktop.
+BASE_DECLARE_FEATURE(kShowConfirmationForGroupedCredentials);
 
 // Shows a tab with password change instead of bubble/settings page after
 // successful password change.
@@ -227,19 +218,12 @@ BASE_DECLARE_FEATURE(kSkipUndecryptablePasswords);
 // Starts passwords resync when undecryptable passwords are detected.
 BASE_DECLARE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected);
 
-// Updates password change flow to use the refined prompt on Open form step. The
-// prompt uses the list of interactable actionables on the web page to identify
-// the button, which opens the password change form.
-BASE_DECLARE_FEATURE(kUseActionablesForImprovedPasswordChange);
 
 // The feature enables the use of detached Widget during password change
 // to which WebContents is attached. This helps to resolve the problem
 // that requestAnimationFrame() is not fired on a detached WebContents.
 BASE_DECLARE_FEATURE(kUseDetachedWidget);
 
-// Handles user intervention in the Password Change flow for all steps except
-// IS_LOGGED_IN_STEP.
-BASE_DECLARE_FEATURE(kUserInterventionForPasswordChange);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 

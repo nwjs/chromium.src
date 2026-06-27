@@ -14,6 +14,7 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/well_known_change_password/well_known_change_password_util.h"
 #include "components/url_formatter/elide_url.h"
 
@@ -72,6 +73,7 @@ CredentialUIEntry::CredentialUIEntry(const PasswordForm& form)
     : username(form.username_value),
       password(form.password_value),
       federation_origin(form.federation_origin),
+      creation_time(form.date_created),
       password_issues(form.password_issues),
       note(form.GetNoteWithEmptyUniqueDisplayName()),
       blocked_by_user(form.blocked_by_user),
@@ -106,6 +108,7 @@ CredentialUIEntry::CredentialUIEntry(const std::vector<PasswordForm>& forms) {
   password_issues = forms[0].password_issues;
   blocked_by_user = forms[0].blocked_by_user;
   last_used_time = forms[0].date_last_used;
+  creation_time = forms[0].date_created;
 
   // For cases when the notes differ within grouped passwords (e.g: a
   // credential exists in both account and profile stores), respective notes
@@ -143,6 +146,12 @@ CredentialUIEntry::CredentialUIEntry(const std::vector<PasswordForm>& forms) {
     }
   }
 }
+
+CredentialUIEntry::CredentialUIEntry(StoredCredential cred)
+    : CredentialUIEntry(ToPasswordForm(std::move(cred))) {}
+
+CredentialUIEntry::CredentialUIEntry(std::vector<StoredCredential> creds)
+    : CredentialUIEntry(ToPasswordForms(std::move(creds))) {}
 
 CredentialUIEntry::CredentialUIEntry(const PasskeyCredential& passkey)
     : passkey_credential_id(passkey.credential_id()),

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 
+#include "base/byte_size.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/system/sys_info.h"
@@ -21,13 +22,14 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/lens/lens_url_matcher.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
-#include "chrome/browser/ui/page_actions/page_action_triggers.h"
+#include "chrome/browser/ui/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
@@ -109,9 +111,12 @@ void LensOverlayEntryPointController::Initialize(
   command_updater_ = command_updater;
 
   // Observe changes to fullscreen state.
-  fullscreen_observation_.Observe(
-      browser_window_interface_->GetExclusiveAccessManager()
-          ->fullscreen_controller());
+  fullscreen_subscription_ =
+      ExclusiveAccessManager::From(browser_window_interface_)
+          ->fullscreen_controller()
+          ->RegisterOnFullscreenStateChanged(base::BindRepeating(
+              &LensOverlayEntryPointController::OnFullscreenStateChanged,
+              base::Unretained(this)));
 
   // Observe changes to user's DSE.
   if (auto* const template_url_service =
@@ -153,8 +158,8 @@ LensOverlayEntryPointController::~LensOverlayEntryPointController() {
 }
 
 bool LensOverlayEntryPointController::IsEnabled() const {
-  // This class is initialized if and only if it is observing.
-  if (!fullscreen_observation_.IsObserving()) {
+  // This class is initialized if and only if it is subscribed.
+  if (!fullscreen_subscription_) {
     return false;
   }
 
@@ -165,7 +170,7 @@ bool LensOverlayEntryPointController::IsEnabled() const {
 
   // Disable in fullscreen without top-chrome.
   if (!lens::features::GetLensOverlayEnableInFullscreen() &&
-      browser_window_interface_->GetExclusiveAccessManager()
+      ExclusiveAccessManager::From(browser_window_interface_)
           ->context()
           ->IsFullscreen() &&
       !browser_window_interface_->IsTabStripVisible()) {
@@ -200,7 +205,7 @@ bool LensOverlayEntryPointController::IsEnabled() const {
   }
 
   // Finally, only enable the overlay if user meets our minimum RAM requirement.
-  static int phys_mem_mb = base::SysInfo::AmountOfPhysicalMemory().InMiB();
+  static int phys_mem_mb = base::SysInfo::AmountOfTotalPhysicalMemory().InMiB();
   return phys_mem_mb > lens::features::GetLensOverlayMinRamMb();
 }
 

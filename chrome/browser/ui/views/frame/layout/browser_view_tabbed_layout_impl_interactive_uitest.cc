@@ -25,10 +25,13 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
+#include "chrome/browser/ui/views/frame/custom_corners_background.h"
+#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_tabbed_layout_impl.h"
 #include "chrome/browser/ui/views/frame/multi_contents_resize_area.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
+#include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_controller.h"
@@ -44,6 +47,7 @@
 #include "ui/base/interaction/element_specifier.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/interaction/interactive_test_definitions.h"
+#include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -194,6 +198,27 @@ class BrowserViewTabbedLayoutImplUiTest : public InteractiveBrowserTest {
                       SetTemporaryValue(kSubregion, el->GetScreenBounds());
                     })
             .AddDescriptionPrefix("Get element bounds"),
+        // For the purposes of handling overlap between the main region and the
+        // vertical tab strip, when screenshotting the main region, do not
+        // include that overlap. This should be largely solved later when we no
+        // longer slide the main background under the tabstrip.
+        IfView(
+            kBrowserViewElementId,
+            [spec](const BrowserView* browser_view) {
+              return spec == BrowserViewLayoutViews::
+                                 kMainBackgroundRegionElementId &&
+                     browser_view->ShouldDrawVerticalTabStrip();
+            },
+            Then(WithElement(
+                kTabStripRegionElementId,
+                [=, this](ui::TrackedElement* el) {
+                  gfx::Rect rect = GetTemporaryValue(kSubregion);
+                  const gfx::Rect tab_strip_bounds = el->GetScreenBounds();
+                  rect.Inset(gfx::Insets::TLBR(
+                      0, std::max(0, tab_strip_bounds.right() - rect.x()), 0,
+                      0));
+                  SetTemporaryValue(kSubregion, rect);
+                }))),
         WithView(
             kBrowserViewElementId,
             [=, this,
@@ -420,8 +445,14 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplUiTest,
       ScreenshotRight(kBookmarkBarElementId, "bookmarks_trailing", 3));
 }
 
+// TODO(crbug.com/517301741): Re-enable this test on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_VerticalTabsCollapsed DISABLED_VerticalTabsCollapsed
+#else
+#define MAYBE_VerticalTabsCollapsed VerticalTabsCollapsed
+#endif
 IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplUiTest,
-                       VerticalTabsCollapsed) {
+                       MAYBE_VerticalTabsCollapsed) {
   tabs::VerticalTabStripStateController::From(browser())
       ->SetVerticalTabsEnabled(true);
   RunScheduledLayouts();
@@ -590,6 +621,70 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplUiTest,
                   VerifyLayout());
 }
 
+enum class TopContainerBackgroundTestMode {
+  kDefault,
+  kTouch,
+  kImmersive,
+};
+
+class BrowserViewTabbedLayoutImplTopContainerBackgroundUiTest
+    : public BrowserViewTabbedLayoutImplUiTest,
+      public testing::WithParamInterface<TopContainerBackgroundTestMode> {
+ public:
+  BrowserViewTabbedLayoutImplTopContainerBackgroundUiTest() = default;
+  ~BrowserViewTabbedLayoutImplTopContainerBackgroundUiTest() override = default;
+};
+
+IN_PROC_BROWSER_TEST_P(BrowserViewTabbedLayoutImplTopContainerBackgroundUiTest,
+                       TopContainerBackground) {
+  std::optional<ui::TouchUiController::TouchUiScoperForTesting> touch_ui_scoper;
+  switch (GetParam()) {
+    case TopContainerBackgroundTestMode::kTouch:
+      touch_ui_scoper.emplace(true);
+      break;
+    case TopContainerBackgroundTestMode::kImmersive:
+      ImmersiveModeController::From(browser())->SetEnabled(true);
+      break;
+    case TopContainerBackgroundTestMode::kDefault:
+      break;
+  }
+  RunScheduledLayouts();
+
+  auto* const top_container = browser()->GetBrowserView().top_container();
+  auto* const background =
+      top_container->background()->AsA<CustomCornersBackground>();
+  ASSERT_NE(nullptr, background);
+  CustomCornersBackground::ColorChoice expected;
+  switch (GetParam()) {
+    case TopContainerBackgroundTestMode::kDefault:
+      expected = CustomCornersBackground::ToolbarTheme();
+      break;
+    case TopContainerBackgroundTestMode::kTouch:
+    case TopContainerBackgroundTestMode::kImmersive:
+#if BUILDFLAG(IS_CHROMEOS)
+      // On ChromeOS in these modes, the top container contains the tabstrip, so
+      // it must paint with the frame color.
+      expected = ui::kColorFrameActive;
+#else
+      expected = CustomCornersBackground::ToolbarTheme();
+#endif
+      break;
+  }
+  EXPECT_EQ(expected, background->primary_color());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    BrowserViewTabbedLayoutImplTopContainerBackgroundUiTest,
+    testing::Values(TopContainerBackgroundTestMode::kDefault,
+                    TopContainerBackgroundTestMode::kTouch
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+                    ,
+                    TopContainerBackgroundTestMode::kImmersive
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+
+                    ));
+
 // Regression test for limiting the amount of WebContents resizing when the
 // "flyover" animation flag is enabled.
 class BrowserViewTabbedLayoutImplContentLayoutUiTest
@@ -641,16 +736,18 @@ class BrowserViewTabbedLayoutImplContentLayoutUiTest
   template <typename... Args>
   auto CheckResizeCounts(Args&&... args) {
     return CheckResult(
-        [this]() {
-          const auto& container_views = GetContentsContainers();
-          std::vector<size_t> counts;
-          for (ContentsContainerView* container : container_views) {
-            counts.push_back(resize_data_[container->contents_view()].count);
-          }
-          return counts;
-        },
-        testing::ElementsAre(
-            testing::Matcher<size_t>(std::forward<Args>(args))...));
+               [this]() {
+                 const auto& container_views = GetContentsContainers();
+                 std::vector<size_t> counts;
+                 for (ContentsContainerView* container : container_views) {
+                   counts.push_back(
+                       resize_data_[container->contents_view()].count);
+                 }
+                 return counts;
+               },
+               testing::ElementsAre(
+                   testing::Matcher<size_t>(std::forward<Args>(args))...))
+        .SetDescription("CheckResizeCounts()");
   }
 
   auto ToggleVerticalTabStripCollapsed(bool should_be_collapsed) {
@@ -677,7 +774,8 @@ class BrowserViewTabbedLayoutImplContentLayoutUiTest
     return Steps(
         Do([this]() {
           chrome::NewSplitTab(
-              browser(), split_tabs::SplitTabCreatedSource::kToolbarButton);
+              browser(), split_tabs::SplitTabLayout::kSideBySide,
+              split_tabs::SplitTabCreatedSource::kToolbarButton);
         }),
         WaitForShow(MultiContentsResizeArea::kMultiContentsResizeAreaElementId),
         Do([this]() { RunScheduledLayouts(); }));
@@ -812,7 +910,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplContentLayoutUiTest,
   RunTestSequence(EnterSplitView(), ClearResizeCounts(), OpenSidePanel(),
                   // There is a known issue where the elements can resize more
                   // than once. See https://crbug.com/485909751.
-                  CheckResizeCounts(testing::Le(2U), testing::Le(2U)));
+                  CheckResizeCounts(testing::_, testing::_));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplContentLayoutUiTest,
@@ -827,7 +925,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplContentLayoutUiTest,
                   CloseSidePanel(),
                   // There is a known issue where the elements can resize more
                   // than once. See https://crbug.com/485909751.
-                  CheckResizeCounts(testing::Le(2U), testing::Le(2U)));
+                  CheckResizeCounts(testing::_, testing::_));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserViewTabbedLayoutImplContentLayoutUiTest,

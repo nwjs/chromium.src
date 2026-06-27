@@ -12,11 +12,12 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "components/sync/engine/cryptographer.h"
 #include "components/sync/engine/data_type_activation_response.h"
 #include "components/sync/engine/data_type_processor.h"
 #include "components/sync/engine/data_type_worker.h"
-#include "components/sync/engine/nigori/cryptographer.h"
-#include "components/sync/engine/nigori/keystore_keys_handler.h"
+#include "components/sync/engine/keystore_keys_handler.h"
+#include "components/sync/engine/required_passphrase_verifier.h"
 
 namespace syncer {
 
@@ -155,14 +156,18 @@ base::WeakPtr<DataTypeConnector> DataTypeRegistry::AsWeakPtr() {
 }
 
 void DataTypeRegistry::OnPassphraseRequired(
-    const KeyDerivationParams& key_derivation_params,
-    const sync_pb::EncryptedData& pending_keys) {}
+    std::unique_ptr<RequiredPassphraseVerifier> verifier) {}
 
-void DataTypeRegistry::OnPassphraseAccepted() {}
+void DataTypeRegistry::OnPassphraseAccepted(
+    const CustomPassphraseBootstrapToken& bootstrap_token) {}
 
 void DataTypeRegistry::OnTrustedVaultKeyRequired() {}
 
 void DataTypeRegistry::OnTrustedVaultKeyAccepted() {}
+
+void DataTypeRegistry::OnKeystoreKeysRequired() {}
+
+void DataTypeRegistry::OnKeystoreKeysAccepted() {}
 
 void DataTypeRegistry::OnEncryptedTypesChanged(DataTypeSet encrypted_types,
                                                bool encrypt_everything) {

@@ -43,7 +43,7 @@ export class ContextualEntrypointAndMenuElement extends
   }
 
   override render() {
-    return getHtml.bind(this as any)();
+    return getHtml.bind(this)();
   }
 
   static override get properties() {
@@ -59,13 +59,18 @@ export class ContextualEntrypointAndMenuElement extends
         type: Boolean,
       },
       disabledTabIds: {type: Object},
+      aimThreadRestoredTabs: {type: Array},
       tabSuggestions: {type: Array},
       inputState: {type: Object},
-      glifAnimationState: {type: String, reflect: true},
+      glifAnimationState: {type: String},
       searchboxLayoutMode: {type: String},
       uploadButtonDisabled: {type: Boolean},
       disableAutoReposition: {type: Boolean},
+      isSidePanel: {type: Boolean},
       usePecApi: {type: Boolean},
+      energyEffectAnimationEnabled: {type: Boolean, reflect: true},
+      disableFallbackGlifAnimation: {type: Boolean},
+      recentTabId: {type: Number},
 
       // =========================================================================
       // Protected properties
@@ -74,6 +79,7 @@ export class ContextualEntrypointAndMenuElement extends
         reflect: true,
         type: Boolean,
       },
+      sharedTabs: {type: Array},
     };
   }
 
@@ -81,16 +87,22 @@ export class ContextualEntrypointAndMenuElement extends
   accessor showContextMenuDescription: boolean = false;
   accessor smartTabSharingActive: boolean = false;
   accessor disabledTabIds: Map<number, UnguessableToken> = new Map();
+  accessor aimThreadRestoredTabs: TabInfo[] = [];
   accessor tabSuggestions: TabInfo[] = [];
   accessor inputState: InputState|null = null;
   accessor glifAnimationState: GlifAnimationState =
       GlifAnimationState.INELIGIBLE;
   accessor uploadButtonDisabled: boolean = false;
+  accessor sharedTabs: TabInfo[] = [];
+  accessor recentTabId: number|null = null;
 
   accessor hasImageFiles: boolean = false;
   accessor searchboxLayoutMode: string = '';
   accessor disableAutoReposition: boolean = false;
   accessor usePecApi: boolean = false;
+  accessor energyEffectAnimationEnabled: boolean = false;
+  accessor isSidePanel: boolean = false;
+  accessor disableFallbackGlifAnimation: boolean = false;
 
   protected accessor enableMultiTabSelection_: boolean =
       loadTimeData.getBoolean('composeboxContextMenuEnableMultiTabSelection');

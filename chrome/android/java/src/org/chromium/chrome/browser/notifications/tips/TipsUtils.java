@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.notifications.tips;
 
+import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
@@ -21,6 +22,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -36,12 +38,13 @@ import org.chromium.chrome.browser.notifications.scheduler.TipsAgent;
 import org.chromium.chrome.browser.notifications.scheduler.TipsNotificationsFeatureType;
 import org.chromium.chrome.browser.notifications.tips.TipsPromoProperties.FeatureTipPromoData;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
 import org.chromium.components.browser_ui.notifications.NotificationProxyUtils;
 import org.chromium.components.browser_ui.notifications.channels.ChannelsInitializer;
@@ -56,7 +59,11 @@ import java.util.concurrent.TimeUnit;
 /** Static utilities for Tips Notifications. */
 @NullMarked
 public class TipsUtils {
+    /** The ratio of the logo image width to the screen width. */
     @VisibleForTesting public static final float LOGO_IMAGE_MAX_WIDTH_RATIO = 0.45f;
+
+    /** The minimum number of hours the app must be backgrounded before showing the promo. */
+    @VisibleForTesting public static final int APP_BACKGROUNDED_HOURS_FOR_PROMO = 4;
 
     // LINT.IfChange(TipsShownPrefs)
     public static final String ENHANCED_SAFE_BROWSING_SHOWN =
@@ -74,7 +81,7 @@ public class TipsUtils {
             "android.tips.notifications.customize_mvt_shown";
     public static final String RECENT_TABS_SHOWN = "android.tips.notifications.recent_tabs_shown";
 
-    // LINT.ThenChange(//chrome/common/pref_names.h:TipsShownPrefs)
+    // LINT.ThenChange(//chrome/browser/notifications/scheduler/public/tips_prefs.cc:TipsShownPrefs)
 
     /**
      * Assembles a {@link FeatureTipPromoData} object containing required UI and callback
@@ -339,7 +346,7 @@ public class TipsUtils {
         }
         BaseNotificationManagerProxyFactory.create()
                 .getNotificationChannel(
-                        ChromeChannelDefinitions.ChannelId.TIPS,
+                        ChromeChannelDefinitions.ChannelId.TIPS_V2,
                         (channel) -> {
                             if (channel != null
                                     && channel.getImportance()
@@ -348,6 +355,20 @@ public class TipsUtils {
                             } else {
                                 callback.onResult(false);
                             }
+                        });
+    }
+
+    /**
+     * Checks if the Tips notification channel has been created.
+     *
+     * @param callback Callback to return true if the channel exists, false otherwise.
+     */
+    public static void isTipsChannelCreated(Callback<Boolean> callback) {
+        BaseNotificationManagerProxyFactory.create()
+                .getNotificationChannel(
+                        ChromeChannelDefinitions.ChannelId.TIPS_V2,
+                        (channel) -> {
+                            callback.onResult(channel != null);
                         });
     }
 
@@ -367,7 +388,7 @@ public class TipsUtils {
         if (areAppNotificationsEnabled()) {
             intent.setAction(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
             intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName());
-            intent.putExtra(Settings.EXTRA_CHANNEL_ID, ChromeChannelDefinitions.ChannelId.TIPS);
+            intent.putExtra(Settings.EXTRA_CHANNEL_ID, ChromeChannelDefinitions.ChannelId.TIPS_V2);
         } else {
             intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
             intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName());
@@ -385,7 +406,7 @@ public class TipsUtils {
                         BaseNotificationManagerProxyFactory.create(),
                         ChromeChannelDefinitions.getInstance(),
                         context.getResources())
-                .ensureInitialized(ChromeChannelDefinitions.ChannelId.TIPS);
+                .ensureInitialized(ChromeChannelDefinitions.ChannelId.TIPS_V2);
     }
 
     /**
@@ -393,20 +414,6 @@ public class TipsUtils {
      */
     public static boolean shouldAlwaysShowOptInPromo() {
         return ChromeFeatureList.sAndroidTipsNotificationsAlwaysShowOptInPromo.getValue();
-    }
-
-    /**
-     * Set whether the tips notifications channel is enabled for use in the tips notifications magic
-     * stack module for show eligibility checking.
-     */
-    public static void registerTipsNotificationsModuleEnabledSettingsPref() {
-        areTipsNotificationsEnabled(
-                (enabled) -> {
-                    ChromeSharedPreferences.getInstance()
-                            .writeBoolean(
-                                    ChromePreferenceKeys.TIPS_NOTIFICATIONS_CHANNEL_ENABLED,
-                                    enabled);
-                });
     }
 
     private static void clearFeatureTipShownPrefs(Profile profile) {
@@ -506,5 +513,89 @@ public class TipsUtils {
      */
     public static boolean isSupportedDeviceType() {
         return !DeviceInfo.isAutomotive() && !DeviceInfo.isXr() && !DeviceInfo.isTV();
+    }
+
+    /**
+     * @return The maximum number of times the tips opt-in promo can be shown.
+     */
+    public static int getMaxTipsOptInPromoShowCount() {
+        return ChromeFeatureList.sAndroidTipsNotificationsV2MaxShowCount.getValue();
+    }
+
+    /** Returns the number of days to wait between showing the tips opt-in promo. */
+    public static int getTipsOptInPromoCooldownDays() {
+        return ChromeFeatureList.sAndroidTipsNotificationsV2CooldownDays.getValue();
+    }
+
+    /**
+     * Checks criteria and potentially shows the Tips opt-in promo bottom sheet.
+     *
+     * @param activity The current {@link Activity}.
+     * @param bottomSheetController The system {@link BottomSheetController}.
+     * @param snackbarManager The {@link SnackbarManager} to use.
+     * @param sharedPreferences The {@link SharedPreferencesManager} to use.
+     * @param timeSinceLastBackgroundedMs The time since the app was last backgrounded.
+     * @param onShowCallback Callback called when the coordinator is created and shown.
+     */
+    public static void maybeShowTipsOptInPromo(
+            Activity activity,
+            BottomSheetController bottomSheetController,
+            SnackbarManager snackbarManager,
+            SharedPreferencesManager sharedPreferences,
+            long timeSinceLastBackgroundedMs,
+            Callback<TipsOptInCoordinator> onShowCallback) {
+        if (ChromeFeatureList.sAndroidTipsNotifications.isEnabled()
+                && TipsUtils.isSupportedDeviceType()) {
+            TipsUtils.areTipsNotificationsEnabled(
+                    (enabled) -> {
+                        if (shouldShowTipsOptInPromo(
+                                enabled, sharedPreferences, timeSinceLastBackgroundedMs)) {
+                            if (!isActivityValid(activity)) {
+                                return;
+                            }
+
+                            TipsOptInCoordinator coordinator =
+                                    new TipsOptInCoordinator(
+                                            activity,
+                                            bottomSheetController,
+                                            snackbarManager,
+                                            sharedPreferences);
+                            coordinator.showBottomSheet();
+                            onShowCallback.onResult(coordinator);
+                        }
+                    });
+        }
+    }
+
+    private static boolean isActivityValid(Activity activity) {
+        return activity != null && !activity.isFinishing() && !activity.isDestroyed();
+    }
+
+    @VisibleForTesting
+    static boolean shouldShowTipsOptInPromo(
+            boolean notificationsEnabled,
+            SharedPreferencesManager sharedPreferences,
+            long timeSinceLastBackgroundedMs) {
+        if (shouldAlwaysShowOptInPromo()) {
+            return true;
+        }
+
+        long lastShownTimeMs =
+                sharedPreferences.readLong(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_LAST_SHOWN_TIMESTAMP,
+                        0);
+        boolean cooldownPassed =
+                (System.currentTimeMillis() - lastShownTimeMs)
+                        >= TimeUnit.DAYS.toMillis(getTipsOptInPromoCooldownDays());
+
+        return !notificationsEnabled
+                && !sharedPreferences.readBoolean(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_ACCEPTED, false)
+                && sharedPreferences.readInt(
+                                ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_SHOW_COUNT, 0)
+                        < getMaxTipsOptInPromoShowCount()
+                && cooldownPassed
+                && timeSinceLastBackgroundedMs
+                        > TimeUnit.HOURS.toMillis(APP_BACKGROUNDED_HOURS_FOR_PROMO);
     }
 }

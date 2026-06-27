@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/safe_browsing/buildflags.gni")
 
 if (is_chromeos || is_mac) {
@@ -69,6 +68,7 @@ if (is_win || is_chromeos || is_mac) {
     public_deps = [ ":webshare" ]
 
     deps = [
+      "//chrome/browser:bad_message",
       "//chrome/browser:browser_process",
       "//chrome/browser:browser_public_dependencies",
       "//mojo/public/cpp/bindings",
@@ -143,6 +143,7 @@ if (is_win || is_chromeos || is_mac) {
       "//content/test:test_support",
       "//net:test_support",
       "//testing/gtest",
+      "//ui/base",
     ]
 
     if (is_chromeos) {

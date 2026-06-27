@@ -4,7 +4,7 @@
 
 import 'chrome://webui-toolbar.top-chrome/app.js';
 
-import {assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 import type {LocationBarElement, LocationBarState} from 'chrome://webui-toolbar.top-chrome/app.js';
 
@@ -24,15 +24,67 @@ suite('LocationBar', function() {
     document.body.appendChild(locationBar);
   });
 
+  test('SecurityIconAccessibility', async () => {
+    const accessibilityLabel = 'Connection is secure';
+    const accessibilityDescription = 'This site uses an encrypted connection';
+    locationBar.locationBarState = {
+      ...initialState,
+      lhsChipsState: {
+        securityChip: {
+          icon: {handleId: 0n},
+          securityLevel: 0,
+          text: '',
+          accessibilityState: {
+            label: accessibilityLabel,
+            description: accessibilityDescription,
+          },
+          isClickable: true,
+          isTextDangerous: false,
+          isVisible: true,
+        },
+        activityIndicators: [],
+        permissionDashboard: null,
+      },
+    };
+    await microtasksFinished();
+
+    const locationIcon = locationBar.shadowRoot.querySelector('location-icon');
+    assertTrue(!!locationIcon);
+    const button = locationIcon.$.container;
+    assertTrue(!!button);
+    assertEquals('BUTTON', button.tagName);
+    assertEquals(accessibilityLabel, button.ariaLabel);
+    assertEquals(accessibilityDescription, button.ariaDescription);
+    assertEquals(0, button.tabIndex);
+
+    // Test non-clickable state
+    locationBar.locationBarState = {
+      ...initialState,
+      lhsChipsState: {
+        ...locationBar.locationBarState.lhsChipsState,
+        securityChip: {
+          ...locationBar.locationBarState.lhsChipsState.securityChip,
+          isClickable: false,
+        },
+      },
+    };
+    await microtasksFinished();
+    assertEquals(-1, button.tabIndex);
+  });
+
   test('Chip hovered state', async () => {
     // Force the location bar to show the security chip.
     locationBar.locationBarState = {
       ...initialState,
       lhsChipsState: {
         securityChip: {
-          icon: 0,
+          icon: {handleId: 0n},
           securityLevel: 0,
           text: 'Not secure',
+          accessibilityState: {
+            label: 'Not secure',
+            description: '',
+          },
           isClickable: true,
           isTextDangerous: false,
           isVisible: true,
@@ -57,6 +109,53 @@ suite('LocationBar', function() {
     assertTrue(locationBar.hasAttribute('chip-hovered'));
 
     locationIcon.dispatchEvent(new PointerEvent('pointercancel'));
+    assertFalse(locationBar.hasAttribute('chip-hovered'));
+  });
+
+  test('ContentSettingsIcons hovered state', async () => {
+    // Force the location bar to show a content setting icon.
+    locationBar.locationBarState = {
+      ...initialState,
+      contentSettingImageStates: [{
+        type: 0,  // kCookies
+        isBlocked: true,
+        tooltip: 'Cookies blocked',
+        accessibilityString: '',
+        isBubbleVisible: false,
+        shouldRunAnimation: false,
+        explanatoryString: '',
+      }],
+    };
+    await microtasksFinished();
+
+    const contentSettingsIcons =
+        locationBar.shadowRoot.querySelector('content-settings-icons');
+    assertTrue(!!contentSettingsIcons);
+
+    const contentSettingIcon =
+        contentSettingsIcons.shadowRoot.querySelector('content-setting-icon');
+    assertTrue(!!contentSettingIcon);
+
+    const iconButton =
+        contentSettingIcon.shadowRoot.querySelector('cr-icon-button');
+    assertTrue(!!iconButton);
+
+    // Hovering the container should NOT trigger the hovered state.
+    contentSettingsIcons.dispatchEvent(new PointerEvent('pointerenter'));
+    assertFalse(locationBar.hasAttribute('chip-hovered'));
+
+    // Hovering the individual icon button SHOULD trigger the hovered state.
+    iconButton.dispatchEvent(new PointerEvent('pointerenter'));
+    assertTrue(locationBar.hasAttribute('chip-hovered'));
+
+    iconButton.dispatchEvent(new PointerEvent('pointerleave'));
+    assertFalse(locationBar.hasAttribute('chip-hovered'));
+
+    // Verify pointercancel also removes the hovered state.
+    iconButton.dispatchEvent(new PointerEvent('pointerenter'));
+    assertTrue(locationBar.hasAttribute('chip-hovered'));
+
+    iconButton.dispatchEvent(new PointerEvent('pointercancel'));
     assertFalse(locationBar.hasAttribute('chip-hovered'));
   });
 });

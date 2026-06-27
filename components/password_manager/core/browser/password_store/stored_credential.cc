@@ -14,4 +14,32 @@ StoredCredential& StoredCredential::operator=(StoredCredential&&) = default;
 
 StoredCredential::~StoredCredential() = default;
 
+bool AreStoredCredentialUniqueKeysEqual(const StoredCredential& left,
+                                        const StoredCredential& right) {
+  return StoredCredentialUniqueKey(left) == StoredCredentialUniqueKey(right);
+}
+
+std::optional<std::u16string> StoredCredential::GetPasswordBackup() const {
+  for (const auto& note : notes) {
+    if (note.unique_display_name ==
+        PasswordNote::kPasswordChangeBackupNoteName) {
+      return !note.value.empty() ? std::make_optional(note.value)
+                                 : std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<base::Time> StoredCredential::GetPasswordBackupDateCreated()
+    const {
+  for (const auto& note : notes) {
+    if (note.unique_display_name ==
+        PasswordNote::kPasswordChangeBackupNoteName) {
+      return !note.value.empty() ? std::make_optional(note.date_created)
+                                 : std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace password_manager

@@ -198,6 +198,8 @@ class GPU_GLES2_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
   void EnableOESFboRenderMipmap();
   void EnableOESTextureFloatLinear();
   void EnableOESTextureHalfFloatLinear();
+  void EnableWebGLCompressedTextureETC();
+  void EnableWebGLCompressedTextureETC1();
 
   bool ext_color_buffer_float_available() const {
     return ext_color_buffer_float_available_;
@@ -237,6 +239,7 @@ class GPU_GLES2_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
   void EnableANGLEInstancedArrayIfPossible(const gfx::ExtensionSet& extensions);
   void EnableWEBGLMultiDrawIfPossible(const gfx::ExtensionSet& extensions);
 
+  bool enable_webgl_draft_extensions_ = false;
   bool initialized_ = false;
 
   Validators validators_;
@@ -261,6 +264,8 @@ class GPU_GLES2_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
   bool oes_texture_float_available_ = false;
   bool oes_texture_float_linear_available_ = false;
   bool oes_texture_half_float_linear_available_ = false;
+  bool webgl_compressed_texture_etc_available_ = false;
+  bool webgl_compressed_texture_etc1_available_ = false;
 
   bool disable_shader_translator_;
   std::unique_ptr<gl::GLVersionInfo> gl_version_info_;

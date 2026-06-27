@@ -26,7 +26,7 @@ typedef NS_ENUM(NSUInteger, ToolbarButtonType) {
 - (void)setCanGoBack:(BOOL)canGoBack;
 
 // Sets whether the forward button is enabled.
-- (void)setCanGoForward:(BOOL)canGoForward;
+- (void)setCanGoForward:(BOOL)canGoForward animated:(BOOL)animated;
 
 // Sets whether the page is loading.
 - (void)setIsLoading:(BOOL)isLoading;
@@ -55,6 +55,15 @@ typedef NS_ENUM(NSUInteger, ToolbarButtonType) {
 
 // Hides the banner promo view.
 - (void)hideBannerPromo;
+
+// Sets the tab count to display.
+- (void)updateTabCount:(NSUInteger)tabCount;
+
+// Sets whether the active web state is inside a tab group.
+- (void)setInTabGroup:(BOOL)inTabGroup;
+
+// Sets the state of the assistant button.
+- (void)setAssistantButtonVisible:(BOOL)visible enabled:(BOOL)enabled;
 
 @end
 

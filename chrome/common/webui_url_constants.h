@@ -38,10 +38,6 @@ inline constexpr char kChromeUIAboutURL[] = "chrome://about/";
 inline constexpr char kChromeUIAccessCodeCastHost[] = "access-code-cast";
 inline constexpr char kChromeUIAccessCodeCastURL[] =
     "chrome://access-code-cast/";
-inline constexpr char kChromeUIAccessibilityAnnotatorInternalsHost[] =
-    "accessibility-annotator-internals";
-inline constexpr char kChromeUIAccessibilityAnnotatorInternalsURL[] =
-    "chrome://accessibility-annotator-internals/";
 inline constexpr char kChromeUIAccessibilityHost[] = "accessibility";
 inline constexpr char kChromeUIAccountSettingsURL[] =
     "chrome://settings/account";
@@ -63,7 +59,7 @@ inline constexpr char kChromeUIAppsWithForceInstalledDeprecationDialogURL[] =
 inline constexpr char kChromeUIAutofillAiPath[] = "/enhancedAutofill";
 inline constexpr char kChromeUIAutofillPath[] = "/autofill";
 inline constexpr char kChromeUIAutofillInternalsHost[] = "autofill-internals";
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS)
 inline constexpr char kChromeUIBatchUploadHost[] = "batch-upload";
 inline constexpr char kChromeUIBatchUploadURL[] = "chrome://batch-upload/";
 #endif
@@ -159,6 +155,8 @@ inline constexpr char kChromeUIFamilyLinkUserInternalsHost[] =
     "family-link-user-internals";
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 inline constexpr char kChromeUIFeatureShowcaseHost[] = "feature-showcase";
+inline constexpr char kChromeUIFeatureShowcaseURL[] =
+    "chrome://feature-showcase/";
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 inline constexpr char kChromeUIFavicon2Host[] = "favicon2";
 inline constexpr char kChromeUIFaviconHost[] = "favicon";
@@ -180,6 +178,10 @@ inline constexpr char kChromeUIGlicUntrustedHost[] = "glic";
 inline constexpr char kChromeUIGlicUntrustedURL[] = "chrome-untrusted://glic/";
 inline constexpr char kChromeUIGlicSelectionOverlayURL[] =
     "chrome-untrusted://glic/selection-overlay/";
+inline constexpr char kChromeUIGlicExperimentalOptInHost[] =
+    "glic-experimental-opt-in";
+inline constexpr char kChromeUIGlicExperimentalOptInURL[] =
+    "chrome://glic-experimental-opt-in";
 inline constexpr char kChromeUIHangUIHost[] = "uithreadhang";
 inline constexpr char kChromeUIHelpHost[] = "help";
 inline constexpr char kChromeUIHelpURL[] = "chrome://help/";
@@ -253,6 +255,10 @@ inline constexpr char kChromeUIPasswordManagerURL[] =
     "chrome://password-manager";
 inline constexpr char kChromeUiPasswordChangeUrl[] =
     "chrome://password-manager/settings/password-change";
+inline constexpr char kChromeUIPersonalContextInternalsHost[] =
+    "personal-context-internals";
+inline constexpr char kChromeUIPersonalContextInternalsURL[] =
+    "chrome://personal-context-internals/";
 inline constexpr char kChromeUIPolicyHost[] = "policy";
 inline constexpr char kChromeUIPolicyLogsURL[] = "chrome://policy/logs";
 inline constexpr char kChromeUIPolicyTestURL[] = "chrome://policy/test";
@@ -413,6 +419,8 @@ inline constexpr char kChromeUILensUntrustedSidePanelURL[] =
 inline constexpr char kChromeUILensOverlayHost[] = "lens-overlay";
 inline constexpr char kChromeUILensOverlayUntrustedURL[] =
     "chrome-untrusted://lens-overlay/";
+inline constexpr char kChromeUIMultistepFilterInternalsHost[] =
+    "multistep-filter-internals";
 inline constexpr char kChromeUINearbyInternalsHost[] = "nearby-internals";
 inline constexpr char kChromeUINearbyShareHost[] = "nearby";
 inline constexpr char kChromeUINearbyShareURL[] = "chrome://nearby/";
@@ -473,6 +481,13 @@ inline constexpr char kChromeUIWhatsNewHost[] = "whats-new";
 inline constexpr char kChromeUIWhatsNewURL[] = "chrome://whats-new/";
 #endif
 
+#if BUILDFLAG(IS_WIN)
+inline constexpr char kChromeUIDefaultBrowserVisualGuidedSetterURL[] =
+    "chrome://default-browser/";
+inline constexpr char kChromeUIDefaultBrowserVisualGuidedSetterHost[] =
+    "default-browser";
+#endif
+
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_ANDROID)
 inline constexpr char kChromeUILinuxProxyConfigHost[] = "linux-proxy-config";
 #endif
@@ -488,8 +503,12 @@ inline constexpr char kChromeUIBrowserSwitchURL[] = "chrome://browser-switch/";
 inline constexpr char kChromeUIIntroDefaultBrowserSubPage[] = "default-browser";
 inline constexpr char kChromeUIIntroDefaultBrowserURL[] =
     "chrome://intro/default-browser";
+inline constexpr char kChromeUIIntroFinishOrContinueSubPage[] =
+    "finish-or-continue";
 inline constexpr char kChromeUIIntroSignInCelebrationSubPage[] =
     "sign-in-celebration";
+inline constexpr char kChromeUIIntroSignInCelebrationURL[] =
+    "chrome://intro/sign-in-celebration";
 inline constexpr char kChromeUIIntroHost[] = "intro";
 inline constexpr char kChromeUIIntroURL[] = "chrome://intro";
 inline constexpr char kChromeUIManagedUserProfileNoticeHost[] =
@@ -548,6 +567,7 @@ inline constexpr char kChromeUITabStripInternalsURL[] =
 // AutocompleteProvider.
 
 inline constexpr char kAccessibilitySubPage[] = "accessibility";
+inline constexpr char kAccountSubPage[] = "account";
 inline constexpr char kAddressesSubPage[] = "addresses";
 inline constexpr char kAdPrivacySubPage[] = "adPrivacy";
 inline constexpr char kAllSitesSettingsSubpage[] = "content/all";

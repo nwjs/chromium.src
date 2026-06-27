@@ -51,6 +51,7 @@
 #include "third_party/blink/renderer/core/timing/performance_timing.h"
 #include "third_party/blink/renderer/core/timing/responsiveness_metrics.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
+#include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 
 namespace viz {
@@ -62,8 +63,10 @@ namespace blink {
 class AnimationFrameTimingInfo;
 class InteractionContentfulPaint;
 class InteractiveDetector;
-class PerformanceTimingForReporting;
 class LocalDOMWindow;
+class PerformanceSoftNavigation;
+class PerformanceTimingForReporting;
+class SoftNavigationContext;
 
 class CORE_EXPORT WindowPerformance final : public Performance,
                                             public PerformanceMonitor::Client,
@@ -92,6 +95,18 @@ class CORE_EXPORT WindowPerformance final : public Performance,
 
   EventCounts* eventCounts() override;
   SpeculationData* getSpeculations() override;
+  // Stash a pending destination URL for an outgoing non-same-document,
+  // same-origin navigation. Held as "pending" so that a later cancellation
+  // (e.g. beforeunload, network error) does not leave a stale URL exposed.
+  void SetPendingNavigationDestinationURL(const KURL& url) {
+    pending_navigation_destination_url_ = url;
+  }
+  // Promote the pending URL to the publicly observable
+  // navigationDestinationURL. Should be invoked once the navigation is past
+  // any cancellation point (i.e. just before pagehide is dispatched).
+  void PromoteNavigationDestinationURL() {
+    navigation_destination_url_ = pending_navigation_destination_url_;
+  }
   uint64_t interactionCount() const override;
 
   void PopulateContainerTimingEntries() override;
@@ -170,14 +185,10 @@ class CORE_EXPORT WindowPerformance final : public Performance,
 
   void AddLayoutShiftEntry(LayoutShift*);
   void AddVisibilityStateEntry(bool is_visible, base::TimeTicks start_time);
-  void AddSoftNavigationEntry(
-      const AtomicString& name,
+  PerformanceSoftNavigation* AddSoftNavigation(
       base::TimeTicks start_time,
       const DOMPaintTimingInfo& paint_timing_info,
-      uint32_t navigation_id,
-      V8NavigationType::Enum navigation_type,
-      uint64_t interaction_id,
-      InteractionContentfulPaint* largest_interaction_contentful_paint);
+      SoftNavigationContext* context);
 
   // For soft navigations and back-forward cache restoration. This increments
   // the navigation ID, as specified in
@@ -330,6 +341,15 @@ class CORE_EXPORT WindowPerformance final : public Performance,
   // Implements the "assign a new navigation id" algorithm described in
   // https://w3c.github.io/performance-timeline/
   PerformanceTimelineEntryIdGenerator navigation_id_generator_;
+
+  // Stashed destination URL of an in-flight outgoing non-same-document,
+  // same-origin navigation. Promoted to `navigation_destination_url_` once
+  // the navigation is past the point of being canceled.
+  KURL pending_navigation_destination_url_;
+  // The publicly observable navigationDestinationURL exposed via
+  // SpeculationData. Only set once the navigation is past the point of being
+  // canceled (e.g. by beforeunload).
+  KURL navigation_destination_url_;
 };
 
 }  // namespace blink

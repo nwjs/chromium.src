@@ -278,7 +278,10 @@ void RangeInputType::CreateShadowSubtree() {
   track->SetShadowPseudoId(shadow_element_names::kPseudoSliderTrack);
   track->setAttribute(html_names::kIdAttr,
                       shadow_element_names::kIdSliderTrack);
-  track->AppendChild(MakeGarbageCollected<SliderThumbElement>(document));
+  auto* thumb = MakeGarbageCollected<SliderThumbElement>(document);
+  thumb->setAttribute(html_names::kIdAttr,
+                      shadow_element_names::kIdSliderThumb);
+  track->AppendChild(thumb);
   auto* container = MakeGarbageCollected<SliderContainerElement>(document);
   container->AppendChild(track);
   GetElement().UserAgentShadowRoot()->AppendChild(container);
@@ -303,14 +306,6 @@ String RangeInputType::Serialize(const Decimal& value) const {
   if (!value.IsFinite())
     return String();
   return SerializeForNumberType(value);
-}
-
-// FIXME: Could share this with KeyboardClickableInputTypeView and
-// BaseCheckableInputType if we had a common base class.
-void RangeInputType::AccessKeyAction(
-    SimulatedClickCreationScope creation_scope) {
-  InputTypeView::AccessKeyAction(creation_scope);
-  GetElement().DispatchSimulatedClick(nullptr, creation_scope);
 }
 
 void RangeInputType::SanitizeValueInResponseToMinOrMaxAttributeChange() {

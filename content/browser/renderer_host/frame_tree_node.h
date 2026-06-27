@@ -719,7 +719,7 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
   //
   // The |notification_type| parameter is used for histograms, only for the case
   // |update_state == kNotifyActivation|.
-  bool UpdateUserActivationState(
+  [[nodiscard]] bool UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType update_type,
       blink::mojom::UserActivationNotificationType notification_type) override;
   void DidConsumeHistoryUserActivation() override;
@@ -730,6 +730,7 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
       bool is_same_document,
       const GURL& url,
       const url::Origin& origin,
+      const std::optional<url::Origin>& initiator_origin,
       const std::optional<GURL>& initiator_base_url,
       const net::IsolationInfo& isolation_info_for_subresources,
       blink::mojom::ReferrerPtr referrer,

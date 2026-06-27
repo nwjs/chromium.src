@@ -27,6 +27,7 @@ CHROME_FUCHSIA_ROOT = os.path.join(REPO_ROOT, 'fuchsia_web', 'av_testing')
 sys.path.append(CHROME_FUCHSIA_ROOT)
 import server  # pylint: disable=unused-import
 import video_analyzer  # pylint: disable=unused-import
+import camera  # pylint: disable=unused-import
 
 TEST_SCRIPTS_ROOT = os.path.join(REPO_ROOT, 'build', 'fuchsia', 'test')
 sys.path.append(TEST_SCRIPTS_ROOT)
@@ -90,6 +91,12 @@ SENDER_CHROMEDRIVER_CHECK_CMD = {
         'powershell -Command "Get-Process -Name chromedriver -ErrorAction '
         'SilentlyContinue"'
     ),
+    'linux': (
+        'pgrep chromedriver'
+    ),
+    'cros': (
+        'pgrep chromedriver'
+    ),
 }
 
 SENDER_STATUS_CMD = {
@@ -99,6 +106,14 @@ SENDER_STATUS_CMD = {
     ),
     'win': (
         f'curl.exe -s -o NUL -w "%{{http_code}}" '
+        f'http://{LOCAL_HOST_IP}:{CHROMEDRIVER_PORT}/status'
+    ),
+    'linux': (
+        'curl -s -o /dev/null -w "%{http_code}" '
+        f'http://{LOCAL_HOST_IP}:{CHROMEDRIVER_PORT}/status'
+    ),
+    'cros': (
+        'curl -s -o /dev/null -w "%{http_code}" '
         f'http://{LOCAL_HOST_IP}:{CHROMEDRIVER_PORT}/status'
     ),
 }
@@ -112,6 +127,12 @@ SENDER_TERMINATE_DRIVER_CMD = {
         '-ErrorAction SilentlyContinue; '
         'taskkill /F /IM chromedriver.exe /IM chrome.exe /T '
         '/FI \'STATUS eq RUNNING\' /FI \'SESSION ne 0\'"'
+    ),
+    'linux': (
+        'pkill -f chromedriver || true && pkill -f chrome || true'
+    ),
+    'cros': (
+        'pkill -f chromedriver || true && pkill -f chrome || true'
     ),
 }
 
@@ -139,18 +160,35 @@ class StartProcess(AbstractContextManager):
 
 def send_ssh_command(hostname, username, command, blocking=False):
     """
-    Sends a command to a remote host via SSH.
+    Sends a command to a host. If hostname is 'localhost' or None, it runs
+    locally. Otherwise, it uses SSH.
 
     Args:
-        hostname (str): The remote host to connect to.
+        hostname (str): The host to connect to.
         username (str): The username for the SSH connection.
-        command (str): The command to execute on the remote host.
+        command (str): The command to execute.
         blocking (bool): If True, waits for the command to complete.
                          If False, runs the command in a non-blocking way.
 
     Returns:
         subprocess.CompletedProcess or subprocess.Popen: The process object.
     """
+    if hostname in ['localhost', '127.0.0.1', None]:
+        logging.debug('Executing local command: %s', command)
+        if blocking:
+            return subprocess.run(command,
+                                    shell=True,
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=120,
+                                    check=False)
+        return subprocess.Popen(command,
+                                 shell=True,
+                                 stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 text=True)
+
     key_path = os.path.expanduser('~/.ssh/id_ed25519')
     ssh_command = [
         'ssh',
@@ -198,7 +236,16 @@ def terminate_old_chromedriver(args):
 
 
 def get_remote_info(args):
-    """Detects info (arch, OS version) of the remote machine."""
+    """Detects info (arch, OS version) of the machine."""
+    if args.sender in ['localhost', '127.0.0.1', None]:
+        import platform
+        arch = platform.machine()
+        info = {
+            'arch': 'x64' if arch == 'x86_64' else arch,
+            'os_version': platform.release()
+        }
+        return info
+
     info = {'arch': None, 'os_version': None}
     if args.sender_os == 'mac':
         # Use absolute paths on Mac to avoid PATH issues in non-interactive SSH.
@@ -214,6 +261,16 @@ def get_remote_info(args):
                                           '/usr/bin/sw_vers -productVersion',
                                           blocking=True)
         info['os_version'] = version_result.stdout.strip()
+
+    elif args.sender_os == 'cros':
+        # Standard uname for architecture.
+        arch_result = send_ssh_command(args.sender,
+                                       args.username,
+                                       '/usr/bin/uname -m',
+                                       blocking=True)
+        arch = arch_result.stdout.strip()
+        info['arch'] = 'x64' if arch == 'x86_64' else arch
+        info['os_version'] = 'cros'
 
     elif args.sender_os == 'win':
         # Get architecture using CIM to avoid shell-specific environment issues.
@@ -255,6 +312,20 @@ def get_remote_info(args):
             blocking=True)
         info['os_version'] = version_result.stdout.strip()
 
+    elif args.sender_os == 'linux':
+        arch_result = send_ssh_command(args.sender,
+                                       args.username,
+                                       'uname -m',
+                                       blocking=True)
+        arch = arch_result.stdout.strip()
+        info['arch'] = 'x64' if arch == 'x86_64' else arch
+
+        version_result = send_ssh_command(args.sender,
+                                          args.username,
+                                          'uname -r',
+                                          blocking=True)
+        info['os_version'] = version_result.stdout.strip()
+
     return info
 
 
@@ -267,7 +338,9 @@ def download_cft_urls(platform_name, version=None):
         data = json.loads(url.read().decode())
 
     for v in reversed(data['versions']):
-        if not version or v['version'] == version:
+        # Match exact version OR the beginning of a version.
+        if not version or v['version'] == version or v['version'].startswith(
+                f"{version}."):
             chrome_url = None
             driver_url = None
             for download in v['downloads']['chrome']:
@@ -303,6 +376,12 @@ def install_and_setup_chrome(args, chrome_version):
         'win': {
             'x64': 'win64',
             'x86': 'win32'
+        },
+        'linux': {
+            'x64': 'linux64'
+        },
+        'cros': {
+            'x64': 'linux64'
         }
     }
 
@@ -316,8 +395,43 @@ def install_and_setup_chrome(args, chrome_version):
         platform_name, chrome_version)
     remote_app_path = None
 
-    # --- Download and Unzip on Remote ---
-    logging.info("Downloading Chrome and Chromedriver on remote machine.")
+    # --- Download and Unzip ---
+    logging.info("Downloading Chrome and Chromedriver.")
+    if args.sender in ['localhost', '127.0.0.1', None]:
+        # Handle local installation on the NUC.
+        tmp_dir = '/tmp'
+        chrome_zip = chrome_url.split('/')[-1]
+        driver_zip = driver_url.split('/')[-1]
+
+        subprocess.run(
+            f"curl -L {chrome_url} -o {tmp_dir}/{chrome_zip} && "
+            f"curl -L {driver_url} -o {tmp_dir}/{driver_zip} && "
+            f"unzip -o {tmp_dir}/{chrome_zip} -d {tmp_dir} && "
+            f"unzip -o {tmp_dir}/{driver_zip} -d {tmp_dir}",
+            shell=True, check=True, timeout=120)
+
+        chrome_dir = chrome_zip.replace('.zip', '')
+        driver_dir = driver_zip.replace('.zip', '')
+        remote_app_path = (f"{tmp_dir}/{chrome_dir}/"
+                           "Google Chrome for Testing.app")
+        if sys.platform == 'linux':
+             remote_app_path = f"{tmp_dir}/{chrome_dir}/chrome"
+
+        remote_chromedriver_path = f"{tmp_dir}/{driver_dir}/chromedriver"
+
+        subprocess.run(f'chmod +x {remote_chromedriver_path}',
+                       shell=True, check=True)
+        # Start chromedriver locally.
+        subprocess.Popen(
+            f'nohup {remote_chromedriver_path} --port={CHROMEDRIVER_PORT} '
+            '--disable-ipv6 --allowed-origins=\"*\" --allowed-ips= '
+            '--verbose --log-path=/tmp/chromedriver_verbose.log '
+            '--enable-chrome-logs '
+            f'> /tmp/chromedriver_console.log 2>&1 &', shell=True)
+
+        logging.info("Finished local chromedriver setup.")
+        return remote_app_path, chrome_version_actual
+
     if args.sender_os == 'mac':
         remote_tmp_dir = '/tmp'
         chrome_zip = chrome_url.split('/')[-1]
@@ -353,6 +467,55 @@ def install_and_setup_chrome(args, chrome_version):
              '--verbose --log-path=/tmp/chromedriver_verbose.log '
              '--enable-chrome-logs '
              f'> /tmp/chromedriver_console.log 2>&1 &'))
+
+    elif args.sender_os == 'linux':
+        remote_tmp_dir = '/tmp'
+        chrome_zip = chrome_url.split('/')[-1]
+        driver_zip = driver_url.split('/')[-1]
+
+        send_ssh_command(
+            args.sender, args.username,
+            (f"curl -L {chrome_url} -o {remote_tmp_dir}/{chrome_zip} && "
+             f"curl -L {driver_url} -o {remote_tmp_dir}/{driver_zip} && "
+             f"unzip -o {remote_tmp_dir}/{chrome_zip} -d {remote_tmp_dir} && "
+             f"unzip -o {remote_tmp_dir}/{driver_zip} -d {remote_tmp_dir}"),
+            blocking=True)
+
+        chrome_dir = chrome_zip.replace('.zip', '')
+        driver_dir = driver_zip.replace('.zip', '')
+        remote_app_path = f"{remote_tmp_dir}/{chrome_dir}/chrome"
+        remote_chromedriver_path = f"{remote_tmp_dir}/{driver_dir}/chromedriver"
+
+        send_ssh_command(args.sender, args.username,
+                         f'chmod +x {remote_chromedriver_path}',
+                         blocking=True)
+        send_ssh_command(
+            args.sender, args.username,
+            (f'nohup {remote_chromedriver_path} --port={CHROMEDRIVER_PORT} '
+             '--disable-ipv6 --allowed-origins=\"*\" --allowed-ips= '
+             '--verbose --log-path=/tmp/chromedriver_verbose.log '
+             '--enable-chrome-logs '
+             f'> /tmp/chromedriver_console.log 2>&1 &'))
+
+    elif args.sender_os == 'cros':
+        remote_tmp_dir = '/usr/local/tmp'
+        chrome_zip = chrome_url.split('/')[-1]
+        driver_zip = driver_url.split('/')[-1]
+
+        # Download and unzip on the device.
+        send_ssh_command(
+            args.sender, args.username,
+            (f"curl -L {chrome_url} -o {remote_tmp_dir}/{chrome_zip} && "
+             f"curl -L {driver_url} -o {remote_tmp_dir}/{driver_zip} && "
+             f"unzip -o {remote_tmp_dir}/{chrome_zip} -d {remote_tmp_dir} && "
+             f"unzip -o {remote_tmp_dir}/{driver_zip} -d {remote_tmp_dir}"),
+            blocking=True)
+
+        chrome_dir = chrome_zip.replace('.zip', '')
+        driver_dir = driver_zip.replace('.zip', '')
+        remote_app_path = f"{remote_tmp_dir}/{chrome_dir}/chrome"
+        # Chromedriver process is NOT started here for 'cros',
+        # as Crossbench handles it via SSH directly.
 
     elif args.sender_os == 'win':
         remote_tmp_dir = WIN_REMOTE_TMP_DIR
@@ -484,8 +647,12 @@ def wait_for_chromedriver(args):
     raise RuntimeError("Chromedriver still not ready after multiple attempts.")
 
 def start_ssh_tunnel(args):
-    # pylint: disable=consider-using-with
     """Starts the SSH tunnel process."""
+    if args.sender in ['localhost', '127.0.0.1', None]:
+        logging.info("Local sender detected. Skipping SSH tunnel.")
+        return None
+
+    # pylint: disable=consider-using-with
     host_tunnel_cmd = [
         'ssh',
         '-i',
@@ -549,9 +716,15 @@ def teardown_test_environment(driver, tunnel_proc, args):
         driver.quit()
         logging.info("Terminated chromedriver.")
 
-    if tunnel_proc and tunnel_proc.poll() is None:
-        tunnel_proc.terminate()
-        logging.info("Terminated tunnel.")
+    if tunnel_proc:
+        if hasattr(tunnel_proc, 'poll'):
+            if tunnel_proc.poll() is None:
+                tunnel_proc.terminate()
+                logging.info("Terminated tunnel.")
+        elif hasattr(tunnel_proc, 'stop'):
+            # Handle Crossbench platform objects.
+            tunnel_proc.stop()
+            logging.info("Stopped Crossbench platform.")
 
     cleanup_command = {
         'mac': (
@@ -562,11 +735,253 @@ def teardown_test_environment(driver, tunnel_proc, args):
             f'powershell -Command "Remove-Item -Path {WIN_REMOTE_TMP_DIR} '
             '-Recurse -Force -ErrorAction SilentlyContinue"'
         ),
+        'linux': (
+            "rm -rf /tmp/chrome-linux64-* /tmp/chromedriver-linux64-* "
+            "/tmp/*.zip"
+        ),
+        'cros': (
+            "rm -rf /usr/local/tmp/chrome-linux64-* "
+            "/usr/local/tmp/chromedriver-linux64-* "
+            "/usr/local/tmp/*.zip"
+        ),
     }
 
     send_ssh_command(args.sender, args.username,
                      cleanup_command[args.sender_os])
     logging.info("Cleaned up tmp files on remote machine.")
+
+
+def setup_cros_environment(args, chrome_version, chrome_options_list):
+    """Sets up ChromeOS environment using Crossbench."""
+    logging.info("Setting up ChromeOS environment using Crossbench.")
+
+    # 1. Dynamically mock missing optional dependencies and their submodules.
+    from unittest.mock import MagicMock
+    import importlib.abc
+    import importlib.util
+
+    class MockFinder(importlib.abc.MetaPathFinder):
+        def __init__(self, mocked_packages):
+            self.mocked_packages = mocked_packages
+        def find_spec(self, fullname, path, target=None):
+            if any(fullname == pkg or fullname.startswith(pkg + '.')
+                   for pkg in self.mocked_packages):
+                return importlib.util.spec_from_loader(fullname, self)
+            return None
+        def create_module(self, spec):
+            mock = MagicMock()
+            # Ensure the mock is treated as a package for submodule imports.
+            mock.__path__ = []
+            return mock
+        def exec_module(self, module):
+            pass
+
+    # Install the finder to handle imports automatically.
+    sys.meta_path.insert(0, MockFinder([
+        "google.cloud", "psutil", "xlsxwriter", "hjson",
+        "mobly", "snippet_uiautomator"
+    ]))
+
+    sys.path.insert(0, os.path.join(REPO_ROOT, 'third_party', 'crossbench'))
+
+    from crossbench.plt.chromeos_ssh import ChromeOsSshPlatform
+    from crossbench.plt import PLATFORM as host_platform
+    from crossbench.browsers.chrome.webdriver import ChromeWebDriverChromeOsSsh
+    from crossbench.browsers.settings import Settings
+    from crossbench.browsers.viewport import Viewport
+
+    # 2. Initialize Platform and purge zombies.
+    cb_platform = ChromeOsSshPlatform(
+        host_platform,
+        host=args.sender,
+        port=0,
+        ssh_port=22,
+        ssh_user=args.username)
+
+    # Enable detailed logging for Crossbench to debug autologin issues.
+    logging.getLogger('crossbench').setLevel(logging.DEBUG)
+
+    # Aggressively clear any leaked sessions.
+    logging.info("Purging stale Chrome processes on device...")
+    cb_platform.sh("pkill", "-9", "chrome", check=False)
+
+    # 3. Detect remote version to find a matching local driver.
+    try:
+        # Use platform.app_version for cleaner version detection.
+        version_str = cb_platform.app_version("/opt/google/chrome/chrome")
+        import re
+        version_match = re.search(r'(\d+\.\d+\.\d+\.\d+)', version_str)
+        if version_match:
+            actual_version = version_match.group(1)
+        else:
+            # Fallback to the previous split logic if regex fails.
+            actual_version = version_str.split()[-2]
+
+        # Use milestone (e.g. '129') to match local driver to remote browser.
+        milestone = actual_version.split('.')[0]
+        logging.info("Detected remote Chrome version: %s (milestone: %s)",
+                     actual_version, milestone)
+    except Exception as e:
+        logging.warning("Failed to detect remote Chrome version: %s", e)
+        milestone = None
+
+    # 4. Set up the chromedriver bridge on the remote device.
+    # Crossbench's SSH platform expects the driver to be on the remote device.
+    try:
+        if not milestone:
+            logging.warning("Milestone is None. download_cft_urls will fall "
+                            "back to the latest version, which may cause a "
+                            "mismatch.")
+        _, _, driver_url = download_cft_urls('linux64', milestone)
+        install_and_setup_chrome(args, milestone)
+        # On ChromeOS, common.py unzips into /usr/local/tmp.
+        driver_dir = driver_url.split('/')[-1].replace('.zip', '')
+        remote_driver_path = f"/usr/local/tmp/{driver_dir}/chromedriver"
+    except Exception as e:
+        logging.warning("Failed to install matching ChromeDriver: %s", e)
+        remote_driver_path = None
+
+    # 5. Create high-level Browser object.
+    # Crossbench requires flags to be split into (name, value) tuples.
+    chrome_os_flags = []
+    # Strict list of flags to exclude from launch to avoid autologin crashes.
+    EXCLUDE_FLAGS = [
+        '--window-size', '--window-position', '--start-maximized',
+        '--start-fullscreen'
+    ]
+    for flag in chrome_options_list:
+        # Skip geometry flags as they are handled by the Viewport object.
+        if any(f in flag for f in EXCLUDE_FLAGS):
+            continue
+        if '=' in flag:
+            chrome_os_flags.append(tuple(flag.split('=', 1)))
+        else:
+            chrome_os_flags.append(flag)
+
+    # Force the window to launch in a maximized state.
+    chrome_os_flags.append(("--window-state", "maximized"))
+    chrome_os_flags.append(('--log-file', '/tmp/chrome_debug.log'))
+
+    # Use Viewport.MAXIMIZED for standard ChromeOS window management.
+    settings = Settings(
+        flags=chrome_os_flags,
+        platform=cb_platform,
+        driver_path=remote_driver_path,
+        viewport=Viewport.MAXIMIZED)
+
+    # We must explicitly provide the binary path on ChromeOS.
+    browser = ChromeWebDriverChromeOsSsh(
+        label="cros_perf_test",
+        path="/opt/google/chrome/chrome",
+        settings=settings)
+
+    # Crossbench filters out geometry flags by default for ChromeOS in
+    # '_filter_flags_for_run'. We override this behavior to ensure our flags
+    # reach the launch script (autologin.py).
+    browser.UNSUPPORTED_FLAGS += ("--user-data-dir",)
+
+    # 6. Start the browser with a robust session mock.
+    logging.info("Starting Crossbench Browser on ChromeOS...")
+    # Mocking the session/run group requirement for start()
+    mock_session = MagicMock()
+    mock_session.timing.timeout_unit = None
+    mock_session.out_dir = RECORDINGS_DIR
+    # Prevent Crossbench from trying to use mock secrets for login.
+    mock_session.browser.secrets.google = None
+
+    # Crossbench requires the network to be 'open' before starting the browser.
+    with browser.network.open(mock_session):
+        # Set up reverse port forwarding for the local HTTP server so the remote
+        # browser can reach the host machine's port.
+        logging.info("Setting up reverse port forwarding for port %d...",
+                     SERVER_PORT)
+        cb_platform.ports.reverse_forward(
+            SERVER_PORT, SERVER_PORT)
+        logging.info("Final ChromeOS flags: %s", chrome_os_flags)
+        try:
+            browser.start(mock_session)
+        except Exception as e:
+            logging.error(
+                "Browser failed to start.")
+            raise e
+
+    # ACCESSING PRIVATE DRIVER: Crossbench does not expose the Selenium driver
+    # as a public attribute. We use _private_driver to continue using existing
+    # Selenium-based test logic.
+    driver = browser._private_driver
+
+    # Retrieve actual version for result tagging.
+    actual_version = str(browser.version)
+    logging.info("Detected remote Chrome version: %s", actual_version)
+
+    return driver, cb_platform, actual_version
+
+
+def calculate_psnr_ssim(video_file: str,
+                        recorded_path: str,
+                        original_path: str):
+    """Calculates PSNR and SSIM via FFmpeg and records them."""
+    import re
+
+    logging.info("Calculating PSNR and SSIM via FFmpeg...")
+
+    # PSNR command to compare the recorded video against the original reference.
+    # Args:
+    # - '-i': Input files (recorded_path, original_path).
+    # - '-lavfi': Libavfilter graph.
+    # - '[0:v][1:v]scale2ref[rec][orig]': Scale the recorded video (0:v) to
+    #   match the reference video (1:v) resolution.
+    # - '[rec][orig]psnr': Calculate PSNR on the scaled videos.
+    # - '-f null -': Force null output (don't save a file, just output stats).
+    psnr_cmd = [
+        'ffmpeg', '-i', recorded_path, '-i', original_path,
+        '-lavfi', '[0:v][1:v]scale2ref[rec][orig];[rec][orig]psnr',
+        '-f', 'null', '-'
+    ]
+    try:
+        psnr_result = subprocess.run(psnr_cmd,
+                                     capture_output=True,
+                                     text=True,
+                                     timeout=120)
+        psnr_match = re.search(r'average:(\d+\.\d+|inf)',
+                               psnr_result.stderr)
+        if psnr_match:
+            val = psnr_match.group(1)
+            psnr_val = 100.0 if val == 'inf' else float(val)
+            measures.average(video_file, 'video_perf',
+                                    'psnr').record(psnr_val)
+            logging.info("PSNR: %s", val)
+        else:
+            logging.warning(
+                "Failed to parse PSNR from FFmpeg output. Stderr: %s",
+                psnr_result.stderr)
+    except Exception as e:
+        logging.error("Failed to calculate PSNR: %s", e)
+
+    # SSIM command. Arguments are identical to PSNR above, but calculates
+    # Structural Similarity (SSIM) instead.
+    ssim_cmd = [
+        'ffmpeg', '-i', recorded_path, '-i', original_path,
+        '-lavfi', '[0:v][1:v]scale2ref[rec][orig];[rec][orig]ssim',
+        '-f', 'null', '-'
+    ]
+    try:
+        ssim_result = subprocess.run(ssim_cmd,
+                                     capture_output=True,
+                                     text=True,
+                                     timeout=120)
+        ssim_match = re.search(r'All:(\d+\.\d+)', ssim_result.stderr)
+        if ssim_match:
+            ssim_val = float(ssim_match.group(1))
+            measures.average(video_file, 'video_perf',
+                                    'ssim').record(ssim_val)
+            logging.info("SSIM: %f", ssim_val)
+        else:
+            logging.warning(
+                "Failed to parse SSIM from FFmpeg output. Stderr: %s",
+                ssim_result.stderr)
+    except Exception as e:
+        logging.error("Failed to calculate SSIM: %s", e)
 
 
 def finalize_results(chrome_version=None):

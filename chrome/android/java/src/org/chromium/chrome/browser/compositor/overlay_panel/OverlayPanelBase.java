@@ -23,9 +23,8 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerType;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
-import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.PanelState;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.StateChangeReason;
+import org.chromium.chrome.browser.overlay_panel.PanelState;
 import org.chromium.chrome.browser.ui.theme.ChromeSemanticColorUtils;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
@@ -194,6 +193,16 @@ abstract class OverlayPanelBase implements OverlayPanelStateProvider, AppHeaderO
                             boolean bottomControlsMinHeightChanged,
                             boolean requestNewFrame,
                             boolean isVisibilityForced) {
+                        maybeUpdatePanelForHeight();
+                    }
+
+                    @Override
+                    public void onBottomControlsHeightChanged(
+                            int bottomControlsHeight, int bottomControlsMinHeight) {
+                        maybeUpdatePanelForHeight();
+                    }
+
+                    private void maybeUpdatePanelForHeight() {
                         if (mPanelState > PanelState.CLOSED) {
                             updatePanelForHeight(mHeight);
                         }
@@ -389,10 +398,11 @@ abstract class OverlayPanelBase implements OverlayPanelStateProvider, AppHeaderO
      * @return The current Y-position of the Overlay Panel.
      */
     protected float calculateOverlayPanelY() {
-        return getTabHeight()
-                + heightForNeverHideBrowserControls()
-                - mHeight
-                - getBottomControlsStackHeightPx() * mPxToDp;
+        float tabHeight = getTabHeight();
+        float heightsForNeverHide = heightForNeverHideBrowserControls();
+        float bottomControlsStackHeightPx = getBottomControlsStackHeightPx();
+        float y = tabHeight + heightsForNeverHide - mHeight - bottomControlsStackHeightPx * mPxToDp;
+        return y;
     }
 
     /**
@@ -403,33 +413,37 @@ abstract class OverlayPanelBase implements OverlayPanelStateProvider, AppHeaderO
         if (mBottomControlsStacker == null) {
             return 0.0f;
         }
-        // The panel should:
-        // * Always stack on top of the readaloud player (since it can't overlay it)
-        // * Stack on top of the bottom toolbar when the panel is peeking; beyond peek height,
-        // it overlays the toolbar and thus does not need an upwards adjustment.
+        // The panel should stack on top of the bottom controls when the panel is peeking;
+        // beyond peek height, it overlays bottom controls and thus does not need an upwards
+        // adjustment.
+        // TODO(https://crbug.com/397722355): All bottom controls overlap the panel. The panel is
+        // extended up further than it should be to emulate a peeking state. However, the way this
+        // is achieved is that the Android Views render in front of the overlay panel, but their
+        // composited versions remain behind the overlay panel. This works, but is not a clean
+        // solution and is potentially brittle.
         float bottomControlsHeightPx;
-        boolean readAloudVisible =
-                mBottomControlsStacker.isLayerVisible(LayerType.READ_ALOUD_PLAYER);
-        boolean effectivelyPeeked = findLargestPanelStateFromHeight(mHeight) == PanelState.PEEKED;
-        if (readAloudVisible) {
-            // A visible readaloud player implies browser controls are fully visible, so no need to
-            // multiply.
-            // TODO(https://crbug.com/397722355): this is only a partial solution; the ReadAloud
-            // player still overlaps the contextual search panel when it's expanded.
-            bottomControlsHeightPx =
-                    mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.READ_ALOUD_PLAYER);
-        } else if (effectivelyPeeked
-                && mBrowserControlsStateProvider.getControlsPosition() == ControlsPosition.BOTTOM) {
-            bottomControlsHeightPx =
-                    (mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_TOOLBAR)
-                                    // Avoid counting the chin's height; it's already accounted for
-                                    // elsewhere.
-                                    - mBottomControlsStacker.getHeightFromLayerToBottom(
-                                            LayerType.BOTTOM_CHIN))
-                            * (1 - mBrowserControlsStateProvider.getBrowserControlHiddenRatio());
-        } else {
+        float peekedHeight = getPanelHeightFromState(PanelState.PEEKED);
+        float expandedHeight = getPanelHeightFromState(PanelState.EXPANDED);
+        // Bottom chin height is accounted for elsewhere.
+        float totalHeight =
+                mBottomControlsStacker.getTotalHeight()
+                        - mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_CHIN);
+        float hiddenRatio = mBrowserControlsStateProvider.getBottomControlHiddenRatio();
+        float fullBottomControlsHeight = totalHeight * (1 - hiddenRatio);
+
+        if (mHeight <= peekedHeight) {
+            // Peeked: Return full bottom controls height.
+            bottomControlsHeightPx = fullBottomControlsHeight;
+        } else if (mHeight >= expandedHeight) {
+            // Expanded: Return no bottom controls height.
             bottomControlsHeightPx = 0.0f;
+        } else {
+            // In between: Return a ratio of the bottom controls height based on how far the panel
+            // is between the peeked and expanded heights.
+            float ratio = (mHeight - peekedHeight) / (expandedHeight - peekedHeight);
+            bottomControlsHeightPx = fullBottomControlsHeight * (1 - ratio);
         }
+
         return bottomControlsHeightPx;
     }
 
@@ -997,8 +1011,8 @@ abstract class OverlayPanelBase implements OverlayPanelStateProvider, AppHeaderO
         final float clampedHeight =
                 MathUtils.clamp(
                         height,
-                        getPanelHeightFromState(PanelState.MAXIMIZED),
-                        getPanelHeightFromState(PanelState.PEEKED));
+                        getPanelHeightFromState(PanelState.PEEKED),
+                        getPanelHeightFromState(PanelState.MAXIMIZED));
         setPanelHeight(clampedHeight);
     }
 

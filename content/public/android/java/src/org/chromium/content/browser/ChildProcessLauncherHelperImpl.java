@@ -792,7 +792,7 @@ public final class ChildProcessLauncherHelperImpl {
             if (useWaivedBinding) {
                 mEffectiveImportance = ChildProcessImportance.NORMAL;
             } else if (useNotPerceptibleBinding) {
-                mEffectiveImportance = ChildProcessImportance.PERCEPTIBLE;
+                mEffectiveImportance = ChildProcessImportance.NOT_PERCEPTIBLE;
             } else {
                 mEffectiveImportance = ChildProcessImportance.MODERATE;
             }
@@ -865,7 +865,7 @@ public final class ChildProcessLauncherHelperImpl {
         switch (mEffectiveImportance) {
             case ChildProcessImportance.NORMAL:
                 return ChildBindingState.WAIVED;
-            case ChildProcessImportance.PERCEPTIBLE:
+            case ChildProcessImportance.NOT_PERCEPTIBLE:
                 return ChildBindingState.NOT_PERCEPTIBLE;
             case ChildProcessImportance.MODERATE:
                 return ChildBindingState.VISIBLE;
@@ -927,8 +927,7 @@ public final class ChildProcessLauncherHelperImpl {
             boolean boostForPendingViews,
             boolean boostForLoading,
             boolean isSpareRenderer,
-            @ChildProcessImportance int importance,
-            boolean hasActiveClients) {
+            @ChildProcessImportance int importance) {
         assert LauncherThread.runningOnLauncherThread();
         assert mLauncher.getPid() == pid
                 : "The provided pid ("
@@ -966,10 +965,10 @@ public final class ChildProcessLauncherHelperImpl {
                 || hasForegroundServiceWorker
                 || boostForLoading) {
             newEffectiveImportance = ChildProcessImportance.MODERATE;
-        } else if (importance == ChildProcessImportance.PERCEPTIBLE
+        } else if (importance == ChildProcessImportance.NOT_PERCEPTIBLE
                 || (isSpareRenderer
                         && ContentFeatureList.sSpareRendererAddNotPerceptibleBinding.getValue())) {
-            newEffectiveImportance = ChildProcessImportance.PERCEPTIBLE;
+            newEffectiveImportance = ChildProcessImportance.NOT_PERCEPTIBLE;
         } else {
             newEffectiveImportance = ChildProcessImportance.NORMAL;
         }
@@ -980,15 +979,7 @@ public final class ChildProcessLauncherHelperImpl {
                 case ChildProcessImportance.NORMAL:
                     // Nothing to add.
                     break;
-                case ChildProcessImportance.PERCEPTIBLE:
-                    // Use not-perceptible binding for protected tabs. A service binding which leads
-                    // to PERCEPTIBLE_APP_ADJ (= 200) is ideal for protected tabs, but Android does
-                    // not provide the service binding yet.
-                    // TODO(crbug.com/400602112): Use Context.BIND_NOT_VISIBLE binding instead.
-                    //
-                    // This binding is out of control of BindingManager which always unbinds the
-                    // lowest ranked process from not-perceptible binding by
-                    // ensureLowestRankIsWaived().
+                case ChildProcessImportance.NOT_PERCEPTIBLE:
                     connection.addNotPerceptibleBinding();
                     break;
                 case ChildProcessImportance.MODERATE:
@@ -1007,12 +998,6 @@ public final class ChildProcessLauncherHelperImpl {
         // should be applied first.
         if (visible && !mVisible) {
             if (mBindingManager != null) mBindingManager.addConnection(connection);
-        } else if (!hasActiveClients
-                && ContentFeatureList.sRemoveCachedProcessFromBindingManager.isEnabled()) {
-            // If all RenderWidgetHost tied to the process connection are inactive (i.e. in
-            // bfcache), the process connection should be downgraded to NORMAL priority by removing
-            // from the BindingManager.
-            if (mBindingManager != null) mBindingManager.removeConnection(connection);
         }
         mVisible = visible;
 
@@ -1038,7 +1023,7 @@ public final class ChildProcessLauncherHelperImpl {
                             case ChildProcessImportance.NORMAL:
                                 // Nothing to remove.
                                 break;
-                            case ChildProcessImportance.PERCEPTIBLE:
+                            case ChildProcessImportance.NOT_PERCEPTIBLE:
                                 connection.removeNotPerceptibleBinding();
                                 break;
                             case ChildProcessImportance.MODERATE:

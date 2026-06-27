@@ -24,7 +24,7 @@
 #include "components/services/storage/indexed_db/locks/partitioned_lock_manager.h"
 #include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom.h"
 #include "components/services/storage/privileged/mojom/indexed_db_internals_types.mojom-forward.h"
-#include "content/browser/indexed_db/inactivity_timer.h"
+#include "components/services/storage/public/cpp/inactivity_timer.h"
 #include "content/browser/indexed_db/indexed_db_database_error.h"
 #include "content/browser/indexed_db/indexed_db_external_object_storage.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
@@ -185,7 +185,6 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
     base::Time start_time;
     int tasks_scheduled = 0;
     int tasks_completed = 0;
-    bool mojo_receiver_disconnected = false;
   };
 
   const Diagnostics& diagnostics() const { return diagnostics_; }
@@ -274,9 +273,6 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   // the backing store has a problem.
   blink::IndexedDBKey GenerateAutoIncrementKey(int64_t object_store_id);
 
-  // Invoked when the associated receiver is disconnected.
-  void OnMojoReceiverDisconnected();
-
   const int64_t id_;
   const std::set<int64_t> object_store_ids_;
   const blink::mojom::IDBTransactionMode mode_;
@@ -360,7 +356,7 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   // requests are processed before the timer fires, assume the script is
   // unresponsive and abort to unblock the transaction queue.
   // See also crbug.com/40581991.
-  InactivityTimer timeout_timer_;
+  storage::InactivityTimer timeout_timer_;
   static constexpr base::TimeDelta kInactivityTimeout = base::Seconds(60);
 
   Diagnostics diagnostics_;

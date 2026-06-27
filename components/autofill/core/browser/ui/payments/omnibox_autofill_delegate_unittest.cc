@@ -22,6 +22,7 @@
 namespace autofill {
 
 using autofill_metrics::OmniboxAutofillShowChipDecisionPart1;
+using test::CreateFormDataForFrame;
 using test::CreateTestFormField;
 
 class OmniboxAutofillDelegateTest
@@ -91,6 +92,8 @@ class OmniboxAutofillDelegateTest
         CreateTestFormField("", "ccyear", "", FormControlType::kInputText));
     test_api(*form).Append(
         CreateTestFormField("CVC", "cvc", "", FormControlType::kInputText));
+
+    *form = CreateFormDataForFrame(*form, autofill_driver().GetFrameToken());
   }
 
   base::test::TaskEnvironment task_environment_;
@@ -258,6 +261,7 @@ TEST_F(OmniboxAutofillDelegateTest,
       CreateTestFormField("", "ccyear", "", FormControlType::kInputText));
   test_api(form).Append(
       CreateTestFormField("CVC", "cvc", "", FormControlType::kInputText));
+  form = CreateFormDataForFrame(form, autofill_driver().GetFrameToken());
 
   FormsSeen({form});
 
@@ -282,6 +286,7 @@ TEST_F(OmniboxAutofillDelegateTest,
                                             FormControlType::kInputText));
   test_api(form).Append(
       CreateTestFormField("CVC", "cvc", "", FormControlType::kInputText));
+  form = CreateFormDataForFrame(form, autofill_driver().GetFrameToken());
 
   FormsSeen({form});
 
@@ -306,6 +311,7 @@ TEST_F(OmniboxAutofillDelegateTest,
                                             FormControlType::kInputText));
   test_api(form).Append(
       CreateTestFormField("", "ccyear", "", FormControlType::kInputText));
+  form = CreateFormDataForFrame(form, autofill_driver().GetFrameToken());
 
   FormsSeen({form});
 
@@ -330,12 +336,123 @@ TEST_F(OmniboxAutofillDelegateTest,
                                             FormControlType::kInputText));
   test_api(form).Append(
       CreateTestFormField("", "ccyear", "", FormControlType::kInputText));
+  form = CreateFormDataForFrame(form, autofill_driver().GetFrameToken());
 
   FormsSeen({form});
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.OmniboxAutofill.ShowChipDecisionPart1",
       OmniboxAutofillShowChipDecisionPart1::kFormOrClientContextNotSecure, 1);
+}
+
+TEST_F(OmniboxAutofillDelegateTest,
+       OnFieldTypesDetermined_OptimizationGuideDeciderMissing_Aborts) {
+  base::HistogramTester histogram_tester;
+
+  // Create a credit card form with card number and expiration, but put the
+  // fields in iframes so dealing with the OptimizationGuideDeicder is required.
+  FormData form;
+  form.set_name(u"MyForm");
+  form.set_url(GURL("https://myform.com/form.html"));
+  form.set_action(GURL("https://myform.com/submit.html"));
+  url::Origin field_origin =
+      url::Origin::CreateFromNormalizedTuple("https", "someothersite.com", 80);
+  autofill_client().set_last_committed_primary_main_frame_url(form.url());
+  FormFieldData card_number_field = CreateTestFormField(
+      "Card Number", "cardnumber", "", FormControlType::kInputText);
+  card_number_field.set_origin(field_origin);
+  test_api(form).Append(card_number_field);
+  FormFieldData exp_month_field = CreateTestFormField(
+      "Expiration Date", "ccmonth", "", FormControlType::kInputText);
+  exp_month_field.set_origin(field_origin);
+  test_api(form).Append(exp_month_field);
+  FormFieldData exp_year_field =
+      CreateTestFormField("", "ccyear", "", FormControlType::kInputText);
+  exp_year_field.set_origin(field_origin);
+  test_api(form).Append(exp_year_field);
+  // Then, get rid of the OptimizationGuideDecider, as if it returned `nullptr`.
+  autofill_client().ResetAutofillOptimizationGuideDecider();
+
+  FormsSeen({form});
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.OmniboxAutofill.ShowChipDecisionPart1",
+      OmniboxAutofillShowChipDecisionPart1::kMissingOptimizationGuideDecider,
+      1);
+}
+
+TEST_F(OmniboxAutofillDelegateTest,
+       OnAutofillManagerStateChanged_WasActive_HideChip) {
+  payments_autofill_client().ShowOmniboxAutofillChip();
+
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_shown());
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_hidden());
+
+  OmniboxAutofillDelegate* delegate =
+      payments_autofill_client().GetOmniboxAutofillDelegate();
+  ASSERT_TRUE(delegate);
+
+  delegate->OnAutofillManagerStateChanged(
+      autofill_manager(), /*previous=*/AutofillManager::LifecycleState::kActive,
+      /*current=*/AutofillManager::LifecycleState::kInactive);
+
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_hidden());
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_shown());
+}
+
+TEST_F(OmniboxAutofillDelegateTest,
+       OnAutofillManagerStateChanged_WasNotActive_DoesNotHideChip) {
+  payments_autofill_client().ShowOmniboxAutofillChip();
+
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_shown());
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_hidden());
+
+  OmniboxAutofillDelegate* delegate =
+      payments_autofill_client().GetOmniboxAutofillDelegate();
+  ASSERT_TRUE(delegate);
+
+  delegate->OnAutofillManagerStateChanged(
+      autofill_manager(),
+      /*previous=*/AutofillManager::LifecycleState::kInactive,
+      /*current=*/AutofillManager::LifecycleState::kActive);
+
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_hidden());
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_shown());
+}
+
+TEST_F(OmniboxAutofillDelegateTest, OnAfterFormsSeen_FormRemoved_HidesChip) {
+  FormData form = CreateTestCreditCardFormData();
+  FormsSeen({form});
+
+  payments_autofill_client().ShowOmniboxAutofillChip();
+
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_shown());
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_hidden());
+
+  autofill_manager().OnFormsSeen(/*updated_forms=*/{},
+                                 /*removed_forms=*/{form.global_id()});
+
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_hidden());
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_shown());
+}
+
+TEST_F(OmniboxAutofillDelegateTest,
+       OnAfterFormsSeen_FormNotRemoved_DoesNotHideChip) {
+  FormData form = CreateTestCreditCardFormData();
+  FormsSeen({form});
+
+  payments_autofill_client().ShowOmniboxAutofillChip();
+
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_shown());
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_hidden());
+
+  FormGlobalId different_form_id = test::MakeFormGlobalId();
+  ASSERT_NE(different_form_id, form.global_id());
+  autofill_manager().OnFormsSeen(/*updated_forms=*/{},
+                                 /*removed_forms=*/{different_form_id});
+
+  EXPECT_FALSE(payments_autofill_client().omnibox_autofill_chip_hidden());
+  EXPECT_TRUE(payments_autofill_client().omnibox_autofill_chip_shown());
 }
 
 }  // namespace autofill

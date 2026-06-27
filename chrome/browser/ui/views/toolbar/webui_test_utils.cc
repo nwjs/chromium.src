@@ -5,7 +5,9 @@
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 
 #include "base/functional/bind.h"
+#include "base/notimplemented.h"
 #include "base/run_loop.h"
+#include "base/test/run_until.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -15,11 +17,17 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
+#include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "content/public/test/browser_test_utils.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/interaction/interaction_test_util_views.h"
 #include "ui/views/view_utils.h"
@@ -56,11 +64,68 @@ void WaitUntilInitialWebUIPaintAndFlushMetricsForTesting(
   metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
 }
 
+void WaitForInitialWebUIToolbar(BrowserWindowInterface* browser) {
+  base::RunLoop run_loop;
+  InitialWebUIManager* manager = InitialWebUIManager::From(browser);
+  if (!manager || !manager->RequestDeferShow(run_loop.QuitClosure())) {
+    return;
+  }
+  run_loop.Run();
+}
+
+void SetUpWebUI(const ui::ElementIdentifier& element_id,
+                ui::TrackedElement** element_out,
+                WebUIToolbarWebView** webui_toolbar_view_out,
+                views::WebView** web_view_out,
+                Browser* browser) {
+  // Wait for the WebUIToolbarWebView to be available.
+  *webui_toolbar_view_out = nullptr;
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+    if (!browser_view || !browser_view->toolbar()) {
+      return false;
+    }
+    ToolbarButtonProvider* provider = browser_view->toolbar();
+    *webui_toolbar_view_out = provider->GetWebUIToolbarViewForTesting();
+    return *webui_toolbar_view_out != nullptr;
+  }));
+  ASSERT_TRUE(*webui_toolbar_view_out);
+
+  if (element_id == kWebUIToolbarElementIdentifier) {
+    // We already have the view, and the Basic test doesn't strictly need the
+    // TrackedElement. ElementTracker might be flaky or slow here.
+    *element_out = views::ElementTrackerViews::GetInstance()->GetElementForView(
+        *webui_toolbar_view_out);
+  } else {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      *element_out = BrowserElements::From(browser)->GetElement(element_id);
+      return *element_out != nullptr;
+    }));
+    ASSERT_TRUE(*element_out);
+  }
+
+  ASSERT_EQ((*webui_toolbar_view_out)->children().size(), 1u);
+  *web_view_out = views::AsViewClass<views::WebView>(
+      (*webui_toolbar_view_out)->children()[0].get());
+  ASSERT_TRUE(*web_view_out);
+
+  // Wait for the WebView to finish composition.
+  content::WaitForCopyableViewInWebContents((*web_view_out)->GetWebContents());
+}
+
+WebUIToolbarWebView* GetWebUIToolbarWebView(Browser* browser) {
+  return BrowserView::GetBrowserViewForBrowser(browser)
+      ->toolbar_button_provider()
+      ->GetWebUIToolbarViewForTesting();
+}
+
 AvatarToolbarButtonTestAccessor::AvatarToolbarButtonTestAccessor(
     BrowserWindowInterface* browser)
     : browser_(browser) {
   WaitForAvatarButton();
 }
+
+AvatarToolbarButtonTestAccessor::~AvatarToolbarButtonTestAccessor() = default;
 
 void AvatarToolbarButtonTestAccessor::WaitForAvatarButton() {
   ui::ElementContext context;
@@ -130,58 +195,127 @@ AvatarToolbarButtonInterface* AvatarToolbarButtonTestAccessor::GetInterface() {
       ->GetAvatarToolbarButtonInterface();
 }
 
-AvatarToolbarButton* AvatarToolbarButtonTestAccessor::GetButton() {
-  DCHECK(!features::IsWebUIAvatarButtonEnabled());
-  return static_cast<AvatarToolbarButton*>(GetInterface());
+AvatarToolbarButtonTestAccessor::ButtonVariant
+AvatarToolbarButtonTestAccessor::GetButton() {
+  AvatarToolbarButtonInterface* interface = GetInterface();
+  if (!interface) {
+    return static_cast<AvatarToolbarButton*>(nullptr);
+  }
+  if (features::IsWebUIAvatarButtonEnabled()) {
+    return static_cast<WebUIAvatarToolbarButton*>(interface);
+  }
+  return static_cast<AvatarToolbarButton*>(interface);
 }
 
 bool AvatarToolbarButtonTestAccessor::GetEnabled() {
-  if (AvatarToolbarButton* button = GetButton()) {
-    return button->GetEnabled();
-  }
-  return false;
+  return std::visit(absl::Overload{
+                        [](AvatarToolbarButton* button) -> bool {
+                          return button ? button->GetEnabled() : false;
+                        },
+                        [](WebUIAvatarToolbarButton* button) -> bool {
+                          // TODO(behamilton)
+                          NOTIMPLEMENTED();
+                          return button ? true : false;
+                        },
+                    },
+                    GetButton());
 }
 
 bool AvatarToolbarButtonTestAccessor::GetVisible() {
-  if (AvatarToolbarButton* button = GetButton()) {
-    return button->GetVisible();
-  }
-  return false;
+  return std::visit(absl::Overload{
+                        [](AvatarToolbarButton* button) {
+                          return button ? button->GetVisible() : false;
+                        },
+                        [](WebUIAvatarToolbarButton* button) {
+                          // TODO(behamilton)
+                          NOTIMPLEMENTED();
+                          return button ? true : false;
+                        },
+                    },
+                    GetButton());
 }
 
 std::u16string AvatarToolbarButtonTestAccessor::GetText() {
-  if (AvatarToolbarButton* button = GetButton()) {
-    return std::u16string(button->GetText());
-  }
-  return std::u16string();
+  return std::visit(absl::Overload{
+                        [](AvatarToolbarButton* button) -> std::u16string {
+                          return button ? std::u16string(button->GetText())
+                                        : std::u16string();
+                        },
+                        [](WebUIAvatarToolbarButton* button) -> std::u16string {
+                          NOTIMPLEMENTED();
+                          return {};
+                        },
+                    },
+                    GetButton());
 }
 
 void AvatarToolbarButtonTestAccessor::Click() {
-  if (AvatarToolbarButton* button = GetButton()) {
-    views::test::InteractionTestUtilSimulatorViews::PressButton(
-        button, ui::test::InteractionTestUtil::InputType::kMouse);
+  std::visit(
+      [](auto* button) {
+        if (!button) {
+          return;
+        }
+        using T = std::decay_t<decltype(*button)>;
+        if constexpr (std::is_same_v<T, AvatarToolbarButton>) {
+          views::test::InteractionTestUtilSimulatorViews::PressButton(
+              button, ui::test::InteractionTestUtil::InputType::kMouse);
+        } else {
+          button->ButtonPressed(/*is_source_accelerator=*/false);
+        }
+      },
+      GetButton());
+}
+
+void AvatarToolbarButtonTestAccessor::SetAnnounceCallbackForTesting(
+    base::OnceCallback<void(std::u16string)> callback) {
+  if (AvatarToolbarButtonInterface* interface = GetInterface()) {
+    interface->SetAnnounceCallbackForTesting(std::move(callback));
   }
 }
 
 views::Widget* AvatarToolbarButtonTestAccessor::GetWidget() {
-  if (AvatarToolbarButton* button = GetButton()) {
-    return button->GetWidget();
-  }
-  return nullptr;
+  return std::visit(absl::Overload{
+                        [](AvatarToolbarButton* button) {
+                          return button ? button->GetWidget() : nullptr;
+                        },
+                        [this](WebUIAvatarToolbarButton* button) {
+                          return BrowserView::GetBrowserViewForBrowser(browser_)
+                              ->toolbar_button_provider()
+                              ->GetWebUIToolbarViewForTesting()
+                              ->GetWidget();
+                        },
+                    },
+                    GetButton());
 }
 
 gfx::ImageSkia AvatarToolbarButtonTestAccessor::GetImage(
     views::Button::ButtonState state) {
-  if (AvatarToolbarButton* button = GetButton()) {
-    return button->GetImage(state);
-  }
-  return gfx::ImageSkia();
+  return std::visit(absl::Overload{
+                        [state](AvatarToolbarButton* button) {
+                          return button ? button->GetImage(state)
+                                        : gfx::ImageSkia();
+                        },
+                        [](WebUIAvatarToolbarButton* button) {
+                          // TODO(behamilton)
+                          NOTIMPLEMENTED();
+                          return gfx::ImageSkia();
+                        },
+                    },
+                    GetButton());
 }
 
 std::u16string AvatarToolbarButtonTestAccessor::GetRenderedTooltipText(
     const gfx::Point& p) {
-  if (AvatarToolbarButton* button = GetButton()) {
-    return button->GetRenderedTooltipText(p);
-  }
-  return std::u16string();
+  return std::visit(absl::Overload{
+                        [p](AvatarToolbarButton* button) {
+                          return button ? button->GetRenderedTooltipText(p)
+                                        : std::u16string();
+                        },
+                        [](WebUIAvatarToolbarButton* button) {
+                          // TODO(behamilton)
+                          NOTIMPLEMENTED();
+                          return std::u16string();
+                        },
+                    },
+                    GetButton());
 }

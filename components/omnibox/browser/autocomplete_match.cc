@@ -33,6 +33,7 @@
 #include "components/omnibox/browser/actions/omnibox_action.h"
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
+#include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/document_provider.h"
@@ -53,6 +54,7 @@
 #include "third_party/omnibox_proto/types.pb.h"
 #include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "url/third_party/mozilla/url_parse.h"
 #include "url/url_util.h"
@@ -266,6 +268,7 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       entity_id(match.entity_id),
       website_uri(match.website_uri),
       document_type(match.document_type),
+      starter_pack_id(match.starter_pack_id),
       enterprise_search_aggregator_type(
           match.enterprise_search_aggregator_type),
       tail_suggest_common_prefix(match.tail_suggest_common_prefix),
@@ -285,6 +288,9 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       suggest_type(match.suggest_type),
       subtypes(match.subtypes),
       has_tab_match(match.has_tab_match),
+#if BUILDFLAG(IS_ANDROID)
+      android_tab_id(match.android_tab_id),
+#endif
       associated_keyword(match.associated_keyword),
       keyword(match.keyword),
       from_keyword(match.from_keyword),
@@ -313,7 +319,8 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       history_embeddings_answer_header_loading(
           match.history_embeddings_answer_header_loading),
       feedback_type(match.feedback_type),
-      matching_tab_group_uuid(match.matching_tab_group_uuid) {}
+      matching_tab_group_uuid(match.matching_tab_group_uuid) {
+}
 
 AutocompleteMatch::AutocompleteMatch(AutocompleteMatch&& match) noexcept {
   *this = std::move(match);
@@ -384,8 +391,10 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   history_embeddings_answer_header_loading =
       std::move(match.history_embeddings_answer_header_loading);
   feedback_type = std::move(match.feedback_type);
+  starter_pack_id = std::move(match.starter_pack_id);
   matching_tab_group_uuid = std::move(match.matching_tab_group_uuid);
 #if BUILDFLAG(IS_ANDROID)
+  android_tab_id = std::move(match.android_tab_id);
   DestroyJavaObject();
   std::swap(java_match_, match.java_match_);
   UpdateJavaObjectNativeRef();
@@ -468,9 +477,11 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   history_embeddings_answer_header_loading =
       match.history_embeddings_answer_header_loading;
   feedback_type = match.feedback_type;
+  starter_pack_id = match.starter_pack_id;
   matching_tab_group_uuid = match.matching_tab_group_uuid;
 
 #if BUILDFLAG(IS_ANDROID)
+  android_tab_id = match.android_tab_id;
   // In case the target element previously held a java object, release it.
   // This happens, when in an expression "match1 = match2;" match1 already
   // is initialized and linked to a Java object: we rewrite the contents of the
@@ -490,15 +501,25 @@ const gfx::VectorIcon& AutocompleteMatch::AnswerTypeToAnswerIcon(
     omnibox::AnswerType type) {
   switch (type) {
     case omnibox::ANSWER_TYPE_CURRENCY:
-      return omnibox::kAnswerCurrencyChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kAutorenewIcon
+                 : omnibox::kAnswerCurrencyChromeRefreshOldIcon;
     case omnibox::ANSWER_TYPE_DICTIONARY:
-      return omnibox::kAnswerDictionaryChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kBookIcon
+                 : omnibox::kAnswerDictionaryChromeRefreshOldIcon;
     case omnibox::ANSWER_TYPE_FINANCE:
-      return omnibox::kAnswerFinanceChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kSwapVertIcon
+                 : omnibox::kAnswerFinanceChromeRefreshOldIcon;
     case omnibox::ANSWER_TYPE_SUNRISE_SUNSET:
-      return omnibox::kAnswerSunriseChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kWbSunnyIcon
+                 : omnibox::kAnswerSunriseChromeRefreshOldIcon;
     case omnibox::ANSWER_TYPE_TRANSLATION:
-      return omnibox::kAnswerTranslationChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kTranslateIcon
+                 : omnibox::kAnswerTranslationChromeRefreshOldIcon;
     default:
       return omnibox::kAnswerDefaultIcon;
   }
@@ -516,27 +537,41 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
         // When not specified, fall back on regular match icon logic below.
         break;
       case omnibox::SuggestTemplateInfo::HISTORY:
-        return vector_icons::kHistoryChromeRefreshIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? vector_icons::kHistoryIcon
+                   : vector_icons::kHistoryChromeRefreshOldIcon;
       case omnibox::SuggestTemplateInfo::NOTES_SPARK:
-        return omnibox::kNotesSparkIcon;
+        return features::IsRoundedIconsEnabled() ? omnibox::kNotesSparkIcon
+                                                 : omnibox::kNotesSparkOldIcon;
       case omnibox::SuggestTemplateInfo::SEARCH_LOOP:
-        return vector_icons::kSearchChromeRefreshIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? vector_icons::kSearchIcon
+                   : vector_icons::kSearchChromeRefreshOldIcon;
       case omnibox::SuggestTemplateInfo::SEARCH_LOOP_WITH_SPARKLE:
-        return omnibox::kSearchSparkIcon;
+        return features::IsRoundedIconsEnabled() ? omnibox::kSearchSparkIcon
+                                                 : omnibox::kSearchSparkOldIcon;
       case omnibox::SuggestTemplateInfo::TRENDING:
-        return omnibox::kTrendingUpChromeRefreshIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? omnibox::kTrendingUpIcon
+                   : omnibox::kTrendingUpChromeRefreshOldIcon;
       case omnibox::SuggestTemplateInfo::SUB_ARROW_RIGHT:
-        return omnibox::kSubdirectoryArrowRightIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? omnibox::kSubdirectoryArrowRightIcon
+                   : omnibox::kSubdirectoryArrowRightOldIcon;
       default:
         // Out of range value defaults to search loupe.
-        return vector_icons::kSearchChromeRefreshIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? vector_icons::kSearchIcon
+                   : vector_icons::kSearchChromeRefreshOldIcon;
     }
   }
 
   // Some match types should retain their traditional icon even when bookmarked.
   if (is_bookmark && type != Type::HISTORY_EMBEDDINGS_ANSWER &&
       type != Type::STARTER_PACK) {
-    return omnibox::kBookmarkChromeRefreshIcon;
+    return features::IsRoundedIconsEnabled()
+               ? omnibox::kStarIcon
+               : omnibox::kBookmarkChromeRefreshOldIcon;
   }
 
   if (answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
@@ -560,26 +595,41 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::TILE_MOST_VISITED_SITE:
     case Type::OPEN_TAB:
     case Type::HISTORY_EMBEDDINGS:
-      return omnibox::kPageChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kPublicIcon
+                 : omnibox::kPageChromeRefreshOldIcon;
 
     case Type::SEARCH_SUGGEST:
-      return IsTrendSuggestion() ? omnibox::kTrendingUpChromeRefreshIcon
+      return IsTrendSuggestion()
+                 ? features::IsRoundedIconsEnabled()
+                       ? omnibox::kTrendingUpIcon
+                       : omnibox::kTrendingUpChromeRefreshOldIcon
              : (IsContextualSearchSuggestion() &&
                 omnibox_feature_configs::ContextualSearch::Get()
                     .contextual_zero_suggest_lens_fulfillment)
-                 ? omnibox::kSubdirectoryArrowRightIcon
-                 : vector_icons::kSearchChromeRefreshIcon;
+                 ? features::IsRoundedIconsEnabled()
+                       ? omnibox::kSubdirectoryArrowRightIcon
+                       : omnibox::kSubdirectoryArrowRightOldIcon
+             : features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSearchIcon
+                 : vector_icons::kSearchChromeRefreshOldIcon;
 
     case Type::PEDAL:
       return takeover_action ? takeover_action->GetVectorIcon()
-                             : vector_icons::kSearchChromeRefreshIcon;
+             : features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSearchIcon
+                 : vector_icons::kSearchChromeRefreshOldIcon;
 
     case Type::SEARCH_OTHER_ENGINE:
       if (provider != nullptr &&
           provider->type() == AutocompleteProvider::TYPE_UNSCOPED_EXTENSION) {
-        return omnibox::kExtensionAppIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? omnibox::kExtensionFilledIcon
+                   : omnibox::kExtensionAppOldIcon;
       }
-      return vector_icons::kSearchChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSearchIcon
+                 : vector_icons::kSearchChromeRefreshOldIcon;
 
     case Type::SEARCH_WHAT_YOU_TYPED:
     case Type::SEARCH_SUGGEST_ENTITY:
@@ -590,18 +640,25 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::CLIPBOARD_IMAGE:
     case Type::TILE_SUGGESTION:
     case Type::TILE_REPEATABLE_QUERY:
-      return vector_icons::kSearchChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kSearchIcon
+                 : vector_icons::kSearchChromeRefreshOldIcon;
 
     case Type::SEARCH_HISTORY:
     case Type::SEARCH_SUGGEST_PERSONALIZED:
       DCHECK(IsSearchHistoryType(type));
-      return vector_icons::kHistoryChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kHistoryIcon
+                 : vector_icons::kHistoryChromeRefreshOldIcon;
 
     case Type::EXTENSION_APP_DEPRECATED:
-      return omnibox::kExtensionAppIcon;
+      return features::IsRoundedIconsEnabled() ? omnibox::kExtensionFilledIcon
+                                               : omnibox::kExtensionAppOldIcon;
 
     case Type::CALCULATOR:
-      return omnibox::kCalculatorChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kEqualIcon
+                 : omnibox::kCalculatorChromeRefreshOldIcon;
 
     case Type::NULL_RESULT_MESSAGE:
       // Select the icon according to the type of IPH. Otherwise (for No Results
@@ -613,13 +670,17 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
           return omnibox::kSparkIcon;
         case IphType::kFeaturedEnterpriseSiteSearch:
         case IphType::kEnterpriseSearchAggregator:
-          return omnibox::kEnterpriseIcon;
+          return features::IsRoundedIconsEnabled()
+                     ? omnibox::kDomainIcon
+                     : omnibox::kEnterpriseOldIcon;
         case IphType::kHistoryEmbeddingsSettingsPromo:
           return omnibox::kSparkIcon;
         case IphType::kHistoryEmbeddingsDisclaimer:
           return gfx::VectorIcon::EmptyIcon();
         case IphType::kHistoryScopePromo:
-          return vector_icons::kHistoryChromeRefreshIcon;
+          return features::IsRoundedIconsEnabled()
+                     ? vector_icons::kHistoryIcon
+                     : vector_icons::kHistoryChromeRefreshOldIcon;
         case IphType::kHistoryEmbeddingsScopePromo:
           return omnibox::kSparkIcon;
       }
@@ -631,48 +692,62 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::DOCUMENT_SUGGESTION:
       switch (document_type) {
         case DocumentType::DRIVE_DOCS:
-          return omnibox::kDriveDocsIcon;
+          return omnibox::kDriveDocsCustomIcon;
         case DocumentType::DRIVE_FORMS:
-          return omnibox::kDriveFormsIcon;
+          return omnibox::kDriveFormsCustomIcon;
         case DocumentType::DRIVE_SHEETS:
-          return omnibox::kDriveSheetsIcon;
+          return omnibox::kDriveSheetsCustomIcon;
         case DocumentType::DRIVE_SLIDES:
-          return omnibox::kDriveSlidesIcon;
+          return omnibox::kDriveSlidesCustomIcon;
         case DocumentType::DRIVE_IMAGE:
-          return omnibox::kDriveImageIcon;
+          return omnibox::kDriveImageCustomIcon;
         case DocumentType::DRIVE_PDF:
-          return omnibox::kDrivePdfIcon;
+          return omnibox::kDrivePdfCustomIcon;
         case DocumentType::DRIVE_VIDEO:
-          return omnibox::kDriveVideoIcon;
+          return omnibox::kDriveVideoCustomIcon;
         case DocumentType::DRIVE_FOLDER:
-          return omnibox::kDriveFolderIcon;
+          return omnibox::kDriveFolderCustomIcon;
         case DocumentType::DRIVE_OTHER:
-          return omnibox::kDriveLogoIcon;
+          return omnibox::kDriveLogoCustomIcon;
         default:
-          return omnibox::kPageChromeRefreshIcon;
+          return features::IsRoundedIconsEnabled()
+                     ? omnibox::kPublicIcon
+                     : omnibox::kPageChromeRefreshOldIcon;
       }
 
     case Type::HISTORY_CLUSTER:
-      return omnibox::kJourneysChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kConversionPathIcon
+                 : omnibox::kJourneysChromeRefreshOldIcon;
 
     case Type::STARTER_PACK:
       if (turl) {
         switch (turl->GetBuiltinEngineType()) {
           case KEYWORD_MODE_STARTER_PACK_BOOKMARKS:
-            return omnibox::kStarActiveChromeRefreshIcon;
+            return features::IsRoundedIconsEnabled()
+                       ? omnibox::kStarFilledIcon
+                       : omnibox::kStarActiveChromeRefreshOldIcon;
           case KEYWORD_MODE_STARTER_PACK_HISTORY:
-            return vector_icons::kHistoryChromeRefreshIcon;
+            return features::IsRoundedIconsEnabled()
+                       ? vector_icons::kHistoryIcon
+                       : vector_icons::kHistoryChromeRefreshOldIcon;
           case KEYWORD_MODE_STARTER_PACK_TABS:
-            return omnibox::kProductChromeRefreshIcon;
+            return features::IsRoundedIconsEnabled()
+                       ? omnibox::kChromeProductIcon
+                       : omnibox::kProductChromeRefreshOldIcon;
           case KEYWORD_MODE_STARTER_PACK_GEMINI:
             return omnibox::kSparkIcon;
           case KEYWORD_MODE_STARTER_PACK_AI_MODE:
-            return omnibox::kSearchSparkIcon;
+            return features::IsRoundedIconsEnabled()
+                       ? omnibox::kSearchSparkIcon
+                       : omnibox::kSearchSparkOldIcon;
           default:
             break;
         }
       }
-      return omnibox::kProductChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kChromeProductIcon
+                 : omnibox::kProductChromeRefreshOldIcon;
 
     case Type::FEATURED_ENTERPRISE_SEARCH:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -682,13 +757,17 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
                    : vector_icons::kGoogleAgentspaceMonochromeLogoIcon;
       }
 #endif
-      return omnibox::kPageChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kPublicIcon
+                 : omnibox::kPageChromeRefreshOldIcon;
 
     case Type::NUM_TYPES:
       NOTREACHED() << "Unexpected AutocompleteMatchType value: "
                    << static_cast<int>(type);
     default:
-      return omnibox::kPageChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kPublicIcon
+                 : omnibox::kPageChromeRefreshOldIcon;
   }
 }
 #endif
@@ -973,6 +1052,10 @@ omnibox::GroupId AutocompleteMatch::GetDefaultGroupId(Type type) {
 
   if (type == AutocompleteMatchType::HISTORY_CLUSTER)
     return omnibox::GROUP_HISTORY_CLUSTER;
+
+  if (type == AutocompleteMatchType::CROSS_DEVICE_TAB) {
+    return omnibox::GROUP_CROSS_DEVICE_TABS;
+  }
 
   return omnibox::GROUP_OTHER_NAVS;
 }
@@ -1292,33 +1375,36 @@ bool AutocompleteMatch::ShouldHideBasedOnStarterPack(
              template_url_starter_pack_data::StarterPackId::kGemini;
 }
 
-void AutocompleteMatch::GetKeywordUIState(
+void AutocompleteMatch::GetKeywordUiState(
     TemplateURLService* template_url_service,
     bool is_history_embeddings_enabled,
+    KeywordState* keyword_state,
     std::u16string* keyword_out,
-    std::u16string* keyword_placeholder_out,
-    bool* is_keyword_hint) const {
-  *is_keyword_hint = !associated_keyword.empty();
-  keyword_out->assign(
-      *is_keyword_hint
-          ? associated_keyword
-          : GetSubstitutingExplicitlyInvokedKeyword(template_url_service));
+    std::u16string* keyword_placeholder_out) const {
   *keyword_placeholder_out = GetKeywordPlaceholder(
       GetTemplateURL(template_url_service), is_history_embeddings_enabled);
+  if (associated_keyword.empty()) {
+    keyword_out->assign(
+        IsExplicitlyInvokedKeyword(template_url_service) ? keyword : u"");
+    *keyword_state =
+        keyword_out->empty() ? KeywordState::kNone : KeywordState::kKeyword;
+  } else {
+    keyword_out->assign(associated_keyword);
+    *keyword_state = KeywordState::kHint;
+  }
 }
 
-std::u16string AutocompleteMatch::GetSubstitutingExplicitlyInvokedKeyword(
+bool AutocompleteMatch::IsExplicitlyInvokedKeyword(
     TemplateURLService* template_url_service) const {
-  if (!ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_KEYWORD) ||
+  if (keyword.empty() ||
+      !ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_KEYWORD) ||
       template_url_service == nullptr) {
-    return std::u16string();
+    return false;
   }
 
   const TemplateURL* t_url = GetTemplateURL(template_url_service);
-  return (t_url &&
-          t_url->SupportsReplacement(template_url_service->search_terms_data()))
-             ? keyword
-             : std::u16string();
+  return t_url &&
+         t_url->SupportsReplacement(template_url_service->search_terms_data());
 }
 
 // static
@@ -1459,6 +1545,8 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
       case OmniboxActionId::STARTER_PACK_TABS:
       case OmniboxActionId::STARTER_PACK_AI_MODE:
         return OmniboxEventProto::Suggestion::STARTER_PACK;
+      case OmniboxActionId::CROSS_DEVICE_TAB:
+        return OmniboxEventProto::Suggestion::CROSS_DEVICE_TAB;
       case OmniboxActionId::UNKNOWN:
       case OmniboxActionId::LAST:
         NOTREACHED();
@@ -1536,6 +1624,8 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
       return OmniboxEventProto::Suggestion::HISTORY_EMBEDDINGS_ANSWER;
     case AutocompleteMatchType::TAB_GROUP:
       return OmniboxEventProto::Suggestion::TAB_GROUP;
+    case AutocompleteMatchType::CROSS_DEVICE_TAB:
+      return OmniboxEventProto::Suggestion::CROSS_DEVICE_TAB;
     case AutocompleteMatchType::CONTACT_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_OVERFLOW_DEPRECATED:
@@ -1645,6 +1735,12 @@ bool AutocompleteMatch::HasCustomDescription() const {
       !suggest_template->secondary_text().text().empty()) {
     return true;
   }
+
+  if (base::FeatureList::IsEnabled(omnibox::kInlineLocationSignaling) &&
+      extra_headers.contains(kXGeoHeader)) {
+    return true;
+  }
+
   return type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY ||
          type == AutocompleteMatchType::SEARCH_SUGGEST_PROFILE ||
          type == AutocompleteMatchType::CLIPBOARD_TEXT ||

@@ -5,7 +5,8 @@
 #ifndef CHROME_BROWSER_AUTOFILL_ACTOR_ACTOR_FORM_FILLING_SERVICE_IMPL_H_
 #define CHROME_BROWSER_AUTOFILL_ACTOR_ACTOR_FORM_FILLING_SERVICE_IMPL_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <variant>
 #include <vector>
 
@@ -17,7 +18,7 @@
 #include "chrome/browser/autofill/actor/actor_form_filling_service.h"
 #include "chrome/browser/autofill/actor/actor_form_section_splitter.h"
 #include "chrome/browser/autofill/actor/actor_key_metrics_recorder.h"
-#include "chrome/common/actor/task_id.h"
+#include "components/actor/core/task_id.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 namespace tabs {
@@ -46,12 +47,9 @@ class ActorFormFillingServiceImpl : public ActorFormFillingService {
   ~ActorFormFillingServiceImpl() override;
 
   // ActorFormFillingService:
-  void GetSuggestions(
-      const tabs::TabInterface& tab,
-      base::span<const FillRequest> fill_requests,
-      base::OnceCallback<
-          void(base::expected<std::vector<ActorFormFillingRequest>,
-                              ActorFormFillingError>)> callback) override;
+  void GetSuggestions(const tabs::TabInterface& tab,
+                      base::span<const FillRequest> fill_requests,
+                      GetSuggestionsCallback callback) override;
   void FillSuggestions(
       const tabs::TabInterface& tab,
       base::span<const ActorFormFillingSelection> chosen_suggestions,

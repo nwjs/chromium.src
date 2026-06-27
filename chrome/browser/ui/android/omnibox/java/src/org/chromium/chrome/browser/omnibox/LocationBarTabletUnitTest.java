@@ -42,6 +42,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
@@ -136,8 +137,9 @@ public class LocationBarTabletUnitTest {
         assertEquals(expansionPx, mLocationBarTablet.getPaddingLeft());
         assertEquals(expansionPx, mLocationBarTablet.getPaddingRight());
         assertEquals(expansionPx, mLocationBarTablet.getPaddingTop());
-        assertEquals(1.0f, mLocationBarTablet.getTranslationZ(), MathUtils.EPSILON);
+        assertEquals(1.0f, mHolderView.getTranslationZ(), MathUtils.EPSILON);
         assertNull(mLocationBarTablet.getOutlineProvider());
+
         mLocationBarTablet.onFuseboxStateChanged(FuseboxState.DISABLED);
         layoutParams = (LinearLayout.LayoutParams) mHolderView.getLayoutParams();
         assertEquals(
@@ -152,7 +154,7 @@ public class LocationBarTabletUnitTest {
         assertEquals(0, mLocationBarTablet.getPaddingLeft());
         assertEquals(0, mLocationBarTablet.getPaddingRight());
         assertEquals(0, mLocationBarTablet.getPaddingTop());
-        assertEquals(0.0f, mLocationBarTablet.getTranslationZ(), MathUtils.EPSILON);
+        assertEquals(0.0f, mHolderView.getTranslationZ(), MathUtils.EPSILON);
         assertEquals(mOutlineProvider, mLocationBarTablet.getOutlineProvider());
     }
 
@@ -218,6 +220,23 @@ public class LocationBarTabletUnitTest {
         mLocationBarTablet.onFuseboxStateChanged(FuseboxState.EXPANDED);
         assertEquals(expectedMargin - delta, layoutParams.leftMargin, MathUtils.EPSILON);
         assertEquals(expectedMargin + delta, layoutParams.rightMargin, MathUtils.EPSILON);
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
+    @Config(qualifiers = "w800dp-xhdpi")
+    public void testFuseboxStateChange_popoverLayoutMode() {
+        mLocationBarTablet.onFuseboxStateChanged(FuseboxState.EXPANDED);
+        mLocationBarTablet.setFuseboxLayoutMode(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
+        GradientDrawable outerRect =
+                (GradientDrawable)
+                        ((LayerDrawable) mLocationBarTablet.getBackground())
+                                .findDrawableByLayerId(R.id.focused_popup_bg);
+        @ColorInt
+        int expectedOuterRectColor =
+                OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
+                        mActivity, BrandedColorScheme.APP_DEFAULT);
+        assertEquals(expectedOuterRectColor, outerRect.getColor().getDefaultColor());
     }
 
     @Test

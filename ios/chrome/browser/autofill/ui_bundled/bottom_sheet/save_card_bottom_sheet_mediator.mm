@@ -13,6 +13,7 @@
 #import "base/time/time.h"
 #import "base/timer/timer.h"
 #import "components/application_locale_storage/application_locale_storage.h"
+#import "components/autofill/core/browser/data_model/data_model_utils.h"
 #import "components/autofill/core/browser/metrics/payments/credit_card_save_metrics.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/autofill/ios/browser/credit_card_save_metrics_ios.h"
@@ -67,15 +68,11 @@ static constexpr base::TimeDelta kConfirmationDismissDelayIfVoiceOverRunning =
     base::Seconds(5);
 
 std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
-  NSString* cleanExpDate = [[expirationDate
-      componentsSeparatedByCharactersInSet:[[NSCharacterSet
-                                               decimalDigitCharacterSet]
-                                               invertedSet]]
-      componentsJoinedByString:@""];
-  if (cleanExpDate.length >= 4) {
-    NSString* month = [cleanExpDate substringToIndex:2];
-    NSString* year = [cleanExpDate substringFromIndex:2];
-    return {month, year};
+  std::u16string month;
+  std::u16string year;
+  if (autofill::data_util::ParseExpirationDate(
+          base::SysNSStringToUTF16(expirationDate), &month, &year)) {
+    return {base::SysUTF16ToNSString(month), base::SysUTF16ToNSString(year)};
   }
   return {@"", @""};
 }
@@ -152,7 +149,7 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
                             SaveCreditCardPromptResultIOS::kLinkClicked
                       : autofill::autofill_metrics::
                             SaveCreditCardPromptResultIOS::kSwiped,
-          _saveCardBottomSheetModel->save_card_delegate()->is_for_upload(),
+          _saveCardBottomSheetModel->is_for_upload(),
           _saveCardBottomSheetModel->save_card_delegate()
               ->GetSaveCreditCardOptions(),
           SaveCreditCardPromptOverlayType::kBottomSheet);
@@ -160,7 +157,7 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
     // Upload save bottomsheet is being dismissed while showing loading state
     // due to being swiped away, tab changed or link clicked.
     case autofill::SaveCardBottomSheetModel::SaveCardState::kSaveInProgress:
-      CHECK(_saveCardBottomSheetModel->save_card_delegate()->is_for_upload());
+      CHECK(_saveCardBottomSheetModel->is_for_upload());
       autofill::autofill_metrics::LogCreditCardUploadLoadingViewResultMetric(
           autofill::autofill_metrics::LegacySaveCardPromptResult::kClosed);
       break;
@@ -170,9 +167,7 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
       autofill::autofill_metrics::
           LogCreditCardUploadConfirmationViewResultMetric(
               autofill::autofill_metrics::LegacySaveCardPromptResult::kClosed,
-              /*is_card_uploaded=*/_saveCardBottomSheetModel
-                  ->save_card_delegate()
-                  ->is_for_upload());
+              /*is_card_uploaded=*/_saveCardBottomSheetModel->is_for_upload());
       break;
     // Bottomsheet would have already been dismissed on failure.
     case autofill::SaveCardBottomSheetModel::SaveCardState::kFailed:
@@ -210,7 +205,7 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
       setCancelActionText:base::SysUTF16ToNSString(
                               _saveCardBottomSheetModel->cancel_button_text())];
 
-  if (_saveCardBottomSheetModel->save_card_delegate()->is_for_upload()) {
+  if (_saveCardBottomSheetModel->is_for_upload()) {
     [self.consumer setLegalMessages:[SaveCardMessageWithLinks
                                         convertFrom:_saveCardBottomSheetModel
                                                         ->legal_messages()]];
@@ -231,14 +226,14 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
 
   autofill::autofill_metrics::LogSaveCreditCardPromptOfferMetricIos(
       autofill::autofill_metrics::SaveCardPromptOffer::kShown,
-      _saveCardBottomSheetModel->save_card_delegate()->is_for_upload(),
+      _saveCardBottomSheetModel->is_for_upload(),
       _saveCardBottomSheetModel->save_card_delegate()
           ->GetSaveCreditCardOptions(),
       SaveCreditCardPromptOverlayType::kBottomSheet);
 
   autofill::autofill_metrics::LogSaveCreditCardPromptResultIOS(
       autofill::autofill_metrics::SaveCreditCardPromptResultIOS::kShown,
-      _saveCardBottomSheetModel->save_card_delegate()->is_for_upload(),
+      _saveCardBottomSheetModel->is_for_upload(),
       _saveCardBottomSheetModel->save_card_delegate()
           ->GetSaveCreditCardOptions(),
       SaveCreditCardPromptOverlayType::kBottomSheet);
@@ -258,14 +253,13 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
 #pragma mark - SaveCardBottomSheetDataSource
 
 - (AboveTitleImageLogoType)logoType {
-  return _saveCardBottomSheetModel->save_card_delegate()->is_for_upload()
-             ? kGoogleWalletLogo
-             : kChromeLogo;
+  return _saveCardBottomSheetModel->is_for_upload() ? kGoogleWalletLogo
+                                                    : kChromeLogo;
 }
 
 - (NSString*)logoAccessibilityLabel {
   return base::SysUTF16ToNSString(
-      _saveCardBottomSheetModel->save_card_delegate()->is_for_upload()
+      _saveCardBottomSheetModel->is_for_upload()
           ? l10n_util::GetStringUTF16(
                 base::FeatureList::IsEnabled(
                     autofill::features::kAutofillEnableWalletBranding)
@@ -281,12 +275,12 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
   _saveCardBottomSheetModel->OnAccepted();
   autofill::autofill_metrics::LogSaveCreditCardPromptResultIOS(
       autofill::autofill_metrics::SaveCreditCardPromptResultIOS::kAccepted,
-      _saveCardBottomSheetModel->save_card_delegate()->is_for_upload(),
+      _saveCardBottomSheetModel->is_for_upload(),
       _saveCardBottomSheetModel->save_card_delegate()
           ->GetSaveCreditCardOptions(),
       SaveCreditCardPromptOverlayType::kBottomSheet);
 
-  if (_saveCardBottomSheetModel->save_card_delegate()->is_for_upload()) {
+  if (_saveCardBottomSheetModel->is_for_upload()) {
     [_consumer showLoadingStateWithAccessibilityLabel:
                    base::SysUTF16ToNSString(
                        _saveCardBottomSheetModel
@@ -304,7 +298,7 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
   _saveCardBottomSheetModel->OnCanceled();
   autofill::autofill_metrics::LogSaveCreditCardPromptResultIOS(
       autofill::autofill_metrics::SaveCreditCardPromptResultIOS::kDenied,
-      _saveCardBottomSheetModel->save_card_delegate()->is_for_upload(),
+      _saveCardBottomSheetModel->is_for_upload(),
       _saveCardBottomSheetModel->save_card_delegate()
           ->GetSaveCreditCardOptions(),
       SaveCreditCardPromptOverlayType::kBottomSheet);
@@ -462,8 +456,7 @@ std::pair<NSString*, NSString*> ParseExpirationDate(NSString* expirationDate) {
   _autoDismissConfirmationTimer.Stop();
   autofill::autofill_metrics::LogCreditCardUploadConfirmationViewResultMetric(
       autofill::autofill_metrics::LegacySaveCardPromptResult::kNotInteracted,
-      /*is_card_uploaded=*/_saveCardBottomSheetModel->save_card_delegate()
-          ->is_for_upload());
+      /*is_card_uploaded=*/_saveCardBottomSheetModel->is_for_upload());
   _dismissing = YES;
   [_autofillCommandsHandler dismissSaveCardBottomSheet];
 }

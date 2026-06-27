@@ -4,9 +4,8 @@
 
 #include "remoting/host/audio_injector.h"
 
-#include "base/functional/callback.h"
 #include "build/build_config.h"
-#include "remoting/proto/audio.pb.h"
+#include "remoting/base/fifo_buffer.h"
 
 #if BUILDFLAG(IS_LINUX)
 #include "remoting/host/linux/pipewire_audio_injector.h"
@@ -17,12 +16,6 @@ namespace remoting {
 AudioInjector::AudioInjector() = default;
 
 AudioInjector::~AudioInjector() = default;
-
-void AudioInjector::ProcessAudioPacket(std::unique_ptr<AudioPacket> packet,
-                                       base::OnceClosure done) {
-  InjectAudioPacket(std::move(packet));
-  std::move(done).Run();
-}
 
 // static
 bool AudioInjector::IsSupported() {
@@ -35,6 +28,16 @@ bool AudioInjector::IsSupported() {
   return PipewireAudioInjector::IsSupported();
 #else
   return false;
+#endif
+}
+
+// static
+std::unique_ptr<AudioInjector> AudioInjector::Create(
+    std::unique_ptr<FifoBufferReader> audio_reader) {
+#if BUILDFLAG(IS_LINUX)
+  return PipewireAudioInjector::Create(std::move(audio_reader));
+#else
+  return nullptr;
 #endif
 }
 

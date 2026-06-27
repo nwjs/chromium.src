@@ -40,6 +40,7 @@
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_timeline.h"
 #include "cc/layers/picture_layer.h"
+#include "cc/trees/layer_tree_host.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/common/widget/constants.h"
@@ -167,7 +168,7 @@ String TruncateDialogMessage(const String& message) {
   return message.substr(0, kMaxMessageSize);
 }
 
-bool DisplayModeIsBorderless(LocalFrame& frame) {
+bool DisplayModeIsUnframed(LocalFrame& frame) {
   FrameWidget* widget = frame.GetWidgetForLocalRoot();
   return widget->DisplayMode() == mojom::blink::DisplayMode::kUnframed;
 }
@@ -229,8 +230,8 @@ void ChromeClientImpl::SetWindowRect(const gfx::Rect& requested_rect,
   DCHECK(web_view_);
   DCHECK_EQ(&frame, web_view_->MainFrameImpl()->GetFrame());
 
-  int minimum_size = DisplayModeIsBorderless(frame)
-                         ? blink::kMinimumBorderlessWindowSize
+  int minimum_size = DisplayModeIsUnframed(frame)
+                         ? blink::kMinimumUnframedWindowSize
                          : blink::kMinimumWindowSize;
 
   // TODO(crbug.com/1515106): Refactor so that the limits only live browser-side
@@ -298,6 +299,11 @@ void ChromeClientImpl::DidChangeBackgroundColor(SkColor4f background_color,
   web_view_->DidChangeBackgroundColor(background_color, color_adjust);
 }
 
+void ChromeClientImpl::RequestFrameWithoutVSyncFromRoot(LocalFrame& frame) {
+  if (auto* widget = frame.GetWidgetForLocalRoot()) {
+    widget->SendEarlyFinalBeginMainFrame();
+  }
+}
 void ChromeClientImpl::FocusPage() {
   DCHECK(web_view_);
   web_view_->Focus();
@@ -563,6 +569,7 @@ void ChromeClientImpl::InvalidateContainer() {
 }
 
 void ChromeClientImpl::ScheduleAnimation(const LocalFrameView* frame_view,
+                                         cc::BeginMainFrameReason reason,
                                          base::TimeDelta delay,
                                          bool urgent) {
   LocalFrame& frame = frame_view->GetFrame();
@@ -573,7 +580,7 @@ void ChromeClientImpl::ScheduleAnimation(const LocalFrameView* frame_view,
   // WebFrameWidget needs to be initialized before initializing the core frame?
   FrameWidget* widget = frame.GetWidgetForLocalRoot();
   if (widget) {
-    widget->RequestAnimationAfterDelay(delay, urgent);
+    widget->RequestAnimationAfterDelay(reason, delay, urgent);
   }
 }
 
@@ -1165,13 +1172,11 @@ bool ChromeClientImpl::StartDeferringCommits(LocalFrame& main_frame,
       ->StartDeferringCommits(timeout, reason);
 }
 
-void ChromeClientImpl::StopDeferringCommits(
-    LocalFrame& main_frame,
-    cc::PaintHoldingCommitTrigger trigger) {
+void ChromeClientImpl::StopDeferringCommits(LocalFrame& main_frame) {
   DCHECK(main_frame.IsLocalRoot());
   WebLocalFrameImpl::FromFrame(main_frame)
       ->FrameWidgetImpl()
-      ->StopDeferringCommits(trigger);
+      ->StopDeferringCommits();
 }
 
 void ChromeClientImpl::SetShouldThrottleFrameRate(bool flag,
@@ -1406,6 +1411,17 @@ void ChromeClientImpl::JavaScriptChangedValue(HTMLFormControlElement& element,
     fill_client->JavaScriptChangedValue(WebFormControlElement(&element),
                                         old_value, was_autofilled);
   }
+}
+
+bool ChromeClientImpl::IsAutofillableElement(
+    const HTMLFormControlElement& element) {
+  Document& doc = element.GetDocument();
+  if (WebAutofillClient* fill_client =
+          AutofillClientFromFrame(doc.GetFrame())) {
+    return fill_client->IsAutofillableElement(
+        WebFormControlElement(const_cast<HTMLFormControlElement*>(&element)));
+  }
+  return false;
 }
 
 gfx::Transform ChromeClientImpl::GetDeviceEmulationTransform() const {

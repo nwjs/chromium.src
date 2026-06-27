@@ -10,11 +10,13 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
-#include "chrome/browser/ui/page_actions/page_action_triggers.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
+#include "chrome/browser/ui/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/tabs/contents_observing_tab_feature.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/omnibox/browser/vector_icons.h"
@@ -26,6 +28,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace {
@@ -140,9 +143,17 @@ void BookmarkPageActionController::SetStarred(bool starred) {
 
   page_action_controller_->OverrideImage(
       kActionBookmarkThisTab,
-      ui::ImageModel::FromVectorIcon(starred
-                                         ? omnibox::kStarActiveChromeRefreshIcon
-                                         : omnibox::kStarChromeRefreshIcon),
+      ui::ImageModel::FromVectorIcon(
+          starred ? features::IsRoundedIconsEnabled()
+                        ? omnibox::kStarFilledIcon
+                        : omnibox::kStarActiveChromeRefreshOldIcon
+          : features::IsRoundedIconsEnabled()
+              ? omnibox::kStarIcon
+              : omnibox::kStarChromeRefreshOldIcon),
       starred ? page_actions::PageActionColorSource::kCascadingAccent
-              : page_actions::PageActionColorSource::kForeground);
+              : page_actions::PageActionColorSource::kForeground,
+      features::IsToolbarGlowUpEnabled()
+          ? std::make_optional<int>(starred ? IDR_UNSTAR_TO_STAR_LOTTIE
+                                            : IDR_STAR_TO_UNSTAR_LOTTIE)
+          : std::nullopt);
 }

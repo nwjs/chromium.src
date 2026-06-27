@@ -9,12 +9,19 @@
 #include "base/functional/bind.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "chrome/browser/multistep_filter/core/multistep_filter_log_router_factory.h"
+#include "chrome/browser/multistep_filter/core/multistep_filter_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "components/multistep_filter/content/filter_initiated_navigation_marker.h"
+#include "components/multistep_filter/core/logging/log_entry.h"
+#include "components/multistep_filter/core/logging/multistep_filter_logger.h"
+#include "components/multistep_filter/core/multistep_filter_service.h"
 #include "components/multistep_filter/core/multistep_filter_util.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
@@ -27,6 +34,47 @@
 #include "url/gurl.h"
 
 namespace multistep_filter {
+
+namespace {
+
+// TODO(b/515670907): Remove 'const' from parameters passed by value in .cc file
+// as per code review feedback.
+void LogUiAccepted(MultistepFilterLogRouter* const log_router,
+                   const int64_t navigation_id,
+                   const std::string_view triggering_domain) {
+  MULTISTEP_FILTER_LOG(log_router, navigation_id, LogEventType::kUiAccepted,
+                       triggering_domain)
+      << LogDetail{"navigation_attempted", true};
+}
+
+void LogUiShown(MultistepFilterLogRouter* const log_router,
+                const int64_t navigation_id,
+                const std::string_view triggering_domain,
+                bool ui_shown,
+                const FilterUiController::SuggestionUiData& ui_data) {
+  std::vector<std::string> replacement_strings;
+  for (const std::u16string& param : ui_data.replacement_params) {
+    replacement_strings.push_back(base::UTF16ToUTF8(param));
+  }
+
+  MULTISTEP_FILTER_LOG(log_router, navigation_id, LogEventType::kUiShown,
+                       triggering_domain)
+      << LogDetail{"toast_id", static_cast<int>(ui_data.toast_id)}
+      << LogDetail{"ui_shown", ui_shown}
+      << LogDetail{"replacement_params",
+                   base::JoinString(replacement_strings, ", ")};
+}
+
+void LogUiDismissed(MultistepFilterLogRouter* const log_router,
+                    const int64_t navigation_id,
+                    const std::string_view triggering_domain,
+                    const std::string_view suppressed_domain) {
+  MULTISTEP_FILTER_LOG(log_router, navigation_id, LogEventType::kUiDismissed,
+                       triggering_domain)
+      << LogDetail{"suppressed_domain", std::string(suppressed_domain)};
+}
+
+}  // namespace
 
 DEFINE_USER_DATA(FilterUiController);
 
@@ -51,39 +99,44 @@ FilterUiController* FilterUiController::From(tabs::TabInterface* tab) {
 
 FilterUiController::FilterUiController(tabs::TabInterface& tab)
     : tabs::ContentsObservingTabFeature(tab),
-      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {}
+      scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
+  if (Profile* profile = tab.GetProfile()) {
+    log_router_ = MultistepFilterLogRouterFactory::GetForProfile(profile);
+    service_ = MultistepFilterServiceFactory::GetForProfile(profile);
+  }
+}
 
 FilterUiController::~FilterUiController() = default;
 
 void FilterUiController::OnSuggestionGenerated(
     std::optional<UrlFilterSuggestion> suggestion) {
-  if (!suggestion) {
-    return;
-  }
-
-  content::WebContents* web_contents = tab().GetContents();
-  if (!web_contents) {
-    return;
-  }
-
-  const GURL& current_url = web_contents->GetLastCommittedURL();
-
-  if (ShouldSuppressSuggestions(current_url) ||
-      IsUrlSubsumedBy(suggestion->navigation_url, current_url)) {
-    return;
-  }
-
-  // TODO (crbug.com/498897135): Confirm with stakeholders if this check should
-  // be removed.
-  // Don't show suggestions if there are less than two attributes.
-  if (suggestion->attribute_ui_labels.size() <= 1) {
+  if (!suggestion || !tab().GetContents() || !service_) {
     return;
   }
 
   // Clear any existing suggestion state before showing the new one.
   ClearSuggestion();
+
+  SuggestionUiData data = GetSuggestionUiData(*suggestion, base::Time::Now());
+  ToastParams params(data.toast_id);
+  params.body_string_replacement_params = data.replacement_params;
+
+  GURL source_url = tab().GetContents()->GetLastCommittedURL();
+  const std::string dismissal_domain = GetEtldPlusOne(source_url);
+  params.toast_close_callback =
+      base::ScopedClosureRunner(GetOnDismissedCallback(
+          std::move(dismissal_domain), suggestion->triggering_navigation_id,
+          suggestion->triggering_domain));
+
+  bool ui_shown = ShowSuggestionUi(std::move(params));
+  if (ui_shown) {
+    service_->DeleteAnnotationsForTask(suggestion->task_type,
+                                       suggestion->triggering_navigation_id,
+                                       suggestion->triggering_domain);
+  }
+  LogUiShown(log_router_, suggestion->triggering_navigation_id,
+             suggestion->triggering_domain, ui_shown, data);
   current_url_filter_suggestion_ = std::move(suggestion);
-  ShowSuggestionUi(*current_url_filter_suggestion_);
 }
 
 void FilterUiController::ClearSuggestion() {
@@ -99,15 +152,17 @@ void FilterUiController::ApplySuggestion() {
       current_url_filter_suggestion_->navigation_url.is_empty()) {
     return;
   }
+
+  std::string_view domain = current_url_filter_suggestion_->triggering_domain;
+  LogUiAccepted(log_router_,
+                current_url_filter_suggestion_->triggering_navigation_id,
+                domain);
+
   GURL url = current_url_filter_suggestion_->navigation_url;
   // Clearing the suggestion prevents the toast close callback from marking
   // this as a dismissal because it invalidates the dismissal weak pointers.
   ClearSuggestion();
   NavigateTo(url);
-}
-
-bool FilterUiController::ShouldSuppressSuggestions(const GURL& url) const {
-  return dismissed_hosts_.contains(GetEtldPlusOne(url));
 }
 
 FilterUiController::SuggestionUiData FilterUiController::GetSuggestionUiData(
@@ -151,40 +206,37 @@ FilterUiController::SuggestionUiData FilterUiController::GetSuggestionUiData(
                                   age_description, filter_names}};
 }
 
-void FilterUiController::ShowSuggestionUi(
-    const UrlFilterSuggestion& suggestion) {
-  if (BrowserWindowInterface* browser_window_interface =
-          tab().GetBrowserWindowInterface()) {
-    if (ToastController* toast_controller =
-            browser_window_interface->GetFeatures().toast_controller()) {
-      // Associate the dismissal with the URL where the suggestion was shown.
-      GURL source_url;
-      if (content::WebContents* web_contents = tab().GetContents()) {
-        source_url = web_contents->GetLastCommittedURL();
-      }
-      SuggestionUiData data =
-          GetSuggestionUiData(suggestion, base::Time::Now());
-      ToastParams params(data.toast_id);
-      params.body_string_replacement_params =
-          std::move(data.replacement_params);
-      params.toast_close_callback = base::ScopedClosureRunner(
-          base::BindOnce(&FilterUiController::OnSuggestionDismissed,
-                         dismissal_weak_factory_.GetWeakPtr(), source_url));
-      toast_controller->MaybeShowToast(std::move(params));
-    }
+bool FilterUiController::ShowSuggestionUi(ToastParams params) {
+  BrowserWindowInterface* browser_window_interface =
+      tab().GetBrowserWindowInterface();
+  if (!browser_window_interface) {
+    return false;
   }
+
+  ToastController* toast_controller =
+      browser_window_interface->GetFeatures().toast_controller();
+  if (!toast_controller) {
+    return false;
+  }
+
+  return toast_controller->MaybeShowToast(std::move(params));
 }
 
-base::OnceClosure FilterUiController::GetOnDismissedCallback(const GURL& url) {
+base::OnceClosure FilterUiController::GetOnDismissedCallback(
+    std::string dismissal_domain,
+    int64_t navigation_id,
+    std::string triggering_domain) {
   return base::BindOnce(&FilterUiController::OnSuggestionDismissed,
-                        dismissal_weak_factory_.GetWeakPtr(), url);
+                        dismissal_weak_factory_.GetWeakPtr(),
+                        std::move(dismissal_domain), navigation_id,
+                        std::move(triggering_domain));
 }
 
-void FilterUiController::OnSuggestionDismissed(const GURL& url) {
-  std::string domain = GetEtldPlusOne(url);
-  if (!domain.empty()) {
-    dismissed_hosts_.insert(std::move(domain));
-  }
+void FilterUiController::OnSuggestionDismissed(std::string dismissal_domain,
+                                               int64_t navigation_id,
+                                               std::string triggering_domain) {
+  LogUiDismissed(log_router_, navigation_id, triggering_domain,
+                 dismissal_domain);
   // This invalidates the weak pointers, including the one that triggered this
   // callback, making it a OnceClosure effectively.
   ClearSuggestion();

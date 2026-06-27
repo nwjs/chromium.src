@@ -46,12 +46,10 @@ build_webui("build") {
     "util.ts",
   ]
 
-  if (!is_chromeos) {
-    ts_files += [
-      "promo_card.html.ts",
-      "promo_card.ts",
-    ]
-  }
+  ts_files += [
+    "promo_card.html.ts",
+    "promo_card.ts",
+  ]
 
   icons_html_files = [ "icons.html" ]
 
@@ -64,11 +62,8 @@ build_webui("build") {
     "shared_style_lit.css",
     "shared_vars.css",
     "toolbar.css",
+    "promo_card.css",
   ]
-
-  if (!is_chromeos) {
-    css_files += [ "promo_card.css" ]
-  }
 
   ts_composite = true
   ts_definitions = [
@@ -84,6 +79,7 @@ build_webui("build") {
 
   ts_deps = [
     "//third_party/lit/v3_0:build_ts",
+    "//ui/webui/resources/cr_components/color_change_listener:build_ts",
     "//ui/webui/resources/cr_components/managed_footnote:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",
     "//ui/webui/resources/js:build_ts",

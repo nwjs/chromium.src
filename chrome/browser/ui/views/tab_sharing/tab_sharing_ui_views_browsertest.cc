@@ -17,7 +17,6 @@
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
@@ -49,6 +48,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/view_tracker.h"
@@ -150,17 +150,6 @@ bool ShareThisTabInsteadButtonIsEnabled(Browser* browser, int tab) {
       ->IsButtonEnabled(TabSharingInfoBarButton::kShareThisTabInstead);
 }
 
-bool HasQuickNavButton(Browser* browser, int tab) {
-  return GetDelegate(browser, tab)->GetButtons() &
-         TabSharingInfoBarButton::kQuickNav;
-}
-
-std::u16string GetQuickNavButtonLabel(Browser* browser, int tab) {
-  DCHECK(HasQuickNavButton(browser, tab));  // Test error otherwise.
-  return GetDelegate(browser, tab)
-      ->GetButtonLabel(TabSharingInfoBarButton::kQuickNav);
-}
-
 bool HasCscIndicatorButton(Browser* browser, int tab) {
   return GetDelegate(browser, tab)->GetButtons() &
          TabSharingInfoBarButton::kCapturedSurfaceControlIndicator;
@@ -178,16 +167,6 @@ ui::ImageModel GetCscIndicatorButtonImage(Browser* browser, int tab) {
   return GetDelegate(browser, tab)
       ->GetButtonImage(
           TabSharingInfoBarButton::kCapturedSurfaceControlIndicator);
-}
-
-std::u16string GetExpectedSwitchToMessage(Browser* browser, int tab) {
-  content::RenderFrameHost* const rfh =
-      GetWebContents(browser, tab)->GetPrimaryMainFrame();
-  return l10n_util::GetStringFUTF16(
-      IDS_TAB_SHARING_INFOBAR_SWITCH_TO_BUTTON,
-      url_formatter::FormatOriginForSecurityDisplay(
-          rfh->GetLastCommittedOrigin(),
-          url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS));
 }
 
 content::DesktopMediaID GetDesktopMediaID(Browser* browser, int tab) {
@@ -232,7 +211,6 @@ bool IsActive(Browser* browser, int tab) {
 }
 
 const std::u16string kShareThisTabInsteadMessage = u"Share this tab instead";
-const std::u16string kViewTabMessage = u"View tab:";
 
 #if BUILDFLAG(IS_CHROMEOS)
 const policy::DlpContentRestrictionSet kEmptyRestrictionSet;
@@ -245,18 +223,10 @@ const policy::DlpContentRestrictionSet kScreenshareRestrictionSet(
 
 class TabSharingUIViewsBrowserTestBase : public InProcessBrowserTest {
  public:
-  struct Features {
-    bool enable_tab_capture_infobar_links;
-  };
-
-  explicit TabSharingUIViewsBrowserTestBase(Features features)
-      : enable_tab_capture_infobar_links_(
-            features.enable_tab_capture_infobar_links) {
+  TabSharingUIViewsBrowserTestBase() {
     // TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having to
     // disable kHttpsUpgrades feature.
-    features_.InitWithFeatureStates({{features::kHttpsUpgrades, false},
-                                     {features::kTabCaptureInfobarLinks,
-                                      enable_tab_capture_infobar_links_}});
+    features_.InitWithFeatureState(features::kHttpsUpgrades, false);
   }
 
   void SetUpOnMainThread() override {
@@ -369,9 +339,6 @@ class TabSharingUIViewsBrowserTestBase : public InProcessBrowserTest {
         EXPECT_FALSE(HasCscIndicatorButton(browser, i));
       } else if (i == capturing_tab) {
         // Capturing-tab's infobar.
-        ASSERT_TRUE(HasQuickNavButton(browser, i));
-        EXPECT_EQ(GetQuickNavButtonLabel(browser, i),
-                  GetExpectedSwitchToMessage(browser, captured_tab));
         EXPECT_EQ(HasCscIndicatorButton(browser, i),
                   has_captured_surface_control_indicator);
         if (HasCscIndicatorButton(browser, i)) {
@@ -381,14 +348,14 @@ class TabSharingUIViewsBrowserTestBase : public InProcessBrowserTest {
                   IDS_TAB_SHARING_INFOBAR_CAPTURED_SURFACE_CONTROL_PERMISSION_BUTTON));
           EXPECT_EQ(GetCscIndicatorButtonImage(browser, i),
                     ui::ImageModel::FromVectorIcon(
-                        vector_icons::kTouchpadMouseIcon, ui::kColorSysPrimary,
+                        features::IsRoundedIconsEnabled()
+                            ? vector_icons::kTouchpadMouseIcon
+                            : vector_icons::kTouchpadMouseOldIcon,
+                        ui::kColorSysPrimary,
                         /*icon_size=*/16));
         }
       } else if (i == captured_tab) {
         // Captured-tab's infobar.
-        ASSERT_TRUE(HasQuickNavButton(browser, i));
-        EXPECT_EQ(GetQuickNavButtonLabel(browser, i),
-                  GetExpectedSwitchToMessage(browser, capturing_tab));
         EXPECT_FALSE(HasCscIndicatorButton(browser, i));
       } else if (infobar_manager->infobars().size() > 0) {
         // Any other infobar.
@@ -438,22 +405,15 @@ class TabSharingUIViewsBrowserTestBase : public InProcessBrowserTest {
 
  private:
   base::test::ScopedFeatureList features_;
-  const bool enable_tab_capture_infobar_links_;
   std::unique_ptr<TabSharingUI> tab_sharing_ui_;
 };
 
-class TabSharingUIViewsBrowserTest
-    : public TabSharingUIViewsBrowserTestBase,
-      public ::testing::WithParamInterface<bool> {
+class TabSharingUIViewsBrowserTest : public TabSharingUIViewsBrowserTestBase {
  public:
-  TabSharingUIViewsBrowserTest()
-      : TabSharingUIViewsBrowserTestBase(
-            {.enable_tab_capture_infobar_links = GetParam()}) {}
+  TabSharingUIViewsBrowserTest() = default;
 };
 
-INSTANTIATE_TEST_SUITE_P(All, TabSharingUIViewsBrowserTest, testing::Bool());
-
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, StartSharing) {
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest, StartSharing) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
 
@@ -478,7 +438,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, StartSharing) {
       .browser = browser(), .capturing_tab = 0, .captured_tab = 1});
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, SwitchSharedTab) {
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest, SwitchSharedTab) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
   CreateUiAndStartSharing(browser(), /*capturing_tab=*/0, /*captured_tab=*/1);
@@ -493,7 +453,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, SwitchSharedTab) {
       .browser = browser(), .capturing_tab = 0, .captured_tab = 2});
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, StopSharing) {
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest, StopSharing) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
   CreateUiAndStartSharing(browser(), /*capturing_tab=*/0, /*captured_tab=*/1);
@@ -508,7 +468,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, StopSharing) {
                           .infobar_count = 0});
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, CloseTab) {
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest, CloseTab) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
   CreateUiAndStartSharing(browser(), /*capturing_tab=*/0, /*captured_tab=*/1);
@@ -535,7 +495,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, CloseTab) {
                           .infobar_count = 0});
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        BorderWidgetShouldCloseWhenBrowserCloses) {
   Browser* new_browser = CreateBrowser(browser()->profile());
   AddTabs(new_browser, 2);
@@ -558,7 +518,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
 #endif
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        CloseTabInIncognitoBrowser) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
@@ -615,7 +575,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
   });
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, KillTab) {
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest, KillTab) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
   CreateUiAndStartSharing(browser(), /*capturing_tab=*/1, /*captured_tab=*/2);
@@ -638,7 +598,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, KillTab) {
   tab_sharing_ui_views()->StopSharing("reason");
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, KillSharedTab) {
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest, KillSharedTab) {
   AddTabs(browser(), 2);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 3);
   CreateUiAndStartSharing(browser(), /*capturing_tab=*/0, /*captured_tab=*/1);
@@ -660,7 +620,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest, KillSharedTab) {
                           .infobar_count = 0});
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        InfobarLabelUpdatedOnNavigation) {
   AddTabs(browser(), 1);
   ASSERT_EQ(browser()->tab_strip_model()->count(), 2);
@@ -684,7 +644,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
       ::testing::HasSubstr("about:blank"));
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        InfobarGainsCapturedSurfaceControlIndicator) {
   // Think of tab #0 as kOtherTab. It is verified by VerifyUi().
   constexpr int kCapturedTab = 1;
@@ -711,7 +671,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
   VerifyUi(expectations);
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        SourceChangesRemembersIfCapturedSurfaceControlInactive) {
   constexpr int kOtherTab = 0;
   constexpr int kCapturedTab = 1;
@@ -730,7 +690,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
   GetDelegate(browser(), kOtherTab)->ShareThisTabInstead();
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        SourceChangesRemembersIfCapturedSurfaceControlActive) {
   constexpr int kOtherTab = 0;
   constexpr int kCapturedTab = 1;
@@ -752,7 +712,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
 
 #if BUILDFLAG(IS_CHROMEOS)
 
-IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingUIViewsBrowserTest,
                        SharingWithDlpAndNavigation) {
   // DLP setup
   ApplyDlpForAllUsers();
@@ -821,12 +781,9 @@ IN_PROC_BROWSER_TEST_P(TabSharingUIViewsBrowserTest,
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 class TabSharingMessageLinksBrowserTest
-    : public TabSharingUIViewsBrowserTestBase,
-      public ::testing::WithParamInterface<bool> {
+    : public TabSharingUIViewsBrowserTestBase {
  public:
-  TabSharingMessageLinksBrowserTest()
-      : TabSharingUIViewsBrowserTestBase(
-            {.enable_tab_capture_infobar_links = true}) {}
+  TabSharingMessageLinksBrowserTest() = default;
 
   void SetUpOnMainThread() override {
     TabSharingUIViewsBrowserTestBase::SetUpOnMainThread();
@@ -847,11 +804,7 @@ class TabSharingMessageLinksBrowserTest
   const std::string kCapturedTabLinkText = "chrome://new-tab-page";
 };
 
-INSTANTIATE_TEST_SUITE_P(,
-                         TabSharingMessageLinksBrowserTest,
-                         ::testing::Bool());
-
-IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingMessageLinksBrowserTest,
                        ClickingOnLinkInCapturingTabActivatesCapturedTab) {
   CreateUiAndStartSharing(browser(), kCapturingTab, kCapturedTab);
   ActivateTab(browser(), kCapturingTab);
@@ -866,7 +819,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
   EXPECT_TRUE(IsActive(browser(), kCapturedTab));
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingMessageLinksBrowserTest,
                        ClickingOnLinkInCapturedTabActivatesCapturingTab) {
   CreateUiAndStartSharing(browser(), kCapturingTab, kCapturedTab);
   ActivateTab(browser(), kCapturedTab);
@@ -881,7 +834,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
   EXPECT_TRUE(IsActive(browser(), kCapturingTab));
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingMessageLinksBrowserTest,
                        ClickingOnCaptureeLinkInOtherTabActivatesCapturedTab) {
   CreateUiAndStartSharing(browser(), kCapturingTab, kCapturedTab);
   ActivateTab(browser(), kOtherTab);
@@ -897,7 +850,7 @@ IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
   EXPECT_TRUE(IsActive(browser(), kCapturedTab));
 }
 
-IN_PROC_BROWSER_TEST_P(TabSharingMessageLinksBrowserTest,
+IN_PROC_BROWSER_TEST_F(TabSharingMessageLinksBrowserTest,
                        ClickingOnCapturerLinkInOtherTabActivatesCapturingTab) {
   CreateUiAndStartSharing(browser(), kCapturingTab, kCapturedTab);
   ActivateTab(browser(), kOtherTab);
@@ -1202,30 +1155,22 @@ IN_PROC_BROWSER_TEST_F(TabSharingUIViewsPreferCurrentTabBrowserTest,
 
   // The tab which is capturing itself: [Stop]
   EXPECT_FALSE(HasShareThisTabInsteadButton(browser(), kTab0));
-  EXPECT_FALSE(HasQuickNavButton(browser(), kTab0));
 
   // Any other tab: [Stop] [Share this tab instead]
   EXPECT_TRUE(HasShareThisTabInsteadButton(browser(), kTab1));
   EXPECT_EQ(GetShareThisTabInsteadButtonLabel(browser(), kTab1),
             kShareThisTabInsteadMessage);
-  EXPECT_FALSE(HasQuickNavButton(browser(), kTab1));
 }
 
 IN_PROC_BROWSER_TEST_F(TabSharingUIViewsPreferCurrentTabBrowserTest,
                        VerifyUiWhenCapturingAnotherTab) {
   ManualSetUp(/*captured_tab=*/kTab1);
 
-  // The capturing tab: [Stop] [Share this tab instead] [View tab: ...]
+  // The capturing tab: [Stop] [Share this tab instead]
   EXPECT_TRUE(HasShareThisTabInsteadButton(browser(), kTab0));
   EXPECT_EQ(GetShareThisTabInsteadButtonLabel(browser(), kTab0),
             kShareThisTabInsteadMessage);
-  EXPECT_TRUE(HasQuickNavButton(browser(), kTab0));
-  EXPECT_TRUE(base::StartsWith(GetQuickNavButtonLabel(browser(), kTab0),
-                               kViewTabMessage));
 
-  // The capturing tab: [Stop] [View tab: ...]
-  EXPECT_TRUE(HasQuickNavButton(browser(), kTab1));
-  EXPECT_TRUE(base::StartsWith(GetQuickNavButtonLabel(browser(), kTab1),
-                               kViewTabMessage));
+  // The captured tab: [Stop]
   EXPECT_FALSE(HasShareThisTabInsteadButton(browser(), kTab1));
 }

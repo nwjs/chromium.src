@@ -18,11 +18,14 @@ class BookmarkModel;
 namespace feature_engagement {
 class Tracker;
 }
-namespace web {
-class WebState;
+namespace signin {
+class IdentityManager;
 }
 namespace syncer {
 class SyncService;
+}
+namespace web {
+class WebState;
 }
 
 @protocol ActivityServiceCommands;
@@ -34,6 +37,7 @@ class BrowserPolicyConnectorIOS;
 @protocol FindInPageCommands;
 @protocol HelpCommands;
 @protocol LensOverlayCommands;
+@protocol LevelUpCommands;
 @protocol OverflowMenuCustomizationCommands;
 @class OverflowMenuOrderer;
 class OverlayPresenter;
@@ -50,7 +54,6 @@ class ReadingListModel;
 @protocol SceneCommands;
 @protocol SettingsCommands;
 class TabBasedIPHBrowserAgent;
-@protocol TabGroupsCommands;
 @protocol CobaltCommands;
 class TemplateURLService;
 @protocol TextZoomCommands;
@@ -92,9 +95,9 @@ class WebStateList;
 @property(nonatomic, weak) id<TextZoomCommands> textZoomHandler;
 @property(nonatomic, weak) id<QuickDeleteCommands> quickDeleteHandler;
 @property(nonatomic, weak) id<WhatsNewCommands> whatsNewHandler;
+@property(nonatomic, weak) id<LevelUpCommands> levelUpHandler;
 @property(nonatomic, weak) id<ReaderModeCommands> readerModeHandler;
 @property(nonatomic, weak) id<BWGCommands> BWGHandler;
-@property(nonatomic, weak) id<TabGroupsCommands> tabGroupsHandler;
 @property(nonatomic, weak) id<CobaltCommands> cobaltHandler;
 
 // Navigation agent for reloading pages.
@@ -148,6 +151,9 @@ class WebStateList;
 
 // The AuthenticationService to get sign-in info.
 @property(nonatomic, assign) AuthenticationService* authenticationService;
+
+// The IdentityManager to check account capabilities.
+@property(nonatomic, assign) signin::IdentityManager* identityManager;
 
 // The TabBasedIPHBrowserAgent to handle tab based in-product help bubbles.
 @property(nonatomic, assign) TabBasedIPHBrowserAgent* tabBasedIPHBrowserAgent;

@@ -28,10 +28,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor.mojom-shared.h"
 #include "chrome/common/actor/action_result.h"
-#include "chrome/common/actor/journal_details_builder.h"
-#include "chrome/common/actor/task_id.h"
 #include "chrome/common/extensions/api/experimental_actor.h"
 #include "chrome/common/extensions/api/tabs.h"
+#include "components/actor/core/journal_details_builder.h"
+#include "components/actor/core/task_id.h"
 #include "components/actor/core/task_source_info.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -279,11 +279,10 @@ ExperimentalActorPerformActionsFunction::Run() {
   }
 
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
-  actor_service->GetJournal().Log(GURL(), actor::TaskId(actions.task_id()),
-                                  "ExperimentalActorExecuteAction",
-                                  actor::JournalDetailsBuilder()
-                                      .Add("proto", actor::ToBase64(actions))
-                                      .Build());
+  actor_service->GetJournal().LogProto(
+      GURL(), actor::TaskId(actions.task_id()),
+      "ExperimentalActorExecuteAction", /*details=*/{}, actions,
+      "chrome_intelligence_proto_features.Actions");
 
   actor::TaskId task_id(actions.task_id());
 
@@ -312,7 +311,8 @@ ExperimentalActorPerformActionsFunction::Run() {
         base::BindOnce(
             &ExperimentalActorPerformActionsFunction::OnActionsFinished, this,
             task_id, start_time, skip_async_observation_information,
-            std::nullopt, std::move(action_results)));
+            std::nullopt, std::move(action_results),
+            actor::TabObservationStrategy()));
     return RespondLater();
   }
 
@@ -333,7 +333,8 @@ void ExperimentalActorPerformActionsFunction::OnActionsFinished(
     std::optional<page_content_annotations::ScreenshotOptions::
                       ScreenshotCollectionOptions>
         screenshot_collection_options,
-    std::vector<actor::ActionResultWithLatencyInfo> action_results) {
+    std::vector<actor::ActionResultWithLatencyInfo> action_results,
+    actor::TabObservationStrategy observation_strategy) {
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
   actor::ActorTask* task = actor_service->GetTask(task_id);
 
@@ -356,7 +357,7 @@ void ExperimentalActorPerformActionsFunction::OnActionsFinished(
 
   actor::mojom::ActionResultCode result_code =
       actor::mojom::ActionResultCode::kOk;
-  std::optional<size_t> index_of_failed_action = std::nullopt;
+  std::optional<size_t> index_of_failed_action;
   for (size_t i = 0; i < action_results.size(); ++i) {
     if (!actor::IsOk(action_results[i].result->code)) {
       result_code = action_results[i].result->code;

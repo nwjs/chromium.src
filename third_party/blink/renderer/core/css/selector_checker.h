@@ -451,6 +451,8 @@ class CORE_EXPORT SelectorChecker {
   bool CheckPseudoNot(const SelectorCheckingContext&, MatchResult&) const;
   bool CheckPseudoHas(const SelectorCheckingContext&, MatchResult&) const;
   bool CheckPseudoLinkTo(const SelectorCheckingContext&, MatchResult&) const;
+  bool CheckPseudoActiveNavigation(const SelectorCheckingContext&,
+                                   MatchResult&) const;
   bool MatchesAnyInList(const SelectorCheckingContext& context,
                         const CSSSelector* selector_list,
                         MatchResult& result) const;
@@ -537,11 +539,13 @@ class CORE_EXPORT SelectorChecker {
 // The set of supported selectors is formally given as “anything IsEasy()
 // returns true for”, but roughly encompasses the following:
 //
-//  - Tag matches (e.g. div).
+//  - Tag matches (e.g. div), possibly negated (e.g. :not(div)).
 //  - ID matches (e.g. #id).
 //  - Class matches (e.g. .c).
 //  - Case-sensitive attribute is-set and exact matches ([foo] and [foo="bar"]).
 //  - Subselector and descendant combinators.
+//  - Certain non-nested pseudo-element selectors (::before, ::after, ::marker,
+//    etc.) that don't have special handling.
 //  - Anything that does not need further checking
 //    (CSSSelector::IsCoveredByBucketing()).
 //
@@ -571,11 +575,19 @@ class CORE_EXPORT EasySelectorChecker {
   // Unlike SelectorChecker, does not check style_scope; the caller
   // will need to do that if desired.
   ALWAYS_INLINE static bool Match(const CSSSelector* selector,
-                                  const Element* element);
+                                  const Element* element,
+                                  const Element* pseudo_element,
+                                  PseudoId pseudo_id,
+                                  PseudoId& dynamic_pseudo);
 
  private:
   ALWAYS_INLINE static bool MatchOne(const CSSSelector* selector,
-                                     const Element* element);
+                                     const Element* element,
+                                     const Element* pseudo_element,
+                                     PseudoId pseudo_id,
+                                     PseudoId& dynamic_pseudo);
+  ALWAYS_INLINE static bool MatchesTagName(const QualifiedName& tag_q_name,
+                                           const Element* element);
   ALWAYS_INLINE static bool AttributeIsSet(const Element& element,
                                            const QualifiedName& attr);
   ALWAYS_INLINE static bool AttributeMatches(const Element& element,

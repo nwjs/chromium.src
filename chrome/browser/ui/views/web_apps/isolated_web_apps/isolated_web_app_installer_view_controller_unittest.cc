@@ -20,6 +20,7 @@
 #include "base/version.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_model.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_view.h"
+#include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_view_impl.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/test_isolated_web_app_installer_model_observer.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
@@ -56,6 +57,12 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/styled_label.h"
+#include "ui/views/layout/box_layout_view.h"
+#include "ui/views/test/test_layout_provider.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/window/dialog_delegate.h"
 #include "url/gurl.h"
 
@@ -134,10 +141,13 @@ class MockView : public IsolatedWebAppInstallerView {
   MOCK_METHOD(void, ShowDisabledScreen, (), (override));
   MOCK_METHOD(void, ShowGetMetadataScreen, (), (override));
   MOCK_METHOD(void, UpdateGetMetadataProgress, (double progress), (override));
-  MOCK_METHOD(void,
-              ShowMetadataScreen,
-              (const SignedWebBundleMetadata& bundle_metadata),
-              (override));
+  MOCK_METHOD(
+      void,
+      ShowMetadataScreen,
+      (const SignedWebBundleMetadata& bundle_metadata,
+       const std::vector<UpdateManifest::ChannelMetadata>& available_channels),
+      (override));
+
   MOCK_METHOD(void,
               ShowInstallScreen,
               (const SignedWebBundleMetadata& bundle_metadata),
@@ -275,7 +285,8 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
   EXPECT_CALL(view, ShowGetMetadataScreen());
   EXPECT_CALL(
       view, ShowMetadataScreen(WithMetadata("hoealecpbefphiclhampllbdbdpfmfpi",
-                                            u"test app name", "7.7.7")));
+                                            u"test app name", "7.7.7"),
+                               _));
 
   controller.Start(base::DoNothing(), base::DoNothing());
 
@@ -458,6 +469,9 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
 }
 
 TEST_F(IsolatedWebAppInstallerViewControllerTest, CanLaunchAppAfterInstall) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitFromCommandLine("IwaUpdateChannelsInInstaller", "");
+
   base::FilePath bundle_path = CreateBundlePath("test_bundle.swbn");
   IsolatedWebAppUrlInfo url_info = CreateAndWriteTestBundle(bundle_path, "1.0");
   MockIconAndPageState(url_info, "1.0");
@@ -564,6 +578,72 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
       Step::kGetMetadata);
 }
 
+TEST_F(IsolatedWebAppInstallerViewControllerTest,
+       SetsDefaultChannelWhenNoUpdateManifestUrl) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitFromCommandLine("IwaUpdateChannelsInInstaller", "");
+
+  base::FilePath bundle_path = CreateBundlePath("test_bundle.swbn");
+
+  // Create a standard test bundle. By default, this does not have an
+  // update_manifest_url configured in the ManifestBuilder.
+  IsolatedWebAppUrlInfo url_info = CreateAndWriteTestBundle(bundle_path, "1.0");
+  MockIconAndPageState(url_info);
+
+  IsolatedWebAppInstallerModel model{IwaSourceBundleProdMode(bundle_path)};
+  IsolatedWebAppInstallerViewController controller(profile(), fake_provider(),
+                                                   &model);
+  testing::StrictMock<MockView> view;
+  controller.SetViewForTesting(&view);
+
+  EXPECT_CALL(view, UpdateGetMetadataProgress(_)).Times(AnyNumber());
+  EXPECT_CALL(view, ShowGetMetadataScreen());
+  EXPECT_CALL(view, ShowMetadataScreen(_, _));
+
+  controller.Start(base::DoNothing(), base::DoNothing());
+
+  // Wait for the installability check to finish and transition to the metadata
+  // screen.
+  TestIsolatedWebAppInstallerModelObserver(&model).WaitForStepChange(
+      Step::kShowMetadata);
+
+  // Verify the fallback logic: There should be exactly 1 channel, and it must
+  // be "default".
+  const std::vector<UpdateManifest::ChannelMetadata>& channels =
+      model.available_channels();
+  ASSERT_EQ(channels.size(), 1u);
+  EXPECT_EQ(channels[0].channel().ToString(), "default");
+}
+
+TEST_F(IsolatedWebAppInstallerViewControllerTest,
+       ChannelsEmptyWhenFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kIwaUpdateChannelsInInstaller);
+
+  base::FilePath bundle_path = CreateBundlePath("test_bundle.swbn");
+  IsolatedWebAppUrlInfo url_info = CreateAndWriteTestBundle(bundle_path, "1.0");
+  MockIconAndPageState(url_info);
+
+  IsolatedWebAppInstallerModel model{IwaSourceBundleProdMode(bundle_path)};
+  IsolatedWebAppInstallerViewController controller(profile(), fake_provider(),
+                                                   &model);
+  testing::StrictMock<MockView> view;
+  controller.SetViewForTesting(&view);
+
+  EXPECT_CALL(view, UpdateGetMetadataProgress(_)).Times(AnyNumber());
+  EXPECT_CALL(view, ShowGetMetadataScreen());
+  EXPECT_CALL(view, ShowMetadataScreen(_, _));
+
+  controller.Start(base::DoNothing(), base::DoNothing());
+
+  TestIsolatedWebAppInstallerModelObserver(&model).WaitForStepChange(
+      Step::kShowMetadata);
+
+  const std::vector<UpdateManifest::ChannelMetadata>& channels =
+      model.available_channels();
+  EXPECT_TRUE(channels.empty());
+}
+
 #if BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(IsolatedWebAppInstallerViewControllerTest,
@@ -611,7 +691,8 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
   EXPECT_CALL(view, ShowGetMetadataScreen());
   EXPECT_CALL(
       view, ShowMetadataScreen(WithMetadata("hoealecpbefphiclhampllbdbdpfmfpi",
-                                            u"test app name", "7.7.7")));
+                                            u"test app name", "7.7.7"),
+                               _));
 
   controller.Start(base::DoNothing(), base::DoNothing());
 
@@ -652,11 +733,80 @@ TEST_F(IsolatedWebAppInstallerViewControllerTest,
   EXPECT_CALL(view, ShowGetMetadataScreen());
   EXPECT_CALL(
       view, ShowMetadataScreen(WithMetadata("hoealecpbefphiclhampllbdbdpfmfpi",
-                                            u"test app name", "7.7.7")));
+                                            u"test app name", "7.7.7"),
+                               _));
 
   profile()->GetPrefs()->SetBoolean(ash::prefs::kIsolatedWebAppsEnabled, true);
 
   model_observer.WaitForStepChange(Step::kShowMetadata);
 }
+
+TEST_F(IsolatedWebAppInstallerViewControllerTest, DisabledViewAccessibility) {
+  views::test::TestLayoutProvider layout_provider;
+  base::FilePath bundle_path = CreateBundlePath("test_bundle.swbn");
+  IsolatedWebAppInstallerModel model{IwaSourceBundleProdMode(bundle_path)};
+
+  // Force dialog state to disabled by disabling the pref.
+  profile()->GetPrefs()->SetBoolean(ash::prefs::kIsolatedWebAppsEnabled, false);
+
+  IsolatedWebAppInstallerViewController controller(profile(), fake_provider(),
+                                                   &model);
+  auto view = std::make_unique<IsolatedWebAppInstallerViewImpl>(&controller);
+  controller.SetViewForTesting(view.get());
+  view->ShowDisabledScreen();
+
+  ASSERT_GE(view->children().size(), 5);
+  // DisabledView instance (the class is internal so parent class checked)
+  auto disabled_view = view->children()[0];
+  ASSERT_TRUE(views::IsViewClass<views::BoxLayoutView>(disabled_view));
+
+  // The view hierarchy is: disabled view-> header box -> [icon, title,
+  // subtitle]
+  ASSERT_EQ(disabled_view->children().size(), 1);
+  ASSERT_EQ(disabled_view->children()[0]->children().size(), 3);
+  views::StyledLabel* subtitle_label = views::AsViewClass<views::StyledLabel>(
+      disabled_view->children()[0]->children()[2]);
+  ASSERT_NE(subtitle_label, nullptr);
+
+  // Set bounds to non-zero to make sure that layout creates children.
+  subtitle_label->SetBounds(0, 0, 1000, 1000);
+
+  // Verify that the fix for crbug.com/505281659 is applied on the parent label.
+  EXPECT_EQ(subtitle_label->GetViewAccessibility().GetCachedRole(),
+            ax::mojom::Role::kParagraph);
+
+  // Fail early if no children were created, to see if that's the problem.
+  ASSERT_GE(subtitle_label->children().size(), 2u)
+      << "No children created in subtitle_label. Size: "
+      << subtitle_label->children().size();
+
+  // Verify child accessibility names and roles.
+  bool found_link = false;
+  bool found_static_text = false;
+
+  std::u16string link_text =
+      l10n_util::GetStringUTF16(IDS_IWA_INSTALLER_DISABLED_CHANGE_PREFERENCE);
+  std::u16string full_text = l10n_util::GetStringFUTF16(
+      IDS_IWA_INSTALLER_DISABLED_SUBTITLE, link_text);
+
+  for (views::View* child : subtitle_label->children()) {
+    std::u16string name = child->GetViewAccessibility().GetCachedName();
+    ax::mojom::Role role = child->GetViewAccessibility().GetCachedRole();
+
+    if (name == link_text) {
+      found_link = true;
+      EXPECT_EQ(role, ax::mojom::Role::kLink);
+    } else if (!name.empty() && full_text.find(name) != std::u16string::npos) {
+      found_static_text = true;
+      EXPECT_EQ(role, ax::mojom::Role::kStaticText);
+    }
+  }
+
+  EXPECT_TRUE(found_link);
+  EXPECT_TRUE(found_static_text);
+  // Prevent dangling pointer (the view is destroyed first)
+  controller.SetViewForTesting(nullptr);
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }  // namespace web_app

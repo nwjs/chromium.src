@@ -30,6 +30,7 @@ chromium-metrics-reviews@google.com.
   <int value="-2093401879" label="SafetyCheckSettingsFragment"/>
   <int value="-2054907175" label="GroupedWebsitesSettings"/>
   <int value="-2049922448" label="NeverTranslateListFragment"/>
+  <int value="-2037155894" label="AutofillShoppingFragment"/>
   <int value="-1989639959" label="AdMeasurementFragment"/>
   <int value="-1897035940" label="ThemeSettingsFragment"/>
   <int value="-1806481374" label="ConfirmImportantSitesDialogFragment"/>
@@ -118,6 +119,7 @@ chromium-metrics-reviews@google.com.
   <int value="1667127067" label="HomeOfTransactionsFragment"/>
   <int value="1676521220" label="SelectLanguageFragment"/>
   <int value="1764379105" label="TabsSettings"/>
+  <int value="1810785089" label="GlicActorLoginPermissionsFragment"/>
   <int value="1837742646" label="AutofillBuyNowPayLaterFragment"/>
   <int value="1849593145" label="AndroidPaymentAppsFragment"/>
   <int value="1891640238" label="AutofillPaymentMethodsFragment"/>
@@ -380,6 +382,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Autofill AI row click"/>
   <int value="6" label="Automated Password Change"/>
   <int value="7" label="Suggestions row click"/>
+  <int value="8" label="Skills row click"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/resources/settings/metrics_browser_proxy.ts:AiPageInteractions) -->
@@ -537,6 +540,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/settings/search/SettingsSearchCoordinator.java:ExitReason) -->
+
+<!-- LINT.IfChange(SuperEncryptedHashResult) -->
+
+<enum name="SuperEncryptedHashResult">
+  <int value="0" label="Match"/>
+  <int value="1" label="Mismatch"/>
+  <int value="2" label="Missing"/>
+</enum>
+
+<!-- LINT.ThenChange(//services/preferences/tracked/pref_hash_store_impl.cc:SuperEncryptedHashResult) -->
 
 <enum name="TrackedPreference">
   <int value="0" label="kShowHomeButton"/>

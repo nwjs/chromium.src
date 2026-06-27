@@ -128,11 +128,11 @@ class UkmPageLoadMetricsObserver
       const page_load_metrics::ContentfulPaintTimingInfo&
           all_frames_largest_contentful_paint);
 
-  // Finalizes soft navigation recording - this emits both the last
-  // SoftNavigationEvent, PageLoad.SoftNavigationCount, and the UMA
-  // histogram. This is to be emitted regardless of whether the page started in
-  // the background or is / was backgrounded.
-  void RecordLastSoftNavigation();
+  // Finalizes soft navigation recording - this emits
+  // PageLoad.SoftNavigationCount and the UMA histogram.
+  // This is to be emitted regardless of whether the page started in the
+  // background or is / was backgrounded.
+  void RecordSoftNavigationCount();
 
   // Records metrics based on the page load information exposed by the observer
   // delegate, as well as updating the URL. |app_background_time| should be set
@@ -165,8 +165,6 @@ class UkmPageLoadMetricsObserver
 
   const page_load_metrics::ContentfulPaintTimingInfo&
   GetSoftNavigationLargestContentfulPaint() const;
-
-  void RecordSoftNavigationMetrics();
 
   void RecordLargestContentfulPaintBeforeSoftNavigation();
 
@@ -206,6 +204,10 @@ class UkmPageLoadMetricsObserver
   // engine) for starting URL and committed URL.
   void RecordGeneratedNavigationUKM(ukm::SourceId source_id,
                                     const GURL& committed_url);
+
+  // Records the metrics for Navigation.TypedAndDefault.
+  void RecordTypedAndDefaultUKM(ukm::SourceId source_id,
+                                const GURL& committed_url);
 
   // Records some metrics at the end of a page, even for failed provisional
   // loads.

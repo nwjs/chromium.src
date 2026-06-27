@@ -11,6 +11,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -31,6 +32,7 @@
 #include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -72,7 +74,8 @@ class WebAppPolicyManagerBrowserTest : public WebAppBrowserTestBase {
  public:
   static constexpr char kDefaultAppName[] = "Simple web app";
   static constexpr char kDefaultCustomName[] = "Custom name";
-  static constexpr char kDefaultCustomIconHash[] = "abcdef";
+  static constexpr char kDefaultCustomIconHash[] =
+      "7b1d9c8e582971ec50be86f32c7753cb6532a066bd1f9ab222c30a0a3fee429f";
 
   static constexpr char kInstallUrlSuffix[] =
       "/web_apps/install_url/install_url.html";
@@ -88,7 +91,10 @@ class WebAppPolicyManagerBrowserTest : public WebAppBrowserTestBase {
   static constexpr char kCustomIconUrlSuffix[] =
       "/web_apps/install_url/blue-192.png";
 
-  WebAppPolicyManagerBrowserTest() = default;
+  WebAppPolicyManagerBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        ::features::kWebAppInstallDialog);
+  }
 
   void SetUpOnMainThread() override {
     embedded_https_test_server().RegisterRequestHandler(
@@ -215,6 +221,9 @@ class WebAppPolicyManagerBrowserTest : public WebAppBrowserTestBase {
         base::ListValue().Append(std::move(app_config)));
     return observer.Wait() == *app_id;
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
@@ -233,8 +242,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
   provider().icon_manager().ReadAllIcons(GetAppId(),
                                          disk_bitmaps.GetCallback());
   ASSERT_TRUE(disk_bitmaps.Wait());
-  const std::map<SquareSizePx, SkBitmap>& any_icons =
-      disk_bitmaps.Get().trusted_icons.any;
+  const OrderedSizeToBitmap& any_icons = disk_bitmaps.Get().trusted_icons.any;
   ASSERT_THAT(any_icons, testing::Contains(testing::Pair(192, testing::_)));
   EXPECT_THAT(
       any_icons.at(192),
@@ -300,8 +308,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
   provider().icon_manager().ReadAllIcons(GetAppId(),
                                          disk_bitmaps.GetCallback());
   ASSERT_TRUE(disk_bitmaps.Wait());
-  const std::map<SquareSizePx, SkBitmap>& any_icons =
-      disk_bitmaps.Get().trusted_icons.any;
+  const OrderedSizeToBitmap& any_icons = disk_bitmaps.Get().trusted_icons.any;
   ASSERT_THAT(any_icons, testing::Contains(testing::Pair(192, testing::_)));
   EXPECT_THAT(
       any_icons.at(192),
@@ -324,8 +331,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
   base::test::TestFuture<WebAppIconManager::WebAppBitmaps> disk_bitmaps;
   provider().icon_manager().ReadAllIcons(app_id, disk_bitmaps.GetCallback());
   ASSERT_TRUE(disk_bitmaps.Wait());
-  const std::map<SquareSizePx, SkBitmap>& any_icons =
-      disk_bitmaps.Get().trusted_icons.any;
+  const OrderedSizeToBitmap& any_icons = disk_bitmaps.Get().trusted_icons.any;
   ASSERT_THAT(any_icons, testing::Contains(testing::Pair(192, testing::_)));
   EXPECT_THAT(
       any_icons.at(192),
@@ -347,8 +353,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
   provider().icon_manager().ReadAllIcons(GetAppId(),
                                          disk_bitmaps.GetCallback());
   ASSERT_TRUE(disk_bitmaps.Wait());
-  const std::map<SquareSizePx, SkBitmap>& any_icons =
-      disk_bitmaps.Get().trusted_icons.any;
+  const OrderedSizeToBitmap& any_icons = disk_bitmaps.Get().trusted_icons.any;
   ASSERT_THAT(any_icons, testing::Contains(testing::Pair(192, testing::_)));
   EXPECT_THAT(
       any_icons.at(192),
@@ -382,6 +387,40 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest, MigratingPolicyApp) {
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+// A policy entry with a non-HTTP/S scheme URL (e.g. corp-app://) must be
+// silently rejected. The valid HTTPS entry in the same batch must still
+// install normally.
+IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
+                       InvalidSchemePolicyEntryDoesNotCrash) {
+  auto policy = base::JSONReader::Read(R"([
+    {
+      "url": "corp-app://example.com/App",
+      "default_launch_container": "window"
+    },
+    {
+      "url": "https://valid.example.com/",
+      "default_launch_container": "window"
+    }
+  ])",
+                                       base::JSON_PARSE_CHROMIUM_EXTENSIONS)
+                    .value();
+
+  WebAppTestInstallWithOsHooksObserver install_observer(profile());
+  install_observer.BeginListening();
+
+  profile()->GetPrefs()->Set(prefs::kWebAppInstallForceList, policy);
+
+  // Wait for the valid app to install, confirming the full policy batch was
+  // processed without crashing.
+  const webapps::AppId app_id = install_observer.Wait();
+
+  const auto& registrar = provider().registrar_unsafe();
+  EXPECT_EQ(registrar.GetAppIds().size(), 1u);
+  EXPECT_NE(registrar.GetAppById(app_id), nullptr);
+  EXPECT_EQ(registrar.GetAppStartUrl(app_id),
+            GURL("https://valid.example.com/"));
+}
 
 class WebAppPolicyManagerGuestModeTest : public WebAppPolicyManagerBrowserTest {
  public:
@@ -460,7 +499,7 @@ class WebAppPolicyManagerBrowserTestWithAuthProxy
   Profile* profile() { return browser()->profile(); }
 
   net::test_server::EmbeddedTestServer auth_proxy_server_{
-      net::test_server::EmbeddedTestServer ::Type::TYPE_HTTPS};
+      net::test_server::EmbeddedTestServer::Type::TYPE_HTTPS};
 };
 
 IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTestWithAuthProxy, Install) {
@@ -486,8 +525,19 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTestWithAuthProxy, Install) {
 
   EXPECT_EQ(kDefaultCustomName,
             base::UTF16ToASCII(manifest->name.value_or(std::u16string())));
-  ASSERT_EQ(1u, manifest->icons.size());
-  EXPECT_TRUE(manifest->icons[0].src.spec().ends_with(kCustomIconUrlSuffix));
+  ASSERT_EQ(2u, manifest->icons.size());
+  EXPECT_TRUE(manifest->icons[0].src.spec().ends_with("basic-48.png"));
+  EXPECT_TRUE(manifest->icons[1].src.spec().ends_with("basic-192.png"));
+
+  base::test::TestFuture<WebAppIconManager::WebAppBitmaps> disk_bitmaps;
+  provider().icon_manager().ReadAllIcons(GetAppId(),
+                                         disk_bitmaps.GetCallback());
+  ASSERT_TRUE(disk_bitmaps.Wait());
+  const OrderedSizeToBitmap& any_icons = disk_bitmaps.Get().trusted_icons.any;
+  ASSERT_THAT(any_icons, testing::Contains(testing::Pair(192, testing::_)));
+  EXPECT_THAT(
+      any_icons.at(192),
+      gfx::test::EqualsBitmap(gfx::test::CreateBitmap(192, SK_ColorBLUE)));
 }
 
 // This test suite verifies the WebAppInstallByUserEnabled policy behavior when

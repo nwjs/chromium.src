@@ -4,56 +4,81 @@
 
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <memory>
 #include <optional>
 #include <ranges>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include "base/callback_list.h"
+#include "base/check.h"
 #include "base/check_deref.h"
-#include "base/command_line.h"
-#include "base/containers/adapters.h"
+#include "base/check_op.h"
+#include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
-#include "base/memory/raw_ptr.h"
+#include "base/functional/callback.h"
+#include "base/functional/function_ref.h"
+#include "base/location.h"
+#include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
+#include "base/sequence_checker.h"
 #include "base/task/thread_pool.h"
+#include "base/types/optional_ref.h"
+#include "base/types/pass_key.h"
 #include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_server_prediction.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_encoding.h"
-#include "components/autofill/core/browser/data_model/payments/credit_card.h"
+#include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/determine_regex_types.h"
 #include "components/autofill/core/browser/form_qualifiers.h"
 #include "components/autofill/core/browser/form_structure.h"
-#include "components/autofill/core/browser/form_structure_sectioning_util.h"
+#include "components/autofill/core/browser/form_types.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/foundations/autofill_driver.h"
+#include "components/autofill/core/browser/heuristic_source.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
-#include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/quality_metrics.h"
 #include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #include "components/autofill/core/browser/ml_model/model_predictions.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_util.h"
+#include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_data_validation.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
-#include "components/autofill/core/common/autofill_payments_features.h"
-#include "components/autofill/core/common/autofill_switches.h"
+#include "components/autofill/core/common/dense_set.h"
+#include "components/autofill/core/common/language_code.h"
+#include "components/autofill/core/common/logging/log_macros.h"
+#include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
+#include "components/autofill/core/common/password_form_fill_data.h"
+#include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/language_detection/core/constants.h"
+#include "components/optimization_guide/proto/models.pb.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/common/language_detection_details.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
-#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/rect.h"
 
 namespace autofill {
 
@@ -241,9 +266,8 @@ void AutofillManager::OnFormSubmitted(const FormData& form,
   NotifyObservers(&Observer::OnAfterFormSubmitted, form);
 }
 
-void AutofillManager::OnFormsSeen(
-    const std::vector<FormData>& updated_forms,
-    const std::vector<FormGlobalId>& removed_form_ids) {
+void AutofillManager::OnFormsSeen(std::vector<FormData> updated_forms,
+                                  std::vector<FormGlobalId> removed_form_ids) {
   auto erase_removed_forms = [&] {
     // Erase forms that have been removed from the DOM. This prevents
     // |form_structures_| from growing up its upper bound
@@ -290,7 +314,7 @@ void AutofillManager::OnFormsSeen(
       std::move(updated_form_ids), std::move(removed_form_ids),
       base::TimeTicks::Now());
 
-  ParseFormsAsync(updated_forms, std::move(process_parsed_forms));
+  ParseFormsAsync(std::move(updated_forms), std::move(process_parsed_forms));
 }
 
 void AutofillManager::QueryServerPredictions(
@@ -489,6 +513,10 @@ void AutofillManager::OnSuggestionsHidden(SuggestionHidingReason reason) {
   NotifyObservers(&Observer::OnSuggestionsHidden, reason);
 }
 
+void AutofillManager::OnEmailVerificationTokenShared(FieldGlobalId field_id) {
+  NotifyObservers(&Observer::OnEmailVerificationTokenShared, field_id);
+}
+
 void AutofillManager::OnSelectFieldOptionsDidChange(
     const FormData& form,
     const FieldGlobalId& field_id) {
@@ -602,7 +630,7 @@ AutofillManager::GetHeuristicPredictionForForm(
 }
 
 void AutofillManager::ParseFormsAsync(
-    const std::vector<FormData>& forms,
+    std::vector<FormData> forms,
     base::OnceCallback<void(AutofillManager&, const std::vector<FormData>&)>
         callback) {
   SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormsAsync");
@@ -611,35 +639,28 @@ void AutofillManager::ParseFormsAsync(
   // AutofillManager after ParseFormsAsync() and its asynchronous callees have
   // finished.
   size_t num_managed_forms = form_structures_.size();
-
-  // To be run on the main thread (accesses member variables).
-  std::vector<FormData> parseable_forms;
-  parseable_forms.reserve(forms.size());
-  for (const FormData& form : forms) {
+  std::erase_if(forms, [&](const FormData& form) {
     bool is_new_form = !form_structures_.contains(form.global_id());
     if (num_managed_forms + is_new_form > kAutofillManagerMaxFormCacheSize) {
       LOG_AF(log_manager()) << LoggingScope::kAbortParsing
                             << LogMessage::kAbortParsingTooManyForms << form;
-      continue;
+      return true;
     }
-
     if (!ShouldBeParsed(form, log_manager())) {
       LogCurrentFieldTypes(&form);
-      continue;
+      return true;
     }
-
     num_managed_forms += is_new_form;
-    parseable_forms.push_back(form);
-  }
+    return false;
+  });
 
   if (base::FeatureList::IsEnabled(
           features::kAutofillServerQueryPredictionsEarly)) {
-    QueryServerPredictions(parseable_forms, base::TimeTicks::Now());
+    QueryServerPredictions(forms, base::TimeTicks::Now());
   }
 
   ParseFormsAsyncCommon(
-      /*preserve_signatures=*/false, std::move(parseable_forms),
-      std::move(callback));
+      /*preserve_signatures=*/false, std::move(forms), std::move(callback));
 }
 
 void AutofillManager::ParseFormAsync(
@@ -670,11 +691,9 @@ void AutofillManager::ParseFormAsync(
   if (const FormStructure* const cached_form_structure =
           FindCachedFormById(form.global_id());
       cached_form_structure && !NeedsReparse(form, *cached_form_structure)) {
-    UpdateFormCache(
-        base::span_from_ref(form),
-        /*context=*/std::nullopt,
-        FormStructure::RetrieveFromCacheReason::kFormCacheUpdateWithoutParsing,
-        /*preserve_signatures=*/true);
+    UpdateFormCache(base::span_from_ref(form),
+                    /*context=*/std::nullopt,
+                    /*preserve_signatures=*/true);
     std::move(callback).Run(*this, std::move(form));
     return;
   }
@@ -721,10 +740,7 @@ void AutofillManager::ParseFormsAsyncCommon(
           return;
         }
         CHECK_EQ(context.regex_predictions.size(), context.forms.size());
-        self->UpdateFormCache(context.forms, context,
-                              FormStructure::RetrieveFromCacheReason::
-                                  kFormCacheUpdateAfterParsing,
-                              preserve_signatures);
+        self->UpdateFormCache(context.forms, context, preserve_signatures);
         for (const FormData& form : context.forms) {
           if (const FormStructure* const form_structure =
                   self->FindCachedFormById(form.global_id())) {
@@ -900,7 +916,7 @@ void AutofillManager::PopulateCacheForQueryResponse(
       form_structures_[form.global_id()] =
           std::make_unique<FormStructure>(form);
     } else {
-      form_structure->UpdateFormData(form, /*pass_key=*/{});
+      form_structure->UpdateFormData(form, base::PassKey<AutofillManager>());
     }
   }
 }
@@ -1022,7 +1038,6 @@ void AutofillManager::LogServerQueryResponseMetrics(
 void AutofillManager::UpdateFormCache(
     base::span<const FormData> forms,
     base::optional_ref<const AsyncContext> context,
-    FormStructure::RetrieveFromCacheReason reason,
     bool preserve_signatures) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormsAsync.UpdateCache");
@@ -1083,50 +1098,26 @@ void AutofillManager::UpdateFormCache(
       continue;
     }
 
-    if (base::FeatureList::IsEnabled(features::kAutofillOptimizeCacheUpdates)) {
-      FormSignature form_signature = cached_form_structure->form_signature();
-      FormSignature structural_form_signature =
-          cached_form_structure->structural_form_signature();
-      cached_form_structure->UpdateFormData(forms[i], /*pass_key=*/{});
-      if (context) {
-        reset_predictions(*cached_form_structure);
-        apply_predictions(*cached_form_structure, *context, i);
-      }
-      if (preserve_signatures ||
-          IsCreditCardFormForSignaturePurposes(
-              *cached_form_structure, GetAcUnrecognizedBehavior(client()))) {
-        // Not updating signatures of credit card forms is legacy behavior. We
-        // believe that the signatures are kept stable for voting purposes.
-        // Credit card forms are those which contain only credit card fields.
-        // TODO(crbug.com/431754194): Investigate making the behavior consistent
-        // across all form types.
-        cached_form_structure->set_form_signature(form_signature);
-        cached_form_structure->set_structural_form_signature(
-            structural_form_signature);
-      }
-    } else {
-      auto form_structure = std::make_unique<FormStructure>(forms[i]);
-      form_structure->RetrieveFromCache(*cached_form_structure, reason);
-      if (context) {
-        apply_predictions(*form_structure, *context, i);
-      }
-
-      if (!preserve_signatures &&
-          !IsCreditCardFormForSignaturePurposes(
-              *cached_form_structure, GetAcUnrecognizedBehavior(client()))) {
-        // Not updating signatures of credit card forms is legacy behavior. We
-        // believe that the signatures are kept stable for voting purposes.
-        // Credit card forms are those which contain only credit card fields.
-        // TODO(crbug.com/431754194): Investigate making the behavior consistent
-        // across all form types.
-        form_structure->set_form_signature(CalculateFormSignature(forms[i]));
-        form_structure->set_alternative_form_signature(
-            CalculateAlternativeFormSignature(forms[i]));
-        form_structure->set_structural_form_signature(
-            CalculateStructuralFormSignature(forms[i]));
-      }
-
-      form_structures_[forms[i].global_id()] = std::move(form_structure);
+    FormSignature form_signature = cached_form_structure->form_signature();
+    FormSignature structural_form_signature =
+        cached_form_structure->structural_form_signature();
+    cached_form_structure->UpdateFormData(forms[i],
+                                          base::PassKey<AutofillManager>());
+    if (context) {
+      reset_predictions(*cached_form_structure);
+      apply_predictions(*cached_form_structure, *context, i);
+    }
+    if (preserve_signatures ||
+        IsCreditCardFormForSignaturePurposes(
+            *cached_form_structure, GetAcUnrecognizedBehavior(client()))) {
+      // Not updating signatures of credit card forms is legacy behavior. We
+      // believe that the signatures are kept stable for voting purposes.
+      // Credit card forms are those which contain only credit card fields.
+      // TODO(crbug.com/431754194): Investigate making the behavior consistent
+      // across all form types.
+      cached_form_structure->set_form_signature(form_signature);
+      cached_form_structure->set_structural_form_signature(
+          structural_form_signature);
     }
   }
 }

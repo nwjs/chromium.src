@@ -9,6 +9,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/settings_controller_protocol.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller.h"
 
+@protocol AutofillAIBaseMutator;
 @class TravelInfoTableViewController;
 
 // Delegate for presentation events related to TravelInfoTableViewController.
@@ -27,6 +28,13 @@
 
 // Presentation delegate.
 @property(nonatomic, weak) id<TravelInfoTableViewControllerDelegate> delegate;
+
+// Mutator for actions in the view.
+@property(nonatomic, weak) id<AutofillAIBaseMutator> mutator;
+
+- (instancetype)init NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
 
 @end
 

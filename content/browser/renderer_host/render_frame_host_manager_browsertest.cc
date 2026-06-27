@@ -56,6 +56,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -2016,7 +2017,8 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
   SiteInstance* blank_site_instance =
       shell()->web_contents()->GetPrimaryMainFrame()->GetSiteInstance();
   EXPECT_EQ(shell()->web_contents()->GetLastCommittedURL(), GURL());
-  EXPECT_EQ(blank_site_instance->GetSiteURL(), GURL());
+  EXPECT_EQ(blank_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL(),
+            GURL());
   rvh_observers.EnsureRVHGetsDestructed(blank_rvh);
 
   // Now navigate to the view-source URL and ensure we got a different
@@ -4219,7 +4221,8 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
             ->GetPrimaryMainFrame();
   SiteInstanceImpl* a_site_instance = rfh->GetSiteInstance();
   if (AreStrictSiteInstancesEnabled()) {
-    EXPECT_EQ("http://a.com/", a_site_instance->GetSiteURL());
+    EXPECT_EQ("http://a.com/",
+              a_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
   } else {
     EXPECT_TRUE(a_site_instance->IsDefaultSiteInstance());
   }
@@ -4232,7 +4235,8 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
   SiteInstanceImpl* b_site_instance = static_cast<SiteInstanceImpl*>(
       rfh->child_at(0)->current_frame_host()->GetSiteInstance());
   if (AreStrictSiteInstancesEnabled()) {
-    EXPECT_EQ("http://b.com/", b_site_instance->GetSiteURL());
+    EXPECT_EQ("http://b.com/",
+              b_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
   } else {
     EXPECT_TRUE(b_site_instance->IsDefaultSiteInstance());
   }
@@ -4309,8 +4313,12 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     EXPECT_NE(site_instance, shell()->web_contents()->GetSiteInstance());
     EXPECT_FALSE(site_instance->IsRelatedSiteInstance(
         shell()->web_contents()->GetSiteInstance()));
-    EXPECT_EQ(site_instance->GetSiteURL(),
-              shell()->web_contents()->GetSiteInstance()->GetSiteURL());
+    EXPECT_EQ(site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL(),
+              shell()
+                  ->web_contents()
+                  ->GetSiteInstance()
+                  ->GetSecurityPrincipal()
+                  .GetDeprecatedSiteURL());
   }
 }
 
@@ -4714,8 +4722,10 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                             ->GetPrimaryFrameTree()
                             .root();
   FrameTreeNode* child = root->child_at(0);
-  GURL child_site_url =
-      child->current_frame_host()->GetSiteInstance()->GetSiteURL();
+  GURL child_site_url = child->current_frame_host()
+                            ->GetSiteInstance()
+                            ->GetSecurityPrincipal()
+                            .GetDeprecatedSiteURL();
 
   // Navigate the subframe to a URL that is cross-site from the main frame.
   {
@@ -4728,8 +4738,10 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     EXPECT_EQ(test_url, child->current_frame_host()->GetLastCommittedURL());
     EXPECT_EQ(url::Origin::Create(test_url),
               child->current_frame_host()->GetLastCommittedOrigin());
-    EXPECT_EQ(child_site_url,
-              child->current_frame_host()->GetSiteInstance()->GetSiteURL());
+    EXPECT_EQ(child_site_url, child->current_frame_host()
+                                  ->GetSiteInstance()
+                                  ->GetSecurityPrincipal()
+                                  .GetDeprecatedSiteURL());
   }
 
   // Reload the subframe while the network is down.
@@ -4767,8 +4779,10 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     EXPECT_EQ(test_url, child->current_frame_host()->GetLastCommittedURL());
     EXPECT_EQ(url::Origin::Create(test_url),
               child->current_frame_host()->GetLastCommittedOrigin());
-    EXPECT_EQ(child_site_url,
-              child->current_frame_host()->GetSiteInstance()->GetSiteURL());
+    EXPECT_EQ(child_site_url, child->current_frame_host()
+                                  ->GetSiteInstance()
+                                  ->GetSecurityPrincipal()
+                                  .GetDeprecatedSiteURL());
   }
 }
 
@@ -4803,11 +4817,16 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                             .root();
   FrameTreeNode* child1 = root->child_at(0);
   FrameTreeNode* child2 = root->child_at(1);
-  GURL a_site_url = root->current_frame_host()->GetSiteInstance()->GetSiteURL();
-  EXPECT_EQ("a.com", a_site_url.GetHost());
-  GURL b_site_url =
-      child2->current_frame_host()->GetSiteInstance()->GetSiteURL();
-  EXPECT_EQ("b.com", b_site_url.GetHost());
+  std::string a_site_host = root->current_frame_host()
+                                ->GetSiteInstance()
+                                ->GetSecurityPrincipal()
+                                .GetHost();
+  EXPECT_EQ("a.com", a_site_host);
+  std::string b_site_host = child2->current_frame_host()
+                                ->GetSiteInstance()
+                                ->GetSecurityPrincipal()
+                                .GetHost();
+  EXPECT_EQ("b.com", b_site_host);
 
   // Navigate the subframe to a cross-site URL, while blocking the request with
   // ERR_BLOCKED_BY_CLIENT.
@@ -4869,10 +4888,11 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     SiteInstanceImpl* child1_site_instance =
         child1->current_frame_host()->GetSiteInstance();
 
-    GURL c_site_url = child1_site_instance->GetSiteURL();
+    std::string c_site_host =
+        child1_site_instance->GetSecurityPrincipal().GetHost();
     if (AreAllSitesIsolatedForTesting()) {
-      EXPECT_EQ("c.com", c_site_url.GetHost());
-      EXPECT_EQ(test_url.GetHost(), c_site_url.GetHost());
+      EXPECT_EQ("c.com", c_site_host);
+      EXPECT_EQ(test_url.GetHost(), c_site_host);
     } else if (ShouldUseDefaultSiteInstanceGroup()) {
       EXPECT_EQ(
           child1_site_instance->group(),
@@ -4880,8 +4900,8 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     } else {
       EXPECT_TRUE(child1_site_instance->IsDefaultSiteInstance());
     }
-    EXPECT_NE(a_site_url, c_site_url);
-    EXPECT_NE(b_site_url, c_site_url);
+    EXPECT_NE(a_site_host, c_site_host);
+    EXPECT_NE(b_site_host, c_site_host);
   }
 }
 
@@ -5050,7 +5070,9 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     }
   }
 
-  EXPECT_EQ(success_site_instance->GetSiteURL(), site_instance->GetSiteURL());
+  EXPECT_EQ(
+      success_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL(),
+      site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
   EXPECT_NE(success_site_instance, site_instance);
 
   EXPECT_EQ(3, nav_controller.GetEntryCount());
@@ -5308,7 +5330,8 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
   }
   scoped_refptr<SiteInstance> webui_site_instance =
       shell()->web_contents()->GetPrimaryMainFrame()->GetSiteInstance();
-  EXPECT_EQ(webui_url, webui_site_instance->GetSiteURL());
+  EXPECT_EQ(webui_url,
+            webui_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
   EXPECT_TRUE(ChildProcessSecurityPolicy::GetInstance()->HasWebUIBindings(
       webui_site_instance->GetProcess()->GetDeprecatedID()));
 

@@ -87,6 +87,13 @@ class AuctionV8DevToolsSession : public blink::mojom::DevToolsSession,
                                const std::string& method,
                                base::span<const uint8_t> message) override;
   void UnpauseAndTerminate() override;
+  void AddScriptToEvaluateOnNewDocument(
+      const std::string& identifier,
+      blink::mojom::ScriptToEvaluateOnNewDocumentPtr script,
+      bool run_immediately,
+      AddScriptToEvaluateOnNewDocumentCallback callback) override;
+  void RemoveScriptToEvaluateOnNewDocument(
+      const std::string& identifier) override;
 
   // V8Inspector::Channel implementation:
   void sendResponse(
@@ -103,9 +110,6 @@ class AuctionV8DevToolsSession : public blink::mojom::DevToolsSession,
       std::unique_ptr<crdtp::Serializable> message) override;
   void SendProtocolNotification(
       std::unique_ptr<crdtp::Serializable> message) override;
-  void FallThrough(int call_id,
-                   crdtp::span<uint8_t> method,
-                   crdtp::span<uint8_t> message) override;
   void FlushProtocolNotifications() override;
 
  private:

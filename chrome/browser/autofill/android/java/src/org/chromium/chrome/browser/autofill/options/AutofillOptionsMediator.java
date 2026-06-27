@@ -6,7 +6,7 @@ package org.chromium.chrome.browser.autofill.options;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.FRAGMENT_TITLE;
-import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR_CLICKED;
+import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_PERSONAL_CONTEXT_CLICKED;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_REAUTH_SETTING_TOGGLED;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_AUTOFILL_AI_SETTING_TOGGLED;
 import static org.chromium.chrome.browser.autofill.options.AutofillOptionsProperties.ON_THIRD_PARTY_TOGGLE_CHANGED;
@@ -77,8 +77,8 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
             "Autofill.Settings.AutofillOptionsRestartAccepted";
 
     @VisibleForTesting
-    static final String HISTOGRAM_ACCESSIBILITY_ANNOTATOR_SETTINGS_LINK_ROW_CLICK =
-            "Autofill.Settings.AccessibilityAnnotatorSettingsLinkRowClick";
+    static final String HISTOGRAM_PERSONAL_CONTEXT_SETTINGS_LINK_ROW_CLICK =
+            "Autofill.Settings.PersonalContextSettingsLinkRowClick";
 
     private final Profile mProfile;
     private final Runnable mRestartRunnable;
@@ -135,8 +135,8 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
                         .with(FRAGMENT_TITLE, getFragmentTitle(context))
                         .with(ON_THIRD_PARTY_TOGGLE_CHANGED, this::onThirdPartyToggleChanged)
                         .with(
-                                ON_AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR_CLICKED,
-                                this::onAutofillAiAccessibilityAnnotatorClicked)
+                                ON_AUTOFILL_AI_PERSONAL_CONTEXT_CLICKED,
+                                this::onAutofillAiPersonalContextClicked)
                         .with(ON_AUTOFILL_AI_SETTING_TOGGLED, this::onAutofillAiSettingToggled)
                         .with(
                                 ON_AUTOFILL_AI_REAUTH_SETTING_TOGGLED,
@@ -144,8 +144,8 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
                         .build();
         updateToggleStateFromPref();
         mModel.set(
-                AutofillOptionsProperties.AUTOFILL_AI_ACCESSIBILITY_ANNOTATOR_VISIBLE,
-                isAutofillAiAccessibilityAnnotatorVisible(referrer));
+                AutofillOptionsProperties.AUTOFILL_AI_PERSONAL_CONTEXT_VISIBLE,
+                isAutofillAiPersonalContextVisible(referrer));
         mModel.set(AutofillOptionsProperties.AUTOFILL_AI_VISIBLE, isAutofillAiVisible(referrer));
         mModel.set(
                 AutofillOptionsProperties.AUTOFILL_AI_SETTING_ELIGIBLE, isEligibleToAutofillAi());
@@ -188,15 +188,14 @@ public class AutofillOptionsMediator implements ModalDialogProperties.Controller
                 : context.getString(R.string.autofill_options_title);
     }
 
-    private boolean isAutofillAiAccessibilityAnnotatorVisible(int referrer) {
+    private boolean isAutofillAiPersonalContextVisible(int referrer) {
         return isAutofillAiVisible(referrer)
-                && EntityDataManager.isAccessibilityAnnotatorSettingVisible(mProfile);
+                && EntityDataManager.isPersonalContextSettingVisible(mProfile);
     }
 
-    private void onAutofillAiAccessibilityAnnotatorClicked() {
-        AutofillUiUtils.openLink(
-                mContext, EntityDataManager.getAccessibilityAnnotatorSettingsUrl());
-        RecordUserAction.record(HISTOGRAM_ACCESSIBILITY_ANNOTATOR_SETTINGS_LINK_ROW_CLICK);
+    private void onAutofillAiPersonalContextClicked() {
+        AutofillUiUtils.openLink(mContext, EntityDataManager.getPersonalContextSettingsUrl());
+        RecordUserAction.record(HISTOGRAM_PERSONAL_CONTEXT_SETTINGS_LINK_ROW_CLICK);
     }
 
     private boolean isAutofillAiVisible(@AutofillOptionsReferrer int referrer) {

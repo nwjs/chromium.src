@@ -1058,6 +1058,11 @@ bool Layer::SwitchCCLayerForTest() {
   return true;
 }
 
+void Layer::SetBackdropFilterQuality(const float quality) {
+  backdrop_filter_quality_ = quality / GetDeviceScaleFactor();
+  cc_layer_->SetBackdropFilterQuality(backdrop_filter_quality_);
+}
+
 // Note: The code that sets this flag would be responsible to unset it on that
 // Layer. We do not want to clone this flag to a cloned layer by accident,
 // which could be a supprise. But we want to preserve it after switching to a
@@ -1067,8 +1072,9 @@ void Layer::AddCacheRenderSurfaceRequest() {
   ++cache_render_surface_requests_;
   TRACE_COUNTER_ID1("ui", "CacheRenderSurfaceRequests", this,
                     cache_render_surface_requests_);
-  if (cache_render_surface_requests_ == 1)
+  if (cache_render_surface_requests_ == 1) {
     cc_layer_->SetCacheRenderSurface(true);
+  }
 }
 
 void Layer::RemoveCacheRenderSurfaceRequest() {
@@ -1077,14 +1083,11 @@ void Layer::RemoveCacheRenderSurfaceRequest() {
   --cache_render_surface_requests_;
   TRACE_COUNTER_ID1("ui", "CacheRenderSurfaceRequests", this,
                     cache_render_surface_requests_);
-  if (cache_render_surface_requests_ == 0)
+  if (cache_render_surface_requests_ == 0) {
     cc_layer_->SetCacheRenderSurface(false);
+  }
 }
 
-void Layer::SetBackdropFilterQuality(const float quality) {
-  backdrop_filter_quality_ = quality / GetDeviceScaleFactor();
-  cc_layer_->SetBackdropFilterQuality(backdrop_filter_quality_);
-}
 void Layer::AddDeferredPaintRequest() {
   ++deferred_paint_requests_;
   TRACE_COUNTER_ID1("ui", "DeferredPaintRequests", this,
@@ -1554,22 +1557,29 @@ void Layer::SetScrollable(const gfx::Size& container_bounds) {
   cc_layer_->SetScrollable(container_bounds);
 }
 
+void Layer::SetMainSideScrollingEnabled(bool enabled) {
+  main_side_scrolling_enabled_ = enabled;
+}
+
 gfx::PointF Layer::CurrentScrollOffset() const {
   const Compositor* compositor = GetCompositor();
   gfx::PointF offset;
-  if (compositor &&
-      compositor->GetScrollOffsetForLayer(cc_layer_->element_id(), &offset))
+  if (!main_side_scrolling_enabled() && compositor &&
+      compositor->GetScrollOffsetForLayer(cc_layer_->element_id(), &offset)) {
     return offset;
+  }
   return cc_layer_->scroll_offset();
 }
 
 void Layer::SetScrollOffset(const gfx::PointF& offset) {
   Compositor* compositor = GetCompositor();
   bool scrolled_on_impl_side =
-      compositor && compositor->ScrollLayerTo(cc_layer_->element_id(), offset);
+      !main_side_scrolling_enabled() && compositor &&
+      compositor->ScrollLayerTo(cc_layer_->element_id(), offset);
 
-  if (!scrolled_on_impl_side)
+  if (!scrolled_on_impl_side) {
     cc_layer_->SetScrollOffset(offset);
+  }
 
   // TODO(crbug.com/40772386): If this layer was also resized since the last
   // commit synchronizing |cc_layer_| with the cc::LayerImpl backing

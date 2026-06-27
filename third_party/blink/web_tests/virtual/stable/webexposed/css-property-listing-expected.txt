@@ -194,6 +194,7 @@ All changes to this list should go through Blink's feature review process: http:
     flex-basis
     flex-direction
     flex-grow
+    flex-line-count
     flex-shrink
     flex-wrap
     float
@@ -327,6 +328,7 @@ All changes to this list should go through Blink's feature review process: http:
     padding-right
     padding-top
     page
+    page-margin-safety
     page-orientation
     paint-order
     perspective
@@ -423,6 +425,7 @@ All changes to this list should go through Blink's feature review process: http:
     text-emphasis-color
     text-emphasis-position
     text-emphasis-style
+    text-fit
     text-indent
     text-justify
     text-orientation

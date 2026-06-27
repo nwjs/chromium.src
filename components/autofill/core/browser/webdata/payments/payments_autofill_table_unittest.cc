@@ -14,6 +14,7 @@
 
 #include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -43,6 +44,7 @@
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/os_crypt/async/browser/test_utils.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/webdata/common/web_database.h"
 #include "sql/statement.h"
@@ -68,8 +70,6 @@ class PaymentsAutofillTableTest : public testing::Test {
  public:
   PaymentsAutofillTableTest() = default;
 
-  long kClearTimestampForLocalCvcs = 1747828800;  // May 21, 2025.
-
  protected:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -88,7 +88,7 @@ class PaymentsAutofillTableTest : public testing::Test {
     table_.emplace();
     db_.emplace();
     db_->AddTable(&*table_);
-    ASSERT_EQ(sql::INIT_OK, db_->Init(file_, &*encryptor_));
+    ASSERT_EQ(sql::INIT_OK, db_->Init(file_, encryptor_));
   }
 
   // Get date_modifed `column` of `table_name` with specific `instrument_id` or
@@ -113,7 +113,7 @@ class PaymentsAutofillTableTest : public testing::Test {
   base::ScopedTempDir temp_dir_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  std::optional<os_crypt_async::Encryptor> encryptor_;
+  scoped_refptr<os_crypt_async::Encryptor> encryptor_;
   std::optional<PaymentsAutofillTable> table_;
   std::optional<WebDatabase> db_;
 };
@@ -485,49 +485,6 @@ TEST_F(PaymentsAutofillTableTest, LocalCvcs_ClearAll) {
   cvc_statement.BindString(0, card_2.guid());
   ASSERT_TRUE(cvc_statement.is_valid());
   EXPECT_FALSE(cvc_statement.Step());
-}
-
-TEST_F(PaymentsAutofillTableTest, ClearLocalCvcsUpToMay2025_Test) {
-  CreditCard card_1 = test::WithCvc(test::GetCreditCard());
-  CreditCard card_2 = test::WithCvc(test::GetCreditCard2());
-  EXPECT_TRUE(table_->AddCreditCard(card_1));
-  EXPECT_TRUE(table_->AddCreditCard(card_2));
-
-  // Get the credit cards and the CVCs should match.
-  std::unique_ptr<CreditCard> db_card_1 = table_->GetCreditCard(card_1.guid());
-  std::unique_ptr<CreditCard> db_card_2 = table_->GetCreditCard(card_2.guid());
-  EXPECT_EQ(card_1.cvc(), db_card_1->cvc());
-  EXPECT_EQ(card_2.cvc(), db_card_2->cvc());
-
-  // Update the timestamp to later date for one of the CVCs added above.
-  sql::Statement update_cvc_statement(
-      db_->GetSQLConnection()->GetUniqueStatement(
-          "UPDATE local_stored_cvc SET last_updated_timestamp = ? "
-          "WHERE guid=?"));
-  update_cvc_statement.BindString(
-      0,
-      std::string_view(base::NumberToString(kClearTimestampForLocalCvcs + 1)));
-  update_cvc_statement.BindString(1, card_2.guid());
-  ASSERT_TRUE(update_cvc_statement.is_valid());
-  EXPECT_TRUE(update_cvc_statement.Run());
-
-  table_->ClearLocalCvcsUpToMay2025();
-
-  sql::Statement cvc_statement(db_->GetSQLConnection()->GetUniqueStatement(
-      "SELECT guid FROM local_stored_cvc WHERE guid=?"));
-
-  // Verify `card_1` CVC is deleted.
-  cvc_statement.BindString(0, card_1.guid());
-  ASSERT_TRUE(cvc_statement.is_valid());
-  EXPECT_FALSE(cvc_statement.Step());
-  ASSERT_TRUE(table_->GetCreditCard(card_1.guid())->cvc().empty());
-  cvc_statement.Reset(/*clear_bound_vars=*/true);
-
-  // Verify `card_2` CVC is not deleted.
-  cvc_statement.BindString(0, card_2.guid());
-  ASSERT_TRUE(cvc_statement.is_valid());
-  EXPECT_TRUE(cvc_statement.Step());
-  ASSERT_FALSE(table_->GetCreditCard(card_2.guid())->cvc().empty());
 }
 
 #if BUILDFLAG(IS_IOS)

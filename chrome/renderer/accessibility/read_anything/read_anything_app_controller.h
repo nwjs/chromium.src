@@ -130,11 +130,13 @@ class ReadAnythingAppController
   void OnTreeRemoved(ui::AXTree* tree) override;
 
   // Returns whether the processing of accessibility updates should be paused.
-  bool IsUpdateProcessingPaused() const;
+  // If allow_selection_updates is true (e.g. while immersive is opening),
+  // pending selection updates may be allowed to process.
+  bool IsUpdateProcessingPaused(bool allow_selection_updates = false) const;
 
   // If the update-processing system is not paused, applies pending updates and
   // triggers necessary actions. If paused, does nothing.
-  void ProcessPendingUpdatesIfAllowed();
+  void ProcessPendingUpdatesIfAllowed(bool allow_selection_updates = false);
 
   // read_anything::mojom::UntrustedPage:
   void AccessibilityEventReceived(
@@ -310,8 +312,10 @@ class ReadAnythingAppController
                          ui::AXNodeID focus_node_id,
                          int focus_offset);
   void OnCollapseSelection();
+  void AttemptLogEarlySelection(bool from_side_panel);
   void OnDistilled(int word_count);
-  void OnRenderedTextBlocksAvailable(const std::vector<std::string>& blocks);
+  void OnRenderedTextBlocksAvailable(const std::vector<std::u16string>& blocks);
+  v8::Local<v8::Value> GetAXMapping(int index);
   bool IsGoogleDocs() const;
   bool IsImmersiveEnabled() const;
   bool IsImprovedReadAloudEnabled() const;
@@ -332,7 +336,8 @@ class ReadAnythingAppController
   void OnLanguagePrefChange(const std::string& lang, bool enabled);
   bool RequiresDistillation();
   void OnHighlightGranularityChanged(int granularity);
-  void OnLineFocusChanged(int line_focus);
+  void OnLineFocusChanged(int current_line_focus,
+                          int last_non_disabled_line_focus);
   double GetLineSpacingValue(int line_spacing) const;
   double GetLetterSpacingValue(int letter_spacing) const;
   std::vector<std::string> GetSupportedFonts();
@@ -567,6 +572,13 @@ class ReadAnythingAppController
   std::set<ui::AXNodeID> displayed_nodes_pending_deletion_;
 
   bool waiting_for_tree_id_ = false;
+
+  // Tracks whether the rendered text blocks ready metric has been recorded for
+  // the current active tree ID.
+  bool rendered_text_blocks_ready_recorded_ = false;
+
+  // Tracks the time since the active tree ID was last changed.
+  base::TimeTicks active_tree_changed_start_time_;
 
   // Model that holds Reading mode state for this controller.
   ReadAnythingAppModel model_;

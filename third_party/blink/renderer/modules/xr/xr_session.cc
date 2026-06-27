@@ -2327,12 +2327,19 @@ void XRSession::OnFrame(double timestamp,
     // submit its drawing data to be cached by the frame provider.
     render_state_->OnFrameEnd();
 
+    Vector<gpu::SyncToken> camera_sync_tokens;
+    camera_sync_tokens.reserve(graphics_bindings_.size());
+
     for (auto& binding : graphics_bindings_) {
-      binding->OnFrameEnd();
+      gpu::SyncToken camera_sync_token = binding->OnFrameEnd();
+      if (camera_sync_token.HasData()) {
+        camera_sync_tokens.push_back(std::move(camera_sync_token));
+      }
     }
 
     // Submit frame with cached layers data.
-    xr_->frameProvider()->SubmitFrame(transport_delegate);
+    xr_->frameProvider()->SubmitFrame(transport_delegate,
+                                      std::move(camera_sync_tokens));
 
     // Ensure the XRFrame cannot be used outside the callbacks.
     animation_frame_->Deactivate();

@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/app_bar/coordinator/app_bar_coordinator.h"
 
+#import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/app_bar/coordinator/app_bar_container_mediator.h"
 #import "ios/chrome/browser/app_bar/coordinator/app_bar_mediator.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_container_view_controller.h"
@@ -11,8 +12,11 @@
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_coordinator.h"
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_coordinator_delegate.h"
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
@@ -26,18 +30,20 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 #import "ios/chrome/browser/shared/public/commands/guided_tour_commands.h"
-#import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 
 @interface AppBarCoordinator () <AccountMenuCoordinatorDelegate,
                                  GuidedTourCommands,
-                                 AppBarCommands>
+                                 AppBarCommands,
+                                 AppBarMediatorDelegate>
 @end
 
 @implementation AppBarCoordinator {
@@ -49,6 +55,8 @@
   raw_ptr<Browser> _regularBrowser;
   // The account menu coordinator.
   AccountMenuCoordinator* _accountMenuCoordinator;
+  // The sign-in coordinator.
+  SigninCoordinator* _signinCoordinator;
 }
 
 - (instancetype)initWithRegularBrowser:(Browser*)regularBrowser
@@ -72,10 +80,10 @@
       HandlerForProtocol(regularDispatcher, SceneCommands);
   id<TabGridCommands> tabGridHandler =
       HandlerForProtocol(regularDispatcher, TabGridCommands);
-  id<LensCommands> lensHandler =
-      HandlerForProtocol(regularDispatcher, LensCommands);
   id<BWGCommands> geminiHandler =
       HandlerForProtocol(regularDispatcher, BWGCommands);
+
+  SceneState* sceneState = _regularBrowser->GetSceneState();
 
   [regularDispatcher startDispatchingToTarget:self
                                   forProtocol:@protocol(AppBarCommands)];
@@ -85,9 +93,8 @@
   _viewController = [[AppBarViewController alloc] init];
   _viewController.sceneHandler = sceneHandler;
   _viewController.tabGridHandler = tabGridHandler;
-  _viewController.layoutGuideCenter = LayoutGuideCenterForBrowser(nil);
-
-  SceneState* sceneState = _regularBrowser->GetSceneState();
+  _viewController.layoutGuideCenter = LayoutGuideCenterForScene(sceneState);
+  _viewController.layoutState = sceneState.layoutState;
   ProfileIOS* profile = _regularBrowser->GetProfile();
 
   FullscreenController* regularFullscreenController = nullptr;
@@ -128,14 +135,18 @@
                                               _regularBrowser->GetProfile())
                 authenticationService:AuthenticationServiceFactory::
                                           GetForProfile(profile)
+                      identityManager:IdentityManagerFactory::GetForProfile(
+                                          profile)
                         geminiService:GeminiServiceFactory::GetForProfile(
                                           profile)
+                   geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(
+                                          _regularBrowser)
                             URLLoader:UrlLoadingBrowserAgent::FromBrowser(
                                           _regularBrowser)
                          tabGridState:sceneState.tabGridState
                        incognitoState:sceneState.incognitoState];
   _mediator.sceneHandler = sceneHandler;
-  _mediator.lensHandler = lensHandler;
+  _mediator.delegate = self;
   _mediator.tabGridHandler = tabGridHandler;
   _mediator.settingsHandler =
       HandlerForProtocol(regularDispatcher, SettingsCommands);
@@ -157,6 +168,8 @@
 
   _containerViewController = [[AppBarContainerViewController alloc] init];
   [_containerViewController setAppBar:_viewController];
+  _containerViewController.layoutState =
+      _regularBrowser->GetSceneState().layoutState;
 
   _containerMediator = [[AppBarContainerMediator alloc]
       initWithRegularFullscreenController:regularFullscreenController
@@ -181,25 +194,60 @@
   if (_incognitoBrowser) {
     [_incognitoBrowser->GetCommandDispatcher() stopDispatchingToTarget:self];
   }
+  _containerViewController.layoutState = nil;
+  _containerViewController = nil;
+  _viewController.layoutState = nil;
   _viewController = nil;
   _regularBrowser = nullptr;
   _incognitoBrowser = nullptr;
   [_accountMenuCoordinator stop];
   _accountMenuCoordinator.delegate = nil;
   _accountMenuCoordinator = nil;
+  [_signinCoordinator stop];
+  _signinCoordinator = nil;
 }
 
 #pragma mark AppBarMediatorDelegate
 
 - (void)showAccountMenu:(UIView*)anchorView {
+  if (_accountMenuCoordinator) {
+    [_accountMenuCoordinator stop];
+  }
   _accountMenuCoordinator = [[AccountMenuCoordinator alloc]
       initWithBaseViewController:self.baseViewController
                          browser:_regularBrowser
                       anchorView:anchorView
-                     accessPoint:AccountMenuAccessPoint::kNewTabPage
+                     accessPoint:AccountMenuAccessPoint::kAppBar
                              URL:GURL()];
   _accountMenuCoordinator.delegate = self;
   [_accountMenuCoordinator start];
+}
+
+- (void)showSignin:(UIView*)anchorView {
+  if (_signinCoordinator) {
+    return;
+  }
+  __weak __typeof(self) weakSelf = self;
+  ShowSigninCommand* command = [[ShowSigninCommand alloc]
+      initWithOperation:AuthenticationOperation::kSheetSigninAndHistorySync
+               identity:nil
+            accessPoint:signin_metrics::AccessPoint::kIosAppBar
+            promoAction:signin_metrics::PromoAction::
+                            PROMO_ACTION_NO_SIGNIN_PROMO
+             completion:^(SigninCoordinator* coordinator,
+                          SigninCoordinatorResult result,
+                          id<SystemIdentity> completionIdentity) {
+               [coordinator stop];
+               __strong __typeof(weakSelf) strongSelf = weakSelf;
+               if (strongSelf) {
+                 strongSelf->_signinCoordinator = nil;
+               }
+             }];
+  _signinCoordinator =
+      [SigninCoordinator signinCoordinatorWithCommand:command
+                                              browser:_regularBrowser
+                                   baseViewController:self.baseViewController];
+  [_signinCoordinator start];
 }
 
 #pragma mark - Properties
@@ -278,8 +326,8 @@
 
 #pragma mark - AppBarCommands
 
-- (void)showIPHBackground {
-  [_viewController showIPHBackground];
+- (void)showIPHBackgroundWithCentering:(BOOL)centered {
+  [_viewController showIPHBackgroundWithCentering:centered];
 }
 
 - (void)hideIPHBackground {

@@ -12,6 +12,7 @@ group("public") {
     ":entrypoint",
     ":features",
     ":focus_params",
+    ":input_item_source",
     ":input_plate_controls",
     ":input_plate_position",
     ":model_options",
@@ -71,6 +72,11 @@ source_set("attachment_options") {
   deps = [ "//base" ]
 }
 
+source_set("input_item_source") {
+  sources = [ "composebox_input_item_source.h" ]
+  deps = [ "//base" ]
+}
+
 source_set("entrypoint") {
   sources = [ "composebox_entrypoint.h" ]
   deps = [ "//base" ]
@@ -104,6 +110,7 @@ source_set("focus_params") {
     ":entrypoint",
     ":model_options",
     "//ios/chrome/browser/composebox/shared/coordinator",
+    "//ios/chrome/browser/composebox/shared/metrics",
     "//ios/web/public",
   ]
   deps = [ "//base" ]

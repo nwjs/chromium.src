@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/update_client/update_client.h"
+#include "extensions/browser/extension_management_client.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/safe_browsing_delegate.h"
 #include "extensions/browser/updater/extension_cache.h"
@@ -57,6 +58,10 @@ class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
   }
   void set_extension_cache(std::unique_ptr<ExtensionCache> extension_cache) {
     extension_cache_ = std::move(extension_cache);
+  }
+  void set_extension_management_client(
+      std::unique_ptr<ExtensionManagementClient> client) {
+    extension_management_client_ = std::move(client);
   }
 
   // Sets a factory to respond to calls of the CreateUpdateClient method.
@@ -102,6 +107,9 @@ class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
   bool IsExtensionIncognitoEnabled(
       const ExtensionId& extension_id,
       content::BrowserContext* context) const override;
+  bool IsExtensionIncognitoEnabled(
+      const Extension* extension,
+      content::BrowserContext* context) const override;
   bool CanExtensionCrossIncognito(
       const extensions::Extension* extension,
       content::BrowserContext* context) const override;
@@ -120,7 +128,7 @@ class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
       const network::ResourceRequest& request,
       network::mojom::RequestDestination destination,
       ui::PageTransition page_transition,
-      int child_id,
+      content::ChildProcessId child_id,
       bool is_incognito,
       const Extension* extension,
       const ExtensionSet& extensions,

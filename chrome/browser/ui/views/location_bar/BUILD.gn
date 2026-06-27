@@ -24,7 +24,6 @@ source_set("location_bar") {
       "location_bar_view.h",
       "location_icon_state_helper.h",
       "location_icon_view.h",
-      "merchant_trust_chip_button_controller.h",
       "omnibox_chip_button.h",
       "omnibox_chip_theme.h",
       "omnibox_popup_file_selector.h",
@@ -51,6 +50,7 @@ source_set("location_bar") {
       "//chrome/browser/ui/views/page_action",
       "//components/browser_apis/ui_controllers/toolbar:mojom",
       "//components/browser_apis/ui_controllers/toolbar:mojom_data_model",
+      "//components/browser_apis/ui_controllers/toolbar:types",
       "//components/omnibox/browser:location_bar",
       "//components/page_info/core",
       "//components/record_replay/core/browser",
@@ -72,6 +72,7 @@ source_set("impl") {
   deps = [
     ":icon_label_bubble",
     ":location_bar",
+    "//chrome/browser:defaults",
     "//chrome/browser/ui/dialogs",
     "//chrome/browser/ui/select_file_policy",
   ]
@@ -90,7 +91,6 @@ source_set("impl") {
       "location_bar_view.cc",
       "location_icon_state_helper.cc",
       "location_icon_view.cc",
-      "merchant_trust_chip_button_controller.cc",
       "omnibox_chip_button.cc",
       "omnibox_popup_file_selector.cc",
       "record_replay_page_action_controller.cc",
@@ -175,6 +175,9 @@ source_set("impl") {
       "//components/user_education/common",
       "//components/zoom",
       "//extensions:extensions_browser_resources",
+      "//extensions/browser",
+      "//extensions/common",
+      "//extensions/common:extension_features",
       "//third_party/blink/public/common",
       "//ui/accessibility",
       "//ui/actions",
@@ -250,6 +253,7 @@ source_set("browser_tests") {
   ]
   deps = [
     ":location_bar",
+    "//chrome/browser:chrome_content_browser_client",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service:app_registry_cache_waiter",
     "//chrome/browser/apps/link_capturing",
@@ -296,6 +300,9 @@ source_set("unit_tests") {
     "//components/omnibox/browser",
     "//components/omnibox/browser:vector_icons",
     "//components/strings:components_strings",
+    "//content/test:test_support",
+    "//extensions/common:extension_features",
+    "//testing/gmock",
     "//testing/gtest",
     "//ui/events:gesture_detection",
     "//ui/events:test_support",
@@ -308,11 +315,11 @@ source_set("interactive_ui_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
     "content_setting_image_view_interactive_uitest.cc",
+    "content_setting_interactive_uitest.cc",
     "find_bar_interactive_uitest.cc",
     "lens_overlay_homework_page_action_icon_view_interactive_uitest.cc",
     "lens_overlay_page_action_icon_view_interactive_uitest.cc",
     "location_icon_view_interactive_uitest.cc",
-    "merchant_trust_chip_button_interactive_uitest.cc",
     "record_replay_page_action_controller_interactive_uitest.cc",
     "selected_keyword_view_interactive_uitest.cc",
     "star_view_interactive_uitest.cc",

@@ -46,6 +46,18 @@ NSAttributedString* AttributedStringFromStringWithLink(
     NSDictionary* text_attributes,
     NSDictionary* link_attributes);
 
+// Parses a string with multiple embedded links inside, delineated by
+// "BEGIN_LINK" and "END_LINK". Returns an attributed string with the text set
+// as the parsed string with given `text_attributes` and the link ranges with
+// their corresponding `links_attributes`. The size of `links_attributes` must
+// match the number of parsed links. This function operates under the
+// expectation that the URLs in `links_attributes` retain their logical order in
+// the translated string across different locales.
+NSAttributedString* AttributedStringFromStringWithLinks(
+    NSString* text,
+    NSDictionary* text_attributes,
+    NSArray<NSDictionary*>* links_attributes);
+
 // Parses a string with embedded links inside, delineated by "BEGIN_LINK" and
 // "END_LINK". Returns the string without the delimiters and a list of all
 // ranges for text contained inside the tag delimiters.
@@ -74,5 +86,10 @@ CGRect TextViewLinkBound(UITextView* textView, NSRange characterRange);
 // the given font style.
 NSAttributedString* PutBoldPartInString(NSString* string,
                                         UIFontTextStyle font_style);
+
+// Returns a copy of `string` with formatting tags ("BEGIN_BOLD", "END_BOLD",
+// "BEGIN_LINK", "END_LINK") neutralized by replacing their underscores with
+// spaces (e.g., "BEGIN BOLD") to prevent injection and nested bypasses.
+NSString* RemoveFormattingTags(NSString* string);
 
 #endif  // IOS_CHROME_COMMON_STRING_UTIL_H_

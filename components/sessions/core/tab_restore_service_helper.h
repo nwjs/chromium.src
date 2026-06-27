@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_SESSIONS_CORE_TAB_RESTORE_SERVICE_HELPER_H_
 #define COMPONENTS_SESSIONS_CORE_TAB_RESTORE_SERVICE_HELPER_H_
 
+#include <map>
 #include <optional>
 #include <set>
 #include <vector>
@@ -40,6 +41,7 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
   typedef tab_restore::TimeFactory TimeFactory;
   typedef tab_restore::Window Window;
   typedef tab_restore::Group Group;
+  typedef tab_restore::Split Split;
 
   // Provides a way for the client to add behavior to the tab restore service
   // helper (e.g. implementing tabs persistence).
@@ -101,8 +103,12 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
   void BrowserClosed(LiveTabContext* context);
   void CreateHistoricalGroup(LiveTabContext* context,
                              const tab_groups::TabGroupId& id);
+  void CreateHistoricalSplit(LiveTabContext* context,
+                             const split_tabs::SplitTabId& id);
   void GroupClosed(const tab_groups::TabGroupId& group);
   void GroupCloseStopped(const tab_groups::TabGroupId& group);
+  void SplitClosed(const split_tabs::SplitTabId& id);
+  void SplitCloseStopped(const split_tabs::SplitTabId& id);
   void ClearEntries();
   void DeleteNavigationEntries(const DeletionPredicate& predicate);
 
@@ -181,11 +187,28 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
                                               WindowOpenDisposition disposition,
                                               std::vector<LiveTab*>* live_tabs);
 
+  // Helper function for RestoreEntryById(). Restores a single tab from the
+  // `split` and returns the remaining tab.
+  std::unique_ptr<Tab> RestoreOneTabFromSplit(
+      Split& split,
+      SessionID id,
+      LiveTabContext** context,
+      WindowOpenDisposition disposition,
+      sessions::tab_restore::Type session_restore_type,
+      std::vector<LiveTab*>& live_tabs);
+
   // Helper function for CreateHistoricalGroup. Returns a Group populated with
-  // metadta for the tab group `id`.
+  // metadata for the tab group `id`.
   std::unique_ptr<Group> CreateHistoricalGroupImpl(
       LiveTabContext* context,
       const tab_groups::TabGroupId& id);
+
+  // Helper function for CreateHistoricalSplit. Returns a Split populated with
+  // metadata for the split view 'id'.
+  std::unique_ptr<tab_restore::Split> CreateHistoricalSplitImpl(
+      LiveTabContext* context,
+      const split_tabs::SplitTabId& id,
+      const std::vector<std::pair<int, LiveTab*>>& split_tabs);
 
   // Returns true if |tab| has at least one navigation and
   // |tab->current_navigation_index| is in bounds.
@@ -196,6 +219,9 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
 
   // Validates all the tabs in a group.
   static bool ValidateGroup(const Group& group);
+
+  // Validates the two tabs in a split.
+  static bool ValidateSplit(const Split& split);
 
   // Removes all navigation entries matching |predicate| from |tab|.
   // Returns true if |tab| should be deleted because it is empty.
@@ -210,6 +236,13 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
   // Returns true if |group| should be deleted because it is empty.
   static bool DeleteFromGroup(const DeletionPredicate& predicate, Group* group);
 
+  // Removes all navigation entries matching |predicate| from tabs in |split|.
+  // Returns true if both tabs in |split| are deleted. If only one tab is
+  // deleted, it is moved to |remaining_tab|.
+  static bool DeleteFromSplit(const DeletionPredicate& predicate,
+                              Split* split,
+                              std::unique_ptr<Tab>& remaining_tab);
+
   // Returns true if |tab| is one we care about restoring.
   bool IsTabInteresting(const Tab& tab);
 
@@ -220,6 +253,10 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
   // Checks whether |group| is interesting -- as long as it contains tabs,
   // it is.
   bool IsGroupInteresting(const Group& group);
+
+  // Checks whether |split| is interesting -- as long as it contains at least
+  // one interesting tab, it is.
+  bool IsSplitInteresting(const Split& split);
 
   // Validates and checks |entry| for interesting.
   bool FilterEntry(const Entry& entry);
@@ -259,6 +296,9 @@ class SESSIONS_EXPORT TabRestoreServiceHelper
   // corresponding GroupClosed. We cache the set of groups closing to avoid
   // creating historical tabs for them.
   std::set<tab_groups::TabGroupId> closing_groups_;
+
+  // Maps SplitTabId to the specific SessionIDs participating in the closure.
+  std::map<split_tabs::SplitTabId, std::set<SessionID>> closing_split_tabs_;
 
   const raw_ptr<TimeFactory> time_factory_;
 };

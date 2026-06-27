@@ -3,12 +3,23 @@
 // found in the LICENSE file.
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
+#include <vector>
 
+#include "base/check.h"
+#include "base/feature_list.h"
+#include "base/files/file_path.h"
+#include "base/functional/function_ref.h"
+#include "base/i18n/rtl.h"
+#include "base/location.h"
 #include "base/memory/raw_ptr.h"
-#include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
@@ -16,8 +27,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/bind.h"
-#include "base/test/gmock_expected_support.h"
 #include "base/test/icu_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
@@ -28,7 +37,6 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
-#include "chrome/browser/download/bubble/download_display_controller.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/scoped_test_mv2_enabler.h"
 #include "chrome/browser/profiles/profile.h"
@@ -36,10 +44,9 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/download/download_display.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
-#include "chrome/browser/ui/page_actions/page_action_properties_provider.h"
+#include "chrome/browser/ui/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -52,11 +59,8 @@
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
-#include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_view.h"
-#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_test_helper.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
@@ -74,7 +78,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/browser/web_applications/model/display_override.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
-#include "chrome/browser/web_applications/policy/web_app_policy_constants.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/scope_extension_info.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
@@ -89,8 +92,7 @@
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/pref_names.h"
+#include "content/public/common/content_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -99,8 +101,11 @@
 #include "chromeos/ui/base/chromeos_ui_constants.h"
 #include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "components/infobars/content/content_infobar_manager.h"
+#include "components/infobars/core/infobar_delegate.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "components/permissions/permission_request_manager.h"
-#include "components/prefs/pref_service.h"
+#include "components/webapps/browser/installable/installable_metrics.h"
+#include "components/webapps/common/web_app_id.h"
 #include "components/webapps/services/web_app_origin_association/test/test_web_app_origin_association_fetcher.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
@@ -114,15 +119,24 @@
 #include "content/public/test/theme_change_waiter.h"
 #include "extensions/test/test_extension_dir.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/features_generated.h"
+#include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/common/widget/constants.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "third_party/skia/include/core/SkRect.h"
+#include "third_party/skia/include/core/SkRegion.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/hit_test.h"
+#include "ui/base/models/menu_model.h"
 #include "ui/base/ozone_buildflags.h"
 #include "ui/events/event.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -136,7 +150,9 @@
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
+#include "ui/views/window/frame_view.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -794,21 +810,21 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_NoElidedExtensionsMenu,
   EXPECT_FALSE(IsMenuCommandEnabled(WebAppMenuModel::kExtensionsMenuCommandId));
 }
 
-// Borderless has not been implemented for win/mac.
+// Unframed mode has not been implemented for win/mac.
 #if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
-class BorderlessIsolatedWebAppBrowserTest
+class UnframedIsolatedWebAppBrowserTest
     : public web_app::IsolatedWebAppBrowserTestHarness {
  public:
-  BorderlessIsolatedWebAppBrowserTest() = default;
+  UnframedIsolatedWebAppBrowserTest() = default;
 
   void SetUp() override {
-    SetupBorderlessFeatureFlag();
+    SetupUnframedFeatureFlag();
     IsolatedWebAppBrowserTestHarness::SetUp();
   }
 
-  void InstallAndLaunchIsolatedWebApp(bool uses_borderless) {
+  void InstallAndLaunchIsolatedWebApp(bool uses_unframed) {
     std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app =
-        uses_borderless
+        uses_unframed
             ? web_app::IsolatedWebAppBuilder(
                   web_app::ManifestBuilder()
                       .SetDisplayModeOverride({web_app::DisplayOverride::Create(
@@ -818,7 +834,7 @@ class BorderlessIsolatedWebAppBrowserTest
                               kWindowManagement,
                           true, {})
                       .SetStartUrl("/index.html"))
-                  .AddFolderFromDisk("/", "web_apps/borderless_isolated_app")
+                  .AddFolderFromDisk("/", "web_apps/unframed_isolated_app")
                   .BuildBundle()
             : web_app::IsolatedWebAppBuilder(web_app::ManifestBuilder())
                   .BuildBundle();
@@ -828,13 +844,13 @@ class BorderlessIsolatedWebAppBrowserTest
     browser_ = GetBrowserFromFrame(OpenApp(url_info.app_id()));
     browser_view_ = BrowserView::GetBrowserViewForBrowser(browser_);
 
-    if (uses_borderless) {
-      // In web_apps/borderless_isolated_app/borderless.js the title is set on
+    if (uses_unframed) {
+      // In web_apps/unframed_isolated_app/unframed.js the title is set on
       // `window.onload`. This is to make sure that the web contents have loaded
       // before doing any checks and to reduce the flakiness of the tests.
       content::TitleWatcher title_watcher(
-          browser_view()->GetActiveWebContents(), kBorderlessAppOnloadTitle);
-      EXPECT_EQ(title_watcher.WaitAndGetTitle(), kBorderlessAppOnloadTitle);
+          browser_view()->GetActiveWebContents(), kUnframedAppOnloadTitle);
+      EXPECT_EQ(title_watcher.WaitAndGetTitle(), kUnframedAppOnloadTitle);
     }
 
     views::FrameView* frame_view =
@@ -846,24 +862,24 @@ class BorderlessIsolatedWebAppBrowserTest
     auto* web_contents = browser_view()->GetActiveWebContents();
     WebAppFrameToolbarTestHelper::GrantWindowManagementPermission(web_contents);
 
-    // It takes some time to udate the borderless mode state. The title is
+    // It takes some time to udate the unframed mode state. The title is
     // updated on a change event hooked to the window.matchMedia() function,
-    // which gets triggered when the permission is granted and the borderless
+    // which gets triggered when the permission is granted and the unframed
     // mode gets enabled.
-    const std::u16string kExpectedMatchMediaTitle = u"match-media-borderless";
+    const std::u16string kExpectedMatchMediaTitle = u"match-media-unframed";
     content::TitleWatcher title_watcher(web_contents, kExpectedMatchMediaTitle);
     ASSERT_EQ(title_watcher.WaitAndGetTitle(), kExpectedMatchMediaTitle);
   }
 
-  BorderlessIsolatedWebAppBrowserTest(
-      const BorderlessIsolatedWebAppBrowserTest&) = delete;
-  BorderlessIsolatedWebAppBrowserTest& operator=(
-      const BorderlessIsolatedWebAppBrowserTest&) = delete;
+  UnframedIsolatedWebAppBrowserTest(const UnframedIsolatedWebAppBrowserTest&) =
+      delete;
+  UnframedIsolatedWebAppBrowserTest& operator=(
+      const UnframedIsolatedWebAppBrowserTest&) = delete;
 
  protected:
   // This string must match with the title set in the `window.onload` function
-  // in web_apps/borderless_isolated_app/borderless.js.
-  const std::u16string kBorderlessAppOnloadTitle = u"Borderless";
+  // in web_apps/unframed_isolated_app/unframed.js.
+  const std::u16string kUnframedAppOnloadTitle = u"Unframed";
 
   BrowserView* browser_view() { return browser_view_; }
 
@@ -925,21 +941,20 @@ class BorderlessIsolatedWebAppBrowserTest
     }
   }
 
-  virtual void SetupBorderlessFeatureFlag() {
-    scoped_feature_list_.InitAndEnableFeature(
-        blink::features::kWebAppBorderless);
+  virtual void SetupUnframedFeatureFlag() {
+    scoped_feature_list_.InitAndEnableFeature(blink::features::kUnframedIwa);
   }
   base::test::ScopedFeatureList scoped_feature_list_;
 
  private:
-  raw_ptr<Browser, AcrossTasksDanglingUntriaged> browser_;
+  raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged> browser_;
   raw_ptr<BrowserView, AcrossTasksDanglingUntriaged> browser_view_;
   raw_ptr<BrowserFrameView, AcrossTasksDanglingUntriaged> frame_view_;
 };
 
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
-                       AppUsesBorderlessModeAndHasWindowManagementPermission) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest,
+                       AppUsesUnframedModeAndHasWindowManagementPermission) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
 
   GrantWindowManagementPermission();
@@ -950,9 +965,9 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
 }
 
 // Regression test for b/321784833.
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
-                       BorderlessModeHidesTitlebarAndWindowingControls) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest,
+                       UnframedModeHidesTitlebarAndWindowingControls) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -974,9 +989,8 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
 #endif
 }
 
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
-                       DisplayModeMediaCSS) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest, DisplayModeMediaCSS) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   auto* web_contents = browser_view()->GetActiveWebContents();
 
@@ -986,8 +1000,8 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
   )";
   std::string match_media_standalone =
       "window.matchMedia('(display-mode: standalone)').matches;";
-  std::string match_media_borderless =
-      "window.matchMedia('(display-mode: borderless)').matches;";
+  std::string match_media_unframed =
+      "window.matchMedia('(display-mode: unframed)').matches;";
   std::string blue = "rgb(0, 0, 255)";
   std::string red = "rgb(255, 0, 0)";
 
@@ -1000,15 +1014,15 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
   ASSERT_TRUE(browser_view()->IsUnframedModeEnabled());
 
   // Validate that after granting the permission the display-mode matches with
-  // "borderless" and updates the background-color accordingly.
-  EXPECT_TRUE(EvalJs(web_contents, match_media_borderless).ExtractBool());
+  // "unframed" and updates the background-color accordingly.
+  EXPECT_TRUE(EvalJs(web_contents, match_media_unframed).ExtractBool());
   ASSERT_EQ(red, EvalJs(web_contents, get_background_color));
 }
 
 IN_PROC_BROWSER_TEST_F(
-    BorderlessIsolatedWebAppBrowserTest,
-    AppUsesBorderlessModeAndDoesNotHaveWindowManagementPermission) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+    UnframedIsolatedWebAppBrowserTest,
+    AppUsesUnframedModeAndDoesNotHaveWindowManagementPermission) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   ASSERT_TRUE(browser_view()->unframed_mode_enabled_for_testing());
   ASSERT_FALSE(
@@ -1016,9 +1030,9 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_FALSE(browser_view()->IsUnframedModeEnabled());
 }
 
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
-                       AppDoesntUseBorderlessMode) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/false);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest,
+                       AppDoesntUseUnframedMode) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/false);
   EXPECT_FALSE(browser_view()->AppUsesUnframedMode());
   ASSERT_FALSE(browser_view()->unframed_mode_enabled_for_testing());
   ASSERT_FALSE(
@@ -1026,9 +1040,9 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
   ASSERT_FALSE(browser_view()->IsUnframedModeEnabled());
 }
 
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
-                       PopupToItselfIsBorderless) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest,
+                       PopupToItselfIsUnframed) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   GrantWindowManagementPermission();
   ASSERT_TRUE(browser_view()->IsUnframedModeEnabled());
@@ -1042,9 +1056,9 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
   EXPECT_TRUE(popup_browser_view->IsUnframedModeEnabled());
 }
 
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
-                       PopupToAnyOtherOriginIsNotBorderless) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest,
+                       PopupToAnyOtherOriginIsNotUnframed) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   GrantWindowManagementPermission();
   ASSERT_TRUE(browser_view()->IsUnframedModeEnabled());
@@ -1056,9 +1070,9 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(
-    BorderlessIsolatedWebAppBrowserTest,
+    UnframedIsolatedWebAppBrowserTest,
     PopupSize_CanSubceedMinimumWindowSize_And_InnerAndOuterSizesAreCorrect) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   GrantWindowManagementPermission();
   ASSERT_TRUE(browser_view()->IsUnframedModeEnabled());
@@ -1068,25 +1082,25 @@ IN_PROC_BROWSER_TEST_F(
           .ExtractString();
 
   // width and height set should be less than `blink::kMinimumWindowSize` to
-  // ensure that for borderless apps, it's possible to subceed the limit.
+  // ensure that for unframed apps, it's possible to subceed the limit.
   const std::string kWindowOpenScript = base::StrCat(
       {"window.open('", url,
        "', '', 'location=0, status=0, scrollbars=0, left=0, top=0, width=",
-       base::NumberToString(blink::kMinimumBorderlessWindowSize), ", height=",
-       base::NumberToString(blink::kMinimumBorderlessWindowSize), "');"});
+       base::NumberToString(blink::kMinimumUnframedWindowSize), ", height=",
+       base::NumberToString(blink::kMinimumUnframedWindowSize), "');"});
   BrowserView* popup_browser_view = OpenPopup(kWindowOpenScript);
 
   EXPECT_TRUE(popup_browser_view->IsUnframedModeEnabled());
   auto* popup_web_contents = popup_browser_view->GetActiveWebContents();
 
-  // Make sure the popup is fully ready. The title gets set to Borderless on
+  // Make sure the popup is fully ready. The title gets set to Unframed on
   // window.onload event.
   content::TitleWatcher init_title_watcher(popup_web_contents,
-                                           kBorderlessAppOnloadTitle);
-  EXPECT_EQ(init_title_watcher.WaitAndGetTitle(), kBorderlessAppOnloadTitle);
+                                           kUnframedAppOnloadTitle);
+  EXPECT_EQ(init_title_watcher.WaitAndGetTitle(), kUnframedAppOnloadTitle);
 
-  gfx::Size expected_size(blink::kMinimumBorderlessWindowSize,
-                          blink::kMinimumBorderlessWindowSize);
+  gfx::Size expected_size(blink::kMinimumUnframedWindowSize,
+                          blink::kMinimumUnframedWindowSize);
 
 // For ChromeOS the resizable borders are "outside of the window" where as for
 // Linux they are "inside of the window".
@@ -1098,17 +1112,17 @@ IN_PROC_BROWSER_TEST_F(
       2 * OpaqueBrowserFrameViewLayout::kFrameBorderThickness;
   // window.open() sets the inner size to match with the given size.
   gfx::Size expected_outer_size(
-      blink::kMinimumBorderlessWindowSize + kFrameInsets,
-      blink::kMinimumBorderlessWindowSize + kFrameInsets);
+      blink::kMinimumUnframedWindowSize + kFrameInsets,
+      blink::kMinimumUnframedWindowSize + kFrameInsets);
   WaitForWindowSizeCorrectlyUpdated(popup_browser_view, expected_size,
                                     expected_outer_size);
 #endif
 }
 
 IN_PROC_BROWSER_TEST_F(
-    BorderlessIsolatedWebAppBrowserTest,
+    UnframedIsolatedWebAppBrowserTest,
     PopupResize_CanSubceedMinimumWindowSize_And_InnerAndOuterSizesAreCorrect) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   GrantWindowManagementPermission();
   ASSERT_TRUE(browser_view()->IsUnframedModeEnabled());
@@ -1125,11 +1139,11 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(popup_browser_view->IsUnframedModeEnabled());
   auto* popup_web_contents = popup_browser_view->GetActiveWebContents();
 
-  // Make sure the popup is fully ready. The title gets set to Borderless on
+  // Make sure the popup is fully ready. The title gets set to Unframed on
   // window.onload event.
   content::TitleWatcher init_title_watcher(popup_web_contents,
-                                           kBorderlessAppOnloadTitle);
-  EXPECT_EQ(init_title_watcher.WaitAndGetTitle(), kBorderlessAppOnloadTitle);
+                                           kUnframedAppOnloadTitle);
+  EXPECT_EQ(init_title_watcher.WaitAndGetTitle(), kUnframedAppOnloadTitle);
 
   const std::u16string kResizeTitle = u"resized";
   content::TitleWatcher resized_title_watcher(popup_web_contents, kResizeTitle);
@@ -1145,18 +1159,18 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(ExecJs(popup_web_contents, kOnResizeScript));
 
   // width and height set should be less than `blink::kMinimumWindowSize` to
-  // ensure that for borderless apps, it's possible to subceed the limit.
+  // ensure that for unframed apps, it's possible to subceed the limit.
   const std::string kResizeToScript = content::JsReplace(
       R"(
     window.resizeTo($1,$1)
   )",
-      base::NumberToString(blink::kMinimumBorderlessWindowSize));
+      base::NumberToString(blink::kMinimumUnframedWindowSize));
   EXPECT_TRUE(ExecJs(popup_web_contents, kResizeToScript));
   std::ignore = resized_title_watcher.WaitAndGetTitle();
   EXPECT_EQ(popup_web_contents->GetTitle(), kResizeTitle);
 
-  gfx::Size expected_size(blink::kMinimumBorderlessWindowSize,
-                          blink::kMinimumBorderlessWindowSize);
+  gfx::Size expected_size(blink::kMinimumUnframedWindowSize,
+                          blink::kMinimumUnframedWindowSize);
 
 #if BUILDFLAG(IS_CHROMEOS)
   WaitForWindowSizeCorrectlyUpdated(popup_browser_view, expected_size,
@@ -1166,17 +1180,17 @@ IN_PROC_BROWSER_TEST_F(
       2 * OpaqueBrowserFrameViewLayout::kFrameBorderThickness;
   // window.resizeTo() sets the outer size to match with the given size.
   gfx::Size expected_inner_size(
-      blink::kMinimumBorderlessWindowSize - kFrameInsets,
-      blink::kMinimumBorderlessWindowSize - kFrameInsets);
+      blink::kMinimumUnframedWindowSize - kFrameInsets,
+      blink::kMinimumUnframedWindowSize - kFrameInsets);
   WaitForWindowSizeCorrectlyUpdated(popup_browser_view, expected_inner_size,
                                     expected_size);
 #endif
 }
 
-// Test to ensure that the minimum size for a borderless app is as small as
+// Test to ensure that the minimum size for a unframed app is as small as
 // possible. To test the fix for b/265935069.
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest, FrameMinimumSize) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTest, FrameMinimumSize) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
   EXPECT_TRUE(browser_view()->AppUsesUnframedMode());
   GrantWindowManagementPermission();
 
@@ -1185,7 +1199,7 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest, FrameMinimumSize) {
       browser_view()->window_management_permission_granted_for_testing());
   ASSERT_TRUE(browser_view()->IsUnframedModeEnabled());
 
-  // The minimum size of a window is smaller for a borderless mode app than for
+  // The minimum size of a window is smaller for a unframed mode app than for
   // a normal app. The size of the borders is inconsistent (and we don't have
   // access to the exact borders from here) and varies by OS.
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1196,18 +1210,17 @@ IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTest, FrameMinimumSize) {
 #endif
 }
 
-class BorderlessIsolatedWebAppBrowserTestDisabledFlag
-    : public BorderlessIsolatedWebAppBrowserTest {
+class UnframedIsolatedWebAppBrowserTestDisabledFlag
+    : public UnframedIsolatedWebAppBrowserTest {
  protected:
-  void SetupBorderlessFeatureFlag() override {
-    scoped_feature_list_.InitAndDisableFeature(
-        blink::features::kWebAppBorderless);
+  void SetupUnframedFeatureFlag() override {
+    scoped_feature_list_.InitAndDisableFeature(blink::features::kUnframedIwa);
   }
 };
 
-IN_PROC_BROWSER_TEST_F(BorderlessIsolatedWebAppBrowserTestDisabledFlag,
-                       AppCannotUseFeatureWhenBorderlessFlagIsDisabled) {
-  InstallAndLaunchIsolatedWebApp(/*uses_borderless=*/true);
+IN_PROC_BROWSER_TEST_F(UnframedIsolatedWebAppBrowserTestDisabledFlag,
+                       AppCannotUseFeatureWhenUnframedFlagIsDisabled) {
+  InstallAndLaunchIsolatedWebApp(/*uses_unframed=*/true);
 
   EXPECT_FALSE(browser_view()->AppUsesUnframedMode());
   EXPECT_FALSE(
@@ -1714,7 +1727,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_EQ(initial_height_value, updated_rect_list[3].GetInt());
 }
 
-// TODO(crbug.com/40809857): Flaky. Also enable for borderless mode when
+// TODO(crbug.com/40809857): Flaky. Also enable for unframed mode when
 // fixed.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        DISABLED_WindowControlsOverlayDraggableRegions) {
@@ -2255,7 +2268,7 @@ class WebAppFrameToolbarBrowserTest_AdditionalWindowingControls
         browser(), std::move(web_app_info), start_url);
   }
 
-  bool RunUntil(base::FunctionRef<bool(void)> condition) {
+  bool RunUntil(base::FunctionRef<bool()> condition) {
     // TODO(crbug.com/41492531):`base::test::RunUntil` is flaky on Mac.
 #if BUILDFLAG(IS_MAC)
     while (!condition()) {
@@ -3012,12 +3025,24 @@ IN_PROC_BROWSER_TEST_F(
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+// Helper class to wait for the origin text animation to complete on a web
+// app frame toolbar. Robust against being initialized before or during the
+// animation.
 class OriginTextVisibilityWaiter : public views::ViewObserver {
  public:
-  enum class VisibilityChange { kAppear, kDisappear };
-  explicit OriginTextVisibilityWaiter(WebAppOriginText* origin_text)
-      : origin_text_(origin_text) {
+  OriginTextVisibilityWaiter(WebAppOriginText* origin_text,
+                             const std::u16string& expected_text)
+      : origin_text_(origin_text), expected_text_(expected_text) {
     observation_.Observe(origin_text_);
+    if (origin_text_->GetLastCompletedAnimationTextForTesting() ==
+        expected_text_) {
+      observed_text_ = expected_text_;
+      state_ = State::kDone;
+      future_.SetValue(observed_text_);
+    } else if (origin_text_->GetVisible()) {
+      observed_text_ = origin_text_->GetLabelTextForTesting();
+      state_ = State::kWaitingForDisappear;
+    }
   }
   ~OriginTextVisibilityWaiter() override = default;
 
@@ -3025,52 +3050,39 @@ class OriginTextVisibilityWaiter : public views::ViewObserver {
   void OnViewVisibilityChanged(views::View* view_or_ancestor,
                                views::View* starting_view,
                                bool visible) override {
-    log_.push_back(origin_text_->GetVisible() ? VisibilityChange::kAppear
-                                              : VisibilityChange::kDisappear);
-    if (origin_text_->GetVisible() && observed_text_.empty()) {
-      observed_text_ = origin_text_->GetLabelTextForTesting();
-    }
-    CheckAndMaybeResolve();
-  }
-
-  // Returns true if the animation was correct, false otherwise. Also returns
-  // the observed text.
-  std::tuple<bool, std::u16string> Wait() { return future_.Take(); }
-
-  void WaitForOriginTextAnimation(const std::string& hostname, uint16_t port) {
-    std::u16string expected_origin_text = base::StrCat(
-        {base::ASCIIToUTF16(hostname), u":", base::NumberToString16(port)});
-
-    auto [animated_correctly, observed_text] = Wait();
-    EXPECT_TRUE(animated_correctly);
-    EXPECT_EQ(observed_text, expected_origin_text);
-  }
-
- private:
-  void CheckAndMaybeResolve() {
-    CHECK(!log_.empty());
-    // Expects origin_text_ to become visible then become invisible.
-    std::vector<VisibilityChange> expectation = {
-        VisibilityChange::kAppear,
-        VisibilityChange::kDisappear,
-    };
-    if (log_ == expectation) {
-      future_.SetValue(true, observed_text_);
-      return;
-    }
-    // Fail if log_ isn't a prefix of expectation.
-    for (size_t i = 0; i < log_.size(); ++i) {
-      if (log_[i] != expectation[i]) {
-        future_.SetValue(false, observed_text_);
-        return;
+    if (state_ == State::kWaitingForAppear) {
+      if (origin_text_->GetVisible()) {
+        observed_text_ = origin_text_->GetLabelTextForTesting();
+        state_ = State::kWaitingForDisappear;
+      }
+    } else if (state_ == State::kWaitingForDisappear) {
+      if (!origin_text_->GetVisible()) {
+        state_ = State::kDone;
+        future_.SetValue(observed_text_);
       }
     }
   }
 
+  void WaitForOriginTextAnimation() {
+    EXPECT_TRUE(future_.Wait());
+    std::u16string observed_text = future_.Take();
+    EXPECT_EQ(observed_text, expected_text_);
+  }
+
+ private:
+  // Used to denote the various stages the OriginTextVisibilityWaiter can be in,
+  // set the value of the observed text accordingly.
+  enum class State {
+    kWaitingForAppear,
+    kWaitingForDisappear,
+    kDone,
+  };
+
   const raw_ptr<WebAppOriginText> origin_text_;
+  const std::u16string expected_text_;
+  State state_ = State::kWaitingForAppear;
   std::u16string observed_text_;
-  base::test::TestFuture<bool, std::u16string> future_;
-  std::vector<VisibilityChange> log_;
+  base::test::TestFuture<std::u16string> future_;
   base::ScopedObservation<views::View, views::ViewObserver> observation_{this};
 };
 
@@ -3085,11 +3097,25 @@ class WebAppFrameToolbarBrowserTest_OriginText
     WebAppToolbarButtonContainer::DisableAnimationForTesting(false);
   }
 
-  void InstallAndLaunchWebApp() {
-    helper()->InstallAndLaunchWebApp(browser(), app_url());
+  std::u16string GetExpectedOriginText(const std::string& hostname) const {
+    return base::StrCat(
+        {base::ASCIIToUTF16(hostname), u":",
+         base::NumberToString16(embedded_https_test_server().port())});
+  }
 
-    // Origin text should show after install and launch.
-    ExpectOriginTextAndAnimation(in_scope_host_);
+  void InstallAndLaunchWebApp() {
+    webapps::AppId app_id =
+        helper()->InstallWebApp(browser()->profile(), app_url());
+    content::TestNavigationObserver navigation_observer(app_url());
+    navigation_observer.StartWatchingNewWebContents();
+    Browser* app_browser =
+        web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+    helper()->SetViewFromAppBrowser(app_browser);
+
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(), GetExpectedOriginText(in_scope_host_));
+    navigation_observer.WaitForNavigationFinished();
+    origin_text_waiter.WaitForOriginTextAnimation();
   }
 
   void ExpectLastCommittedUrl(const GURL& url) {
@@ -3098,20 +3124,6 @@ class WebAppFrameToolbarBrowserTest_OriginText
                        ->tab_strip_model()
                        ->GetActiveWebContents()
                        ->GetLastCommittedURL());
-  }
-
-  void ExpectOriginTextAndAnimation(const std::string& hostname) {
-    ui_test_utils::WaitForViewVisibility(helper()->app_browser(),
-                                         VIEW_ID_WEB_APP_ORIGIN_TEXT, true);
-    std::u16string expected_origin_text = base::StrCat(
-        {base::ASCIIToUTF16(hostname), u":",
-         base::NumberToString16(embedded_https_test_server().port())});
-    EXPECT_EQ(helper()->app_browser()->app_controller()->GetLaunchFlashText(),
-              expected_origin_text);
-    EXPECT_EQ(helper()->origin_text_view()->GetLabelTextForTesting(),
-              expected_origin_text);
-    ui_test_utils::WaitForViewVisibility(helper()->app_browser(),
-                                         VIEW_ID_WEB_APP_ORIGIN_TEXT, false);
   }
 
   GURL app_url() {
@@ -3124,14 +3136,8 @@ class WebAppFrameToolbarBrowserTest_OriginText
       gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION};
 };
 
-// TODO(crbug.com/381106937): Re-enable this test on linux and ChromeOS.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_InScopeNavigation DISABLED_InScopeNavigation
-#else
-#define MAYBE_InScopeNavigation InScopeNavigation
-#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
-                       MAYBE_InScopeNavigation) {
+                       InScopeNavigation) {
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   // Origin text should not show if navigating to a URL in scope and with the
@@ -3146,14 +3152,8 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
   ExpectLastCommittedUrl(nav_url);
 }
 
-// TODO(https://crbug.com/361839153): This test fails on ChromeOS builds.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_OutOfScopeBarShown DISABLED_OutOfScopeBarShown
-#else
-#define MAYBE_OutOfScopeBarShown OutOfScopeBarShown
-#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
-                       MAYBE_OutOfScopeBarShown) {
+                       OutOfScopeBarShown) {
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   // Origin text should not show if out-of-scope bar is shown after navigation.
@@ -3175,14 +3175,15 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
   ExpectLastCommittedUrl(app_url());
 }
 
-// TODO(crbug.com/376592844): Re-enable this test
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_ThemeColorChange DISABLED_ThemeColorChange
-#else
-#define MAYBE_ThemeColorChange ThemeColorChange
-#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
-                       MAYBE_ThemeColorChange) {
+                       ThemeColorChange) {
+#if defined(MEMORY_SANITIZER)
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test on MSAN with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
+  }
+#endif
+
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -3191,29 +3192,28 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
 
   // Origin text should appear if theme color changes. This could happen when
   // navigating to a page within scope that has a different theme color.
-  OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+  OriginTextVisibilityWaiter origin_text_waiter(
+      helper()->origin_text_view(), GetExpectedOriginText(in_scope_host_));
   const GURL nav_url = embedded_https_test_server().GetURL(
       in_scope_host_, "/web_apps/basic_with_theme_color.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(helper()->app_browser(), nav_url));
   content::AwaitDocumentOnLoadCompleted(web_contents);
   EXPECT_EQ(GetFrameColor(helper()->app_browser()), SK_ColorYELLOW);
-  origin_text_waiter.WaitForOriginTextAnimation(
-      in_scope_host_, embedded_https_test_server().port());
+  origin_text_waiter.WaitForOriginTextAnimation();
   EXPECT_FALSE(
       helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
   ExpectLastCommittedUrl(nav_url);
 }
 
-// TODO(https://crbug.com/361839153): This test fails on ChromeOS builds.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_OutOfScopeBarWithThemeColorChange \
-  DISABLED_OutOfScopeBarWithThemeColorChange
-#else
-#define MAYBE_OutOfScopeBarWithThemeColorChange \
-  OutOfScopeBarWithThemeColorChange
-#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
-                       MAYBE_OutOfScopeBarWithThemeColorChange) {
+                       OutOfScopeBarWithThemeColorChange) {
+#if defined(MEMORY_SANITIZER)
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test on MSAN with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
+  }
+#endif
+
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -3223,7 +3223,8 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
   // Origin text should show if theme color changes even though out-of-scope bar
   // is shown after navigation.
   {
-    OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(), GetExpectedOriginText(in_scope_host_));
     const GURL nav_url = embedded_https_test_server().GetURL(
         out_of_scope_host_, "/web_apps/basic_with_theme_color.html");
     ASSERT_TRUE(ui_test_utils::NavigateToURL(helper()->app_browser(), nav_url));
@@ -3233,8 +3234,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
     // Existing behavior: origin text should be created with start URL when the
     // out-of-scope bar is shown. Behavior with scope_extensions: origin text
     // should be created with the URL of the page.
-    origin_text_waiter.WaitForOriginTextAnimation(
-        in_scope_host_, embedded_https_test_server().port());
+    origin_text_waiter.WaitForOriginTextAnimation();
     EXPECT_TRUE(
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
     ExpectLastCommittedUrl(nav_url);
@@ -3250,16 +3250,15 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
   ExpectLastCommittedUrl(app_url());
 }
 
-// TODO(https://crbug.com/361839153): This test fails on ChromeOS builds.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_WebAppOriginTextAccessibleProperties \
-  DISABLED_WebAppOriginTextAccessibleProperties
-#else
-#define MAYBE_WebAppOriginTextAccessibleProperties \
-  WebAppOriginTextAccessibleProperties
-#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_OriginText,
-                       MAYBE_WebAppOriginTextAccessibleProperties) {
+                       WebAppOriginTextAccessibleProperties) {
+#if defined(MEMORY_SANITIZER)
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test on MSAN with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
+  }
+#endif
+
   InstallAndLaunchWebApp();
   auto* origin_text = helper()->origin_text_view();
   ui::AXNodeData data;
@@ -3289,6 +3288,12 @@ class WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText
   static constexpr char in_extended_scope_host_[] = "test.com";
   static constexpr char out_of_extended_scope_host_[] = "test.biz";
 
+  std::u16string GetExpectedOriginText(const std::string& hostname) const {
+    return base::StrCat(
+        {base::ASCIIToUTF16(hostname), u":",
+         base::NumberToString16(embedded_https_test_server().port())});
+  }
+
   WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText() {
     WebAppToolbarButtonContainer::DisableAnimationForTesting(false);
   }
@@ -3316,11 +3321,9 @@ class WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText
   std::string OriginAssociationFileFromAppIdentity(const GURL& app_identity) {
     constexpr char kOriginAssociationTemplate[] = R"(
     {
-      "web_apps": [
-        {
-          "web_app_identity": "$1"
-        }
-      ]
+      "$1": {
+        "scope": "/"
+      }
     })";
     return base::ReplaceStringPlaceholders(kOriginAssociationTemplate,
                                            {app_identity.spec()}, nullptr);
@@ -3346,20 +3349,6 @@ class WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText
                                                "/ssl/blank_page.html");
   }
 
-  void ExpectOriginTextAndAnimation(const std::string& hostname) {
-    ui_test_utils::WaitForViewVisibility(helper()->app_browser(),
-                                         VIEW_ID_WEB_APP_ORIGIN_TEXT, true);
-    std::u16string expected_origin_text = base::StrCat(
-        {base::ASCIIToUTF16(hostname), u":",
-         base::NumberToString16(embedded_https_test_server().port())});
-    EXPECT_EQ(helper()->app_browser()->app_controller()->GetLaunchFlashText(),
-              expected_origin_text);
-    EXPECT_EQ(helper()->origin_text_view()->GetLabelTextForTesting(),
-              expected_origin_text);
-    ui_test_utils::WaitForViewVisibility(helper()->app_browser(),
-                                         VIEW_ID_WEB_APP_ORIGIN_TEXT, false);
-  }
-
   void InstallAndLaunchWebApp() {
     test_origin_association_fetcher_->SetData(
         {{url::Origin::Create(extension_url()),
@@ -3376,11 +3365,19 @@ class WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText
         url::Origin::Create(extension_url()),
         /*has_origin_wildcard*/ false);
     web_app_info->scope_extensions = {std::move(scope_extension)};
-    helper()->InstallAndLaunchCustomWebApp(browser(), std::move(web_app_info),
-                                           app_url());
 
-    // Origin text should show after install and launch.
-    ExpectOriginTextAndAnimation(in_scope_host_);
+    webapps::AppId app_id = web_app::test::InstallWebApp(
+        browser()->profile(), std::move(web_app_info));
+    content::TestNavigationObserver navigation_observer(app_url());
+    navigation_observer.StartWatchingNewWebContents();
+    Browser* app_browser =
+        web_app::LaunchWebAppBrowser(browser()->profile(), app_id);
+    helper()->SetViewFromAppBrowser(app_browser);
+
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(), GetExpectedOriginText(in_scope_host_));
+    navigation_observer.WaitForNavigationFinished();
+    origin_text_waiter.WaitForOriginTextAnimation();
   }
 
  private:
@@ -3391,10 +3388,8 @@ class WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText
       gfx::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION};
 };
 
-// TODO(crbug.com/371923523): Reenable ExtendedScope* tests when they are more
-// stable.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
-                       DISABLED_ExtendedScope) {
+                       ExtendedScope) {
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -3403,12 +3398,13 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
   {
     // Navigate to another origin that is within extended scope. Origin text
     // should show as there is a change in origin.
-    OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(),
+        GetExpectedOriginText(in_extended_scope_host_));
     ASSERT_TRUE(
         ui_test_utils::NavigateToURL(helper()->app_browser(), extension_url()));
     content::AwaitDocumentOnLoadCompleted(web_contents);
-    origin_text_waiter.WaitForOriginTextAnimation(
-        in_extended_scope_host_, embedded_https_test_server().port());
+    origin_text_waiter.WaitForOriginTextAnimation();
     EXPECT_FALSE(
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
     ExpectLastCommittedUrl(extension_url());
@@ -3416,12 +3412,12 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
   {
     // Origin text should show if navigating back to the start url as there is a
     // change in origin.
-    OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(), GetExpectedOriginText(in_scope_host_));
     ASSERT_TRUE(
         ui_test_utils::NavigateToURL(helper()->app_browser(), app_url()));
     content::AwaitDocumentOnLoadCompleted(web_contents);
-    origin_text_waiter.WaitForOriginTextAnimation(
-        in_scope_host_, embedded_https_test_server().port());
+    origin_text_waiter.WaitForOriginTextAnimation();
     EXPECT_FALSE(
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
     ExpectLastCommittedUrl(app_url());
@@ -3429,7 +3425,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
-                       DISABLED_ExtendedScopeToOutOfScope) {
+                       ExtendedScopeToOutOfScope) {
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -3437,12 +3433,13 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
   content::AwaitDocumentOnLoadCompleted(web_contents);
   {
     // Navigate to another origin that is within extended scope.
-    OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(),
+        GetExpectedOriginText(in_extended_scope_host_));
     ASSERT_TRUE(
         ui_test_utils::NavigateToURL(helper()->app_browser(), extension_url()));
     content::AwaitDocumentOnLoadCompleted(web_contents);
-    origin_text_waiter.WaitForOriginTextAnimation(
-        in_extended_scope_host_, embedded_https_test_server().port());
+    origin_text_waiter.WaitForOriginTextAnimation();
     EXPECT_FALSE(
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
     ExpectLastCommittedUrl(extension_url());
@@ -3461,7 +3458,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
-                       DISABLED_ExtendedScopeThemeColorChange) {
+                       ExtendedScopeThemeColorChange) {
   ASSERT_TRUE(embedded_https_test_server().Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -3469,12 +3466,13 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
   content::AwaitDocumentOnLoadCompleted(web_contents);
   {
     // Navigate to another origin that is within extended scope.
-    OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(),
+        GetExpectedOriginText(in_extended_scope_host_));
     ASSERT_TRUE(
         ui_test_utils::NavigateToURL(helper()->app_browser(), extension_url()));
     content::AwaitDocumentOnLoadCompleted(web_contents);
-    origin_text_waiter.WaitForOriginTextAnimation(
-        in_extended_scope_host_, embedded_https_test_server().port());
+    origin_text_waiter.WaitForOriginTextAnimation();
     EXPECT_FALSE(
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
     ExpectLastCommittedUrl(extension_url());
@@ -3483,13 +3481,14 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
     // From extended scope, navigate to another origin out of scope. Origin text
     // should be shown because theme color changes, even though out-of-scope bar
     // is shown.
-    OriginTextVisibilityWaiter origin_text_waiter(helper()->origin_text_view());
+    OriginTextVisibilityWaiter origin_text_waiter(
+        helper()->origin_text_view(),
+        GetExpectedOriginText(out_of_extended_scope_host_));
     const GURL nav_url = embedded_https_test_server().GetURL(
         out_of_extended_scope_host_, "/web_apps/basic_with_theme_color.html");
     ASSERT_TRUE(ui_test_utils::NavigateToURL(helper()->app_browser(), nav_url));
     content::AwaitDocumentOnLoadCompleted(web_contents);
-    origin_text_waiter.WaitForOriginTextAnimation(
-        out_of_extended_scope_host_, embedded_https_test_server().port());
+    origin_text_waiter.WaitForOriginTextAnimation();
     EXPECT_EQ(GetFrameColor(helper()->app_browser()), SK_ColorYELLOW);
     EXPECT_TRUE(
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());

@@ -4,15 +4,23 @@
 
 #include "chrome/browser/multistep_filter/ui/filter_ui_controller.h"
 
+#include <optional>
+
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/multistep_filter/ui/filter_ui_controller_test_api.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
+#include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/multistep_filter/content/filter_initiated_navigation_marker.h"
+#include "components/multistep_filter/core/annotation_index/mock_annotation_index_client.h"
 #include "components/multistep_filter/core/features.h"
+#include "components/multistep_filter/core/multistep_filter_service.h"
 #include "components/multistep_filter/core/multistep_filter_util.h"
+#include "components/multistep_filter/core/storage/filter_store.h"
 #include "components/tabs/public/mock_tab_interface.h"
+#include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/test/mock_navigation_handle.h"
@@ -28,16 +36,15 @@ namespace multistep_filter {
 
 namespace {
 
+constexpr int64_t kTestNavigationId = 0;
+
 class MockFilterUiController : public FilterUiController {
  public:
   explicit MockFilterUiController(tabs::TabInterface& tab)
       : FilterUiController(tab) {}
   ~MockFilterUiController() override = default;
 
-  MOCK_METHOD(void,
-              ShowSuggestionUi,
-              (const UrlFilterSuggestion& suggestion),
-              (override));
+  MOCK_METHOD(bool, ShowSuggestionUi, (ToastParams params), (override));
   MOCK_METHOD(void, NavigateTo, (const GURL& url), (override));
 
   using FilterUiController::GetOnDismissedCallback;
@@ -53,6 +60,26 @@ class TestFilterUiController : public FilterUiController {
   using FilterUiController::NavigateTo;
   using FilterUiController::OnSuggestionGenerated;
   using FilterUiController::ShowSuggestionUi;
+};
+
+class MockMultistepFilterService : public MultistepFilterService {
+ public:
+  MockMultistepFilterService(
+      std::unique_ptr<AnnotationIndexClient> extraction_client,
+      std::unique_ptr<FilterStore> store)
+      : MultistepFilterService(std::move(extraction_client),
+                               std::move(store),
+                               /*identity_manager=*/nullptr,
+                               /*consent_helper=*/nullptr,
+                               /*log_router=*/nullptr) {}
+  ~MockMultistepFilterService() override = default;
+
+  MOCK_METHOD(void,
+              DeleteAnnotationsForTask,
+              (std::string_view task_type,
+               int64_t navigation_id,
+               std::string_view domain),
+              (override));
 };
 
 class MockWebContentsDelegate : public content::WebContentsDelegate {
@@ -78,11 +105,15 @@ std::vector<FilterAttributeUiLabel> DefaultAttributes() {
 UrlFilterSuggestion CreateDummySuggestion(
     const GURL& url,
     std::vector<FilterAttributeUiLabel> attribute_ui_labels = {}) {
-  return UrlFilterSuggestion(url, base::UTF8ToUTF16(GetEtldPlusOne(url)),
-                             base::Time::Now(), std::move(attribute_ui_labels));
+  return UrlFilterSuggestion(
+      {.navigation_url = url,
+       .source_domain = base::UTF8ToUTF16(GetEtldPlusOne(url)),
+       .extraction_timestamp = base::Time::Now(),
+       .attribute_ui_labels = std::move(attribute_ui_labels),
+       .triggering_navigation_id = kTestNavigationId,
+       .triggering_domain = GetEtldPlusOne(url),
+       .task_type = "task1"});
 }
-
-}  // namespace
 
 class FilterUiControllerTest : public ChromeRenderViewHostTestHarness {
  public:
@@ -94,6 +125,7 @@ class FilterUiControllerTest : public ChromeRenderViewHostTestHarness {
     mock_tab_ = std::make_unique<tabs::MockTabInterface>();
     ON_CALL(*mock_tab_, GetContents())
         .WillByDefault(testing::Return(web_contents()));
+    ON_CALL(*mock_tab_, GetProfile()).WillByDefault(testing::Return(profile()));
     ON_CALL(*mock_tab_, GetUnownedUserDataHost())
         .WillByDefault(testing::ReturnRef(unowned_user_data_host_));
     controller_ = std::make_unique<MockFilterUiController>(*mock_tab_);
@@ -110,6 +142,7 @@ class FilterUiControllerTest : public ChromeRenderViewHostTestHarness {
       ui::UnownedUserDataHost& host) {
     auto tab = std::make_unique<tabs::MockTabInterface>();
     ON_CALL(*tab, GetContents()).WillByDefault(testing::Return(contents));
+    ON_CALL(*tab, GetProfile()).WillByDefault(testing::Return(profile()));
     ON_CALL(*tab, GetUnownedUserDataHost())
         .WillByDefault(testing::ReturnRef(host));
     return tab;
@@ -136,13 +169,48 @@ TEST_F(FilterUiControllerTest, SuggestionCallbackGeneratesSuggestion) {
   UrlFilterSuggestion suggestion =
       CreateDummySuggestion(url, DefaultAttributes());
 
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion)));
+  EXPECT_CALL(*controller_, ShowSuggestionUi).WillOnce(testing::Return(true));
+  controller_->OnSuggestionGenerated(suggestion);
+}
+
+TEST_F(FilterUiControllerTest, SuggestionCallbackTriggersService) {
+  GURL url("https://example.com");
+  UrlFilterSuggestion suggestion =
+      CreateDummySuggestion(url, DefaultAttributes());
+
+  auto mock_service = std::make_unique<MockMultistepFilterService>(
+      std::make_unique<testing::NiceMock<MockAnnotationIndexClient>>(),
+      std::make_unique<FilterStore>());
+
+  test_api(*controller_).set_service(mock_service.get());
+
+  EXPECT_CALL(*controller_, ShowSuggestionUi).WillOnce(testing::Return(true));
+
+  EXPECT_CALL(*mock_service,
+              DeleteAnnotationsForTask(testing::Eq("task1"),
+                                       testing::Eq(kTestNavigationId),
+                                       testing::Eq("example.com")));
+
+  controller_->OnSuggestionGenerated(suggestion);
+  test_api(*controller_).set_service(nullptr);
+}
+
+TEST_F(FilterUiControllerTest, SuggestionCallbackDoesNothingIfServiceNull) {
+  GURL url("https://example.com");
+  UrlFilterSuggestion suggestion =
+      CreateDummySuggestion(url, DefaultAttributes());
+
+  // service_ is null by default.
+  test_api(*controller_).set_service(nullptr);
+
+  EXPECT_CALL(*controller_, ShowSuggestionUi).Times(0);
+
   controller_->OnSuggestionGenerated(suggestion);
 }
 
 TEST_F(FilterUiControllerTest, SuggestionCallbackIgnoresNullopt) {
   // Also verify that direct calls with nullopt are ignored.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::_)).Times(0);
+  EXPECT_CALL(*controller_, ShowSuggestionUi).Times(0);
   controller_->OnSuggestionGenerated(std::nullopt);
 }
 
@@ -151,7 +219,7 @@ TEST_F(FilterUiControllerTest, ClearSuggestion) {
   UrlFilterSuggestion suggestion =
       CreateDummySuggestion(url, DefaultAttributes());
 
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion)));
+  EXPECT_CALL(*controller_, ShowSuggestionUi).WillOnce(testing::Return(true));
   controller_->OnSuggestionGenerated(suggestion);
 
   controller_->ClearSuggestion();
@@ -174,80 +242,6 @@ TEST_F(FilterUiControllerTest, ShowSuggestionUiWithNullBrowserWindowInterface) {
       CreateDummySuggestion(GURL("https://example.com"), DefaultAttributes()));
 }
 
-TEST_F(FilterUiControllerTest, ShouldSuppressSuggestionsForDismissedHost) {
-  GURL source_url("https://example.com/source");
-  GURL target_url("https://example.com/target");
-
-  UrlFilterSuggestion suggestion =
-      CreateDummySuggestion(target_url, DefaultAttributes());
-
-  content::WebContentsTester::For(web_contents())
-      ->NavigateAndCommit(source_url);
-
-  // Set the current suggestion.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion)));
-  controller_->OnSuggestionGenerated(suggestion);
-
-  // 1. Trigger suggestion and simulate dismissal for the source URL.
-  auto callback = controller_->GetOnDismissedCallback(source_url);
-  std::move(callback).Run();
-
-  // 2. Verify subsequent suggestion for same host is suppressed.
-  EXPECT_TRUE(controller_->ShouldSuppressSuggestions(source_url));
-
-  // 3. Directly calling OnSuggestionGenerated should return early without
-  // showing UI.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::_)).Times(0);
-  controller_->OnSuggestionGenerated(suggestion);
-}
-
-TEST_F(FilterUiControllerTest, ShouldSuppressSuggestionsForEtldPlusOne) {
-  GURL source_url("https://sub.example.com/source");
-  GURL other_url("https://other.example.com/other");
-  GURL target_url("https://target.com");
-  UrlFilterSuggestion suggestion =
-      CreateDummySuggestion(target_url, DefaultAttributes());
-
-  content::WebContentsTester::For(web_contents())
-      ->NavigateAndCommit(source_url);
-
-  // Set the current suggestion.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion)));
-  controller_->OnSuggestionGenerated(suggestion);
-
-  // 1. Trigger suggestion for sub.example.com and simulate dismissal for source
-  // site.
-  auto callback = controller_->GetOnDismissedCallback(source_url);
-  std::move(callback).Run();
-
-  // 2. Verify subsequent suggestion for other.example.com is suppressed.
-  EXPECT_TRUE(controller_->ShouldSuppressSuggestions(other_url));
-
-  // 3. Directly calling OnSuggestionGenerated should return early.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::_)).Times(0);
-  controller_->OnSuggestionGenerated(suggestion);
-}
-
-TEST_F(FilterUiControllerTest, ShouldSuppressSuggestionsForLocalhost) {
-  GURL source_url("http://localhost:8080/source");
-  GURL target_url("http://localhost:8080/target");
-  UrlFilterSuggestion suggestion =
-      CreateDummySuggestion(target_url, DefaultAttributes());
-
-  content::WebContentsTester::For(web_contents())
-      ->NavigateAndCommit(source_url);
-
-  // Set the current suggestion.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion)));
-  controller_->OnSuggestionGenerated(suggestion);
-
-  // Simulate dismissal.
-  base::OnceClosure callback = controller_->GetOnDismissedCallback(source_url);
-  std::move(callback).Run();
-
-  // Verify suppression works for localhost (host fallback).
-  EXPECT_TRUE(controller_->ShouldSuppressSuggestions(source_url));
-}
 
 TEST_F(FilterUiControllerTest, DismissalDoesNotClearNewSuggestion) {
   GURL url_a("https://a.com");
@@ -258,12 +252,13 @@ TEST_F(FilterUiControllerTest, DismissalDoesNotClearNewSuggestion) {
       CreateDummySuggestion(url_b, DefaultAttributes());
 
   // 1. Suggestion A is generated.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion_a)));
+  EXPECT_CALL(*controller_, ShowSuggestionUi).WillOnce(testing::Return(true));
   controller_->OnSuggestionGenerated(suggestion_a);
-  base::OnceClosure callback_a = controller_->GetOnDismissedCallback(url_a);
+  base::OnceClosure callback_a = controller_->GetOnDismissedCallback(
+      GetEtldPlusOne(url_a), kTestNavigationId, GetEtldPlusOne(url_a));
 
   // 2. Suggestion B is generated (preempts A).
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion_b)));
+  EXPECT_CALL(*controller_, ShowSuggestionUi).WillOnce(testing::Return(true));
   controller_->OnSuggestionGenerated(suggestion_b);
 
   // 3. Dismissal callback for A runs.
@@ -282,8 +277,7 @@ TEST_F(FilterUiControllerTest, ApplySuggestion) {
   // Should do nothing if the URL is empty.
   UrlFilterSuggestion empty_url_suggestion =
       CreateDummySuggestion(GURL(), DefaultAttributes());
-  EXPECT_CALL(*controller_,
-              ShowSuggestionUi(testing::Eq(empty_url_suggestion)));
+  EXPECT_CALL(*controller_, ShowSuggestionUi).WillOnce(testing::Return(true));
   controller_->OnSuggestionGenerated(empty_url_suggestion);
   controller_->ApplySuggestion();
 
@@ -291,7 +285,8 @@ TEST_F(FilterUiControllerTest, ApplySuggestion) {
   GURL url("https://example.com");
   UrlFilterSuggestion suggestion =
       CreateDummySuggestion(url, DefaultAttributes());
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::Eq(suggestion)));
+  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::_))
+      .WillOnce(testing::Return(true));
   controller_->OnSuggestionGenerated(suggestion);
 
   EXPECT_CALL(*controller_, NavigateTo(url));
@@ -340,46 +335,6 @@ TEST_F(FilterUiControllerTest, NavigateToWithWebContents) {
           });
 
   controller->NavigateTo(url);
-}
-
-TEST_F(FilterUiControllerTest, ShouldSuppressSubsumedSuggestions) {
-  GURL current_url("https://example.com/search?q=foo&filter=bar");
-  content::WebContentsTester::For(web_contents())
-      ->NavigateAndCommit(current_url);
-
-  // 1. Identical URL should be suppressed.
-  EXPECT_CALL(*controller_, ShowSuggestionUi(testing::_)).Times(0);
-  controller_->OnSuggestionGenerated(
-      CreateDummySuggestion(current_url, DefaultAttributes()));
-
-  // 2. Subset of parameters should be suppressed.
-  GURL redundant_url("https://example.com/search?q=foo");
-  controller_->OnSuggestionGenerated(
-      CreateDummySuggestion(redundant_url, DefaultAttributes()));
-
-  // 3. Different base URL should NOT be suppressed even if parameters match.
-  GURL different_base_url("https://example.com/other?q=foo&filter=bar");
-  UrlFilterSuggestion different_base_suggestion =
-      CreateDummySuggestion(different_base_url, DefaultAttributes());
-  EXPECT_CALL(*controller_,
-              ShowSuggestionUi(testing::Eq(different_base_suggestion)));
-  controller_->OnSuggestionGenerated(different_base_suggestion);
-
-  // 4. Additional parameters should NOT be suppressed.
-  GURL new_filter_url("https://example.com/search?q=foo&filter=bar&sort=new");
-  UrlFilterSuggestion new_filter_suggestion =
-      CreateDummySuggestion(new_filter_url, DefaultAttributes());
-  EXPECT_CALL(*controller_,
-              ShowSuggestionUi(testing::Eq(new_filter_suggestion)));
-  controller_->OnSuggestionGenerated(new_filter_suggestion);
-
-  // 5. Different parameter values should NOT be suppressed.
-  GURL different_value_url("https://example.com/search?q=baz&filter=bar");
-  UrlFilterSuggestion different_value_suggestion =
-      CreateDummySuggestion(different_value_url, DefaultAttributes());
-  EXPECT_CALL(*controller_,
-              ShowSuggestionUi(testing::Eq(different_value_suggestion)));
-  controller_->OnSuggestionGenerated(different_value_suggestion);
 }
 
 TEST_F(FilterUiControllerTest, GetSuggestionUiData_Recent) {
@@ -442,5 +397,7 @@ TEST_F(FilterUiControllerTest, GetSuggestionUiData_Months) {
   EXPECT_EQ(data_75.replacement_params[1],
             l10n_util::GetPluralStringFUTF16(IDS_TIME_MONTHS, 3));
 }
+
+}  // namespace
 
 }  // namespace multistep_filter

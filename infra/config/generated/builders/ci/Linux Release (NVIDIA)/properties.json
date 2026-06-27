@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU Linux Builder",
-              "project": "chromium-m149"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -34,7 +34,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Linux Release (NVIDIA)",
-              "project": "chromium-m149"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -57,7 +57,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU Linux Builder",
-                "project": "chromium-m149"
+                "project": "chromium"
               }
             }
           }
@@ -67,10 +67,22 @@
         {
           "bucket": "ci",
           "builder": "Linux Release (NVIDIA)",
-          "project": "chromium-m149"
+          "project": "chromium"
         }
       ],
       "mirroring_builder_group_and_names": [
+        {
+          "builder": "gpu-try-linux-nvidia-rel",
+          "group": "tryserver.chromium.linux"
+        },
+        {
+          "builder": "linux-dcheck-off-rel",
+          "group": "tryserver.chromium.linux"
+        },
+        {
+          "builder": "linux-full-remote-rel",
+          "group": "tryserver.chromium.linux"
+        },
         {
           "builder": "linux-rel",
           "group": "tryserver.chromium.linux"
@@ -88,10 +100,10 @@
   },
   "builder_group": "chromium.gpu",
   "gardener_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ],
   "recipe": "chromium",
   "sheriff_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ]
 }

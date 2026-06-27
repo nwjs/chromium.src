@@ -199,51 +199,6 @@ class DnsClientImpl : public DnsClient {
 
     DCHECK(session_);  // Should be true if CanUseSecureDnsTransactions() true.
 
-    // If the canary domain check is enabled and the canary domain is not
-    // successfully resolved, fall back to insecure DNS.
-    if (context->IsDohFallbackProbeEnabled()) {
-      switch (context->doh_fallback_canary_domain_check_status()) {
-        case CanaryDomainCheckStatus::kPositive:
-          // On a positive canary domain check, no fallback to insecure DNS.
-          break;
-        case CanaryDomainCheckStatus::kNegative:
-          RecordFallbackFromSecureTransactionPreferred(
-              FallbackFromSecureTransactionPreferredReason::
-                  kFallbackPreferredCanaryDomainCheckNegative);
-          return true;
-        case CanaryDomainCheckStatus::kNotStarted:
-        case CanaryDomainCheckStatus::kStarted:
-          RecordFallbackFromSecureTransactionPreferred(
-              FallbackFromSecureTransactionPreferredReason::
-                  kFallbackPreferredCanaryDomainCheckPending);
-          return true;
-        case CanaryDomainCheckStatus::kInactive:
-          NOTREACHED();
-      }
-    }
-
-    if (context->IsDohConfigFromFallbackDohNameservers()) {
-      if (!context->doh_fallback_upgrade_allowed()) {
-        RecordFallbackFromSecureTransactionPreferred(
-            FallbackFromSecureTransactionPreferredReason::
-                kFallbackPreferredDohFallbackUpgradeNotAllowed);
-        return true;
-      }
-      // It's important to check the feature flag after the other checks so that
-      // only eligible users get activated into the experiment.
-      // TODO(crbug.com/490045356): Remove the `doh_fallback_upgrade_allowed()`
-      // check and the kForceSecureDnsDohFallback feature flag check once the
-      // experiment has concluded and kBundledSecuritySettingsSecureDnsV2 has
-      // been enabled by default.
-      if (!base::FeatureList::IsEnabled(
-              net::features::kForceSecureDnsDohFallback)) {
-        RecordFallbackFromSecureTransactionPreferred(
-            FallbackFromSecureTransactionPreferredReason::
-                kFallbackPreferredDohFallbackExperimentDisabled);
-        return true;
-      }
-    }
-
     // Otherwise, fall back to insecure DNS if there are no available DoH
     // servers.
     if (context->NumAvailableDohServers(session_.get()) == 0) {

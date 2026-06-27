@@ -240,7 +240,8 @@ class PermissionsClient {
 
   // Only verifies that WebUI is internal (chrome://) and trusted enough to skip
   // tab interface usage and use embedded permission prompt. Its identity is
-  // determined by `embedded_origin` instead of also `requester_origin`.
+  // determined by just `embedded_origin` instead of both `embedded_origin` and
+  // `requester_origin`.
   virtual bool IsPrivilegedInternalWebUIForUIRouting(
       content::WebContents* web_contents);
 
@@ -248,21 +249,22 @@ class PermissionsClient {
   // the `embedded_origin` and `requester_origin`. This check is less strict
   // than the canonical origin check (which has different inputs) since
   // `WebContents` does not follow the new tab -> new tab page hierarchy.
-  // Therefore, any comnbniation of trusted new tab requester and embedders
-  // counts as being "from" a new tab page according to this function.
+  // Therefore, any combination of `new tab page` and `new tab` requester and
+  // embedders counts as being "from" a new tab page according to this function.
   virtual bool IsFromNewTabPage(content::WebContents* web_contents,
                                 const GURL& requester,
                                 bool already_overrode_requester);
 
-  // Returns if the permission request is from a WebUI (allowlisted for embedded
-  // permission prompts) based on the `embedded_origin` and `requester_origin`.
+  // Returns if the permission request is from a WebUI (contextual tasks,
+  // omnibox popup) based on its `embedded_origin` and `requester_origin`.
   virtual bool IsPrivilegedInternalWebUI(content::WebContents* web_contents,
                                          const GURL& requester,
                                          bool already_overrode_requester);
 
-  // Returns if the permission request is from a WebUI (allowlisted for embedded
-  // permission prompts) or the new tab page based on the `embedded_origin`
-  // and `requester_origin`. Calls `IsAllowListedWebUI` and `IsNewTabPage`.
+  // Returns if the permission request is from a WebUI (that is allowlisted for
+  // embedded permission prompts) or the new tab page based on the
+  // `embedded_origin` and `requester_origin`.
+  // This function calls `IsPrivilegedInternalWebUI` and `IsFromNewTabPage`.
   bool IsPrivilegedInternalWebUIOrNewTabPage(content::WebContents* web_contents,
                                              const GURL& requester,
                                              bool already_overrode_requester);
@@ -280,10 +282,10 @@ class PermissionsClient {
   // Allows the embedder to create a message UI to use as the
   // permission prompt. Returns the pointer to the message UI if the
   // message UI is successfully created, nullptr otherwise, e.g. if
-  // the messages-prompt is not supported for `type`.
+  // the messages-prompt is not supported for `request`.
   virtual std::unique_ptr<PermissionMessageDelegate> MaybeCreateMessageUI(
       content::WebContents* web_contents,
-      ContentSettingsType type,
+      const PermissionRequest& request,
       base::WeakPtr<PermissionPromptAndroid> prompt);
 
   using PermissionsUpdatedCallback = base::OnceCallback<void(bool)>;

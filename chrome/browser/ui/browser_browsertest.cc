@@ -13,6 +13,7 @@
 #include <string>
 
 #include "ash/constants/web_app_id_constants.h"
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
@@ -32,6 +33,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/run_until.h"
 #include "base/test/test_future.h"
 #include "base/version_info/version_info.h"
 #include "build/build_config.h"
@@ -68,7 +70,6 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_ui_prefs.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -90,6 +91,8 @@
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_constants.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
@@ -129,6 +132,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/common/language_detection_details.h"
+#include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/browser_context.h"
@@ -172,6 +176,7 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/display/types/display_constants.h"
+#include "ui/views/focus/focus_manager.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "base/apple/scoped_nsautorelease_pool.h"
@@ -216,6 +221,27 @@ const char16_t* kOpenNewBeforeUnloadPage =
 
 const base::FilePath::CharType* kTitle1File = FILE_PATH_LITERAL("title1.html");
 const base::FilePath::CharType* kTitle2File = FILE_PATH_LITERAL("title2.html");
+
+// Returns true if any browser window uses an off-the-record profile related
+// to `profile`. Inlined from the previous chrome::IsOffTheRecordBrowserInUse
+// helper in chrome/browser/ui/browser_finder.h.
+bool IsOffTheRecordBrowserInUse(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  bool off_the_record_in_use = false;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        Profile* window_profile = browser->GetProfile();
+        if (window_profile && window_profile->IsSameOrParent(profile) &&
+            window_profile->IsOffTheRecord()) {
+          off_the_record_in_use = true;
+        }
+        return !off_the_record_in_use;
+      });
+  return off_the_record_in_use;
+}
 
 // Given a page title, returns the expected window caption string.
 std::u16string WindowCaptionFromPageTitle(const std::u16string& page_title) {
@@ -515,15 +541,19 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, CaptivePortalWindowTitle) {
       captive_portal::CaptivePortalWindowType::kPopup;
   ui_test_utils::NavigateToURL(&captive_portal_params);
   std::u16string captive_portal_window_title =
-      chrome::FindBrowserWithTab(
-          captive_portal_params.navigated_or_inserted_contents)
+      GlobalBrowserCollection::GetInstance()
+          ->FindBrowserWithTab(
+              captive_portal_params.navigated_or_inserted_contents)
+          ->GetBrowserForMigrationOnly()
           ->GetWindowTitleForCurrentTab(true /* include_app_name */);
 
   NavigateParams normal_params(browser(), url, ui::PAGE_TRANSITION_TYPED);
   normal_params.disposition = WindowOpenDisposition::NEW_POPUP;
   ui_test_utils::NavigateToURL(&normal_params);
   std::u16string normal_window_title =
-      chrome::FindBrowserWithTab(normal_params.navigated_or_inserted_contents)
+      GlobalBrowserCollection::GetInstance()
+          ->FindBrowserWithTab(normal_params.navigated_or_inserted_contents)
+          ->GetBrowserForMigrationOnly()
           ->GetWindowTitleForCurrentTab(true /* include_app_name */);
 
   ASSERT_NE(captive_portal_window_title, normal_window_title);
@@ -583,6 +613,70 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NoJavaScriptDialogsActivateTab) {
   EXPECT_EQ(0, browser()->tab_strip_model()->active_index());
 }
 
+// Regression test for crbug.com/40624231.
+IN_PROC_BROWSER_TEST_F(
+    BrowserTest,
+    ClosingBackgroundSameProcessTabRestoresFocusToActiveWebContents) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/empty.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  content::WebContents* active_contents =
+      tab_strip_model->GetActiveWebContents();
+  ASSERT_TRUE(active_contents);
+  ASSERT_TRUE(content::ExecJs(
+      active_contents,
+      "document.body.innerHTML = '<input id=\"q\" autofocus>';"));
+  content::ExecuteScriptAsync(active_contents,
+                              R"JS(
+        let popupWin = window.open('', '_blank');
+        popupWin.document.open();
+        popupWin.document.write(
+            '<html><body onload="window.print()">HTML</body></html>');
+        popupWin.document.close();
+      )JS");
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return tab_strip_model->count() == 2; }));
+
+  content::WebContents* closing_contents = tab_strip_model->GetWebContentsAt(1);
+  ASSERT_TRUE(closing_contents);
+  ASSERT_TRUE(content::WaitForLoadStop(closing_contents));
+  auto* dialog_manager =
+      web_modal::WebContentsModalDialogManager::FromWebContents(
+          closing_contents);
+  ASSERT_TRUE(dialog_manager);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return dialog_manager->IsDialogActive(); }));
+
+  // Put focus back on the opener and close the popup tab in the background.
+  tab_strip_model->ActivateTabAt(0);
+  ASSERT_EQ(active_contents, tab_strip_model->GetActiveWebContents());
+  ASSERT_EQ(active_contents->GetPrimaryMainFrame()->GetProcess(),
+            closing_contents->GetPrimaryMainFrame()->GetProcess())
+      << "Test relies on active and closing tabs sharing a renderer process.";
+
+  BrowserView* browser_view = browser()->window()->AsBrowserView();
+  ASSERT_TRUE(browser_view);
+  views::View* active_webview = browser_view->GetActiveContentsWebView();
+  ASSERT_TRUE(active_webview);
+  views::FocusManager* focus_manager = browser_view->GetFocusManager();
+  ASSERT_TRUE(focus_manager);
+
+  tab_strip_model->CloseWebContentsAt(1, CLOSE_USER_GESTURE);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return tab_strip_model->count() == 1; }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    content::RenderWidgetHostView* rwhv =
+        active_contents->GetRenderWidgetHostView();
+    return rwhv && rwhv->HasFocus() &&
+           focus_manager->GetFocusedView() == active_webview;
+  }));
+
+  content::SimulateMouseClickOrTapElementWithId(active_contents, "q");
+  EXPECT_EQ("q", content::EvalJs(active_contents, "document.activeElement.id"));
+}
+
 // Create 34 tabs and verify that a lot of processes have been created. The
 // exact number of processes depends on the amount of memory. Previously we
 // had a hard limit of 31 processes and this test is mainly directed at
@@ -616,7 +710,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, MAYBE_ThirtyFourTabs) {
 #else
       17;
 #endif
-  if (base::SysInfo::AmountOfPhysicalMemory().InGiB() >= 2) {
+  if (base::SysInfo::AmountOfTotalPhysicalMemory().InGiB() >= 2) {
     EXPECT_GE(CountRenderProcessHosts(), kExpectedProcessCount);
   } else {
     EXPECT_LT(CountRenderProcessHosts(), kExpectedProcessCount);
@@ -1014,15 +1108,15 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NotifiesBrowserDidClose) {
   base::CallbackListSubscription subscription =
       browser()->RegisterBrowserDidClose(browser_did_close_callback.Get());
   browser()->window()->Close();
-  EXPECT_FALSE(browser()->is_delete_scheduled());
+  EXPECT_FALSE(browser()->IsDeleteScheduled());
   testing::Mock::VerifyAndClearExpectations(&browser_did_close_callback);
 
   // Close the browser skipping unload handlers, ensure the did close
   // notification is propagated.
   EXPECT_CALL(browser_did_close_callback, Run).Times(1);
-  browser()->set_force_skip_warning_user_on_close(true);
+  UnloadController::From(browser())->set_force_skip_warning_user_on_close(true);
   browser()->window()->Close();
-  EXPECT_TRUE(browser()->is_delete_scheduled());
+  EXPECT_TRUE(browser()->IsDeleteScheduled());
 }
 
 // TODO(crbug.com/40641945): Test this with implicitly-created links.
@@ -1376,7 +1470,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ReattachDevToolsWindow) {
 
   // Re-attach the dev tools window. This resets its Browser*.
   ui_test_utils::BrowserDestroyedObserver observer(
-      chrome::FindBrowserWithTab(devtools_main_web_contents));
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          devtools_main_web_contents));
   devtools_delegate->SetIsDocked(true);
   // Wait until the browser actually gets closed.
   observer.Wait();
@@ -2803,13 +2898,13 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserTest, IsOffTheRecordBrowserInUse) {
-  EXPECT_FALSE(chrome::IsOffTheRecordBrowserInUse(browser()->profile()));
+  EXPECT_FALSE(IsOffTheRecordBrowserInUse(browser()->profile()));
 
   Browser* incognito_browser = CreateIncognitoBrowser(browser()->profile());
-  EXPECT_TRUE(chrome::IsOffTheRecordBrowserInUse(browser()->profile()));
+  EXPECT_TRUE(IsOffTheRecordBrowserInUse(browser()->profile()));
 
   CloseBrowserSynchronously(incognito_browser);
-  EXPECT_FALSE(chrome::IsOffTheRecordBrowserInUse(browser()->profile()));
+  EXPECT_FALSE(IsOffTheRecordBrowserInUse(browser()->profile()));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserTest, TestActiveTabChangedUserAction) {

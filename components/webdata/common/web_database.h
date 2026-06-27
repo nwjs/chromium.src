@@ -10,6 +10,7 @@
 
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "components/webdata/common/web_database_table.h"
 #include "components/webdata/common/webdata_export.h"
 #include "sql/database.h"
@@ -31,7 +32,7 @@ class WEBDATA_EXPORT WebDatabase {
   // Note: when changing the current version number, corresponding changes must
   // happen in the unit tests, and new migration test added to
   // `WebDatabaseMigrationTest`.
-  static constexpr int kCurrentVersionNumber = 151;
+  static constexpr int kCurrentVersionNumber = 152;
 
   // To support users who are upgrading from older versions of Chrome, we enable
   // migrating from any database version newer than `kDeprecatedVersionNumber`.
@@ -87,8 +88,9 @@ class WEBDATA_EXPORT WebDatabase {
   // managing the database.
   //
   // `encryptor` must not be null except in test code.
-  sql::InitStatus Init(const base::FilePath& db_name,
-                       const os_crypt_async::Encryptor* encryptor = nullptr);
+  sql::InitStatus Init(
+      const base::FilePath& db_name,
+      scoped_refptr<const os_crypt_async::Encryptor> encryptor = nullptr);
 
   // Transactions management
   void BeginTransaction();

@@ -292,9 +292,9 @@ class CookieOSCryptAsyncDelegate : public net::CookieCryptoDelegate {
  private:
   void InitCallback(
       mojo::Remote<network::mojom::CookieEncryptionProvider> lifetime,
-      os_crypt_async::Encryptor encryptor);
+      scoped_refptr<os_crypt_async::Encryptor> encryptor);
 
-  std::optional<os_crypt_async::Encryptor> instance_;
+  scoped_refptr<os_crypt_async::Encryptor> instance_;
   mojo::PendingRemote<network::mojom::CookieEncryptionProvider> provider_
       GUARDED_BY_CONTEXT(sequence_checker_);
   base::OnceClosureList callbacks_ GUARDED_BY_CONTEXT(sequence_checker_);
@@ -324,12 +324,12 @@ bool CookieOSCryptAsyncDelegate::DecryptString(const std::string& ciphertext,
 
 void CookieOSCryptAsyncDelegate::InitCallback(
     mojo::Remote<network::mojom::CookieEncryptionProvider> lifetime,
-    os_crypt_async::Encryptor encryptor) {
+    scoped_refptr<os_crypt_async::Encryptor> encryptor) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // The Encryptor is moved between sequences here. Verify that it's only moved
   // once.
-  CHECK(!instance_.has_value());
-  instance_.emplace(std::move(encryptor));
+  CHECK(!instance_);
+  instance_ = std::move(encryptor);
   is_initialized_ = true;
   callbacks_.Notify();
 }
@@ -495,7 +495,8 @@ std::string HashesToBase64String(
   std::vector<std::string> strings;
   strings.reserve(hashes.size());
   for (const auto& hash : hashes) {
-    strings.push_back(net::HashValue(hash).ToString());
+    strings.push_back(
+        net::HashValue(net::HashValueTag::HASH_VALUE_SHA256, hash).ToString());
   }
   return base::JoinString(strings, ",");
 }
@@ -862,8 +863,6 @@ NetworkContext::NetworkContext(
 
   SetBlockTrustTokens(params_->block_trust_tokens);
 
-  SetDohFallbackUpgradeAllowed(params_->doh_fallback_upgrade_allowed);
-
   if (params_ && params_->http_cache_file_operations_factory) {
     http_cache_file_operations_factory_ =
         base::MakeRefCounted<MojoBackendFileOperationsFactory>(
@@ -1079,12 +1078,6 @@ void NetworkContext::ActivateDohProbes() {
   doh_probes_request_ =
       url_request_context_->host_resolver()->CreateDohProbeRequest();
   doh_probes_request_->Start();
-
-  net::HostResolver* primary_resolver = url_request_context_->host_resolver();
-  canary_domain_service_ = primary_resolver->CreateCanaryDomainService();
-  if (canary_domain_service_) {
-    canary_domain_service_->Start();
-  }
 }
 
 void NetworkContext::SetClient(
@@ -1289,13 +1282,6 @@ void NetworkContext::DeleteStoredTrustTokens(
 
 void NetworkContext::SetBlockTrustTokens(bool block) {
   block_trust_tokens_ = block;
-}
-
-void NetworkContext::SetDohFallbackUpgradeAllowed(bool allowed) {
-  if (url_request_context_->host_resolver()) {
-    url_request_context_->host_resolver()->SetDohFallbackUpgradeAllowed(
-        allowed);
-  }
 }
 
 void NetworkContext::OnProxyLookupComplete(
@@ -2122,7 +2108,7 @@ void NetworkContext::ResolveHost(
   bool is_network_disallowed_for_restrictions_id =
       (optional_parameters &&
        optional_parameters->network_restrictions_id.has_value() &&
-       !IsHostResolutionForNonceAndHostAllowed(
+       !IsHostResolutionForNetworkRestrictionsIdAndHostAllowed(
            optional_parameters->network_restrictions_id.value(), *host,
            network_anonymization_key));
   if (is_network_disallowed_for_restrictions_id) {
@@ -2465,8 +2451,8 @@ void NetworkContext::PreconnectSockets(
   // Preconnect is disallowed if network access is disabled for the
   // network_restrictions_id.
   if (network_restrictions_id.has_value() &&
-      !IsNetworkForNonceAndUrlAllowed(*network_restrictions_id, url,
-                                      network_anonymization_key)) {
+      !IsNetworkForNetworkRestrictionsIdAndUrlAllowed(
+          *network_restrictions_id, url, network_anonymization_key)) {
     return;
   }
 
@@ -3177,18 +3163,15 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
     }
 #endif
 
-    if (base::FeatureList::IsEnabled(
-            net::features::kPersistDeviceBoundSessions)) {
-      base::FilePath device_bound_sessions_file_path;
-      if (GetFullDataFilePath(params_->file_paths,
-                              &network::mojom::NetworkContextFilePaths::
-                                  device_bound_sessions_database_name,
-                              device_bound_sessions_file_path)) {
-        // Network-bound NetworkContexts should not persist state on disk.
-        CHECK(!is_network_bound);
-        builder.set_device_bound_sessions_file_path(
-            device_bound_sessions_file_path);
-      }
+    base::FilePath device_bound_sessions_file_path;
+    if (GetFullDataFilePath(params_->file_paths,
+                            &network::mojom::NetworkContextFilePaths::
+                                device_bound_sessions_database_name,
+                            device_bound_sessions_file_path)) {
+      // Network-bound NetworkContexts should not persist state on disk.
+      CHECK(!is_network_bound);
+      builder.set_device_bound_sessions_file_path(
+          device_bound_sessions_file_path);
     }
   }
 
@@ -3598,9 +3581,9 @@ void NetworkContext::FlushClientCertCache() {
   }
 }
 
-void NetworkContext::RevokeNetworkForNonces(
-    std::vector<mojom::NonceAndAllowlistedPatternsPtr> nonces_to_patterns,
-    RevokeNetworkForNoncesCallback callback) {
+void NetworkContext::RestrictNetworkForIds(
+    std::vector<mojom::IdAndAllowlistedPatternsPtr> ids_to_patterns,
+    RestrictNetworkForIdsCallback callback) {
   auto parse_allowlist =
       [](std::optional<ConnectionAllowlist>& source,
          std::optional<std::string>& dest_endpoint,
@@ -3628,14 +3611,17 @@ void NetworkContext::RevokeNetworkForNonces(
         }
       };
 
-  for (auto& entry : nonces_to_patterns) {
-    const base::UnguessableToken& nonce = entry->nonce;
+  for (auto& entry : ids_to_patterns) {
+    const base::UnguessableToken& network_restrictions_id =
+        entry->network_restrictions_id;
 
-    // Accessing `network_revocation_nonces_[nonce]` here ensures that if it's
-    // not already present in the set, it's default-constructed. This is
-    // important, as an empty `entry->allowlists.enforced->allowlist` represents
-    // complete network revocation.
-    NetworkRestriction& restriction = network_revocation_nonces_[nonce];
+    // Accessing `network_restrictions_ids_[network_restrictions_id]` here
+    // ensures that if it's not already present in the set, it's
+    // default-constructed. This is important, as an empty
+    // `entry->allowlists.enforced->allowlist` represents complete network
+    // revocation.
+    NetworkRestriction& restriction =
+        network_restrictions_ids_[network_restrictions_id];
     restriction.response_url = entry->allowlists.response_url;
     restriction.reporting_source = entry->allowlists.reporting_source;
 
@@ -3654,10 +3640,10 @@ void NetworkContext::RevokeNetworkForNonces(
   }
 }
 
-void NetworkContext::ClearNonces(
-    const std::vector<base::UnguessableToken>& nonces) {
-  for (const auto& nonce : nonces) {
-    network_revocation_nonces_.erase(nonce);
+void NetworkContext::ClearNetworkRestrictions(
+    const std::vector<base::UnguessableToken>& network_restrictions_ids) {
+  for (const auto& network_restrictions_id : network_restrictions_ids) {
+    network_restrictions_ids_.erase(network_restrictions_id);
   }
 }
 
@@ -3724,83 +3710,80 @@ void NetworkContext::AddQuicHints(
   }
 }
 
-bool NetworkContext::IsNetworkForNonceAndUrlAllowed(
-    const base::UnguessableToken& nonce,
+bool NetworkContext::IsNetworkForNetworkRestrictionsIdAndUrlAllowed(
+    const base::UnguessableToken& network_restrictions_id,
     const GURL& url,
     const net::NetworkAnonymizationKey& network_anonymization_key,
     bool is_redirect) {
-  // If network hasn't been revoked for the nonce, it's allowed. Likewise, local
-  // schemes that reach this point should be excluded as they don't generate
-  // network requests.
-  auto it = network_revocation_nonces_.find(nonce);
-  if (it == network_revocation_nonces_.end() || url.SchemeIsLocal()) {
+  if (!base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
+    return true;
+  }
+
+  // If network hasn't been revoked for the network restrictions ID, it's
+  // allowed. Likewise, local schemes that reach this point should be excluded
+  // as they don't generate network requests.
+  auto it = network_restrictions_ids_.find(network_restrictions_id);
+  if (it == network_restrictions_ids_.end() || url.SchemeIsLocal()) {
     return true;
   }
 
   const NetworkRestriction& restriction = it->second;
 
-  // For connection allowlist feature, network_revocation_nonces_ map contains
+  // For connection allowlist feature, network_restrictions_ids_ map contains
   // the allowed URL Patterns.
   // If there are no allowlisted URLs then it is assumed that all network URLs
   // are restricted.
-  if (base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
-    auto restriction_allowed = [&](const NetworkRestriction& r, bool enforced) {
-      const auto& patterns = enforced ? r.enforced_allowlisted_patterns
-                                      : r.report_only_allowlisted_patterns;
-      const auto& redirect_behavior = enforced
-                                          ? r.enforced_redirect_behavior
-                                          : r.report_only_redirect_behavior;
+  auto restriction_allowed = [&](const NetworkRestriction& r, bool enforced) {
+    const auto& patterns = enforced ? r.enforced_allowlisted_patterns
+                                    : r.report_only_allowlisted_patterns;
+    const auto& redirect_behavior = enforced ? r.enforced_redirect_behavior
+                                             : r.report_only_redirect_behavior;
 
-      if (is_redirect) {
-        return redirect_behavior ==
-               ConnectionAllowlist::RedirectBehavior::kAllow;
-      }
-      return !patterns.has_value() ||
-             std::ranges::any_of(
-                 *patterns,
-                 [&url](const std::unique_ptr<
-                        url_pattern::SimpleUrlPatternMatcher>& matcher) {
-                   return matcher->Match(url);
-                 });
-    };
+    if (is_redirect) {
+      return redirect_behavior == ConnectionAllowlist::RedirectBehavior::kAllow;
+    }
+    return !patterns.has_value() ||
+           std::ranges::any_of(
+               *patterns,
+               [&url](
+                   const std::unique_ptr<url_pattern::SimpleUrlPatternMatcher>&
+                       matcher) { return matcher->Match(url); });
+  };
 
-    // First, check against the report-only allowlist, reporting violations:
-    if (restriction.report_only_reporting_endpoint.has_value() &&
-        !restriction_allowed(restriction, /*enforced=*/false)) {
+  // First, check against the report-only allowlist, reporting violations:
+  if (restriction.report_only_reporting_endpoint.has_value() &&
+      !restriction_allowed(restriction, /*enforced=*/false)) {
+    QueueConnectionAllowlistReport(
+        restriction.response_url, url, network_anonymization_key,
+        restriction.reporting_source,
+        *restriction.report_only_reporting_endpoint, /*enforced=*/false);
+  }
+
+  // Then, match against the enforced allowlist, and return `false` to cancel
+  // the request if a violation is found:
+  if (!restriction_allowed(restriction, /*enforced=*/true)) {
+    if (restriction.enforced_reporting_endpoint.has_value()) {
       QueueConnectionAllowlistReport(
           restriction.response_url, url, network_anonymization_key,
           restriction.reporting_source,
-          *restriction.report_only_reporting_endpoint, /*enforced=*/false);
+          *restriction.enforced_reporting_endpoint, /*enforced=*/true);
     }
+    return false;
+  }
 
-    // Then, match against the enforced allowlist, and return `false` to cancel
-    // the request if a violation is found:
-    if (!restriction_allowed(restriction, /*enforced=*/true)) {
-      if (restriction.enforced_reporting_endpoint.has_value()) {
-        QueueConnectionAllowlistReport(
-            restriction.response_url, url, network_anonymization_key,
-            restriction.reporting_source,
-            *restriction.enforced_reporting_endpoint, /*enforced=*/true);
-      }
-      return false;
-    }
-
-    return true;
-  } /* kConnectionAllowlists */
-
-  return false;
+  return true;
 }
 
-bool NetworkContext::IsHostResolutionForNonceAndHostAllowed(
-    const base::UnguessableToken& nonce,
+bool NetworkContext::IsHostResolutionForNetworkRestrictionsIdAndHostAllowed(
+    const base::UnguessableToken& network_restrictions_id,
     const mojom::HostResolverHost& host,
     const net::NetworkAnonymizationKey& network_anonymization_key) {
   if (!base::FeatureList::IsEnabled(network::features::kConnectionAllowlists)) {
     return true;
   }
 
-  auto it = network_revocation_nonces_.find(nonce);
-  if (it == network_revocation_nonces_.end()) {
+  auto it = network_restrictions_ids_.find(network_restrictions_id);
+  if (it == network_restrictions_ids_.end()) {
     return true;
   }
 
@@ -3868,9 +3851,9 @@ void NetworkContext::InitializePrefetchURLLoaderFactory() {
 }
 
 GURL NetworkContext::GetNetworkRestrictionResponseUrlForTesting(
-    const base::UnguessableToken& nonce) const {
-  auto it = network_revocation_nonces_.find(nonce);
-  if (it == network_revocation_nonces_.end()) {
+    const base::UnguessableToken& network_restrictions_id) const {
+  auto it = network_restrictions_ids_.find(network_restrictions_id);
+  if (it == network_restrictions_ids_.end()) {
     return GURL();
   }
   return it->second.response_url;

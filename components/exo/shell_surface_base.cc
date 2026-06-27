@@ -339,6 +339,10 @@ class CustomWindowTargeter : public aura::WindowTargeter {
       return true;
     }
 
+    if (shell_surface_->IsPointWithinOverlay(local_point)) {
+      return true;
+    }
+
     aura::Window::ConvertPointToTarget(window, surface->window(), &local_point);
     return surface->HitTest(local_point);
   }
@@ -1129,6 +1133,19 @@ void ShellSurfaceBase::RemoveOverlay() {
         aura::client::kSkipImeProcessing, true);
   }
   UpdateResizability();
+}
+
+bool ShellSurfaceBase::IsPointWithinOverlay(const gfx::Point& point) const {
+  if (!HasOverlay()) {
+    return false;
+  }
+
+  gfx::Point point_in_overlay = point;
+  aura::Window::ConvertPointToTarget(widget_->GetNativeWindow(),
+                                     overlay_widget_->GetNativeWindow(),
+                                     &point_in_overlay);
+
+  return overlay_widget_->GetNativeWindow()->ContainsPoint(point_in_overlay);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2287,9 +2304,21 @@ void ShellSurfaceBase::OnPostWidgetCommit() {
 
 void ShellSurfaceBase::ShowWidget(bool activate) {
   if (activate) {
+    // Minimized windows cannot gain focus, when being un-minimized they will
+    // call into `ShowWidget` again which will validate activation permissions.
+    auto* window_state = ash::WindowState::Get(widget_->GetNativeWindow());
+    if (!(window_state && window_state->IsMinimized()) &&
+        GetSecurityDelegate() &&
+        !GetSecurityDelegate()->CanSelfActivate(widget_->GetNativeWindow())) {
+      activate = false;
+    }
+  }
+
+  if (activate) {
     // Widget will minimize itself if the initial state is minimized.
     widget_->Show();
   } else {
+    // `ShowInactive` does not have minimize support.
     widget_->ShowInactive();
   }
 }

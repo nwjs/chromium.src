@@ -17,7 +17,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -198,7 +197,7 @@ BrowserDelegate* BrowserControllerImpl::FindWebApp(const AccountId& account_id,
   BrowserDelegate* browser_delegate = nullptr;
   GlobalBrowserCollection::GetInstance()->ForEach(
       [&](BrowserWindowInterface* browser) {
-        if (!browser->GetBrowserForMigrationOnly()->is_delete_scheduled() &&
+        if (!browser->IsDeleteScheduled() &&
             BrowserMatches(browser, profile, app_id, internal_type, url)) {
           browser_delegate = GetDelegate(browser);
           return false;  // stop iterating

@@ -21,11 +21,13 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
+#include "chrome/browser/actor/actor_navigation_throttle.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
-#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/tools/tool_request.h"
-#include "chrome/common/actor/task_id.h"
 #include "chrome/common/actor_webui.mojom-forward.h"
+#include "chrome/common/glic_enums.mojom.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/task_id.h"
 #include "components/actor/core/task_source_info.h"
 #include "components/actor/public/mojom/actor_types.mojom-forward.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -42,6 +44,7 @@ class ActionTrackerForMetrics;
 class ActorKeyedService;
 class EnterprisePolicyChecker;
 class ExecutionEngine;
+class TabObservationStrategy;
 
 namespace ui {
 class UiEventDispatcher;
@@ -64,7 +67,8 @@ struct ActionResultWithLatencyInfo;
 class ActorTask : public base::SupportsUserData {
  public:
   using ActCallback =
-      base::OnceCallback<void(std::vector<ActionResultWithLatencyInfo>)>;
+      base::OnceCallback<void(std::vector<ActionResultWithLatencyInfo>,
+                              TabObservationStrategy)>;
 
   // Created only via ActorKeyedService::CreateTask or the CreateForTesting
   // method in this class.
@@ -95,8 +99,18 @@ class ActorTask : public base::SupportsUserData {
 
   const TaskSourceInfo& source_info() const { return source_info_; }
 
+  glic::mojom::FeatureMode feature_mode() const { return feature_mode_; }
+
   const std::string& title() const { return title_; }
   base::WeakPtr<ActorTaskDelegate> delegate() const { return delegate_; }
+
+  void SetNavigationDelegate(
+      base::WeakPtr<ActorNavigationThrottle::Delegate> delegate) {
+    navigation_delegate_ = std::move(delegate);
+  }
+  base::WeakPtr<ActorNavigationThrottle::Delegate> navigation_delegate() const {
+    return navigation_delegate_;
+  }
 
   const EnterprisePolicyChecker& policy_checker() const {
     return policy_checker_.get();
@@ -138,7 +152,8 @@ class ActorTask : public base::SupportsUserData {
     kShutdown = 5,
     kUserStartedNewChat = 6,
     kUserLoadedPreviousChat = 7,
-    kMaxValue = kUserLoadedPreviousChat,
+    kUserNavigatedAway = 8,
+    kMaxValue = kUserNavigatedAway,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/histograms.xml:StoppedReason,
   // //tools/metrics/histograms/metadata/actor/enums.xml:StoppedReasonEnum)
@@ -301,12 +316,19 @@ class ActorTask : public base::SupportsUserData {
   void DidContentsExitActorControl(ActorControlledTabState* state,
                                    content::WebContents* contents);
 
+  // Returns true if the tab belongs to a different profile than the task,
+  // and logs an error to the journal.
+  bool CheckCrossProfileAndLog(tabs::TabInterface* tab,
+                               tabs::TabHandle tab_handle,
+                               std::string_view method_name);
+
   // Callback from TabInterface for when the WebContents change.
   void HandleDiscardContents(tabs::TabInterface* tab,
                              content::WebContents* old_contents,
                              content::WebContents* new_contents);
 
-  void OnFinishedAct(std::vector<ActionResultWithLatencyInfo> action_results);
+  void OnFinishedAct(std::vector<ActionResultWithLatencyInfo> action_results,
+                     TabObservationStrategy observation_strategy);
 
   void OnTabWillDetach(tabs::TabInterface* tab,
                        tabs::TabInterface::DetachReason reason);
@@ -352,6 +374,9 @@ class ActorTask : public base::SupportsUserData {
 
   // The task duration type does not change for the lifetime of a task.
   const TaskDuration duration_;
+
+  // The feature mode for the task.
+  const glic::mojom::FeatureMode feature_mode_;
 
   // The callback to notify the client of the result of calling Act().
   ActCallback callback_for_act_;
@@ -407,6 +432,8 @@ class ActorTask : public base::SupportsUserData {
 
   // Delegate for task-related events.
   base::WeakPtr<ActorTaskDelegate> delegate_;
+
+  base::WeakPtr<ActorNavigationThrottle::Delegate> navigation_delegate_;
 
   base::WeakPtrFactory<ui::UiEventDispatcher> ui_weak_ptr_factory_;
   base::WeakPtrFactory<ActorTask> weak_ptr_factory_{this};

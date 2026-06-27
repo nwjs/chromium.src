@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
@@ -101,6 +102,10 @@ class SystemAppTabMenuModelFactory : public TabMenuModelFactory {
       delete;
   ~SystemAppTabMenuModelFactory() override = default;
 
+  TabMenuModel* AsTabMenuModel(ui::SimpleMenuModel* model) override {
+    return nullptr;
+  }
+
   std::unique_ptr<ui::SimpleMenuModel> Create(
       ui::SimpleMenuModel::Delegate* delegate,
       TabMenuModelDelegate* tab_menu_model_delegate,
@@ -128,7 +133,7 @@ base::OnceClosure& ManifestUpdateAppliedCallbackForTesting() {
 
 WebAppBrowserController::WebAppBrowserController(
     WebAppProvider& provider,
-    Browser* browser,
+    BrowserWindowInterface* browser,
     webapps::AppId app_id,
 #if BUILDFLAG(IS_CHROMEOS)
     const ash::SystemWebAppDelegate* system_app,
@@ -221,13 +226,12 @@ void WebAppBrowserController::ToggleWindowControlsOverlayEnabled(
       /*on_complete=*/std::move(on_complete));
 }
 
-bool WebAppBrowserController::AppUsesBorderlessMode() const {
+bool WebAppBrowserController::AppUsesUnframedMode() const {
   return IsIsolatedWebApp() &&
          effective_display_mode_ == DisplayMode::kUnframed;
 }
 
-bool WebAppBrowserController::UrlMatchesBorderlessPattern(
-    const GURL& url) const {
+bool WebAppBrowserController::UrlMatchesUnframedPattern(const GURL& url) const {
   const WebApp* app = registrar().GetAppById(app_id());
   if (app == nullptr) {
     return false;
@@ -332,7 +336,11 @@ void WebAppBrowserController::CreateMetadataAndTriggerAppUpdateDialog(
 void WebAppBrowserController::CreateMetadataAndTriggerAppMigrationDialog(
     bool is_forced_migration_on_startup,
     base::TimeTicks start_time) const {
-  CHECK(base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi));
+  // This can be reached with app migration disabled when syncing a forced
+  // migration.
+  if (!base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi)) {
+    return;
+  }
   auto pending_migration_info =
       registrar().GetAppById(app_id())->pending_migration_info();
   CHECK(pending_migration_info);
@@ -346,6 +354,22 @@ void WebAppBrowserController::CreateMetadataAndTriggerAppMigrationDialog(
       base::BindOnce(
           &WebAppBrowserController::OnMetadataObtainedTriggerMigrationDialog,
           weak_ptr_factory_.GetWeakPtr(), start_time));
+}
+
+bool WebAppBrowserController::IsWindowCaptureHandleAllowed() const {
+// TODO(crbug.com/510716187): Enable for other platforms once macOS native
+// window ID translation is implemented.
+#if BUILDFLAG(IS_CHROMEOS)
+  // Drop PWAs that are actively rendering with a tab strip.
+  if (has_tab_strip()) {
+    return false;
+  }
+
+  return registrar().AppMatches(
+      app_id(), web_app::WebAppFilter::IsWindowCaptureHandleAllowed());
+#else
+  return false;
+#endif
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -447,7 +471,11 @@ void WebAppBrowserController::OnWebAppUninstalled(
     const webapps::AppId& uninstalled_app_id,
     webapps::WebappUninstallSource uninstall_source) {
   if (uninstalled_app_id == app_id()) {
+    // Forcibly close the window, skipping any beforeunload prompts.
+    UnloadController::From(browser())->set_force_skip_warning_user_on_close(
+        true);
     chrome::CloseWindow(browser());
+    UpdateCustomTabBarVisibility(/*animate=*/false);
   }
 }
 
@@ -829,15 +857,15 @@ void WebAppBrowserController::OnReadIcon(IconPurpose purpose, SkBitmap bitmap) {
 }
 
 void WebAppBrowserController::PerformDigitalAssetLinkVerification(
-    Browser* browser) {
+    BrowserWindowInterface* browser) {
 #if BUILDFLAG(IS_CHROMEOS)
   asset_link_handler_ = std::make_unique<
       content_relationship_verification::DigitalAssetLinksHandler>(
-      browser->profile()->GetURLLoaderFactory());
+      browser->GetProfile()->GetURLLoaderFactory());
   is_verified_ = std::nullopt;
 
   ash::ApkWebAppService* apk_web_app_service =
-      ash::ApkWebAppService::Get(browser->profile());
+      ash::ApkWebAppService::Get(browser->GetProfile());
   if (!apk_web_app_service || !apk_web_app_service->IsWebOnlyTwa(app_id())) {
     return;
   }

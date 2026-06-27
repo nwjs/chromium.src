@@ -26,6 +26,7 @@ class LocationBarModel;
 class LocationBarTesting;
 class OmniboxController;
 class OmniboxView;
+class OmniboxPopupView;
 class Profile;
 
 namespace bubble_anchor_util {
@@ -106,6 +107,8 @@ class LocationBar {
 
   virtual OmniboxView* GetOmniboxView() = 0;
 
+  virtual OmniboxPopupView* GetOmniboxPopupView() = 0;
+
   // Returns the OmniboxController owned by this LocationBar.
   virtual OmniboxController* GetOmniboxController() = 0;
 
@@ -140,6 +143,10 @@ class LocationBar {
   // Warning: this may be null if the location bar is not visible.
   // Gets an anchor for the entire location bar.
   virtual ui::TrackedElement* GetAnchorOrNull() = 0;
+
+  // Returns true if the location bar is currently in the middle of a popup
+  // state transition.
+  virtual bool in_popup_state_transition() const;
 
   // Returns the Browser object this is for. This may be nullptr sometimes;
   // known cases include captive portals on ChromeOS and

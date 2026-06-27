@@ -49,6 +49,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/base/webui/resource_path.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #include "ui/webui/webui_util.h"
 #include "url/gurl.h"
 
@@ -101,56 +102,6 @@ int GetMainViewTitleId(bool is_glic_version) {
   }
   return ProfilePicker::Shown() ? IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_V2
                                 : IDS_PROFILE_PICKER_MAIN_VIEW_TITLE;
-}
-
-int GetMainViewSingleProfileTitleId(bool is_glic_version) {
-  if (is_glic_version) {
-    return IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_GLIC;
-  }
-  if (base::FeatureList::IsEnabled(switches::kProfilePickerTextVariations)) {
-    switch (switches::kProfilePickerTextVariation.Get()) {
-      case switches::ProfilePickerVariation::kKeepWorkAndLifeSeparate:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_KEEP_WORK_AND_LIFE_SEPARATE;
-      case switches::ProfilePickerVariation::kGotAnotherGoogleAccount:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_GOT_ANOTHER_GOOGLE_ACCOUNT;
-      case switches::ProfilePickerVariation::kKeepTasksSeparate:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_KEEP_TASKS_SEPARATE;
-      case switches::ProfilePickerVariation::kSharingAComputer:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_SHARING_A_COMPUTER;
-      case switches::ProfilePickerVariation::kKeepEverythingInChrome:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_KEEP_EVERYTHING_IN_CHROME;
-    }
-  }
-  return ProfilePicker::Shown() ? IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_V2
-                                : IDS_PROFILE_PICKER_MAIN_VIEW_TITLE;
-}
-
-int GetMainViewSubtitleId(bool is_glic_version) {
-  if (is_glic_version) {
-    return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC;
-  }
-  return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE;
-}
-
-int GetMainViewSingleProfileSubtitleId(bool is_glic_version) {
-  if (is_glic_version) {
-    return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC;
-  }
-  if (base::FeatureList::IsEnabled(switches::kProfilePickerTextVariations)) {
-    switch (switches::kProfilePickerTextVariation.Get()) {
-      case switches::ProfilePickerVariation::kKeepWorkAndLifeSeparate:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_KEEP_WORK_AND_LIFE_SEPARATE;
-      case switches::ProfilePickerVariation::kGotAnotherGoogleAccount:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GOT_ANOTHER_GOOGLE_ACCOUNT;
-      case switches::ProfilePickerVariation::kKeepTasksSeparate:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_KEEP_TASKS_SEPARATE;
-      case switches::ProfilePickerVariation::kSharingAComputer:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_SHARING_A_COMPUTER;
-      case switches::ProfilePickerVariation::kKeepEverythingInChrome:
-        return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_KEEP_EVERYTHING_IN_CHROME;
-    }
-  }
-  return IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE;
 }
 
 int GetProfileTypeChoiceNotNowButtonLabelId(
@@ -222,13 +173,9 @@ void AddStrings(content::WebUIDataSource* html_source,
   html_source->AddLocalizedString("mainViewTitle",
                                   GetMainViewTitleId(is_glic_version));
   html_source->AddLocalizedString(
-      "mainViewSingleProfileTitle",
-      GetMainViewSingleProfileTitleId(is_glic_version));
-  html_source->AddLocalizedString("mainViewSubtitle",
-                                  GetMainViewSubtitleId(is_glic_version));
-  html_source->AddLocalizedString(
-      "mainViewSingleProfileSubtitle",
-      GetMainViewSingleProfileSubtitleId(is_glic_version));
+      "mainViewSubtitle", is_glic_version
+                              ? IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE_GLIC
+                              : IDS_PROFILE_PICKER_MAIN_VIEW_SUBTITLE);
 
   html_source->AddLocalizedString(
       "profileTypeChoiceSubtitle",
@@ -274,8 +221,6 @@ void AddFlags(content::WebUIDataSource* html_source,
     html_source->AddBoolean("isBrowserSigninAllowed", false);
     html_source->AddBoolean("isGuestModeEnabled", false);
     html_source->AddBoolean("isProfileCreationAllowed", false);
-    html_source->AddBoolean("showProfilePickerToAllUsersExperiment", false);
-    html_source->AddBoolean("isProfilePickerTextVariationsEnabled", false);
     html_source->AddBoolean("isOpenAllProfilesButtonExperimentEnabled", false);
     html_source->AddInteger("maxProfilesCountToShowOpenAllProfilesButton", 0);
     html_source->AddBoolean("useRefreshedUI", false);
@@ -304,13 +249,6 @@ void AddFlags(content::WebUIDataSource* html_source,
   html_source->AddBoolean("isProfileCreationAllowed",
                           profiles::IsProfileCreationAllowed());
 
-  html_source->AddBoolean(
-      "showProfilePickerToAllUsersExperiment",
-      base::FeatureList::IsEnabled(
-          switches::kShowProfilePickerToAllUsersExperiment));
-  html_source->AddBoolean(
-      "isProfilePickerTextVariationsEnabled",
-      base::FeatureList::IsEnabled(switches::kProfilePickerTextVariations));
   html_source->AddBoolean("useRefreshedUI",
                           is_first_run_desktop_refresh_enabled);
 }
@@ -398,16 +336,19 @@ ProfilePickerUI::ProfilePickerUI(content::WebUI* web_ui)
 
   webui::SetupWebUIDataSource(html_source, kProfilePickerResources,
                               IDR_PROFILE_PICKER_PROFILE_PICKER_HTML);
+
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, std::vector<ui::ElementIdentifier>{});
 }
 
 ProfilePickerUI::~ProfilePickerUI() = default;
-
 void ProfilePickerUI::CreateHelpBubbleHandler(
     mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler) {
   help_bubble_handler_ = std::make_unique<user_education::HelpBubbleHandler>(
-      std::move(handler), std::move(client), this,
-      std::vector<ui::ElementIdentifier>{});
+      std::move(handler), std::move(client),
+      ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
+          web_ui()->GetRenderFrameHost()));
 }
 
 void ProfilePickerUI::BindInterface(

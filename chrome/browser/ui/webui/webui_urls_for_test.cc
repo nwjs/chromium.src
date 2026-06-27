@@ -27,8 +27,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       // TODO(crbug.com/487113801): Investigate why tests are flaky on dbg bots.
       "chrome://accessibility",
 #endif
-      "chrome://accessibility-annotator-info",
-      "chrome://accessibility-annotator-internals",
+      "chrome://personal-context-notice",
 // TODO:(https://crbug.com/40265685): Flakily crashes on ChromeOS.
 #if !BUILDFLAG(IS_CHROMEOS)
       "chrome://app-service-internals",
@@ -39,9 +38,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://autofill-ml-internals",
       "chrome://autofill-internals",
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
       "chrome://batch-upload",
-#endif
 
       "chrome://bookmarks",
       "chrome://bookmarks-side-panel.top-chrome",
@@ -70,6 +67,10 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://default-browser-modal",
 #endif
 
+#if BUILDFLAG(IS_WIN)
+      "chrome://default-browser",
+#endif
+
       "chrome://debug-webuis-disabled",
       "chrome://device-log",
       "chrome://download-internals",
@@ -80,7 +81,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://extensions-zero-state",
       "chrome://family-link-user-internals",
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-      "chrome://feature-showcase",
+      "chrome://feature-showcase/?steps=example",
 #endif
       "chrome://flags",
       "chrome://gcm-internals",
@@ -109,6 +110,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://media-internals",
       "chrome://media-router-internals",
       "chrome://metrics-internals",
+      "chrome://multistep-filter-internals",
       "chrome://net-export",
       "chrome://net-internals",
       "chrome://network-errors",
@@ -127,9 +129,15 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://optimization-guide-internals",
       "chrome://password-manager",
       "chrome://password-manager-internals",
+      "chrome://personal-context-internals",
       "chrome://policy",
       "chrome://predictors",
+
+  // TODO(crbug.com/511254271): Flaky on some Linux builders.
+#if !BUILDFLAG(IS_LINUX)
       "chrome://prefs-internals",
+#endif
+
       "chrome://privacy-sandbox-internals",
       "chrome://private-aggregation-internals",
       "chrome://private-ai-internals",
@@ -301,6 +309,7 @@ base::span<const std::string_view> GetUntestedChromeUrlsForTest() {
       "chrome://feedback",
       "chrome://glic",
       "chrome://glic-fre",
+      "chrome://glic-experimental-opt-in",
       "chrome-untrusted://glic",
       "chrome://history-sync-optin",
       // Not a valid URL; only internals/session-service is valid.

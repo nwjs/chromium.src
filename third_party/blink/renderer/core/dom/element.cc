@@ -35,6 +35,7 @@
 #include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "cc/input/snap_selection_strategy.h"
+#include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
@@ -128,6 +129,7 @@
 #include "third_party/blink/renderer/core/dom/first_letter_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
+#include "third_party/blink/renderer/core/dom/focusgroup_dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/indexed_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/interest_invoker_target_data.h"
 #include "third_party/blink/renderer/core/dom/invalidate_node_list_caches_scope.h"
@@ -145,6 +147,7 @@
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
+#include "third_party/blink/renderer/core/dom/scroll_button_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
@@ -287,6 +290,7 @@
 #include "third_party/blink/renderer/platform/bindings/v8_dom_wrapper.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_context_data.h"
 #include "third_party/blink/renderer/platform/geometry/calculation_value.h"
+#include "third_party/blink/renderer/platform/graphics/paint/tracked_element_data.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
@@ -1178,8 +1182,19 @@ Node* Element::Clone(Document& factory,
       cloned_shadow_root.SetKeepCustomElementRegistryNull(
           shadow_root->ShouldKeepCustomElementRegistryNull());
 
-      // TODO(crbug.com/448174611): Re-process the shadowrootadoptedstylesheets
-      // attribute value on the cloned shadow root.
+      // Re-resolve the shadowrootadoptedstylesheets attribute against the
+      // cloned shadow root so that `adoptedStyleSheets` is populated. Note that
+      // this will not preserve any modifications made to the
+      // `adoptedStyleSheets`.
+      if (RuntimeEnabledFeatures::ShadowRootAdoptedStyleSheetEnabled(
+              factory.GetExecutionContext())) {
+        const AtomicString& adopted_stylesheets_value =
+            shadow_root->AdoptedStylesheetsAttributeValue();
+        if (!adopted_stylesheets_value.IsNull()) {
+          cloned_shadow_root.ProcessAdoptedStylesheetAttribute(
+              adopted_stylesheets_value);
+        }
+      }
 
       // 6.6 If the clone children flag is set, then for each child child of
       // node’s shadow root, in tree order: append the result of cloning child
@@ -1281,6 +1296,16 @@ void Element::removeAttribute(const QualifiedName& name) {
   }
 
   RemoveAttributeInternal(index, AttributeModificationReason::kDirectly);
+}
+
+void Element::RemoveAllAttributes() {
+  while (hasAttributes()) {
+    const AttributeCollection& attributes = GetElementData()->Attributes();
+    // Use a reason of kByCloning since our caller is going to use the cloning
+    // process to restore a different set of attributes.
+    RemoveAttributeInternal(attributes.size() - 1,
+                            AttributeModificationReason::kByCloning);
+  }
 }
 
 void Element::SetBooleanAttribute(const QualifiedName& name, bool value) {
@@ -1474,13 +1499,6 @@ Element* Element::GetElementAttribute(const QualifiedName& name) const {
     element = getElementByIdIncludingDisconnected(*this, id);
   }
 
-  // Don't return the element if it has an invalid reference target.
-  if (RuntimeEnabledFeatures::ShadowRootReferenceTargetEnabled(
-          GetExecutionContext()) &&
-      element && !element->GetShadowReferenceTargetOrSelf(name)) {
-    return nullptr;
-  }
-
   return element;
 }
 
@@ -1507,14 +1525,8 @@ GCedHeapVector<Member<Element>>* Element::GetAttrAssociatedElements(
       // 3.1. If attrElement is not a descendant of any of element's
       // shadow-including ancestors, then continue.
       if (ElementIsDescendantOfShadowIncludingAncestor(*this, *attr_element)) {
-        // 3.NEW. Resolve the referenceTarget of attr_element
-        Element* reference_target =
-            attr_element->GetShadowReferenceTargetOrSelf(name);
-
         // 3.2. Append attrElement to elements.
-        if (reference_target) {
-          result_elements->push_back(reference_target);
-        }
+        result_elements->push_back(attr_element);
       }
     }
   } else {
@@ -1554,18 +1566,31 @@ GCedHeapVector<Member<Element>>* Element::GetAttrAssociatedElements(
       Element* candidate =
           getElementByIdIncludingDisconnected(*this, AtomicString(id));
       if (candidate) {
-        // 4.3.NEW. Resolve the referenceTarget of the candidate element
-        candidate = candidate->GetShadowReferenceTargetOrSelf(attr);
-
         // 4.3.2. Append candidate to elements.
-        if (candidate) {
-          result_elements->push_back(candidate);
-        }
+        result_elements->push_back(candidate);
       }
     }
   }
   // 5. Return elements.
   return result_elements;
+}
+
+GCedHeapVector<Member<Element>>*
+Element::GetAttrAssociatedElementsResolvingReferenceTarget(
+    const QualifiedName& name) const {
+  GCedHeapVector<Member<Element>>* elements = GetAttrAssociatedElements(name);
+  if (!elements) {
+    return nullptr;
+  }
+  GCedHeapVector<Member<Element>>* resolved =
+      MakeGarbageCollected<GCedHeapVector<Member<Element>>>();
+  resolved->reserve(elements->size());
+  for (const auto& element : *elements) {
+    if (Element* target = element->GetShadowReferenceTargetOrSelf(name)) {
+      resolved->push_back(target);
+    }
+  }
+  return resolved;
 }
 
 FrozenArray<Element>* Element::GetElementArrayAttribute(
@@ -1574,18 +1599,6 @@ FrozenArray<Element>* Element::GetElementArrayAttribute(
 
   // 1. Let elements be this's attr-associated elements.
   GCedHeapVector<Member<Element>>* elements = GetAttrAssociatedElements(name);
-
-  // Due to reference target it's possible that attr-associated elements could
-  // be in non-ancestor shadow trees. We don't want to leak references into
-  // those scopes, so retarget the elements.
-  if (RuntimeEnabledFeatures::ShadowRootReferenceTargetEnabled(
-          GetExecutionContext()) &&
-      elements) {
-    std::transform(elements->begin(), elements->end(), elements->begin(),
-                   [this](Element* element) {
-                     return &this->GetTreeScope().Retarget(*element);
-                   });
-  }
 
   CachedAttrAssociatedElementsMap* cached_attr_associated_elements_map =
       GetDocument().GetCachedAttrAssociatedElementsMap(this);
@@ -2619,7 +2632,8 @@ int Element::clientWidth() {
             .Round();
       }
       return AdjustForAbsoluteZoom::AdjustInt(
-          layout_view->GetLayoutSize().width(), layout_view->StyleRef());
+          layout_view->GetLayoutSize(kExcludeScrollbars).width(),
+          layout_view->StyleRef());
     }
   }
 
@@ -2660,7 +2674,8 @@ int Element::clientHeight() {
             .Round();
       }
       return AdjustForAbsoluteZoom::AdjustInt(
-          layout_view->GetLayoutSize().height(), layout_view->StyleRef());
+          layout_view->GetLayoutSize(kExcludeScrollbars).height(),
+          layout_view->StyleRef());
     }
   }
 
@@ -3775,10 +3790,6 @@ DISABLE_CFI_PERF
 void Element::AttributeChanged(const AttributeModificationParams& params) {
   ParseAttribute(params);
 
-  GetDocument().IncDOMTreeVersion();
-  GetDocument().NotifyAttributeChanged(*this, params.name, params.old_value,
-                                       params.new_value);
-
   const QualifiedName& name = params.name;
   if (name == html_names::kIdAttr) {
     AtomicString lowercase_id;
@@ -3855,6 +3866,12 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
       }
     }
   } else if (name == html_names::kFocusgroupAttr) {
+    // Keep the DOMTokenList in sync when the content attribute changes.
+    if (const ElementRareDataVector* data = RareData()) {
+      if (DOMTokenList* token_list = data->GetFocusgroupTokenList()) {
+        token_list->DidUpdateAttributeValue(params.old_value, params.new_value);
+      }
+    }
     // Only update the focusgroup flags when the node has been added to the
     // tree. This is because the computed focusgroup value will depend on the
     // focusgroup value of its closest ancestor node that is a focusgroup, if
@@ -3915,13 +3932,19 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
       }
     }
   }
+}
 
-  InvalidateNodeListCachesInAncestors(&name, this, nullptr);
-
+void Element::AttributeChangedWithInvalidations(
+    const AttributeModificationParams& params) {
+  AttributeChanged(params);
+  GetDocument().IncDOMTreeVersion();
+  GetDocument().NotifyAttributeChanged(*this, params.name, params.old_value,
+                                       params.new_value);
+  InvalidateNodeListCachesInAncestors(&params.name, this, nullptr);
   if (isConnected()) {
     if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
       if (params.old_value != params.new_value) {
-        cache->HandleAttributeChanged(name, this);
+        cache->HandleAttributeChanged(params.name, this);
       }
     }
   }
@@ -4096,9 +4119,15 @@ void Element::StripScriptingAttributes(
 
 void Element::ParserSetAttributes(
     const Vector<Attribute, kAttributePrealloc>& attribute_vector) {
+  // We must start with a newly-created element.  If we don't, it would not be
+  // safe to batch the AttributeChanged notifications the way we do, since on
+  // elements that are not newly-created, AttributeChanged might run script.
   DCHECK(!isConnected());
   DCHECK(!parentNode());
   DCHECK(!element_data_);
+  DCHECK(!HasChildren());
+  DCHECK_EQ(attribute_or_class_bloom_, 0u);
+  EventDispatchForbiddenScope assert_no_event_dispatch;
 
   if (!attribute_vector.empty()) {
     if (ElementDataCache* cache = GetDocument().GetElementDataCache()) {
@@ -4109,15 +4138,9 @@ void Element::ParserSetAttributes(
           ShareableElementData::CreateWithAttributes(attribute_vector);
     }
 
-    DCHECK_EQ(nullptr, ElementTraversal::FirstChild(*this));
-
-    // NOTE: AttributeChanged() will add back the class names (if any),
-    // so it is safe to reset the filter here.
-    attribute_or_class_bloom_ = 0;
     for (const Attribute& attribute : attribute_vector) {
       attribute_or_class_bloom_ |= FilterForAttribute(attribute.GetName());
     }
-    UpdateSubtreeBloomFilterAfterInsert();
   }
 
   ParserDidSetAttributes();
@@ -4128,6 +4151,10 @@ void Element::ParserSetAttributes(
     AttributeChanged(AttributeModificationParams(
         attribute.GetName(), g_null_atom, attribute.Value(),
         AttributeModificationReason::kByParser));
+  }
+
+  if (!attribute_vector.empty()) {
+    GetDocument().IncDOMTreeVersion();
   }
 }
 
@@ -4306,16 +4333,16 @@ Node::InsertionNotificationRequest Element::InsertedInto(
   }
 
   // Clean up the unnecessary explicitly set custom element registry
-  // in element rare data set in RemovedFrom. Note that we only need
-  // to do such bookkeeping when scoped custom element registry is actually
-  // used.
+  // in element rare data set in RemovedFrom or TreeScopeAdopter. Note that
+  // we only need to do such bookkeeping when scoped custom element registry
+  // is actually used.
   if (GetDocument().ScopedCustomElementRegistryUsed()) {
     DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
     if (ElementRareDataVector* rare_data = RareData()) {
       if (rare_data->HasCustomElementRegistrySet() &&
           insertion_point.IsInTreeScope()) {
         auto* registry = rare_data->GetCustomElementRegistry();
-        if (registry && registry->IsGlobalRegistry() &&
+        if (registry &&
             registry ==
                 insertion_point.GetTreeScope().customElementRegistry()) {
           rare_data->ClearCustomElementRegistry();
@@ -4487,8 +4514,7 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
     ElementRareDataVector* data = RareData();
     if (!data->HasCustomElementRegistrySet() &&
         insertion_point.IsInTreeScope()) {
-      data_ = data->SetCustomElementRegistry(
-          insertion_point.GetTreeScope().customElementRegistry());
+      data_ = data->SetCustomElementRegistry(customElementRegistry());
     }
   }
 
@@ -4557,7 +4583,8 @@ void Element::AttachLayoutTree(AttachContext& context) {
   //   - #button
   if (PseudoElement* pseudo_element =
           GetPseudoElement(kPseudoIdOverscrollAreaParent)) {
-    if (context.parent != pseudo_element->GetLayoutObject()) {
+    if (pseudo_element->GetLayoutObject() &&
+        context.parent != pseudo_element->GetLayoutObject()) {
       AttachContext overscroll_area_context(context);
       overscroll_area_context.parent = pseudo_element->GetLayoutObject();
       overscroll_area_context.previous_in_flow = nullptr;
@@ -6036,6 +6063,9 @@ void Element::RebuildTransitionLayoutTree(
 
 void Element::RebuildOverscrollAreaLayoutTree(
     WhitespaceAttacher& whitespace_attacher) {
+  if (!GetLayoutBox()) {
+    return;
+  }
   OverscrollAreaTracker* overscroll_area_tracker = GetOverscrollAreaTracker();
   if (!overscroll_area_tracker) {
     return;
@@ -6051,6 +6081,9 @@ void Element::RebuildOverscrollAreaLayoutTree(
 }
 
 void Element::AttachOverscrollPseudoElements(AttachContext& context) {
+  if (!GetLayoutBox()) {
+    return;
+  }
   OverscrollAreaTracker* overscroll_area_tracker = GetOverscrollAreaTracker();
   if (!overscroll_area_tracker) {
     return;
@@ -6826,7 +6859,10 @@ void Element::ClearTargetedSnapAreaIdsForSnapContainers() {
 GCedHeapVector<Member<Element>>* Element::ElementsFromAttributeOrInternals(
     const QualifiedName& attribute) const {
   GCedHeapVector<Member<Element>>* attr_associated_elements =
-      GetAttrAssociatedElements(attribute);
+      GetAttrAssociatedElementsResolvingReferenceTarget(attribute);
+  // `attr_associated_elements` will be non-null (but potentially empty) if
+  // this element either has the content attribute given by `attribute` set,
+  // or the corresponding IDL attribute explicitly set.
   if (attr_associated_elements) {
     if (attr_associated_elements->empty()) {
       return nullptr;
@@ -8864,6 +8900,21 @@ void Element::OverscrollTargetStateChanged() {
   PseudoStateChanged(CSSSelector::kPseudoOverscrollTarget);
 }
 
+bool Element::MatchesOverscrollOpen() const {
+  if (!RuntimeEnabledFeatures::OverscrollGesturesEnabled()) {
+    return false;
+  }
+  if (auto* pseudo = GetPseudoElement(kPseudoIdOverscrollAreaParent)) {
+    if (auto* box_model_object =
+            DynamicTo<LayoutBoxModelObject>(pseudo->GetLayoutObject())) {
+      auto* scrollable_area = DynamicTo<PaintLayerScrollableArea>(
+          box_model_object->GetScrollableArea());
+      return scrollable_area->IsCurrentlyOverscrolling();
+    }
+  }
+  return false;
+}
+
 void Element::FocusWithinStateChanged() {
   if (GetComputedStyle() && GetComputedStyle()->AffectedByFocusWithin()) {
     StyleChangeType change_type =
@@ -9011,6 +9062,38 @@ void Element::SetHasBeenHeuristicCustomPasswordCSS() {
   }
 
   EnsureRareData().SetHasBeenHeuristicCustomPasswordCSS();
+  UpdatePasswordTracking();
+}
+
+bool Element::ShouldTrackPassword() const {
+  return IsNativeOrHeuristicPassword();
+}
+
+bool Element::IsNativeOrHeuristicPassword() const {
+  return HasBeenHeuristicCustomPasswordCSS();
+}
+
+void Element::UpdatePasswordTracking() {
+  if (!RuntimeEnabledFeatures::AIPageContentTrackedElementsPasswordEnabled()) {
+    return;
+  }
+
+  viz::TrackedElementFeature tracking_feature =
+      viz::TrackedElementFeature::kPasswordTracking;
+
+  const TrackedElementSubRect* tracked_element =
+      GetTrackedElementSubRect(tracking_feature);
+
+  const bool should_track = ShouldTrackPassword();
+  if (should_track && !tracked_element) {
+    SetTrackedElementSubRect(
+        tracking_feature,
+        TrackedElementSubRect(
+            TrackedElementId(base::Token::CreateRandom()),
+            /*should_add_to_compositor_frame_metadata=*/true));
+  } else if (!should_track && tracked_element) {
+    ClearTrackedElementSubRect(tracking_feature);
+  }
 }
 
 bool Element::HasBeenHeuristicCustomPasswordCSS() const {
@@ -10601,6 +10684,10 @@ PseudoElement* Element::CreatePseudoElementIfNeeded(
     return nullptr;
   }
 
+  if (IsTransitionPseudoElement(pseudo_id)) {
+    pseudo_element->RetargetAnimations();
+  }
+
   probe::PseudoElementCreated(pseudo_element);
   return pseudo_element;
 }
@@ -10760,6 +10847,12 @@ Element* Element::GetStyledPseudoElement(
                         : kPseudoIdScrollMarkerGroupAfter;
       }
     }
+    if (pseudo_id == kPseudoIdScrollButton) {
+      if (const ComputedStyle* style = GetComputedStyle()) {
+        pseudo_id = ScrollButtonPseudoElement::PseudoIdFromScrollButtonArgument(
+            pseudo_argument, *style);
+      }
+    }
     if (PseudoElement* result = GetPseudoElement(pseudo_id, pseudo_argument)) {
       return result;
     }
@@ -10872,14 +10965,14 @@ bool Element::PseudoElementStylesDependOnAttr() const {
   return PseudoElementStylesDependOnFunc(func);
 }
 
-template <typename Functor>
-bool Element::PseudoElementStylesDependOnFunc(Functor& func) const {
+bool Element::PseudoElementStylesDependOnFunc(
+    base::FunctionRef<bool(const ComputedStyle&)> func) const {
   const ComputedStyle* style = GetComputedStyle();
   if (!style) {
     return false;
   }
 
-  if (style->HasCachedPseudoElementStyle(func)) {
+  if (!IsPseudoElement() && style->DependsOnFunc(func)) {
     return true;
   }
 
@@ -10894,12 +10987,13 @@ bool Element::PseudoElementStylesDependOnFunc(Functor& func) const {
   // Note that |HasAnyPseudoElementStyles()| counts public pseudo-elements only.
   // ::-webkit-scrollbar-*  are internal, and hence are not counted. So we must
   // perform this check after checking scrollbar pseudo-element styles.
-  if (!style->HasAnyPseudoElementStyles()) {
+  if (!IsPseudoElement() && !style->HasAnyPseudoElementStyles()) {
     return false;
   }
 
   for (PseudoElement* pseudo_element : rare_data->GetPseudoElements()) {
-    if (func(*pseudo_element->GetComputedStyle())) {
+    if (func(*pseudo_element->GetComputedStyle()) ||
+        pseudo_element->PseudoElementStylesDependOnFunc(func)) {
       return true;
     }
   }
@@ -11123,7 +11217,7 @@ bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
     }
     if (!RuntimeEnabledFeatures::OverlayPropertyEnabled() &&
         pseudo_id == kPseudoIdBackdrop) {
-      return IsInTopLayer();
+      return IsInTopLayer() || GetOverscrollContainer();
     }
     return style->CanGeneratePseudoElement(pseudo_id);
   }
@@ -11191,6 +11285,18 @@ DOMTokenList& Element::classList() {
   return *rare_data->GetClassList();
 }
 
+DOMTokenList& Element::focusGroup() {
+  ElementRareDataVector* rare_data = &EnsureRareData();
+  if (!rare_data->GetFocusgroupTokenList()) {
+    auto* token_list = MakeGarbageCollected<FocusgroupDOMTokenList>(*this);
+    token_list->DidUpdateAttributeValue(
+        g_null_atom, getAttribute(html_names::kFocusgroupAttr));
+    rare_data = rare_data->SetFocusgroupTokenList(token_list);
+    data_ = rare_data;
+  }
+  return *rare_data->GetFocusgroupTokenList();
+}
+
 DOMStringMap& Element::dataset() {
   ElementRareDataVector* rare_data = &EnsureRareData();
   if (!rare_data->Dataset()) {
@@ -11209,7 +11315,7 @@ KURL Element::HrefURL() const {
     return GetURLAttributeAsKURL(html_names::kHrefAttr);
   }
   if (auto* svg_a = DynamicTo<SVGAElement>(*this)) {
-    return svg_a->LegacyHrefURL(GetDocument());
+    return svg_a->Url();
   }
   return KURL();
 }
@@ -11666,7 +11772,7 @@ void Element::WillModifyAttribute(const QualifiedName& name,
 DISABLE_CFI_PERF
 void Element::DidAddAttribute(const QualifiedName& name,
                               const AtomicString& value) {
-  AttributeChanged(AttributeModificationParams(
+  AttributeChangedWithInvalidations(AttributeModificationParams(
       name, g_null_atom, value, AttributeModificationReason::kDirectly));
   if (name == html_names::kIdAttr) {
     UpdateId(g_null_atom, value);
@@ -11681,7 +11787,7 @@ void Element::DidModifyAttribute(const QualifiedName& name,
   if (name == html_names::kIdAttr) {
     UpdateId(old_value, new_value);
   }
-  AttributeChanged(
+  AttributeChangedWithInvalidations(
       AttributeModificationParams(name, old_value, new_value, reason));
   probe::DidModifyDOMAttr(this, name, new_value);
   // Do not dispatch a DOMSubtreeModified event here; see bug 81141.
@@ -11692,7 +11798,7 @@ void Element::DidRemoveAttribute(const QualifiedName& name,
   if (name == html_names::kIdAttr) {
     UpdateId(old_value, g_null_atom);
   }
-  AttributeChanged(AttributeModificationParams(
+  AttributeChangedWithInvalidations(AttributeModificationParams(
       name, old_value, g_null_atom, AttributeModificationReason::kDirectly));
   probe::DidRemoveDOMAttr(this, name);
 }
@@ -11871,22 +11977,6 @@ void Element::DetachAttrNodeFromElementWithValue(Attr* attr_node,
   }
 }
 
-void Element::DetachAllAttrNodesFromElement() {
-  AttrNodeList* list = GetAttrNodeList();
-  if (!list) {
-    return;
-  }
-
-  AttributeCollection attributes = GetElementData()->Attributes();
-  for (const Attribute& attr : attributes) {
-    if (Attr* attr_node = AttrIfExists(attr.GetName())) {
-      attr_node->DetachFromElementWithValue(attr.Value());
-    }
-  }
-
-  RemoveAttrNodeList();
-}
-
 void Element::WillRecalcStyle(const StyleRecalcChange) {
   DCHECK(HasCustomStyleCallbacks());
 }
@@ -11906,9 +11996,17 @@ void Element::AdjustStyle(ComputedStyleBuilder&) {
 }
 
 void Element::CloneAttributesFrom(const Element& other) {
-  if (RareData()) {
-    DetachAllAttrNodesFromElement();
-  }
+  // We must start with a newly-created element.  If we don't, it would not be
+  // safe to batch the AttributeChanged notifications the way we do, since on
+  // elements that are not newly-created, AttributeChanged might run script.
+  DCHECK(!isConnected());
+  DCHECK(!parentNode());
+  DCHECK(!element_data_);
+  DCHECK(!HasChildren());
+  CHECK_EQ(attribute_or_class_bloom_, 0u);
+  CHECK(!hasAttributes());
+  CHECK(!GetAttrNodeList());
+  EventDispatchForbiddenScope assert_no_event_dispatch;
 
   other.SynchronizeAllAttributes();
   if (!other.element_data_) {
@@ -11960,27 +12058,13 @@ void Element::CloneAttributesFrom(const Element& other) {
     element_data_ = other.element_data_->MakeUniqueCopy();
   }
 
-  // Since we're going through the list of attributes now, we use the
-  // opportunity to recreate the Bloom filter; in particular, it may
-  // be different from the source's Bloom filter if it came from a document
-  // with different quirks mode setting.
-  Element* first_child = ElementTraversal::FirstChild(*this);
-  if (!first_child) {
-    attribute_or_class_bloom_ = 0;
-  } else if (!first_child->nextSibling()) {
-    attribute_or_class_bloom_ = first_child->attribute_or_class_bloom_;
-  } else {
-    // Two or more children left; we don't consider it worth it
-    // to try to reset the filter fully.
-  }
   for (wtf_size_t i = 0; i < element_data_->Attributes().size(); ++i) {
     const Attribute& attr = element_data_->Attributes().at(i);
     attribute_or_class_bloom_ |= FilterForAttribute(attr.GetName());
-    AttributeChanged(
+    AttributeChangedWithInvalidations(
         AttributeModificationParams(attr.GetName(), g_null_atom, attr.Value(),
                                     AttributeModificationReason::kByCloning));
   }
-  UpdateSubtreeBloomFilterAfterInsert();
 
   if (other.nonce() != g_null_atom) {
     setNonce(other.nonce());

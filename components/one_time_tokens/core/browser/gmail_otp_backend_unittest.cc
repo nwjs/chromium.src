@@ -36,6 +36,18 @@ class GmailOtpBackendImplTest : public testing::Test {
   }
 
  protected:
+  std::string GetExpectedUrl(const std::string& unencoded_reference) {
+    std::string encoded_reference;
+    base::Base64UrlEncode(unencoded_reference,
+                          base::Base64UrlEncodePolicy::INCLUDE_PADDING,
+                          &encoded_reference);
+    GURL url = net::AppendQueryParameter(
+        GURL("https://onetimetoken.pa.googleapis.com/v1/"
+             "onetimetokens:fetchEmail"),
+        "encryptedMessageReference", encoded_reference);
+    return net::AppendQueryParameter(url, "alt", "proto").spec();
+  }
+
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   network::TestURLLoaderFactory test_url_loader_factory_;
@@ -62,19 +74,11 @@ TEST_F(GmailOtpBackendImplTest, SubscribeAndGetToken) {
       FetchEmailOneTimeTokenResponse response;
   response.mutable_one_time_password()->set_one_time_password("123456");
 
-  std::string encoded_reference;
-  base::Base64UrlEncode("encrypted_reference",
-                        base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &encoded_reference);
-  const GURL url = net::AppendQueryParameter(
-      GURL("https://onetimetoken.pa.googleapis.com/v1/"
-           "onetimetokens:fetchEmail"),
-      "encryptedMessageReference", encoded_reference);
-
   task_environment_.FastForwardBy(base::Milliseconds(500));
 
-  test_url_loader_factory_.AddResponse(url.spec(),
-                                       response.SerializeAsString());
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"encrypted_reference"),
+      response.SerializeAsString());
 
   const base::expected<OneTimeToken, OneTimeTokenRetrievalError>& result =
       future.Get();
@@ -110,20 +114,12 @@ TEST_F(GmailOtpBackendImplTest, SubscribeAndGetTokenFailure) {
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       "access_token", base::Time::Now() + base::Hours(1));
 
-  std::string encoded_reference;
-  base::Base64UrlEncode("encrypted_reference_fail",
-                        base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &encoded_reference);
-  const GURL url = net::AppendQueryParameter(
-      GURL("https://onetimetoken.pa.googleapis.com/v1/"
-           "onetimetokens:fetchEmail"),
-      "encryptedMessageReference", encoded_reference);
-
   task_environment_.FastForwardBy(base::Milliseconds(500));
 
   // Return an HTTP 500 to simulate a network error
-  test_url_loader_factory_.AddResponse(url.spec(), "",
-                                       net::HTTP_INTERNAL_SERVER_ERROR);
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"encrypted_reference_fail"), "",
+      net::HTTP_INTERNAL_SERVER_ERROR);
 
   const base::expected<OneTimeToken, OneTimeTokenRetrievalError>& result =
       future.Get();
@@ -172,26 +168,10 @@ TEST_F(GmailOtpBackendImplTest, MultiplePendingRequestsAllowed) {
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 2);
 
   // Complete requests to avoid dangling pointers.
-  std::string ref1_encoded;
-  base::Base64UrlEncode("ref1", base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &ref1_encoded);
   test_url_loader_factory_.AddResponse(
-      net::AppendQueryParameter(
-          GURL("https://onetimetoken.pa.googleapis.com/v1/"
-               "onetimetokens:fetchEmail"),
-          "encryptedMessageReference", ref1_encoded)
-          .spec(),
-      "");
-  std::string ref2_encoded;
-  base::Base64UrlEncode("ref2", base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &ref2_encoded);
+      GetExpectedUrl(/*unencoded_reference=*/"ref1"), "");
   test_url_loader_factory_.AddResponse(
-      net::AppendQueryParameter(
-          GURL("https://onetimetoken.pa.googleapis.com/v1/"
-               "onetimetokens:fetchEmail"),
-          "encryptedMessageReference", ref2_encoded)
-          .spec(),
-      "");
+      GetExpectedUrl(/*unencoded_reference=*/"ref2"), "");
 }
 
 // Tests that the backend enforces the concurrency limit via the coordinator.
@@ -250,15 +230,8 @@ TEST_F(GmailOtpBackendImplTest, ProcessesQueueOnCompletion) {
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 3);
 
   // Complete one request (ref1).
-  std::string ref1_encoded;
-  base::Base64UrlEncode("ref1", base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &ref1_encoded);
-  std::string url1 = net::AppendQueryParameter(
-                         GURL("https://onetimetoken.pa.googleapis.com/v1/"
-                              "onetimetokens:fetchEmail"),
-                         "encryptedMessageReference", ref1_encoded)
-                         .spec();
-  test_url_loader_factory_.AddResponse(url1, "");
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"ref1"), "");
 
   // Completing ref1 should trigger ref4's access token fetch.
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
@@ -288,16 +261,8 @@ TEST_F(GmailOtpBackendImplTest, DeDuplicatesIncomingTickles) {
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
 
   // Complete the request.
-  std::string encoded_ref;
-  base::Base64UrlEncode("duplicate_ref",
-                        base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &encoded_ref);
-  std::string url = net::AppendQueryParameter(
-                        GURL("https://onetimetoken.pa.googleapis.com/v1/"
-                             "onetimetokens:fetchEmail"),
-                        "encryptedMessageReference", encoded_ref)
-                        .spec();
-  test_url_loader_factory_.AddResponse(url, "");
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"duplicate_ref"), "");
   auto unused = future.Get();
 }
 
@@ -326,15 +291,8 @@ TEST_F(GmailOtpBackendImplTest, RecentTicklesProcessedUponSubscription) {
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
 
   // Complete to avoid dangling pointers.
-  std::string encoded_reference;
-  base::Base64UrlEncode("ref1", base::Base64UrlEncodePolicy::INCLUDE_PADDING,
-                        &encoded_reference);
-  std::string url = net::AppendQueryParameter(
-                        GURL("https://onetimetoken.pa.googleapis.com/v1/"
-                             "onetimetokens:fetchEmail"),
-                        "encryptedMessageReference", encoded_reference)
-                        .spec();
-  test_url_loader_factory_.AddResponse(url, "");
+  test_url_loader_factory_.AddResponse(
+      GetExpectedUrl(/*unencoded_reference=*/"ref1"), "");
 }
 
 // Tests that expired tickles are not processed upon subscription.
@@ -356,6 +314,74 @@ TEST_F(GmailOtpBackendImplTest, ExpiredTicklesNotProcessedUponSubscription) {
 
   // No request should be triggered for the expired tickle.
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+}
+
+// Tests that SubscriptionWaitLatency is recorded as 0 when a subscription is
+// already active.
+TEST_F(GmailOtpBackendImplTest, SubscriptionWaitLatencyIsZeroWhenActive) {
+  base::HistogramTester histogram_tester;
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  ExpiringSubscription subscription = backend_.Subscribe(
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(EncryptedMessageReference("ref1")));
+
+  histogram_tester.ExpectTimeBucketCount(
+      "Autofill.OneTimeTokens.Backend.Gmail.SubscriptionWaitLatency",
+      base::TimeDelta(), 1);
+}
+
+// Tests that SubscriptionWaitLatency records the actual wait time when
+// processed from cache.
+TEST_F(GmailOtpBackendImplTest, SubscriptionWaitLatencyRecordsWaitTime) {
+  base::HistogramTester histogram_tester;
+  // Tickle arrives before anyone is subscribed.
+  backend_.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(EncryptedMessageReference("ref1")));
+
+  // Time passes.
+  task_environment_.FastForwardBy(base::Seconds(2));
+
+  // Subscription arrives.
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  ExpiringSubscription subscription = backend_.Subscribe(
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+
+  histogram_tester.ExpectTimeBucketCount(
+      "Autofill.OneTimeTokens.Backend.Gmail.SubscriptionWaitLatency",
+      base::Seconds(2), 1);
+}
+
+// Tests that if the backend is created with null URLLoaderFactory, Subscribe
+// immediately fails with kGmailOtpBackendInitializationFailed.
+TEST_F(GmailOtpBackendImplTest, Subscribe_InitializationFailed) {
+  base::HistogramTester histogram_tester;
+  GmailOtpBackendImpl bad_backend(/*url_loader_factory=*/nullptr,
+                                  *identity_test_env_.identity_manager());
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+  ExpiringSubscription subscription = bad_backend.Subscribe(
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+
+  const base::expected<OneTimeToken, OneTimeTokenRetrievalError>& result =
+      future.Get();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(),
+            OneTimeTokenRetrievalError::kGmailOtpBackendInitializationFailed);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.OneTimeTokens.Backend.Gmail.Success", false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.OneTimeTokens.Backend.Gmail.ErrorCode",
+      static_cast<int>(
+          OneTimeTokenRetrievalError::kGmailOtpBackendInitializationFailed),
+      1);
 }
 
 }  // namespace one_time_tokens

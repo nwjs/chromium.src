@@ -51,6 +51,12 @@ public final class EventConstants {
     public static final String ADAPTIVE_TOOLBAR_PAGE_SUMMARY_WEB_USED =
             "adaptive_toolbar_page_summary_web_used";
 
+    /** The user interacted with the GLIC button on the new bottom bar. */
+    public static final String ANDROID_BOTTOM_BAR_GLIC_USED = "android_bottom_bar_glic_used";
+
+    /** The user interacted with the New Tab button on the new bottom bar. */
+    public static final String ANDROID_BOTTOM_BAR_NEW_TAB_USED = "android_bottom_bar_new_tab_used";
+
     /** A generic event that any startup promo should notify when it is shown. */
     public static final String ANDROID_STARTUP_PROMO_SHOWN = "android_startup_promo_shown";
 
@@ -182,10 +188,6 @@ public final class EventConstants {
     public static final String KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_AUTOFILLED =
             "autofill_card_info_retrieval_suggestion_accepted";
 
-    /** The keyboard accessory was used to create a new plus address. */
-    public static final String KEYBOARD_ACCESSORY_PLUS_ADDRESS_CREATE_SUGGESTION =
-            "plus_address_create_suggestion_feature_used";
-
     /** Voice search button click on NTP. */
     public static final String NTP_VOICE_SEARCH_BUTTON_CLICKED = "ntp_voice_search_button_clicked";
 
@@ -225,9 +227,6 @@ public final class EventConstants {
             "restore_tabs_on_first_run_show_promo";
 
     public static final String RESTORE_TABS_PROMO_USED = "restore_tabs_promo_used";
-
-    /** Appearance in Settings was opened by the user. */
-    public static final String SETTINGS_APPEARANCE_OPENED = "settings_appearance_opened";
 
     /** Screenshot events */
     public static final String SHARE_SCREENSHOT_SELECTED = "share_screenshot_clicked";

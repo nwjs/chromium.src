@@ -62,6 +62,18 @@ try_.builder(
     ],
     gn_args = "ci/mac-arm64-archive-rel",
     cpu = cpu.ARM64,
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "mac-arm64-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -88,6 +100,18 @@ try_.builder(
     ],
     gn_args = "ci/mac-archive-rel",
     cpu = cpu.ARM64,
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "mac-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -636,15 +660,15 @@ try_.builder(
     mirrors = ["ci/mac-code-coverage"],
     gn_args = "ci/mac-code-coverage",
     cpu = cpu.ARM64,
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )
 
 try_.builder(
-    name = "mac-treesinviz-enabled-rel",
+    name = "mac-treesinviz-disabled-rel",
     mirrors = [
-        "ci/mac-treesinviz-enabled-rel",
+        "ci/mac-treesinviz-disabled-rel",
     ],
-    gn_args = "ci/mac-treesinviz-enabled-rel",
+    gn_args = "ci/mac-treesinviz-disabled-rel",
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
@@ -662,6 +686,9 @@ ios_builder(
     mirrors = [
         "ci/ios-blink-rel-fyi",
     ],
+    builder_config_settings = builder_config.try_settings(
+        retry_without_patch = False,
+    ),
     gn_args = "ci/ios-blink-rel-fyi",
     builderless = True,
     cpu = cpu.ARM64,
@@ -831,6 +858,9 @@ ios_builder(
 ios_builder(
     name = "tvos-rel-fyi",
     mirrors = ["ci/tvos-rel-fyi"],
+    builder_config_settings = builder_config.try_settings(
+        retry_without_patch = False,
+    ),
     gn_args = "ci/tvos-rel-fyi",
     builderless = True,
     cpu = cpu.ARM64,
@@ -892,7 +922,7 @@ ios_builder(
     ),
     builderless = True,
     cpu = cpu.ARM64,
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )
 
 gpu.try_.optional_tests_builder(

@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import("//build/config/chromebox_for_meetings/buildflags.gni")
-import("//build/config/chromeos/ui_mode.gni")
 
 assert(is_chromeos)
 assert(is_cfm)
@@ -19,6 +18,7 @@ static_library("browser") {
   public_deps = [
     "//base",
     "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser:memory_details",
     "//chromeos/ash/components/dbus/chromebox_for_meetings",
     "//chromeos/services/chromebox_for_meetings/public/cpp",
     "//chromeos/services/chromebox_for_meetings/public/mojom",

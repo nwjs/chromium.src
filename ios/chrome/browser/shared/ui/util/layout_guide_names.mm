@@ -13,7 +13,6 @@ GuideName* const kOmniboxLeadingImageGuide = @"kOmniboxLeadingImageGuide";
 GuideName* const kOmniboxTextFieldGuide = @"kOmniboxTextFieldGuide";
 GuideName* const kBackButtonGuide = @"kBackButtonGuide";
 GuideName* const kForwardButtonGuide = @"kForwardButtonGuide";
-GuideName* const kNewTabButtonGuide = @"kNewTabButtonGuide";
 GuideName* const kTabSwitcherGuide = @"kTabSwitcherGuide";
 GuideName* const kToolsMenuGuide = @"kToolsMenuGuide";
 GuideName* const kVoiceSearchButtonGuide = @"kVoiceSearchButtonGuide";
@@ -46,3 +45,4 @@ GuideName* const kLocationBarBadgeLargeEntrypointGuide =
 GuideName* const kInputAccessoryViewLayoutGuide =
     @"kInputAccessoryViewLayoutGuide";
 GuideName* const kAppBarGuide = @"kAppBarGuide";
+GuideName* const kAppBarAssistantButtonGuide = @"kAppBarAssistantButtonGuide";

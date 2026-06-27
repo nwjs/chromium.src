@@ -9,11 +9,11 @@
 #include "base/base64.h"
 #include "base/check.h"
 #include "components/sync/base/time.h"
-#include "components/sync/engine/nigori/cross_user_sharing_public_key.h"
-#include "components/sync/engine/nigori/key_derivation_params.h"
-#include "components/sync/engine/nigori/nigori.h"
 #include "components/sync/nigori/cross_user_sharing_keys.h"
+#include "components/sync/nigori/cross_user_sharing_public_key.h"
 #include "components/sync/nigori/cryptographer_impl.h"
+#include "components/sync/nigori/key_derivation_params.h"
+#include "components/sync/nigori/nigori.h"
 #include "components/sync/nigori/nigori_key_bag.h"
 #include "components/sync/protocol/bookmark_specifics.pb.h"
 #include "components/sync/protocol/encryption.pb.h"
@@ -85,8 +85,7 @@ sync_pb::NigoriSpecifics BuildKeystoreNigoriSpecifics(
 
   NigoriKeyBag encryption_keybag = NigoriKeyBag::CreateEmpty();
   for (const KeyParamsForTesting& key_params : keybag_keys_params) {
-    encryption_keybag.AddKey(Nigori::CreateByDerivation(
-        key_params.derivation_params, key_params.password));
+    encryption_keybag.AddKey(key_params.derivation_params, key_params.password);
   }
 
   sync_pb::EncryptionKeys keys_for_encryption;
@@ -156,8 +155,8 @@ sync_pb::NigoriSpecifics BuildTrustedVaultNigoriSpecifics(
       TimeToProtoTime(migration_time));
   specifics.mutable_trusted_vault_debug_info()->set_key_version(2);
 
-  EXPECT_TRUE(cryptographer->Encrypt(cryptographer->ToProto().key_bag(),
-                                     specifics.mutable_encryption_keybag()));
+  *specifics.mutable_encryption_keybag() =
+      cryptographer->ExportEncryptedKeyBag();
   return specifics;
 }
 
@@ -198,10 +197,7 @@ sync_pb::NigoriSpecifics BuildCustomPassphraseNigoriSpecifics(
     cryptographer->EmplaceKey(old_key_params->password,
                               old_key_params->derivation_params);
   }
-  sync_pb::CryptographerData proto = cryptographer->ToProto();
-  bool encrypt_result = cryptographer->Encrypt(
-      proto.key_bag(), nigori.mutable_encryption_keybag());
-  DCHECK(encrypt_result);
+  *nigori.mutable_encryption_keybag() = cryptographer->ExportEncryptedKeyBag();
 
   return nigori;
 }

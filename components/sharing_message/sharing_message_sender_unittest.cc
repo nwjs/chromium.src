@@ -9,10 +9,8 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
-#include "components/sharing_message/fake_device_info.h"
-#include "components/sharing_message/ios_push/sharing_ios_push_sender.h"
 #include "components/sharing_message/proto/sharing_message.pb.h"
-#include "components/sharing_message/sharing_fcm_sender.h"
+#include "components/sharing_message/sharing_channel_sender.h"
 #include "components/sharing_message/sharing_metrics.h"
 #include "components/sharing_message/sharing_sync_preference.h"
 #include "components/sharing_message/sharing_utils.h"
@@ -22,6 +20,7 @@
 #include "components/sync_device_info/device_name_util.h"
 #include "components/sync_device_info/fake_device_info_sync_service.h"
 #include "components/sync_device_info/fake_local_device_info_provider.h"
+#include "components/sync_device_info/test_device_info_builder.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -40,23 +39,24 @@ namespace {
 
 using testing::IsNull;
 
-class MockSharingFCMSender : public SharingFCMSender {
+class MockSharingChannelSender : public SharingChannelSender {
  public:
-  MockSharingFCMSender(
+  MockSharingChannelSender(
       SharingSyncPreference* sync_preference,
       syncer::DeviceInfoTracker* device_info_tracker,
-      syncer::LocalDeviceInfoProvider* local_device_info_provider)
-      : SharingFCMSender(
+      syncer::LocalDeviceInfoProvider* local_device_info_provider,
+      syncer::SyncService* sync_service)
+      : SharingChannelSender(
             /*sharing_message_bridge=*/nullptr,
             sync_preference,
             /*gcm_driver=*/nullptr,
             device_info_tracker,
             local_device_info_provider,
-            /*sync_service=*/nullptr,
+            sync_service,
             /*start_sync_flare=*/base::DoNothing()) {}
-  MockSharingFCMSender(const MockSharingFCMSender&) = delete;
-  MockSharingFCMSender& operator=(const MockSharingFCMSender&) = delete;
-  ~MockSharingFCMSender() override = default;
+  MockSharingChannelSender(const MockSharingChannelSender&) = delete;
+  MockSharingChannelSender& operator=(const MockSharingChannelSender&) = delete;
+  ~MockSharingChannelSender() override = default;
 
   MOCK_METHOD4(SendMessageToFcmTarget,
                void(const components_sharing_message::FCMChannelConfiguration&
@@ -64,68 +64,16 @@ class MockSharingFCMSender : public SharingFCMSender {
                     base::TimeDelta time_to_live,
                     SharingMessage message,
                     SendMessageCallback callback));
+  MOCK_METHOD3(SendIosPushMessageToDevice,
+               void(const SharingTargetDeviceInfo& device,
+                    sync_pb::UnencryptedSharingMessage message,
+                    SendMessageCallback callback));
   MOCK_METHOD3(
-      DoSendMessageToServerTarget,
+      SendMessageToServerTarget,
       void(const components_sharing_message::ServerChannelConfiguration&
-               server_target,
+               server_channel,
            SharingMessage message,
            SendMessageCallback callback));
-};
-
-class MockSharingIOSPushSender : public sharing_message::SharingIOSPushSender {
- public:
-  MockSharingIOSPushSender(
-      SharingSyncPreference* sync_preference,
-      syncer::DeviceInfoTracker* device_info_tracker,
-      syncer::LocalDeviceInfoProvider* local_device_info_provider,
-      syncer::SyncService* sync_service)
-      : SharingIOSPushSender(
-            /*sharing_message_bridge=*/nullptr,
-            device_info_tracker,
-            local_device_info_provider,
-            sync_service) {}
-  MockSharingIOSPushSender(const MockSharingIOSPushSender&) = delete;
-  MockSharingIOSPushSender& operator=(const MockSharingIOSPushSender&) = delete;
-  ~MockSharingIOSPushSender() override = default;
-
-  MOCK_METHOD3(DoSendUnencryptedMessageToDevice,
-               void(const SharingTargetDeviceInfo& device,
-                    sync_pb::UnencryptedSharingMessage message,
-                    SendMessageCallback callback));
-  MOCK_METHOD3(
-      DoSendMessageToServerTarget,
-      void(const components_sharing_message::ServerChannelConfiguration&
-               server_target,
-           components_sharing_message::SharingMessage message,
-           SendMessageCallback callback));
-  MOCK_METHOD1(CanSendSendTabPushMessage,
-               bool(const syncer::DeviceInfo& target_device_info));
-};
-
-class MockSendMessageDelegate
-    : public SharingMessageSender::SendMessageDelegate {
- public:
-  MockSendMessageDelegate() = default;
-  MockSendMessageDelegate(const MockSendMessageDelegate&) = delete;
-  MockSendMessageDelegate& operator=(const MockSendMessageDelegate&) = delete;
-  ~MockSendMessageDelegate() override = default;
-
-  MOCK_METHOD4(DoSendMessageToDevice,
-               void(const SharingTargetDeviceInfo& device,
-                    base::TimeDelta time_to_live,
-                    components_sharing_message::SharingMessage message,
-                    SendMessageCallback callback));
-  MOCK_METHOD3(DoSendUnencryptedMessageToDevice,
-               void(const SharingTargetDeviceInfo& device,
-                    sync_pb::UnencryptedSharingMessage message,
-                    SendMessageCallback callback));
-  MOCK_METHOD3(
-      DoSendMessageToServerTarget,
-      void(const components_sharing_message::ServerChannelConfiguration&
-               server_target,
-           components_sharing_message::SharingMessage message,
-           SendMessageCallback callback));
-  MOCK_METHOD0(ClearPendingMessages, void());
 };
 
 syncer::DeviceInfo::SharingInfo CreateLocalSharingInfo() {
@@ -160,24 +108,17 @@ class SharingMessageSenderTest : public testing::Test {
  public:
   SharingMessageSenderTest() {
     SharingSyncPreference::RegisterProfilePrefs(prefs_.registry());
-    auto mock_sharing_fcm_sender = std::make_unique<MockSharingFCMSender>(
-        &sharing_sync_preference_,
-        fake_device_info_sync_service_.GetDeviceInfoTracker(),
-        fake_device_info_sync_service_.GetLocalDeviceInfoProvider());
-    auto mock_sharing_ios_push_sender =
-        std::make_unique<MockSharingIOSPushSender>(
+    auto mock_sharing_channel_sender =
+        std::make_unique<MockSharingChannelSender>(
             &sharing_sync_preference_,
             fake_device_info_sync_service_.GetDeviceInfoTracker(),
             fake_device_info_sync_service_.GetLocalDeviceInfoProvider(),
             &sync_service_);
-    mock_sharing_fcm_sender_ = mock_sharing_fcm_sender.get();
-    mock_sharing_ios_push_sender_ = mock_sharing_ios_push_sender.get();
-    sharing_message_sender_.RegisterSendDelegate(
-        SharingMessageSender::DelegateType::kFCM,
-        std::move(mock_sharing_fcm_sender));
-    sharing_message_sender_.RegisterSendDelegate(
-        SharingMessageSender::DelegateType::kIOSPush,
-        std::move(mock_sharing_ios_push_sender));
+    mock_sharing_channel_sender_ = mock_sharing_channel_sender.get();
+    sharing_message_sender_ = std::make_unique<SharingMessageSender>(
+        std::move(mock_sharing_channel_sender),
+        fake_device_info_sync_service_.GetLocalDeviceInfoProvider(),
+        base::SingleThreadTaskRunner::GetCurrentDefault());
     sharing_sync_preference_.SetFCMRegistration(
         SharingSyncPreference::FCMRegistration(base::Time::Now()));
     fake_device_info_sync_service_.GetLocalDeviceInfoProvider()
@@ -192,8 +133,11 @@ class SharingMessageSenderTest : public testing::Test {
 
   SharingTargetDeviceInfo SetupReceiverDevice() {
     fake_device_info_sync_service_.GetDeviceInfoTracker()->Add(
-        CreateFakeDeviceInfo(kReceiverGUID, kReceiverDeviceName,
-                             CreateSharingInfo()));
+        syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kLinux)
+            .WithGuid(kReceiverGUID)
+            .WithClientName(kReceiverDeviceName)
+            .WithSharingInfo(CreateSharingInfo())
+            .Build());
 
     return CreateFakeSharingTargetDeviceInfo(kReceiverGUID,
                                              kReceiverDeviceName);
@@ -209,11 +153,8 @@ class SharingMessageSenderTest : public testing::Test {
       &prefs_, &fake_device_info_sync_service_};
   syncer::MockSyncService sync_service_;
 
-  SharingMessageSender sharing_message_sender_{
-      fake_device_info_sync_service_.GetLocalDeviceInfoProvider(),
-      base::SingleThreadTaskRunner::GetCurrentDefault()};
-  raw_ptr<MockSharingFCMSender> mock_sharing_fcm_sender_;
-  raw_ptr<MockSharingIOSPushSender> mock_sharing_ios_push_sender_;
+  std::unique_ptr<SharingMessageSender> sharing_message_sender_;
+  raw_ptr<MockSharingChannelSender> mock_sharing_channel_sender_;
 };
 
 MATCHER_P(ProtoEquals, message, "") {
@@ -241,7 +182,7 @@ TEST_F(SharingMessageSenderTest, MessageSent_AckTimedout) {
               fcm_configuration,
           base::TimeDelta time_to_live,
           components_sharing_message::SharingMessage message,
-          SharingFCMSender::SendMessageCallback callback) {
+          SharingChannelSender::SendMessageCallback callback) {
         // FCM message sent successfully.
         std::move(callback).Run(SharingSendMessageResult::kSuccessful,
                                 kSenderMessageID, SharingChannelType::kUnknown);
@@ -249,16 +190,16 @@ TEST_F(SharingMessageSenderTest, MessageSent_AckTimedout) {
 
         // Callback already run with result timeout, ack received for same
         // message id is ignored.
-        sharing_message_sender_.OnAckReceived(kSenderMessageID,
-                                              /*response=*/nullptr);
+        sharing_message_sender_->OnAckReceived(kSenderMessageID,
+                                               /*response=*/nullptr);
       };
 
-  EXPECT_CALL(*mock_sharing_fcm_sender_, SendMessageToFcmTarget)
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendMessageToFcmTarget)
       .WillOnce(simulate_timeout);
 
-  sharing_message_sender_.SendMessageToDevice(
+  sharing_message_sender_->SendMessageToDevice(
       device_info, kTimeToLive, components_sharing_message::SharingMessage(),
-      SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
+      mock_callback.Get());
 }
 
 TEST_F(SharingMessageSenderTest, SendMessageToDevice_InternalError) {
@@ -273,26 +214,26 @@ TEST_F(SharingMessageSenderTest, SendMessageToDevice_InternalError) {
               fcm_configuration,
           base::TimeDelta time_to_live,
           components_sharing_message::SharingMessage message,
-          SharingFCMSender::SendMessageCallback callback) {
+          SharingChannelSender::SendMessageCallback callback) {
         // FCM message not sent successfully.
         std::move(callback).Run(SharingSendMessageResult::kInternalError,
                                 std::nullopt, SharingChannelType::kUnknown);
 
         // Callback already run with result timeout, ack received for same
         // message id is ignored.
-        sharing_message_sender_.OnAckReceived(kSenderMessageID,
-                                              /*response=*/nullptr);
+        sharing_message_sender_->OnAckReceived(kSenderMessageID,
+                                               /*response=*/nullptr);
       };
 
-  EXPECT_CALL(*mock_sharing_fcm_sender_, SendMessageToFcmTarget)
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendMessageToFcmTarget)
       .WillOnce(simulate_internal_error);
 
-  sharing_message_sender_.SendMessageToDevice(
+  sharing_message_sender_->SendMessageToDevice(
       device_info, kTimeToLive, components_sharing_message::SharingMessage(),
-      SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
+      mock_callback.Get());
 }
 
-TEST_F(SharingMessageSenderTest, SendUnencryptedMessageToDevice_InternalError) {
+TEST_F(SharingMessageSenderTest, SendIosPushMessageToDevice_InternalError) {
   SharingTargetDeviceInfo device_info = SetupReceiverDevice();
 
   base::MockCallback<SharingMessageSender::ResponseCallback> mock_callback;
@@ -302,23 +243,22 @@ TEST_F(SharingMessageSenderTest, SendUnencryptedMessageToDevice_InternalError) {
   auto simulate_internal_error =
       [&](const SharingTargetDeviceInfo& device,
           sync_pb::UnencryptedSharingMessage message,
-          sharing_message::SharingIOSPushSender::SendMessageCallback callback) {
+          SharingChannelSender::SendMessageCallback callback) {
         // Message not sent successfully.
         std::move(callback).Run(SharingSendMessageResult::kInternalError,
                                 std::nullopt, SharingChannelType::kUnknown);
 
         // Callback already run with result timeout, ack received for same
         // message id is ignored.
-        sharing_message_sender_.OnAckReceived(kSenderMessageID,
-                                              /*response=*/nullptr);
+        sharing_message_sender_->OnAckReceived(kSenderMessageID,
+                                               /*response=*/nullptr);
       };
 
-  EXPECT_CALL(*mock_sharing_ios_push_sender_, DoSendUnencryptedMessageToDevice)
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendIosPushMessageToDevice)
       .WillOnce(simulate_internal_error);
 
-  sharing_message_sender_.SendUnencryptedMessageToDevice(
-      device_info, sync_pb::UnencryptedSharingMessage(),
-      SharingMessageSender::DelegateType::kIOSPush, mock_callback.Get());
+  sharing_message_sender_->SendIosPushMessageToDevice(
+      device_info, sync_pb::UnencryptedSharingMessage(), mock_callback.Get());
 }
 
 TEST_F(SharingMessageSenderTest, MessageSent_AckReceived) {
@@ -337,7 +277,7 @@ TEST_F(SharingMessageSenderTest, MessageSent_AckReceived) {
               fcm_configuration,
           base::TimeDelta time_to_live,
           components_sharing_message::SharingMessage message,
-          SharingFCMSender::SendMessageCallback callback) {
+          SharingChannelSender::SendMessageCallback callback) {
         // FCM message sent successfully.
         std::move(callback).Run(SharingSendMessageResult::kSuccessful,
                                 kSenderMessageID, SharingChannelType::kUnknown);
@@ -364,16 +304,15 @@ TEST_F(SharingMessageSenderTest, MessageSent_AckReceived) {
                 std::make_unique<components_sharing_message::ResponseMessage>();
         response_message->CopyFrom(expected_response_message);
 
-        sharing_message_sender_.OnAckReceived(kSenderMessageID,
-                                              std::move(response_message));
+        sharing_message_sender_->OnAckReceived(kSenderMessageID,
+                                               std::move(response_message));
       };
 
-  EXPECT_CALL(*mock_sharing_fcm_sender_, SendMessageToFcmTarget)
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendMessageToFcmTarget)
       .WillOnce(simulate_expected_ack_message_received);
 
-  sharing_message_sender_.SendMessageToDevice(
-      device_info, kTimeToLive, std::move(sent_message),
-      SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
+  sharing_message_sender_->SendMessageToDevice(
+      device_info, kTimeToLive, std::move(sent_message), mock_callback.Get());
 }
 
 TEST_F(SharingMessageSenderTest, MessageSent_AckReceivedBeforeMessageId) {
@@ -392,15 +331,15 @@ TEST_F(SharingMessageSenderTest, MessageSent_AckReceivedBeforeMessageId) {
               fcm_configuration,
           base::TimeDelta time_to_live,
           components_sharing_message::SharingMessage message,
-          SharingFCMSender::SendMessageCallback callback) {
+          SharingChannelSender::SendMessageCallback callback) {
         // Simulate ack message received.
         std::unique_ptr<components_sharing_message::ResponseMessage>
             response_message =
                 std::make_unique<components_sharing_message::ResponseMessage>();
         response_message->CopyFrom(expected_response_message);
 
-        sharing_message_sender_.OnAckReceived(kSenderMessageID,
-                                              std::move(response_message));
+        sharing_message_sender_->OnAckReceived(kSenderMessageID,
+                                               std::move(response_message));
 
         // Call FCM send success after receiving the ACK.
         std::move(callback).Run(SharingSendMessageResult::kSuccessful,
@@ -408,29 +347,11 @@ TEST_F(SharingMessageSenderTest, MessageSent_AckReceivedBeforeMessageId) {
                                 SharingChannelType::kFcmSenderId);
       };
 
-  EXPECT_CALL(*mock_sharing_fcm_sender_, SendMessageToFcmTarget)
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendMessageToFcmTarget)
       .WillOnce(simulate_expected_ack_message_received);
 
-  sharing_message_sender_.SendMessageToDevice(
-      device_info, kTimeToLive, std::move(sent_message),
-      SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
-}
-
-TEST_F(SharingMessageSenderTest, NonExistingDelegate) {
-  SharingMessageSender sharing_message_sender{
-      fake_device_info_sync_service_.GetLocalDeviceInfoProvider(),
-      base::SingleThreadTaskRunner::GetCurrentDefault()};
-
-  SharingTargetDeviceInfo device_info =
-      CreateFakeSharingTargetDeviceInfo(kReceiverGUID, kReceiverDeviceName);
-
-  base::MockCallback<SharingMessageSender::ResponseCallback> mock_callback;
-  EXPECT_CALL(mock_callback,
-              Run(SharingSendMessageResult::kInternalError, IsNull()));
-
-  sharing_message_sender.SendMessageToDevice(
-      device_info, kTimeToLive, components_sharing_message::SharingMessage(),
-      SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
+  sharing_message_sender_->SendMessageToDevice(
+      device_info, kTimeToLive, std::move(sent_message), mock_callback.Get());
 }
 
 TEST_F(SharingMessageSenderTest, RequestCancelled) {
@@ -444,12 +365,12 @@ TEST_F(SharingMessageSenderTest, RequestCancelled) {
   EXPECT_CALL(mock_callback,
               Run(SharingSendMessageResult::kCancelled, IsNull()));
 
-  EXPECT_CALL(*mock_sharing_fcm_sender_, SendMessageToFcmTarget);
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendMessageToFcmTarget);
 
   base::OnceClosure cancel_callback =
-      sharing_message_sender_.SendMessageToDevice(
-          device_info, kTimeToLive, std::move(sent_message),
-          SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
+      sharing_message_sender_->SendMessageToDevice(device_info, kTimeToLive,
+                                                   std::move(sent_message),
+                                                   mock_callback.Get());
 
   ASSERT_FALSE(cancel_callback.is_null());
   std::move(cancel_callback).Run();
@@ -473,7 +394,7 @@ TEST_F(SharingMessageSenderTest, SendMessageToServerTarget_Success) {
       [&](const components_sharing_message::ServerChannelConfiguration&
               server_channel_config,
           components_sharing_message::SharingMessage message,
-          SharingFCMSender::SendMessageCallback callback) {
+          SharingChannelSender::SendMessageCallback callback) {
         // FCM message sent successfully.
         std::move(callback).Run(SharingSendMessageResult::kSuccessful,
                                 kSenderMessageID, SharingChannelType::kServer);
@@ -484,14 +405,14 @@ TEST_F(SharingMessageSenderTest, SendMessageToServerTarget_Success) {
                 std::make_unique<components_sharing_message::ResponseMessage>();
         response_message->CopyFrom(expected_response_message);
 
-        sharing_message_sender_.OnAckReceived(kSenderMessageID,
-                                              std::move(response_message));
+        sharing_message_sender_->OnAckReceived(kSenderMessageID,
+                                               std::move(response_message));
       };
 
-  EXPECT_CALL(*mock_sharing_fcm_sender_, DoSendMessageToServerTarget)
+  EXPECT_CALL(*mock_sharing_channel_sender_, SendMessageToServerTarget)
       .WillOnce(simulate_expected_ack_message_received);
 
-  sharing_message_sender_.SendMessageToServerTarget(
+  sharing_message_sender_->SendMessageToServerTarget(
       server_channel, kTimeToLive, std::move(sent_message),
-      SharingMessageSender::DelegateType::kFCM, mock_callback.Get());
+      mock_callback.Get());
 }

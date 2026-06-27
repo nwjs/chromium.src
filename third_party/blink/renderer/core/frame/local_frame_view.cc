@@ -922,10 +922,8 @@ gfx::SizeF LocalFrameView::SmallViewportSizeForViewportUnits() const {
   if (!layout_view)
     return gfx::SizeF();
 
-  gfx::SizeF layout_size;
-  layout_size.set_width(layout_view->ViewWidth(kIncludeScrollbars) / zoom);
-  layout_size.set_height(layout_view->ViewHeight(kIncludeScrollbars) / zoom);
-
+  gfx::SizeF layout_size(layout_view->GetLayoutSize(kIncludeScrollbars));
+  layout_size.InvScale(zoom);
   return layout_size;
 }
 
@@ -2442,6 +2440,13 @@ void LocalFrameView::UpdateLifecyclePhasesInternal(
     bool run_more_lifecycle_phases =
         RunStyleAndLayoutLifecyclePhases(target_state);
     if (!run_more_lifecycle_phases) {
+      // When visual lifecycle phases are skipped early (style/layout not
+      // dirty), accessibility updates would not normally run because we
+      // return early here. Call RunAccessibilitySteps() directly to ensure
+      // deferred accessibility updates (from dynamic ARIA changes that do
+      // not invalidate layout) are still committed and serialized once
+      // per lifecycle cycle.
+      RunAccessibilitySteps();
       return;
     }
     DCHECK(Lifecycle().GetState() >= DocumentLifecycle::kLayoutClean);
@@ -3824,13 +3829,14 @@ void LocalFrameView::ServiceScrollAnimations(base::TimeTicks start_time) {
   }
 }
 
-void LocalFrameView::ScheduleAnimation(base::TimeDelta delay,
+void LocalFrameView::ScheduleAnimation(cc::BeginMainFrameReason reason,
+                                       base::TimeDelta delay,
                                        base::Location location,
                                        bool urgent) {
   TRACE_EVENT("cc", "LocalFrameView::ScheduleAnimation", "frame", GetFrame(),
               "delay", delay, "location", location);
   if (auto* client = GetChromeClient())
-    client->ScheduleAnimation(this, delay, urgent);
+    client->ScheduleAnimation(this, reason, delay, urgent);
 }
 
 void LocalFrameView::OnCommitRequested() {
@@ -4642,6 +4648,9 @@ void LocalFrameView::SetViewportIntersection(
       frame_scheduler->SetVisibleAreaLarge(ratio > ratio_threshold);
     }
   }
+
+  frame_->OnFrameVisibilityChangedForMediaPlayback(
+      intersection_state.is_hidden_for_media_playback);
 }
 
 void LocalFrameView::VisibilityForThrottlingChanged() {
@@ -4655,7 +4664,7 @@ void LocalFrameView::VisibilityForThrottlingChanged() {
 void LocalFrameView::VisibilityChanged(
     blink::mojom::FrameVisibility visibility) {
   frame_->GetLocalFrameHostRemote().VisibilityChanged(visibility);
-
+  // TODO(crbug.com/351354996): Remove this after the refactor is completed.
   // LocalFrameClient member may not be valid in some tests.
   if (frame_->Client() && frame_->Client()->GetWebFrame() &&
       frame_->Client()->GetWebFrame()->Client()) {
@@ -4663,6 +4672,7 @@ void LocalFrameView::VisibilityChanged(
         visibility);
   }
 
+  // TODO(crbug.com/351354996): Remove this after the refactor is completed.
   frame_->NotifyFrameVisibilityChanged(visibility);
 }
 
@@ -4909,8 +4919,18 @@ void LocalFrameView::BeginLifecycleUpdates() {
   // already done so once and resumed commits already.
   if (WillDoPaintHoldingForFCP()) {
     have_deferred_main_frame_commits_ = true;
+    int commit_delay_ms = kCommitDelayDefaultInMs;
+    if (base::FeatureList::IsEnabled(
+            blink::features::kInitialWebUISurfaceSync) &&
+        GetFrame().Client() && GetFrame().Client()->IsForInitialWebUI()) {
+      // Extend the standard deferral limit specifically for initial WebUI
+      // frames which is expected to take more time.
+      commit_delay_ms = static_cast<int>(
+          blink::features::kInitialWebUISurfaceSyncRendererCommitDelayInMs
+              .Get());
+    }
     chrome_client.StartDeferringCommits(
-        GetFrame(), base::Milliseconds(kCommitDelayDefaultInMs),
+        GetFrame(), base::Milliseconds(commit_delay_ms),
         cc::PaintHoldingReason::kFirstContentfulPaint);
   }
 
@@ -5012,8 +5032,7 @@ void LocalFrameView::ResetUkmAggregatorForTesting() {
 void LocalFrameView::OnFirstContentfulPaint() {
   if (frame_->IsMainFrame()) {
     // Restart commits that may have been deferred.
-    GetPage()->GetChromeClient().StopDeferringCommits(
-        *frame_, cc::PaintHoldingCommitTrigger::kFirstContentfulPaint);
+    GetPage()->GetChromeClient().StopDeferringCommits(*frame_);
     if (frame_->GetDocument()->ShouldMarkFontPerformance())
       FontPerformance::MarkFirstContentfulPaint();
   }

@@ -308,10 +308,10 @@ class WTF_EXPORT StringImpl {
 
   ALWAYS_INLINE void Release() {
     if (!IsStatic()) {
-      // This can be a relaxed load as long as the subtraction is performed
-      // with acq_rel order. Any modification to `ref_count_` reordered after
-      // this load will be caught by the while loop or the fetch_sub inside
-      // DestroyIfNeeded().
+      // This can be relaxed: if it observes the last reference,
+      // DestroyIfNeeded() performs the acquire load before checking flags.
+      // Successful non-final decrements only need release ordering to publish
+      // prior writes through the ref_count_ release sequence.
       uint32_t current_ref = ref_count_.load(std::memory_order_relaxed);
 #if DCHECK_IS_ON()
       // In non-DCHECK builds, we can save a bit of time in micro-benchmarks by
@@ -333,7 +333,8 @@ class WTF_EXPORT StringImpl {
           return;
         }
       } while (!ref_count_.compare_exchange_weak(current_ref, current_ref - 1,
-                                                 std::memory_order_acq_rel));
+                                                 std::memory_order_release,
+                                                 std::memory_order_relaxed));
     }
   }
 
@@ -912,7 +913,7 @@ inline string_size_t Find(base::span<const CharType> characters,
   const CharType* end = base::to_address(characters.end());
   const CharType* it = std::find(base::to_address(characters.begin() + index),
                                  end, match_character);
-  return it == end ? kNotFound : std::distance(begin, it);
+  return it == end ? kNotFound : CheckedDistance(begin, it);
 }
 
 ALWAYS_INLINE string_size_t Find(base::span<const UChar> characters,
@@ -948,7 +949,27 @@ inline string_size_t Find(base::span<const CharType> characters,
   const CharType* end = base::to_address(characters.end());
   const CharType* it = std::find_if(
       base::to_address(characters.begin() + index), end, match_function);
-  return it == end ? kNotFound : std::distance(begin, it);
+  return it == end ? kNotFound : CheckedDistance(begin, it);
+}
+
+template <typename CharType>
+inline string_size_t ReverseFind(base::span<const CharType> characters,
+                                 CharacterMatchFunctionPtr match_function,
+                                 string_size_t index) {
+  const string_size_t length =
+      base::checked_cast<string_size_t>(characters.size());
+  if (!length) {
+    return kNotFound;
+  }
+  if (index >= length) {
+    index = length - 1;
+  }
+  while (!match_function(characters[index])) {
+    if (!index--) {
+      return kNotFound;
+    }
+  }
+  return index;
 }
 
 inline StringImpl::size_type StringImpl::Find(LChar character,

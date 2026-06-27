@@ -19,6 +19,7 @@
 #include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_types.h"
+#include "components/split_tabs/split_tab_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "content/public/browser/browser_context.h"
@@ -100,6 +101,13 @@ std::optional<tab_groups::TabGroupId> AndroidLiveTabContext::GetTabGroupForTab(
   return std::optional<tab_groups::TabGroupId>();
 }
 
+std::optional<split_tabs::SplitTabId> AndroidLiveTabContext::GetSplitForTab(
+    int index) const {
+  // Split views are not currently supported on the Android platform. This
+  // function would get the SplitTabId implementation of a given tab.
+  return std::nullopt;
+}
+
 const tab_groups::TabGroupVisualData*
 AndroidLiveTabContext::GetVisualDataForGroup(
     const tab_groups::TabGroupId& group) const {
@@ -108,6 +116,14 @@ AndroidLiveTabContext::GetVisualDataForGroup(
   // Since we never return a group from GetTabGroupForTab(), this should never
   // be called.
   NOTREACHED();
+}
+
+const split_tabs::SplitTabVisualData*
+AndroidLiveTabContext::GetVisualDataForSplit(
+    const split_tabs::SplitTabId& split_id) const {
+  // Split views are not currently supported on the Android platform. This
+  // function would return the visual data of the split (orientation and ratio).
+  return nullptr;
 }
 
 const std::optional<base::Uuid>
@@ -215,6 +231,17 @@ sessions::LiveTab* AndroidLiveTabContext::ReplaceRestoredTab(
       web_contents, session_tab, WindowOpenDisposition::CURRENT_TAB);
   web_contents->GetController().LoadIfNecessary();
   return sessions::ContentLiveTab::GetOrCreateForWebContents(web_contents);
+}
+
+void AndroidLiveTabContext::ReconstructSplit(
+    sessions::LiveTab* leading_tab,
+    sessions::LiveTab* trailing_tab,
+    split_tabs::SplitTabId split_id,
+    const split_tabs::SplitTabVisualData& visual_data) {
+  // Split views are currently not supported on the Android platform.
+  // This function serves as a placeholder to store the logic that would combine
+  // two tabs into a singular SplitView object.
+  NOTIMPLEMENTED();
 }
 
 // Currently does nothing.

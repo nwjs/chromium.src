@@ -9,10 +9,12 @@ import static org.chromium.content.browser.accessibility.AccessibilityContentShe
 
 import android.annotation.SuppressLint;
 import android.os.Build;
+import android.os.Build.VERSION_CODES_FULL;
 
 import androidx.test.filters.SmallTest;
 
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -149,12 +151,12 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     @DisableFeatures(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
     @EnableFeatures({
         ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE,
         ContentFeatureList.ACCESSIBILITY_ATOMIC_LIVE_REGIONS
     })
-    @DisabledTest(message = "https://crbug.com/1186376")
     public void test_addAlert() {
         performTest("add-alert.html", "add-alert-expected-android.txt");
     }
@@ -592,8 +594,15 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     public void test_ariaSortChanged() {
-        performTest("aria-sort-changed.html", "aria-sort-changed-expected-android.txt");
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1);
+        performTest(
+                "aria-sort-changed.html",
+                "aria-sort-changed-expected-android.txt",
+                /* shouldFilterTrivialEvents= */ false);
     }
 
     @Test
@@ -689,21 +698,18 @@ public class WebContentsAccessibilityEventsTest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1186376")
     public void test_caretHide() {
         performTest("caret-hide.html", "caret-hide-expected-android.txt");
     }
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1186376")
     public void test_caretMoveHiddenInput() {
         performTest("caret-move-hidden-input.html", "caret-move-hidden-input-expected-android.txt");
     }
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1186376")
     public void test_caretMove() {
         performTest("caret-move.html", "caret-move-expected-android.txt");
     }
@@ -1189,6 +1195,18 @@ public class WebContentsAccessibilityEventsTest {
     @DisabledTest(message = "https://crbug.com/414363686")
     public void test_menuOpenedClosed() {
         performTest("menu-opened-closed.html", "menu-opened-closed-expected-android.txt");
+    }
+
+    @Test
+    @SmallTest
+    public void test_menuPopupCreated() {
+        performTest("menu-popup-created.html", "menu-popup-created-expected-android.txt");
+    }
+
+    @Test
+    @SmallTest
+    public void test_menuPopupStatic() {
+        performTest("menu-popup-static.html", "menu-popup-static-expected-android.txt");
     }
 
     @Test

@@ -189,6 +189,9 @@ void ChromeSpeechRecognitionManagerDelegate::CheckRenderFrameType(
 #endif
       // Allow if it's a valid extension; otherwise deny (frame destroyed/invalid).
       allowed = is_extension;
+      if (allowed) {
+        check_permission = true;
+      }
     }
     content::GetIOThreadTaskRunner({})->PostTask(
         FROM_HERE,
@@ -219,6 +222,7 @@ void ChromeSpeechRecognitionManagerDelegate::CheckRenderFrameType(
       view_type == extensions::mojom::ViewType::kComponent ||
       view_type == extensions::mojom::ViewType::kExtensionPopup ||
       view_type == extensions::mojom::ViewType::kExtensionBackgroundPage ||
+      view_type == extensions::mojom::ViewType::kOffscreenDocument ||
       view_type == extensions::mojom::ViewType::kExtensionSidePanel ||
       view_type == extensions::mojom::ViewType::kDeveloperTools) {
     // If it is a tab, we can check for permission. For apps, this means

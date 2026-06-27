@@ -210,7 +210,7 @@ std::optional<int> CompositorView::SurfaceChanged(
     return std::nullopt;
   }
 
-  std::optional<int> surface_handle = std::nullopt;
+  std::optional<int> surface_handle;
   DCHECK(surface);
   if (current_surface_format_ != format) {
     current_surface_format_ = format;
@@ -382,6 +382,10 @@ void CompositorView::FinalizeLayers(JNIEnv* env) {
 
 void CompositorView::SetNeedsComposite(JNIEnv* env) {
   compositor_->SetNeedsComposite();
+}
+
+void CompositorView::SetDrawPaused(JNIEnv* env, bool paused) {
+  compositor_->SetDrawPaused(paused);
 }
 
 void CompositorView::BrowserChildProcessKilled(

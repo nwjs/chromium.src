@@ -6,9 +6,11 @@ import("//build/buildflag_header.gni")
 import("//build/compiled_action.gni")
 import("//build/config/chrome_build.gni")
 import("//build/config/features.gni")
+import("//build/config/python.gni")
 import("//components/optimization_guide/features.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//third_party/protobuf/proto_library.gni")
+import("//third_party/pyjson5/pyjson5.gni")
 import("//tools/grit/grit_rule.gni")
 
 source_set("country_data") {
@@ -79,13 +81,15 @@ action("regex_patterns_inl_h") {
     sources += [ "form_parsing/resources/legacy_regex_patterns.json" ]
   }
 
+  inputs = pyjson5_inputs
+
   script = "form_parsing/transpile_regex_patterns.py"
   outputs = [ "$target_gen_dir/form_parsing/regex_patterns_inl.h" ]
   args = [ "--input" ] + rebase_path(sources, root_build_dir) + [ "--output" ] +
          rebase_path(outputs, root_build_dir)
 }
 
-action("entity_schema_enums_and_functions") {
+action_with_pydeps("entity_schema_enums_and_functions") {
   visibility = [ ":*" ]
 
   sources = [ "data_model/autofill_ai/entity_schema.json" ]
@@ -123,12 +127,14 @@ proto_library("amount_extraction_heuristic_regexes_proto") {
 
 static_library("browser") {
   sources = [
-    "at_memory/at_memory_controller.cc",
-    "at_memory/at_memory_controller.h",
     "at_memory/at_memory_data_type.cc",
     "at_memory/at_memory_data_type.h",
     "at_memory/at_memory_funnel_metrics.cc",
     "at_memory/at_memory_funnel_metrics.h",
+    "at_memory/at_memory_manager.cc",
+    "at_memory/at_memory_manager.h",
+    "at_memory/at_memory_utils.cc",
+    "at_memory/at_memory_utils.h",
     "at_memory/autofill_data_provider_impl.cc",
     "at_memory/autofill_data_provider_impl.h",
     "autofill_ai_form_rationalization.cc",
@@ -282,6 +288,8 @@ static_library("browser") {
     "field_types.h",
     "filling/addresses/field_filling_address_util.cc",
     "filling/addresses/field_filling_address_util.h",
+    "filling/autofill_ai/autofill_ai_access_manager.cc",
+    "filling/autofill_ai/autofill_ai_access_manager.h",
     "filling/autofill_ai/field_filling_entity_util.cc",
     "filling/autofill_ai/field_filling_entity_util.h",
     "filling/autofill_ai/select_date_matching.cc",
@@ -451,6 +459,8 @@ static_library("browser") {
     "integrators/optimization_guide/autofill_optimization_guide_decider.h",
     "integrators/password_form_classification.h",
     "integrators/password_manager/password_manager_delegate.h",
+    "integrators/personal_context/personal_context_autofill_util.cc",
+    "integrators/personal_context/personal_context_autofill_util.h",
     "integrators/touch_to_fill/touch_to_fill_delegate.h",
     "logging/log_buffer_submitter.cc",
     "logging/log_buffer_submitter.h",
@@ -568,6 +578,11 @@ static_library("browser") {
     "ml_model/model_predictions.h",
     "network/autofill_ai/fake_wallet_pass_access_manager.cc",
     "network/autofill_ai/fake_wallet_pass_access_manager.h",
+    "network/autofill_ai/personal_context_access_manager.h",
+    "network/autofill_ai/personal_context_access_manager_impl.cc",
+    "network/autofill_ai/personal_context_access_manager_impl.h",
+    "network/autofill_ai/personal_context_conversion_util.cc",
+    "network/autofill_ai/personal_context_conversion_util.h",
     "network/autofill_ai/private_pass_conversion_util.cc",
     "network/autofill_ai/private_pass_conversion_util.h",
     "network/autofill_ai/wallet_pass_access_manager.h",
@@ -717,6 +732,7 @@ static_library("browser") {
     "strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.cc",
     "strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.h",
     "strike_databases/autofill_ai/autofill_ai_update_strike_database.h",
+    "strike_databases/email_verification_strike_database.h",
     "strike_databases/payments/credit_card_save_strike_database.cc",
     "strike_databases/payments/credit_card_save_strike_database.h",
     "strike_databases/payments/cvc_storage_strike_database.cc",
@@ -992,6 +1008,7 @@ static_library("browser") {
     ":country_data",
     ":legal_message_line",
     ":payments_sync_utils",
+    "//components/autofill/core/browser/data_model/payments:mojo_bindings",
     "//components/autofill/core/browser/ml_model/logging:mojo_bindings",
     "//components/autofill/core/browser/payments:card_unmask_challenge_option",
     "//components/autofill/core/browser/proto",
@@ -1036,6 +1053,7 @@ static_library("browser") {
     "//components/autofill/core/common:credit_card_number_validation",
     "//components/consent_auditor",
     "//components/device_reauth",
+    "//components/facilitated_payments/core/features",
     "//components/feature_engagement",
     "//components/google/core/common",
     "//components/history/core/browser",
@@ -1051,6 +1069,7 @@ static_library("browser") {
     "//components/os_crypt/async/common",
     "//components/password_manager/core/browser/features:password_features",
     "//components/payments/core:currency_formatter",
+    "//components/personal_context/core",
     "//components/policy/core/browser",
     "//components/policy/core/common",
     "//components/pref_registry",
@@ -1220,6 +1239,7 @@ static_library("test_support") {
     "data_quality/addresses/profile_token_quality_test_api.h",
     "data_quality/addresses/test_address_normalizer.cc",
     "data_quality/addresses/test_address_normalizer.h",
+    "filling/autofill_ai/autofill_ai_access_manager_test_api.h",
     "filling/form_filler_test_api.h",
     "filling/test_form_filler.cc",
     "filling/test_form_filler.h",
@@ -1402,6 +1422,7 @@ static_library("test_support") {
     "//components/one_time_tokens/core/browser",
     "//components/one_time_tokens/core/browser:test_support",
     "//components/optimization_guide/core:features",
+    "//components/personal_context/core",
     "//components/strike_database:proto",
     "//components/strike_database:test_support",
   ]
@@ -1416,6 +1437,7 @@ static_library("test_support") {
     "//components/autofill/core/common",
     "//components/autofill/core/common:credit_card_number_validation",
     "//components/consent_auditor:test_support",
+    "//components/device_reauth",
     "//components/device_reauth:test_support",
     "//components/feature_engagement",
     "//components/leveldb_proto",
@@ -1515,6 +1537,7 @@ source_set("unit_tests") {
   sources = [
     "at_memory/at_memory_data_type_unittest.cc",
     "at_memory/at_memory_funnel_metrics_unittest.cc",
+    "at_memory/at_memory_manager_unittest.cc",
     "at_memory/autofill_data_provider_impl_unittest.cc",
     "autofill_ai_form_rationalization_unittest.cc",
     "autofill_feedback_data_unittest.cc",
@@ -1648,6 +1671,7 @@ source_set("unit_tests") {
     "integrators/one_time_tokens/otp_manager_impl_unittest.cc",
     "integrators/one_time_tokens/otp_suggestion_unittest.cc",
     "integrators/optimization_guide/autofill_optimization_guide_decider_unittest.cc",
+    "integrators/personal_context/personal_context_autofill_util_unittest.cc",
     "logging/log_buffer_submitter_unittest.cc",
     "logging/log_manager_unittest.cc",
     "logging/log_router_unittest.cc",
@@ -1683,6 +1707,8 @@ source_set("unit_tests") {
     "ml_model/field_classification_model_encoder_unittest.cc",
     "ml_model/field_classification_model_executor_unittest.cc",
     "ml_model/field_classification_model_handler_unittest.cc",
+    "network/autofill_ai/personal_context_access_manager_impl_unittest.cc",
+    "network/autofill_ai/personal_context_conversion_util_unittest.cc",
     "network/autofill_ai/private_pass_conversion_util_unittest.cc",
     "network/autofill_ai/wallet_pass_access_manager_impl_unittest.cc",
     "payments/amount_extraction_heuristic_regexes_unittest.cc",
@@ -1732,6 +1758,7 @@ source_set("unit_tests") {
     "single_field_fillers/payments/merchant_promo_code_manager_unittest.cc",
     "single_field_fillers/single_field_fill_router_unittest.cc",
     "strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host_unittest.cc",
+    "strike_databases/email_verification_strike_database_unittest.cc",
     "strike_databases/payments/virtual_card_enrollment_strike_database_unittest.cc",
     "studies/autofill_ablation_study_unittest.cc",
     "studies/autofill_experiments_unittest.cc",
@@ -1846,6 +1873,7 @@ source_set("unit_tests") {
 
   if (!is_fuchsia) {
     sources += [
+      "filling/autofill_ai/autofill_ai_access_manager_unittest.cc",
       "filling/autofill_ai/field_filling_entity_util_unittest.cc",
       "permissions/autofill_ai/autofill_ai_permission_utils_unittest.cc",
     ]
@@ -1877,6 +1905,7 @@ source_set("unit_tests") {
     "//components/consent_auditor:test_support",
     "//components/device_reauth",
     "//components/device_reauth:test_support",
+    "//components/facilitated_payments/core/features",
     "//components/feature_engagement",
     "//components/history/core/browser",
     "//components/image_fetcher/core",
@@ -1978,6 +2007,10 @@ fuzzer_test("form_structure_fuzzer") {
     "//ui/base",
     "//ui/resources:ui_test_pak",
   ]
+  if (is_android) {
+    # Provides org.chromium.ui.base.ResourceBundle.
+    deps += [ "//ui/android:ui_no_recycler_view_java" ]
+  }
   data_deps = [
     "//components:components_tests_pak",
     "//ui/resources:ui_test_pak_data",
@@ -1999,6 +2032,9 @@ if (use_fuzzing_engine_with_lpm) {
       "//components/autofill/core/common",
       "//third_party/libprotobuf-mutator",
     ]
+
+    # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
+    is_fuzztest_compatible = false
 
     if (use_blink) {
       deps += [ "//content/test:test_support" ]

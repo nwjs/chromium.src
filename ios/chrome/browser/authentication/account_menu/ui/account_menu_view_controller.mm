@@ -128,7 +128,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   }
   _resizeReady = NO;
   self.tableView =
-      [[UITableView alloc] initWithFrame:CGRectMake(0, 0, 100, 100)
+      [[UITableView alloc] initWithFrame:CGRectZero
                                    style:UITableViewStyleInsetGrouped];
   UITableView* tableView = self.tableView;
   tableView.separatorInset = UIEdgeInsetsMake(0., /*left=*/
@@ -196,8 +196,10 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   // before using its contentSize.
   [self.tableView setNeedsLayout];
   [self.tableView layoutIfNeeded];
+
   CGFloat height = self.tableView.contentSize.height;
-  self.preferredContentSize = CGSize(self.preferredContentSize.width, height);
+  CGFloat width = self.tableView.frame.size.width;
+  self.preferredContentSize = CGSize(width, height);
 }
 
 // Creates a button for the navigation bar.

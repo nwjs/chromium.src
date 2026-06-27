@@ -1,0 +1,21 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef PDF_PAINT_MANAGER_SIMD_H_
+#define PDF_PAINT_MANAGER_SIMD_H_
+
+#include <stddef.h>
+#include <stdint.h>
+
+namespace chrome_pdf {
+
+// Blends `src_ptr` over `dest_ptr`.
+// `src_ptr` and `dest_ptr` must not overlap (in-place blending is not
+// supported).
+void NonPremulBlend(const uint8_t* src_ptr, uint8_t* dest_ptr, size_t n_pixels);
+void PremulBlend(const uint8_t* src_ptr, uint8_t* dest_ptr, size_t n_pixels);
+
+}  // namespace chrome_pdf
+
+#endif  // PDF_PAINT_MANAGER_SIMD_H_

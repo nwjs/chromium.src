@@ -55,6 +55,7 @@
 #include "net/base/network_change_notifier.h"
 #include "net/base/network_change_notifier_passive.h"
 #include "net/base/port_util.h"
+#include "net/base/scheduler/net_task_scheduler.h"
 #include "net/cert/cert_database.h"
 #include "net/cert/ct_log_response_parser.h"
 #include "net/cert/internal/system_trust_store.h"
@@ -97,7 +98,6 @@
 #include "services/network/public/mojom/network_service_test.mojom.h"
 #include "services/network/public/mojom/system_dns_resolution.mojom-forward.h"
 #include "services/network/restricted_cookie_manager.h"
-#include "services/network/scheduler/network_service_task_scheduler.h"
 #include "services/network/url_loader.h"
 
 #if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARMEL)
@@ -388,8 +388,8 @@ NetworkService::NetworkService(
   DCHECK(!g_network_service);
   g_network_service = this;
 
-  if (base::FeatureList::IsEnabled(features::kNetworkServiceTaskScheduler)) {
-    NetworkServiceTaskScheduler::MaybeCreate();
+  if (base::FeatureList::IsEnabled(net::features::kNetTaskScheduler)) {
+    net::NetTaskScheduler::MaybeCreate();
   }
 
   ContentDecodingInterceptor::SetIsNetworkServiceRunningInTheCurrentProcess(
@@ -750,11 +750,21 @@ void NetworkService::ConfigureStubHostResolver(
     net::SecureDnsMode secure_dns_mode,
     const net::DnsOverHttpsConfig& dns_over_https_config,
     bool additional_dns_types_enabled,
-    const std::vector<net::IPEndPoint>& fallback_doh_nameservers) {
+    const std::vector<net::IPEndPoint>& fallback_doh_nameservers,
+    bool insecure_dns_via_platform_apis_enabled) {
   // Enable or disable the insecure part of DnsClient. "DnsClient" is the class
   // that implements the stub resolver.
+  net::HostResolverManager::InsecureDnsMode mode;
+  if (insecure_dns_client_enabled && insecure_dns_via_platform_apis_enabled) {
+    mode = net::HostResolverManager::InsecureDnsMode::kEnabledPlatform;
+  } else if (insecure_dns_client_enabled) {
+    mode = net::HostResolverManager::InsecureDnsMode::kEnabledBuiltIn;
+  } else {
+    mode = net::HostResolverManager::InsecureDnsMode::kDisabled;
+  }
+
   host_resolver_manager_->SetInsecureDnsClientEnabled(
-      insecure_dns_client_enabled, additional_dns_types_enabled);
+      mode, additional_dns_types_enabled);
 
   // Configure DNS over HTTPS.
   DCHECK(dns_config_overrides_set_by_ == FunctionTag::None ||
@@ -825,7 +835,8 @@ void NetworkService::SetRawHeadersAccess(
 
 void NetworkService::SetMaxConnectionsPerProxyChain(
     std::optional<uint32_t> max_connection_normal,
-    std::optional<uint32_t> max_connection_websocket) {
+    std::optional<uint32_t> max_connection_websocket,
+    bool allow_size_randomization) {
   // LINT.IfChange(SetMaxConnectionsPerProxyChain)
   // We set out explicit limits here because they are hard coded in the
   // enterprise policy MaxConnectionsPerProxy(ForWebSocket).
@@ -842,6 +853,8 @@ void NetworkService::SetMaxConnectionsPerProxyChain(
         net::HttpNetworkSession::SocketPoolType::kWebSocket, new_limit);
   }
   // LINT.ThenChange(/net/socket/client_socket_pool_manager.cc:set_max_sockets_per_proxy_chain)
+  net::ClientSocketPoolManager::set_allow_size_randomization_for_proxy(
+      allow_size_randomization);
 }
 
 bool NetworkService::HasRawHeadersAccess(

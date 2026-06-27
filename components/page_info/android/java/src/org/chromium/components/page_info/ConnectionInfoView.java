@@ -9,7 +9,10 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import android.content.Context;
 import android.content.Intent;
 import android.provider.Browser;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -20,7 +23,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.core.widget.ImageViewCompat;
 
@@ -37,6 +39,7 @@ import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.widget.ButtonCompat;
 
 /** Java side of Android implementation of the page info UI. */
@@ -53,7 +56,7 @@ public class ConnectionInfoView implements OnClickListener {
     private final WebContents mWebContents;
     private final int mPaddingSides;
     private final int mPaddingVertical;
-    private final long mNativeConnectionInfoView;
+    private long mNativeConnectionInfoView;
     private final CertificateViewer mCertificateViewer;
     private @Nullable TextView mCertificateViewerTextView;
     private @Nullable TextView mMoreInfoLink;
@@ -129,8 +132,7 @@ public class ConnectionInfoView implements OnClickListener {
             i.setVisibility(View.INVISIBLE);
         } else {
             i.setImageResource(iconId);
-            ImageViewCompat.setImageTintList(
-                    i, AppCompatResources.getColorStateList(mContext, iconColorId));
+            ImageViewCompat.setImageTintList(i, mContext.getColorStateList(iconColorId));
         }
 
         TextView d = section.findViewById(R.id.connection_info_description);
@@ -144,9 +146,22 @@ public class ConnectionInfoView implements OnClickListener {
     private void setCertificateViewer(String label) {
         assert mCertificateViewerTextView == null;
         mCertificateViewerTextView = new AppCompatTextView(mContext);
-        mCertificateViewerTextView.setText(label);
-        mCertificateViewerTextView.setTextAppearance(R.style.TextAppearance_TextMedium_Link);
-        mCertificateViewerTextView.setOnClickListener(this);
+
+        SpannableString spannable = new SpannableString(label);
+        var clickableSpan =
+                new ChromeClickableSpan(
+                        mContext,
+                        (view) -> {
+                            var certChain =
+                                    CertificateChainHelper.getCertificateChain(mWebContents);
+                            if (certChain != null) {
+                                mCertificateViewer.showCertificateChain(certChain);
+                            }
+                        });
+        spannable.setSpan(clickableSpan, 0, spannable.length(), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+
+        mCertificateViewerTextView.setText(spannable);
+        mCertificateViewerTextView.setMovementMethod(LinkMovementMethod.getInstance());
         mCertificateViewerTextView.setPadding(0, mPaddingVertical, 0, 0);
         assumeNonNull(mCertificateLayout);
         mCertificateLayout.addView(mCertificateViewerTextView);
@@ -171,10 +186,19 @@ public class ConnectionInfoView implements OnClickListener {
     private void addMoreInfoLink(String linkText) {
         mMoreInfoLink = new AppCompatTextView(mContext);
         mLinkUrl = HELP_URL;
-        mMoreInfoLink.setText(linkText);
-        mMoreInfoLink.setTextAppearance(R.style.TextAppearance_TextMedium_Link);
+
+        SpannableString spannable = new SpannableString(linkText);
+        ChromeClickableSpan clickableSpan =
+                new ChromeClickableSpan(
+                        mContext,
+                        (view) -> {
+                            showConnectionSecurityInfo();
+                        });
+        spannable.setSpan(clickableSpan, 0, spannable.length(), Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+
+        mMoreInfoLink.setText(spannable);
+        mMoreInfoLink.setMovementMethod(LinkMovementMethod.getInstance());
         mMoreInfoLink.setPadding(0, mPaddingVertical, 0, 0);
-        mMoreInfoLink.setOnClickListener(this);
         assumeNonNull(mDescriptionLayout);
         mDescriptionLayout.addView(mMoreInfoLink);
     }
@@ -187,19 +211,9 @@ public class ConnectionInfoView implements OnClickListener {
 
     @Override
     public void onClick(View v) {
-        if (mResetCertDecisionsButton == v) {
+        if (mResetCertDecisionsButton == v && mNativeConnectionInfoView != 0) {
             ConnectionInfoViewJni.get().resetCertDecisions(mNativeConnectionInfoView, mWebContents);
             mDelegate.dismiss(DialogDismissalCause.ACTION_ON_CONTENT);
-        } else if (mCertificateViewerTextView == v) {
-            byte[][] certChain = CertificateChainHelper.getCertificateChain(mWebContents);
-            if (certChain == null) {
-                // The WebContents may have been destroyed/invalidated. If so,
-                // ignore this request.
-                return;
-            }
-            mCertificateViewer.showCertificateChain(certChain);
-        } else if (mMoreInfoLink == v) {
-            showConnectionSecurityInfo();
         }
     }
 
@@ -210,9 +224,13 @@ public class ConnectionInfoView implements OnClickListener {
 
     /** Called when the embedding view is removed. */
     public void onDismiss() {
-        assert mNativeConnectionInfoView != 0;
-        org.chromium.components.page_info.ConnectionInfoViewJni.get()
-                .destroy(mNativeConnectionInfoView);
+        // Guard against double-free: onDismiss() can be called more than once if the dialog is
+        // dismissed while a WebContentsObserver callback (e.g. webContentsDestroyed) also triggers
+        // dismissal. Zero the pointer before calling destroy to prevent re-entrant calls.
+        if (mNativeConnectionInfoView == 0) return;
+        long nativePtr = mNativeConnectionInfoView;
+        mNativeConnectionInfoView = 0;
+        ConnectionInfoViewJni.get().destroy(nativePtr);
     }
 
     private void showConnectionSecurityInfo() {

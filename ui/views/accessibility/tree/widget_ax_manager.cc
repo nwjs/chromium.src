@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
@@ -27,6 +28,7 @@
 namespace {
 
 using Event = ax::mojom::Event;
+
 bool ShouldSerializeEvent(Event event_type) {
   // Events that are serialized and forwarded to BrowserAccessibilityManager.
   switch (event_type) {
@@ -34,9 +36,6 @@ bool ShouldSerializeEvent(Event event_type) {
     case Event::kAlert:
     case Event::kControlsChanged:
     case Event::kEndOfTest:
-    // TODO(crbug.com/40672441): kFocus is only needed here for tests while
-    // are migrating to ViewsAX.
-    case Event::kFocus:
     case Event::kTooltipClosed:
     case Event::kTooltipOpened:
     case Event::kWindowActivated:
@@ -56,6 +55,9 @@ bool ShouldSerializeEvent(Event event_type) {
     case Event::kChildrenChanged:
     case Event::kEnabledChanged:
     case Event::kExpandedChanged:
+    case Event::kFocus:
+    case Event::kMenuPopupEnd:
+    case Event::kMenuPopupStart:
     case Event::kLiveRegionChanged:
     case Event::kSelection:
     case Event::kSelectedChildrenChanged:
@@ -90,10 +92,7 @@ bool ShouldSerializeEvent(Event event_type) {
   // being addressed incrementally, one event at a time.
   switch (event_type) {
     case Event::kFocusAfterMenuClose:
-    case Event::kFocusContext:
     case Event::kMenuEnd:
-    case Event::kMenuPopupEnd:
-    case Event::kMenuPopupStart:
     case Event::kMenuStart:
       return false;
     default:
@@ -124,6 +123,7 @@ WidgetAXManager::WidgetAXManager(Widget* widget)
 }
 
 WidgetAXManager::~WidgetAXManager() {
+  ClearAXTreeHost();
   ui::AXPlatform::GetInstance().RemoveModeObserver(this);
   ax_tree_manager_.reset();
 }
@@ -142,7 +142,11 @@ void WidgetAXManager::Init() {
 
 void WidgetAXManager::OnEvent(ViewAccessibility& view_ax,
                               ax::mojom::Event event_type) {
-  if (!is_enabled_ || !ShouldSerializeEvent(event_type)) {
+  if (!is_enabled_) {
+    return;
+  }
+
+  if (!ShouldSerializeEvent(event_type)) {
     return;
   }
 
@@ -161,12 +165,29 @@ void WidgetAXManager::OnEvent(ViewAccessibility& view_ax,
   // serialization.  Flushing synchronously ensures platform events
   // (EVENT_OBJECT_SHOW / UIA_ToolTipOpenedEventId) fire before callers that
   // check for them (e.g. event recorders in tests) run their next step.
+  //
+  // kMenuPopupEnd fires just before the menu widget is hidden. Flush it while
+  // the widget can still emit generated MENU_POPUP_END platform events.
   if (event_type == ax::mojom::Event::kTooltipClosed ||
-      event_type == ax::mojom::Event::kTooltipOpened) {
+      event_type == ax::mojom::Event::kTooltipOpened ||
+      event_type == ax::mojom::Event::kMenuPopupEnd) {
     SendPendingUpdate();
   } else {
     SchedulePendingUpdate();
   }
+}
+
+void WidgetAXManager::OnTransientFocusRequested(ViewAccessibility& view_ax) {
+  if (!is_enabled_) {
+    return;
+  }
+
+  CHECK(tree_source_);
+  pending_data_updates_.insert(view_ax.GetUniqueId());
+  tree_source_->SetTransientFocusIdForNextSerialization(view_ax.GetUniqueId());
+  auto clear_transient_focus = absl::MakeCleanup(
+      [this] { tree_source_->ClearTransientFocusIdForNextSerialization(); });
+  SendPendingUpdate();
 }
 
 void WidgetAXManager::OnDataChanged(ViewAccessibility& view_ax) {
@@ -211,6 +232,39 @@ void WidgetAXManager::OnChildManagerRemoved(WidgetAXManager& child_manager) {
   child_manager.SetParentAXTreeID(ui::AXTreeIDUnknown());
 }
 
+void WidgetAXManager::HostAXTreeInView(ViewAccessibility& host_view_ax) {
+  View* host_view = host_view_ax.view();
+  Widget* host_widget = host_view_ax.GetWidget();
+  WidgetAXManager* host_manager =
+      host_widget ? host_widget->ax_manager() : nullptr;
+  if (!host_view || !host_manager || host_manager == this) {
+    ClearAXTreeHost();
+    return;
+  }
+
+  if (View* current_host_view = ax_tree_host_tracker_.view();
+      current_host_view && current_host_view != host_view) {
+    ClearAXTreeHost();
+  }
+
+  ++ax_tree_host_generation_;
+  ax_tree_host_tracker_.SetView(host_view);
+  SetParentAXTreeID(host_manager->ax_tree_id_);
+  host_view_ax.SetChildTreeID(ax_tree_id_);
+}
+
+void WidgetAXManager::ScheduleUnhostAXTree() {
+  if (!ax_tree_host_tracker_) {
+    SetParentAXTreeID(ui::AXTreeIDUnknown());
+    return;
+  }
+
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&WidgetAXManager::UnhostAXTreeAfterFlush,
+                                weak_factory_.GetWeakPtr(), ax_tree_id_,
+                                ax_tree_host_generation_));
+}
+
 void WidgetAXManager::AddObserver(WidgetAXManagerObserver* observer) {
   observers_.AddObserver(observer);
 }
@@ -235,7 +289,7 @@ void WidgetAXManager::OnWidgetCreated(Widget* widget) {
 }
 
 void WidgetAXManager::OnWidgetDestroyed(Widget* widget) {
-  DCHECK_EQ(widget_, widget);
+  CHECK_EQ(widget_, widget);
   widget_observation_.Reset();
 }
 
@@ -556,6 +610,38 @@ void WidgetAXManager::SetParentAXTreeID(const ui::AXTreeID& parent_ax_tree_id) {
   }
 }
 
+void WidgetAXManager::ClearAXTreeHost() {
+  ++ax_tree_host_generation_;
+
+  if (View* host_view = ax_tree_host_tracker_.view()) {
+    ViewAccessibility& host_view_ax = host_view->GetViewAccessibility();
+    if (host_view_ax.GetChildTreeID() == ax_tree_id_) {
+      host_view_ax.RemoveChildTreeID();
+    }
+  }
+
+  ax_tree_host_tracker_.SetView(nullptr);
+  SetParentAXTreeID(ui::AXTreeIDUnknown());
+}
+
+void WidgetAXManager::UnhostAXTreeAfterFlush(
+    base::WeakPtr<WidgetAXManager> manager,
+    ui::AXTreeID child_tree_id,
+    uint32_t host_generation) {
+  if (!manager || manager->ax_tree_host_generation_ != host_generation) {
+    return;
+  }
+
+  if (View* host_view = manager->ax_tree_host_tracker_.view()) {
+    ViewAccessibility& host_view_ax = host_view->GetViewAccessibility();
+    if (host_view_ax.GetChildTreeID() != child_tree_id) {
+      return;
+    }
+  }
+
+  manager->ClearAXTreeHost();
+}
+
 void WidgetAXManager::UpdateParentAXTreeIDFromWidget() {
   if (!widget_) {
     SetParentAXTreeID(ui::AXTreeIDUnknown());
@@ -688,15 +774,13 @@ void WidgetAXManager::SendPendingUpdate() {
     return;
   }
 
-#if DCHECK_IS_ON()
   for (const auto& update : tree_updates) {
     for (const auto& node : update.nodes) {
-      DCHECK(cache_->Get(node.id))
+      CHECK(cache_->Get(node.id))
           << "Unknown serialized node. All nodes we serialize should be known "
              "to the WidgetAXManager.";
     }
   }
-#endif  // DCHECK_IS_ON()
 
   maybe_updates_and_events.emplace();
   maybe_updates_and_events->ax_tree_id = ax_tree_id_;

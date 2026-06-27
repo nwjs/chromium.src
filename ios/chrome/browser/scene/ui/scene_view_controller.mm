@@ -8,8 +8,8 @@
 
 #import "base/check.h"
 #import "base/trace_event/trace_event.h"
+#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
-#import "ios/chrome/browser/app_bar/ui/app_bar_utils.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_layout_utils.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_presentation_context.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_view_controller.h"
@@ -25,13 +25,22 @@
 #import "ios/chrome/browser/shared/public/commands/app_bar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/chrome_overlay_window/chrome_overlay_container_view.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
+
+namespace {
+
+// Transition delay between IPH presentations.
+constexpr NSTimeInterval kIPHTransitionDelay = 0.5;
+
+}  // namespace
 
 @interface SceneViewController () <LayoutStateObserver, SceneViewDelegate>
 @end
@@ -71,6 +80,11 @@
   CGFloat _fullscreenProgress;
   // Whether the assistant container is visible.
   BOOL _assistantVisible;
+}
+
+- (instancetype)init {
+  return [super initWithDisplayTracingOptions:
+                    UIViewControllerDisplayTracingOptionAllTraces];
 }
 
 #pragma mark - UIViewController
@@ -131,7 +145,7 @@
   [self.layoutGuideCenter referenceView:_appContentView
                               underName:kAppContentGuide];
 
-  if (!IsChromeNextIaEnabled() && !IsAssistantSidePanelEnabled()) {
+  if (!IsChromeNextIaEnabled() && !IsUseSceneViewControllerEnabled()) {
     AddSameConstraints(_appContentContainerView, view);
   }
 
@@ -153,7 +167,10 @@
   [coordinator
       animateAlongsideTransition:^(
           id<UIViewControllerTransitionCoordinatorContext> context) {
-        [weakSelf updateLayoutForViews];
+        if (IsChromeNextIaEnabled()) {
+          [weakSelf.layoutState updateAppBarPositionWithView:weakSelf.view
+                                                 coordinator:coordinator];
+        }
       }
                       completion:nil];
 }
@@ -230,9 +247,12 @@
 
   _assistantContainerViewController = assistantContainerViewController;
 
-  _assistantShadowView = [[UIView alloc] init];
+  // Use ChromeOverlayContainerView so touches outside the active assistant
+  // sheet pass through to the background content when in the sheet presentation
+  // context.
+  _assistantShadowView = [[ChromeOverlayContainerView alloc] init];
   _assistantShadowView.translatesAutoresizingMaskIntoConstraints = NO;
-  [self.view addSubview:_assistantShadowView];
+  [self updateAssistantZOrder];
 
   [self addChildViewController:_assistantContainerViewController];
   [_assistantShadowView addSubview:_assistantContainerViewController.view];
@@ -351,7 +371,27 @@
   [self.view layoutIfNeeded];
 }
 
+- (void)layoutState:(LayoutState*)layoutState
+    didChangeAppBarPosition:(AppBarPosition)appBarPosition {
+  [self updateLayoutForViews];
+}
+
 #pragma mark - Private
+
+// Ensures the Assistant container view remains properly layered below the App
+// Bar view.
+- (void)updateAssistantZOrder {
+  UIView* containerView = _assistantShadowView;
+  UIView* appBarView = _appBar.view;
+  if (!containerView) {
+    return;
+  }
+  if (appBarView && appBarView.superview == self.view) {
+    [self.view insertSubview:containerView belowSubview:appBarView];
+  } else if (containerView.superview != self.view) {
+    [self.view addSubview:containerView];
+  }
+}
 
 // This method updates the top constraints for the assistant and app content.
 - (void)updateAssistantTopConstraints:(BOOL)active {
@@ -384,7 +424,7 @@
   // jumps caused by anchor switches (e.g. switching from view.top to
   // safeAreaLayoutGuide.top).
   if (active) {
-    CHECK(AppBarPositionForView(self.view) == AppBarPosition::kNone);
+    CHECK(self.layoutState.appBarPosition == AppBarPosition::kNone);
     [self updateAssistantTopConstraints:active];
     _sideAppContentTrailingConstraint.constant = -kAssistantContainerMargin;
     _sideAppContentBottomConstraint.constant = -kAssistantContainerMargin;
@@ -417,7 +457,7 @@
 
 // Updates the active assistant constraints for the current active layout.
 - (void)updateAssistantLayoutConstraints {
-  if (!IsAssistantSidePanelEnabled() || !self.view.window) {
+  if (!IsUseSceneViewControllerEnabled() || !self.view.window) {
     return;
   }
 
@@ -434,6 +474,8 @@
     }
     return;
   }
+
+  [self updateAssistantZOrder];
 
   UIView* containerView = _assistantShadowView;
   containerView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -464,7 +506,7 @@
 // Applies visual aesthetics depending on whether the side panel layout is
 // active.
 - (void)updateAssistantVisualStyling:(BOOL)active {
-  if (!IsAssistantSidePanelEnabled() || !self.view.window) {
+  if (!IsUseSceneViewControllerEnabled() || !self.view.window) {
     return;
   }
 
@@ -481,7 +523,7 @@
 // Updates the layout of the scene views depending on the active layout strategy
 // (Constraints vs. Frames).
 - (void)updateLayoutForViews {
-  AppBarPosition position = AppBarPositionForView(self.view);
+  AppBarPosition position = self.layoutState.appBarPosition;
   _appBar.view.hidden = (position == AppBarPosition::kNone);
   if (IsFullscreenRefactoringEnabled()) {
     [self applyConstraintsForLayoutWithPosition:position];
@@ -555,7 +597,7 @@
   if (!_appBar) {
     return UIEdgeInsetsZero;
   }
-  AppBarPosition position = AppBarPositionForView(self.view);
+  AppBarPosition position = self.layoutState.appBarPosition;
   if (position == AppBarPosition::kNone) {
     return UIEdgeInsetsZero;
   }
@@ -743,10 +785,10 @@
 
 #pragma mark - SceneConsumer
 
-- (void)showNewIAPromo {
-  [self.appBarHandler showIPHBackground];
+- (void)showNewIAPromoWithGeminiEligibility:(BOOL)geminiEligible {
+  [self.appBarHandler showIPHBackgroundWithCentering:YES];
   BubbleArrowDirection arrowDirection = BubbleArrowDirectionDown;
-  AppBarPosition position = AppBarPositionForView(self.view);
+  AppBarPosition position = self.layoutState.appBarPosition;
   if (position == AppBarPosition::kLeft) {
     arrowDirection = BubbleArrowDirectionLeading;
   } else if (position == AppBarPosition::kRight) {
@@ -754,24 +796,39 @@
   }
 
   __weak __typeof(self) weakSelf = self;
+  __block BubbleViewControllerPresenter* presenter;
   CallbackWithIPHDismissalReasonType callback =
       ^(IPHDismissalReasonType reason) {
         [weakSelf.appBarHandler hideIPHBackground];
-        [weakSelf.mutator newIAPromoIPHDismissed];
+        if (reason == IPHDismissalReasonType::kTappedNext && geminiEligible) {
+          dispatch_after(
+              dispatch_time(DISPATCH_TIME_NOW,
+                            (int64_t)(kIPHTransitionDelay * NSEC_PER_SEC)),
+              dispatch_get_main_queue(), ^{
+                [weakSelf showSecondIAPromo];
+              });
+        } else {
+          [weakSelf.mutator newIAPromoIPHDismissed];
+        }
+        presenter = nil;
       };
 
   NSString* title = l10n_util::GetNSString(IDS_IOS_NEW_IA_PROMO_IPH_TITLE);
   NSString* subtitle = l10n_util::GetNSString(IDS_IOS_NEW_IA_PROMO_IPH_TEXT);
 
-  BubbleViewControllerPresenter* presenter =
-      [[BubbleViewControllerPresenter alloc]
-               initWithText:subtitle
-                      title:title
-             arrowDirection:arrowDirection
-                  alignment:BubbleAlignmentCenter
-                 bubbleType:BubbleViewTypeRich
-            pageControlPage:BubblePageControlPageNone
-          dismissalCallback:callback];
+  BubbleViewType bubbleType =
+      geminiEligible ? BubbleViewTypeRichWithNext : BubbleViewTypeRich;
+
+  presenter = [[BubbleViewControllerPresenter alloc]
+           initWithText:subtitle
+                  title:title
+         arrowDirection:arrowDirection
+              alignment:BubbleAlignmentCenter
+             bubbleType:bubbleType
+        pageControlPage:BubblePageControlPageNone
+  customNextButtonTitle:l10n_util::GetNSString(IDS_CONTINUE)
+      dismissalCallback:callback];
+  presenter.dismissalTimerDisabled = geminiEligible;
 
   UIView* anchorView =
       [self.layoutGuideCenter referencedViewUnderName:kAppBarGuide];
@@ -782,6 +839,70 @@
   // `convertPoint:toView:` is taking into account the transform. In all cases,
   // the closest side to the content is the top side.
   CGPoint anchorPoint = CGPointMake(anchorView.bounds.size.width / 2.0, 0);
+  CGPoint windowAnchorPoint = [anchorView convertPoint:anchorPoint toView:nil];
+
+  [presenter presentInViewController:self anchorPoint:windowAnchorPoint];
+}
+
+// Shows the second step of the IPH promo, promoting Gemini.
+- (void)showSecondIAPromo {
+  [self.appBarHandler showIPHBackgroundWithCentering:NO];
+  BubbleArrowDirection arrowDirection = BubbleArrowDirectionDown;
+  AppBarPosition position = self.layoutState.appBarPosition;
+  if (position == AppBarPosition::kLeft) {
+    arrowDirection = BubbleArrowDirectionLeading;
+  } else if (position == AppBarPosition::kRight) {
+    arrowDirection = BubbleArrowDirectionTrailing;
+  }
+
+  __weak __typeof(self) weakSelf = self;
+  __block BubbleViewControllerPresenter* presenter;
+  CallbackWithIPHDismissalReasonType callback =
+      ^(IPHDismissalReasonType reason) {
+        [weakSelf.appBarHandler hideIPHBackground];
+        [weakSelf.mutator newIAPromoIPHDismissed];
+        presenter = nil;
+      };
+
+  NSString* title =
+      l10n_util::GetNSString(IDS_IOS_NEW_IA_PROMO_IPH_GEMINI_TITLE);
+  NSString* subtitle =
+      l10n_util::GetNSString(IDS_IOS_NEW_IA_PROMO_IPH_GEMINI_TEXT);
+
+  presenter = [[BubbleViewControllerPresenter alloc]
+               initWithText:subtitle
+                      title:title
+             arrowDirection:arrowDirection
+                  alignment:BubbleAlignmentTopOrLeading
+                 bubbleType:BubbleViewTypeRichWithNext
+            pageControlPage:BubblePageControlPageNone
+      customNextButtonTitle:l10n_util::GetNSString(IDS_DONE)
+          dismissalCallback:callback];
+  presenter.dismissalTimerDisabled = YES;
+
+  UIView* anchorView = [self.layoutGuideCenter
+      referencedViewUnderName:kAppBarAssistantButtonGuide];
+  if (!anchorView) {
+    anchorView = self.view;
+  }
+
+  CGPoint anchorPoint = CGPointZero;
+  switch (arrowDirection) {
+    case BubbleArrowDirectionDown:
+      anchorPoint = CGPointMake(anchorView.bounds.size.width / 2.0, 0);
+      break;
+    case BubbleArrowDirectionUp:
+      anchorPoint = CGPointMake(anchorView.bounds.size.width / 2.0,
+                                anchorView.bounds.size.height);
+      break;
+    case BubbleArrowDirectionLeading:
+      anchorPoint = CGPointMake(anchorView.bounds.size.width,
+                                anchorView.bounds.size.height / 2.0);
+      break;
+    case BubbleArrowDirectionTrailing:
+      anchorPoint = CGPointMake(0, anchorView.bounds.size.height / 2.0);
+      break;
+  }
   CGPoint windowAnchorPoint = [anchorView convertPoint:anchorPoint toView:nil];
 
   [presenter presentInViewController:self anchorPoint:windowAnchorPoint];

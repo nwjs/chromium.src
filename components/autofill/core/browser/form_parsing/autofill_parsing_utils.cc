@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
 
+#include "base/feature.h"
 #include "base/feature_list.h"
 #include "base/notreached.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -30,8 +31,6 @@ const base::Feature* GetFeatureOfRegexFeature(RegexFeature feature) {
       return &features::kAutofillFixStateCountryMisclassification;
     case RegexFeature::kAutofillFixCivilStateMisclassificationForESPT:
       return &features::kAutofillFixCivilStateMisclassificationForESPT;
-    case RegexFeature::kAutofillAddressImproveBuildingNumberRegex:
-      return &features::kAutofillAddressImproveBuildingNumberRegex;
     case RegexFeature::kAutofillNewRegexForPhoneCountryCode:
       return &features::kAutofillNewRegexForPhoneCountryCode;
     case RegexFeature::kAutofillSupportCombinedZipAndCityFR:

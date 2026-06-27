@@ -63,6 +63,7 @@ NSString* GetPromoLabelString(
                  : l10n_util::GetNSString(
                        IDS_IOS_SIGNIN_SHEET_LABEL_FOR_WEB_SIGNIN);
     case signin_metrics::AccessPoint::kNtpSignedOutIcon:
+    case signin_metrics::AccessPoint::kOverflowMenu:
       // This could check `sync_types_disabled_by_policy` only for the types
       // mentioned in the regular string, but don't bother.
       return sync_transport_disabled_by_policy ||
@@ -92,12 +93,16 @@ NSString* GetPromoLabelString(
           IDS_IOS_NOTIFICATIONS_OPT_IN_SIGN_IN_MESSAGE_CONTENT);
     case signin_metrics::AccessPoint::kSaveToDriveIos:
       return l10n_util::GetNSString(IDS_IOS_SIGNIN_PROMO_SAVE_TO_DRIVE);
-    case signin_metrics::AccessPoint::kSettings:
-    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
-      // No text.
-      return nil;
+    case signin_metrics::AccessPoint::kSaveToPhotosIos:
+      return l10n_util::GetNSString(IDS_IOS_SIGNIN_PROMO_SAVE_TO_PHOTOS);
     case signin_metrics::AccessPoint::kDriveFilePickerIos:
       return l10n_util::GetNSString(IDS_IOS_SIGNIN_PROMO_CHOOSE_FROM_DRIVE);
+    case signin_metrics::AccessPoint::kIosPageActionMenu:
+    case signin_metrics::AccessPoint::kIosAppBar:
+    case signin_metrics::AccessPoint::kIosGeminiButtonToolbar:
+      return l10n_util::GetNSString(IDS_IOS_SIGNIN_PROMO_GEMINI);
+    case signin_metrics::AccessPoint::kSettings:
+    case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
     case signin_metrics::AccessPoint::kStartPage:
     case signin_metrics::AccessPoint::kMenu:
     case signin_metrics::AccessPoint::kExtensionInstallBubble:
@@ -123,7 +128,6 @@ NSString* GetPromoLabelString(
     case signin_metrics::AccessPoint::kReadingList:
     case signin_metrics::AccessPoint::kReauthInfoBar:
     case signin_metrics::AccessPoint::kAccountConsistencyService:
-    case signin_metrics::AccessPoint::kSaveToPhotosIos:
     case signin_metrics::AccessPoint::kChromeSigninInterceptBubble:
     case signin_metrics::AccessPoint::kRestorePrimaryAccountOnProfileLoad:
     case signin_metrics::AccessPoint::kTipsNotification:
@@ -164,9 +168,10 @@ NSString* GetPromoLabelString(
     case signin_metrics::AccessPoint::kAshChromeSessionManager:
     case signin_metrics::AccessPoint::kAvatarPillExpandPromo:
     case signin_metrics::AccessPoint::kSearchAIModeBubble:
-    case signin_metrics::AccessPoint::kIosPageActionMenu:
-    case signin_metrics::AccessPoint::kIosAppBar:
     case signin_metrics::AccessPoint::kSettingsAutofillAndPasswords:
+    case signin_metrics::AccessPoint::kIndigo:
+    case signin_metrics::AccessPoint::kDeepLinkDefault:
+    case signin_metrics::AccessPoint::kAgeMismatchSignout:
       // Nothing prevents instantiating ConsistencyDefaultAccountViewController
       // with an arbitrary entry point, API-wise. In doubt, no label is a good,
       // generic default that fits all entry points.

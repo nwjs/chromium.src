@@ -44,8 +44,7 @@ class GlicKeyedService;
 
 class GlicSelectionObserver
     : public content::WebContentsObserver,
-      public content::RenderWidgetHost::InputEventObserver,
-      public Host::Observer {
+      public content::RenderWidgetHost::InputEventObserver {
  public:
   explicit GlicSelectionObserver(content::WebContents* web_contents);
   ~GlicSelectionObserver() override;
@@ -97,14 +96,11 @@ class GlicSelectionObserver
       content::RenderWidgetHost::InputEventObserver::InputEventSource source)
       override;
 
-  // Host::Observer:
-  void WebClientConnected() override;
-
  private:
   void ProcessPendingSelection();
   void ResetPendingSelection();
 
-  void OnPanelStateChanged();
+  void OnGlobalPanelShowHide();
 
   static void InvokeGlicFromSelectionAffordance(
       std::u16string selected_text,
@@ -142,19 +138,24 @@ class GlicSelectionObserver
 
   base::flat_set<content::GlobalRenderFrameHostToken> observed_frames_;
 
+  // True if selection was initiated via keyboard shortcuts. Ensures KeyUp
+  // events only trigger processing for relevant selection actions.
   bool is_key_selection_ = false;
   int bounds_retry_count_ = 0;
 
+  // True if the selection context was sent to the Glic panel, so we know to
+  // clear it if the selection becomes empty while the panel remains open.
   bool has_sent_selection_context_ = false;
+  // Preserves the widget's pinned state across subsequent selection updates.
   bool is_widget_pinned_ = false;
+  // True during active user selection (mouse drag or key hold) to defer UI
+  // updates until the input event completes.
   bool is_selecting_ = false;
 
   base::WeakPtr<views::Widget> selection_widget_;
 
   mojo::Remote<blink::mojom::TextFragmentReceiver> text_fragment_remote_;
   std::optional<GURL> generated_link_;
-
-  base::ScopedObservation<Host, Host::Observer> host_observation_{this};
 
   base::WeakPtrFactory<GlicSelectionObserver> weak_ptr_factory_{this};
 

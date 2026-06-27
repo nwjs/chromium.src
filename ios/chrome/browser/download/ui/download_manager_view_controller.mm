@@ -7,12 +7,15 @@
 #import "base/feature_list.h"
 #import "base/ios/block_types.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/timer/timer.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/download/ui/download_manager_constants.h"
 #import "ios/chrome/browser/download/ui/download_manager_view_controller+Testing.h"
 #import "ios/chrome/browser/download/ui/download_manager_view_controller_delegate.h"
 #import "ios/chrome/browser/download/ui/features.h"
 #import "ios/chrome/browser/download/ui/radial_progress_view.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
@@ -144,7 +147,8 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
 
 }  // namespace
 
-@interface DownloadManagerViewController () <FullscreenUIElement> {
+@interface DownloadManagerViewController () <FullscreenBrowserAgentObserving,
+                                             FullscreenUIElement> {
   NSString* _fileName;
   NSString* _originatingHost;
   int64_t _countOfBytesReceived;
@@ -166,6 +170,9 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
   BOOL _needsTransitioningToButton;
   BOOL _needsTransitioningToProgress;
   BOOL _canOpenFile;
+
+  // Timer to disable buttons after presentation (to prevent tapjacking).
+  base::OneShotTimer _tapjackingProtectionTimer;
 }
 
 @property(nonatomic, strong) UIImageView* leadingIcon;
@@ -202,6 +209,13 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
 
   // Bridge to observe `_fullscreenController`.
   std::unique_ptr<FullscreenUIUpdater> _fullscreenUIUpdater;
+
+  // A FullscreenBrowserAgent to hide the UI during fullscreen.
+  raw_ptr<FullscreenBrowserAgent> _fullscreenBrowserAgent;
+
+  // Bridge to observe `_fullscreenBrowserAgent`.
+  std::unique_ptr<FullscreenBrowserAgentObserverBridge>
+      _fullscreenBrowserAgentObserverBridge;
 }
 
 #pragma mark - UIViewController
@@ -259,18 +273,29 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
   UIView* view = self.view;
   UILayoutGuide* bottomMarginGuide = self.bottomMarginGuide;
   UIView* downloadRow = self.downloadControlsRow;
-  UILayoutGuide* secondaryToolbarGuide =
-      [self.layoutGuideCenter makeLayoutGuideNamed:kSecondaryToolbarGuide];
-  [view addLayoutGuide:secondaryToolbarGuide];
+  UIView* secondaryToolbar =
+      [self.layoutGuideCenter referencedViewUnderName:kSecondaryToolbarGuide];
+
+  if (IsChromeNextIaEnabled() && IsFullscreenRefactoringEnabled()) {
+    [NSLayoutConstraint activateConstraints:@[
+      [bottomMarginGuide.bottomAnchor
+          constraintEqualToAnchor:view.bottomAnchor],
+      [bottomMarginGuide.topAnchor
+          constraintEqualToAnchor:secondaryToolbar.topAnchor],
+    ]];
+  } else {
+    [NSLayoutConstraint activateConstraints:@[
+      [bottomMarginGuide.bottomAnchor
+          constraintEqualToAnchor:view.bottomAnchor],
+      [bottomMarginGuide.heightAnchor
+          constraintGreaterThanOrEqualToAnchor:secondaryToolbar.heightAnchor],
+      [bottomMarginGuide.topAnchor
+          constraintLessThanOrEqualToAnchor:view.safeAreaLayoutGuide
+                                                .bottomAnchor],
+    ]];
+  }
 
   [NSLayoutConstraint activateConstraints:@[
-    [bottomMarginGuide.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
-    [bottomMarginGuide.heightAnchor
-        constraintGreaterThanOrEqualToAnchor:secondaryToolbarGuide
-                                                 .heightAnchor],
-    [bottomMarginGuide.topAnchor
-        constraintLessThanOrEqualToAnchor:view.safeAreaLayoutGuide
-                                              .bottomAnchor],
     [downloadRow.bottomAnchor
         constraintEqualToAnchor:bottomMarginGuide.topAnchor
                        constant:-kRowVerticalMargins],
@@ -447,6 +472,31 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
         std::make_unique<FullscreenUIUpdater>(_fullscreenController, self);
     [self updateForFullscreenProgress:_fullscreenController->GetProgress()];
   }
+}
+
+- (void)setFullscreenBrowserAgent:
+    (FullscreenBrowserAgent*)fullscreenBrowserAgent {
+  if (_fullscreenBrowserAgent) {
+    _fullscreenBrowserAgentObserverBridge.reset();
+    self.view.alpha = 1;
+  }
+  _fullscreenBrowserAgent = fullscreenBrowserAgent;
+  if (_fullscreenBrowserAgent) {
+    _fullscreenBrowserAgentObserverBridge =
+        std::make_unique<FullscreenBrowserAgentObserverBridge>(
+            self, _fullscreenBrowserAgent);
+    [self
+        updateForFullscreenProgress:_fullscreenBrowserAgent->bottom_progress()];
+  }
+}
+
+- (void)disableCurrentButtonTemporarily {
+  __weak __typeof(self.currentButton) weakButton = self.currentButton;
+  weakButton.enabled = NO;
+  _tapjackingProtectionTimer.Start(FROM_HERE, base::Milliseconds(500),
+                                   base::BindOnce(^{
+                                     weakButton.enabled = YES;
+                                   }));
 }
 
 #pragma mark - UI elements
@@ -768,6 +818,7 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
   if (currentButton != _currentButton) {
     [_currentButton removeFromSuperview];
     _currentButton = currentButton;
+    [self disableCurrentButtonTemporarily];
     [self updateActionButtonLayout];
     // Reset possibly animated properties in case an animation was interrupted.
     _currentButton.hidden = NO;
@@ -1001,6 +1052,12 @@ UIImageView* CreateProgressIcon(NSString* symbol_name) {
   [animator addAnimations:^{
     [weakSelf updateForFullscreenProgress:finalProgress];
   }];
+}
+
+#pragma mark - FullscreenBrowserAgentObserving
+
+- (void)fullscreenDidUpdateState:(FullscreenBrowserAgent*)agent {
+  [self updateForFullscreenProgress:agent->bottom_progress()];
 }
 
 #pragma mark - Animations

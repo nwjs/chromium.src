@@ -47,15 +47,13 @@
 #include "content/nw/src/common/shell_switches.h"
 #endif
 
-#include "ui/display/screen.h"
-
 using extensions::AppWindow;
 
 namespace {
 
 constexpr auto kAppWindowAcceleratorMap = std::to_array<AcceleratorMapping>({
-    //{ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW},
-    //{ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW},
+    {ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW},
+    {ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW},
     {ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW},
 #if BUILDFLAG(NWJS_SDK)
     { ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE },
@@ -165,15 +163,6 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
       init_param_bounds.IsEmpty()
           ? create_params.GetInitialWindowBounds(frame_insets, GetWindowRadii())
           : init_param_bounds;
-#if defined(OS_LINUX)
-  if (create_params.GetContentMinimumSize(frame_insets).IsEmpty() &&
-      create_params.GetContentMaximumSize(frame_insets).IsEmpty() &&
-      !create_params.resizable) { //NWJS#6592
-    gfx::Size size(create_params.content_spec.bounds.width(),
-                   create_params.content_spec.bounds.height());
-    SetContentSizeConstraints(size, size);
-  } else
-#endif
   SetContentSizeConstraints(create_params.GetContentMinimumSize(frame_insets),
                             create_params.GetContentMaximumSize(frame_insets));
   if (!window_bounds.IsEmpty()) {
@@ -181,11 +170,6 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
     bool position_specified =
         window_bounds.x() != BoundsSpecification::kUnspecifiedPosition &&
         window_bounds.y() != BoundsSpecification::kUnspecifiedPosition;
-    if (create_params.position == AppWindow::POS_MOUSE) {
-      gfx::Point cursor_pos(display::Screen::Get()->GetCursorScreenPoint());
-      window_bounds.set_origin(cursor_pos);
-      widget()->SetBounds(window_bounds);
-    } else {
     if (!position_specified) {
 #if BUILDFLAG(IS_MAC)
       // On Mac, this will call NativeWidgetMac's CenterWindow() which relies
@@ -200,15 +184,6 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
 #endif
     } else {
       widget()->SetBounds(window_bounds);
-    }
-    }
-  } else {
-    if (create_params.position == AppWindow::POS_CENTER)
-      widget()->CenterWindow(gfx::Size(640, 480));
-    else if (create_params.position == extensions::AppWindow::POS_MOUSE) {
-      gfx::Point cursor_pos(display::Screen::Get()->GetCursorScreenPoint());
-      gfx::Rect bounds(cursor_pos, gfx::Size(640, 480));
-      widget()->SetBounds(bounds);
     }
   }
 
@@ -289,9 +264,6 @@ ui::ZOrderLevel ChromeNativeAppWindowViews::GetZOrderLevel() const {
 // views::WidgetDelegate implementation.
 
 ui::ImageModel ChromeNativeAppWindowViews::GetWindowAppIcon() {
-  gfx::Image icon_override = app_window()->icon_override();
-  if (!icon_override.IsEmpty())
-    return ui::ImageModel::FromImageSkia(*icon_override.ToImageSkia());
   // Resulting icon is cached in aura::client::kAppIconKey window property.
   const gfx::Image& custom_image = GetCustomImage();
   if (app_window()->app_icon_url().is_valid() &&
@@ -326,9 +298,6 @@ ui::ImageModel ChromeNativeAppWindowViews::GetWindowAppIcon() {
 }
 
 ui::ImageModel ChromeNativeAppWindowViews::GetWindowIcon() {
-  gfx::Image icon_override = app_window()->icon_override();
-  if (!icon_override.IsEmpty())
-    return ui::ImageModel::FromImageSkia(*icon_override.ToImageSkia());
   // Resulting icon is cached in aura::client::kWindowIconKey window property.
   content::WebContents* web_contents = app_window()->web_contents();
   if (web_contents) {
@@ -485,8 +454,9 @@ void ChromeNativeAppWindowViews::InitializeWindow(
   extension_keybinding_registry_ =
       std::make_unique<ExtensionKeybindingRegistryViews>(
           Profile::FromBrowserContext(app_window->browser_context()),
-          widget()->GetFocusManager(),
-          extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY, nullptr);
+          /*tab_list_interface=*/nullptr,
+          extensions::ExtensionKeybindingRegistry::PLATFORM_APPS_ONLY,
+          widget()->GetFocusManager());
 }
 
 gfx::Image ChromeNativeAppWindowViews::GetCustomImage() {
@@ -522,8 +492,7 @@ void ChromeNativeAppWindowViews::OnIconUpdated(
   UpdateWindowIcon();
 }
 
-std::optional<int> ChromeNativeAppWindowViews::NonClientHitTest(
-    const gfx::Point& point) {
+int ChromeNativeAppWindowViews::NonClientHitTest(const gfx::Point& point) {
   if (!widget()->IsFullscreen()) {
     // Check for possible draggable region in the client area for the frameless
     // window.
@@ -533,5 +502,5 @@ std::optional<int> ChromeNativeAppWindowViews::NonClientHitTest(
     }
   }
 
-  return std::nullopt;
+  return HTNOWHERE;
 }

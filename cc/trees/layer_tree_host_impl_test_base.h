@@ -47,7 +47,7 @@ std::unique_ptr<LayerTreeHostImpl> CreateLayerTreeHostImplForTesting(
     RasterDarkModeFilter* dark_mode_filter,
     int id,
     scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
-    LayerTreeHostSchedulingClient* scheduling_client);
+    LayerTreeHostSchedulingDelegate* scheduling_delegate);
 
 struct TestFrameData : public FrameData {
   TestFrameData();
@@ -98,13 +98,13 @@ class TestVizLayerTreeHostImpl : public LayerTreeHostImpl {
       RasterDarkModeFilter* dark_mode_filter,
       int id,
       scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
-      LayerTreeHostSchedulingClient* scheduling_client) {
+      LayerTreeHostSchedulingDelegate* scheduling_delegate) {
     CHECK(settings.trees_in_viz_in_viz_process);
     return base::WrapUnique(new TestVizLayerTreeHostImpl(
         settings, delegate, task_runner_provider,
         rendering_stats_instrumentation, task_graph_runner,
         std::move(mutator_host), dark_mode_filter, id,
-        std::move(image_worker_task_runner), scheduling_client));
+        std::move(image_worker_task_runner), scheduling_delegate));
   }
   using LayerTreeHostImpl::LayerTreeHostImpl;
   ~TestVizLayerTreeHostImpl() override = default;
@@ -176,7 +176,7 @@ class LayerTreeHostImplTestBase : public testing::Test,
   void SetNeedsRedrawOnImplThread() override;
   void SetNeedsOneBeginImplFrameOnImplThread() override;
   void SetNeedsPrepareTilesOnImplThread() override;
-  void SetNeedsCommitOnImplThread(bool urgent) override;
+  void SetNeedsCommitOnImplThread(BeginMainFrameReason, bool urgent) override;
   void SetVideoNeedsBeginFrames(bool needs_begin_frames) override;
   void DidChangeBeginFrameSourcePaused(bool paused) override;
   void SetDeferBeginMainFrameFromImpl(bool defer_begin_main_frame) override;

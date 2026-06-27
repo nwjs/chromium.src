@@ -19,6 +19,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/hash/hash.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_base.h"
 #include "base/metrics/histogram_samples.h"
 #include "base/metrics/statistics_recorder.h"
@@ -231,8 +232,9 @@ class MockPrefHashStore : public PrefHashStore {
   ValuePtrStrategyPair checked_value(const std::string& path) const {
     std::map<std::string, ValuePtrStrategyPair>::const_iterator value =
         checked_values_.find(path);
-    if (value != checked_values_.end())
+    if (value != checked_values_.end()) {
       return value->second;
+    }
     return std::make_pair(reinterpret_cast<void*>(0xBAD),
                           static_cast<PrefTrackingStrategy>(-1));
   }
@@ -252,7 +254,7 @@ class MockPrefHashStore : public PrefHashStore {
   // PrefHashStore implementation.
   std::unique_ptr<PrefHashStoreTransaction> BeginTransaction(
       HashStoreContents* storage,
-      const os_crypt_async::Encryptor* encryptor_ptr) override;
+      scoped_refptr<const os_crypt_async::Encryptor> encryptor_ptr) override;
   std::string ComputeMac(const std::string& path,
                          const base::Value* new_value) override;
   base::DictValue ComputeSplitMacs(
@@ -407,7 +409,7 @@ void MockPrefHashStore::SetInvalidKeysResult(
 
 std::unique_ptr<PrefHashStoreTransaction> MockPrefHashStore::BeginTransaction(
     HashStoreContents* storage,
-    const os_crypt_async::Encryptor* encryptor_ptr) {
+    scoped_refptr<const os_crypt_async::Encryptor> encryptor_ptr) {
   EXPECT_FALSE(transaction_active_);
   transaction_active_ = true;
   // Pass this mock store instance to the nested transaction mock
@@ -424,8 +426,9 @@ base::DictValue MockPrefHashStore::ComputeSplitMacs(
     const std::string& path,
     const base::DictValue* split_values) {
   base::DictValue macs_dict;
-  if (!split_values)
+  if (!split_values) {
     return macs_dict;
+  }
   for (const auto item : *split_values) {
     macs_dict.Set(item.first,
                   base::Value("split mac for: " + path + "/" + item.first));
@@ -472,8 +475,9 @@ ValueState MockPrefHashStore::RecordCheckValue(const std::string& path,
   // asynchronous validation pass.
   checked_values_[path] = std::make_pair(value, strategy);
   auto result = check_results_.find(path);
-  if (result != check_results_.end())
+  if (result != check_results_.end()) {
     return result->second;
+  }
   return ValueState::UNCHANGED;
 }
 
@@ -585,8 +589,9 @@ std::vector<prefs::mojom::TrackedPreferenceMetadataPtr> GetConfiguration(
     EnforcementLevel max_enforcement_level) {
   auto configuration = prefs::ConstructTrackedConfiguration(kTestTrackedPrefs);
   for (const auto& metadata : configuration) {
-    if (metadata->enforcement_level > max_enforcement_level)
+    if (metadata->enforcement_level > max_enforcement_level) {
       metadata->enforcement_level = max_enforcement_level;
+    }
   }
   return configuration;
 }
@@ -625,9 +630,12 @@ class MockHashStoreContents : public HashStoreContents {
   void ImportEntry(const std::string& path,
                    const base::Value* in_value) override;
   bool RemoveEntry(const std::string& path) override;
+  bool SupportsSuperMac() const override { return false; }
   const base::DictValue* GetContents() const override;
   std::string GetSuperMac() const override;
   void SetSuperMac(const std::string& super_mac) override;
+  std::string GetSuperEncryptedHash() const override;
+  void SetSuperEncryptedHash(const std::string& super_encrypted_hash) override;
 
  private:
   explicit MockHashStoreContents(MockHashStoreContents* origin_mock);
@@ -651,6 +659,7 @@ class MockHashStoreContents : public HashStoreContents {
 
   base::DictValue dictionary_;
   std::set<std::string> removed_entries_;
+  std::string super_encrypted_hash_;
 
   // The code being tested copies its HashStoreContents for use in a callback
   // which can be executed during shutdown. To be able to capture the behavior
@@ -725,19 +734,21 @@ bool MockHashStoreContents::GetSplitMacs(
 
 void MockHashStoreContents::SetMac(const std::string& path,
                                    const std::string& value) {
-  if (origin_mock_)
+  if (origin_mock_) {
     origin_mock_->RecordSetMac(path, value);
-  else
+  } else {
     RecordSetMac(path, value);
+  }
 }
 
 void MockHashStoreContents::SetSplitMac(const std::string& path,
                                         const std::string& split_path,
                                         const std::string& value) {
-  if (origin_mock_)
+  if (origin_mock_) {
     origin_mock_->RecordSetSplitMac(path, split_path, value);
-  else
+  } else {
     RecordSetSplitMac(path, split_path, value);
+  }
 }
 
 void MockHashStoreContents::ImportEntry(const std::string& path,
@@ -746,10 +757,11 @@ void MockHashStoreContents::ImportEntry(const std::string& path,
 }
 
 bool MockHashStoreContents::RemoveEntry(const std::string& path) {
-  if (origin_mock_)
+  if (origin_mock_) {
     origin_mock_->RecordRemoveEntry(path);
-  else
+  } else {
     RecordRemoveEntry(path);
+  }
   return true;
 }
 
@@ -765,6 +777,22 @@ std::string MockHashStoreContents::GetSuperMac() const {
 
 void MockHashStoreContents::SetSuperMac(const std::string& super_mac) {
   ADD_FAILURE() << "Unexpected call.";
+}
+
+std::string MockHashStoreContents::GetSuperEncryptedHash() const {
+  if (origin_mock_) {
+    return origin_mock_->GetSuperEncryptedHash();
+  }
+  return super_encrypted_hash_;
+}
+
+void MockHashStoreContents::SetSuperEncryptedHash(
+    const std::string& super_encrypted_hash) {
+  if (origin_mock_) {
+    origin_mock_->SetSuperEncryptedHash(super_encrypted_hash);
+  } else {
+    super_encrypted_hash_ = super_encrypted_hash;
+  }
 }
 
 class PrefHashFilterTest : public testing::TestWithParam<EnforcementLevel>,
@@ -1957,7 +1985,10 @@ TEST_P(PrefHashFilterEncryptedTest, PostsDeferredTaskOnlyWhenFeatureEnabled) {
   }
 }
 
-TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationSkipsIfValueChanged) {
+TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationResetsIfValueChanged) {
+  if (GetParam() != EnforcementLevel::ENFORCE_ON_LOAD) {
+    return;
+  }
   InitializeAsyncOSCrypt();
   ResetImpl(true, test_os_crypt_async_.get());
 
@@ -1990,12 +2021,19 @@ TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationSkipsIfValueChanged) {
       base::Unretained(this), &was_validation_performed,
       revalidation_run_loop.QuitClosure()));
   mock_pref_hash_store_->ClearTestState();
+  // Re-configure the mock to return an invalid encrypted MAC for the async
+  // pass.
+  mock_pref_hash_store_->SetCheckResult(kAtomicPref,
+                                        ValueState::CHANGED_ENCRYPTED);
   revalidation_run_loop.Run();
 
-  EXPECT_FALSE(mock_pref_service_->WasCleared(kAtomicPref));
+  EXPECT_FALSE(mock_pref_service_->GetUserPrefValue(kAtomicPref));
 }
 
-TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationSkipsIfValueCleared) {
+TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationResetsIfValueCleared) {
+  if (GetParam() != EnforcementLevel::ENFORCE_ON_LOAD) {
+    return;
+  }
   InitializeAsyncOSCrypt();
   ResetImpl(true, test_os_crypt_async_.get());
 
@@ -2011,10 +2049,6 @@ TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationSkipsIfValueCleared) {
 
   pref_store_contents_.Set(kAtomicPref, "value_at_load");
   mock_pref_hash_store_->SetCheckResult(kAtomicPref, ValueState::UNCHANGED);
-  // Set the encrypted hash explicitly to be invalid, so the deferred task will
-  // try to reset the pref.
-  mock_pref_hash_store_->SetCheckResult("prefix." + std::string(kAtomicPref),
-                                        ValueState::CHANGED);
 
   pref_hash_filter_->FilterOnLoad(
       base::BindOnce(&PrefHashFilterTest::GetPrefsBack, base::Unretained(this),
@@ -2030,12 +2064,17 @@ TEST_P(PrefHashFilterEncryptedTest, DeferredRevalidationSkipsIfValueCleared) {
       revalidation_run_loop.QuitClosure()));
 
   mock_pref_service_->ClearClearedPrefsForTesting();
+  mock_pref_hash_store_->ClearTestState();
+  // Re-configure the mock to return an invalid encrypted MAC for the async
+  // pass.
+  mock_pref_hash_store_->SetCheckResult(kAtomicPref,
+                                        ValueState::CHANGED_ENCRYPTED);
   revalidation_run_loop.Run();
 
   EXPECT_TRUE(was_validation_performed);
 
-  // This means ClearPref should NOT be called a second time.
-  EXPECT_FALSE(mock_pref_service_->WasCleared(kAtomicPref));
+  // This means the pref should have been cleared (again).
+  EXPECT_FALSE(mock_pref_service_->GetUserPrefValue(kAtomicPref));
 }
 
 TEST_P(PrefHashFilterEncryptedTest,

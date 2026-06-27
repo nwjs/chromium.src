@@ -149,6 +149,11 @@ inline StringImpl::~StringImpl() {
 }
 
 void StringImpl::DestroyIfNeeded() {
+  // Pay the acquire cost only on the possible-last-reference path, before
+  // checking kIsAtomic so we're sure flag writes are visible. The value may
+  // be greater than 1 if the string was revived by AtomicStringTable::Add()
+  // after Release() observed 1.
+  const uint32_t ref_count = ref_count_.load(std::memory_order_acquire);
   if (hash_and_flags_.load(std::memory_order_acquire) & kIsAtomic) {
     if (AtomicStringTable::Instance().ReleaseAndRemoveIfNeeded(this)) {
       delete this;
@@ -157,11 +162,7 @@ void StringImpl::DestroyIfNeeded() {
       // killing it.
     }
   } else {
-    // This is not necessary but TSAN bots don't like the load in the
-    // caller to have relaxed memory order. Adding this check here instead
-    // of changing the load memory order to minimize perf impact.
-    int ref_count = ref_count_.load(std::memory_order_acquire);
-    DCHECK_EQ(ref_count, 1);
+    DCHECK_EQ(ref_count, 1u);
     delete this;
   }
 }
@@ -412,8 +413,9 @@ size_t StringImpl::CopyTo(base::span<UChar> buffer, size_type start) const {
   if (!number_of_characters_to_copy)
     return 0;
   buffer = buffer.first(number_of_characters_to_copy);
-  VisitCharacters(StringView(*this, start, number_of_characters_to_copy),
-                  [buffer](auto chars) { CopyChars(buffer, chars); });
+  VisitCharacters(*this, [&](auto chars) {
+    CopyChars(buffer, chars.subspan(start, number_of_characters_to_copy));
+  });
   return number_of_characters_to_copy;
 }
 
@@ -459,59 +461,55 @@ scoped_refptr<StringImpl> StringImpl::Fill(UChar character) {
 scoped_refptr<StringImpl> StringImpl::FoldCase() {
   CHECK_LE(length_, static_cast<size_type>(numeric_limits<int32_t>::max()));
 
-  if (Is8Bit()) {
-    // Do a faster loop for the case where all the characters are ASCII.
-    base::span<LChar> data8;
-    scoped_refptr<StringImpl> new_impl = CreateUninitialized(length_, data8);
-    LChar ored = 0;
+  auto fold_case_16bit_slow = [](base::span<const UChar> source16,
+                                 scoped_refptr<StringImpl> original_string) {
+    base::span<UChar> data16;
+    scoped_refptr<StringImpl> new_impl =
+        StringImpl::CreateUninitialized(source16.size(), data16);
 
-    const base::span<const LChar> source8 = Span8();
-    for (size_t i = 0; i < source8.size(); ++i) {
-      const LChar c = source8[i];
-      data8[i] = ::blink::ToAsciiLower(c);
-      ored |= c;
-    }
-
-    if (!(ored & ~0x7F))
+    bool error;
+    const int32_t real_length = unicode::FoldCase(
+        data16.data(), static_cast<int32_t>(data16.size()), source16.data(),
+        static_cast<int32_t>(source16.size()), &error);
+    if (!error && real_length == static_cast<int32_t>(data16.size())) {
       return new_impl;
-
-    // Do a slower implementation for cases that include non-ASCII Latin-1
-    // characters.
-    for (size_t i = 0; i < source8.size(); ++i) {
-      data8[i] = static_cast<LChar>(unicode::ToLower(source8[i]));
+    }
+    new_impl = StringImpl::CreateUninitialized(real_length, data16);
+    unicode::FoldCase(data16.data(), static_cast<int32_t>(data16.size()),
+                      source16.data(), static_cast<int32_t>(source16.size()),
+                      &error);
+    if (error) {
+      return original_string;
     }
     return new_impl;
-  }
+  };
 
-  // Do a faster loop for the case where all the characters are ASCII.
-  base::span<UChar> data16;
-  scoped_refptr<StringImpl> new_impl = CreateUninitialized(length_, data16);
-  UChar ored = 0;
+  const bool is_ascii = ContainsOnlyAsciiOrEmpty();
 
-  const base::span<const UChar> source16 = Span16();
-  for (size_t i = 0; i < source16.size(); ++i) {
-    const UChar c = source16[i];
-    data16[i] = ::blink::ToAsciiLower(c);
-    ored |= c;
-  }
-  if (!(ored & ~0x7F))
-    return new_impl;
+  return VisitCharacters(*this, [&](auto chars) -> scoped_refptr<StringImpl> {
+    if (is_ascii) {
+      // Faster implementation for cases where all the characters are ASCII.
+      using CharType = typename decltype(chars)::value_type;
+      base::span<CharType> data;
+      scoped_refptr<StringImpl> new_impl = CreateUninitialized(length_, data);
+      for (size_t i = 0; i < chars.size(); ++i) {
+        data[i] = ::blink::ToAsciiLower(chars[i]);
+      }
+      return new_impl;
+    }
 
-  // Do a slower implementation for cases that include non-ASCII characters.
-  bool error;
-  const int32_t real_length = unicode::FoldCase(
-      data16.data(), static_cast<int32_t>(data16.size()), source16.data(),
-      static_cast<int32_t>(source16.size()), &error);
-  if (!error && real_length == static_cast<int32_t>(data16.size())) {
-    return new_impl;
-  }
-  new_impl = CreateUninitialized(real_length, data16);
-  unicode::FoldCase(data16.data(), static_cast<int32_t>(data16.size()),
-                    source16.data(), static_cast<int32_t>(source16.size()),
-                    &error);
-  if (error)
-    return this;
-  return new_impl;
+    // Slower implementation for cases that include non-ASCII characters.
+    using CharType = typename decltype(chars)::value_type;
+    if constexpr (std::is_same_v<CharType, LChar>) {
+      Vector<UChar, 512> source16(length_);
+      for (wtf_size_t i = 0; i < length_; ++i) {
+        source16[i] = chars[i];
+      }
+      return fold_case_16bit_slow(source16, this);
+    } else {
+      return fold_case_16bit_slow(chars, this);
+    }
+  });
 }
 
 template <class UCharPredicate>
@@ -582,7 +580,7 @@ ALWAYS_INLINE scoped_refptr<StringImpl> StringImpl::RemoveCharacters(
     return this;
   }
 
-  StringBuffer<CharType> data(characters.size());
+  StringBuffer<CharType> data(base::checked_cast<size_type>(characters.size()));
   auto to = data.Span();
   size_t outc = i;
 
@@ -598,7 +596,7 @@ ALWAYS_INLINE scoped_refptr<StringImpl> StringImpl::RemoveCharacters(
     to[outc++] = c;
   }
 
-  data.Shrink(outc);
+  data.Shrink(base::checked_cast<size_type>(outc));
   return data.Release();
 }
 
@@ -622,7 +620,8 @@ scoped_refptr<StringImpl> StringImpl::Remove(size_type start,
   return VisitCharacters(
       *this, [start, length_to_remove, removed_end](auto chars) {
         using CharType = decltype(chars)::value_type;
-        StringBuffer<CharType> buffer(chars.size() - length_to_remove);
+        StringBuffer<CharType> buffer(
+            base::checked_cast<size_type>(chars.size() - length_to_remove));
         auto [before, after] = buffer.Span().split_at(start);
         CopyChars(before, chars.first(start));
         CopyChars(after, chars.subspan(removed_end));
@@ -680,7 +679,7 @@ inline scoped_refptr<StringImpl> StringImpl::SimplifyMatchedCharactersToSpace(
     return this;
   }
 
-  data.Shrink(outc);
+  data.Shrink(base::checked_cast<size_type>(outc));
   return data.Release();
 }
 
@@ -763,7 +762,8 @@ bool DeprecatedEqualIgnoringCase(base::span<const UChar> a,
   if (a.data() == b.data()) {
     return true;
   }
-  return !unicode::Umemcasecmp(a.data(), b.data(), length);
+  return !unicode::Umemcasecmp(a.data(), b.data(),
+                               base::checked_cast<int>(length));
 }
 
 bool DeprecatedEqualIgnoringCase(base::span<const UChar> a,
@@ -816,7 +816,8 @@ ALWAYS_INLINE static string_size_t FindIgnoringCaseInternal(
     string_size_t index) {
   // delta is the number of additional times to test; delta == 0 means test only
   // once.
-  string_size_t delta = search.size() - match.size();
+  string_size_t delta =
+      base::checked_cast<string_size_t>(search.size() - match.size());
 
   string_size_t i = 0;
   const SearchCharacterType* search_data = search.data();
@@ -868,7 +869,8 @@ ALWAYS_INLINE static string_size_t FindIgnoringAsciiCaseInternal(
     string_size_t index) {
   // delta is the number of additional times to test; delta == 0 means test only
   // once.
-  string_size_t delta = search.size() - match.size();
+  string_size_t delta =
+      base::checked_cast<string_size_t>(search.size() - match.size());
 
   string_size_t i = 0;
   const SearchCharacterType* search_data = search.data();

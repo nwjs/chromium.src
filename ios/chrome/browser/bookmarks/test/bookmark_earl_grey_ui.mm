@@ -209,13 +209,10 @@ id<GREYMatcher> SearchIconButton() {
         waitForUIElementToAppearWithMatcher:grey_accessibilityLabel(title)];
   }
   // Tap on the snackbar edit button.
-  NSString* snackbarLabel =
-      l10n_util::GetNSString(IDS_IOS_BOOKMARK_SNACKBAR_EDIT_BOOKMARK);
   [[EarlGrey
-      selectElementWithMatcher:grey_allOf(
-                                   grey_accessibilityLabel(snackbarLabel),
-                                   grey_userInteractionEnabled(),
-                                   grey_not(TabGridEditButton()), nil)]
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                              kSnackbarButtonAccessibilityId),
+                                          grey_sufficientlyVisible(), nil)]
       performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
                                           kBookmarkEditViewContainerIdentifier)]
@@ -517,9 +514,8 @@ id<GREYMatcher> SearchIconButton() {
 }
 
 - (void)verifyEmptyBackgroundAppears {
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kTableViewIllustratedEmptyViewID)]
-      assertWithMatcher:grey_notNil()];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
+                      grey_accessibilityID(kTableViewIllustratedEmptyViewID)];
 
   [[EarlGrey selectElementWithMatcher:grey_text(l10n_util::GetNSString(
                                           IDS_IOS_BOOKMARK_EMPTY_TITLE))]
@@ -802,11 +798,10 @@ id<GREYMatcher> SearchIconButton() {
 
   // Set the bookmark name.
   [[EarlGrey
-      selectElementWithMatcher:grey_allOf(grey_userInteractionEnabled(),
-                                          grey_not(TabGridEditButton()),
-                                          ButtonWithAccessibilityLabelId(
-                                              IDS_IOS_BOOKMARK_ACTION_EDIT),
-                                          nil)] performAction:grey_tap()];
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                              kSnackbarButtonAccessibilityId),
+                                          grey_sufficientlyVisible(), nil)]
+      performAction:grey_tap()];
 
   NSString* titleIdentifier = @"Title Field_textField";
   [[EarlGrey

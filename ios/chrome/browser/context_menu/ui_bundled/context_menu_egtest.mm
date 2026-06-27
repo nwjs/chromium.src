@@ -353,6 +353,9 @@ void RelaunchApp() {
       data_sharing::features::kDataSharingFeature);
   config.features_enabled.push_back(kEnableReaderModeInUS);
   config.features_disabled.push_back(web::features::kSmoothScrollingDefault);
+  // TODO(crbug.com/517130372): Re-enable when FullscreenRefactoring is
+  // compatible with context menus.
+  config.features_disabled.push_back(kFullscreenRefactoring);
 
   if ([self isRunningTest:@selector(testShowFullURLInWebContextMenu)]) {
     config.features_disabled.push_back(kIOSWebContextMenuNewTitle);
@@ -1106,6 +1109,8 @@ void RelaunchApp() {
       waitForWebStateContainingText:kInitialPageDestinationLinkText];
   [ChromeEarlGrey waitForWebStateZoomScale:1.0];
 
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
   [ChromeEarlGreyUI
       longPressElementOnWebView:InitialPageDestinationLinkIdSelector()];
 
@@ -1129,6 +1134,8 @@ void RelaunchApp() {
   [ChromeEarlGrey
       waitForWebStateContainingText:kInitialPageDestinationLinkText];
   [ChromeEarlGrey waitForWebStateZoomScale:1.0];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
   [ChromeEarlGreyUI
       longPressElementOnWebView:InitialPageDestinationLinkIdSelector()];
 
@@ -1393,7 +1400,7 @@ void RelaunchApp() {
 // Tests that save image to native photo album is blocked if Download Protection
 // Rule is set to do so.
 - (void)testSaveImageBlockByDownloadProtection {
-  [AnalysisConnectorsAppInterface setBlockDownloadRule];
+  [AnalysisConnectorsAppInterface setDownloadProtectionRules];
   [ChromeEarlGrey loadURL:self.testServer->GetURL(kLogoPagePath)];
   [ChromeEarlGrey waitForWebStateContainingText:kLogoPageText];
 
@@ -1443,7 +1450,7 @@ void RelaunchApp() {
   config.relaunch_policy = RelaunchPolicy::ForceRelaunchByKilling;
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
-  [AnalysisConnectorsAppInterface setBlockDownloadRule];
+  [AnalysisConnectorsAppInterface setDownloadProtectionRules];
   // Sign in so that the "Save image in..." sub menu is available.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];

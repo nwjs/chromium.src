@@ -216,7 +216,7 @@ class InteractiveGlicTestMixin : public T {
                            Api::Log("Glic web contents is ready"))),
             WaitUntil(
                 [this]() -> std::string {
-                  GlicInstance* instance = GetGlicInstanceImpl();
+                  GlicInstanceImpl* instance = GetGlicInstanceImpl();
                   if (!instance) {
                     return "No glic instance for " +
                            instance_tracker_.DescribeGlicTracking();
@@ -438,9 +438,7 @@ class InteractiveGlicTestMixin : public T {
     auto steps = Api::Steps(
         Api::Do([this]() {
           GetInstanceCoordinator().Toggle(
-              /*browser=*/nullptr, true, mojom::InvocationSource::kOsButton,
-              /*deprecated_prompt_suggestion=*/std::nullopt,
-              /*conversation_id=*/std::nullopt);
+              /*browser=*/nullptr, true, mojom::InvocationSource::kOsButton);
         }),
         WaitForAndInstrumentGlic(instrument_mode), WaitForGlicOpen());
 
@@ -469,10 +467,7 @@ class InteractiveGlicTestMixin : public T {
         return Api::PressButton(element_id);
       case GlicWindowMode::kDetached:
         return Api::Do([this, invocation_source] {
-          instance_coordinator().Toggle(
-              browser(), false, invocation_source,
-              /*deprecated_prompt_suggestion=*/std::nullopt,
-              /*conversation_id=*/std::nullopt);
+          instance_coordinator().Toggle(browser(), false, invocation_source);
         });
     }
   }
@@ -852,7 +847,7 @@ class InteractiveGlicTestMixin : public T {
     ss << state;
     return WaitUntil(
         [this]() -> std::string {
-          auto* instance = GetGlicInstance();
+          auto* instance = GetGlicInstanceImpl();
           if (!instance) {
             return "no instance";
           }
@@ -933,12 +928,9 @@ class InteractiveGlicTestMixin : public T {
   auto EnsureGlicWindowState(const std::string& desc, M&&... matchers) {
     return Api::CheckResult(
         [this]() {
-          for (auto* instance : instance_coordinator().GetInstances()) {
-            if (instance && instance->IsShowing()) {
-              return GlicPanelState::kOpen;
-            }
-          }
-          return GlicPanelState::kClosed;
+          return instance_coordinator().IsAnyInstanceShowing()
+                     ? GlicPanelState::kOpen
+                     : GlicPanelState::kClosed;
         },
         testing::Matcher<GlicPanelState>(
             testing::AnyOf(std::forward<M>(matchers)...)),

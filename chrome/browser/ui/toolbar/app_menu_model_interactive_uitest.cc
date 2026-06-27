@@ -22,7 +22,6 @@
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -121,7 +120,8 @@ class AppMenuModelInteractiveTest : public InteractiveBrowserTest {
   auto CheckIncognitoWindowOpened(const Browser* default_browser) {
     return Check(base::BindLambdaForTesting([default_browser]() {
       BrowserWindowInterface* new_browser = nullptr;
-      if (chrome::GetIncognitoBrowserCount() == 1) {
+      if (GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount() ==
+          1) {
         EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
         ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
             [default_browser, &new_browser](BrowserWindowInterface* browser) {
@@ -141,7 +141,7 @@ class AppMenuModelInteractiveTest : public InteractiveBrowserTest {
   auto CheckGuestWindowOpened(const Browser* default_browser) {
     return Check(base::BindLambdaForTesting([default_browser]() {
       BrowserWindowInterface* new_browser = nullptr;
-      if (chrome::GetGuestBrowserCount() == 1) {
+      if (GlobalBrowserCollection::GetInstance()->GetGuestBrowserCount() == 1) {
         EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
         ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
             [default_browser, &new_browser](BrowserWindowInterface* browser) {
@@ -525,8 +525,9 @@ class UniversalInstallAppMenuModelInteractiveTest
   // install icon next to them.
   auto VerifyDiyAppMenuItemViews() {
     const ui::ImageModel icon_image = ui::ImageModel::FromVectorIcon(
-        kInstallDesktopChromeRefreshIcon, ui::kColorMenuIcon,
-        ui::SimpleMenuModel::kDefaultIconSize);
+        features::IsRoundedIconsEnabled() ? kInstallDesktopIcon
+                                          : kInstallDesktopChromeRefreshOldIcon,
+        ui::kColorMenuIcon, ui::SimpleMenuModel::kDefaultIconSize);
     return Steps(
         EnsurePresent(AppMenuModel::kInstallAppItem),
         CheckViewProperty(

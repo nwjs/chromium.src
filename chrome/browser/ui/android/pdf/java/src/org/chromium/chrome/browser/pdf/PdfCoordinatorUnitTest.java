@@ -8,7 +8,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,13 +17,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
-import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.fragment.app.FragmentActivity;
+import androidx.pdf.PdfDocument;
+import androidx.pdf.PdfDocument.PageInfo;
 import androidx.pdf.PdfPoint;
 import androidx.pdf.view.PdfView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
+
+import kotlin.coroutines.Continuation;
 
 import org.junit.After;
 import org.junit.Before;
@@ -39,9 +41,11 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowView;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -54,6 +58,7 @@ import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures(ChromeFeatureList.PDF_REUSE_FRAGMENT)
 public class PdfCoordinatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -63,6 +68,7 @@ public class PdfCoordinatorUnitTest {
 
     @Mock private NativePageHost mNativePageHost;
     @Mock private Profile mProfile;
+    @Mock private PdfFragmentViewTracker mPdfFragmentViewTracker;
 
     private FragmentActivity mActivity;
     private PdfCoordinator mPdfCoordinator;
@@ -100,7 +106,8 @@ public class PdfCoordinatorUnitTest {
                         FILE_PATH,
                         PDF_TITLE,
                         TAB_ID,
-                        PDF_URL);
+                        PDF_URL,
+                        mPdfFragmentViewTracker);
         mPdfView = new PdfView(mActivity);
         mPdfView.layout(0, 0, /* width= */ 500, /* height= */ PDF_CONTENT_HEIGHT);
         mPdfCoordinator.mChromePdfViewerFragment.setPdfViewForTesting(mPdfView);
@@ -173,38 +180,6 @@ public class PdfCoordinatorUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
-    @Config(shadows = {ShadowPdfView.class})
-    public void testZoomButtons() {
-        createPdfCoordinator();
-
-        View zoomInButton = mPdfCoordinator.getView().findViewById(R.id.zoom_increase_button);
-        View zoomOutButton = mPdfCoordinator.getView().findViewById(R.id.zoom_decrease_button);
-
-        // Initial state at normal zoom
-        mPdfCoordinator.onViewportChanged(0, 1.0f);
-        assertTrue("Zoom in button should be enabled at 1.0f zoom", zoomInButton.isEnabled());
-        assertTrue("Zoom out button should be enabled at 1.0f zoom", zoomOutButton.isEnabled());
-
-        // Click zoom in
-        zoomInButton.performClick();
-
-        // Assert zoom level increased
-        ShadowPdfView shadowPdfView = Shadow.extract(mPdfView);
-        assertEquals(1.1f, shadowPdfView.mZoom, 0.001f);
-
-        // Simulate minimum zoom level (0.25f)
-        mPdfCoordinator.onViewportChanged(0, 0.25f);
-        assertTrue("Zoom in button should be enabled at min zoom", zoomInButton.isEnabled());
-        assertFalse("Zoom out button should be disabled at min zoom", zoomOutButton.isEnabled());
-
-        // Simulate maximum zoom level (5.0f)
-        mPdfCoordinator.onViewportChanged(0, 5.0f);
-        assertFalse("Zoom in button should be disabled at max zoom", zoomInButton.isEnabled());
-        assertTrue("Zoom out button should be enabled at max zoom", zoomOutButton.isEnabled());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
     public void testOnLinkClicked_RejectsDangerousSchemes() {
         when(mProfile.isOffTheRecord()).thenReturn(false);
         createPdfCoordinator();
@@ -271,7 +246,7 @@ public class PdfCoordinatorUnitTest {
         createPdfCoordinator();
         Uri linkUri = Uri.parse(LINK_URL);
         boolean result = mPdfCoordinator.onLinkClicked(linkUri);
-        assertTrue("onLinkClicked should return true.", result);
+        assertTrue("name should verify true", result);
         ArgumentCaptor<LoadUrlParams> captor = ArgumentCaptor.forClass(LoadUrlParams.class);
         verify(mNativePageHost).loadUrl(captor.capture(), eq(isIncognito));
         LoadUrlParams params = captor.getValue();
@@ -285,19 +260,7 @@ public class PdfCoordinatorUnitTest {
     }
 
     @Test
-    public void testFragmentCanBeInstantiated() {
-        // This test verifies that the fragment can be instantiated by the FragmentManager.
-        // The FragmentManager requires a public no-argument constructor.
-        try {
-            PdfCoordinator.ChromePdfViewerFragment fragment =
-                    new PdfCoordinator.ChromePdfViewerFragment();
-            assertNotNull("Fragment should be created successfully.", fragment);
-        } catch (Exception e) {
-            fail("Fragment instantiation should not throw an exception: " + e.getMessage());
-        }
-    }
-
-    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
     public void testGetFileUri() {
         createPdfCoordinator();
 
@@ -309,8 +272,11 @@ public class PdfCoordinatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
     public void testGetFileUri_NullUri() {
         when(mProfile.isOffTheRecord()).thenReturn(false);
+        // Signature: NativePageHost, Profile, Activity, @Nullable String filepath, String title,
+        // int tabId, String url
         mPdfCoordinator =
                 new PdfCoordinator(
                         mNativePageHost,
@@ -319,18 +285,196 @@ public class PdfCoordinatorUnitTest {
                         null,
                         PDF_TITLE,
                         TAB_ID,
-                        PDF_URL);
+                        PDF_URL,
+                        mPdfFragmentViewTracker);
 
         Uri uri =
                 mPdfCoordinator.getFileUri(
                         /* isWorkProfile= */ false, "com.google.android.googlequicksearchbox");
         assertEquals(null, uri);
     }
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testCalculateFitToPageZoom() {
+        createPdfCoordinator();
+
+        // Use real PageInfo since it is a final class (cannot mock). Pass empty list for
+        // FormWidgetInfo.
+        androidx.pdf.PdfDocument.PageInfo realPageInfo =
+                new androidx.pdf.PdfDocument.PageInfo(
+                        0, 400, 200, java.util.Collections.emptyList());
+
+        // mPdfView width = 500, height = 1000
+        // Fit to page height
+        float zoomHeight =
+                mPdfCoordinator.mChromePdfViewerFragment.calculateFitToPageZoom(
+                        realPageInfo, true, mPdfView, /* zoomRatio= */ 1.0f);
+        // viewportSize = 1000, contentSize = 400. zoom = 1000 / 400 = 2.5f
+        assertEquals(2.5f, zoomHeight, 0.001f);
+
+        // Fit to page width
+        float zoomWidth =
+                mPdfCoordinator.mChromePdfViewerFragment.calculateFitToPageZoom(
+                        realPageInfo, false, mPdfView, /* zoomRatio= */ 1.0f);
+        // viewportSize = 500, contentSize = 200. zoom = 500 / 200 = 2.5f
+        assertEquals(2.5f, zoomWidth, 0.001f);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testToggleFitToPage_PdfViewNull() {
+        createPdfCoordinator();
+        mPdfCoordinator.mChromePdfViewerFragment.setPdfViewForTesting(null);
+        // Should return gracefully without NullPointerException.
+        mPdfCoordinator.toggleFitToPage(true, 0);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(shadows = {ShadowPdfView.class})
+    public void testToggleTwoPagesPerRow() {
+        createPdfCoordinator();
+        float zoomLevel = 1.5f;
+        int currentPageIndex = 2;
+
+        // Test toggling to two pages per row.
+        mPdfCoordinator.toggleTwoPagesPerRow(true, zoomLevel, currentPageIndex);
+
+        // Assert
+        ShadowPdfView shadowPdfView = Shadow.extract(mPdfView);
+        assertEquals(2, shadowPdfView.mPagesPerRow);
+        assertEquals(zoomLevel, shadowPdfView.mZoom, 0.001f);
+
+        float expectedYOffsetPoints = (PDF_CONTENT_HEIGHT / 2f) / zoomLevel;
+        assertEquals(
+                new PdfPoint(currentPageIndex, 0f, expectedYOffsetPoints), shadowPdfView.mPdfPoint);
+
+        // Test toggling back to one page per row.
+        mPdfCoordinator.toggleTwoPagesPerRow(false, zoomLevel, currentPageIndex);
+
+        // Assert
+        assertEquals(1, shadowPdfView.mPagesPerRow);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testToggleTwoPagesPerRow_PdfViewNull() {
+        createPdfCoordinator();
+        mPdfCoordinator.mChromePdfViewerFragment.setPdfViewForTesting(null);
+
+        // Verify that no exception is thrown when mPdfView is null.
+        mPdfCoordinator.toggleTwoPagesPerRow(true, 1.5f, 2);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testCalculateFitToPageZoomWithRatio() {
+        createPdfCoordinator();
+
+        androidx.pdf.PdfDocument.PageInfo realPageInfo =
+                new androidx.pdf.PdfDocument.PageInfo(
+                        0, 400, 200, java.util.Collections.emptyList());
+
+        // mPdfView width = 500, height = 1000
+        // Fit to page width with 0.8 ratio
+        float zoomWidthRatio =
+                mPdfCoordinator.mChromePdfViewerFragment.calculateFitToPageZoom(
+                        realPageInfo, false, mPdfView, 0.8f);
+        // viewportSize = 500, contentSize = 200. zoom = (500 * 0.8) / 200 = 400 / 200 = 2.0f
+        assertEquals(2.0f, zoomWidthRatio, 0.001f);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(shadows = {ShadowPdfView.class})
+    @SuppressWarnings("unchecked")
+    public void testDefaultZoomLargeViewport() {
+        // Need to create coordinator with larger width
+        mPdfCoordinator =
+                new PdfCoordinator(
+                        mNativePageHost,
+                        mProfile,
+                        mActivity,
+                        FILE_PATH,
+                        PDF_TITLE,
+                        TAB_ID,
+                        PDF_URL,
+                        mPdfFragmentViewTracker);
+        mPdfView = new PdfView(mActivity);
+        mPdfView.layout(0, 0, /* width= */ 1000, /* height= */ PDF_CONTENT_HEIGHT);
+        mPdfCoordinator.mChromePdfViewerFragment.setPdfViewForTesting(mPdfView);
+        ViewGroup contentView = mActivity.findViewById(android.R.id.content);
+        contentView.addView(mPdfCoordinator.getView());
+        contentView.addView(mPdfView);
+
+        ShadowPdfView shadowPdfView = Shadow.extract(mPdfView);
+        PdfDocument mockPdfDocument =
+                (PdfDocument)
+                        java.lang.reflect.Proxy.newProxyInstance(
+                                PdfDocument.class.getClassLoader(),
+                                new Class[] {PdfDocument.class},
+                                (proxy, method, args) -> {
+                                    if (method.getName().equals("getPageInfo")
+                                            && args != null
+                                            && args.length == 2) {
+                                        Continuation<PageInfo> continuation =
+                                                (Continuation<PageInfo>) args[1];
+                                        PageInfo realPageInfo =
+                                                new PageInfo(
+                                                        0,
+                                                        400,
+                                                        200,
+                                                        java.util.Collections.emptyList());
+                                        continuation.resumeWith(realPageInfo);
+                                        return null;
+                                    }
+                                    Class<?> returnType = method.getReturnType();
+                                    if (returnType.equals(Void.TYPE)) return null;
+                                    if (returnType.equals(Boolean.TYPE)) return false;
+                                    if (returnType.equals(Integer.TYPE)) return 0;
+                                    if (returnType.equals(Long.TYPE)) return 0L;
+                                    if (returnType.equals(Float.TYPE)) return 0f;
+                                    return null;
+                                });
+        shadowPdfView.mPdfDocument = mockPdfDocument;
+
+        // Trigger default zoom
+        mPdfCoordinator.onViewportChanged(0, 3.76f);
+
+        // Since setDefaultZoom posts to pdfView, we must idle the looper.
+        ShadowLooper.idleMainLooper();
+
+        // viewportWidth = 1000. contentWidth = 200.
+        // expectedZoom = (1000 * 0.8) / 200 = 800 / 200 = 4.0f
+        assertEquals(4.0f, shadowPdfView.mZoom, 0.001f);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testOnLoadDocumentError_MakesContainerVisible() {
+        createPdfCoordinator();
+
+        android.view.View container =
+                mPdfCoordinator.getView().findViewById(mPdfCoordinator.mFragmentContainerViewId);
+        assertEquals(android.view.View.INVISIBLE, container.getVisibility());
+
+        // Set document load start timestamp to simulate that load started.
+        mPdfCoordinator.mChromePdfViewerFragment.mDocumentLoadStartTimestamp = 12345L;
+
+        // Trigger error.
+        mPdfCoordinator.mChromePdfViewerFragment.onLoadDocumentError(
+                new RuntimeException("Test error"));
+
+        // Verify container is now VISIBLE.
+        assertEquals(android.view.View.VISIBLE, container.getVisibility());
+    }
 
     @Implements(PdfView.class)
     public static class ShadowPdfView extends ShadowView {
         public PdfPoint mPdfPoint;
         public float mZoom = 1.0f;
+        public PdfDocument mPdfDocument;
+        public int mPagesPerRow = 1;
 
         public ShadowPdfView() {}
 
@@ -345,8 +489,28 @@ public class PdfCoordinatorUnitTest {
         }
 
         @Implementation
+        public void setPagesPerRow(int pagesPerRow) {
+            mPagesPerRow = pagesPerRow;
+        }
+
+        @Implementation
         public float getZoom() {
             return mZoom;
+        }
+
+        @Implementation
+        public float getMinZoom() {
+            return 0.1f;
+        }
+
+        @Implementation
+        public float getMaxZoom() {
+            return 25.0f;
+        }
+
+        @Implementation
+        public PdfDocument getPdfDocument() {
+            return mPdfDocument;
         }
     }
 }

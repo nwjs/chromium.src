@@ -7,10 +7,29 @@
 
 #import <Foundation/Foundation.h>
 
+#import <vector>
+
+@class TableViewItem;
+
+namespace autofill {
+class EntityType;
+}  // namespace autofill
+
 // Consumer protocol for the Travel Info settings page.
 @protocol TravelInfoConsumer <NSObject>
 
-// For now, empty page requires no methods.
+// Sets the lists of travel information.
+- (void)setTravelInfoWithFlightReservations:
+            (NSArray<TableViewItem*>*)flightReservations
+                       knownTravelerNumbers:
+                           (NSArray<TableViewItem*>*)knownTravelerNumbers
+                             redressNumbers:
+                                 (NSArray<TableViewItem*>*)redressNumbers
+                                   vehicles:(NSArray<TableViewItem*>*)vehicles;
+
+// Sets the writable entity types that can be added.
+- (void)setWritableEntityTypes:
+    (const std::vector<autofill::EntityType>&)writableEntityTypes;
 
 @end
 

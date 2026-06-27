@@ -14,6 +14,7 @@
 #include "chrome/browser/password_manager/chrome_password_change_service.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/extension_control_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
@@ -53,6 +54,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #include "ui/webui/webui_util.h"
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -96,11 +98,11 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, password_manager::kChromeUIPasswordManagerHost);
 
-  webui::SetupWebUIDataSource(source, base::span(kPasswordManagerResources),
+  webui::SetupWebUIDataSource(source, kPasswordManagerResources,
                               IDR_PASSWORD_MANAGER_PASSWORD_MANAGER_HTML);
 
 #if !BUILDFLAG(OPTIMIZE_WEBUI)
-  source->AddResourcePaths(base::span(kSettingsSharedResources));
+  source->AddResourcePaths(kSettingsSharedResources);
 #endif
 
   static const webui::LocalizedString kStrings[] = {
@@ -695,6 +697,10 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
 #endif  // !BUILDFLAG(IS_CHROMEOS)
   source->AddBoolean("passwordUploadUiUpdate", passwordUploadUiUpdateEnabled);
 
+  source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
+                                            ? "webui-refresh-2026"
+                                            : "");
+
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
@@ -807,6 +813,14 @@ PasswordManagerUI::PasswordManagerUI(content::WebUI* web_ui)
   ManagedUIHandler::Initialize(web_ui, source);
   content::URLDataSource::Add(profile,
                               std::make_unique<SanitizedImageSource>(profile));
+
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, std::vector<ui::ElementIdentifier>{
+                PasswordManagerUI::kSettingsMenuItemElementId,
+                PasswordManagerUI::kAddShortcutElementId,
+                PasswordManagerUI::kSharePasswordElementId,
+                PasswordManagerUI::kAccountStoreToggleElementId,
+                PasswordManagerUI::kOverflowMenuElementId});
 }
 
 PasswordManagerUI::~PasswordManagerUI() = default;
@@ -834,13 +848,9 @@ void PasswordManagerUI::CreateHelpBubbleHandler(
     mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler) {
   help_bubble_handler_ = std::make_unique<user_education::HelpBubbleHandler>(
-      std::move(handler), std::move(client), this,
-      std::vector<ui::ElementIdentifier>{
-          PasswordManagerUI::kSettingsMenuItemElementId,
-          PasswordManagerUI::kAddShortcutElementId,
-          PasswordManagerUI::kSharePasswordElementId,
-          PasswordManagerUI::kAccountStoreToggleElementId,
-          PasswordManagerUI::kOverflowMenuElementId});
+      std::move(handler), std::move(client),
+      ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
+          web_ui()->GetRenderFrameHost()));
 }
 
 void PasswordManagerUI::BindInterface(

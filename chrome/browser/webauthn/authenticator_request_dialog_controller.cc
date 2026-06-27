@@ -90,6 +90,7 @@
 #include "third_party/icu/source/common/unicode/utypes.h"
 #include "third_party/icu/source/i18n/unicode/coll.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/text_elider.h"
 #include "url/scheme_host_port.h"
@@ -150,11 +151,14 @@ constexpr const gfx::VectorIcon& GetTransportIcon(
     AuthenticatorTransport transport) {
   switch (transport) {
     case AuthenticatorTransport::kUsbHumanInterfaceDevice:
-      return kUsbSecurityKeyIcon;
+      return features::IsRoundedIconsEnabled() ? kSecurityKeyIcon
+                                               : kUsbSecurityKeyOldIcon;
     case AuthenticatorTransport::kInternal:
-      return kLaptopIcon;
+      return features::IsRoundedIconsEnabled() ? kLaptopWindowsIcon
+                                               : kLaptopOldIcon;
     case AuthenticatorTransport::kHybrid:
-      return kSmartphoneIcon;
+      return features::IsRoundedIconsEnabled() ? kMobileIcon
+                                               : kSmartphoneOldIcon;
     case AuthenticatorTransport::kDeprecatedAoa:
     case AuthenticatorTransport::kBluetoothLowEnergy:
     case AuthenticatorTransport::kNearFieldCommunication:
@@ -200,9 +204,10 @@ bool WebAuthnApiSupportsHybrid() {
 
 const gfx::VectorIcon& GetCredentialIcon(AuthenticatorType type) {
   if (type == AuthenticatorType::kPhone) {
-    return kSmartphoneIcon;
+    return features::IsRoundedIconsEnabled() ? kMobileIcon : kSmartphoneOldIcon;
   }
-  return vector_icons::kPasskeyIcon;
+  return features::IsRoundedIconsEnabled() ? vector_icons::kPasskeyIcon
+                                           : vector_icons::kPasskeyOldIcon;
 }
 
 int GetHybridButtonLabel(bool has_security_key) {
@@ -346,11 +351,11 @@ const gfx::VectorIcon& GetMechanismIcon(
             if (ui_presentation == UIPresentation::kModalImmediate) {
               switch (credential.value().source) {
                 case AuthenticatorType::kICloudKeychain:
-                  return kIcloudKeychainColorIcon;
+                  return kIcloudKeychainColorCustomIcon;
                 case AuthenticatorType::kEnclave:
                   return GooglePasswordManagerVectorIcon();
                 case AuthenticatorType::kWinNative:
-                  return kWindowsHelloColorIcon;
+                  return kWindowsHelloColorCustomIcon;
                 case AuthenticatorType::kTouchID:
                   return vector_icons::kProductRefreshIcon;
                 default:
@@ -373,17 +378,21 @@ const gfx::VectorIcon& GetMechanismIcon(
           },
           [](const Mechanism::ICloudKeychain&) -> const gfx::VectorIcon& {
             // Always use the standard iCloud Keychain icon here.
-            return kIcloudKeychainIcon;
+            return kIcloudKeychainCustomIcon;
           },
           [](const Mechanism::Hybrid&) -> const gfx::VectorIcon& {
-            return kQrcodeGeneratorIcon;
+            return kQrcodeGeneratorCustomIcon;
           },
           [](const Mechanism::Enclave&) -> const gfx::VectorIcon& {
             // Always use the standard password manager icon here.
-            return vector_icons::kPasswordManagerIcon;
+            return features::IsRoundedIconsEnabled()
+                       ? vector_icons::kPasswordManagerIcon
+                       : vector_icons::kPasswordManagerOldIcon;
           },
           [](const Mechanism::SignInAgain&) -> const gfx::VectorIcon& {
-            return vector_icons::kSyncIcon;
+            return features::IsRoundedIconsEnabled()
+                       ? vector_icons::kSyncIcon
+                       : vector_icons::kSyncOldIcon;
           }},
       type);
 }
@@ -775,8 +784,7 @@ void AuthenticatorRequestDialogController::TransitionToModalWebAuthnRequest() {
   DCHECK_EQ(model_->step(), Step::kPasskeyAutofill);
 
   // Dispatch requests to any plugged in authenticators.
-  for (auto& authenticator :
-       ephemeral_state_.saved_authenticators_.authenticator_list()) {
+  for (auto& authenticator : ephemeral_state_.saved_authenticators_) {
     if (authenticator.transport != device::FidoTransportProtocol::kInternal) {
       DispatchRequestAsync(&authenticator);
     }
@@ -988,7 +996,7 @@ void AuthenticatorRequestDialogController::
   SetCurrentStep(Step::kPlatformAuthenticator);
 
   std::vector<AuthenticatorReference>& authenticators =
-      ephemeral_state_.saved_authenticators_.authenticator_list();
+      ephemeral_state_.saved_authenticators_;
 #if BUILDFLAG(IS_WIN)
   // The Windows-native UI already handles retrying so we do not offer a second
   // level of retry in that case.
@@ -1416,16 +1424,16 @@ void AuthenticatorRequestDialogController::AddAuthenticator(
       authenticator.AuthenticatorTransport().value_or(
           AuthenticatorTransport::kInternal);
 
-  AuthenticatorReference authenticator_reference(
+  ephemeral_state_.saved_authenticators_.emplace_back(
       authenticator.GetId(), transport, authenticator.GetType());
-
-  ephemeral_state_.saved_authenticators_.AddAuthenticator(
-      std::move(authenticator_reference));
 }
 
 void AuthenticatorRequestDialogController::RemoveAuthenticator(
     std::string_view authenticator_id) {
-  ephemeral_state_.saved_authenticators_.RemoveAuthenticator(authenticator_id);
+  std::erase_if(ephemeral_state_.saved_authenticators_,
+                [authenticator_id](const AuthenticatorReference& ref) {
+                  return ref.authenticator_id == authenticator_id;
+                });
 }
 
 // SelectAccount is called to trigger an account selection dialog.
@@ -1476,7 +1484,7 @@ AuthenticatorType AuthenticatorRequestDialogController::OnAccountPreselected(
 
 void AuthenticatorRequestDialogController::SetSelectedAuthenticatorForTesting(
     AuthenticatorReference test_authenticator) {
-  ephemeral_state_.saved_authenticators_.AddAuthenticator(
+  ephemeral_state_.saved_authenticators_.emplace_back(
       std::move(test_authenticator));
 }
 
@@ -1536,21 +1544,7 @@ void AuthenticatorRequestDialogController::OnSampleCollected(
 }
 
 void AuthenticatorRequestDialogController::set_cable_transport_info(
-    std::optional<bool> extension_is_v2,
     const std::optional<std::string>& cable_qr_string) {
-  if (extension_is_v2.has_value()) {
-    if (*extension_is_v2) {
-      model_->cable_ui_type =
-          AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_SERVER_LINK;
-    } else {
-      model_->cable_ui_type =
-          AuthenticatorRequestDialogModel::CableUIType::CABLE_V1;
-    }
-  } else {
-    model_->cable_ui_type =
-        AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_2ND_FACTOR;
-  }
-
   model_->cable_qr_string = cable_qr_string;
 }
 
@@ -1732,7 +1726,6 @@ void AuthenticatorRequestDialogController::StartGuidedFlowForTransport(
     AuthenticatorTransport transport) {
   DCHECK(model_->step() == Step::kMechanismSelection ||
          model_->step() == Step::kUsbInsertAndActivate ||
-         model_->step() == Step::kCableActivate ||
          model_->step() == Step::kPasskeyAutofill ||
          model_->step() == Step::kChromeProfileCreatePasskey ||
          model_->step() == Step::kPreSelectAccount ||
@@ -1749,7 +1742,7 @@ void AuthenticatorRequestDialogController::StartGuidedFlowForTransport(
     case AuthenticatorTransport::kHybrid:
       EnsureBleAdapterIsPoweredAndContinue(
           base::BindOnce(&AuthenticatorRequestDialogController::SetCurrentStep,
-                         weak_factory_.GetWeakPtr(), Step::kCableActivate));
+                         weak_factory_.GetWeakPtr(), Step::kCableV2QRCode));
       break;
     default:
       break;
@@ -1847,15 +1840,7 @@ void AuthenticatorRequestDialogController::StartAutofillRequest() {
     auto* controller =
         ambient_signin::AmbientSigninController::GetOrCreateForCurrentDocument(
             render_frame_host);
-    controller->Show(
-        model(), credentials, std::move(passwords_),
-        base::BindOnce(
-            IgnoreResult(
-                &AuthenticatorRequestDialogController::OnAccountPreselected),
-            weak_factory_.GetWeakPtr()),
-        base::BindRepeating(
-            &AuthenticatorRequestDialogModel::OnPasswordCredentialSelected,
-            base::Unretained(model_)));
+    controller->Show(model());
   }
 
   ChromeWebAuthnCredentialsDelegate* webauthn_credentials_delegate =
@@ -1920,7 +1905,8 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
   const bool is_get_assertion =
       transport_availability_.request_type == FidoRequestType::kGetAssertion;
   bool specific_local_passkeys_listed = false;
-  if (is_get_assertion && IsModalRequest(ui_presentation())) {
+  if (is_get_assertion && (IsModalRequest(ui_presentation()) ||
+                           ui_presentation() == UIPresentation::kAmbient)) {
     // List passkeys instead of mechanisms for platform & GPM authenticators.
     for (const auto& cred : transport_availability_.recognized_credentials) {
       if (cred.source == AuthenticatorType::kICloudKeychain &&
@@ -1989,28 +1975,9 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
   const bool windows_handles_hybrid = WebAuthnApiSupportsHybrid();
   bool include_add_phone_option = false;
 
-  if (model_->cable_ui_type) {
-    switch (*model_->cable_ui_type) {
-      case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_2ND_FACTOR:
-        if (transport_availability_.available_transports.contains(kCable)) {
-          include_add_phone_option = !windows_handles_hybrid;
-        }
-        break;
-
-      case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_SERVER_LINK:
-      case AuthenticatorRequestDialogModel::CableUIType::CABLE_V1: {
-        if (transport_availability_.available_transports.contains(kCable)) {
-          transports_to_list_if_active.push_back(kCable);
-
-          // If this is a caBLEv1 or server-link request then offering to "Try
-          // Again" is unfortunate because the server won't send another ping
-          // to the phone. It is valid if trying to use USB devices but the
-          // confusion of the caBLE case overrides that.
-          model_->offer_try_again_in_ui = false;
-        }
-        break;
-      }
-    }
+  if (model_->cable_qr_string.has_value() &&
+      transport_availability_.available_transports.contains(kCable)) {
+    include_add_phone_option = !windows_handles_hybrid;
   }
 
   if (!is_get_assertion &&
@@ -2215,24 +2182,6 @@ AuthenticatorRequestDialogController::IndexOfGetAssertionPriorityMechanism() {
                                  GetRenderFrameHost()->GetBrowserContext())
                                  ->GetOriginalProfile()))) {
       return best_cred->first;
-    }
-  }
-
-  // If it's caBLEv1, or server-linked caBLEv2, jump to that.
-  if (model_->cable_ui_type) {
-    switch (*model_->cable_ui_type) {
-      case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_SERVER_LINK:
-      case AuthenticatorRequestDialogModel::CableUIType::CABLE_V1:
-        for (size_t i = 0; i < model_->mechanisms.size(); ++i) {
-          if (model_->mechanisms[i].type ==
-              Mechanism::Type(
-                  Mechanism::Transport(AuthenticatorTransport::kHybrid))) {
-            return i;
-          }
-        }
-        break;
-      case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_2ND_FACTOR:
-        break;
     }
   }
 

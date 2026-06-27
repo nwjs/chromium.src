@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_screen.h"
@@ -42,7 +43,6 @@
 #include "chrome/browser/ash/certificate_provider/pin_dialog_manager.h"
 #include "chrome/browser/ash/login/error_screens_histogram_helper.h"
 #include "chrome/browser/ash/login/helper.h"
-#include "chrome/browser/ash/login/login_pref_names.h"
 #include "chrome/browser/ash/login/profile_auth_data.h"
 #include "chrome/browser/ash/login/reauth_stats.h"
 #include "chrome/browser/ash/login/saml/public_saml_url_fetcher.h"
@@ -56,7 +56,6 @@
 #include "chrome/browser/ash/login/users/chrome_user_manager_util.h"
 #include "chrome/browser/ash/login/wizard_context.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/profiles/signin_profile_handler.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -1101,14 +1100,15 @@ void GaiaScreenHandler::HandleRecordSAMLProvider(
 
 void GaiaScreenHandler::HandleSamlChallengeMachineKey(
     const std::string& callback_id,
-    const std::string& url,
+    const std::string& source_url,
+    const std::string& destination_url,
     const std::string& challenge) {
   CreateSamlChallengeKeyHandler();
   saml_challenge_key_handler_->Run(
       Profile::FromWebUI(web_ui()),
       base::BindOnce(&GaiaScreenHandler::HandleSamlChallengeMachineKeyResult,
                      weak_factory_.GetWeakPtr(), base::Value(callback_id)),
-      GURL(url), challenge);
+      GURL(source_url), GURL(destination_url), challenge);
 }
 
 void GaiaScreenHandler::HandleSamlChallengeMachineKeyResult(
@@ -1275,7 +1275,9 @@ void GaiaScreenHandler::StartClearingCookies(
     base::OnceClosure on_clear_callback) {
   cookies_cleared_ = false;
   LOG_ASSERT(Profile::FromWebUI(web_ui()) ==
-             ProfileHelper::Get()->GetSigninProfile());
+             Profile::FromBrowserContext(
+                 BrowserContextHelper::Get()
+                     ->DeprecatedGetOrCreateSigninBrowserContext()));
   SigninProfileHandler::Get()->ClearSigninProfile(
       base::BindOnce(&GaiaScreenHandler::OnCookiesCleared,
                      weak_factory_.GetWeakPtr(), std::move(on_clear_callback)));

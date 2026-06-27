@@ -17,6 +17,7 @@ static_library("network_ui") {
   public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   deps = [
+    "//ash/strings",
     "//ash/webui/common:trusted_types_util",
     "//ash/webui/network_ui:network_diagnostics_resource_provider",
     "//ash/webui/network_ui:network_health_resource_provider",
@@ -25,7 +26,6 @@ static_library("network_ui") {
     "//chrome/browser:browser_process",
     "//chrome/browser/ash/file_manager",
     "//chrome/browser/ash/net/network_health",
-    "//chrome/browser/ash/profiles",
     "//chrome/browser/ash/system_logs",
     "//chrome/browser/download",
     "//chrome/browser/extensions",
@@ -33,9 +33,11 @@ static_library("network_ui") {
     "//chrome/browser/net",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources/chromeos/network_ui:resources",
+    "//chrome/browser/ui",
     "//chrome/browser/ui/ash/system",
     "//chrome/browser/ui/webui/ash/cellular_setup",
     "//chrome/browser/ui/webui/ash/internet",
+    "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/debug_daemon",
     "//chromeos/ash/components/dbus/shill",
     "//chromeos/ash/components/network",

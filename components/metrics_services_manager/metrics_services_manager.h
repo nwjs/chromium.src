@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/callback_list.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial.h"
 #include "base/threading/thread_checker.h"
@@ -16,6 +17,7 @@
 namespace metrics {
 class MetricsService;
 class MetricsServiceClient;
+class MetricsReportingChoiceService;
 class ClonedInstallDetector;
 class ReportingService;
 }  // namespace metrics
@@ -135,6 +137,10 @@ class MetricsServicesManager {
   // Returns the ClonedInstallDetector associated with the `client_`.
   metrics::ClonedInstallDetector* GetClonedInstallDetectorForTesting();
 
+  // Returns the MetricsReportingChoiceService, creating it if it hasn't been
+  // created yet.
+  metrics::MetricsReportingChoiceService* GetMetricsReportingChoiceService();
+
  private:
   friend class search_engines::SearchEngineChoiceServiceClient;
 
@@ -171,12 +177,19 @@ class MetricsServicesManager {
   // Called when loading state changed.
   void LoadingStateChanged(bool is_loading);
 
+  // Called when the metrics reporting level has changed.
+  void OnMetricsReportingLevelChanged();
+
   // Used by |GetOnRendererUnresponsiveCb| to construct the callback that will
   // be run by |MetricsServicesWebContentsObserver|.
   void OnRendererUnresponsive();
 
   // The client passed in from the embedder.
   const std::unique_ptr<MetricsServicesManagerClient> client_;
+
+  // Subscription for receiving callbacks when the metrics reporting level
+  // changes.
+  base::CallbackListSubscription metrics_reporting_choice_service_subscription_;
 
   // Ensures that all functions are called from the same thread.
   base::ThreadChecker thread_checker_;
@@ -191,6 +204,10 @@ class MetricsServicesManager {
   bool consent_given_ = false;
 
   std::unique_ptr<variations::SyntheticTrialRegistry> synthetic_trial_registry_;
+
+  // The MetricsReportingChoiceService, for metrics reporting level management.
+  std::unique_ptr<metrics::MetricsReportingChoiceService>
+      metrics_reporting_choice_service_;
 
   // The MetricsServiceClient. Owns the MetricsService.
   std::unique_ptr<metrics::MetricsServiceClient> metrics_service_client_;

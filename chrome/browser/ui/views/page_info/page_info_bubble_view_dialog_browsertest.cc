@@ -516,8 +516,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
 // set. All permissions will show regardless of its factory default value.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
                        InvokeUi_AllowAllPermissions) {
-  // Last updated in crrev.com/c/7233078.
-  set_baseline("7233078");
+  // Last updated in crrev.com/c/7693993.
+  set_baseline("7693993");
   ShowAndVerifyUi();
 }
 
@@ -525,8 +525,8 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
 // set. All permissions will show regardless of its factory default value.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewDialogBrowserTest,
                        InvokeUi_BlockAllPermissions) {
-  // Last updated in crrev.com/c/7233078.
-  set_baseline("7233078");
+  // Last updated in crrev.com/c/7693993.
+  set_baseline("7693993");
   ShowAndVerifyUi();
 }
 
@@ -1093,8 +1093,7 @@ class PageInfoBubbleViewMerchantTrustDialogBrowserTest
     if (name == "MerchantTrustSubpage") {
       PageInfoBubbleView* bubble_view = static_cast<PageInfoBubbleView*>(
           PageInfoBubbleView::GetPageInfoBubbleForTesting());
-      bubble_view->OpenMerchantTrustPage(
-          page_info::MerchantBubbleOpenReferrer::kPageInfo);
+      bubble_view->OpenMerchantTrustPage();
     }
   }
 

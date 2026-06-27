@@ -24,7 +24,6 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view.h"
 #include "chrome/browser/ui/views/payments/payment_request_views_util.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/omnibox/browser/location_bar_model_util.h"
 #include "components/payments/content/icon/icon_size.h"
 #include "components/payments/content/payment_handler_navigation_throttle.h"
@@ -47,6 +46,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image_skia.h"
@@ -212,7 +212,10 @@ class PaymentHandlerCloseButton : public views::ImageButton {
 
     // This view does not set its color using the browser theme color, as this
     // may differ from the header color, which is based on the web view theme.
-    views::SetImageFromVectorIconWithColor(this, vector_icons::kCloseIcon,
+    views::SetImageFromVectorIconWithColor(this,
+                                           ::features::IsRoundedIconsEnabled()
+                                               ? vector_icons::kCloseIcon
+                                               : vector_icons::kCloseOldIcon,
                                            {enabled_color, disabled_color});
   }
 
@@ -271,7 +274,6 @@ PaymentHandlerWebFlowViewController::PaymentHandlerWebFlowViewController(
     GURL target,
     PaymentHandlerOpenWindowCallback first_navigation_complete_callback)
     : PaymentRequestSheetController(spec, state, dialog),
-      log_(payment_request_web_contents),
       profile_(profile),
       target_(target),
       first_navigation_complete_callback_(
@@ -322,7 +324,7 @@ void PaymentHandlerWebFlowViewController::FillContentView(
   PaymentHandlerNavigationThrottle::MarkPaymentHandlerWebContents(
       web_contents());
   web_contents()->SetDelegate(this);
-  content::WebContents* parent_tab_web_contents = log_.web_contents();
+  content::WebContents* parent_tab_web_contents = state()->GetWebContents();
 
   DCHECK_NE(parent_tab_web_contents, web_contents());
   content::PaymentAppProvider::GetOrCreateForWebContents(
@@ -334,7 +336,7 @@ void PaymentHandlerWebFlowViewController::FillContentView(
           payments::features::kPaymentHandlerDialogUseInitiatorInUrlLoad)) {
     content::NavigationController::LoadURLParams params(target_);
     params.initiator_origin =
-        url::Origin::Create(state()->GetWebContents()->GetLastCommittedURL());
+        url::Origin::Create(parent_tab_web_contents->GetLastCommittedURL());
     web_view->GetWebContents()->GetController().LoadURLWithParams(params);
   } else {
     web_view->LoadInitialURL(target_);

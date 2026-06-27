@@ -13,10 +13,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
@@ -28,6 +28,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_contents/web_app_data_retriever.h"
 #include "chrome/browser/web_applications/web_install_service_impl.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -79,7 +80,11 @@ constexpr char kInstalledAppUkm[] = "ResultByInstalledApp";
 namespace web_app {
 class WebInstallCurrentDocumentBrowserTest : public WebAppBrowserTestBase {
  public:
-  WebInstallCurrentDocumentBrowserTest() = default;
+  WebInstallCurrentDocumentBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {blink::features::kWebAppInstallation},
+        {features::kWebAppInstallDialog});
+  }
 
   void SetUpOnMainThread() override {
     WebAppBrowserTestBase::SetUpOnMainThread();
@@ -150,8 +155,7 @@ class WebInstallCurrentDocumentBrowserTest : public WebAppBrowserTestBase {
   }
 
  protected:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      blink::features::kWebAppInstallation};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest, Install_NoParams) {
@@ -162,8 +166,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest, Install_NoParams) {
   const std::string manifest_id =
       GenerateManifestId("some_id", current_doc_url).spec();
 
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
 
   base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
       install_future;
@@ -252,8 +255,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), current_doc_url));
 
   // Simulate the user declining the install dialog.
-  auto auto_decline_pwa_install_confirmation =
-      SetAutoDeclinePWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoDeclineInstallDialogs auto_decline;
   base::HistogramTester histograms;
 
   ASSERT_TRUE(TryInstallApp());
@@ -286,8 +288,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
   const std::string manifest_id =
       GenerateManifestId("some_id", current_doc_url).spec();
 
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
   base::HistogramTester histograms;
 
   // Install current doc, wait for app browser window to appear and close it.
@@ -338,8 +339,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
   const std::string manifest_id =
       GenerateManifestId("some_id", current_doc_url).spec();
 
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
   base::HistogramTester histograms;
 
   // Install current doc, wait for app browser window to appear and close it.
@@ -377,8 +377,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
   GURL current_doc_url = embedded_https_test_server().GetURL(
       "/banners/manifest_with_id_test_page.html");
 
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
   base::HistogramTester histograms;
 
   // Install current doc, wait for app browser window to appear and close it.
@@ -438,20 +437,12 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
 using WebInstallNotSupportedDialogBrowserTest =
     WebInstallCurrentDocumentBrowserTest;
 
-// TODO(crbug.com/506988874): This test is flaky or fails on several platforms.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_NotSupportedDialogInIncognito_CurrentDocument \
-  NotSupportedDialogInIncognito_CurrentDocument
-#else
-#define MAYBE_NotSupportedDialogInIncognito_CurrentDocument \
-  DISABLED_NotSupportedDialogInIncognito_CurrentDocument
-#endif
 IN_PROC_BROWSER_TEST_F(WebInstallNotSupportedDialogBrowserTest,
-                       MAYBE_NotSupportedDialogInIncognito_CurrentDocument) {
+                       NotSupportedDialogInIncognito_CurrentDocument) {
   // Open incognito window and navigate to a valid URL.
   GURL test_url = embedded_https_test_server().GetURL("/simple.html");
-  Browser* incognito_browser =
-      OpenURLOffTheRecord(browser()->profile(), test_url);
+  Browser* incognito_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, test_url));
 
   views::NamedWidgetShownWaiter widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "WebAppInstallNotSupportedDialog");
@@ -502,20 +493,12 @@ IN_PROC_BROWSER_TEST_F(WebInstallNotSupportedDialogBrowserTest,
                                1);
 }
 
-// TODO(crbug.com/506988874): This test is flaky or fails on several platforms.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_NotSupportedDialogInIncognito_BackgroundDocument \
-  NotSupportedDialogInIncognito_BackgroundDocument
-#else
-#define MAYBE_NotSupportedDialogInIncognito_BackgroundDocument \
-  DISABLED_NotSupportedDialogInIncognito_BackgroundDocument
-#endif
 IN_PROC_BROWSER_TEST_F(WebInstallNotSupportedDialogBrowserTest,
-                       MAYBE_NotSupportedDialogInIncognito_BackgroundDocument) {
+                       NotSupportedDialogInIncognito_BackgroundDocument) {
   // Open incognito window and navigate to a valid URL.
   GURL test_url = embedded_https_test_server().GetURL("/simple.html");
-  Browser* incognito_browser =
-      OpenURLOffTheRecord(browser()->profile(), test_url);
+  Browser* incognito_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, test_url));
 
   const GURL background_doc_install_url = embedded_https_test_server().GetURL(
       "/banners/manifest_with_id_test_page.html");
@@ -588,20 +571,12 @@ IN_PROC_BROWSER_TEST_F(WebInstallNotSupportedDialogBrowserTest,
             ukm::SourceIdType::APP_ID);
 }
 
-// TODO(crbug.com/506988874): This test is flaky or fails on several platforms.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_NotSupportedDialogAfterTabSwitching \
-  NotSupportedDialogAfterTabSwitching
-#else
-#define MAYBE_NotSupportedDialogAfterTabSwitching \
-  DISABLED_NotSupportedDialogAfterTabSwitching
-#endif
 IN_PROC_BROWSER_TEST_F(WebInstallNotSupportedDialogBrowserTest,
-                       MAYBE_NotSupportedDialogAfterTabSwitching) {
+                       NotSupportedDialogAfterTabSwitching) {
   // Open incognito window and navigate to a valid URL.
   GURL test_url = embedded_https_test_server().GetURL("/simple.html");
-  Browser* incognito_browser =
-      OpenURLOffTheRecord(browser()->profile(), test_url);
+  Browser* incognito_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, test_url));
 
   views::NamedWidgetShownWaiter widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "WebAppInstallNotSupportedDialog");
@@ -964,15 +939,19 @@ class WebInstallOriginTrialBrowserTest
     scoped_feature_list_.Reset();
     switch (GetParam()) {
       case BaseFeatureStatus::kDisabled:
-        scoped_feature_list_.InitAndDisableFeature(
-            blink::features::kWebAppInstallation);
+        scoped_feature_list_.InitWithFeatures(
+            /*enabled_features=*/{},
+            /*disabled_features=*/{blink::features::kWebAppInstallation,
+                                   features::kWebAppInstallDialog});
         break;
       case BaseFeatureStatus::kEnabled:
-        scoped_feature_list_.InitAndEnableFeature(
-            blink::features::kWebAppInstallation);
+        scoped_feature_list_.InitWithFeatures(
+            /*enabled_features=*/{blink::features::kWebAppInstallation},
+            /*disabled_features=*/{features::kWebAppInstallDialog});
         break;
       case BaseFeatureStatus::kDefault:
-        // Do nothing, let the feature be at its default state.
+        scoped_feature_list_.InitAndDisableFeature(
+            features::kWebAppInstallDialog);
         break;
     }
   }
@@ -1109,8 +1088,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
   GURL test_url = embedded_https_test_server().GetURL("/simple.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
 
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
 
   const int kTotalInstallCalls = 15;
   const int kAddManifestAfterCalls = 5;
@@ -1160,8 +1138,7 @@ IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
 // with and without manifests doesn't cause crashes or unexpected behavior.
 IN_PROC_BROWSER_TEST_F(WebInstallCurrentDocumentBrowserTest,
                        SpamInstallWithNavigationBetweenPages) {
-  auto auto_accept_pwa_install_confirmation =
-      SetAutoAcceptPWAInstallConfirmationForTesting();
+  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
 
   const int kTotalInstallCalls = 15;
   const int kNavigateToNoManifestAfterCalls = 5;

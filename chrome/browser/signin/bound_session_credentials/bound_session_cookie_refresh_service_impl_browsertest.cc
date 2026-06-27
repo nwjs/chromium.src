@@ -46,7 +46,6 @@
 #include "crypto/scoped_fake_unexportable_key_provider.h"
 #include "crypto/signature_verifier.h"
 #include "google_apis/gaia/gaia_switches.h"
-#include "net/base/features.h"
 #include "net/base/url_util.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/dns/mock_host_resolver.h"
@@ -310,15 +309,8 @@ class FakeServer {
  private:
   std::unique_ptr<net::test_server::HttpResponse> HandleRegisterSessionRequest(
       const net::test_server::HttpRequest& request) {
-    std::string expected_query;
-    if (std::string experiment_id_param =
-            net::features::
-                kDeviceBoundSessionsForRestrictedSitesExperimentIdParam.Get();
-        !experiment_id_param.empty()) {
-      expected_query = "experiment_id=" + experiment_id_param;
-    }
     EXPECT_EQ(request.GetURL().path(), server_params_.registration_path);
-    EXPECT_EQ(request.GetURL().query(), expected_query);
+    EXPECT_THAT(request.GetURL().query(), IsEmpty());
     EXPECT_TRUE(request.has_content);
     EXPECT_TRUE(VerifyRegistrationJwt(request.content));
     auto response = std::make_unique<net::test_server::BasicHttpResponse>();
@@ -744,7 +736,14 @@ IN_PROC_BROWSER_TEST_F(BoundSessionCookieRefreshServiceImplBrowserTest,
     // https://crbug.com/352744596
     base::RunLoop bound_session_params_update;
     ExpectSessionParamsUpdate(bound_session_params_update.QuitClosure());
-    bound_session_params_update.Run();
+    if (service()
+            ->GetBoundSessionThrottlerParams()[0]
+            ->cookie_expiry_date.is_null()) {
+      bound_session_params_update.Run();
+    } else {
+      ExpectSessionParamsUpdate({});
+    }
+
     std::vector<chrome::mojom::BoundSessionThrottlerParamsPtr>
         throttler_params = service()->GetBoundSessionThrottlerParams();
     ASSERT_EQ(throttler_params.size(), 1U);

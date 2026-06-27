@@ -23,7 +23,6 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/merchant_trust_chip_button_controller.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/permissions/chip/chip_controller.h"
@@ -65,7 +64,6 @@ class OmniboxPopupFileSelector;
 class OmniboxPopupUI;
 class OmniboxPopupView;
 class OmniboxViewViews;
-class OmniboxChipButton;
 class PageActionIconController;
 class PageActionIconContainerView;
 class PermissionChipView;
@@ -145,7 +143,7 @@ class LocationBarView
   // Initializes the LocationBarView.
   void Init();
 
-  bool in_popup_state_transition() const { return in_popup_state_transition_; }
+  bool in_popup_state_transition() const override;
 
   // Returns a background that paints an (optionally stroked) rounded rect with
   // the given color.
@@ -215,6 +213,7 @@ class LocationBarView
                      bool clear_focus_if_failed) override;
   void Revert() override;
   OmniboxView* GetOmniboxView() override;
+  OmniboxPopupView* GetOmniboxPopupView() override;
   OmniboxController* GetOmniboxController() override;
   bool ShouldCloseOmniboxPopup(ui::MouseEvent* event) override;
   ChipController* GetChipController() override;
@@ -321,10 +320,6 @@ class LocationBarView
   }
 
   SkColor GetBackgroundColorForTesting() const { return background_color_; }
-
-  OmniboxPopupView* GetOmniboxPopupViewForTesting() {
-    return omnibox_popup_view_.get();
-  }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SecurityIndicatorTest, CheckIndicatorText);
@@ -566,13 +561,6 @@ class LocationBarView
   std::unique_ptr<PermissionDashboardController>
       permission_dashboard_controller_;
   raw_ptr<PermissionDashboardView> permission_dashboard_view_;
-
-  // A merchant trust omnibox chip button.
-  raw_ptr<OmniboxChipButton> merchant_trust_chip_;
-
-  // A controller for a merchant chip button view.
-  std::unique_ptr<MerchantTrustChipButtonController>
-      merchant_trust_chip_controller_;
 
   // An icon to the left of the edit field: the HTTPS lock, blank page icon,
   // search icon, EV HTTPS bubble, etc.

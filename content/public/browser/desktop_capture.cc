@@ -6,6 +6,9 @@
 
 #include "base/feature_list.h"
 #include "build/build_config.h"
+#if BUILDFLAG(IS_MAC)
+#include "content/browser/media/capture/desktop_capture_util_mac.h"
+#endif
 #include "content/browser/media/capture/pip_screen_capture_coordinator.h"
 #include "content/browser/renderer_host/media/media_stream_manager.h"
 #include "content/browser/renderer_host/media/video_capture_manager.h"
@@ -155,13 +158,13 @@ void CloseNativeScreenCapturePicker(DesktopMediaID source_id) {
       ->CloseNativeScreenCapturePicker(source_id);
 }
 
-std::optional<DesktopMediaID::Id> GetPipWindowToExcludeFromScreenCapture(
-    DesktopMediaID::Id desktop_id) {
-  if (auto* coordinator = content::PipScreenCaptureCoordinator::GetInstance()) {
-    return coordinator->GetPipWindowToExcludeFromScreenCapture(desktop_id);
-  }
-
-  return std::nullopt;
+#if BUILDFLAG(IS_MAC)
+void GetApplicationAudioCaptureId(
+    DesktopMediaID desktop_media_id,
+    GetApplicationAudioCaptureIdCallback callback) {
+  content::GetApplicationAudioCaptureIdInternal(desktop_media_id,
+                                                std::move(callback));
 }
+#endif  // #if BUILDFLAG(IS_MAC)
 
 }  // namespace content::desktop_capture

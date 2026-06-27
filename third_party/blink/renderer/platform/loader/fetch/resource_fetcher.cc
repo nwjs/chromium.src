@@ -47,6 +47,7 @@
 #include "base/unguessable_token.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/request_mode.h"
+#include "services/network/public/mojom/link_header.mojom-blink.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-blink.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/blink/public/common/features.h"
@@ -115,6 +116,34 @@ namespace blink {
 constexpr uint32_t ResourceFetcher::kKeepaliveInflightBytesQuota;
 
 namespace {
+
+String LinkAsAttributeToString(network::mojom::LinkAsAttribute as) {
+  switch (as) {
+    case network::mojom::LinkAsAttribute::kImage:
+      return "image";
+    case network::mojom::LinkAsAttribute::kScript:
+      return "script";
+    case network::mojom::LinkAsAttribute::kStyleSheet:
+      return "style";
+    case network::mojom::LinkAsAttribute::kFont:
+      return "font";
+    case network::mojom::LinkAsAttribute::kFetch:
+    case network::mojom::LinkAsAttribute::kUnspecified:
+      return "fetch";
+  }
+}
+
+CrossOriginAttributeValue CrossOriginAttributeToBlink(
+    network::mojom::CrossOriginAttribute attr) {
+  switch (attr) {
+    case network::mojom::CrossOriginAttribute::kAnonymous:
+      return kCrossOriginAttributeAnonymous;
+    case network::mojom::CrossOriginAttribute::kUseCredentials:
+      return kCrossOriginAttributeUseCredentials;
+    case network::mojom::CrossOriginAttribute::kUnspecified:
+      return kCrossOriginAttributeNotSet;
+  }
+}
 
 constexpr base::TimeDelta kKeepaliveLoadersTimeout = base::Seconds(30);
 
@@ -194,14 +223,7 @@ bool ShouldResourceBeAddedToMemoryCache(const FetchParameters& params,
   return IsMainThread() &&
          params.GetResourceRequest().HttpMethod() == http_names::kGET &&
          params.Options().data_buffering_policy != kDoNotBufferData &&
-         !IsRawResource(*resource) &&
-         // Always create a new resource for SVG resource documents since they
-         // are tied to the requesting document. There's a document-scoped cache
-         // in-front of the ResourceFetcher that will handle reuse (see
-         // SVGResourceDocumentContent::Fetch()).
-         (resource->GetType() != ResourceType::kSVGDocument ||
-          RuntimeEnabledFeatures::
-              SvgPartitionSVGDocumentResourcesInMemoryCacheEnabled());
+         !IsRawResource(*resource);
 }
 
 bool ShouldResourceBeKeptStrongReferenceByType(
@@ -1903,7 +1925,8 @@ Resource* ResourceFetcher::MatchPreload(
   preloads_.erase(it);
   matched_preloads_.push_back(resource);
 
-  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled()) {
+  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
+          context_->GetFeatureContext())) {
     auto record_it = preload_records_.find(resource->Url());
     if (record_it != preload_records_.end()) {
       record_it->value.used_time = base::TimeTicks::Now();
@@ -1999,12 +2022,13 @@ void ResourceFetcher::InsertAsPreloadIfNecessary(Resource* resource,
   // Only track <link rel=preload> in `preload_records_` for the
   // SpeculationMeasurement API. Speculative preloads from the HTML parser
   // are not developer-initiated and should not be reported.
-  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled() &&
+  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
+          context_->GetFeatureContext()) &&
       params.IsLinkPreload()) {
     const KURL& url = resource->Url();
     if (!preload_records_.Contains(url)) {
       PreloadInfo info;
-      info.resource_type = resource->GetType();
+      info.as = GetAsAttributeFromResourceType(resource->GetType());
       info.crossorigin = params.GetCrossOriginAttributeValue();
       preload_records_.insert(url, std::move(info));
     }
@@ -2412,6 +2436,24 @@ void ResourceFetcher::ClearPreloads(ClearPreloadsPolicy policy) {
   matched_preloads_.clear();
 }
 
+void ResourceFetcher::SetEarlyHintsPreloadedResources(
+    HashMap<KURL, EarlyHintsPreloadEntry> resources) {
+  // Also record early hints preloads for the SpeculationMeasurement API.
+  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
+          context_->GetFeatureContext())) {
+    for (const auto& [url, entry] : resources) {
+      if (!preload_records_.Contains(url)) {
+        PreloadInfo info;
+        info.as = LinkAsAttributeToString(entry.as);
+        info.crossorigin = CrossOriginAttributeToBlink(entry.cross_origin);
+        info.early_hints = true;
+        preload_records_.insert(url, std::move(info));
+      }
+    }
+  }
+  unused_early_hints_preloaded_resources_ = std::move(resources);
+}
+
 void ResourceFetcher::ScheduleWarnUnusedPreloads(
     base::OnceCallback<void(Vector<KURL> unused_preloads)> callback) {
   // If preloads_ is not empty here, it's full of link
@@ -2484,10 +2526,23 @@ void ResourceFetcher::WarnUnusedPreloads(
     // resource wouldn't be harmful. We need to plumb information from the
     // browser process to check whether the resource was already in the HTTP
     // cache.
-    String message =
-        StrCat({"The resource ", pair.key.GetString(),
-                " was preloaded using link preload in Early Hints but not "
-                "used within a few seconds from the window's load event."});
+    String as_value = LinkAsAttributeToString(pair.value.as);
+    String crossorigin_info;
+    if (pair.value.cross_origin !=
+        network::mojom::CrossOriginAttribute::kUnspecified) {
+      crossorigin_info =
+          pair.value.cross_origin ==
+                  network::mojom::CrossOriginAttribute::kUseCredentials
+              ? " crossorigin=use-credentials"
+              : " crossorigin=anonymous";
+    }
+    String message = StrCat(
+        {"The resource ", pair.key.GetString(), " (as=", as_value,
+         crossorigin_info,
+         ") was preloaded using link preload in Early Hints but not "
+         "used within a few seconds from the window's load event. Please "
+         "make sure it has an appropriate `as` value, a correct "
+         "`crossorigin` value and it is preloaded intentionally."});
     console_logger_->AddConsoleMessage(
         mojom::blink::ConsoleMessageSource::kJavaScript,
         mojom::blink::ConsoleMessageLevel::kWarning, message);
@@ -2993,12 +3048,9 @@ String ResourceFetcher::GetCacheIdentifier(const KURL& url,
 String ResourceFetcher::GetCacheIdentifier(ResourceType type,
                                            const KURL& url,
                                            bool skip_service_worker) const {
-  // For SVG resource documents, use the SVG-specific cache identifier when the
-  // feature is enabled and a cache identifier is available from the fetch
-  // context.
-  if (RuntimeEnabledFeatures::
-          SvgPartitionSVGDocumentResourcesInMemoryCacheEnabled() &&
-      type == ResourceType::kSVGDocument) {
+  // For SVG resource documents, use the SVG-specific cache identifier from
+  // the fetch context.
+  if (type == ResourceType::kSVGDocument) {
     String svg_cache_identifier = context_->GetSVGCacheIdentifier();
     DCHECK(!svg_cache_identifier.empty());
     return svg_cache_identifier;
@@ -3322,6 +3374,14 @@ void ResourceFetcher::MarkEarlyHintConsumedIfNeeded(
   auto iter = unused_early_hints_preloaded_resources_.find(initial_url);
   if (iter != unused_early_hints_preloaded_resources_.end()) {
     unused_early_hints_preloaded_resources_.erase(iter);
+    // Mark as used in preload_records_ for the SpeculationMeasurement API.
+    if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
+            context_->GetFeatureContext())) {
+      auto record_it = preload_records_.find(initial_url);
+      if (record_it != preload_records_.end()) {
+        record_it->value.used_time = base::TimeTicks::Now();
+      }
+    }
     // The network service may not reuse the response fetched by the early hints
     // due to cache control policies.
     if (!response.NetworkAccessed() &&

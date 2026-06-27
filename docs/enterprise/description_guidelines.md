@@ -200,18 +200,23 @@ avoid validation errors.
 * ChromeOS: `<ph name="PRODUCT_OS_NAME">$2<ex>Google ChromeOS</ex></ph>`
 * ChromeOS Flex: `<ph name="PRODUCT_OS_FLEX_NAME">Google ChromeOS Flex</ph>`
 * Chrome Browser Cloud Management: `<ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME">Chrome Browser Cloud Management</ph>`
-* Chrome Cleanup: `<ph name="CHROME_CLEANUP_NAME">Chrome Cleanup</ph>`
+* Chrome Enterprise Core: `<ph name="CHROME_ENTERPRISE_CORE_NAME">Chrome Enterprise Core</ph>`
+* Chrome Enterprise Premium: `<ph name="CHROME_ENTERPRISE_PREMIUM_NAME">Chrome Enterprise Premium</ph>`
 * Chrome Remote Desktop: `<ph name="CHROME_REMOTE_DESKTOP_PRODUCT_NAME">Chrome Remote Desktop</ph>`
 * Chrome Sync: `<ph name="CHROME_SYNC_NAME">Chrome Sync</ph>`
 * Chrome DevTools: `<ph name="CHROME_DEVTOOLS_NAME">Chrome DevTools</ph>`
 
 #### Google Product
 
+* Gemini Enterprise: `<ph name="GEMINI_ENTERPRISE_PRODUCT_NAME">Gemini Enterprise</ph>`
+* Gemini in Chrome: Gemini in Chrome
+* Gemini Spark: `<ph name="GOOGLE_GEMINI_SPARK_PRODUCT_NAME">Gemini Spark</ph>`
 * Google Admin console: `<ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME">Google Admin console</ph>`
 * Google AI Mode: `<ph name="GOOGLE_AI_MODE_PRODUCT_NAME">Google AI Mode</ph>`
 * Google Calendar: `<ph name="GOOGLE_CALENDAR_NAME">Google Calendar</ph>`
 * Google Cast: `<ph name="PRODUCT_NAME">Google Cast</ph>`
 * Google Classroom: `<ph name="GOOGLE_CLASSROOM_NAME">Google Classroom</ph>`
+* Google Cloud: `<ph name="GOOGLE_CLOUD_PRODUCT_NAME">Google Cloud</ph>`
 * Google Cloud Print: `<ph name="CLOUD_PRINT_NAME">Google Cloud Print</ph>`
 * Google Drive: `<ph name="GOOGLE_DRIVE_NAME">Google Drive</ph>`
 * Google Gemini: `<ph name="GOOGLE_GEMINI_PRODUCT_NAME">Google Gemini</ph>`
@@ -221,6 +226,7 @@ avoid validation errors.
 * Google Tasks: `<ph name="GOOGLE_TASKS_NAME">Google Tasks</ph>`
 * Google Update: `<ph name="GOOGLE_UPDATE_NAME">Google Update</ph>`
 * Google Workspace: `<ph name="GOOGLE_WORKSPACE_PRODUCT_NAME">Google Workspace</ph>`
+* YouTube: `<ph name="YOUTUBE_PRODUCT_NAME">YouTube</ph>`
 
 #### Operating System
 

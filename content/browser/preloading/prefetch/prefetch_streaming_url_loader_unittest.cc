@@ -38,13 +38,11 @@ class TestURLLoaderFactory : public network::mojom::URLLoaderFactory {
 
     // network::mojom::URLLoader
     void FollowRedirect(
-        const std::vector<std::string>& removed_headers,
-        const net::HttpRequestHeaders& modified_headers,
-        const net::HttpRequestHeaders& modified_cors_exempt_headers,
+        network::HttpRequestHeadersUpdateParams headers_update_params,
         const std::optional<GURL>& new_url) override {
-      EXPECT_EQ(removed_headers.size(), 0U);
-      EXPECT_TRUE(modified_headers.IsEmpty());
-      EXPECT_TRUE(modified_cors_exempt_headers.IsEmpty());
+      EXPECT_TRUE(headers_update_params.removed_headers.empty());
+      EXPECT_TRUE(headers_update_params.modified_headers.IsEmpty());
+      EXPECT_TRUE(headers_update_params.modified_cors_exempt_headers.IsEmpty());
       EXPECT_FALSE(new_url);
 
       ASSERT_TRUE(on_follow_redirect_closure_);
@@ -723,7 +721,7 @@ TEST_P(PrefetchStreamingURLLoaderTest, EligibleRedirect) {
   ASSERT_TRUE(streaming_loader);
   streaming_loader->HandleRedirect(PrefetchRedirectStatus::kFollow,
                                    redirect_info, std::move(redirect_head),
-                                   /*update_headers_params=*/{});
+                                   /*headers_update_params=*/{});
   on_follow_redirect_loop.Run();
 
   // Switch to a new ResponseReader.
@@ -876,7 +874,7 @@ TEST_P(PrefetchStreamingURLLoaderTest, IneligibleRedirect) {
   ASSERT_TRUE(streaming_loader);
   streaming_loader->HandleRedirect(PrefetchRedirectStatus::kFail, redirect_info,
                                    std::move(redirect_head),
-                                   /*update_headers_params=*/{});
+                                   /*headers_update_params=*/{});
 
   // Streaming loader deletes itself asynchronously on redirect failure.
   EXPECT_TRUE(streaming_loader);
@@ -930,7 +928,7 @@ TEST_P(PrefetchStreamingURLLoaderTest, RedirectSwitchInNetworkContext) {
   ASSERT_TRUE(streaming_loader);
   streaming_loader->HandleRedirect(
       PrefetchRedirectStatus::kSwitchNetworkContext, redirect_info,
-      std::move(redirect_head), /*update_headers_params=*/{});
+      std::move(redirect_head), /*headers_update_params=*/{});
 
   // Streaming loader deletes itself asynchronously on a switching redirect.
   EXPECT_TRUE(streaming_loader);

@@ -83,6 +83,9 @@ BASE_FEATURE(kAndroidDesktopUASpoofAsChromeOS,
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BASE_FEATURE(kAvoidTrustedParamsCopies, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, fast-exits the mixed-content checks for secure URLs.
+BASE_FEATURE(kOptimizeMixedContentChecks, base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kUnthrottleAsyncTouchMoves, base::FEATURE_ENABLED_BY_DEFAULT);
 #else
@@ -95,12 +98,13 @@ const base::FeatureParam<AsyncTouchMoveThrottlingPolicy>::Option
          "unthrottled_when_gsu_unconsumed"},
         {AsyncTouchMoveThrottlingPolicy::kUnthrottledAlways,
          "unthrottled_always"}};
-BASE_FEATURE_ENUM_PARAM(AsyncTouchMoveThrottlingPolicy,
-                        kAsyncTouchMoveThrottlingPolicyParam,
-                        &kUnthrottleAsyncTouchMoves,
-                        "policy",
-                        AsyncTouchMoveThrottlingPolicy::kUnthrottledAlways,
-                        &async_touch_move_throttling_policies);
+BASE_FEATURE_ENUM_PARAM(
+    AsyncTouchMoveThrottlingPolicy,
+    kAsyncTouchMoveThrottlingPolicyParam,
+    &kUnthrottleAsyncTouchMoves,
+    "policy",
+    AsyncTouchMoveThrottlingPolicy::kUnthrottledWhenGsuUnconsumed,
+    &async_touch_move_throttling_policies);
 
 // Block all MIDI access with the MIDI_SYSEX permission
 BASE_FEATURE(kBlockMidiByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -204,6 +208,14 @@ BASE_FEATURE_PARAM(bool,
                    &kBackgroundResourceFetch,
                    "background-code-cache-decoder-start",
                    true);
+
+BASE_FEATURE(kRestrictBackgroundFetchFromServiceWorker,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kBackgroundFetchFromServiceWorkerAllowListStr,
+                   &kRestrictBackgroundFetchFromServiceWorker,
+                   "allowlist",
+                   "");
 
 // Redefine the oklab and oklch spaces to have gamut mapping baked into them.
 // https://crbug.com/1508329
@@ -496,7 +508,7 @@ BASE_FEATURE(kCreateImageBitmapOrientationNone,
 BASE_FEATURE(kDeclarativeCSSModulesUseDataURI,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDataUrlWorkerOpaqueOrigin, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDataUrlWorkerOpaqueOrigin, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, HTMLTreeBuilder::Flush() will be throttled in kTextMode
 // to reduce O(n^2) string copies.
@@ -677,12 +689,16 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "deletion_task_delay",
                    base::Milliseconds(1000));
 
+BASE_FEATURE(kDetectJSFrameworksOnWorker, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Improves the signal-to-noise ratio of network error related messages in the
 // DevTools Console.
 // See http://crbug.com/124534.
 BASE_FEATURE(kDevToolsImprovedNetworkError, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDevToolsWebMCPSupport, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDevToolsWebMCPSupport, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDevToolsAdsPanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDirectCompositorThreadIpc,
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
@@ -762,14 +778,28 @@ BASE_FEATURE_PARAM(int,
                    "changed_enough",
                    512);
 
+// Fade in scrollbar at may-begin wheel event. This only works on macOS.
 BASE_FEATURE(kFadeInScrollbarWhenMouseWheelMayBegin,
-// Do not forward may-begin/began/cancelled wheel event to main thread
-// to avoid unnecessary performance impact on android. See crbug.com/479549167.
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
+#if BUILDFLAG(IS_MAC)
              base::FEATURE_ENABLED_BY_DEFAULT);
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// TODO(blee) Disabled deferring scrollbar fade out.
+// Similar to kFadeInScrollbarWhenMouseWheelMayBegin, this should work
+// only on macOS. (So the parameter would not needed)
+// Currently, the began and cancelled wheel events are forwarded from
+// compositor thread to main thread, so that the deferred scrollbar
+// fade-out are triggered on the main thread.
+// But this extra wheel events forwarded to the main thread generate an
+// unintended DOM event dispatch, which introduce a regression on mouse
+// wheel event over a focused spin button element. See crbug.com/508306805
+BASE_FEATURE_PARAM(bool,
+                   kDeferFadeOutScrollbarUntilMouseWheelEnded,
+                   &kFadeInScrollbarWhenMouseWheelMayBegin,
+                   "defer_fade_out",
+                   false);
 
 // Enable the <fencedframe> element; see crbug.com/1123606. Note that enabling
 // this feature does not automatically expose this element to the web, it only
@@ -817,9 +847,6 @@ BASE_FEATURE(kFetchDestinationJsonCssModules,
 BASE_FEATURE(kFileHandlingIcons, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFileSystemUrlNavigation, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kFileSystemUrlNavigationForChromeAppsOnly,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFilteringScrollPrediction,
 #if BUILDFLAG(IS_ANDROID)
@@ -994,7 +1021,10 @@ BASE_FEATURE(kFledgeTruncateSelectableBuyerAndSellerReportingIdsToKAnonLimit,
 BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kForceSkcmsICCParsing, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kOffscreenCanvasPropagateVisibility,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kForceSkcmsICCParsing, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kForceSkExifCppParsing, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1074,6 +1104,18 @@ BASE_FEATURE(kImageReplacement, base::FEATURE_DISABLED_BY_DEFAULT);
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kInitialWebUIWithoutExtensions, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE(kInitialWebUISurfaceSync, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(size_t,
+                   kInitialWebUISurfaceSyncDeadlineInFrames,
+                   &kInitialWebUISurfaceSync,
+                   "deadline_in_frames",
+                   600 /* 10 seconds at 60 FPS */);
+BASE_FEATURE_PARAM(size_t,
+                   kInitialWebUISurfaceSyncRendererCommitDelayInMs,
+                   &kInitialWebUISurfaceSync,
+                   "renderer_commit_delay_ms",
+                   10000 /* 10 seconds */);
 
 BASE_FEATURE(kIndexedDBCompressValuesWithSnappy,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2105,6 +2147,9 @@ BASE_FEATURE(kPreloadingModerateViewportHeuristics,
 #endif
 );
 
+BASE_FEATURE(kPreloadingEligibilityCheckOnRenderer,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const char kPrerender2MaxNumOfRunningSpeculationRules[] =
     "max_num_of_running_speculation_rules";
 
@@ -2207,10 +2252,6 @@ BASE_FEATURE(kReleaseResourceDecodedDataOnMemoryPressure,
 // Flag guard for removing usage of the CommitNavigationParams.redirects
 // array of URLs in the renderer process.
 BASE_FEATURE(kRemoveCommitRedirectUrlsArray, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Disables sending the Purpose: "prefetch" header for prefetches and
-// prerenders.
-BASE_FEATURE(kRemovePurposeHeaderForPrefetch, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Allows same-document available-image reuse for no-store images.
 BASE_FEATURE(kReuseNoStoreImageOnSameSrcReassignment,
@@ -2509,9 +2550,6 @@ BASE_FEATURE(kStreamlineRendererInit, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSubSampleWindowProxyUsageMetrics,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSupportOpeningDraggedLinksInSameTab,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kTaskAttributionTraceMicrotaskTaskState,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -2653,9 +2691,6 @@ BASE_FEATURE(kWebBluetoothCancelConnect,
 
 BASE_FEATURE(kWebRtcUseCaptureBeginTimestamp, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebRtcAudioSinkUseTimestampAligner,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kWebRtcPqcForDtls, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcUseMediaThreadTypes, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2669,8 +2704,6 @@ BASE_FEATURE(kRendererMainIsDefaultThreadTypeForWebRTC,
 #endif  // BUILDFLAG(IS_ANDROID)
 );
 
-// Enable borderless mode for desktop PWAs. go/borderless-mode
-BASE_FEATURE(kWebAppBorderless, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls scope extensions feature in web apps. Enables parsing of "site"
 // entries in "scope_extensions" field in web app manifests. See explainer for
@@ -2700,7 +2733,7 @@ BASE_FEATURE(kWebAppManifestLocalization, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebAppManifestLockScreen, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables web apps to be migrated from one manifest id to another.
-BASE_FEATURE(kWebAppMigrationApi, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebAppMigrationApi, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use deferred pull status update instead of updating the status directly
 // on audio thread. See https://crbug.com/40249972.

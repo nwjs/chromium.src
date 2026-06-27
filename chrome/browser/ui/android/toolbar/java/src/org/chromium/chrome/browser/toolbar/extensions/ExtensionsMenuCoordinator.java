@@ -41,15 +41,19 @@ import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.hierarchicalmenu.FlyoutController;
 import org.chromium.ui.listmenu.ListMenu;
 import org.chromium.ui.listmenu.ListMenuButton;
 import org.chromium.ui.listmenu.ListMenuDelegate;
 import org.chromium.ui.listmenu.ListMenuHost;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogManagerObserver;
 import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.RectProvider;
 
@@ -82,6 +86,14 @@ public class ExtensionsMenuCoordinator
     private final ExtensionsToolbarBridge mExtensionsToolbarBridge;
     private final MenuButtonPinningDelegate mMenuButtonPinningDelegate;
     private final ThemeColorProvider.TintObserver mTintObserver = this::onTintChanged;
+    private final ModalDialogManagerObserver mModalDialogManagerObserver =
+            new ModalDialogManagerObserver() {
+                @Override
+                public void onDialogAdded(PropertyModel model) {
+                    mExtensionsMenuButton.dismiss();
+                }
+            };
+    private final ModalDialogManager mModalDialogManager;
 
     @Nullable @VisibleForTesting ExtensionsMenuMediator mMediator;
 
@@ -99,6 +111,7 @@ public class ExtensionsMenuCoordinator
      * @param extensionsToolbarBridge {@link ExtensionsToolbarBridge} to use.
      * @param MenuButtonPinningDelegate The {@link MenuButtonPinningDelegate} to handle pinning the
      *     icon.
+     * @param modalDialogManager The {@link ModalDialogManager}.
      */
     public ExtensionsMenuCoordinator(
             Context context,
@@ -110,7 +123,8 @@ public class ExtensionsMenuCoordinator
             NullableObservableSupplier<Tab> currentTabSupplier,
             TabCreator tabCreator,
             ExtensionsToolbarBridge extensionsToolbarBridge,
-            MenuButtonPinningDelegate menuButtonPinningDelegate) {
+            MenuButtonPinningDelegate menuButtonPinningDelegate,
+            ModalDialogManager modalDialogManager) {
         mContext = context;
         mCurrentTabSupplier = currentTabSupplier;
         mProfile = profile;
@@ -119,6 +133,7 @@ public class ExtensionsMenuCoordinator
         mWindowAndroid = windowAndroid;
         mExtensionsToolbarBridge = extensionsToolbarBridge;
         mMenuButtonPinningDelegate = menuButtonPinningDelegate;
+        mModalDialogManager = modalDialogManager;
 
         mExtensionsToolbarBridge.setMenuDelegate(this);
 
@@ -205,6 +220,8 @@ public class ExtensionsMenuCoordinator
         mExtensionModels = new ModelList();
         setUpExtensionsRecyclerView(mContentView, mContext, mExtensionModels);
         updateButtonState();
+
+        mModalDialogManager.addObserver(mModalDialogManagerObserver);
     }
 
     /**
@@ -303,6 +320,7 @@ public class ExtensionsMenuCoordinator
         mMainPageModel.set(
                 ExtensionsMenuProperties.MENU_BUTTON_PINNED,
                 mMenuButtonPinningDelegate.isMenuButtonPinned());
+        mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_CONTAINER_VISIBLE, true);
         mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE, true);
         mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_CHECKED, true);
         mMainPageModel.set(
@@ -336,6 +354,24 @@ public class ExtensionsMenuCoordinator
                 (view) -> {
                     if (mMediator != null) {
                         mMediator.onReloadPageButtonClicked();
+                    }
+                });
+        mMainPageModel.set(
+                ExtensionsMenuProperties.POPUP_RESIZE_CALLBACK,
+                () -> {
+                    if (isExtensionsMenuOpen()) {
+                        @SuppressWarnings("unchecked")
+                        FlyoutController<AnchoredPopupWindow> flyoutController =
+                                mExtensionsMenuButton
+                                        .getHost()
+                                        .getHierarchicalMenuController()
+                                        .getFlyoutController();
+                        if (flyoutController != null) {
+                            AnchoredPopupWindow popup = flyoutController.getMainPopup();
+                            if (popup != null) {
+                                popup.updateDesiredContentSize(0, 0, true);
+                            }
+                        }
                     }
                 });
     }
@@ -470,6 +506,7 @@ public class ExtensionsMenuCoordinator
     @Override
     public void destroy() {
         destroyMediator();
+        mModalDialogManager.removeObserver(mModalDialogManagerObserver);
         mExtensionsMenuButton.setOnClickListener(null);
         mThemeColorProvider.removeTintObserver(mTintObserver);
         mMainPageChangeProcessor.destroy();
@@ -479,5 +516,10 @@ public class ExtensionsMenuCoordinator
     @VisibleForTesting
     View getContentView() {
         return mContentView;
+    }
+
+    @VisibleForTesting
+    PropertyModel getMainPageModel() {
+        return mMainPageModel;
     }
 }

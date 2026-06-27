@@ -167,9 +167,7 @@ class CORE_EXPORT CanvasRenderingContext
 
   CanvasRenderingContextHost* Host() const { return host_.Get(); }
 
-  virtual SkAlphaType GetAlphaType() const = 0;
-  virtual viz::SharedImageFormat GetSharedImageFormat() const = 0;
-  virtual gfx::ColorSpace GetColorSpace() const = 0;
+  virtual bool IsOpaque() const = 0;
 
   virtual scoped_refptr<StaticBitmapImage> GetImage() = 0;
   virtual bool IsComposited() const = 0;
@@ -273,7 +271,7 @@ class CORE_EXPORT CanvasRenderingContext
   virtual int LayerCount() const { return 0; }
   virtual void DisableAccelerationForCanvas2D() { NOTREACHED(); }
 
-  virtual const std::optional<cc::PaintRecord>& GetLastRecordingForCanvas2D() {
+  virtual const std::optional<cc::PaintRecord>& GetLastRecording() {
     return empty_recording_;
   }
   virtual bool Is2DCanvasAccelerated() const { NOTREACHED(); }
@@ -341,6 +339,10 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void Dispose();
 
   bool IsDrawElementImageEligible(Element* element,
+                                  const String& func_name,
+                                  ExceptionState& exception_state);
+
+  bool IsDrawElementImageEligible(const V8UnionElementOrElementImage* element,
                                   const String& func_name,
                                   ExceptionState& exception_state);
 

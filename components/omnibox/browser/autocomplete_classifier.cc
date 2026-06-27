@@ -72,9 +72,7 @@ int AutocompleteClassifier::DefaultOmniboxProviders(bool is_low_memory_device) {
       // Only enabled for hub search.
       AutocompleteProvider::TYPE_OPEN_TAB |
       // Only enabled for hub search.
-      (base::FeatureList::IsEnabled(omnibox::kAndroidHubSearchTabGroups)
-           ? AutocompleteProvider::TYPE_TAB_GROUP
-           : 0) |
+      AutocompleteProvider::TYPE_TAB_GROUP |
       // Keyword search for Android.
       (base::FeatureList::IsEnabled(omnibox::kOmniboxSiteSearch)
            ? AutocompleteProvider::TYPE_KEYWORD |
@@ -95,6 +93,9 @@ int AutocompleteClassifier::DefaultOmniboxProviders(bool is_low_memory_device) {
       (OmniboxFieldTrial::IsOnDeviceHeadSuggestEnabledForAnyMode()
            ? AutocompleteProvider::TYPE_ON_DEVICE_HEAD
            : 0) |
+      (base::FeatureList::IsEnabled(omnibox::kOmniboxCrossDeviceTabZeroSuggest)
+           ? AutocompleteProvider::TYPE_CROSS_DEVICE_TAB
+           : 0) |
       AutocompleteProvider::TYPE_BOOKMARK | AutocompleteProvider::TYPE_BUILTIN |
       AutocompleteProvider::TYPE_HISTORY_QUICK |
       AutocompleteProvider::TYPE_HISTORY_URL |
@@ -113,7 +114,13 @@ int AutocompleteClassifier::DefaultOmniboxProviders(bool is_low_memory_device) {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
       // The `chrome.omnibox` extension API uses `TYPE_KEYWORD`, including on
       // desktop Android.
+#if BUILDFLAG(IS_ANDROID)
+      (base::FeatureList::IsEnabled(omnibox::kOmniboxSiteSearch)
+           ? AutocompleteProvider::TYPE_KEYWORD
+           : 0) |
+#else
       AutocompleteProvider::TYPE_KEYWORD |
+#endif
       // `UnscopedExtensionProvider` should only be included when extensions are
       // enabled and the `ExperimentalOmniboxLabs` feature is enabled.
       (base::FeatureList::IsEnabled(

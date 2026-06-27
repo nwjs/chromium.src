@@ -58,7 +58,13 @@ Steps used to create the current version (or roll a newer one):
 
    Probably worth committing locally here too.
 
-4. Generate descriptor_pb2.py using the script "gen_extra_chromium_files.py" in
+4. Remove generated .pb.h/.pb.cc files for Well Known Types. Due to the fact
+   that they are generated for protobuf full, and Chromium uses protobuf lite
+   too, they can cause issues during build that are not easy to spot.
+
+   $ rm src/google/protobuf/{any,api,duration,empty,field_mask,source_context,struct,timestamp,type,wrappers}.pb.{cc,h}
+
+5. Generate descriptor_pb2.py using the script "gen_extra_chromium_files.py" in
    the same directory as this file.
 
    $ ./gen_extra_chromium_files.py -C ../../out/Default
@@ -71,7 +77,7 @@ Steps used to create the current version (or roll a newer one):
    $ git add -f python/google/protobuf/descriptor_pb2.py \
      python/google/protobuf/compiler/plugin_pb2.py
 
-5. This step requires `bazel`, and not the one from depot_tools, and it is not
+6. This step requires `bazel`, and not the one from depot_tools, and it is not
    part of build/install-build-deps.sh in Chromium, so you need to manually
    install it:
 
@@ -86,12 +92,12 @@ Steps used to create the current version (or roll a newer one):
 
    TODO: generalize this and add it to gen_extra_chromium_files.py
 
-6. Update Version, CPEPrefix and Revision in this file.
+7. Update Version, CPEPrefix and Revision in this file.
 
    The revision should be set to the SHA1 of the commit that the release tag
    points to at the time of the roll.
 
-7. Address breakages.
+8. Address breakages.
 
    The CQ will help you identify problems that need fixing.
 
@@ -263,3 +269,57 @@ Description of the patches:
    constructor is removed in the next roll post-v33, but this patch is added
    to allow for rolling proto first without touching the 100s of places to
    patch in Chromium.
+
+- 0060-export-any.patch
+
+  Add PROTOBUF_EXPORT macros to functions used by any.proto.
+
+  The OSS version of protobuf bundles generated .pb.{cc,h} files for full
+  versions of well-known types (including any.proto) and assumes they are
+  built together with protobuf.  Chrome does not use protobuf_full in
+  production, and thus does not use the bundled WKTs, instead generating lite
+  versions.  These versions can reside in a different component, and that's why
+  those symbols need to be exported.
+
+  See go/chrome-protobuf-wkt for an overview of how protobuf WKTs are supported
+  in Chrome.
+
+- 0061-fix-invalid-enum-class-export.patch
+
+  Removes invalid PROTOBUF_EXPORTs on enum classes in text_format.h.
+  Under C++ / MSVC, dllexport attributes cannot be applied to enum classes,
+  which triggers -Wignored-attributes under Clang on Windows component builds.
+
+- 0062-fix-dllexport-explicit-instantiation-decl.patch
+
+  Fixes -Wdllexport-explicit-instantiation-decl compiler warning in map_field.h
+  and map_field.cc by replacing the unconditional PROTOBUF_EXPORT with
+  PROTOBUF_EXPORT_TEMPLATE_DECLARE (which resolves to empty) and
+  PROTOBUF_EXPORT_TEMPLATE_DEFINE (which resolves to dllexport/dllimport) to
+  correctly declare and export explicit template instantiations.
+
+- 0063-workaround-windows-constinit-pregenerated.patch
+
+  Fixes 'variable does not have a constant initializer' errors with constinit
+  specifiers in java_features.pb.cc and plugin.pb.cc in Windows component builds.
+  In component builds, pointers to dllimport symbols are not constexpr at compile
+  time, so variables that reference these imported pointers cannot be constant-
+  initialized. This patch uses PROTOBUF_CONSTINIT_WITH_PTR (from patch 0030)
+  for these variables, which evaluates to empty on component builds.
+
+- 0064-time-util-no-export.patch
+
+  Do not export symbols in time_util.h.
+
+  This util was meant to be compiled with protobuf full. Since Chromium uses
+  protobuf lite (and lite WKTs, such as duration and timestamp), we can't make
+  it a part of protobuf as we would get a dependency cycle. Not exporting
+  symbols allows us to use it as a separate target.
+
+- 0065-gzip-stream-no-export.patch
+
+  Do not export symbols in gzip_stream.h.
+
+  This util was meant to be compiled with protobuf full. However, it depends on
+  zlib, so instead of making Chromium's protobuf depend on zlib, the utility is
+  compiled as a separate target, and not exported.

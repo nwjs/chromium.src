@@ -13,12 +13,14 @@
 #include "base/memory/raw_ref.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
-#include "chrome/browser/accessibility_annotator/accessibility_annotator_enablement_service_factory.h"
 #include "chrome/browser/autofill/mock_autofill_agent.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
+#include "chrome/browser/personal_context/personal_context_enablement_service_factory.h"
 #include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
+#include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "chrome/browser/ui/autofill/edit_address_profile_dialog_controller_impl.h"
+#include "chrome/browser/ui/autofill/popup_controller_common.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
@@ -27,8 +29,6 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/user_education/mock_browser_user_education_interface.h"
-#include "components/accessibility_annotator/core/accessibility_annotator_enablement_service.h"
-#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/autofill/content/browser/autofill_test_utils.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_autofill_driver_injector.h"
@@ -41,6 +41,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/foundations/test_autofill_manager_waiter.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
@@ -52,6 +53,8 @@
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/personal_context/core/personal_context_enablement_service.h"
+#include "components/personal_context/core/personal_context_types.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/unified_consent/pref_names.h"
@@ -74,12 +77,27 @@
 #include "chrome/browser/ui/android/autofill/autofill_save_card_delegate_android.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_ui_info.h"
 #else
+#include "chrome/browser/account_settings/account_setting_service_factory.h"
+#include "chrome/browser/actor/actor_keyed_service_factory.h"
+#include "chrome/browser/actor/actor_keyed_service_fake.h"
+#include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/test_support/mock_glic_keyed_service.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/autofill/autofill_field_promo_controller.h"
+#include "chrome/browser/ui/autofill/mock_autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/test_browser_window.h"
+#include "chrome/test/base/testing_browser_process.h"
+#include "components/autofill/core/browser/foundations/mock_autofill_manager.h"
+#include "components/tabs/public/tab_interface.h"
 #endif
 
 namespace autofill {
@@ -96,20 +114,21 @@ using ::testing::Ge;
 using ::testing::InSequence;
 using ::testing::Le;
 using ::testing::Pair;
+using ::testing::Property;
 using ::testing::Ref;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::UnorderedElementsAre;
 
-class MockAccessibilityAnnotatorEnablementService
-    : public accessibility_annotator::AccessibilityAnnotatorEnablementService {
+class MockPersonalContextEnablementService
+    : public personal_context::PersonalContextEnablementService {
  public:
-  MockAccessibilityAnnotatorEnablementService() = default;
-  ~MockAccessibilityAnnotatorEnablementService() override = default;
+  MockPersonalContextEnablementService() = default;
+  ~MockPersonalContextEnablementService() override = default;
 
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
-  MOCK_METHOD(accessibility_annotator::RemoteAnnotatorEnablementState,
+  MOCK_METHOD(personal_context::PersonalContextEnablementState,
               GetEnablementState,
               (),
               (override));
@@ -177,14 +196,14 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 
   void InitializeAccessibilityAnnotatorEnablementService() {
     accessibility_annotator_enablement_service_ =
-        static_cast<MockAccessibilityAnnotatorEnablementService*>(
-            AccessibilityAnnotatorEnablementServiceFactory::GetInstance()
+        static_cast<MockPersonalContextEnablementService*>(
+            PersonalContextEnablementServiceFactory::GetInstance()
                 ->SetTestingFactoryAndUse(
                     profile(),
                     base::BindRepeating([](content::BrowserContext* context)
                                             -> std::unique_ptr<KeyedService> {
                       return std::make_unique<
-                          MockAccessibilityAnnotatorEnablementService>();
+                          MockPersonalContextEnablementService>();
                     })));
   }
 
@@ -220,7 +239,7 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     return ContentAutofillDriver::GetForRenderFrameHost(rfh);
   }
 
-  MockAccessibilityAnnotatorEnablementService*
+  MockPersonalContextEnablementService*
   accessibility_annotator_enablement_service() {
     return accessibility_annotator_enablement_service_;
   }
@@ -259,7 +278,7 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 #if !BUILDFLAG(IS_ANDROID)
   raw_ptr<MockAutofillFieldPromoController> autofill_field_promo_controller_;
 #endif  // !BUILDFLAG(IS_ANDROID)
-  raw_ptr<MockAccessibilityAnnotatorEnablementService>
+  raw_ptr<MockPersonalContextEnablementService>
       accessibility_annotator_enablement_service_;
   TestAutofillClientInjector<TestChromeAutofillClient>
       test_autofill_client_injector_;
@@ -649,8 +668,24 @@ class ChromeAutofillClientTestWithWindow : public BrowserWithTestWindowTest {
                 }));
 
     BrowserWithTestWindowTest::SetUp();
+
+    // Register the fake actor service before any tabs are added, so that
+    // any TabFeatures created (including the first tab) use the fake service
+    // instead of creating a real one that gets destroyed later.
+    actor::ActorKeyedServiceFactory::GetInstance()->SetTestingFactory(
+        profile(), base::BindRepeating([](content::BrowserContext* context)
+                                           -> std::unique_ptr<KeyedService> {
+          return std::make_unique<actor::ActorKeyedServiceFake>(
+              Profile::FromBrowserContext(context));
+        }));
+
     // Create the first tab so that `web_contents()` exists.
     AddTab(browser(), chrome::ChromeUINewTabURLAsGURL());
+  }
+
+  void TearDown() override {
+    glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+    BrowserWithTestWindowTest::TearDown();
   }
 
   MockBrowserUserEducationInterface* user_education() {
@@ -666,10 +701,33 @@ class ChromeAutofillClientTestWithWindow : public BrowserWithTestWindowTest {
     return test_autofill_client_injector_[web_contents()];
   }
 
+  glic::MockGlicKeyedService* SetUpMockGlicKeyedService() {
+    glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+    glic::GlicKeyedServiceFactory::GetInstance()->SetTestingFactory(
+        profile(),
+        base::BindRepeating(
+            [](glic::GlicProfileManager* glic_profile_manager,
+               content::BrowserContext* context)
+                -> std::unique_ptr<KeyedService> {
+              Profile* profile = Profile::FromBrowserContext(context);
+              return std::make_unique<glic::MockGlicKeyedService>(
+                  context, IdentityManagerFactory::GetForProfile(profile),
+                  TestingBrowserProcess::GetGlobal()->profile_manager(),
+                  glic_profile_manager,
+                  /*contextual_cueing_service=*/nullptr,
+                  /*actor_keyed_service=*/nullptr);
+            },
+            &glic_profile_manager_));
+    return static_cast<glic::MockGlicKeyedService*>(
+        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile(),
+                                                           /*create=*/true));
+  }
+
  private:
   TestAutofillClientInjector<TestChromeAutofillClient>
       test_autofill_client_injector_;
   ui::UserDataFactory::ScopedOverride user_ed_override_;
+  glic::GlicProfileManager glic_profile_manager_;
 };
 
 TEST_F(ChromeAutofillClientTestWithWindow, AutofillFieldIPH_NotifyFeatureUsed) {
@@ -679,29 +737,106 @@ TEST_F(ChromeAutofillClientTestWithWindow, AutofillFieldIPH_NotifyFeatureUsed) {
                   FeaturePromoFeatureUsedAction::kClosePromoIfPresent));
   client()->NotifyIphFeatureUsed(AutofillClient::IphFeature::kAutofillAi);
 }
+
+// Tests that `OpenGeminiInSidebar` invokes Glic with the correct options and
+// prompt.
+TEST_F(ChromeAutofillClientTestWithWindow, OpenGeminiInSidebar) {
+  glic::MockGlicKeyedService* mock_glic_service = SetUpMockGlicKeyedService();
+  ASSERT_TRUE(mock_glic_service);
+
+  // We expect that the glic service is invoked with kAutofill as the invocation
+  // source and containing the correct prompt.
+  EXPECT_CALL(
+      *mock_glic_service,
+      Invoke(AllOf(Property(&glic::GlicInvokeOptions::GetInvocationSource,
+                            glic::mojom::InvocationSource::kAutofill),
+                   Field(&glic::GlicInvokeOptions::prompts,
+                         testing::ElementsAre("test prompt")))))
+      .WillOnce(testing::Return(base::WeakPtr<glic::GlicInstance>()));
+
+  client()->OpenGeminiInSidebar(u"test prompt");
+}
+
+// Tests that `OnActorTaskStateChange` calls `ReparseKnownForms` on all drivers
+// when a new task gets assigned.
+TEST_F(ChromeAutofillClientTestWithWindow,
+       OnActorTaskStateChange_ReparseForms) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kAutofillActorMode);
+
+  actor::ActorKeyedServiceFake* actor_service =
+      static_cast<actor::ActorKeyedServiceFake*>(
+          actor::ActorKeyedService::Get(profile()));
+  ASSERT_TRUE(actor_service);
+
+  TestAutofillManagerInjector<MockAutofillManager> manager_injector;
+  AddTab(browser(), GURL("about:blank"));
+  content::WebContents* active_contents = web_contents();
+  MockAutofillManager* mock_manager = manager_injector[active_contents];
+  ASSERT_TRUE(mock_manager);
+
+  actor::TaskId task_id = actor_service->CreateTaskForTesting();
+  actor::ActorTask* task = actor_service->GetTask(task_id);
+  ASSERT_TRUE(task);
+
+  // Associate the active tab with the task.
+  tabs::TabInterface* tab_interface =
+      tabs::TabInterface::MaybeGetFromContents(active_contents);
+  ASSERT_TRUE(tab_interface);
+  task->AddTab(tab_interface->GetHandle(), /*stop_task_on_detach=*/true,
+               base::DoNothing());
+
+  // Verify first call (assignment) triggers `ReparseKnownForms`.
+  EXPECT_CALL(*mock_manager, ReparseKnownForms()).Times(1);
+  actor_service->NotifyTaskStateChanged(*task);
+  testing::Mock::VerifyAndClearExpectations(mock_manager);
+
+  // Verify second call (no new task) does NOT trigger ReparseKnownForms
+  EXPECT_CALL(*mock_manager, ReparseKnownForms()).Times(0);
+  actor_service->NotifyTaskStateChanged(*task);
+  testing::Mock::VerifyAndClearExpectations(mock_manager);
+}
 #endif
 
 // Tests that if there is no enablement service available to the profile, client
 // defaults to kDisabledNotEligible state.
-TEST_F(ChromeAutofillClientTest,
-       GetAccessibilityAnnotatorEnablementState_NoService) {
-  EXPECT_EQ(client()->GetAccessibilityAnnotatorEnablementState(),
-            accessibility_annotator::RemoteAnnotatorEnablementState::
-                kDisabledNotEligible);
+TEST_F(ChromeAutofillClientTest, GetPersonalContextEnablementState_NoService) {
+  EXPECT_EQ(
+      client()->GetPersonalContextEnablementState(),
+      personal_context::PersonalContextEnablementState::kDisabledNotEligible);
 }
 
 // Tests that the client correctly pipes the state from the enablement service.
-TEST_F(ChromeAutofillClientTest,
-       GetAccessibilityAnnotatorEnablementState_HappyPath) {
+TEST_F(ChromeAutofillClientTest, GetPersonalContextEnablementState_HappyPath) {
   InitializeAccessibilityAnnotatorEnablementService();
 
   EXPECT_CALL(*accessibility_annotator_enablement_service(),
               GetEnablementState())
-      .WillRepeatedly(Return(
-          accessibility_annotator::RemoteAnnotatorEnablementState::kEnabled));
-  EXPECT_EQ(client()->GetAccessibilityAnnotatorEnablementState(),
-            accessibility_annotator::RemoteAnnotatorEnablementState::kEnabled);
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEnablementState::kEnabled));
+  EXPECT_EQ(client()->GetPersonalContextEnablementState(),
+            personal_context::PersonalContextEnablementState::kEnabled);
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+TEST_F(ChromeAutofillClientTest, HideSuggestions_ProductFilter) {
+  testing::NiceMock<MockAutofillPopupController> mock_controller;
+  ON_CALL(mock_controller, GetMainFillingProduct)
+      .WillByDefault(Return(FillingProduct::kAddress));
+  client()->set_suggestion_controller_for_testing(mock_controller.GetWeakPtr());
+
+  // Attempt to hide with a non-matching product filter should be ignored.
+  EXPECT_CALL(mock_controller, Hide).Times(0);
+  client()->HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
+                            FillingProduct::kPassword);
+  testing::Mock::VerifyAndClearExpectations(&mock_controller);
+
+  // Attempt to hide with a matching product filter should succeed.
+  EXPECT_CALL(mock_controller, Hide(SuggestionHidingReason::kAcceptSuggestion));
+  client()->HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
+                            FillingProduct::kAddress);
+}
+#endif
 
 }  // namespace
 }  // namespace autofill

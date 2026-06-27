@@ -248,15 +248,6 @@ bool TabAndroid::IsNativePage() const {
   return Java_TabImpl_isNativePage(env, GetJavaObject(env));
 }
 
-std::u16string TabAndroid::GetTitle() const {
-  JNIEnv* env = AttachCurrentThread();
-  return Java_TabImpl_getTitle(env, GetJavaObject(env));
-}
-
-GURL TabAndroid::GetURL() const {
-  JNIEnv* env = AttachCurrentThread();
-  return Java_TabImpl_getUrl(env, GetJavaObject(env));
-}
 
 bool TabAndroid::IsUserInteractable() const {
   JNIEnv* env = AttachCurrentThread();
@@ -730,6 +721,31 @@ content::WebContents* TabAndroid::GetContents() const {
   return web_contents_.get();
 }
 
+void TabAndroid::LoadIfNeeded() {
+  JNIEnv* env = AttachCurrentThread();
+  // This ensures that screenshots of tabs that haven't been foregrounded at
+  // least have an approximation of the correct size.
+  bool force_backing_size = true;
+  Java_TabImpl_loadIfNeeded(env, GetJavaObject(env), force_backing_size);
+}
+
+std::u16string TabAndroid::GetTitle() const {
+  JNIEnv* env = AttachCurrentThread();
+  return Java_TabImpl_getTitle(env, GetJavaObject(env));
+}
+
+GURL TabAndroid::GetURL() const {
+  JNIEnv* env = AttachCurrentThread();
+  return Java_TabImpl_getUrl(env, GetJavaObject(env));
+}
+
+base::Time TabAndroid::GetLastActiveTime() const {
+  if (web_contents()) {
+    return web_contents()->GetLastActiveTime();
+  }
+  return GetLastShownTimestamp();
+}
+
 Profile* TabAndroid::GetProfile() const {
   return profile();
 }
@@ -919,7 +935,7 @@ TabAndroid::TabAndroid(Profile* profile, int tab_id)
 
 void TabAndroid::UpdateProperties() {
   bool pinned = false;
-  std::optional<tab_groups::TabGroupId> tab_group_id = std::nullopt;
+  std::optional<tab_groups::TabGroupId> tab_group_id;
 
   tabs::TabCollection* ancestor = parent_collection_;
   while (ancestor) {

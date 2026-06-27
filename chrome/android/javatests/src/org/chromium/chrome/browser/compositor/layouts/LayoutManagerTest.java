@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.compositor.layouts;
 
+import static org.mockito.Mockito.when;
+
 import static org.chromium.base.test.util.Batch.PER_CLASS;
 import static org.chromium.ui.test.util.ViewUtils.createMotionEvent;
 
@@ -62,12 +64,13 @@ import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
+import org.chromium.chrome.browser.tabmodel.OverridableTabCount;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
-import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
+import org.chromium.chrome.browser.theme.ToolbarThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.ui.edge_to_edge.NoOpTopInsetProvider;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
@@ -96,12 +99,13 @@ public class LayoutManagerTest implements MockTabModelDelegate {
     public FreshCtaTransitTestRule mActivityTestRule =
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
-    @Mock private TopUiThemeColorProvider mTopUiThemeColorProvider;
+    @Mock private ToolbarThemeColorProvider mToolbarThemeColorProvider;
     @Mock private HubLayoutDependencyHolder mHubLayoutDependencyHolder;
     @Mock private TabWindowManager mTabWindowManager;
     @Mock private ToolbarManager mToolbarManager;
     @Mock private ViewGroup mContentView;
     @Mock private CompositorViewHolder mCompositorViewHolder;
+    @Mock private OverridableTabCount mOverridableTabCount;
 
     private NonNullObservableSupplier<CompositorViewHolder> mCompositorViewHolderSupplier;
     private TabModelSelector mTabModelSelector;
@@ -218,6 +222,10 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                 ObservableSuppliers.createMonotonic();
 
         mTabSwitcherSupplier = new OneshotSupplierImpl<>();
+        mContentView = new FrameLayout(context);
+        when(mToolbarManager.getNtpSearchBoxTransitionPercentageSupplier())
+                .thenReturn(ObservableSuppliers.createNonNull(0f));
+        when(mToolbarManager.getOverridableTabCount()).thenReturn(mOverridableTabCount);
         mManagerPhone =
                 new LayoutManagerChromePhone(
                         layoutManagerHost,
@@ -225,7 +233,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                         mTabSwitcherSupplier,
                         mTabModelSelectorSupplier,
                         tabContentManagerSupplier,
-                        () -> mTopUiThemeColorProvider,
+                        () -> mToolbarThemeColorProvider,
                         mHubLayoutDependencyHolder,
                         mCompositorViewHolderSupplier,
                         mContentView,
@@ -241,7 +249,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                 null,
                 null,
                 null,
-                mTopUiThemeColorProvider,
+                mToolbarThemeColorProvider,
                 ObservableSuppliers.alwaysZero());
         initializeMotionEvent();
     }
@@ -295,7 +303,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                         mTabSwitcherSupplier,
                         mTabModelSelectorSupplier,
                         tabContentManagerSupplier,
-                        () -> mTopUiThemeColorProvider,
+                        () -> mToolbarThemeColorProvider,
                         mHubLayoutDependencyHolder);
 
         tabContentManagerSupplier.set(tabContentManager);
@@ -306,7 +314,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                 null,
                 null,
                 null,
-                mTopUiThemeColorProvider,
+                mToolbarThemeColorProvider,
                 ObservableSuppliers.alwaysZero());
         initializeMotionEvent();
     }

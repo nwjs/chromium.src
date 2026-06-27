@@ -25,6 +25,7 @@
 #import "base/task/task_traits.h"
 #import "base/task/thread_pool.h"
 #import "base/time/default_tick_clock.h"
+#import "base/trace_event/named_trigger.h"
 #import "build/blink_buildflags.h"
 #import "components/content_settings/core/common/content_settings_pattern.h"
 #import "components/crash/core/common/crash_key.h"
@@ -69,7 +70,6 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_dependency_manager_ios.h"
 #import "ios/chrome/browser/signin/model/signin_util.h"
-#import "ios/chrome/browser/tracing/ios_tracing_controller.h"
 #import "ios/chrome/browser/translate/model/translate_service_ios.h"
 #import "ios/chrome/browser/web/model/ios_thread_profiler.h"
 #import "ios/chrome/common/channel_info.h"
@@ -92,6 +92,10 @@
 
 #if PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
 #import "components/heap_profiling/in_process/heap_profiler_controller.h"
+#endif
+
+#if !BUILDFLAG(USE_BLINK)
+#import "ios/chrome/browser/tracing/ios_tracing_controller.h"
 #endif
 
 namespace {
@@ -189,9 +193,12 @@ void IOSChromeMainParts::ApplyFeatureList() {
 }
 
 void IOSChromeMainParts::PreCreateThreads() {
+#if !BUILDFLAG(USE_BLINK)
   // Initialize Perfetto tracing before threads are spawned so the
   // TrackNameRecorder can capture and name the new background threads.
+  // For Blink, the content layer handles Perfetto initialization.
   IOSTracingController::CreateInstance();
+#endif
 
   // Create and start the stack sampling profiler if CANARY or DEV. The warning
   // below doesn't apply.
@@ -306,6 +313,11 @@ void IOSChromeMainParts::PreMainMessageLoopRun() {
   // Now that the file thread has been started, start recording.
   StartMetricsRecording();
 
+  // This must happen after `SetupFieldTracingFromFieldTrial()`, which is
+  // triggered by `SetupMetrics()` above.
+  base::trace_event::EmitNamedTrigger(
+      base::trace_event::kStartupTracingTriggerName);
+
   // Ensure that the KeyedService factories are registered.
   EnsureProfileKeyedServiceFactoriesBuilt();
   ProfileDependencyManagerIOS::GetInstance()
@@ -336,6 +348,7 @@ void IOSChromeMainParts::PreMainMessageLoopRun() {
       ->ReconfigureAfterFeatureListInit("");
   base::allocator::PartitionAllocSupport::Get()->ReconfigureAfterTaskRunnerInit(
       "");
+  crash_helper::CacheCorruptionDetectedMemoryRangesKillSwitch();
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC)
 
   TranslateServiceIOS::Initialize();

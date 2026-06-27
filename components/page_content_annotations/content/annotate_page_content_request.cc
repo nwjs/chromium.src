@@ -4,17 +4,23 @@
 
 #include "components/page_content_annotations/content/annotate_page_content_request.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <variant>
 
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/strcat.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -24,7 +30,11 @@
 #include "components/content_extraction/content/browser/inner_text.h"
 #include "components/history/core/browser/features.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
+#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "components/page_content_annotations/content/annotate_page_content_request_metrics.h"
+#include "components/page_content_annotations/content/browser/page_settled_monitor.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
@@ -38,6 +48,7 @@
 #include "pdf/buildflags.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "url/gurl.h"
 
@@ -137,6 +148,46 @@ blink::mojom::AIPageContentOptionsPtr CreateOptions() {
   return options;
 }
 
+bool ShouldExtractPageContent(content::NavigationHandle* navigation_handle) {
+  CHECK(navigation_handle->IsInPrimaryMainFrame());
+
+  if (!navigation_handle->HasCommitted()) {
+    return false;
+  }
+
+  if (!navigation_handle->IsSameDocument()) {
+    return true;
+  }
+
+  // This is a heuristic to tradeoff how frequently the content is updated and
+  // ensuring we have coverage for single-page-apps in the data. If the
+  // navigation will appear in the browser history, it's likely a significant
+  // change in page state.
+  if (!navigation_handle->ShouldUpdateHistory()) {
+    return false;
+  }
+
+  if (base::FeatureList::IsEnabled(history::kVisitedLinksOn404)) {
+    // With the flag enabled, navigations with a 404 status code will be
+    // eligible for History. We want to ignore 404s. At this point, we should
+    // only be looking at committed same-document navigations. Same-document
+    // navigations have no network request and therefore no response code, so we
+    // should look at the response code for the request that brought us to the
+    // current document instead of the `NavigationHandle`.
+    const auto* document_response_head =
+        navigation_handle->GetRenderFrameHost()->GetLastResponseHead();
+    if (!document_response_head || !document_response_head->headers) {
+      return false;
+    }
+    const int status_code = document_response_head->headers->response_code();
+    if (status_code == 404) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 }  // namespace
 
 AnnotatedPageContentRequest::AnnotatedPageContentRequest(
@@ -150,6 +201,10 @@ AnnotatedPageContentRequest::AnnotatedPageContentRequest(
       options_(CreateOptions()),
       include_inner_text_(
           features::ShouldAnnotatedPageContentStudyIncludeInnerText()),
+      is_pdf_text_extraction_enabled_(base::FeatureList::IsEnabled(
+          features::kAnnotatedPageContentPDFTextExtraction)),
+      use_page_settled_monitor_(base::FeatureList::IsEnabled(
+          features::kPageContentExtractionUsingPageSettledMonitor)),
       fetch_page_context_callback_(std::move(fetch_page_context_callback)),
       get_tab_id_callback_(std::move(get_tab_id_callback)) {
   // Post to a background thread to avoid blocking the set up of the overlay.
@@ -178,49 +233,132 @@ AnnotatedPageContentRequest::CreateForTesting(  // IN-TEST
 }
 
 void AnnotatedPageContentRequest::PrimaryPageChanged(content::Page& page) {
+  if (use_page_settled_monitor_) {
+    return;
+  }
+
   ResetForNewNavigation(/*is_same_document=*/false);
+}
+
+void AnnotatedPageContentRequest::DidStartNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (!use_page_settled_monitor_) {
+    return;
+  }
+
+  if (!navigation_handle->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  // Instantiating the monitor at DidStartNavigation allows us to establish the
+  // Mojo pipeline on the frame before the navigation begins.
+  //
+  // This early creation is critical for capturing an accurate "pre-navigation"
+  // baseline of page activity (e.g., current network request counts) before
+  // the navigation-driven activity begins.
+  //
+  // For same-document navigations, this is particularly important because they
+  // lack standard browser-side loading signals to tell the monitor when to
+  // pause and wait for quiescence.
+  //
+  // For cross-document navigations, the renderer-side monitor established on
+  // the source frame acts as a sentinel; it returns immediately when the
+  // navigation commits, at which point the system transitions to relying on
+  // browser-side signals to determine stability for the new document.
+  //
+  // TODO(b/422120832): We are currently using the default `PageStabilityConfig`
+  // to align with the `NavigateTool` for the actor framework. Consider if it's
+  // useful to monitor interaction contentful paints with the
+  // `PaintStabilityMonitor` for same-document navigations.
+  auto [it, inserted] = pending_page_settled_monitors_.try_emplace(
+      navigation_handle->GetNavigationId(), nullptr);
+  if (inserted) {
+    it->second = std::make_unique<PageSettledMonitor>(
+        web_contents()->GetPrimaryMainFrame(),
+        std::make_unique<PageSettledMonitor::Delegate>(
+            PageSettledMonitor::PageStabilityConfig{}));
+  }
 }
 
 void AnnotatedPageContentRequest::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
+  if (use_page_settled_monitor_) {
+    DidFinishNavigationWithPageSettledMonitor(navigation_handle);
+    return;
+  }
+
   if (!navigation_handle->IsInPrimaryMainFrame()) {
     return;
   }
 
   // Cross-document navigations are handled in PrimaryPageChanged.
   if (!navigation_handle->IsSameDocument() ||
-      !navigation_handle->HasCommitted()) {
+      !ShouldExtractPageContent(navigation_handle)) {
     return;
-  }
-
-  // This is a heuristic to tradeoff how frequently the content is updated and
-  // ensuring we have coverage for single-page-apps in the data. If the
-  // navigation will appear in the browser history, it's likely a significant
-  // change in page state.
-  if (!navigation_handle->ShouldUpdateHistory()) {
-    return;
-  }
-
-  if (base::FeatureList::IsEnabled(history::kVisitedLinksOn404)) {
-    // With the flag enabled, navigations with a 404 status code will be
-    // eligible for History. We want to ignore 404s. At this point, we should
-    // only be looking at committed same-document navigations. Same-document
-    // navigations have no network request and therefore no response code, so we
-    // should look at the response code for the request that brought us to the
-    // current document instead of the `NavigationHandle`.
-    const auto* document_response_head =
-        navigation_handle->GetRenderFrameHost()->GetLastResponseHead();
-    if (!document_response_head || !document_response_head->headers) {
-      return;
-    }
-    const int status_code = document_response_head->headers->response_code();
-    if (status_code == 404) {
-      return;
-    }
   }
 
   ResetForNewNavigation(/*is_same_document=*/true);
   MaybeScheduleExtraction();
+}
+
+void AnnotatedPageContentRequest::DidFinishNavigationWithPageSettledMonitor(
+    content::NavigationHandle* navigation_handle) {
+  CHECK(use_page_settled_monitor_);
+
+  if (!navigation_handle->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  std::unique_ptr<PageSettledMonitor> monitor;
+
+  auto it =
+      pending_page_settled_monitors_.find(navigation_handle->GetNavigationId());
+  if (it != pending_page_settled_monitors_.end()) {
+    monitor = std::move(it->second);
+    pending_page_settled_monitors_.erase(it);
+  }
+
+  if (!ShouldExtractPageContent(navigation_handle)) {
+    return;
+  }
+
+  ResetForNewNavigation(navigation_handle->IsSameDocument());
+
+  // Skip about:blank navigations. Legacy path waits for FCP which never occurs
+  // for about:blank, effectively skipping it. We match that behavior here
+  // to avoid unnecessary extractions for pages without meaningful content.
+  if (navigation_handle->GetURL().IsAboutBlank()) {
+    return;
+  }
+
+  const bool monitor_already_exists = !!monitor;
+  if (!monitor_already_exists) {
+    // If the monitor was not created in DidStartNavigation (e.g. because this
+    // observer was attached after the navigation started), create a fallback
+    // monitor now to manage the post-navigation settling process.
+    //
+    // We skip the renderer-side stability check because it requires a
+    // pre-navigation baseline that we have already missed at this point in the
+    // navigation lifecycle. Since `AnnotatedPageContentRequest` is created at
+    // tab creation, this edge case most likely happens for the first
+    // navigation. The monitor will still rely on browser-side stability
+    // signals.
+    monitor = std::make_unique<PageSettledMonitor>(
+        web_contents()->GetPrimaryMainFrame(),
+        std::make_unique<PageSettledMonitor::Delegate>(
+            /*page_stability_config=*/std::nullopt));
+  }
+
+  base::UmaHistogramBoolean(
+      "OptimizationGuide.PageContentExtraction."
+      "HadSettledMonitorAtDidFinishNavigation",
+      monitor_already_exists);
+
+  active_page_settled_monitor_ = std::move(monitor);
+  active_page_settled_monitor_->Wait(
+      web_contents(),
+      base::BindOnce(&AnnotatedPageContentRequest::OnPageSettled,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void AnnotatedPageContentRequest::DidStopLoading() {
@@ -235,15 +373,6 @@ void AnnotatedPageContentRequest::DidStopLoading() {
     return;
   }
 
-  if (IsPdf() ||
-      web_contents()->GetVisibility() == content::Visibility::HIDDEN ||
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kPageContentAnnotationsSkipFCPWaitForTesting)) {
-    // Pdfs and hidden tabs don't provide a reliable FirstContentfulPaint
-    // signal, so skip waiting for it for these Documents.
-    waiting_for_fcp_ = false;
-  }
-
   // TODO(b/490161242): Investigate if we should return early here if we are not
   // waiting for load to avoid duplicate extractions for same-document
   // navigations.
@@ -253,12 +382,40 @@ void AnnotatedPageContentRequest::DidStopLoading() {
   }
 
   waiting_for_load_ = false;
+
+  if (use_page_settled_monitor_) {
+    // PageSettledMonitor handles its own load signal.
+    return;
+  }
+
+  if (IsPdf() ||
+      web_contents()->GetVisibility() == content::Visibility::HIDDEN ||
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kPageContentAnnotationsSkipFCPWaitForTesting)) {
+    // Pdfs and hidden tabs don't provide a reliable FirstContentfulPaint
+    // signal, so skip waiting for it for these Documents.
+    waiting_for_fcp_ = false;
+  }
+
   MaybeScheduleExtraction();
 }
 
 void AnnotatedPageContentRequest::OnFirstContentfulPaintInPrimaryMainFrame() {
+  if (use_page_settled_monitor_) {
+    // PageSettledMonitor handles its own contentful paint signal.
+    return;
+  }
   waiting_for_fcp_ = false;
   MaybeScheduleExtraction();
+}
+
+void AnnotatedPageContentRequest::OnPageSettled() {
+  waiting_for_page_settled_ = false;
+  MaybeScheduleExtraction();
+
+  if (page_settled_callback_for_testing_) {
+    std::move(page_settled_callback_for_testing_).Run();
+  }
 }
 
 void AnnotatedPageContentRequest::ResetForNewNavigation(bool is_same_document) {
@@ -268,6 +425,11 @@ void AnnotatedPageContentRequest::ResetForNewNavigation(bool is_same_document) {
   // So we assume the content is ready as soon as the navigation commits.
   waiting_for_fcp_ = !is_same_document;
   waiting_for_load_ = !is_same_document;
+
+  waiting_for_page_settled_ = true;
+  is_same_document_navigation_ = is_same_document;
+  navigation_commit_timer_ = base::ElapsedTimer();
+  active_page_settled_monitor_.reset();
 
   cached_content_ = std::nullopt;
 
@@ -280,10 +442,13 @@ void AnnotatedPageContentRequest::ResetForNewNavigation(bool is_same_document) {
   extraction_timer_ = std::nullopt;
 
   page_content_extraction_service_->OnNewNavigation(
-      get_tab_id_callback_.Run(web_contents()), web_contents());
+      get_tab_id_callback_.Run(web_contents()), web_contents(),
+      is_same_document);
 }
 
 void AnnotatedPageContentRequest::MaybeScheduleExtraction(bool on_hide) {
+  MaybeRecordReadyToExtractMetrics();
+
   std::optional<TriggerSource> trigger_source =
       ShouldScheduleExtraction(on_hide);
   if (!trigger_source) {
@@ -296,7 +461,9 @@ void AnnotatedPageContentRequest::MaybeScheduleExtraction(bool on_hide) {
       FROM_HERE,
       base::BindOnce(&AnnotatedPageContentRequest::OnExtractionTimerFired,
                      weak_factory_.GetWeakPtr(), *trigger_source),
-      features::GetAnnotatedPageContentCaptureDelay());
+      use_page_settled_monitor_
+          ? features::GetPageSettledCaptureDelay()
+          : features::GetAnnotatedPageContentCaptureDelay());
 }
 
 void AnnotatedPageContentRequest::OnExtractionTimerFired(
@@ -327,10 +494,10 @@ void AnnotatedPageContentRequest::StartExtraction(
 
   if (IsPdf()) {
 #if BUILDFLAG(ENABLE_PDF)
-    // TODO(b/487632737): Implement PDF text extraction.
-    RequestPdfPageCount();
+    RequestPdf(trigger_source);
 #endif  // BUILDFLAG(ENABLE_PDF)
   } else {
+    RecordRequestType(ExtractionRequestType::kAnnotatedPageContent);
     RequestAnnotatedPageContentSync(trigger_source);
   }
 }
@@ -367,12 +534,12 @@ void AnnotatedPageContentRequest::RequestAnnotatedPageContentSync(
 
 std::optional<AnnotatedPageContentRequest::TriggerSource>
 AnnotatedPageContentRequest::ShouldScheduleExtraction(bool on_hide) const {
-  if (!page_content_extraction_service_->ShouldEnablePageContentExtraction()) {
+  if (!ShouldAllowPageContentExtraction()) {
     return std::nullopt;
   }
 
-  // If the page is not loaded, the extraction would not work.
-  if (waiting_for_fcp_ || waiting_for_load_) {
+  // If the page is not loaded/stabilized, the extraction would not work.
+  if (!IsPageReadyForExtraction()) {
     return std::nullopt;
   }
 
@@ -392,7 +559,9 @@ AnnotatedPageContentRequest::ShouldScheduleExtraction(bool on_hide) const {
       triggering_mode ==
           features::PageContentExtractionTriggeringMode::kOnLoadAndHidden;
 
-  if (trigger_on_hide) {
+  // PDF extraction skips the on-hidden trigger to avoid redundant extraction of
+  // static content.
+  if (trigger_on_hide && !IsPdf()) {
     // We trigger extraction any time the page transitions to hidden, or if the
     // page finished loading while already in the background.
     bool newly_hidden =
@@ -401,6 +570,14 @@ AnnotatedPageContentRequest::ShouldScheduleExtraction(bool on_hide) const {
       CHECK(is_hidden_);
       return TriggerSource::kOnHidden;
     }
+  } else if (base::FeatureList::IsEnabled(
+                 features::kAnnotatedPageContentExtractionOnHideFix) &&
+             on_hide) {
+    // Ignore visibility events when not configured to trigger on hide, or if
+    // the page is a PDF (which skips on-hidden triggers). This prevents
+    // triggering on hide when observers register after load is complete and the
+    // page is stable.
+    return std::nullopt;
   }
 
   if (lifecycle_ != Lifecycle::kNavigated) {
@@ -414,9 +591,9 @@ AnnotatedPageContentRequest::ShouldScheduleExtraction(bool on_hide) const {
           features::PageContentExtractionTriggeringMode::kOnLoadAndHidden;
 
   if (trigger_on_load || !on_demand_callbacks_.empty()) {
-    // TODO(b/490161242): Investigate why this check can fail and then consider
-    // re-enabling it.
-    // CHECK(!on_hide);
+    CHECK(!base::FeatureList::IsEnabled(
+              features::kAnnotatedPageContentExtractionOnHideFix) ||
+          !on_hide);
     if (!on_demand_callbacks_.empty()) {
       return TriggerSource::kOnDemand;
     }
@@ -434,8 +611,19 @@ void AnnotatedPageContentRequest::OnPageContextFetched(
   base::UmaHistogramEnumeration(
       "OptimizationGuide.PageContentExtraction.TriggerSource", trigger_source);
 
-  CHECK_EQ(stop_loading_timer_.has_value(), extraction_timer_.has_value());
+  // When using PageSettledMonitor, it's possible for the page to be considered
+  // "settled" (triggering extraction) before the browser considers it to have
+  // "stopped loading". If `DidStopLoading()` fires while an extraction is
+  // already in progress, `stop_loading_timer_` will be initialized, but
+  // `extraction_timer_` will remain null (since it is only initialized in
+  // StartExtraction if `stop_loading_timer_` already exists). In this race
+  // condition, we simply skip recording the AutomaticOnLoad latency metrics.
+  if (!use_page_settled_monitor_) {
+    CHECK_EQ(stop_loading_timer_.has_value(), extraction_timer_.has_value());
+  }
+
   if (trigger_source == TriggerSource::kOnLoad && extraction_timer_) {
+    CHECK(stop_loading_timer_);
     base::UmaHistogramTimes(
         "OptimizationGuide.PageContentExtraction.AutomaticOnLoad."
         "ExtractionLatency",
@@ -511,6 +699,11 @@ void AnnotatedPageContentRequest::OnPageContextFetched(
                                  extraction_time, is_eligible_for_server_upload,
                                  std::move(screenshot_data));
 
+  CHECK(cached_content_);
+  CHECK(cached_content_->page_content);
+
+  RecordAnnotatedPageContentMetrics(cached_content_->page_content->data);
+
   ResolveAllCallbacksWith(cached_content_);
 }
 
@@ -526,31 +719,72 @@ void AnnotatedPageContentRequest::OnInnerTextReceived(
                               result->inner_text.length() / 1024, 10, 5000, 50);
 }
 
-#if BUILDFLAG(ENABLE_PDF)
-void AnnotatedPageContentRequest::RequestPdfPageCount() {
-  CHECK(IsPdf());
-  auto* pdf_helper =
-      pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents());
-  if (pdf_helper) {
-    pdf_helper->RegisterForDocumentLoadComplete(
-        base::BindOnce(&AnnotatedPageContentRequest::OnPdfDocumentLoadComplete,
-                       weak_factory_.GetWeakPtr()));
-  }
+void AnnotatedPageContentRequest::RecordAnnotatedPageContentMetrics(
+    const optimization_guide::proto::AnnotatedPageContent& proto) {
+  // Note: Similar structural and performance metrics are recorded globally (but
+  // without caller/client granularity) during extraction in
+  // PageContentProtoProvider.
+  //
+  // TODO(b/515360778): Consider granularizing the global metrics in
+  // PageContentProtoProvider by caller/client to avoid duplicate metrics
+  // gathering.
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(
+          [](const optimization_guide::proto::AnnotatedPageContent proto) {
+            optimization_guide::ContentNodeMetrics metrics;
+            optimization_guide::ComputeContentNodeMetrics(proto.root_node(),
+                                                          &metrics);
+
+            size_t proto_size = proto.ByteSizeLong();
+            UMA_HISTOGRAM_CUSTOM_COUNTS(
+                "OptimizationGuide.PageContentExtraction.AnnotatedPageContent."
+                "ProtoSize",
+                proto_size / 1024, 10, 5000, 50);
+            UMA_HISTOGRAM_CUSTOM_COUNTS(
+                "OptimizationGuide.PageContentExtraction.AnnotatedPageContent."
+                "NodeCount",
+                metrics.node_count, 1,
+                optimization_guide::kMaxNodeLimitForMetrics, 50);
+            UMA_HISTOGRAM_CUSTOM_COUNTS(
+                "OptimizationGuide.PageContentExtraction.AnnotatedPageContent."
+                "WordCount",
+                metrics.word_count, 1,
+                optimization_guide::kMaxWordLimitForMetrics, 50);
+          },
+          proto));
 }
 
-void AnnotatedPageContentRequest::OnPdfDocumentLoadComplete() {
+#if BUILDFLAG(ENABLE_PDF)
+void AnnotatedPageContentRequest::RequestPdf(TriggerSource trigger_source) {
   CHECK(IsPdf());
-  lifecycle_ = Lifecycle::kExtracted;
 
-  auto* pdf_helper =
-      pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents());
-  if (pdf_helper) {
-    // Fetch zero PDF bytes to just receive the total page count.
-    pdf_helper->GetPdfBytes(
-        /*size_limit=*/0,
-        base::BindOnce(
-            &RecordPdfPageCountMetrics,
-            web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId()));
+  if (auto* pdf_helper =
+          pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents())) {
+    // If the PDF content request callback is not run in the end because the
+    // PDF load never completes, this will record the status to the histogram.
+    base::ScopedClosureRunner metrics_recorder(base::BindOnce([]() {
+      RecordPDFDocumentStatus(PDFDocumentStatus::kLoadNotComplete);
+    }));
+
+    // TODO(b/422120832): Replace `RegisterForDocumentLoadComplete` with the
+    // `PDFDocumentHelper::IsDocumentLoadComplete` check once
+    // `PageSettledMonitor` is enabled by default. `PageSettledMonitor` already
+    // waits for PDF document load complete. However, a load complete check is
+    // still required as `PageSettledMonitor` notifies page settled when it
+    // times out. In this case, the PDF document may not complete loading.
+    if (is_pdf_text_extraction_enabled_) {
+      pdf_helper->RegisterForDocumentLoadComplete(
+          base::BindOnce(&AnnotatedPageContentRequest::RequestPdfText,
+                         weak_factory_.GetWeakPtr(), trigger_source,
+                         std::move(metrics_recorder)));
+    } else {
+      pdf_helper->RegisterForDocumentLoadComplete(base::BindOnce(
+          &AnnotatedPageContentRequest::RequestPdfPageCount,
+          weak_factory_.GetWeakPtr(), std::move(metrics_recorder)));
+    }
+  } else {
+    RecordPDFDocumentStatus(PDFDocumentStatus::kPDFDocumentHelperUnavailable);
   }
 
   // Requests for PDFs are synchronously rejected in
@@ -559,6 +793,50 @@ void AnnotatedPageContentRequest::OnPdfDocumentLoadComplete() {
   CHECK(on_demand_callbacks_.empty());
 
   ResolveAllCallbacksWith(std::nullopt);
+}
+
+void AnnotatedPageContentRequest::RequestPdfPageCount(
+    base::ScopedClosureRunner metrics_recorder) {
+  CHECK(IsPdf());
+
+  RecordRequestType(ExtractionRequestType::kPDFPageCount);
+  RecordPDFDocumentStatus(PDFDocumentStatus::kLoadComplete);
+  std::ignore = metrics_recorder.Release();
+
+  lifecycle_ = Lifecycle::kExtracted;
+
+  if (auto* pdf_helper =
+          pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents())) {
+    // Fetch zero PDF bytes to just receive the total page count.
+    pdf_helper->GetPdfBytes(
+        /*size_limit=*/0,
+        base::BindOnce(
+            &RecordPdfPageCountMetrics,
+            web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId()));
+  }
+}
+
+void AnnotatedPageContentRequest::RequestPdfText(
+    TriggerSource trigger_source,
+    base::ScopedClosureRunner metrics_recorder) {
+  TRACE_EVENT0("browser", "AnnotatedPageContentRequest::RequestPdfText");
+  CHECK(IsPdf());
+
+  RecordRequestType(ExtractionRequestType::kPDFText);
+  RecordPDFDocumentStatus(PDFDocumentStatus::kLoadComplete);
+  std::ignore = metrics_recorder.Release();
+
+  FetchPageContextOptions options;
+  options.pdf_options.emplace(PdfOptions::Format::kText,
+                              features::MaxPDFTextExtractionByteSize());
+
+  // PDF text extraction is requested after PDF document load complete. If
+  // `PageSettledMonitor` is not used, there is an additional 3-second delay
+  // before the extraction (see `kAnnotatedPageContentCaptureDelay`).
+  fetch_page_context_callback_.Run(
+      *web_contents(), options, /*progress_listener=*/nullptr,
+      base::BindOnce(&AnnotatedPageContentRequest::OnPageContextFetched,
+                     weak_factory_.GetWeakPtr(), trigger_source));
 }
 #endif  // BUILDFLAG(ENABLE_PDF)
 
@@ -587,8 +865,18 @@ bool AnnotatedPageContentRequest::IsPdf() const {
   return web_contents()->GetContentsMimeType() == pdf::kPDFMimeType;
 }
 
+bool AnnotatedPageContentRequest::ShouldAllowPageContentExtraction() const {
+  // Setting `is_on_demand` to true when there are pending callbacks does not
+  // risk allowing automatic extractions unnecessarily because concurrent
+  // extractions are prevented by the lifecycle state machine
+  // (kScheduled/kRunning checks), and `on_demand_callbacks_` is cleared
+  // whenever an extraction completes or is cancelled.
+  return page_content_extraction_service_->ShouldEnablePageContentExtraction(
+      /*is_on_demand=*/!on_demand_callbacks_.empty());
+}
+
 bool AnnotatedPageContentRequest::ShouldAsyncWaitForExtraction() const {
-  if (!page_content_extraction_service_->ShouldEnablePageContentExtraction()) {
+  if (!ShouldAllowPageContentExtraction()) {
     return false;
   }
 
@@ -644,7 +932,15 @@ void AnnotatedPageContentRequest::GetServerUploadEligibilityAsync(
 void AnnotatedPageContentRequest::
     RefreshExtractedPageContentAndEligibilityForPage(
         GetExtractedPageContentAndEligibilityCallback callback) {
-  if (!page_content_extraction_service_->ShouldEnablePageContentExtraction()) {
+  PageContentExtractionEnablementReason enablement_source =
+      page_content_extraction_service_
+          ->GetPageContentExtractionEnablementReason(/*is_on_demand=*/true);
+
+  base::UmaHistogramEnumeration(
+      "OptimizationGuide.PageContentExtraction.OnDemand.EnabledReason",
+      enablement_source);
+
+  if (enablement_source == PageContentExtractionEnablementReason::kDisabled) {
     std::move(callback).Run(std::nullopt);
     return;
   }
@@ -652,8 +948,8 @@ void AnnotatedPageContentRequest::
   base::UmaHistogramBoolean(
       "OptimizationGuide.PageContentExtraction.OnDemand.IsPDF", IsPdf());
 
-  // PDFs have special handling where we only save a metric of their page count
-  // and do not extract an AnnotatedPageContent.
+  // PDF text is extracted when 'AnnotatedPageContentPDFTextExtraction' feature
+  // is enabled. However, the result is never cached.
   if (IsPdf()) {
     CHECK(!cached_content_.has_value());
     std::move(callback).Run(std::nullopt);
@@ -738,6 +1034,33 @@ void AnnotatedPageContentRequest::ResolveAllCallbacksWith(
   }
 }
 
+void AnnotatedPageContentRequest::MaybeRecordReadyToExtractMetrics() {
+  if (!navigation_commit_timer_ || !IsPageReadyForExtraction()) {
+    return;
+  }
+
+  base::TimeDelta elapsed = navigation_commit_timer_->Elapsed();
+
+  base::UmaHistogramTimes(
+      base::StrCat(
+          {"OptimizationGuide.PageContentExtraction.NavigationToReadyLatency.",
+           is_same_document_navigation_ ? "SameDocument" : "CrossDocument"}),
+      elapsed);
+
+  ukm::builders::OptimizationGuide_PageContentExtraction(
+      web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId())
+      .SetIsSameDocument(is_same_document_navigation_)
+      .SetNavigationToReadyLatencyMs(
+          ukm::GetExponentialBucketMinForUserTiming(elapsed.InMilliseconds()))
+      .Record(ukm::UkmRecorder::Get());
+
+  navigation_commit_timer_.reset();
+}
+
+bool AnnotatedPageContentRequest::IsPageReadyForExtraction() const {
+  return use_page_settled_monitor_ ? !waiting_for_page_settled_
+                                   : (!waiting_for_fcp_ && !waiting_for_load_);
+}
 void AnnotatedPageContentRequest::OnVisibilityChanged(
     content::Visibility visibility) {
   bool was_hidden = is_hidden_;
@@ -752,6 +1075,11 @@ void AnnotatedPageContentRequest::OnVisibilityChanged(
   if (is_hidden_) {
     MaybeScheduleExtraction(/*on_hide=*/true);
   }
+}
+
+void AnnotatedPageContentRequest::SetPageSettledCallbackForTesting(  // IN-TEST
+    base::OnceClosure callback) {
+  page_settled_callback_for_testing_ = std::move(callback);
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(AnnotatedPageContentRequest);

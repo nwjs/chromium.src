@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/aura/aura_export.h"
 #include "ui/aura/window.h"
@@ -103,10 +104,12 @@ AURA_EXPORT extern const WindowProperty<gfx::Rect*>* const kHeadlessBoundsKey;
 
 // A property key to store the host window of a window. This lets
 // WebContentsViews find the windows that should constrain NPAPI plugins.
-AURA_EXPORT extern const WindowProperty<Window*>* const kHostWindowKey;
+AURA_EXPORT extern const WindowProperty<base::WeakPtr<Window>*>* const
+    kHostWindowKey;
 
 // The modal parent of a child modal window.
-AURA_EXPORT extern const WindowProperty<Window*>* const kChildModalParentKey;
+AURA_EXPORT extern const WindowProperty<base::WeakPtr<Window>*>* const
+    kChildModalParentKey;
 
 // A property key to store the window modality.
 AURA_EXPORT extern const WindowProperty<ui::mojom::ModalType>* const kModalKey;
@@ -217,6 +220,8 @@ AURA_EXPORT extern const WindowProperty<ui::ZOrderLevel>* const kZOrderingKey;
 // is an error.
 DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(AURA_EXPORT, aura::client::FocusClient*)
 DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(AURA_EXPORT, aura::Window*)
+DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(AURA_EXPORT,
+                                        base::WeakPtr<aura::Window>*)
 DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(AURA_EXPORT, gfx::ImageSkia*)
 DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(AURA_EXPORT, gfx::NativeViewAccessible)
 DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(AURA_EXPORT, gfx::Rect*)

@@ -663,12 +663,6 @@ public class WebsitePermissionsFetcherTest {
                         ContentSettingsType.VR, ORIGIN, SITE_WILDCARD, /* isEmbargoed= */ false));
         websitePreferenceBridge.addPermissionInfo(
                 new PermissionInfo(
-                        ContentSettingsType.LOCAL_NETWORK_ACCESS,
-                        ORIGIN,
-                        SITE_WILDCARD,
-                        /* isEmbargoed= */ false));
-        websitePreferenceBridge.addPermissionInfo(
-                new PermissionInfo(
                         ContentSettingsType.LOCAL_NETWORK,
                         ORIGIN,
                         SITE_WILDCARD,
@@ -684,7 +678,7 @@ public class WebsitePermissionsFetcherTest {
         // If the ContentSettingsType.MAX_VALUE value changes *and* a new value has been exposed on
         // Android, then please update this code block to include a test for your new type.
         // Otherwise, just update count in the assert.
-        assertEquals(118, ContentSettingsType.MAX_VALUE);
+        assertEquals(119, ContentSettingsType.MAX_VALUE);
         websitePreferenceBridge.addContentSettingException(
                 new ContentSettingException(
                         ContentSettingsType.COOKIES,
@@ -785,13 +779,6 @@ public class WebsitePermissionsFetcherTest {
                         /* isEmbargoed= */ false));
         websitePreferenceBridge.addContentSettingException(
                 new ContentSettingException(
-                        ContentSettingsType.LOCAL_NETWORK_ACCESS,
-                        ORIGIN,
-                        ContentSetting.DEFAULT,
-                        ProviderType.PREF_PROVIDER,
-                        /* isEmbargoed= */ false));
-        websitePreferenceBridge.addContentSettingException(
-                new ContentSettingException(
                         ContentSettingsType.LOCAL_NETWORK,
                         ORIGIN,
                         ContentSetting.DEFAULT,
@@ -879,8 +866,6 @@ public class WebsitePermissionsFetcherTest {
                     Assert.assertNotNull(site.getPermissionInfo(ContentSettingsType.VR));
                     Assert.assertNotNull(site.getPermissionInfo(ContentSettingsType.HAND_TRACKING));
                     Assert.assertNotNull(site.getPermissionInfo(ContentSettingsType.AR));
-                    Assert.assertNotNull(
-                            site.getPermissionInfo(ContentSettingsType.LOCAL_NETWORK_ACCESS));
                     Assert.assertNotNull(site.getPermissionInfo(ContentSettingsType.LOCAL_NETWORK));
                     Assert.assertNotNull(
                             site.getPermissionInfo(ContentSettingsType.LOOPBACK_NETWORK));

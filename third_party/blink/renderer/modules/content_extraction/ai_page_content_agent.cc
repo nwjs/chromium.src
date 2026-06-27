@@ -5,9 +5,11 @@
 #include "third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.h"
 
 #include <algorithm>
+#include <cstdint>
 
 #include "base/check.h"
 #include "base/containers/adapters.h"
+#include "base/notreached.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_id_helper.h"
@@ -47,23 +49,28 @@
 #include "third_party/blink/renderer/core/html/html_meta_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
+#include "third_party/blink/renderer/core/keywords.h"
+#include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_html_canvas.h"
 #include "third_party/blink/renderer/core/layout/layout_iframe.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
+#include "third_party/blink/renderer/core/layout/layout_image_resource.h"
 #include "third_party/blink/renderer/core/layout/layout_media.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
+#include "third_party/blink/renderer/core/layout/svg/layout_svg_image.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_root.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_caption.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_row.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_section.h"
+#include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -72,6 +79,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/script_tools/model_context_supplement.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object.h"
 #include "third_party/blink/renderer/modules/content_extraction/ai_page_content_debug_utils.h"
 #include "third_party/blink/renderer/platform/geometry/infinite_int_rect.h"
@@ -79,6 +87,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
+#include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
@@ -448,14 +457,120 @@ gfx::Rect LocalToOuterBoundingBox(const LayoutObject& object,
   return outer_box;
 }
 
+mojom::blink::AIPageContentCssPosition ConvertCssPosition(
+    EPosition css_position);
+
+// Builds the geometry APC emits. Reachability checks use the same boxes so
+// they make decisions from the geometry consumers will see.
+mojom::blink::AIPageContentGeometryPtr ComputeNodeGeometry(
+    const LayoutObject& object) {
+  auto geometry = mojom::blink::AIPageContentGeometry::New();
+  geometry->css_position = ConvertCssPosition(object.StyleRef().GetPosition());
+
+  gfx::RectF local_bounding_box;
+  geometry->visible_bounding_box =
+      ComputeVisibleBoundingBox(object, &local_bounding_box);
+  const bool map_to_outer =
+      RuntimeEnabledFeatures::AIPageContentOuterBoxMapToAncestorSpaceEnabled();
+  geometry->outer_bounding_box =
+      map_to_outer ? LocalToOuterBoundingBox(object, local_bounding_box)
+                   : ComputeOuterBoundingBox(object);
+
+  // A visible rect is the best safe fallback when the unclipped outer mapping
+  // fails or saturates.
+  if (map_to_outer && geometry->outer_bounding_box.IsEmpty() &&
+      !geometry->visible_bounding_box.IsEmpty()) {
+    geometry->outer_bounding_box = geometry->visible_bounding_box;
+  }
+
+  return geometry;
+}
+
+const mojom::blink::AIPageContentGeometry& GetOrComputeNodeGeometry(
+    const LayoutObject& object,
+    const mojom::blink::AIPageContentNode* content_node,
+    mojom::blink::AIPageContentGeometryPtr& computed_geometry) {
+  // Use the geometry already stored on the APC node when there is one.
+  if (content_node && content_node->content_attributes &&
+      content_node->content_attributes->geometry) {
+    return *content_node->content_attributes->geometry;
+  }
+
+  computed_geometry = ComputeNodeGeometry(object);
+  return *computed_geometry;
+}
+
+// Returns whether `object` is reachable through its nearest overflow
+// container. A scrollable dialog can reveal content below the fold; an
+// overflow:hidden container can only reveal content inside its current clip.
+bool IsReachableInOverflowContainer(const LayoutObject& object,
+                                    const LayoutBox& overflow_container) {
+  // Compare in the overflow container's coordinate space so current clipping
+  // does not hide content that scrolling the container can reveal.
+  gfx::RectF local_box =
+      ClipPathClipper::LocalClipPathBoundingBox(object).value_or(
+          object.LocalBoundingBoxRectForAccessibility(
+              LayoutObject::IncludeDescendants(false)));
+
+  [[maybe_unused]] const bool mapped_to_container =
+      object.MapToVisualRectInAncestorSpace(&overflow_container, local_box,
+                                            kSkipAncestorAndViewportClips);
+  DCHECK(mapped_to_container);
+
+  const PhysicalRect object_rect(ToEnclosingRect(local_box));
+
+  if (overflow_container.IsUserScrollable()) {
+    // User-scrollable containers can reveal anything in their scrollable area,
+    // even if it is outside the current clip.
+    return overflow_container.ScrollableOverflowRect().Intersects(object_rect);
+  }
+
+  // `overflow:hidden` creates a Blink scroll container, but users cannot scroll
+  // it. Only the current overflow clip is reachable.
+  return overflow_container.OverflowClipRect(PhysicalOffset())
+      .Intersects(object_rect);
+}
+
+gfx::Rect ComputeDocumentBoundsInViewport(const LayoutView& layout_view) {
+  const LocalFrameView* frame_view = layout_view.GetDocument().View();
+  DCHECK(frame_view) << "A LayoutView should belong to a framed document.";
+
+  // `DocumentRect()` starts in document coordinates. `DocumentToFrame()`
+  // removes layout-viewport scrolling, then `FrameToViewport()` applies
+  // visual-viewport offset and scale, such as browser-controls shifts or pinch
+  // zoom.
+  return frame_view->FrameToViewport(frame_view->DocumentToFrame(
+      ToPixelSnappedRect(layout_view.DocumentRect())));
+}
+
 // Return true if the LayoutObject is positioned offscreen in such a way that it
 // can never be scrolled to, effectively hiding it.
 bool IsAnchoredOffscreen(const LayoutObject& object,
                          const mojom::blink::AIPageContentGeometry& geometry,
-                         bool is_in_fixed_to_view_subtree) {
+                         bool is_in_fixed_pos_subtree,
+                         const LayoutBox* nearest_overflow_container,
+                         bool is_inside_unreachable_overflow_container) {
   // Any visible pixels mean the node is reachable right now.
   if (!geometry.visible_bounding_box.IsEmpty()) {
     return false;
+  }
+
+  const bool fixed_non_actionability_enabled = RuntimeEnabledFeatures::
+      AIPageContentAnchoredFixedOffscreenNonActionabilityEnabled();
+  const bool non_fixed_non_actionability_enabled = RuntimeEnabledFeatures::
+      AIPageContentAnchoredNonFixedOffscreenNonActionabilityEnabled();
+
+  const bool relevant_offscreen_action_filter_enabled =
+      is_in_fixed_pos_subtree ? fixed_non_actionability_enabled
+                              : non_fixed_non_actionability_enabled;
+  if (!relevant_offscreen_action_filter_enabled) {
+    return false;
+  }
+
+  // Descendants cannot be reached through an overflow container that is itself
+  // unreachable from its parent chain.
+  if (is_inside_unreachable_overflow_container) {
+    return true;
   }
 
   // Without an outer box, APC does not know where the node would land after
@@ -466,40 +581,23 @@ bool IsAnchoredOffscreen(const LayoutObject& object,
     return false;
   }
 
+  // Overflow containers define the local reachable area for their descendants.
+  // This applies inside fixed subtrees too: a visible fixed scroller can reveal
+  // items outside the current viewport by scrolling its own contents.
+  if (nearest_overflow_container) {
+    return !IsReachableInOverflowContainer(object, *nearest_overflow_container);
+  }
+
   const LayoutView* layout_view = object.GetDocument().GetLayoutView();
-  if (!layout_view) {
-    return false;
-  }
-  const LocalFrameView* frame_view = object.GetDocument().View();
-  if (!frame_view) {
-    return false;
-  }
+  CHECK(layout_view) << "APC offscreen actionability runs while walking an "
+                        "existing layout tree.";
 
-  // Nodes in a viewport-fixed subtree must intersect the current viewport to
-  // be reachable. Other nodes only need to intersect the scrollable document
-  // bounds, because normal document scrolling can still bring them onscreen
-  // later.
-  //
-  // `outer_bounding_box` is viewport-relative, so the non-fixed path must use
-  // document bounds in the same coordinate space. A raw `DocumentRect()`
-  // starts at document-space origin (0, 0), which would wrongly classify
-  // nodes above or left of the current scroll position as anchored offscreen
-  // even though the user can scroll back to them.
-  //
-  // `DocumentToFrame()` removes layout-viewport scrolling, and
-  // `FrameToViewport()` then applies visual-viewport offset and scale. This
-  // keeps the document bounds aligned with `outer_bounding_box`, including
-  // cases like browser controls shifting the visible viewport.
-  const gfx::Rect document_bounds_in_viewport =
-      frame_view->FrameToViewport(frame_view->DocumentToFrame(
-          ToPixelSnappedRect(layout_view->DocumentRect())));
+  // Fixed nodes must intersect the viewport. Non-fixed nodes only need to
+  // intersect the root document's scrollable bounds, because normal document
+  // scrolling can still bring them onscreen later.
   const gfx::Rect reachable_bounds =
-      is_in_fixed_to_view_subtree ? ComputeVisibleBoundingBox(*layout_view)
-                                  : document_bounds_in_viewport;
-  if (reachable_bounds.IsEmpty()) {
-    return false;
-  }
-
+      is_in_fixed_pos_subtree ? ComputeVisibleBoundingBox(*layout_view)
+                              : ComputeDocumentBoundsInViewport(*layout_view);
   return !geometry.outer_bounding_box.Intersects(reachable_bounds);
 }
 
@@ -789,7 +887,7 @@ void AddClickabilityReasons(
       element.FastGetAttribute(html_names::kAutocompleteAttr);
   const auto& aria_autocomplete =
       element.FastGetAttribute(html_names::kAriaAutocompleteAttr);
-  if ((autocomplete && autocomplete != "off") ||
+  if ((autocomplete && autocomplete != keywords::kOff) ||
       (aria_autocomplete == "inline" || aria_autocomplete == "list" ||
        aria_autocomplete == "both")) {
     interaction_info.clickability_reasons.push_back(Reason::kAutocomplete);
@@ -988,6 +1086,78 @@ void ProcessTextNode(const LayoutText& layout_text,
   attributes.text_info = std::move(text_info);
 }
 
+// Resolves the active image URL for the given `layout_image`.
+KURL ResolveImageUrl(const LayoutObject& layout_image) {
+  Node* dom_node = layout_image.GetNode();
+  if (!dom_node) {
+    return KURL();
+  }
+
+  // Resolves the DOM element associated with the given `layout_image`, taking
+  // care to traverse up to the owner shadow host if the layout node is inside
+  // an internal shadow tree (e.g., a broken image fallback rendered by
+  // `HTMLImageFallbackHelper`).
+  Element* element = dom_node->IsInUserAgentShadowRoot()
+                         ? dom_node->OwnerShadowHost()
+                         : DynamicTo<Element>(dom_node);
+  if (!element) {
+    return KURL();
+  }
+
+  AtomicString dom_src = element->ImageSourceURL();
+  if (!dom_src.empty()) {
+    return element->GetDocument().CompleteURL(dom_src);
+  }
+
+  return KURL();
+}
+
+// Resolves the security origin for a given URL. For about:blank URLs, the
+// origin is inherited from the document of the given node.
+scoped_refptr<const SecurityOrigin> GetOriginForUrl(const KURL& url,
+                                                    const Node* node) {
+  if (url.IsEmpty()) {
+    return nullptr;
+  }
+
+  const SecurityOrigin* reference_origin = nullptr;
+  if (node && node->GetExecutionContext()) {
+    reference_origin = node->GetExecutionContext()->GetSecurityOrigin();
+  }
+
+  return SecurityOrigin::CreateWithReferenceOrigin(url, reference_origin);
+}
+
+// Resolves the security origin for the image element associated with the layout
+// image. Prioritizes standard image resources, and falls back to DOM-level
+// attributes.
+scoped_refptr<const SecurityOrigin> GetImageSourceOrigin(
+    const LayoutObject& layout_image) {
+  KURL image_url;
+
+  const ImageResourceContent* image_resource_content = nullptr;
+  if (const auto* layout_image_concrete =
+          DynamicTo<LayoutImage>(&layout_image)) {
+    image_resource_content = layout_image_concrete->CachedImage();
+  } else if (const auto* layout_svg_image =
+                 DynamicTo<LayoutSVGImage>(&layout_image)) {
+    if (const LayoutImageResource* image_resource =
+            layout_svg_image->ImageResource()) {
+      image_resource_content = image_resource->CachedImage();
+    }
+  }
+
+  if (image_resource_content) {
+    image_url = image_resource_content->Url();
+  }
+
+  if (image_url.IsEmpty()) {
+    image_url = ResolveImageUrl(layout_image);
+  }
+
+  return GetOriginForUrl(image_url, layout_image.GetNode());
+}
+
 void ProcessImageNode(const LayoutObject& layout_image,
                       mojom::blink::AIPageContentAttributes& attributes) {
   attributes.attribute_type = mojom::blink::AIPageContentAttributeType::kImage;
@@ -1010,7 +1180,8 @@ void ProcessImageNode(const LayoutObject& layout_image,
         ReplaceUnpairedSurrogates(image_element->AltText());
   }
 
-  // TODO(crbug.com/382558422): Include image source origin.
+  image_info->source_origin = GetImageSourceOrigin(layout_image);
+
   attributes.image_info = std::move(image_info);
 }
 
@@ -1051,8 +1222,9 @@ void ProcessVideoNode(const HTMLVideoElement& video_element,
   }
 
   auto video_data = mojom::blink::AIPageContentVideoData::New();
-  video_data->url = video_element.SourceURL();
-  // TODO(crbug.com/382558422): Include video source origin.
+  KURL video_url = video_element.SourceURL();
+  video_data->url = video_url;
+  video_data->source_origin = GetOriginForUrl(video_url, &video_element);
   attributes.video_data = std::move(video_data);
 }
 
@@ -1159,6 +1331,35 @@ bool FormControlTypeForAriaRole(ax::mojom::blink::Role role,
     default:
       return false;
   }
+}
+
+uint32_t ComputeDefaultLineHeightPx(const ComputedStyle& style) {
+  const LayoutUnit line_height_px = AdjustForAbsoluteZoom::AdjustLayoutUnit(
+      style.ComputedLineHeightAsFixed(), style);
+  // Consumers use this as a minimum row size, so keep fractional and zero-ish
+  // values conservative instead of rounding down to 0.
+  return static_cast<uint32_t>(std::max(1, line_height_px.Ceil()));
+}
+
+// Used only when there is no styled <html> LayoutObject, e.g. display:none or
+// script removing the document element. In that case there is no meaningful
+// author default, and browser callers only need a conservative positive hint.
+constexpr uint32_t kDefaultLineHeightPx = 12;
+
+uint32_t ComputeDefaultLineHeightPx(const LocalFrame& frame) {
+  const Document& document = *frame.GetDocument();
+
+  if (Element* document_element = document.documentElement()) {
+    if (const LayoutObject* layout_object =
+            document_element->GetLayoutObject()) {
+      // Prefer the <html> style because authors set the frame default there.
+      return ComputeDefaultLineHeightPx(layout_object->StyleRef());
+    }
+  }
+
+  // If the document element or its layout object is missing, use a stable
+  // default instead of deriving frame data from the LayoutView.
+  return kDefaultLineHeightPx;
 }
 
 // Populates form control data for ARIA-based controls (e.g. role=checkbox).
@@ -1362,6 +1563,23 @@ void ProcessTableRowNode(const LayoutTableRow& layout_table_row,
   attributes.table_row_data = std::move(table_row_data);
 }
 
+mojom::blink::AIPageContentCssPosition ConvertCssPosition(
+    EPosition css_position) {
+  switch (css_position) {
+    case EPosition::kStatic:
+      return mojom::blink::AIPageContentCssPosition::kStatic;
+    case EPosition::kRelative:
+      return mojom::blink::AIPageContentCssPosition::kRelative;
+    case EPosition::kAbsolute:
+      return mojom::blink::AIPageContentCssPosition::kAbsolute;
+    case EPosition::kFixed:
+      return mojom::blink::AIPageContentCssPosition::kFixed;
+    case EPosition::kSticky:
+      return mojom::blink::AIPageContentCssPosition::kSticky;
+  }
+  NOTREACHED();
+}
+
 // Records latency metrics for the given latency and total latency.
 void RecordLatencyMetrics(base::TimeTicks start_time,
                           base::TimeTicks synchronous_execution_start_time,
@@ -1461,46 +1679,6 @@ void OffsetNodeGeometry(mojom::blink::AIPageContentNode& node,
   for (mojom::blink::AIPageContentNodePtr& child : node.children_nodes) {
     OffsetNodeGeometry(*child, offset);
   }
-}
-
-bool MayContainSensitiveData(mojom::blink::FormControlType form_control_type) {
-  switch (form_control_type) {
-    case mojom::blink::FormControlType::kInputEmail:
-    case mojom::blink::FormControlType::kInputMonth:
-    case mojom::blink::FormControlType::kInputNumber:
-    case mojom::blink::FormControlType::kInputPassword:
-    case mojom::blink::FormControlType::kInputSearch:
-    case mojom::blink::FormControlType::kInputTelephone:
-    case mojom::blink::FormControlType::kInputText:
-    case mojom::blink::FormControlType::kInputUrl:
-    case mojom::blink::FormControlType::kSelectOne:
-    case mojom::blink::FormControlType::kTextArea:
-      return true;
-    case mojom::blink::FormControlType::kInputCheckbox:
-    case mojom::blink::FormControlType::kInputRadio:
-    case mojom::blink::FormControlType::kInputDate:
-    case mojom::blink::FormControlType::kButtonButton:
-    case mojom::blink::FormControlType::kButtonSubmit:
-    case mojom::blink::FormControlType::kButtonReset:
-    case mojom::blink::FormControlType::kButtonPopover:
-    case mojom::blink::FormControlType::kFieldset:
-    case mojom::blink::FormControlType::kInputButton:
-    case mojom::blink::FormControlType::kInputColor:
-    case mojom::blink::FormControlType::kInputDatetimeLocal:
-    case mojom::blink::FormControlType::kInputFile:
-    case mojom::blink::FormControlType::kInputHidden:
-    case mojom::blink::FormControlType::kInputImage:
-    case mojom::blink::FormControlType::kInputRange:
-    case mojom::blink::FormControlType::kInputReset:
-    case mojom::blink::FormControlType::kInputSubmit:
-    case mojom::blink::FormControlType::kInputTime:
-    case mojom::blink::FormControlType::kInputWeek:
-    case mojom::blink::FormControlType::kOutput:
-    case mojom::blink::FormControlType::kSelectMultiple:
-      return false;
-  }
-
-  return false;
 }
 
 }  // namespace
@@ -2023,15 +2201,37 @@ bool AIPageContentAgent::ContentBuilder::WalkChildren(
       child_recursion_data.is_aria_disabled = true;
     }
     const auto* child_box = DynamicTo<LayoutBox>(child);
-    child_recursion_data.is_in_fixed_to_view_subtree =
-        recursion_data.is_in_fixed_to_view_subtree ||
-        (child_box && child_box->IsFixedToView());
+    const bool child_is_fixed_to_view = child_box && child_box->IsFixedToView();
+    child_recursion_data.is_in_fixed_pos_subtree =
+        recursion_data.is_in_fixed_pos_subtree || child_is_fixed_to_view;
+    if (child_is_fixed_to_view) {
+      // Viewport-fixed content escapes ancestor overflow clips and scroll
+      // offsets, so a DOM scroller ancestor should not constrain it.
+      child_recursion_data.nearest_overflow_container = nullptr;
+      child_recursion_data.is_inside_unreachable_overflow_container = false;
+    }
 
     has_visible_content |= IsVisible(*child);
 
     bool child_has_visible_content = false;
     auto child_content_node =
         MaybeGenerateContentNode(*child, child_recursion_data);
+
+    if (child_box && child_box->IsScrollContainer()) {
+      mojom::blink::AIPageContentGeometryPtr computed_child_geometry;
+      const auto& child_geometry = GetOrComputeNodeGeometry(
+          *child_box, child_content_node.get(), computed_child_geometry);
+      // The child is checked against its parent chain. Descendants then check
+      // against the child container's own reachable area.
+      child_recursion_data.is_inside_unreachable_overflow_container |=
+          IsAnchoredOffscreen(
+              *child_box, child_geometry,
+              child_recursion_data.is_in_fixed_pos_subtree,
+              child_recursion_data.nearest_overflow_container,
+              child_recursion_data.is_inside_unreachable_overflow_container);
+      child_recursion_data.nearest_overflow_container = child_box;
+    }
+
     if (!ShouldSkipDescendants(child_content_node, *child)) {
       if (child_content_node) {
         child_recursion_data.stack_depth++;
@@ -2097,6 +2297,10 @@ void AIPageContentAgent::ContentBuilder::ProcessIframe(
       auto frame_data = mojom::blink::AIPageContentFrameData::New();
       frame_data->frame_interaction_info =
           mojom::blink::AIPageContentFrameInteractionInfo::New();
+      // Browser conversion requires a positive frame-level line height even
+      // when display locks prevent walking the iframe's layout subtree.
+      frame_data->default_line_height_px =
+          ComputeDefaultLineHeightPx(*local_frame);
       content_node.content_attributes->iframe_data->content =
           mojom::blink::AIPageContentIframeContent::NewLocalFrameData(
               std::move(frame_data));
@@ -2122,6 +2326,11 @@ void AIPageContentAgent::ContentBuilder::ProcessIframe(
     child_recursion_data.stack_depth = recursion_data.stack_depth + 1;
     child_recursion_data.accessibility_focused_node_id =
         GetAccessibilityFocusedDOMNodeId(*local_frame);
+    // The iframe document has its own layout viewport and coordinate space, so
+    // it cannot inherit the parent's nearest overflow container. It is still
+    // hidden if the iframe element is inside an unreachable ancestor container.
+    child_recursion_data.is_inside_unreachable_overflow_container =
+        recursion_data.is_inside_unreachable_overflow_container;
 
     // Add a node for the iframe's LayoutView for consistency with remote
     // frames.
@@ -2280,13 +2489,14 @@ AIPageContentAgent::ContentBuilder::MaybeGenerateContentNodeImpl(
   // the area reachable by scrolling until another control changes state.
   // We drop the actionable metadata so that downstream click generation does
   // not chase nodes that scrolling can never reach.
-  if (RuntimeEnabledFeatures::
-          AIPageContentAnchoredOffscreenNonActionabilityEnabled() &&
-      attributes.node_interaction_info && attributes.geometry &&
-      IsAnchoredOffscreen(object, *attributes.geometry,
-                          recursion_data.is_in_fixed_to_view_subtree)) {
+  if (attributes.node_interaction_info && attributes.geometry &&
+      IsAnchoredOffscreen(
+          object, *attributes.geometry, recursion_data.is_in_fixed_pos_subtree,
+          recursion_data.nearest_overflow_container,
+          recursion_data.is_inside_unreachable_overflow_container)) {
     attributes.node_interaction_info.reset();
   }
+
   AddLabel(object, attributes);
   attributes.is_ad_related = element && element->IsAdRelated();
 
@@ -2501,8 +2711,7 @@ bool AIPageContentAgent::ContentBuilder::ShouldAddNodeGeometry(
       options_->include_otps_for_redaction) {
     if (const auto* form_control_element =
             DynamicTo<HTMLFormControlElement>(object.GetNode());
-        form_control_element &&
-        MayContainSensitiveData(form_control_element->FormControlType())) {
+        form_control_element && form_control_element->IsAutofillable()) {
       return true;
     }
   }
@@ -2526,46 +2735,8 @@ void AIPageContentAgent::ContentBuilder::AddNodeGeometry(
       << "AddNodeGeometry only works when layout is complete for object: "
       << object;
 
-  attributes.geometry = mojom::blink::AIPageContentGeometry::New();
+  attributes.geometry = ComputeNodeGeometry(object);
   mojom::blink::AIPageContentGeometry& geometry = *attributes.geometry;
-
-  // Compute the two fundamental bounding boxes:
-  //
-  // 1. outer_bounding_box: The object's full bounding box in viewport
-  //    coordinates, ignoring all ancestor clipping (including the viewport
-  //    clip). This includes the entire object regardless of viewport
-  //    visibility. The origin is relative to the viewport; negative values
-  //    indicate the object begins above/left of the viewport.
-  //
-  // 2. visible_bounding_box: The portion visible in the viewport, expressed in
-  //    viewport coordinates after applying all ancestor and viewport clipping.
-  //
-  // These boxes serve different purposes:
-  // - outer_bounding_box: Used for hit-testing semantics and determining the
-  //   object’s overall size and position relative to the viewport once scrolled
-  //   into view (ignoring ancestor clips).
-  // - visible_bounding_box: Used for determining what is actually visible to
-  //   users and immediately hit-testable without scrolling.
-  // Compute the visible bounding box and capture the local box so the outer
-  // box can reuse identical geometry inputs when the feature flag is enabled.
-  gfx::RectF local_bounding_box;
-  geometry.visible_bounding_box =
-      ComputeVisibleBoundingBox(object, &local_bounding_box);
-  const bool map_to_outer =
-      RuntimeEnabledFeatures::AIPageContentOuterBoxMapToAncestorSpaceEnabled();
-  geometry.outer_bounding_box =
-      map_to_outer ? LocalToOuterBoundingBox(object, local_bounding_box)
-                   : ComputeOuterBoundingBox(object);
-
-  // For APC, the most useful fallback is to clamp the outer box to the visible
-  // box when the mapping fails or saturates:
-  // - It preserves the key invariant checked by ValidateBoundingBoxes().
-  // - It avoids emitting enormous/sentinel geometry to consumers.
-  // - It does not change visible_bounding_box semantics.
-  if (map_to_outer && geometry.outer_bounding_box.IsEmpty() &&
-      !geometry.visible_bounding_box.IsEmpty()) {
-    geometry.outer_bounding_box = geometry.visible_bounding_box;
-  }
 
   CollectGeometryForRedactedNodes(object, attributes.redaction_decision,
                                   geometry.visible_bounding_box);
@@ -2681,6 +2852,7 @@ void AIPageContentAgent::ContentBuilder::AddFrameData(
   frame_data.frame_interaction_info =
       mojom::blink::AIPageContentFrameInteractionInfo::New();
   frame_data.title = ReplaceUnpairedSurrogates(frame.GetDocument()->title());
+  frame_data.default_line_height_px = ComputeDefaultLineHeightPx(frame);
   AddFrameInteractionInfo(frame, *frame_data.frame_interaction_info);
   AddMetaData(frame, frame_data.meta_data);
 
@@ -2692,8 +2864,8 @@ void AIPageContentAgent::ContentBuilder::AddFrameData(
 
   ComputeHitTestableNodesInViewport(frame);
 
-  if (auto* model_context = ModelContextSupplement::GetIfExists(
-          *frame.DomWindow()->navigator())) {
+  if (auto* model_context =
+          ModelContextSupplement::GetIfExists(*frame.GetDocument())) {
     model_context->ForEachScriptTool([&](const mojom::blink::ScriptTool& tool) {
       frame_data.script_tools.push_back(tool.Clone());
     });

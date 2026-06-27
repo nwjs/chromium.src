@@ -4,9 +4,12 @@
 
 #include "media/audio/win/waveout_output_win.h"
 
+#include <array>
 #include <atomic>
+#include <cstdint>
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -34,46 +37,37 @@ static const uint32_t kMaxOpenBufferSize = 1024 * 1024 * 64;
 // http://en.wikipedia.org/wiki/Surround_sound
 
 static const int kMaxChannelsToMask = 8;
-static const unsigned int kChannelsToMask[kMaxChannelsToMask + 1] = {
-  0,
-  // 1 = Mono
-  SPEAKER_FRONT_CENTER,
-  // 2 = Stereo
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT,
-  // 3 = Stereo + Center
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER,
-  // 4 = Quad
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT |
-  SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT,
-  // 5 = 5.0
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER |
-  SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT,
-  // 6 = 5.1
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT |
-  SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY |
-  SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT,
-  // 7 = 6.1
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT |
-  SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY |
-  SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT |
-  SPEAKER_BACK_CENTER,
-  // 8 = 7.1
-  SPEAKER_FRONT_LEFT  | SPEAKER_FRONT_RIGHT |
-  SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY |
-  SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT |
-  SPEAKER_SIDE_LEFT | SPEAKER_SIDE_RIGHT
-  // TODO(fbarchard): Add additional masks for 7.2 and beyond.
+static const std::array<unsigned int, kMaxChannelsToMask + 1> kChannelsToMask =
+    {
+        0,
+        // 1 = Mono
+        SPEAKER_FRONT_CENTER,
+        // 2 = Stereo
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT,
+        // 3 = Stereo + Center
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER,
+        // 4 = Quad
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_BACK_LEFT |
+            SPEAKER_BACK_RIGHT,
+        // 5 = 5.0
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER |
+            SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT,
+        // 6 = 5.1
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER |
+            SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT,
+        // 7 = 6.1
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER |
+            SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT |
+            SPEAKER_BACK_CENTER,
+        // 8 = 7.1
+        SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER |
+            SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT |
+            SPEAKER_SIDE_LEFT | SPEAKER_SIDE_RIGHT
+        // TODO(fbarchard): Add additional masks for 7.2 and beyond.
 };
 
 inline size_t PCMWaveOutAudioOutputStream::BufferSize() const {
-  // Round size of buffer up to the nearest 16 bytes.
-  return (sizeof(WAVEHDR) + buffer_size_ + 15u) & static_cast<size_t>(~15);
-}
-
-inline WAVEHDR* PCMWaveOutAudioOutputStream::GetBuffer(int n) const {
-  DCHECK_GE(n, 0);
-  DCHECK_LT(n, num_buffers_);
-  return reinterpret_cast<WAVEHDR*>(&UNSAFE_TODO(buffers_[n * BufferSize()]));
+  return buffer_size_;
 }
 
 constexpr SampleFormat kSampleFormat = kSampleFormatS16;
@@ -108,7 +102,7 @@ PCMWaveOutAudioOutputStream::PCMWaveOutAudioOutputStream(
   if (params.channels() > kMaxChannelsToMask) {
     format_.dwChannelMask = kChannelsToMask[kMaxChannelsToMask];
   } else {
-    format_.dwChannelMask = UNSAFE_TODO(kChannelsToMask[params.channels()]);
+    format_.dwChannelMask = kChannelsToMask[params.channels()];
   }
   format_.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
   format_.Samples.wValidBitsPerSample = format_.Format.wBitsPerSample;
@@ -152,27 +146,26 @@ bool PCMWaveOutAudioOutputStream::Open() {
 }
 
 void PCMWaveOutAudioOutputStream::SetupBuffers() {
-  buffers_ = std::make_unique<char[]>(BufferSize() * num_buffers_);
-  for (int ix = 0; ix != num_buffers_; ++ix) {
-    WAVEHDR* buffer = GetBuffer(ix);
-    buffer->lpData =
-        UNSAFE_TODO(reinterpret_cast<char*>(buffer) + sizeof(WAVEHDR));
-    buffer->dwBufferLength = buffer_size_;
-    buffer->dwBytesRecorded = 0;
-    buffer->dwFlags = WHDR_DONE;
-    buffer->dwLoops = 0;
+  buffers_ = base::HeapArray<WaveBuffer>::WithSize(num_buffers_);
+  for (auto& buffer : buffers_) {
+    buffer.audio_data = base::HeapArray<char>::Uninit(buffer_size_);
+    buffer.header.lpData = buffer.audio_data.data();
+    buffer.header.dwBufferLength = buffer_size_;
+    buffer.header.dwBytesRecorded = 0;
+    buffer.header.dwFlags = WHDR_DONE;
+    buffer.header.dwLoops = 0;
     // Tell windows sound drivers about our buffers. Not documented what
     // this does but we can guess that causes the OS to keep a reference to
     // the memory pages so the driver can use them without worries.
-    ::waveOutPrepareHeader(waveout_, buffer, sizeof(WAVEHDR));
+    ::waveOutPrepareHeader(waveout_, &(buffer.header), sizeof(WAVEHDR));
   }
 }
 
 void PCMWaveOutAudioOutputStream::FreeBuffers() {
-  for (int ix = 0; ix != num_buffers_; ++ix) {
-    ::waveOutUnprepareHeader(waveout_, GetBuffer(ix), sizeof(WAVEHDR));
+  for (auto& buffer : buffers_) {
+    ::waveOutUnprepareHeader(waveout_, &(buffer.header), sizeof(WAVEHDR));
   }
-  buffers_.reset();
+  buffers_ = {};
 }
 
 // Initially we ask the source to fill up all audio buffers. If we don't do
@@ -207,10 +200,9 @@ void PCMWaveOutAudioOutputStream::Start(AudioSourceCallback* callback) {
 
   // Queue the buffers.
   pending_bytes_ = 0;
-  for (int ix = 0; ix != num_buffers_; ++ix) {
-    WAVEHDR* buffer = GetBuffer(ix);
-    QueueNextPacket(buffer);  // Read more data.
-    pending_bytes_ += buffer->dwBufferLength;
+  for (auto& buffer : buffers_) {
+    QueueNextPacket(&buffer);  // Read more data.
+    pending_bytes_ += buffer.header.dwBufferLength;
   }
 
   // From now on |pending_bytes_| would be accessed by callback thread.
@@ -226,8 +218,8 @@ void PCMWaveOutAudioOutputStream::Start(AudioSourceCallback* callback) {
 
   // Send the buffers to the audio driver. Note that the device is paused
   // so we avoid entering the callback method while still here.
-  for (int ix = 0; ix != num_buffers_; ++ix) {
-    result = ::waveOutWrite(waveout_, GetBuffer(ix), sizeof(WAVEHDR));
+  for (auto& buffer : buffers_) {
+    result = ::waveOutWrite(waveout_, &(buffer.header), sizeof(WAVEHDR));
     if (result != MMSYSERR_NOERROR) {
       HandleError(result);
       break;
@@ -270,8 +262,9 @@ void PCMWaveOutAudioOutputStream::Stop() {
 
   // waveOutReset() leaves buffers in the unpredictable state, causing
   // problems if we want to close, release, or reuse them. Fix the states.
-  for (int ix = 0; ix != num_buffers_; ++ix)
-    GetBuffer(ix)->dwFlags = WHDR_PREPARED;
+  for (auto& buffer : buffers_) {
+    buffer.header.dwFlags = WHDR_PREPARED;
+  }
 
   // Don't use callback after Stop().
   callback_ = nullptr;
@@ -329,8 +322,8 @@ void PCMWaveOutAudioOutputStream::HandleError(MMRESULT error) {
     callback_->OnError(AudioSourceCallback::ErrorType::kUnknown);
 }
 
-void PCMWaveOutAudioOutputStream::QueueNextPacket(WAVEHDR *buffer) {
-  DCHECK_EQ(channels_, format_.Format.nChannels);
+void PCMWaveOutAudioOutputStream::QueueNextPacket(WaveBuffer* wave_buffer) {
+  CHECK_EQ(channels_, format_.Format.nChannels);
   // Call the source which will fill our buffer with pleasant sounds and
   // return to us how many bytes were used.
   // TODO(fbarchard): Handle used 0 by queueing more.
@@ -341,24 +334,26 @@ void PCMWaveOutAudioOutputStream::QueueNextPacket(WAVEHDR *buffer) {
                          format_.Format.nAvgBytesPerSec);
   int frames_filled = callback_->OnMoreData(delay, base::TimeTicks::Now(), {},
                                             audio_bus_.get());
-  uint32_t used = frames_filled * audio_bus_->channels() *
-                  format_.Format.wBitsPerSample / 8;
+  const uint32_t bytes_used = frames_filled * audio_bus_->channels() *
+                              format_.Format.wBitsPerSample / 8;
 
-  if (used <= buffer_size_) {
+  if (bytes_used <= buffer_size_) {
     // Note: If this ever changes to output raw float the data must be clipped
     // and sanitized since it may come from an untrusted source such as NaCl.
     audio_bus_->Scale(volume_);
 
     DCHECK_EQ(format_.Format.wBitsPerSample, 16);
-    audio_bus_->ToInterleaved<SignedInt16SampleTypeTraits>(
-        frames_filled, reinterpret_cast<int16_t*>(buffer->lpData));
+    auto bytes_span =
+        base::as_writable_bytes(wave_buffer->audio_data.as_span());
+    audio_bus_->ToInterleavedBytesPartial<SignedInt16SampleTypeTraits>(
+        0, bytes_span.first(bytes_used));
 
-    buffer->dwBufferLength = used * format_.Format.nChannels / channels_;
+    wave_buffer->header.dwBufferLength = bytes_used;
   } else {
     HandleError(0);
     return;
   }
-  buffer->dwFlags = WHDR_PREPARED;
+  wave_buffer->header.dwFlags = WHDR_PREPARED;
 }
 
 // One of the threads in our thread pool asynchronously calls this function when
@@ -383,13 +378,12 @@ void NTAPI PCMWaveOutAudioOutputStream::BufferCallback(PVOID lpParameter,
   if (stream->state_ != PCMA_PLAYING)
     return;
 
-  for (int ix = 0; ix != stream->num_buffers_; ++ix) {
-    WAVEHDR* buffer = stream->GetBuffer(ix);
-    if (buffer->dwFlags & WHDR_DONE) {
+  for (auto& buffer : stream->buffers_) {
+    if (buffer.header.dwFlags & WHDR_DONE) {
       // Before we queue the next packet, we need to adjust the number of
       // pending bytes since the last write to hardware.
-      stream->pending_bytes_ -= buffer->dwBufferLength;
-      stream->QueueNextPacket(buffer);
+      stream->pending_bytes_ -= buffer.header.dwBufferLength;
+      stream->QueueNextPacket(&buffer);
 
       // QueueNextPacket() can take a long time, especially if several of them
       // were called back-to-back. Check if we are stopping now.
@@ -398,12 +392,11 @@ void NTAPI PCMWaveOutAudioOutputStream::BufferCallback(PVOID lpParameter,
 
       // Time to send the buffer to the audio driver. Since we are reusing
       // the same buffers we can get away without calling waveOutPrepareHeader.
-      MMRESULT result = ::waveOutWrite(stream->waveout_,
-                                       buffer,
-                                       sizeof(WAVEHDR));
+      MMRESULT result =
+          ::waveOutWrite(stream->waveout_, &(buffer.header), sizeof(WAVEHDR));
       if (result != MMSYSERR_NOERROR)
         stream->HandleError(result);
-      stream->pending_bytes_ += buffer->dwBufferLength;
+      stream->pending_bytes_ += buffer.header.dwBufferLength;
     }
   }
 }

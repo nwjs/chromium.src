@@ -27,6 +27,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
@@ -46,6 +47,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "device/fido/authenticator_data.h"
 #include "device/fido/authenticator_get_assertion_response.h"
 #include "device/fido/discoverable_credential_metadata.h"
@@ -58,6 +60,8 @@
 #include "device/fido/public/public_key_credential_descriptor.h"
 #include "device/fido/public/public_key_credential_user_entity.h"
 #include "google_apis/gaia/gaia_switches.h"
+#include "google_apis/gaia/gaia_urls.h"
+#include "net/base/url_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -244,8 +248,7 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kOffTheRecordInterstitial);
     } else if (name == "cable_v2_pair") {
-      controller_->set_cable_transport_info(
-          /*extension_is_v2=*/std::nullopt, "fido://qrcode");
+      controller_->set_cable_transport_info("fido://qrcode");
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kCableV2QRCode);
     } else if (name == "cable_v2_connecting") {
@@ -420,11 +423,7 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
       controller_->SelectAccount(
           std::move(responses),
           base::BindOnce([](device::AuthenticatorGetAssertionResponse) {}));
-    } else if (name == "server_link_title_UNLOCK_YOUR_PHONE") {
-      controller_->set_cable_transport_info(
-          /*extension_is_v2=*/true, "fido://qrcode");
-      controller_->SetCurrentStepForTesting(
-          AuthenticatorRequestDialogModel::Step::kCableActivate);
+
     } else if (name == "create_passkey") {
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kChromeProfileCreatePasskey);
@@ -629,11 +628,6 @@ IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
   ShowAndVerifyUi();
 }
 
-IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
-                       InvokeUi_server_link_title_UNLOCK_YOUR_PHONE) {
-  ShowAndVerifyUi();
-}
-
 #if BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest, InvokeUi_ble_permission_mac) {
   ShowAndVerifyUi();
@@ -720,8 +714,7 @@ class GPMPasskeysAuthenticatorDialogTest : public DialogBrowserTest {
                                               "Elisa Beckett"),
         "Another Example Passkey Provider");
     model_->user_entity = local_cred1.user;
-    controller_->set_cable_transport_info(
-        /*extension_is_v2=*/std::nullopt, "fido://qrcode");
+    controller_->set_cable_transport_info("fido://qrcode");
 
     if (name == "no_passkeys_discovered") {
       transport_availability.recognized_credentials = {};
@@ -1000,7 +993,7 @@ enum MagicArchUnlockResponse {
 };
 
 // Tests the UI steps that show a pop-up window.
-class AuthenticatorWindowTest : public InProcessBrowserTest {
+class AuthenticatorWindowTest : public SigninBrowserTestBase {
  public:
   void SetUp() override {
     https_server_.RegisterRequestHandler(
@@ -1019,6 +1012,7 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
   }
 
   void SetUpOnMainThread() override {
+    SigninBrowserTestBase::SetUpOnMainThread();
     https_server_.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
     https_server_.StartAcceptingConnections();
     host_resolver()->AddRule("*", "127.0.0.1");
@@ -1035,7 +1029,7 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
       // Close the dialog before the entire browser is torn down.
       model_->SetStep(AuthenticatorRequestDialogModel::Step::kClosed);
     }
-    InProcessBrowserTest::TearDownOnMainThread();
+    SigninBrowserTestBase::TearDownOnMainThread();
   }
 
   void set_magic_arch_response(MagicArchUnlockResponse response) {
@@ -1045,6 +1039,7 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
  protected:
   scoped_refptr<AuthenticatorRequestDialogModel> model_;
   net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
+  std::string last_authuser_parameter_;
 
  private:
   std::unique_ptr<net::test_server::HttpResponse> HandleNetworkRequest(
@@ -1053,6 +1048,7 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
     const std::string_view path = url.path();
     auto response = std::make_unique<net::test_server::BasicHttpResponse>();
     if (path.contains("/encryption/unlock/")) {
+      net::GetValueForKeyInQuery(url, "authuser", &last_authuser_parameter_);
       response->set_code(net::HTTP_OK);
       switch (magic_arch_response_) {
         case kNone:
@@ -1074,6 +1070,7 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
           break;
       }
     } else if (path == "/encryption/pin/reset") {
+      net::GetValueForKeyInQuery(url, "authuser", &last_authuser_parameter_);
       response->set_code(net::HTTP_OK);
       response->set_content(kTestReauthHtml);
     } else if (path.starts_with("/embedded/passkeys/reset")) {
@@ -1102,7 +1099,7 @@ class QuitBrowserWhenKeysStored : public EnclaveManager::Observer {
   }
 
   // EnclaveManager::Observer
-  void OnKeysStored() override {
+  void OnKeysStored(const GaiaId& gaia_id) override {
     EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser_->profile())
         ->RemoveObserver(this);
     browser_ = nullptr;
@@ -1279,6 +1276,45 @@ IN_PROC_BROWSER_TEST_F(AuthenticatorWindowTest, UINavigatesAway) {
   model_->SetStep(
       AuthenticatorRequestDialogModel::Step::kGPMRecoverSecurityDomain);
   model_->SetStep(AuthenticatorRequestDialogModel::Step::kNotStarted);
+}
+
+// Regression test for crbug.com/505059790.
+// Make sure the correct authuser index is set when invoking MagicArch for
+// account recovery.
+IN_PROC_BROWSER_TEST_F(AuthenticatorWindowTest, MultiAccountRecovery) {
+  set_magic_arch_response(kRecoverySuccess);
+  std::vector<AccountInfo> accounts = SetAccountsCookiesAndTokens(
+      {"another@example.com", "primary@example.com"});
+
+  identity_test_env()->SetPrimaryAccount("primary@example.com",
+                                         signin::ConsentLevel::kSignin);
+
+  GURL expected_url = GaiaUrls::GetInstance()->SigninChromePasskeyUnlockUrl(1);
+  content::TestNavigationObserver navigation_observer(expected_url);
+  navigation_observer.StartWatchingNewWebContents();
+  model_->SetStep(
+      AuthenticatorRequestDialogModel::Step::kGPMRecoverSecurityDomain);
+  navigation_observer.Wait();
+  EXPECT_EQ(last_authuser_parameter_, "1");
+}
+
+// Regression test for crbug.com/505059790.
+// Make sure the correct authuser index is set when invoking MagicArch for PIN
+// reset.
+IN_PROC_BROWSER_TEST_F(AuthenticatorWindowTest, MultiAccountPinReset) {
+  std::vector<AccountInfo> accounts = SetAccountsCookiesAndTokens(
+      {"another@example.com", "primary@example.com"});
+
+  identity_test_env()->SetPrimaryAccount("primary@example.com",
+                                         signin::ConsentLevel::kSignin);
+
+  GURL expected_url = https_server_.base_url().Resolve("/encryption/pin/reset");
+  expected_url = net::AppendQueryParameter(expected_url, "authuser", "1");
+  content::TestNavigationObserver navigation_observer(expected_url);
+  navigation_observer.StartWatchingNewWebContents();
+  model_->SetStep(AuthenticatorRequestDialogModel::Step::kGPMReauthForPinReset);
+  navigation_observer.Wait();
+  EXPECT_EQ(last_authuser_parameter_, "1");
 }
 
 // Run with:

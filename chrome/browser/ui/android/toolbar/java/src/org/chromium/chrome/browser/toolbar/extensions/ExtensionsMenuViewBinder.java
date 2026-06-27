@@ -33,9 +33,9 @@ public class ExtensionsMenuViewBinder {
         // We use beginDelayedTransition to smoothly animate the resulting layout
         // resizing, preventing the menu from abruptly "jumping" to its new height.
         if (key == ExtensionsMenuProperties.IS_ZERO_STATE
+                || key == ExtensionsMenuProperties.SITE_SETTINGS_CONTAINER_VISIBLE
                 || key == ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE
-                || key == ExtensionsMenuProperties.OPTIONAL_SECTION_TYPE
-                || key == ExtensionsMenuProperties.CURRENT_PAGE) {
+                || key == ExtensionsMenuProperties.OPTIONAL_SECTION_TYPE) {
             TransitionManager.beginDelayedTransition((ViewGroup) view);
         }
 
@@ -86,12 +86,23 @@ public class ExtensionsMenuViewBinder {
                 mainPage.setVisibility(View.GONE);
                 sitePermissionsPage.setVisibility(View.VISIBLE);
             }
+
+            Runnable resizeCallback = model.get(ExtensionsMenuProperties.POPUP_RESIZE_CALLBACK);
+            if (resizeCallback != null) {
+                resizeCallback.run();
+            }
         } else if (key == ExtensionsMenuProperties.MANAGE_EXTENSIONS_CLICK_LISTENER) {
             view.findViewById(R.id.extensions_menu_manage_extensions_button)
                     .setOnClickListener(
                             model.get(ExtensionsMenuProperties.MANAGE_EXTENSIONS_CLICK_LISTENER));
-        } else if (key == ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE) {
+        } else if (key == ExtensionsMenuProperties.SITE_SETTINGS_CONTAINER_VISIBLE) {
             getSiteSettingsToggleContainer(view)
+                    .setVisibility(
+                            model.get(ExtensionsMenuProperties.SITE_SETTINGS_CONTAINER_VISIBLE)
+                                    ? View.VISIBLE
+                                    : View.GONE);
+        } else if (key == ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE) {
+            view.findViewById(R.id.extensions_menu_site_settings_toggle)
                     .setVisibility(
                             model.get(ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE)
                                     ? View.VISIBLE
@@ -148,6 +159,18 @@ public class ExtensionsMenuViewBinder {
             ViewCompat.setTooltipText(
                     toggleContainer,
                     model.get(ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_TOOLTIP));
+        } else if (key == ExtensionsMenuProperties.SITE_SETTINGS_INFO_ICON_VISIBLE) {
+            View infoIcon = view.findViewById(R.id.extensions_menu_site_settings_info_icon);
+            boolean visible = model.get(ExtensionsMenuProperties.SITE_SETTINGS_INFO_ICON_VISIBLE);
+            infoIcon.setVisibility(visible ? View.VISIBLE : View.GONE);
+            String enterpriseTooltipText =
+                    view.getContext()
+                            .getString(
+                                    R.string
+                                            .extensions_menu_message_section_enterprise_tooltip_icon_text);
+            if (visible) {
+                ViewCompat.setTooltipText(infoIcon, enterpriseTooltipText);
+            }
         } else if (key == ExtensionsMenuProperties.MENU_BUTTON_PINNING_CLICK_LISTENER) {
             View.OnClickListener listener =
                     model.get(ExtensionsMenuProperties.MENU_BUTTON_PINNING_CLICK_LISTENER);

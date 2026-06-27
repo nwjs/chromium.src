@@ -30,6 +30,9 @@ extern const char kClearTokenService[];
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const char kForceFreDefaultBrowserStep[];
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const char kForceFreFeatureShowcaseSteps[];
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 // Feature declarations, sorted by the name of the BASE_DECLARE_FEATURE in each
@@ -210,6 +213,13 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                            kChromeIdentitySurveyLaunchWithDelayDuration);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+#if BUILDFLAG(IS_CHROMEOS)
+// If enabled, the primary account consent level on ChromeOS is set to kSignin
+// instead of kSync for new profiles.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kChromeOsUseConsentLevelSigninForNewUsers);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 // Feature flag to enable cross-device sign-in.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -221,10 +231,14 @@ extern const base::FeatureParam<std::string> kCrossDeviceSigninUrl;
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // If enabled, disables feedback for U18 users on desktop platforms.
-// The iOS version is kDisableU18FeedbackIos flag.
+// The iOS version is kDisableFeedbackForIneligibleUsers flag.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kDisableU18FeedbackDesktop);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+// Enables fetching and storing preview data for signed-in accounts.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableAccountPreviewData);
 
 #if BUILDFLAG(IS_ANDROID)
 // Whether activityless sign-in should be used for all entry points.
@@ -263,7 +277,21 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-#if !defined(NDEBUG)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableChromeRefreshTokenBindingUpgrade);
+enum class RefreshTokenBindingUpgradeType {
+  kDarkLaunch,
+  kLiveLaunch,
+};
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kOamlCookieUpgradeEnabled);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(RefreshTokenBindingUpgradeType,
+                           kRefreshTokenBindingUpgradeType);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+#if !defined(NDEBUG) && !BUILDFLAG(IS_ANDROID)
 // A fake feature corresponding to the kFakeCapabilityForTestingName account
 // capability. This is only used in unit tests (and must be left disabled to
 // prevent fetching the fake capability).
@@ -347,6 +375,22 @@ BASE_DECLARE_FEATURE(kEnforceManagementDisclaimer);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<base::TimeDelta>
     kPolicyDisclaimerRegistrationRetryDelay;
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Feature flag controlling whether the MustFetchAppleAgeRangeInChrome account
+// capability should be used to determine whether the client must fetch Apple's
+// age range.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnforceMustFetchAppleAgeRangeInChromeCapability);
+#endif
+
+#if BUILDFLAG(IS_IOS)
+// Feature flag controlling whether the MustSkipAppleAgeRangeInChrome account
+// capability should be used to determine whether the client must skip Apple's
+// age range check.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnforceMustSkipAppleAgeRangeInChromeCapability);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -466,7 +510,6 @@ BASE_DECLARE_FEATURE(kGlicEligibilitySeparateAccountCapability);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccounts);
 
-
 #if BUILDFLAG(IS_IOS)
 // Killswitch for ignoring X-Chrome-Manage-Accounts header in subframes.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -501,12 +544,16 @@ BASE_DECLARE_FEATURE(kNoAccountWebSignin);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kNonDefaultGaiaOriginCheck);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 // Add new entry points for uploading passwords to account storage and update
 // existing ones.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kPasswordUploadUiUpdate);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Experimenting with changing the secondary CTA for FRE and new profile
 // creation.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -519,22 +566,6 @@ BASE_DECLARE_FEATURE(kProfileCreationDeclineSigninCTAExperiment);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kProfileDiscOnAllPages);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// Enables variations of the profile picker text.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kProfilePickerTextVariations);
-enum class ProfilePickerVariation {
-  kKeepWorkAndLifeSeparate = 0,
-  kGotAnotherGoogleAccount = 1,
-  kKeepTasksSeparate = 2,
-  kSharingAComputer = 3,
-  kKeepEverythingInChrome = 4,
-};
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<ProfilePickerVariation>
-    kProfilePickerTextVariation;
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kProfilesReordering);
@@ -552,10 +583,13 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kRestrictDeviceManagementServiceOAuthScope);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-// Experimenting with showing the profile picker to all users (not only the
-// users with multiple profiles).
+// Enables the new visual design for the profile switch interception bubble,
+// aligning it with the V2 style used for new profiles. Used in
+// dice_web_signin_intercept_handler.cc.
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kShowProfilePickerToAllUsersExperiment);
+BASE_DECLARE_FEATURE(kSigninInterceptGraphicUpdate);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_ANDROID)
 // Experiment replacing signed out avatar with signin button on Android, see

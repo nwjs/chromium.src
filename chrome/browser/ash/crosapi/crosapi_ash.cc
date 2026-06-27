@@ -13,7 +13,6 @@
 #include "base/notimplemented.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/ash/crosapi/document_scan_ash.h"
 #include "chrome/browser/ash/crosapi/local_printer_ash.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_factory.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -23,7 +22,6 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
-#include "chromeos/ash/components/telemetry_extension/management/telemetry_management_service_ash.h"
 #include "chromeos/ash/components/telemetry_extension/routines/telemetry_diagnostic_routine_service_ash.h"
 #include "chromeos/ash/components/telemetry_extension/telemetry/probe_service_ash.h"
 #include "chromeos/components/cdm_factory_daemon/cdm_factory_daemon_proxy_ash.h"
@@ -71,12 +69,9 @@ Profile* GetAshProfile() {
 }  // namespace
 
 CrosapiAsh::CrosapiAsh()
-    : document_scan_ash_(std::make_unique<DocumentScanAsh>()),
-      local_printer_ash_(std::make_unique<LocalPrinterAsh>()),
+    : local_printer_ash_(std::make_unique<LocalPrinterAsh>()),
       telemetry_diagnostic_routine_service_ash_(
           std::make_unique<ash::TelemetryDiagnosticsRoutineServiceAsh>()),
-      telemetry_management_service_ash_(
-          std::make_unique<ash::TelemetryManagementServiceAsh>()),
       probe_service_ash_(std::make_unique<ash::ProbeServiceAsh>()) {
   receiver_set_.set_disconnect_handler(base::BindRepeating(
       &CrosapiAsh::OnDisconnected, weak_factory_.GetWeakPtr()));
@@ -111,11 +106,6 @@ void CrosapiAsh::BindCfmServiceContext(
     mojo::PendingReceiver<chromeos::cfm::mojom::CfmServiceContext> receiver) {
   chromeos::cfm::ServiceConnection::GetInstance()->BindServiceContext(
       std::move(receiver));
-}
-
-void CrosapiAsh::BindDocumentScan(
-    mojo::PendingReceiver<mojom::DocumentScan> receiver) {
-  document_scan_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindHidManager(
@@ -179,16 +169,6 @@ void CrosapiAsh::BindSensorHalClient(
 void CrosapiAsh::BindTelemetryDiagnosticRoutinesService(
     mojo::PendingReceiver<mojom::TelemetryDiagnosticRoutinesService> receiver) {
   telemetry_diagnostic_routine_service_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindTelemetryManagementService(
-    mojo::PendingReceiver<mojom::TelemetryManagementService> receiver) {
-  telemetry_management_service_ash_->BindReceiver(std::move(receiver));
-}
-
-void CrosapiAsh::BindTelemetryProbeService(
-    mojo::PendingReceiver<mojom::TelemetryProbeService> receiver) {
-  probe_service_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::OnDisconnected() {

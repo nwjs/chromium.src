@@ -6,30 +6,30 @@
 const modernAlgorithms = {
   // Asymmetric algorithms
   'ML-DSA-44': {
-    operations: ['generateKey', 'importKey', 'sign', 'verify'],
+    operations: ['generateKey', 'importKey', 'sign', 'verify', 'getPublicKey'],
   },
   'ML-DSA-65': {
-    operations: ['generateKey', 'importKey', 'sign', 'verify'],
+    operations: ['generateKey', 'importKey', 'sign', 'verify', 'getPublicKey'],
   },
   'ML-DSA-87': {
-    operations: ['generateKey', 'importKey', 'sign', 'verify'],
+    operations: ['generateKey', 'importKey', 'sign', 'verify', 'getPublicKey'],
   },
   'ML-KEM-512': {
     operations: [
       'generateKey', 'importKey', 'encapsulateKey', 'encapsulateBits',
-      'decapuslateKey', 'decapsulateBits'
+      'decapsulateKey', 'decapsulateBits', 'getPublicKey'
     ],
   },
   'ML-KEM-768': {
     operations: [
       'generateKey', 'importKey', 'encapsulateKey', 'encapsulateBits',
-      'decapsulateKey', 'decapsulateBits'
+      'decapsulateKey', 'decapsulateBits', 'getPublicKey'
     ],
   },
   'ML-KEM-1024': {
     operations: [
       'generateKey', 'importKey', 'encapsulateKey', 'encapsulateBits',
-      'decapsulateKey', 'decapsulateBits'
+      'decapsulateKey', 'decapsulateBits', 'getPublicKey'
     ],
   },
 
@@ -54,6 +54,7 @@ const operations = [
   'encapsulateBits',
   'decapsulateKey',
   'decapsulateBits',
+  'getPublicKey',
 ];
 
 // Test that supports method exists and is a static method
@@ -72,7 +73,7 @@ for (const [algorithmName, algorithmInfo] of Object.entries(modernAlgorithms)) {
 
       // Use appropriate algorithm parameters for each operation
       let algorithm;
-      let length;
+      let lengthOrAdditionalAlgorithm;
       switch (operation) {
         case 'generateKey':
           algorithm = algorithmInfo.keyGenParams || algorithmName;
@@ -94,7 +95,7 @@ for (const [algorithmName, algorithmInfo] of Object.entries(modernAlgorithms)) {
             algorithm.public = (await algorithm.public).publicKey;
           }
           if (algorithmName === 'PBKDF2' || algorithmName === 'HKDF') {
-            length = 256;
+            lengthOrAdditionalAlgorithm = 256;
           }
           break;
         case 'digest':
@@ -105,12 +106,15 @@ for (const [algorithmName, algorithmInfo] of Object.entries(modernAlgorithms)) {
         case 'decapsulateKey':
         case 'decapsulateBits':
           algorithm = algorithmName;
+          if (operation === 'encapsulateKey' || operation === 'decapsulateKey') {
+            lengthOrAdditionalAlgorithm = { name: 'AES-GCM', length: 256 };
+          }
           break;
         default:
           algorithm = algorithmName;
       }
 
-      const result = SubtleCrypto.supports(operation, algorithm, length);
+      const result = SubtleCrypto.supports(operation, algorithm, lengthOrAdditionalAlgorithm);
 
       if (isSupported) {
         assert_true(result, `${algorithmName} should support ${operation}`);

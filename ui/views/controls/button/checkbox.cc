@@ -262,7 +262,11 @@ SkColor Checkbox::GetIconCheckColor(int icon_state) const {
 }
 
 const gfx::VectorIcon& Checkbox::GetVectorIcon() const {
-  return GetChecked() ? kCheckboxCheckCr2023Icon : kCheckboxNormalCr2023Icon;
+  return GetChecked()                        ? features::IsRoundedIconsEnabled()
+                                                   ? kCheckSmallIcon
+                                                   : kCheckboxCheckCr2023OldIcon
+         : features::IsRoundedIconsEnabled() ? kCheckBoxOutlineBlankIcon
+                                             : kCheckboxNormalCr2023OldIcon;
 }
 
 int Checkbox::GetIconState(ButtonState for_state) const {

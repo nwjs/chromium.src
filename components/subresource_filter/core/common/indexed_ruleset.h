@@ -8,12 +8,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <memory>
+#include <string_view>
+#include <vector>
+
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "components/subresource_filter/core/common/flat/indexed_ruleset_generated.h"
 #include "components/subresource_filter/core/common/load_policy.h"
+#include "components/subresource_filter/core/common/style_rule_indexer.h"
+#include "components/subresource_filter/core/common/style_rule_matcher.h"
 #include "components/url_pattern_index/url_pattern_index.h"
 #include "third_party/flatbuffers/src/include/flatbuffers/flatbuffers.h"
 
@@ -25,6 +31,7 @@ class Origin;
 
 namespace url_pattern_index {
 namespace proto {
+class StyleRule;
 class UrlRule;
 }
 }  // namespace url_pattern_index
@@ -32,6 +39,12 @@ class UrlRule;
 namespace subresource_filter {
 
 class FirstPartyOrigin;
+
+// Returns a hash for a style rule's anchor (e.g., a class or ID name without
+// the '.' or '#' prefix). This is meant to provide the exact same hash value as
+// blink's `AtomicString` would, and there are blink unittests to verify as
+// much.
+uint32_t GetStyleRuleHash(std::string_view name);
 
 // Detailed result of IndexedRulesetMatcher::Verify.
 // Note: Logged to UMA, keep in sync with SubresourceFilterVerifyStatus in
@@ -60,7 +73,7 @@ class RulesetIndexer {
   // contributors aware of that.
   static const int kIndexedFormatVersion;
 
-  RulesetIndexer();
+  explicit RulesetIndexer(uint64_t ruleset_id);
 
   RulesetIndexer(const RulesetIndexer&) = delete;
   RulesetIndexer& operator=(const RulesetIndexer&) = delete;
@@ -71,6 +84,9 @@ class RulesetIndexer {
   // filter options, in which case the data structures remain unmodified.
   // Returns whether the |rule| has been serialized and added to the index.
   bool AddUrlRule(const url_pattern_index::proto::UrlRule& rule);
+
+  // Adds |rule| to the style rule index.
+  bool AddStyleRuleFromProto(const url_pattern_index::proto::StyleRule& rule);
 
   // Finalizes construction of the data structures.
   void Finish();
@@ -85,6 +101,8 @@ class RulesetIndexer {
         base::span(builder_.GetBufferPointer(), builder_.GetSize()));
   }
 
+  uint64_t ruleset_id() const { return ruleset_id_; }
+
  private:
   flatbuffers::FlatBufferBuilder builder_;
 
@@ -92,9 +110,13 @@ class RulesetIndexer {
   url_pattern_index::UrlPatternIndexBuilder allowlist_;
   url_pattern_index::UrlPatternIndexBuilder deactivation_;
 
+  StyleRuleIndexer style_rule_indexer_;
+
   // Maintains a map of domain vectors to their existing offsets, to avoid
   // storing a particular vector more than once.
   url_pattern_index::FlatDomainMap domain_map_;
+
+  uint64_t ruleset_id_ = 0;
 };
 
 // Matches URLs against the FlatBuffer representation of an indexed ruleset.
@@ -112,6 +134,8 @@ class IndexedRulesetMatcher {
 
   IndexedRulesetMatcher(const IndexedRulesetMatcher&) = delete;
   IndexedRulesetMatcher& operator=(const IndexedRulesetMatcher&) = delete;
+
+  ~IndexedRulesetMatcher();
 
   // Returns whether the subset of subresource filtering rules specified by the
   // |activation_type| should be disabled for the |document| loaded from
@@ -146,12 +170,45 @@ class IndexedRulesetMatcher {
       url_pattern_index::proto::ElementType element_type,
       bool disable_generic_rules) const;
 
+  uint64_t ruleset_id() const { return root_->ruleset_id(); }
+
+  // Returns the selectors that apply to the `document_origin`.
+  void GetDomainSelectors(const url::Origin& document_origin,
+                          std::vector<std::string_view>& out_selectors) const;
+
+  // Note: several methods below take a `hash` argument. It is a hash of either
+  // the class or id in question. The `hash` should be the same as that would
+  // be provided by `blink::AtomicString::hash()` if the string is ascii,
+  // otherwise the string needs to be converted to UTF8 and `GetStyleRuleHash`
+  // should be called on it.
+
+  // Returns whether the ruleset might have any selectors matching the given
+  // `hash`. This is backed by a bloom filter, so it may return false positives
+  // but not false negatives.
+  bool MaybeHasStyleRule(uint32_t hash) const;
+
+  // Returns the selectors that contain `class_name` and apply to the
+  // `document_origin`.
+  void GetSelectorsByClass(const url::Origin& document_origin,
+                           std::string_view class_name,
+                           uint32_t hash,
+                           std::vector<std::string_view>& out_selectors) const;
+
+  // Returns the selectors that contain `id_name` and apply to the
+  // `document_origin`.
+  void GetSelectorsById(const url::Origin& document_origin,
+                        std::string_view id_name,
+                        uint32_t hash,
+                        std::vector<std::string_view>& out_selectors) const;
+
  private:
   raw_ptr<const flat::IndexedRuleset> root_;
 
   url_pattern_index::UrlPatternIndexMatcher blocklist_;
   url_pattern_index::UrlPatternIndexMatcher allowlist_;
   url_pattern_index::UrlPatternIndexMatcher deactivation_;
+
+  StyleRuleMatcher style_rule_matcher_;
 };
 
 }  // namespace subresource_filter

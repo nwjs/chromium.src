@@ -56,6 +56,51 @@ url_pattern_index::proto::UrlRule CreateAllowlistRuleForDocument(
         url_pattern_index::proto::ACTIVATION_TYPE_DOCUMENT,
     std::vector<std::string> initiator_domains = std::vector<std::string>());
 
+// Creates a StyleRule with the given |selector|, |domains|, |is_exclusion|,
+// |classes|, and |ids|.
+url_pattern_index::proto::StyleRule CreateStyleRule(
+    std::string_view selector,
+    const std::vector<std::string>& domains = {},
+    bool is_exclusion = false,
+    const std::vector<std::string>& classes = {},
+    const std::vector<std::string>& ids = {});
+
+struct StyleRuleParams {
+  StyleRuleParams();
+  ~StyleRuleParams();
+
+  StyleRuleParams& SetSelector(std::string s) {
+    selector = std::move(s);
+    return *this;
+  }
+  StyleRuleParams& SetDomains(std::vector<std::string> d) {
+    domains = std::move(d);
+    return *this;
+  }
+  StyleRuleParams& SetExclusion(bool e) {
+    is_exclusion = e;
+    return *this;
+  }
+  StyleRuleParams& SetClasses(std::vector<std::string> c) {
+    classes = std::move(c);
+    return *this;
+  }
+  StyleRuleParams& SetIds(std::vector<std::string> i) {
+    ids = std::move(i);
+    return *this;
+  }
+
+  std::string selector;
+  std::vector<std::string> domains;
+  bool is_exclusion = false;
+  std::vector<std::string> classes;
+  std::vector<std::string> ids;
+};
+
+// Creates a StyleRule with the given `params`.
+url_pattern_index::proto::StyleRule CreateStyleRule(
+    const StyleRuleParams& params);
+
 }  // namespace testing
 }  // namespace subresource_filter
 

@@ -37,20 +37,7 @@ const base::FeatureParam<base::TimeDelta>
 BASE_FEATURE(kAppSpecificNotifications, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDisableBoostPriority, base::FEATURE_DISABLED_BY_DEFAULT);
-static constexpr base::FeatureParam<DisableBoostPriorityExemption>::Option
-    kDisableBoostPriorityOptions[] = {
-        {DisableBoostPriorityExemption::kBrowserNetwork, "BrowserNetwork"},
-        {DisableBoostPriorityExemption::kGpuBrowserNetwork,
-         "GpuBrowserNetwork"},
-        {DisableBoostPriorityExemption::kLoadingBrowserNetwork,
-         "LoadingBrowserNetwork"},
-        {DisableBoostPriorityExemption::kForegroundBrowserNetwork,
-         "ForegroundBrowserNetwork"}};
-constinit const base::FeatureParam<DisableBoostPriorityExemption>
-    kDisableBoostPriorityExemption{
-        &kDisableBoostPriority, "exempt_processes",
-        DisableBoostPriorityExemption::kForegroundBrowserNetwork,
-        &kDisableBoostPriorityOptions};
+
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
@@ -112,6 +99,11 @@ const base::FeatureParam<std::string> kBoardingPassDetectorUrlParam(
 BASE_FEATURE(kBorealis, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kCaptureHandleForStandalonePwasAndIwas,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(IS_CHROMEOS)
 // Enable project Crostini, Linux VMs on Chrome OS.
 BASE_FEATURE(kCrostini, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -164,6 +156,10 @@ BASE_FEATURE(kDesktopPWAsPreventClose,
 // Adds a user settings that allows PWAs to be opened with a tab strip.
 BASE_FEATURE(kDesktopPWAsTabStripSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the standalone Document Picture-in-Picture window path, replacing
+// the Browser-backed implementation with a dedicated host.
+BASE_FEATURE(kDocumentPipStandaloneWindow, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Allows fullscreen to claim whole display area when in windowing mode
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kDisplayEdgeToEdgeFullscreen, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -191,14 +187,6 @@ BASE_FEATURE(kForcedAppRelaunchOnPlaceholderUpdate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-// Controls whether the GeoLanguage system is enabled. GeoLanguage uses IP-based
-// coarse geolocation to provide an estimate (for use by other Chrome features
-// such as Translate) of the local/regional language(s) corresponding to the
-// device's location. If this feature is disabled, the GeoLanguage provider is
-// not initialized at startup, and clients calling it will receive an empty list
-// of languages.
-BASE_FEATURE(kGeoLanguage, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Controls whether the actor component of Glic is enabled.
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kGlicActor, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -206,7 +194,24 @@ BASE_FEATURE(kGlicActor, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicActor, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+BASE_FEATURE(kGlicActorApcComparison, base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<double> kGlicActorApcComparisonSamplingRate{
+    &kGlicActorApcComparison, "sampling-rate", 0.1};
+
+BASE_FEATURE(kGlicIgnoreDogfoodClient, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicExperimentalTriggering, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicExperimentalTriggeringSuppressDoneNotification,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicExperimentalTriggeringOptInBypass,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicExperimentalTriggeringOpenWindowIfNone,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kGlicExperimentalTriggeringOptInURL{
+    &kGlicExperimentalTriggering, "glic-experimental-triggering-opt-in-url",
+    "https://gemini.google.com/glic/intro?"};
 
 const base::FeatureParam<base::TimeDelta> kGlicActorPageToolTimeout{
     &kGlicActor, "glic-actor-page-tool-timeout", base::Seconds(30)};
@@ -247,7 +252,7 @@ BASE_FEATURE(kGlicHandoffButtonHideWhenOmniboxPopupOpened,
 
 // If enabled, the magic cursor is shown during actuation for mouse movements
 // and clicks.
-BASE_FEATURE(kGlicActorUiMagicCursor, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicActorUiMagicCursor, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Default: 1.5 pixels per millisecond
 const base::FeatureParam<double> kGlicActorUiMagicCursorSpeed{
@@ -449,6 +454,22 @@ BASE_FEATURE(kGlic,
 #endif
 );
 
+BASE_FEATURE(kGlicSupportLinks, base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kGlicLocationMismatchHelpUrl{
+    &kGlicSupportLinks, "location_mismatch_help_url",
+    "https://support.google.com/gemini/answer/17117411#gic_access"};
+
+const base::FeatureParam<std::string> kGlicIneligibleAccountHelpUrl{
+    &kGlicSupportLinks, "ineligible_account_help_url",
+    "https://support.google.com/gemini/answer/17117411#gic_access"};
+
+const base::FeatureParam<int> kGlicMinRequiredRamMb{
+    &kGlic, "glic-min-required-ram-mb", 0};
+
+const base::FeatureParam<bool> kGlicAdaptiveToolbarAutoPin{
+    &kGlic, "adaptive-toolbar-auto-pin", true};
+
 // Controls whether the Glic feature is always detached.
 BASE_FEATURE(kGlicDetached, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -501,8 +522,6 @@ BASE_FEATURE(kGlicForceSimplifiedBorder, base::FEATURE_DISABLED_BY_DEFAULT);
 // cc::PaintShader::MakeSkSLCommand.
 BASE_FEATURE(kGlicForceNonSkSLBorder, base::FEATURE_DISABLED_BY_DEFAULT);
 
-
-
 const base::FeatureParam<int> kGlicInitialWidth{&kGlic, "glic-initial-width",
                                                 352};
 const base::FeatureParam<int> kGlicInitialHeight{&kGlic, "glic-initial-height",
@@ -518,10 +537,6 @@ const base::FeatureParam<std::string> kGlicDefaultHotkey{
 BASE_FEATURE(kGlicURLConfig, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicGuestURL{
     &kGlicURLConfig, "glic-guest-url", "https://gemini.google.com/glic"};
-
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kGlicShowStatusTrayIcon, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE_PARAM(std::string,
                    kGlicUserStatusUrl,
@@ -592,39 +607,44 @@ BASE_FEATURE_PARAM(std::string,
                    kGlicShortcutsLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
                    "glic-shortcuts-learn-more-url",
-                   "");
+                   "https://support.google.com/gemini?p=chrome_ks");
 BASE_FEATURE_PARAM(std::string,
                    kGlicLauncherToggleLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
                    "glic-shortcuts-launcher-toggle-learn-more-url",
-                   "");
-BASE_FEATURE_PARAM(std::string,
-                   kGlicLocationToggleLearnMoreURL,
-                   &kGlicLearnMoreURLConfig,
-                   "glic-shortcuts-location-toggle-learn-more-url",
-                   "");
+                   "https://support.google.com/gemini?p=chrome_min");
+BASE_FEATURE_PARAM(
+    std::string,
+    kGlicLocationToggleLearnMoreURL,
+    &kGlicLearnMoreURLConfig,
+    "glic-shortcuts-location-toggle-learn-more-url",
+    "https://support.google.com/gemini/answer/"
+    "13594961?hl=en#location_info&zippy=%2Cwhat-location-information-do-gemini-"
+    "apps-collect-why-and-how-is-it-used");
 BASE_FEATURE_PARAM(std::string,
                    kGlicTabAccessToggleLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
                    "glic-shortcuts-tab-access-toggle-learn-more-url",
-                   "");
+                   "https://support.google.com/gemini?p=chrome_PH");
 BASE_FEATURE_PARAM(
     std::string,
     kGlicTabAccessToggleLearnMoreURLDataProtected,
     &kGlicLearnMoreURLConfig,
     "glic-shortcuts-tab-access-toggle-learn-more-url-data-protected",
-    "");
+    "https://support.google.com/a/answer/15706919");
 BASE_FEATURE_PARAM(std::string,
                    kGlicDefaultTabAccessToggleLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
                    "glic-default-tab-access-toggle-learn-more-url",
-                   "");
+                   "https://support.google.com/gemini/answer/"
+                   "13594961?hl=en#chrome&zippy=%2Cwhat-happens-to-my-data-"
+                   "when-i-use-gemini-in-chrome");
 BASE_FEATURE_PARAM(
     std::string,
     kGlicDefaultTabAccessToggleLearnMoreURLDataProtected,
     &kGlicLearnMoreURLConfig,
     "glic-default-tab-access-toggle-learn-more-url-data-protected",
-    "");
+    "https://support.google.com/a/answer/15706919");
 BASE_FEATURE_PARAM(std::string,
                    kGlicSettingsPageLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
@@ -634,18 +654,29 @@ BASE_FEATURE_PARAM(std::string,
                    kGlicWebActuationToggleLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
                    "glic-actuation-on-web-toggle-learn-more-url",
-                   "");
+                   "https://support.google.com/gemini?p=gic_agent");
 BASE_FEATURE_PARAM(std::string,
-                   kGlicWebActuationToggleConsiderSafelyURL,
+                   kGlicExperimentalTriggeringLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
-                   "glic-actuation-on-web-toggle-things-to-consider-safely-url",
-                   "");
+                   "glic-experimental-triggering-toggle-learn-more-url",
+                   "https://support.google.com/chrome?p=gemini_spark");
+BASE_FEATURE_PARAM(std::string,
+                   kGlicExperimentalTriggeringSafetyURL,
+                   &kGlicLearnMoreURLConfig,
+                   "glic-experimental-triggering-toggle-safety-url",
+                   "https://support.google.com/chrome?p=gemini_spark_safety");
+BASE_FEATURE_PARAM(
+    std::string,
+    kGlicWebActuationToggleConsiderSafelyURL,
+    &kGlicLearnMoreURLConfig,
+    "glic-actuation-on-web-toggle-things-to-consider-safely-url",
+    "https://policies.google.com/terms/generative-ai/use-policy");
 BASE_FEATURE_PARAM(
     std::string,
     kGlicWebActuationToggleConsiderUnexpectedResultsURL,
     &kGlicLearnMoreURLConfig,
     "glic-actuation-on-web-toggle-things-to-consider-unexpected-results-url",
-    "");
+    "https://support.google.com/gemini?p=gic_unexpected_results");
 BASE_FEATURE_PARAM(std::string,
                    kGlicExtensionsManagementUrl,
                    &kGlicLearnMoreURLConfig,
@@ -662,6 +693,15 @@ const base::FeatureParam<std::string> kGlicAllowedOriginsOverride{
     &kGlicCSPConfig, "glic-allowed-origins-override",
     // Space-delimited set of allowed origins.
     "https://gemini.google.com https://www.google.com"};
+// Origins that can use the Glic API. The default Glic guest origin is
+// automatically allowed, this restricts API use if the guest navigates.
+const base::FeatureParam<std::string> kGlicApiAllowedOrigins{
+    &kGlicCSPConfig, "glic-api-allowed-origins",
+    // Space-delimited set of origins allowed to have API access.
+    "https://gemini.google.com "
+    "https://gemini-autopush.corp.google.com "
+    "https://gemini-staging.corp.google.com "
+    "https://gemini-preprod.corp.google.com"};
 
 // Enable/disable Glic web client responsiveness check feature.
 BASE_FEATURE(kGlicClientResponsivenessCheck, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -721,15 +761,6 @@ const base::FeatureParam<bool> kGlicScrollToEnforceURLForPDF{
 
 BASE_FEATURE(kGlicWarming, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Killswitch that controls whether the guest WebContents visibility state is
-// set to hidden when the Glic panel is warming.
-BASE_FEATURE(kGlicGuestContentsVisibilityState,
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_MAC) ||  BUILDFLAG(IS_LINUX)
-
 // Controls the amount of time from the GlicButtonController scheduling
 // preload to the start of preloading (if preloading is possible).
 const base::FeatureParam<int> kGlicWarmingDelayMs{
@@ -766,19 +797,6 @@ BASE_FEATURE(kGlicBindPinnedUnboundTab, base::FEATURE_ENABLED_BY_DEFAULT);
 // glic client background color.
 BASE_FEATURE(kGlicExplicitBackgroundColor, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Features to experiment with resetting the panel default location.
-BASE_FEATURE(kGlicPanelResetTopChromeButton, base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<int> kGlicPanelResetTopChromeButtonDelayMs{
-    &kGlicPanelResetTopChromeButton, "glic-panel-reset-delay-ms", 2500};
-BASE_FEATURE(kGlicPanelResetOnStart, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicPanelSetPositionOnDrag, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicPanelResetOnSessionTimeout, base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<double> kGlicPanelResetOnSessionTimeoutDelayH{
-    &kGlicPanelResetOnSessionTimeout,
-    "glic-panel-reset-session-timeout-delay-h", 1};
-BASE_FEATURE(kGlicPanelResetSizeAndLocationOnOpen,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kGlicPersonalContext, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicGeminiInstructions, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -796,7 +814,6 @@ extern const base::FeatureParam<std::string>
 
 BASE_FEATURE(kGlicRecordMemoryFootprintMetrics,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
 
 BASE_FEATURE(kGlicRegionSelectionLine, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -856,10 +873,6 @@ extern const base::FeatureParam<std::string> kGlicCaaGuestRedirectPatterns{
     &kGlicCaaGuestError, "glic-caa-redirect-patterns",
     "https://access.workspace.google.com https://admin.google.com "
     "https://accounts.google.com/info/servicerestricted"};
-
-BASE_FEATURE(kGlicButtonAltLabel, base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<int> kGlicButtonAltLabelVariant{
-    &kGlicButtonAltLabel, "glic-button-alt-label-variant", 0};
 
 #if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
 BASE_FEATURE(kGlicDaisyChainNewTabs, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -959,6 +972,10 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 BASE_FEATURE(kGlicActorAutofillOneTimePassword,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Whether to enable the section label in Glic actor autofill.
+// This feature is also gated by |kGlicActorAutofill|.
+BASE_FEATURE(kGlicActorAutofillSectionLabel, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicDisableUnderlineAnimations,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicGuestUrlPresets, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -985,7 +1002,9 @@ BASE_FEATURE(kPrivacyGuideForceAvailable, base::FEATURE_DISABLED_BY_DEFAULT);
 #if BUILDFLAG(ENABLE_PDF)
 BASE_FEATURE(kPdfGlicSummarize, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kPdfGlicSummarizeArm{&kPdfGlicSummarize, "arm",
-                                                   1};
+                                                   3};
+const base::FeatureParam<bool> kPdfGlicSummarizeUseLongButtonText{
+    &kPdfGlicSummarize, "use_long_button_text", false};
 BASE_FEATURE(kPdfGlicSummarizeFre, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
@@ -1141,6 +1160,9 @@ BASE_FEATURE(kHttpsFirstModeForAdvancedProtectionUsers,
              "HttpsOnlyModeForAdvancedProtectionUsers",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kHttpsFirstModeDefaultSettingPairsWithEsb,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables HTTPS-First Mode for engaged sites. No-op if HttpsFirstModeV2 or
 // HTTPS-Upgrades is disabled.
 BASE_FEATURE(kHttpsFirstModeV2ForEngagedSites,
@@ -1153,23 +1175,45 @@ BASE_FEATURE(kHttpsFirstModeV2ForTypicallySecureUsers,
 
 // Enables automatically upgrading main frame navigations to HTTPS.
 BASE_FEATURE(kHttpsUpgrades, base::FEATURE_ENABLED_BY_DEFAULT);
+// When enabled, typed schemeless navigations (e.g., typed "example.com" in the
+// Omnibox) that are upgraded to HTTPS will not fallback to HTTP if the HTTPS
+// navigation fails due to a timeout.
+BASE_FEATURE(kHttpsUpgradesTypedSchemelessNavigationNoTimeoutFallback,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta> kHttpsUpgradesFallbackDelay{
+    &kHttpsUpgrades, "fallback-delay", base::Seconds(3)};
+
+const base::FeatureParam<base::TimeDelta>
+    kHttpsUpgradesAskBeforeHttpFallbackDelay{
+        &kHttpsUpgrades, "ask-before-http-fallback-delay", base::Seconds(5)};
 
 // Enables HTTPS-First Mode by default in Incognito Mode.
 BASE_FEATURE(kHttpsFirstModeIncognito, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Experimental image replacement feature. b/482792874
 BASE_FEATURE(kIndigo, base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<base::TimeDelta> kIndigoAnchoredMessageResetDuration{
     &kIndigo, "indigo_anchored_message_reset_duration", base::Hours(24)};
 const base::FeatureParam<std::string> kIndigoGenerateUrl{
     &kIndigo, "indigo_generate_url", ""};
 const base::FeatureParam<std::string> kIndigoStatusUrl{&kIndigo,
                                                        "indigo_status_url", ""};
+const base::FeatureParam<std::string> kIndigoDeleteUrl{&kIndigo,
+                                                       "indigo_delete_url", ""};
 const base::FeatureParam<std::string> kIndigoOnboardingUrl{
     &kIndigo, "indigo_onboarding_url", ""};
 const base::FeatureParam<std::string> kIndigoScopes{
     &kIndigo, "indigo_scopes",
     "https://www.googleapis.com/auth/userinfo.email"};
+
+// Experimental image replacement feature opens glic.
+BASE_FEATURE(kIndigoOpenGlic, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string> kIndigoGlicPrompt{
+    &kIndigoOpenGlic, "indigo_glic_prompt", ""};
+const base::FeatureParam<std::string> kIndigoGlicPromptKey{
+    &kIndigoOpenGlic, "indigo_glic_prompt_key", ""};
 
 #if !BUILDFLAG(IS_ANDROID)
 // A feature that controls whether Instant uses a spare renderer.
@@ -1182,7 +1226,12 @@ BASE_FEATURE(kIsolatedWebAppDevMode, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables users on unmanaged devices to install Isolated Web Apps.
 BASE_FEATURE(kIsolatedWebAppUnmanagedInstall,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_CHROMEOS)
+);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables users to install isolated web apps in managed guest sessions.
@@ -1736,6 +1785,12 @@ const base::FeatureParam<base::TimeDelta>
 // See crbug.com/475397687.
 const base::FeatureParam<bool> kWebUIReloadButtonRestartUnresponsive{
     &kWebUIReloadButton, "WebUIReloadButtonRestartUnresponsive", false};
+const base::FeatureParam<base::TimeDelta>
+    kWebUIReloadButtonRestartUnresponsiveRenderersTimeout{
+        &kWebUIReloadButton,
+        "WebUIReloadButtonRestartUnresponsiveRenderersTimeout",
+        base::Seconds(15)};
+
 // When this is enabled, the `BrowserView` will not show until the reload button
 // has finished loading.
 const base::FeatureParam<bool> kWebUIReloadButtonDeferBrowserViewShow{
@@ -1748,11 +1803,6 @@ const base::FeatureParam<bool> kWebUIReloadButtonPrewarmWebUI{
 // first non-empty paint.
 const base::FeatureParam<bool> kWebUIReloadButtonKeepVisibleUntilPaint{
     &kWebUIReloadButton, "WebUIReloadButtonKeepVisibleUntilPaint", false};
-const base::FeatureParam<base::TimeDelta>
-    kWebUIReloadButtonRestartUnresponsiveRenderersTimeout{
-        &kWebUIReloadButton,
-        "WebUIReloadButtonRestartUnresponsiveRenderersTimeout",
-        base::Seconds(15)};
 // When enabled, the split tabs button will be replaced with WebUI loaded from
 // chrome://webui-toolbar.top-chrome.
 // crbug.com/470039098
@@ -1761,6 +1811,15 @@ BASE_FEATURE(kWebUISplitTabsButton, base::FEATURE_DISABLED_BY_DEFAULT);
 // chrome://webui-toolbar.top-chrome.
 // crbug.com/470039765
 BASE_FEATURE(kWebUIHomeButton, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the battery saver button will be replaced with WebUI loaded
+// from chrome://webui-toolbar.top-chrome. crbug.com/503821930
+BASE_FEATURE(kWebUIBatterySaverButton, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the performance intervention button will be replaced with WebUI
+// loaded from chrome://webui-toolbar.top-chrome. crbug.com/503822129
+BASE_FEATURE(kWebUIPerformanceInterventionButton,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the app menu button will be replaced with WebUI loaded from
 // chrome://webui-toolbar.top-chrome.
@@ -1825,6 +1884,21 @@ BASE_FEATURE(kSmartRestart, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kSmartRestartDelay{
     &kSmartRestart, "restart_delay", base::Minutes(5)};
+
+BASE_FEATURE(kSmartRestartLockScreen, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kSmartRestartLockScreenTabThreshold{
+    &kSmartRestartLockScreen, "lock_tab_threshold", -1};
+
+const base::FeatureParam<int> kSmartRestartLockScreenDisruptionThreshold{
+    &kSmartRestartLockScreen, "lock_disruption_threshold", 2};
+
+const base::FeatureParam<base::TimeDelta> kSmartRestartLockScreenDelay{
+    &kSmartRestartLockScreen, "lock_restart_delay", base::Minutes(5)};
+
+// A feature to record the difference in the number of tabs and windows between
+// the last session and the current session on restart.
+BASE_FEATURE(kRecordTabWindowDiffOnRestart, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace features

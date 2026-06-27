@@ -22,7 +22,6 @@
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_browser_process.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
@@ -43,6 +42,12 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/test/base/ui_test_utils.h"
+#else
+#include "base/android/android_info.h"
+#endif
 
 #if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
@@ -113,6 +118,8 @@ std::unique_ptr<KeyedService> CreateMockAffiliationService(
   ON_CALL(*service, GetAffiliationsAndBranding(_, _))
       .WillByDefault(base::test::RunOnceCallbackRepeatedly<1>(
           std::vector<affiliations::Facet>(), /*success=*/true));
+  ON_CALL(*service, UpdateAffiliationsAndBranding(_, _))
+      .WillByDefault(base::test::RunOnceCallbackRepeatedly<1>());
   return service;
 }
 
@@ -167,6 +174,14 @@ class ActorAttemptLoginToolTest : public ActorToolsTest {
   }
 
   void SetUpOnMainThread() override {
+#if BUILDFLAG(IS_ANDROID)
+    // TODO(crbug.com/517620110): Decouple test from Glic eligibility criteria.
+    if (base::android::android_info::sdk_int() <
+        base::android::android_info::SDK_VERSION_S) {
+      GTEST_SKIP() << "Actor requires Android S+ to run";
+    }
+#endif
+
     ActorToolsTest::SetUpOnMainThread();
     ASSERT_TRUE(embedded_https_test_server().Start());
     ASSERT_TRUE(embedded_test_server()->Start());
@@ -258,6 +273,45 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolTest, Basic) {
       uploaded_logs()[0]->actor_login().quality().permission_picked(),
       optimization_guide::proto::ActorLoginQuality_PermissionOption_ALLOW_ONCE);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolTest,
+                       WaitsForAffiliationUpdateOnAndroid) {
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+  mock_login_service().SetCredential(MakeTestCredential(
+      u"username", url, /*immediately_available_to_login=*/true));
+  mock_login_service().SetLoginStatus(
+      actor_login::LoginStatusResult::kSuccessUsernameAndPasswordFilled);
+  base::RunLoop run_loop;
+  base::OnceClosure affiliation_update_callback;
+  EXPECT_CALL(*mock_affiliation_service(), UpdateAffiliationsAndBranding)
+      .WillOnce([&](const std::vector<affiliations::FacetURI>&,
+                    base::OnceClosure cb) {
+        affiliation_update_callback = std::move(cb);
+        run_loop.Quit();
+      });
+
+  std::unique_ptr<ToolRequest> action = MakeAttemptLoginRequest(*active_tab());
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  // Wait for the affiliation update to be requested.
+  run_loop.Run();
+
+  // Verify that `Act` hasn't finished yet, and `AttemptLogin` hasn't been
+  // called.
+  EXPECT_FALSE(result.IsReady());
+  EXPECT_FALSE(mock_login_service().last_credential_used().has_value());
+
+  // Now invoke the affiliation callback.
+  ASSERT_TRUE(affiliation_update_callback);
+  std::move(affiliation_update_callback).Run();
+  // The tool should now complete successfully.
+  ExpectOkResult(result);
+  EXPECT_TRUE(mock_login_service().last_credential_used().has_value());
+}
+#endif
 
 IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolTest, NoCredentials) {
   const GURL url =
@@ -777,6 +831,12 @@ class ActorAttemptLoginToolTestWithFaviconService
 
   void SetUpOnMainThread() override {
     ActorAttemptLoginToolTest::SetUpOnMainThread();
+#if BUILDFLAG(IS_ANDROID)
+    if (base::android::android_info::sdk_int() <
+        base::android::android_info::SDK_VERSION_S) {
+      return;
+    }
+#endif
     ON_CALL(mock_execution_engine(), GetFaviconService())
         .WillByDefault(Return(&mock_favicon_service_));
 
@@ -1163,6 +1223,7 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedShortDelayTest,
   EXPECT_FALSE(mock_login_service().last_sequence_succeeded());
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedTest,
                        FederatedLoginClicksProviderButtonWithPopup) {
   const GURL idp_url = GURL("https://accounts.google.com");
@@ -1206,7 +1267,10 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedTest,
       browser(), other_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
-  content::WebContentsAddedObserver web_contents_added_observer;
+  content::CreateAndLoadWebContentsObserver web_contents_observer(
+      1, base::BindRepeating([](content::WebContents* web_contents) {
+        return !web_contents->GetWebUI();
+      }));
 
   ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
@@ -1217,8 +1281,7 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedTest,
   // this to the caller.
   EXPECT_EQ(1, action_results.size());
 
-  content::WebContents* new_contents =
-      web_contents_added_observer.GetWebContents();
+  content::WebContents* new_contents = web_contents_observer.Wait();
   ASSERT_TRUE(new_contents);
 
   bool platform_supports_programmatic_window_activation = true;
@@ -1242,6 +1305,7 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedTest,
   EXPECT_EQ(signin_success_url, navigation_observer.last_navigation_url());
   EXPECT_TRUE(mock_login_service().last_sequence_succeeded());
 }
+#endif
 
 IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedTest,
                        FederatedLoginFailedButtonClick) {
@@ -1309,7 +1373,7 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolFederatedTest,
   ASSERT_TRUE(password_button_id);
 
   // Intentionally do not identify the provider button.
-  std::optional<int> provider_button_id = std::nullopt;
+  std::optional<int> provider_button_id;
 
   std::unique_ptr<ToolRequest> action = MakeAttemptLoginRequestByNodeIds(
       *active_tab(), password_button_id, provider_button_id);

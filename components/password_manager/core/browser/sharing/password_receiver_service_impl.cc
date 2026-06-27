@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
+#include "base/check_op.h"
 #include "base/functional/bind.h"
+#include "base/strings/utf_ostream_operators.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
@@ -204,7 +206,7 @@ void ProcessIncomingSharingInvitationTask::OnGetPasswordStoreResultsOrErrorFrom(
         ProcessIncomingPasswordSharingInvitationResult::
             kInvitationAutoApproved);
     password_store_->AddLogin(
-        incoming_credentials_,
+        password_manager::FromPasswordForm(std::move(incoming_credentials_)),
         base::BindOnce(std::move(done_processing_invitation_callback_), this));
     return;
   }
@@ -222,7 +224,7 @@ void ProcessIncomingSharingInvitationTask::OnGetPasswordStoreResultsOrErrorFrom(
       base::FeatureList::IsEnabled(
           features::kAutoApproveSharedPasswordUpdatesFromSameSender)) {
     password_store_->UpdateLogin(
-        incoming_credentials_,
+        password_manager::FromPasswordForm(std::move(incoming_credentials_)),
         base::BindOnce(std::move(done_processing_invitation_callback_), this));
     return;
   }

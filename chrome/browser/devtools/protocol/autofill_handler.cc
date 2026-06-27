@@ -16,6 +16,7 @@
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/field_type_utils.h"
@@ -298,6 +299,7 @@ void AutofillHandler::SetAddresses(
 void AutofillHandler::OnFillOrPreviewForm(
     autofill::AutofillManager& manager,
     autofill::FormGlobalId form_id,
+    autofill::FieldGlobalId trigger_field_id,
     autofill::mojom::ActionPersistence action_persistence,
     const base::flat_set<autofill::FieldGlobalId>& filled_field_ids,
     const autofill::FillingPayload& filling_payload) {

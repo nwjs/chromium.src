@@ -29,6 +29,7 @@
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_translation_manager.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
+#include "chrome/browser/web_applications/web_app_utils.h"
 #include "components/sync/base/time.h"
 #include "components/webapps/browser/install_result_code.h"
 #include "components/webapps/browser/web_app_url_config.h"
@@ -64,6 +65,15 @@ void FinalizeUpdateJob::Start(InstallFinalizedCallback callback) {
         base::BindOnce(&FinalizeUpdateJob::RunCallbackAndResetLock,
                        weak_ptr_factory_.GetWeakPtr(), webapps::AppId(),
                        webapps::InstallResultCode::kWebAppDisabled));
+    return;
+  }
+
+  if (SubAppScopeOverlapWithParentOrSibling(existing_web_app)) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&FinalizeUpdateJob::RunCallbackAndResetLock,
+                       weak_ptr_factory_.GetWeakPtr(), webapps::AppId(),
+                       webapps::InstallResultCode::kNotValidManifestForWebApp));
     return;
   }
 
@@ -254,7 +264,10 @@ void FinalizeUpdateJob::UpdateIsolationDataAndResetPendingUpdateInfo(
     builder.PersistFieldsForUpdate(*web_app->isolation_data());
   }
 
-  if (iwa_update_manifest_url) {
+  // Dev-mode apps must not set the update manifest URL from the parsed
+  // manifest. For dev-mode from-manifest installations, the URL is already
+  // set during installation.
+  if (iwa_update_manifest_url && !location.dev_mode()) {
     builder.SetUpdateManifestUrl(*iwa_update_manifest_url);
   }
 
@@ -340,6 +353,38 @@ void FinalizeUpdateJob::CommitToSyncBridge(std::unique_ptr<WebApp> web_app,
   } else {
     update->CreateApp(std::move(web_app));
   }
+}
+
+bool FinalizeUpdateJob::SubAppScopeOverlapWithParentOrSibling(
+    const WebApp* existing_web_app) {
+  const WebApp* parent_app =
+      existing_web_app->parent_app_id()
+          ? registrar().GetAppById(*existing_web_app->parent_app_id())
+          : nullptr;
+  if (!parent_app) {
+    return false;
+  }
+
+  auto parent_scope = parent_app->GetScope();
+  if (IsInScope(parent_scope.scope(), web_app_info_.scope)) {
+    return true;
+  }
+
+  auto scopes_overlap = [&](const GURL& other_scope) {
+    return IsInScope(web_app_info_.scope, other_scope) ||
+           IsInScope(other_scope, web_app_info_.scope);
+  };
+
+  for (const webapps::AppId& installed_id :
+       registrar().GetAllSubAppIds(parent_app->app_id())) {
+    if (installed_id == existing_web_app->app_id()) {
+      continue;
+    }
+    if (scopes_overlap(registrar().GetAppScope(installed_id))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 WebAppRegistrar& FinalizeUpdateJob::registrar() const {

@@ -325,4 +325,215 @@ suite('Logger', () => {
         'Accessibility.ReadAnything.Readability.PageLinksNoHrefCount',
         (await metrics.whenCalled('recordCount'))[0]);
   });
+
+  suite('logDistilledPageStructure', () => {
+    let container: HTMLElement;
+
+    setup(() => {
+      container = document.createElement('div');
+      metrics.reset();
+    });
+
+    test('when hidden does not log', () => {
+      logger.setHidden(true);
+      const p = document.createElement('p');
+      p.textContent = 'Paragraph';
+      container.replaceChildren(p);
+      logger.logDistilledPageStructure(container);
+      assertEquals(0, metrics.getCallCount('recordCount'));
+      assertEquals(0, metrics.getCallCount('recordBoolean'));
+    });
+
+    test('logs structure count metrics', () => {
+      const titleHeader = document.createElement('h1');
+      titleHeader.textContent = 'Title';
+
+      const h2Elements = Array.from({length: 2}, (_, i) => {
+        const h2 = document.createElement('h2');
+        h2.textContent = `Header 2.${i + 1}`;
+        return h2;
+      });
+
+      const h4Elements = Array.from({length: 5}, (_, i) => {
+        const h4 = document.createElement('h4');
+        h4.textContent = `Header 4.${i + 1}`;
+        return h4;
+      });
+
+      const firstParagraph = document.createElement('p');
+      firstParagraph.textContent = 'P1';
+      const secondParagraph = document.createElement('p');
+      secondParagraph.textContent = 'P2';
+
+      container.replaceChildren(
+          titleHeader, ...h2Elements, ...h4Elements, firstParagraph,
+          secondParagraph);
+      logger.logDistilledPageStructure(container);
+
+      // TotalHeaderCount: 1 + 2 + 5 = 8
+      // UniqueHeaderTags: h1, h2, h4 = 3
+      // NumberParagraphs: 2
+      // TopTwoHeadersCount (excluding h1): h2 (2) + h4 (5) = 7
+      // TopTwoHeadersHaveMinimumTwoItems: h2 has 2, h4 has 5 -> true
+
+      assertEquals(4, metrics.getCallCount('recordCount'));
+      assertEquals(1, metrics.getCallCount('recordBoolean'));
+
+      const countCalls = metrics.getArgs('recordCount');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.NumberParagraphs',
+          countCalls[0][0]);
+      assertEquals(2, countCalls[0][1]);
+
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TotalHeaderCount',
+          countCalls[1][0]);
+      assertEquals(8, countCalls[1][1]);
+
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.UniqueHeaderTags',
+          countCalls[2][0]);
+      assertEquals(3, countCalls[2][1]);
+
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersCount',
+          countCalls[3][0]);
+      assertEquals(7, countCalls[3][1]);
+
+      const booleanCalls = metrics.getArgs('recordBoolean');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersHaveMinimumTwoItems',
+          booleanCalls[0][0]);
+      assertEquals(true, booleanCalls[0][1]);
+    });
+
+    test('single h1 excluded from top two calculation', () => {
+      // 1 h1, 2 h2s, 0 h3s, 5 h4s, 2 paragraphs
+      const h1 = document.createElement('h1');
+      h1.textContent = 'Title';
+      const h2s = Array.from({length: 2}, (_, i) => {
+        const h2 = document.createElement('h2');
+        h2.textContent = `Header 2.${i + 1}`;
+        return h2;
+      });
+      const h4s = Array.from({length: 5}, (_, i) => {
+        const h4 = document.createElement('h4');
+        h4.textContent = `Header 4.${i + 1}`;
+        return h4;
+      });
+      const p1 = document.createElement('p');
+      p1.textContent = 'P1';
+      const p2 = document.createElement('p');
+      p2.textContent = 'P2';
+
+      container.replaceChildren(h1, ...h2s, ...h4s, p1, p2);
+      logger.logDistilledPageStructure(container);
+
+      // TotalHeaderCount: 1 + 2 + 5 = 8
+      // UniqueHeaderTags: h1, h2, h4 = 3
+      // NumberParagraphs: 2
+      // TopTwoHeadersCount (excluding h1): h2 (2) + h4 (5) = 7
+      // TopTwoHeadersHaveMinimumTwoItems: h2 has 2, h4 has 5 -> true
+
+      assertEquals(4, metrics.getCallCount('recordCount'));
+      assertEquals(1, metrics.getCallCount('recordBoolean'));
+
+      const countCalls = metrics.getArgs('recordCount');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersCount',
+          countCalls[3][0]);
+      assertEquals(7, countCalls[3][1]);
+
+      const booleanCalls = metrics.getArgs('recordBoolean');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersHaveMinimumTwoItems',
+          booleanCalls[0][0]);
+      assertEquals(true, booleanCalls[0][1]);
+    });
+
+    test('multiple h1s included in top two calculation', () => {
+      // 5 h1s, 5 h2s, 20 h3s, 1 h4, 10 paragraphs
+      const h1s = Array.from({length: 5}, (_, i) => {
+        const h1 = document.createElement('h1');
+        h1.textContent = `H1.${i + 1}`;
+        return h1;
+      });
+      const h2s = Array.from({length: 5}, (_, i) => {
+        const h2 = document.createElement('h2');
+        h2.textContent = `H2.${i + 1}`;
+        return h2;
+      });
+      const h3s = Array.from({length: 20}, () => {
+        const h3 = document.createElement('h3');
+        h3.textContent = 'H3';
+        return h3;
+      });
+      const h4 = document.createElement('h4');
+      h4.textContent = 'H4';
+      const paragraphs = Array.from({length: 10}, () => {
+        const p = document.createElement('p');
+        p.textContent = 'P';
+        return p;
+      });
+
+      container.replaceChildren(...h1s, ...h2s, ...h3s, h4, ...paragraphs);
+      logger.logDistilledPageStructure(container);
+
+      // TotalHeaderCount: 5 + 5 + 20 + 1 = 31
+      // UniqueHeaderTags: h1, h2, h3, h4 = 4
+      // NumberParagraphs: 10
+      // TopTwoHeadersCount (h1 and h2): 5 + 5 = 10
+      // TopTwoHeadersHaveMinimumTwoItems: h1 has 5, h2 has 5 -> true
+
+      assertEquals(4, metrics.getCallCount('recordCount'));
+      assertEquals(1, metrics.getCallCount('recordBoolean'));
+
+      const countCalls = metrics.getArgs('recordCount');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersCount',
+          countCalls[3][0]);
+      assertEquals(10, countCalls[3][1]);
+
+      const booleanCalls = metrics.getArgs('recordBoolean');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersHaveMinimumTwoItems',
+          booleanCalls[0][0]);
+      assertEquals(true, booleanCalls[0][1]);
+    });
+
+    test('zero paragraphs and single header type', () => {
+      // 1 h1, 5 h2s, 0 paragraphs
+      const h1 = document.createElement('h1');
+      h1.textContent = 'Title';
+      const h2s = Array.from({length: 5}, () => {
+        const h2 = document.createElement('h2');
+        h2.textContent = 'H2';
+        return h2;
+      });
+
+      container.replaceChildren(h1, ...h2s);
+      logger.logDistilledPageStructure(container);
+
+      // TotalHeaderCount: 6
+      // UniqueHeaderTags: 2
+      // NumberParagraphs: 0
+      // TopTwoHeadersCount (excluding h1): h2 (5), no second header -> 5
+      // TopTwoHeadersHaveMinimumTwoItems: no second header -> false
+
+      assertEquals(4, metrics.getCallCount('recordCount'));
+      assertEquals(1, metrics.getCallCount('recordBoolean'));
+
+      const countCalls = metrics.getArgs('recordCount');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersCount',
+          countCalls[3][0]);
+      assertEquals(5, countCalls[3][1]);
+
+      const booleanCalls = metrics.getArgs('recordBoolean');
+      assertEquals(
+          'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersHaveMinimumTwoItems',
+          booleanCalls[0][0]);
+      assertEquals(false, booleanCalls[0][1]);
+    });
+  });
 });

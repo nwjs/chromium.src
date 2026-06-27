@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/tab_restore_types.h"
+#include "components/split_tabs/split_tab_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
@@ -51,8 +52,12 @@ class AndroidLiveTabContext : public sessions::LiveTabContext {
   std::map<std::string, std::string> GetExtraDataForWindow() const override;
   std::optional<tab_groups::TabGroupId> GetTabGroupForTab(
       int index) const override;
+  std::optional<split_tabs::SplitTabId> GetSplitForTab(
+      int index) const override;
   const tab_groups::TabGroupVisualData* GetVisualDataForGroup(
       const tab_groups::TabGroupId& group) const override;
+  const split_tabs::SplitTabVisualData* GetVisualDataForSplit(
+      const split_tabs::SplitTabId& split_id) const override;
   const std::optional<base::Uuid> GetSavedTabGroupIdForGroup(
       const tab_groups::TabGroupId& group) const override;
   const std::optional<tab_groups::TabGroupId> GetGroupIdForSavedGroup(
@@ -72,6 +77,11 @@ class AndroidLiveTabContext : public sessions::LiveTabContext {
       sessions::tab_restore::Type original_session_type) override;
   sessions::LiveTab* ReplaceRestoredTab(
       const sessions::tab_restore::Tab&) override;
+  void ReconstructSplit(
+      sessions::LiveTab* leading_tab,
+      sessions::LiveTab* trailing_tab,
+      split_tabs::SplitTabId split_id,
+      const split_tabs::SplitTabVisualData& visual_data) override;
   void CloseTab() override;
 
   static LiveTabContext* FindContextForWebContents(

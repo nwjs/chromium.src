@@ -75,12 +75,6 @@ class WebRequestEventRouter : public KeyedService {
     kOnCompleted = 1 << 8,
   };
 
-  // Key to the extension preference that stores serialized lazy webRequest
-  // listeners.
-  // TODO(crbug.com/474558883): remove once migration to EventRouter mechanism
-  // is complete.
-  static const char kFilteredLazyListeners[];
-
   explicit WebRequestEventRouter(content::BrowserContext* browser_context);
   ~WebRequestEventRouter() override;
   WebRequestEventRouter(const WebRequestEventRouter&) = delete;
@@ -150,7 +144,7 @@ class WebRequestEventRouter : public KeyedService {
 
   // AuthRequiredResponse indicates how an OnAuthRequired call is handled.
   enum class AuthRequiredResponse {
-    // No credenitals were provided.
+    // No credentials were provided.
     AUTH_REQUIRED_RESPONSE_NO_ACTION,
     // AuthCredentials is filled in with a username and password, which should
     // be used in a response to the provided auth challenge.
@@ -269,7 +263,7 @@ class WebRequestEventRouter : public KeyedService {
   // Notificaties when `request` is no longer being processed, regardless of
   // whether it has gone to completion or merely been cancelled. This is
   // guaranteed to be called eventually for any request observed by this object,
-  // and |*request| will be immintently destroyed after this returns.
+  // and |*request| will be imminently destroyed after this returns.
   void OnRequestWillBeDestroyed(content::BrowserContext* browser_context,
                                 const WebRequestInfo* request);
 
@@ -304,7 +298,7 @@ class WebRequestEventRouter : public KeyedService {
 
   // Removes the listeners for a given <webview>.
   void RemoveWebViewEventListeners(content::BrowserContext* browser_context,
-                                   int render_process_id,
+                                   content::ChildProcessId render_process_id,
                                    int web_view_instance_id);
 
   // Called when an incognito browser_context is created or destroyed. When
@@ -345,21 +339,12 @@ class WebRequestEventRouter : public KeyedService {
   // Called when a BrowserContext is being destroyed.
   void OnBrowserContextShutdown(content::BrowserContext* browser_context);
 
-  // Loads persisted lazy listeners for the given extension into the given
-  // browser context. Called when the extension is loaded.
-  // NOTE: loads all listeners or none at all. If the persisted listeners
-  // were invalid, it clears the corresponding pref.
-  // TODO(crbug.com/474558883): remove once migration to EventRouter mechanism
-  // is complete.
-  void LoadPersistedLazyListeners(content::BrowserContext* browser_context,
-                                  const ExtensionId& extension_id);
-
   // Get the number of listeners - for testing only.
   size_t GetListenerCountForTesting(content::BrowserContext* browser_context,
                                     const std::string& event_name);
-  size_t GetInactiveListenerCountForTesting(
-      content::BrowserContext* browser_context,
-      const std::string& event_name);
+
+  size_t GetInactiveListenerCount(content::BrowserContext* browser_context,
+                                  const std::string& event_name);
 
   // Get details of an inactive listener given event name - for testing only.
   bool GetInactiveListenerDetailsForTesting(
@@ -406,7 +391,7 @@ class WebRequestEventRouter : public KeyedService {
 
   // Identifier for a `BrowserContext` to scope the lifetime for references.
   // `BrowserContextID` is derived from `BrowserContext*`, used in comparison
-  // only, and are never deferenced.
+  // only, and are never dereferenced.
   using BrowserContextID = std::uintptr_t;
 
   static BrowserContextID GetBrowserContextID(
@@ -422,7 +407,7 @@ class WebRequestEventRouter : public KeyedService {
       ID(content::BrowserContext* browser_context,
          const ExtensionId& extension_id,
          const std::string& sub_event_name,
-         int render_process_id,
+         content::ChildProcessId render_process_id,
          int web_view_instance_id,
          int worker_thread_id,
          int64_t service_worker_version_id);
@@ -436,7 +421,7 @@ class WebRequestEventRouter : public KeyedService {
       ExtensionId extension_id;
       std::string sub_event_name;
       // In the case of a webview, this is the process ID of the embedder.
-      int render_process_id;
+      content::ChildProcessId render_process_id;
       int web_view_instance_id;
       // The worker_thread_id and service_worker_version_id members are only
       // meaningful for event listeners for ServiceWorker events. Otherwise,
@@ -608,21 +593,6 @@ class WebRequestEventRouter : public KeyedService {
   void RemoveLazyListener(content::BrowserContext* original_context,
                           const ExtensionId& extension_id,
                           const std::string& sub_event_name);
-
-  // Adds a listener to the persisted lazy listeners for the given extension.
-  // TODO(crbug.com/474558883): remove once migration to EventRouter mechanism
-  // is complete.
-  void AddPersistedLazyListener(content::BrowserContext* browser_context,
-                                const ExtensionId& extension_id,
-                                const EventListener& listener);
-
-  // Removes a listener from the persisted lazy listeners for the given
-  // extension.
-  // TODO(crbug.com/474558883): remove once migration to EventRouter mechanism
-  // is complete.
-  void RemovePersistedLazyListener(content::BrowserContext* browser_context,
-                                   const ExtensionId& extension_id,
-                                   const std::string& sub_event_name);
 
   // Removes all listeners from `listeners` that matches the given criteria.
   // Optional criteria are ignored if not provided. Removes the matching

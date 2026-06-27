@@ -354,9 +354,10 @@ bool ExtensionManagement::IsAllowedManifestType(
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // If a managed theme has been set for the current profile, theme extension
   // installations are not allowed.
-  if (manifest_type == Manifest::Type::TYPE_THEME &&
-      ThemeServiceFactory::GetForProfile(profile_)->UsingPolicyTheme())
+  if (manifest_type == Manifest::Type::kTheme &&
+      ThemeServiceFactory::GetForProfile(profile_)->UsingPolicyTheme()) {
     return false;
+  }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   if (!global_settings_->allowed_types.has_value())
@@ -375,10 +376,12 @@ bool ExtensionManagement::IsAllowedManifestVersion(
           extensions_features::kExtensionsManifestV3Only) ||
       manifest_version >= 3;
 
-  // Manifest version policy only supports normal extensions and Chrome OS login
-  // screen extension.
-  if (manifest_type != Manifest::Type::TYPE_EXTENSION &&
-      manifest_type != Manifest::Type::TYPE_LOGIN_SCREEN_EXTENSION) {
+  // Manifest version policy only supports normal extensions, Chrome OS login
+  // screen extensions, and user scripts (which are largely treated as
+  // extensions).
+  if (manifest_type != Manifest::Type::kExtension &&
+      manifest_type != Manifest::Type::kLoginScreenExtension &&
+      manifest_type != Manifest::Type::kUserScript) {
     return enabled_by_default;
   }
   switch (global_settings_->manifest_v2_setting) {
@@ -410,8 +413,9 @@ bool ExtensionManagement::IsExemptFromMV2DeprecationByPolicy(
   if (manifest_version != 2) {
     return false;
   }
-  if (manifest_type != Manifest::Type::TYPE_EXTENSION &&
-      manifest_type != Manifest::Type::TYPE_LOGIN_SCREEN_EXTENSION) {
+  if (manifest_type != Manifest::Type::kExtension &&
+      manifest_type != Manifest::Type::kLoginScreenExtension &&
+      manifest_type != Manifest::Type::kUserScript) {
     return false;
   }
 
@@ -798,14 +802,15 @@ void ExtensionManagement::Refresh() {
     global_settings_->allowed_types.emplace();
     for (const auto& entry : *allowed_types_pref) {
       if (entry.is_int() && entry.GetInt() >= 0 &&
-          entry.GetInt() < Manifest::Type::NUM_LOAD_TYPES) {
+          entry.GetInt() < std::to_underlying(Manifest::Type::kNumLoadTypes)) {
         global_settings_->allowed_types->push_back(
             static_cast<Manifest::Type>(entry.GetInt()));
       } else if (entry.is_string()) {
         Manifest::Type manifest_type =
             schema_constants::GetManifestType(entry.GetString());
-        if (manifest_type != Manifest::TYPE_UNKNOWN)
+        if (manifest_type != Manifest::Type::kUnknown) {
           global_settings_->allowed_types->push_back(manifest_type);
+        }
       }
     }
   }

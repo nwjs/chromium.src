@@ -327,6 +327,28 @@ TEST_F(RenderWidgetHostViewAndroidTest, NoSurfaceSynchronizationWhileEvicted) {
       cc::DeadlinePolicy::UseDefaultDeadline(), initial_local_surface_id));
 }
 
+TEST_F(RenderWidgetHostViewAndroidTest,
+       OcclusionStateTransitionWithThumbnailCapture) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+  EXPECT_TRUE(rwhva->IsShowing());
+
+  // 1. Occlude the view.
+  rwhva->WasOccluded();
+  EXPECT_FALSE(rwhva->IsShowing());
+
+  // 2. Trigger thumbnail capture (kHiddenButPainting).
+  rwhva->ShowWithVisibility(
+      blink::mojom::PageVisibilityState::kHiddenButPainting);
+
+  // The view must NOT be considered visible/showing to the user, preventing
+  // clobbering the occlusion state.
+  EXPECT_FALSE(rwhva->IsShowing());
+
+  // 3. Transition back to hidden/occluded (capture finishes).
+  rwhva->WasOccluded();
+  EXPECT_FALSE(rwhva->IsShowing());
+}
+
 // Tests insetting the Visual Viewport.
 TEST_F(RenderWidgetHostViewAndroidTest, InsetVisualViewport) {
   ui::TestViewAndroidDelegate test_view_android_delegate;
@@ -1344,7 +1366,7 @@ TEST_F(RenderWidgetHostViewAndroidRotationTest, PictureInPictureCloses) {
           post_physical_backing_local_surface_id);
 
   // No throttling when showing again, nor for completing the hidden rotation
-  rwhva->Show();
+  rwhva->ShowWithVisibility(PageVisibilityState::kVisible);
   EXPECT_TRUE(rwhva->CanSynchronizeVisualProperties());
   OnPhysicalBackingSizeChanged(portrait_physical_backing);
   EXPECT_TRUE(rwhva->CanSynchronizeVisualProperties());
@@ -1407,7 +1429,7 @@ TEST_F(RenderWidgetHostViewAndroidRotationTest, FakeVisibilityScreenRotation) {
   // When turning off the screen some versions of Android lie. They set us
   // visible even with the screen off, and rotate the ScreenInfo, but nothing
   // else. Followed up by hiding us again.
-  rwhva->Show();
+  rwhva->ShowWithVisibility(PageVisibilityState::kVisible);
   EXPECT_TRUE(rwhva->CanSynchronizeVisualProperties());
   SetPortraitScreenInfo(/*rotation=*/true);
   EXPECT_FALSE(rwhva->CanSynchronizeVisualProperties());
@@ -1430,7 +1452,7 @@ TEST_F(RenderWidgetHostViewAndroidRotationTest, FakeVisibilityScreenRotation) {
 
   // When becoming visible we should have the correct layout already and not
   // need to advance the viz::LocalSurfaceId. We should also not be throttling.
-  rwhva->Show();
+  rwhva->ShowWithVisibility(PageVisibilityState::kVisible);
   auto post_show_local_surface_id = rwhva->GetLocalSurfaceId();
   EXPECT_EQ(post_show_local_surface_id, post_hidden_rotation_local_surface_id);
   EXPECT_TRUE(rwhva->CanSynchronizeVisualProperties());
@@ -1553,7 +1575,7 @@ TEST_P(RenderWidgetHostViewAndroidRotationKillswitchTest,
   // However we do not want to delay showing content until Android tells us of
   // the final state. So we advance the viz::LocalSurfaceId to have the newest
   // possible content ready.
-  rwhva->Show();
+  rwhva->ShowWithVisibility(PageVisibilityState::kVisible);
   GetLocalSurfaceIdAndConfirmNewerThan(initial_local_surface_id);
   // We do not block synchronization, as there is no platform consistency in
   // resize messages when becoming visible.
@@ -1594,7 +1616,7 @@ TEST_P(RenderWidgetHostViewAndroidRotationKillswitchTest,
   // OnPhysicalBackingSizeChanged. Due to this we advance the
   // viz::LocalSurfaceId upon becoming visible, to send all visual updates to
   // the Renderer.
-  rwhva->Show();
+  rwhva->ShowWithVisibility(PageVisibilityState::kVisible);
   GetLocalSurfaceIdAndConfirmNewerThan(initial_local_surface_id);
   // We do not block synchronization, as there is no platform consistency in
   // resize messages when becoming visible.

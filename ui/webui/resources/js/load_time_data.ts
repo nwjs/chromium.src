@@ -20,6 +20,11 @@ export interface LoadTimeDataRaw {
   [key: string]: any;
 }
 
+export interface SubstitutedStringPiece {
+  value: string;
+  arg: string|null;
+}
+
 class LoadTimeData {
   private data_: LoadTimeDataRaw|null = null;
 
@@ -49,7 +54,7 @@ class LoadTimeData {
    * @param id The key that identifies the desired value.
    * @return The corresponding value.
    */
-  getValue(id: string): any {
+  getValue<T>(id: string): T {
     assert(this.data_, 'No data. Did you remember to include strings.js?');
     const value = this.data_[id];
     assert(typeof value !== 'undefined', 'Could not find value for ' + id);
@@ -118,7 +123,7 @@ class LoadTimeData {
    * @return The formatted string pieces.
    */
   getSubstitutedStringPieces(label: string, ...args: Array<string|number>):
-      Array<{value: string, arg: (string|null)}> {
+      SubstitutedStringPiece[] {
     // Split the string by separately matching all occurrences of $1-9 and of
     // non $1-9 pieces.
     const pieces = (label.match(/(\$[1-9])|(([^$]|\$([^1-9]|$))+)/g) ||

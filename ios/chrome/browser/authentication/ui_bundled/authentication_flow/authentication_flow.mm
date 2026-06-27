@@ -87,6 +87,12 @@ enum class AuthenticationState {
   kFetchProfileSeparationPoliciesIfNeeded,
   kShowManagedConfirmationIfNeeded,
   kConvertPersonalProfileToManagedIfNeeded,
+  // Checks with AuthenticationService is sign-in is allowed. If not,
+  // the sign-in is canceled.
+  kCheckSignInAllowed,
+  // After this step, sign-in should not be canceled or stopped.
+  // This steps calls `-[<AuthenticationFlowDelegate>
+  // authenticationFlowWillSwitchProfileWithReadyCompletion:]` if needed.
   kSwitchProfileIfNeeded,
   kHandOverToAuthenticationFlowInProfile,
   kCompleteWithFailure,
@@ -395,6 +401,7 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     case AuthenticationState::kFetchProfileSeparationPoliciesIfNeeded:
     case AuthenticationState::kShowManagedConfirmationIfNeeded:
     case AuthenticationState::kConvertPersonalProfileToManagedIfNeeded:
+    case AuthenticationState::kCheckSignInAllowed:
     case AuthenticationState::kSwitchProfileIfNeeded:
     case AuthenticationState::kHandOverToAuthenticationFlowInProfile:
       return AuthenticationState::kCompleteWithFailure;
@@ -432,6 +439,8 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     case AuthenticationState::kShowManagedConfirmationIfNeeded:
       return AuthenticationState::kConvertPersonalProfileToManagedIfNeeded;
     case AuthenticationState::kConvertPersonalProfileToManagedIfNeeded:
+      return AuthenticationState::kCheckSignInAllowed;
+    case AuthenticationState::kCheckSignInAllowed:
       return AuthenticationState::kSwitchProfileIfNeeded;
     case AuthenticationState::kSwitchProfileIfNeeded:
       return AuthenticationState::kHandOverToAuthenticationFlowInProfile;
@@ -493,6 +502,10 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 
     case AuthenticationState::kConvertPersonalProfileToManagedIfNeeded:
       [self convertPersonalProfileToManagedIfNeededStep];
+      return;
+
+    case AuthenticationState::kCheckSignInAllowed:
+      [self checkSignInAllowedStep];
       return;
 
     case AuthenticationState::kSwitchProfileIfNeeded:
@@ -568,7 +581,8 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
   SignedInUserState signedInUserState = GetSignedInUserState(
       authenticationService, identityManager, profilePrefService);
   if (!ForceLeavingPrimaryAccountConfirmationDialog(signedInUserState,
-                                                    profile) &&
+                                                    profile,
+                                                    _identityToSignIn.gaiaId) &&
       _unsyncedDataTypes.value().empty()) {
     [self continueFlow];
     return;
@@ -670,6 +684,18 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
   [_performer makePersonalProfileManagedWithIdentity:_identityToSignIn];
 }
 
+// Checks if sign-in is allowed on the current profile.
+- (void)checkSignInAllowedStep {
+  ProfileIOS* profile = [self profile];
+  AuthenticationService* authenticationService =
+      AuthenticationServiceFactory::GetForProfile(profile);
+  if (!authenticationService->SigninEnabled()) {
+    [self cancelFlowWithReason:signin_ui::CancelationReason::kSignInNotAllowed];
+    return;
+  }
+  [self continueFlow];
+}
+
 // Switches profile if `_identityToSignIn` is assigned to another profile.
 // If `_identityToSignIn` doesn't exist anymore, an error is generated.
 // If the identity is assigned to the current profile this step is a no-op.
@@ -718,14 +744,21 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
     // deallocated by the time the `signinCompletion` is executed.
     _signInInProfileCompletion = ^(
         signin_ui::CancelationReason cancelationReason) {
-      [delegate
-          authenticationFlowDidSignInInSameProfileWithCancelationReason:
-              cancelationReason
-                                                               identity:
-                                                                   identityToSignIn];
-      if (Browser* browser = weakBrowser.get()) {
-        CompletePostSignInActions(postSignInActions, identityToSignIn, browser,
-                                  accessPoint);
+      ProceduralBlock completion = ^() {
+        if (Browser* browser = weakBrowser.get()) {
+          CompletePostSignInActions(postSignInActions, identityToSignIn,
+                                    browser, accessPoint);
+        }
+      };
+      if (delegate) {
+        [delegate
+            authenticationFlowDidSignInInSameProfileWithIdentity:
+                identityToSignIn
+                                               cancelationReason:
+                                                   cancelationReason
+                                                      completion:completion];
+      } else {
+        completion();
       }
     };
     [self continueFlow];
@@ -821,9 +854,10 @@ void RecordUnsyncedDataHistogramIfNeeded(UnsyncedDataTypeHistogram histogram,
 - (void)completeWithFailureStep {
   CHECK_NE(_cancelationReason, signin_ui::CancelationReason::kNotCanceled);
   [[self takeDelegate]
-      authenticationFlowDidSignInInSameProfileWithCancelationReason:
-          _cancelationReason
-                                                           identity:nil];
+      authenticationFlowDidSignInInSameProfileWithIdentity:nil
+                                         cancelationReason:_cancelationReason
+                                                completion:^{
+                                                }];
   [self continueFlow];
 }
 

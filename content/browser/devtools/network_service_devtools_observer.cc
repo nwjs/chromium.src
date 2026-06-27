@@ -346,6 +346,8 @@ protocol::String BuildSharedDictionaryError(
       return SharedDictionaryErrorEnum::WriteErrorNonStringIdField;
     case SharedDictionaryError::kWriteErrorNonStringInMatchDestList:
       return SharedDictionaryErrorEnum::WriteErrorNonStringInMatchDestList;
+    case SharedDictionaryError::kWriteErrorInvalidMatchDestList:
+      return SharedDictionaryErrorEnum::WriteErrorInvalidMatchDestList;
     case SharedDictionaryError::kWriteErrorNonStringMatchField:
       return SharedDictionaryErrorEnum::WriteErrorNonStringMatchField;
     case SharedDictionaryError::kWriteErrorNonTokenTypeField:
@@ -423,6 +425,14 @@ protocol::String ConvertToDevtoolsEnum(
       return SRIMessageSignatureErrorEnum::ValidationFailedInvalidLength;
     case SRIMessageSignatureError::kValidationFailedIntegrityMismatch:
       return SRIMessageSignatureErrorEnum::ValidationFailedIntegrityMismatch;
+    case SRIMessageSignatureError::kSignatureBaseUnknownDerivedComponent:
+      return SRIMessageSignatureErrorEnum::SignatureBaseUnknownDerivedComponent;
+    case SRIMessageSignatureError::kSignatureBaseMissingHeader:
+      return SRIMessageSignatureErrorEnum::SignatureBaseMissingHeader;
+    case SRIMessageSignatureError::kSignatureBaseInvalidUnencodedDigest:
+      return SRIMessageSignatureErrorEnum::SignatureBaseInvalidUnencodedDigest;
+    case SRIMessageSignatureError::kSignatureBaseUnsupportedComponent:
+      return SRIMessageSignatureErrorEnum::SignatureBaseUnsupportedComponent;
   }
 }
 

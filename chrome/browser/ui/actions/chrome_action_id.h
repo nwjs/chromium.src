@@ -221,6 +221,7 @@
   E(kActionOpenRecentTab, IDC_OPEN_RECENT_TAB) \
   E(kActionIndigo) \
   E(kActionAnchoredContextualCue) \
+  E(kActionMultistepFilter) \
   /* Spell-check */ \
   /* Insert any additional suggestions before _LAST; these have to be */ \
   /* consecutive. */ \
@@ -619,6 +620,7 @@
   E(kActionGlicContextualCueing) \
   E(kActionShowAiOverlayDialog) \
   E(kActionWebAuthnAmbientSignin) \
+  E(kActionAutofillPayment) \
 
 #define CHROME_ACTION_IDS \
     CHROME_COMMON_ACTION_IDS \

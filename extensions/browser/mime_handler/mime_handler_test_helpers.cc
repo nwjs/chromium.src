@@ -5,7 +5,10 @@
 #include "extensions/browser/mime_handler/mime_handler_test_helpers.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
+#include "base/containers/span.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "extensions/browser/mime_handler/stream_container.h"
@@ -17,7 +20,8 @@
 namespace extensions::mime_handler {
 
 std::unique_ptr<extensions::StreamContainer> GenerateSampleStreamContainer(
-    int container_number) {
+    int container_number,
+    bool embedded) {
   const std::string container_number_string =
       base::NumberToString(container_number);
   const GURL handler_url =
@@ -34,8 +38,16 @@ std::unique_ptr<extensions::StreamContainer> GenerateSampleStreamContainer(
       base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/2 200 OK");
 
   return std::make_unique<extensions::StreamContainer>(
-      /*tab_id=*/container_number, /*embedded=*/true, handler_url, extension_id,
+      /*tab_id=*/container_number, embedded, handler_url, extension_id,
       std::move(transferrable_loader), original_url);
+}
+
+void StringDrainerClient::OnDataAvailable(base::span<const uint8_t> data) {
+  accumulated_.append(reinterpret_cast<const char*>(data.data()), data.size());
+}
+
+void StringDrainerClient::OnDataComplete() {
+  complete_ = true;
 }
 
 }  // namespace extensions::mime_handler

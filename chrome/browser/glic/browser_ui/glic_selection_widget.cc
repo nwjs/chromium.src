@@ -20,6 +20,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_variant.h"
 #include "ui/compositor/layer.h"
@@ -164,14 +165,21 @@ class GlicSelectionContentsView : public views::View {
         l10n_util::GetStringUTF16(IDS_APP_COPY), nullptr, nullptr);
     auto* copy_btn =
         ask_pill_->AddChildView(views::ImageButton::CreateIconButton(
-            std::move(on_copy), vector_icons::kContentCopyIcon, copy_tooltip));
+            std::move(on_copy),
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kContentCopyIcon
+                : vector_icons::kContentCopyOldIcon,
+            copy_tooltip));
     copy_btn->SetTooltipText(copy_tooltip);
     copy_btn->SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
     copy_btn->SetBorder(
         views::CreateEmptyBorder(views::LayoutProvider::Get()->GetInsetsMetric(
             views::INSETS_VECTOR_IMAGE_BUTTON)));
     views::SetImageFromVectorIconWithColor(
-        copy_btn, vector_icons::kContentCopyIcon, kIconSize,
+        copy_btn,
+        features::IsRoundedIconsEnabled() ? vector_icons::kContentCopyIcon
+                                          : vector_icons::kContentCopyOldIcon,
+        kIconSize,
         views::IconColors(ui::kColorSysOnSurfaceVariant,
                           ui::kColorLabelForegroundDisabled,
                           ui::kColorSysOnSurfaceVariant));
@@ -183,7 +191,10 @@ class GlicSelectionContentsView : public views::View {
         l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_COPYLINKTOTEXT);
     copy_link_btn_ =
         ask_pill_->AddChildView(views::ImageButton::CreateIconButton(
-            std::move(on_copy_link), omnibox::kShareChromeRefreshIcon,
+            std::move(on_copy_link),
+            features::IsRoundedIconsEnabled()
+                ? omnibox::kShareIcon
+                : omnibox::kShareChromeRefreshOldIcon,
             copy_link_tooltip));
     copy_link_btn_->SetTooltipText(copy_link_tooltip);
     copy_link_btn_->SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
@@ -191,7 +202,10 @@ class GlicSelectionContentsView : public views::View {
         views::CreateEmptyBorder(views::LayoutProvider::Get()->GetInsetsMetric(
             views::INSETS_VECTOR_IMAGE_BUTTON)));
     views::SetImageFromVectorIconWithColor(
-        copy_link_btn_, omnibox::kShareChromeRefreshIcon, kIconSize,
+        copy_link_btn_,
+        features::IsRoundedIconsEnabled() ? omnibox::kShareIcon
+                                          : omnibox::kShareChromeRefreshOldIcon,
+        kIconSize,
         views::IconColors(ui::kColorSysOnSurfaceVariant,
                           ui::kColorLabelForegroundDisabled,
                           ui::kColorSysOnSurfaceVariant));
@@ -218,7 +232,10 @@ class GlicSelectionContentsView : public views::View {
     if (features::kGlicSelectionPromptEnablePinning.Get()) {
       pin_btn_ =
           dismiss_pill_->AddChildView(views::ImageButton::CreateIconButton(
-              std::move(on_toggle_pin), vector_icons::kCaretUpIcon,
+              std::move(on_toggle_pin),
+              features::IsRoundedIconsEnabled()
+                  ? vector_icons::kKeyboardArrowUpIcon
+                  : vector_icons::kCaretUpOldIcon,
               std::u16string()));
       pin_btn_->SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
       pin_btn_->SetBorder(views::CreateEmptyBorder(
@@ -231,7 +248,9 @@ class GlicSelectionContentsView : public views::View {
       auto dismiss_tooltip = l10n_util::GetStringUTF16(IDS_APP_CLOSE);
       dismiss_btn_ =
           dismiss_pill_->AddChildView(views::ImageButton::CreateIconButton(
-              std::move(on_dismiss), vector_icons::kCloseIcon,
+              std::move(on_dismiss),
+              features::IsRoundedIconsEnabled() ? vector_icons::kCloseIcon
+                                                : vector_icons::kCloseOldIcon,
               dismiss_tooltip));
       dismiss_btn_->SetTooltipText(dismiss_tooltip);
       dismiss_btn_->SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
@@ -239,7 +258,10 @@ class GlicSelectionContentsView : public views::View {
           views::LayoutProvider::Get()->GetInsetsMetric(
               views::INSETS_VECTOR_IMAGE_BUTTON)));
       views::SetImageFromVectorIconWithColor(
-          dismiss_btn_, vector_icons::kCloseIcon, kIconSize,
+          dismiss_btn_,
+          features::IsRoundedIconsEnabled() ? vector_icons::kCloseIcon
+                                            : vector_icons::kCloseOldIcon,
+          kIconSize,
           views::IconColors(ui::kColorSysOnSurfaceVariant,
                             ui::kColorLabelForegroundDisabled,
                             ui::kColorSysOnSurfaceVariant));
@@ -291,7 +313,12 @@ class GlicSelectionContentsView : public views::View {
   void SetPinned(bool is_pinned) {
     if (pin_btn_) {
       const gfx::VectorIcon& icon =
-          is_pinned ? vector_icons::kCaretDownIcon : vector_icons::kCaretUpIcon;
+          is_pinned ? features::IsRoundedIconsEnabled()
+                          ? vector_icons::kKeyboardArrowDownIcon
+                          : vector_icons::kCaretDownOldIcon
+          : features::IsRoundedIconsEnabled()
+              ? vector_icons::kKeyboardArrowUpIcon
+              : vector_icons::kCaretUpOldIcon;
       views::SetImageFromVectorIconWithColor(
           pin_btn_, icon, kIconSize,
           views::IconColors(ui::kColorSysOnSurfaceVariant,

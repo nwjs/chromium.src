@@ -4,6 +4,7 @@
 
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_app_interface.h"
 
+#import <Intents/Intents.h>
 #import <WebKit/WebKit.h>
 
 #import <algorithm>
@@ -55,6 +56,8 @@
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/first_run/public/first_run_util.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intents/model/intents_constants.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
@@ -82,6 +85,7 @@
 #import "ios/chrome/browser/unified_consent/model/unified_consent_service_factory.h"
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
+#import "ios/chrome/common/intents/AddBookmarkToChromeIntent.h"
 #import "ios/chrome/test/app/browsing_data_test_util.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/navigation_test_util.h"
@@ -201,6 +205,16 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
 }
 @end
 
+@interface FakeUserActivity : NSUserActivity
+@property(nonatomic, strong) INInteraction* mockInteraction;
+@end
+
+@implementation FakeUserActivity
+- (INInteraction*)interaction {
+  return self.mockInteraction;
+}
+@end
+
 @implementation ChromeEarlGreyAppInterface
 
 + (BOOL)isTabGridSetUp {
@@ -300,6 +314,33 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   UIScene* scene = application.connectedScenes.anyObject;
 
   [scene.delegate scene:scene openURLContexts:[NSSet setWithObject:context]];
+}
+
++ (void)sceneContinueUserActivityWithType:(NSString*)activityType
+                                      url:(NSString*)urlString {
+  FakeUserActivity* fakeActivity =
+      [[FakeUserActivity alloc] initWithActivityType:activityType];
+
+  if (urlString) {
+    fakeActivity.webpageURL = [NSURL URLWithString:urlString];
+  }
+
+  Class intentClass = NSClassFromString(activityType);
+  id intent = [[intentClass alloc] init];
+
+  if (urlString && [intent respondsToSelector:@selector(setUrl:)]) {
+    NSArray* urls = @[ [NSURL URLWithString:urlString] ];
+    [intent performSelector:@selector(setUrl:) withObject:urls];
+  }
+
+  INInteraction* interaction = [[INInteraction alloc] initWithIntent:intent
+                                                            response:nil];
+  fakeActivity.mockInteraction = interaction;
+
+  UIApplication* application = UIApplication.sharedApplication;
+  UIScene* scene = application.connectedScenes.anyObject;
+
+  [scene.delegate scene:scene continueUserActivity:fakeActivity];
 }
 
 + (void)startLoadingURL:(NSString*)spec {
@@ -429,6 +470,21 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   [handler openURLInNewTab:command];
 }
 
++ (void)openSendTabToSelfNewTabWithURL:(NSString*)url
+                          textFragment:(NSString*)textFragment
+                             entryGUID:(NSString*)guid {
+  const GURL gurl = GURL(base::SysNSStringToUTF8(url));
+  OpenNewTabCommand* command =
+      [OpenNewTabCommand commandWithURLFromChrome:gurl];
+  command.textFragment = textFragment;
+  command.sendTabToSelfEntryGUID = guid;
+
+  id<SceneCommands> handler = HandlerForProtocol(
+      chrome_test_util::GetCurrentBrowser()->GetCommandDispatcher(),
+      SceneCommands);
+  [handler openURLInNewTab:command];
+}
+
 + (void)simulateExternalAppURLOpeningWithURL:(NSURL*)URL {
   chrome_test_util::SimulateExternalAppURLOpeningWithURL(URL);
 }
@@ -499,6 +555,10 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
 
 + (NSUInteger)indexOfActiveNormalTab {
   return chrome_test_util::GetIndexOfActiveNormalTab();
+}
+
++ (BOOL)isCurrentTabNTP {
+  return IsVisibleURLNewTabPage(chrome_test_util::GetCurrentWebState());
 }
 
 #pragma mark - Window utilities (EG2)
@@ -686,6 +746,10 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   }
 
   return nil;
+}
+
++ (UIInterfaceOrientation)interfaceOrientation {
+  return GetInterfaceOrientation();
 }
 
 #pragma mark - WebState Utilities (EG2)
@@ -954,6 +1018,46 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
       base::SysNSStringToUTF8(deviceName), lastUpdatedTimestamp);
 }
 
++ (void)addFakeSyncServerSendTabToSelfEntryWithURL:(NSString*)URL
+                                             title:(NSString*)title
+                                        deviceName:(NSString*)deviceName
+                                  targetDeviceGUID:(NSString*)targetDeviceGUID {
+  chrome_test_util::AddSendTabToSelfEntryToFakeSyncServer(
+      GURL(base::SysNSStringToUTF8(URL)), base::SysNSStringToUTF8(title),
+      base::SysNSStringToUTF8(deviceName),
+      base::SysNSStringToUTF8(targetDeviceGUID));
+}
+
++ (NSString*)addFakeSendTabToSelfEntryWithURL:(NSString*)url
+                                        title:(NSString*)title
+                                formFieldData:
+                                    (NSDictionary<NSString*, NSString*>*)
+                                        formFieldData {
+  std::map<std::string, std::string> formFields;
+  for (NSString* key in formFieldData) {
+    formFields[base::SysNSStringToUTF8(key)] =
+        base::SysNSStringToUTF8(formFieldData[key]);
+  }
+
+  std::string guid = chrome_test_util::AddSendTabToSelfEntryToFakeSyncServer(
+      GURL(base::SysNSStringToUTF8(url)), base::SysNSStringToUTF8(title),
+      "target_device", "cache_guid_target_device", formFields);
+
+  return base::SysUTF8ToNSString(guid);
+}
+
++ (BOOL)hasSendTabToSelfEntryWithGUID:(NSString*)guid {
+  ProfileIOS* original_profile = chrome_test_util::GetOriginalProfile();
+  send_tab_to_self::SendTabToSelfSyncService* service =
+      SendTabToSelfSyncServiceFactory::GetForProfile(original_profile);
+  if (!service || !service->GetSendTabToSelfModel()) {
+    return NO;
+  }
+  send_tab_to_self::SendTabToSelfModel* model =
+      service->GetSendTabToSelfModel();
+  return model->GetEntryByGUID(base::SysNSStringToUTF8(guid)) != nullptr;
+}
+
 + (NSString*)textFragmentForSendTabToSelfEntryWithURL:(NSString*)URL {
   send_tab_to_self::SendTabToSelfSyncService* service =
       SendTabToSelfSyncServiceFactory::GetForProfile(
@@ -1061,11 +1165,12 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   });
   if (!success) {
     ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
+    syncer::SyncService* syncService =
+        SyncServiceFactory::GetForProfile(profile);
+    int state = (int)syncService->GetTransportState();
     NSString* errorDescription = [NSString
         stringWithFormat:
-            @"Sync transport must be active, but actual state was: %d",
-            (int)SyncServiceFactory::GetForProfile(profile)
-                ->GetTransportState()];
+            @"Sync transport must be active, but actual state was: %d", state];
     return testing::NSErrorWithLocalizedDescription(errorDescription);
   }
   return nil;
@@ -1335,8 +1440,8 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   return IsComposeboxIOSEnabled();
 }
 
-+ (UIInterfaceOrientation)interfaceOrientation {
-  return GetInterfaceOrientation();
++ (BOOL)isChromeNextEnabled {
+  return IsChromeNextIaEnabled();
 }
 
 #pragma mark - ContentSettings
@@ -1759,6 +1864,46 @@ int watchRunNumber = 0;
     return testing::NSErrorWithLocalizedDescription(NSErrorDescription);
   }
   return nil;
+}
+
++ (UIView*)viewWithAccessibilityID:(NSString*)accessibilityID
+                           inViews:(NSArray<UIView*>*)views {
+  for (UIView* view in views) {
+    if ([view.accessibilityIdentifier isEqualToString:accessibilityID]) {
+      return view;
+    }
+    UIView* subview = [self viewWithAccessibilityID:accessibilityID
+                                            inViews:view.subviews];
+    if (subview) {
+      return subview;
+    }
+  }
+  return nil;
+}
+
++ (UIView*)viewWithAccessibilityID:(NSString*)accessibilityID {
+  NSMutableArray<UIWindow*>* windows = [[NSMutableArray alloc] init];
+  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+    UIWindowScene* windowScene =
+        base::apple::ObjCCastStrict<UIWindowScene>(scene);
+    [windows addObjectsFromArray:windowScene.windows];
+  }
+  return [self viewWithAccessibilityID:accessibilityID inViews:windows];
+}
+
++ (BOOL)isViewAnimatingWithAccessibilityID:(NSString*)accessibilityID {
+  UIView* view = [self viewWithAccessibilityID:accessibilityID];
+  if (!view) {
+    return NO;
+  }
+  UIView* current = view;
+  while (current) {
+    if (current.layer.animationKeys.count > 0) {
+      return YES;
+    }
+    current = current.superview;
+  }
+  return NO;
 }
 
 @end

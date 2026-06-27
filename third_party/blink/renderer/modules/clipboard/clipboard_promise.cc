@@ -58,52 +58,6 @@ namespace blink {
 
 using mojom::blink::PermissionService;
 
-// This class deals with all the clipboard item promises and executes the write
-// operation after all the promises have been resolved.
-class ClipboardPromise::ClipboardItemDataPromiseFulfill final
-    : public ThenCallable<IDLSequence<V8UnionBlobOrString>,
-                          ClipboardItemDataPromiseFulfill> {
- public:
-  explicit ClipboardItemDataPromiseFulfill(ClipboardPromise* clipboard_promise)
-      : clipboard_promise_(clipboard_promise) {}
-
-  void Trace(Visitor* visitor) const final {
-    ThenCallable<IDLSequence<V8UnionBlobOrString>,
-                 ClipboardItemDataPromiseFulfill>::Trace(visitor);
-    visitor->Trace(clipboard_promise_);
-  }
-
-  void React(ScriptState* script_state,
-             HeapVector<Member<V8UnionBlobOrString>> clipboard_item_list) {
-    auto* list_copy =
-        MakeGarbageCollected<GCedHeapVector<Member<V8UnionBlobOrString>>>(
-            std::move(clipboard_item_list));
-    clipboard_promise_->HandlePromiseWrite(list_copy);
-  }
-
- private:
-  Member<ClipboardPromise> clipboard_promise_;
-};
-
-class ClipboardPromise::ClipboardItemDataPromiseReject final
-    : public ThenCallable<IDLAny, ClipboardItemDataPromiseReject> {
- public:
-  explicit ClipboardItemDataPromiseReject(ClipboardPromise* clipboard_promise)
-      : clipboard_promise_(clipboard_promise) {}
-
-  void Trace(Visitor* visitor) const final {
-    ThenCallable<IDLAny, ClipboardItemDataPromiseReject>::Trace(visitor);
-    visitor->Trace(clipboard_promise_);
-  }
-
-  void React(ScriptState* script_state, ScriptValue exception) {
-    clipboard_promise_->RejectClipboardItemPromise(exception);
-  }
-
- private:
-  Member<ClipboardPromise> clipboard_promise_;
-};
-
 // static
 ScriptPromise<IDLSequence<ClipboardItem>> ClipboardPromise::CreateForRead(
     ExecutionContext* context,
@@ -354,6 +308,14 @@ void ClipboardPromise::HandleReadWithPermission(
     return;
   }
 
+  // Snapshot the sequence number before format enumeration so a clipboard
+  // change during the async IPC will be detected by getType() (fail-closed).
+  // See crbug.com/498411773.
+  if (RuntimeEnabledFeatures::
+          ReadClipboardDataOnClipboardItemGetTypeEnabled()) {
+    sequence_number_at_read_start_ = GetSystemClipboard()->SequenceNumber();
+  }
+
 #if BUILDFLAG(IS_MAC)
   // Check macOS platform permission state if the runtime flag is enabled
   if (RuntimeEnabledFeatures::MacSystemClipboardPermissionCheckEnabled()) {
@@ -382,8 +344,7 @@ void ClipboardPromise::ResolveRead() {
   if (RuntimeEnabledFeatures::
           ReadClipboardDataOnClipboardItemGetTypeEnabled()) {
     clipboard_items = {MakeGarbageCollected<ClipboardItem>(
-        item_mime_types_, GetSystemClipboard()->SequenceNumber(),
-        GetExecutionContext(),
+        item_mime_types_, sequence_number_at_read_start_, GetExecutionContext(),
         /*sanitize_html_for_lazy_read=*/!will_read_unprocessed_html_,
         ClipboardItem::AccessMode::kLazy)};
   } else {
@@ -484,6 +445,14 @@ void ClipboardPromise::OnRead(Blob* blob, const String& mime_type) {
   ReadNextRepresentation();
 }
 
+void ClipboardPromise::OnReadPlainText(const String& text) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!GetExecutionContext()) {
+    return;
+  }
+  script_promise_resolver_->DowncastTo<IDLString>()->Resolve(text);
+}
+
 void ClipboardPromise::HandleReadTextWithPermission(
     mojom::blink::PermissionStatusWithDetailsPtr status) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -505,10 +474,12 @@ void ClipboardPromise::HandleReadTextWithPermission(
     return;
   }
 #endif
-  // Non-Mac platforms or when flag is disabled proceed directly
-  String text = GetSystemClipboard()->ReadPlainText(
-      mojom::blink::ClipboardBuffer::kStandard);
-  script_promise_resolver_->DowncastTo<IDLString>()->Resolve(text);
+  // Non-Mac platforms (or after the macOS platform permission check) proceed
+  // directly to an asynchronous OS clipboard read so the renderer main thread
+  // is not blocked. Tracks crbug.com/474131935.
+  GetSystemClipboard()->ReadPlainText(
+      mojom::blink::ClipboardBuffer::kStandard,
+      BindOnce(&ClipboardPromise::OnReadPlainText, WrapPersistent(this)));
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -527,9 +498,9 @@ void ClipboardPromise::OnPlatformPermissionResultForReadText(
     return;
   }
 
-  String text = GetSystemClipboard()->ReadPlainText(
-      mojom::blink::ClipboardBuffer::kStandard);
-  script_promise_resolver_->DowncastTo<IDLString>()->Resolve(text);
+  GetSystemClipboard()->ReadPlainText(
+      mojom::blink::ClipboardBuffer::kStandard,
+      BindOnce(&ClipboardPromise::OnReadPlainText, WrapPersistent(this)));
 }
 
 void ClipboardPromise::OnPlatformPermissionResultForRead(
@@ -555,13 +526,15 @@ void ClipboardPromise::OnPlatformPermissionResultForRead(
 #endif
 
 void ClipboardPromise::HandlePromiseWrite(
-    GCedHeapVector<Member<V8UnionBlobOrString>>* clipboard_item_list) {
+    HeapVector<Member<V8UnionBlobOrString>> clipboard_item_list) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  auto* list_copy =
+      MakeGarbageCollected<GCedHeapVector<Member<V8UnionBlobOrString>>>(
+          std::move(clipboard_item_list));
   GetClipboardTaskRunner()->PostTask(
-      FROM_HERE,
-      BindOnce(&ClipboardPromise::WriteClipboardItemData, WrapPersistent(this),
-               WrapPersistent(clipboard_item_list)));
+      FROM_HERE, BindOnce(&ClipboardPromise::WriteClipboardItemData,
+                          WrapPersistent(this), WrapPersistent(list_copy)));
 }
 
 void ClipboardPromise::WriteClipboardItemData(
@@ -637,10 +610,10 @@ void ClipboardPromise::HandleWriteWithPermission(
   }
   ScriptState* script_state = GetScriptState();
   ScriptState::Scope scope(script_state);
-  PromiseAll<V8UnionBlobOrString>::Create(script_state, promise_list)
-      .Then(script_state,
-            MakeGarbageCollected<ClipboardItemDataPromiseFulfill>(this),
-            MakeGarbageCollected<ClipboardItemDataPromiseReject>(this));
+  PromiseAll<V8UnionBlobOrString>::WaitForAll(
+      script_state, promise_list,
+      bindings::HeapBind(&ClipboardPromise::HandlePromiseWrite, this),
+      bindings::HeapBind(&ClipboardPromise::RejectClipboardItemPromise, this));
 }
 
 void ClipboardPromise::HandleWriteTextWithPermission(

@@ -23,10 +23,11 @@ namespace blink {
 class ConstraintSpace;
 class InlineItem;
 class InlineNode;
+class LineInfo;
 class LogicalLineItems;
 class ShapeResultView;
-struct FitTextBlockScale;
 struct LogicalRubyColumn;
+struct TextFitBlockScale;
 
 // Fragments that require the layout position/size of ancestor are packed in
 // this struct.
@@ -59,6 +60,10 @@ struct InlineBoxState {
   // SVG scaling factor for this box. We use a font of which size is
   // css-specified-size * scaling_factor.
   float scaling_factor;
+
+  // Scaling factor for text-fit. It's a "total" scaling factor, not a
+  // paint-time scaling factor.
+  float text_fit_scale = 1.0f;
 
   // The united metrics for the current box. This includes all objects in this
   // box, including descendants, and adjusted by placement properties such as
@@ -126,11 +131,11 @@ struct InlineBoxState {
   void ComputeTextMetrics(const ComputedStyle&,
                           const Font& fontref,
                           FontBaseline ifc_baseline,
-                          const FitTextBlockScale* scale);
+                          const TextFitBlockScale* scale);
   void EnsureTextMetrics(const ComputedStyle&,
                          const Font& fontref,
                          FontBaseline ifc_baseline,
-                         const FitTextBlockScale* scale);
+                         const TextFitBlockScale* scale);
   void ResetTextMetrics();
 
   void AccumulateUsedFonts(const ShapeResultView*, float scale = 1.0f);
@@ -152,7 +157,8 @@ struct InlineBoxState {
                           FontHeight& metrics);
 
   static FontHeight ComputeEmphasisMarkOutsets(const ComputedStyle& style,
-                                               const Font& font);
+                                               const Font& font,
+                                               float paint_scale);
 
 #if DCHECK_IS_ON()
   void CheckSame(const InlineBoxState&) const;
@@ -176,8 +182,7 @@ class CORE_EXPORT InlineLayoutStateStack {
   // Initialize the box state stack for a new line.
   // @return The initial box state for the line.
   InlineBoxState* OnBeginPlaceItems(const InlineNode& node,
-                                    const ComputedStyle&,
-                                    const InlineItemResults& line_items,
+                                    const LineInfo& line_info,
                                     FontBaseline,
                                     bool line_height_quirk,
                                     bool should_scale_line_height,
@@ -194,7 +199,7 @@ class CORE_EXPORT InlineLayoutStateStack {
                             const InlineItem&,
                             const InlineItemResult&,
                             FontBaseline baseline_type,
-                            const FitTextBlockScale& text_scale,
+                            const TextFitBlockScale& text_scale,
                             LogicalLineItems* line_box);
 
   // Pop a box state stack.
@@ -276,7 +281,7 @@ class CORE_EXPORT InlineLayoutStateStack {
                    FontBaseline);
 
   void AddBoxFragmentPlaceholder(InlineBoxState*,
-                                 const FitTextBlockScale& text_scale,
+                                 const TextFitBlockScale& text_scale,
                                  LogicalLineItems*,
                                  FontBaseline);
   void AddBoxData(const ConstraintSpace&,

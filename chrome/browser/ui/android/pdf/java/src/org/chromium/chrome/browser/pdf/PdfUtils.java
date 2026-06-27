@@ -4,14 +4,21 @@
 
 package org.chromium.chrome.browser.pdf;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
+import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 import android.os.ext.SdkExtensions;
 import android.text.TextUtils;
+import android.view.View;
 
 import androidx.annotation.IntDef;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.pdf.viewer.fragment.PdfViewerFragment;
 
 import org.jni_zero.CalledByNative;
 
@@ -33,6 +40,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /** Utilities for inline pdf support. */
@@ -208,7 +217,7 @@ public class PdfUtils {
         if (pdfPage == null || !pdfPage.isPdf()) {
             return PdfPageType.NONE;
         }
-        assert pdfPage instanceof PdfPage;
+
         GURL url = new GURL(pdfPage.getUrl());
         return getPdfPageTypeInternal(url, pdfPage.isDownloadSafe());
     }
@@ -237,7 +246,7 @@ public class PdfUtils {
         sShouldOpenPdfInlineForTesting = shouldOpenPdfInlineForTesting;
     }
 
-    static @Nullable Uri getUriFromFilePath(String pdfFilePath) {
+    public static @Nullable Uri getUriFromFilePath(String pdfFilePath) {
         Uri uri = Uri.parse(pdfFilePath);
         String scheme = uri.getScheme();
         try {
@@ -361,6 +370,18 @@ public class PdfUtils {
         return null;
     }
 
+    /** Collects all the View objects for PdfViewerFragment found after activity restart. */
+    public static List<View> findAllPdfFragmentViews(Activity activity) {
+        List<View> allViews = new ArrayList<>();
+        var fragmentManager = ((FragmentActivity) activity).getSupportFragmentManager();
+        for (Fragment fragment : fragmentManager.getFragments()) {
+            if (fragment instanceof PdfViewerFragment) {
+                allViews.add(assumeNonNull(fragment.getView()));
+            }
+        }
+        return allViews;
+    }
+
     /**
      * Checks whether the inline PDF V2 feature is enabled.
      *
@@ -371,20 +392,25 @@ public class PdfUtils {
         return ChromeFeatureList.sInlinePdfV2.isEnabled();
     }
 
-    static void recordPdfLoad() {
+    /** Returns {@code true} if {@link PdfViewFragment} is reused on activity restart. */
+    public static boolean isReuseFragmentEnabled() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.PDF_REUSE_FRAGMENT);
+    }
+
+    public static void recordPdfLoad() {
         RecordHistogram.recordBooleanHistogram("Android.Pdf.DocumentLoad", true);
     }
 
-    static void recordPdfLoadResultDetail(@PdfLoadResult int loadResult) {
+    public static void recordPdfLoadResultDetail(@PdfLoadResult int loadResult) {
         RecordHistogram.recordEnumeratedHistogram(
                 "Android.Pdf.DocumentLoadResult.Detail", loadResult, PdfLoadResult.NUM_ENTRIES);
     }
 
-    static void recordPdfLoadTimeFirstPaired(long duration) {
+    public static void recordPdfLoadTimeFirstPaired(long duration) {
         RecordHistogram.recordTimesHistogram("Android.Pdf.DocumentLoadTime.FirstPaired", duration);
     }
 
-    static void recordPdfLoadInterval(long duration) {
+    public static void recordPdfLoadInterval(long duration) {
         RecordHistogram.recordMediumTimesHistogram("Android.Pdf.DocumentLoadInterval", duration);
     }
 
@@ -392,17 +418,17 @@ public class PdfUtils {
         RecordHistogram.recordTimesHistogram("Android.Pdf.DownloadTime.Transient", duration);
     }
 
-    static void recordFindInPage(int findInPageCounts) {
+    public static void recordFindInPage(int findInPageCounts) {
         RecordHistogram.recordExactLinearHistogram(
                 "Android.Pdf.FindInPageCounts", findInPageCounts, /* max= */ 9);
     }
 
-    static void recordIsWorkProfile(boolean isWorkProfile) {
+    public static void recordIsWorkProfile(boolean isWorkProfile) {
         RecordHistogram.recordBooleanHistogram(
                 "Android.Pdf.AssistContent.IsWorkProfile", isWorkProfile);
     }
 
-    static void recordGetAssistantPackageResult(boolean success) {
+    public static void recordGetAssistantPackageResult(boolean success) {
         RecordHistogram.recordBooleanHistogram(
                 "Android.Pdf.AssistContent.GetAssistantPackageResult", success);
     }
@@ -415,7 +441,7 @@ public class PdfUtils {
         RecordHistogram.recordBooleanHistogram("Android.Pdf.DownloadUrlDecoded", decodeResult);
     }
 
-    static void recordIsUriNull(boolean isNull) {
+    public static void recordIsUriNull(boolean isNull) {
         RecordHistogram.recordBooleanHistogram("Android.Pdf.UriIsNull", isNull);
     }
 }

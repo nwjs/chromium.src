@@ -25,8 +25,10 @@
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/skia/include/core/SkPaint.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/codec/jpeg_codec.h"
+#include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/views/controls/webview/webview.h"
@@ -163,6 +165,16 @@ SelectionOverlayController* SelectionOverlayController::FromTabWebContents(
     content::WebContents* tab_web_contents) {
   return Get(tabs::TabInterface::GetFromContents(tab_web_contents)
                  ->GetUnownedUserDataHost());
+}
+
+std::vector<int> SelectionOverlayController::GetPolylineCounts() const {
+  std::vector<int> polyline_counts;
+  for (const auto& [id, region] : selected_regions_) {
+    if (region->shape->is_polyline()) {
+      polyline_counts.push_back(region->shape->get_polyline().size());
+    }
+  }
+  return polyline_counts;
 }
 
 void SelectionOverlayController::BindOverlay(
@@ -375,28 +387,12 @@ GURL SelectionOverlayController::GetInitialURL() {
   return GURL(chrome::kChromeUIGlicSelectionOverlayURL);
 }
 
-void SelectionOverlayController::NotifyIsOverlayShowing(bool is_showing) {
-  if (!is_showing) {
-    GlicKeyedService* service = GlicKeyedService::Get(tab_->GetProfile());
-    if (service) {
-      if (GlicInstance* instance = service->GetInstanceForTab(tab_)) {
-        instance->OnSelectionAreasChanged(0);
-        instance->OnPolylinePointsChanged({});
-      }
-    }
-  }
-}
-
 int SelectionOverlayController::GetToolResourceId() {
   return IDS_GLIC_SELECTION_OVERLAY_RENDERER_LABEL;
 }
 
-ui::ElementIdentifier SelectionOverlayController::GetViewContainerId() {
+ui::ElementIdentifier SelectionOverlayController::GetViewContainerId() const {
   return kGlicSelectionOverlayViewElementId;
-}
-
-bool SelectionOverlayController::UsesContentsContainerView() {
-  return true;
 }
 
 SidePanelType SelectionOverlayController::GetSidePanelType() {
@@ -427,15 +423,20 @@ OverlayBaseController::PreselectionUIConfig
 SelectionOverlayController::GetPreselectionBubbleConfig() {
   return {
       .message_string_id = IDS_GLIC_SELECTION_OVERLAY_PRESELECTION_BUBBLE_TEXT,
-      .show_cancel_button = true,
-      .cancel_button_color = kColorGlicSelectionOverlayToastCancelButton,
       .bubble_background_color = kColorGlicSelectionOverlayToast,
-      .icon = &vector_icons::kCropFreeIcon};
+      .icon =
+          &(features::IsRoundedIconsEnabled() ? vector_icons::kCropFreeIcon
+                                              : vector_icons::kCropFreeOldIcon),
+      .cancel_button_config = CancelButtonConfig{
+          .color = kColorGlicSelectionOverlayToastCancelButton,
+          .padding = gfx::Insets::VH(8, 16),
+          .bubble_margins = gfx::Insets::VH(6, 14)}};
 }
 
 bool SelectionOverlayController::IsOverlayViewShared() const {
   // Glic's selection overlay's WebView is attached to the ContentsContainerView
-  // which cannot be shared across multiple tabs.
+  // which cannot be shared across multiple tabs. It also means glic's selection
+  // overlay respects the split view.
   return false;
 }
 
@@ -445,7 +446,8 @@ void SelectionOverlayController::DismissOverlay(
 }
 
 void SelectionOverlayController::AdjustRegion(
-    selection::SelectedRegionPtr target) {
+    selection::SelectedRegionPtr target,
+    bool is_using_keyboard) {
   auto it = selected_regions_.find(target->id);
   if (it != selected_regions_.end()) {
     it->second = std::move(target);
@@ -453,17 +455,17 @@ void SelectionOverlayController::AdjustRegion(
     selected_regions_[target->id] = std::move(target);
   }
 
-  RenderRegions();
+  RenderRegions(!is_using_keyboard);
 }
 
-void SelectionOverlayController::DeleteRegion(
-    const base::UnguessableToken& id) {
+void SelectionOverlayController::DeleteRegion(const base::UnguessableToken& id,
+                                              bool is_using_keyboard) {
   if (selected_regions_.erase(id)) {
     if (selected_regions_.empty()) {
       CloseUI();
       return;
     }
-    RenderRegions();
+    RenderRegions(!is_using_keyboard);
   }
 }
 
@@ -491,7 +493,7 @@ void SelectionOverlayController::Reset() {
   options_.reset();
 }
 
-void SelectionOverlayController::RenderRegions() {
+void SelectionOverlayController::RenderRegions(bool should_focus_panel) {
   if (redacted_screenshot_.empty()) {
     return;
   }
@@ -561,18 +563,13 @@ void SelectionOverlayController::RenderRegions() {
   if (GlicInstance* instance = service->GetInstanceForTab(tab_)) {
     mojom::AdditionalContextPtr additional_context =
         CreateAdditionalContext(std::move(captured_regions));
-    service->SendAdditionalContext(tab_->GetHandle(),
-                                   std::move(additional_context));
-    instance->OnSelectionAreasChanged(selected_regions_.size());
-    instance->OnPolylinePointsChanged(polyline_counts);
-    if (instance->IsActive()) {
-      if (content::WebContents* web_contents =
-              instance->host().webui_contents()) {
-        web_contents->Focus();
-      }
+    instance->SendAdditionalContext(std::move(additional_context));
+    // If the event that triggered this was initiated via keyboard, do not
+    // focus the panel to avoid stealing focus away from the selection pane.
+    if (should_focus_panel) {
+      instance->FocusIfActive();
     }
   }
-
 }
 
 glic::mojom::AdditionalContextPtr

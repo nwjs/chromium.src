@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/strings/grit/ash_strings.h"
 #include "base/i18n/number_formatting.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
@@ -99,6 +100,12 @@ void PinSetupScreenHandler::DeclareLocalizedValues(
                IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_ERROR_MEDIUM);
   builder->Add("configurePinComplexityErrorHigh",
                IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_ERROR_HIGH);
+  builder->Add("configurePinComplexityRepeating",
+               IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_REPEATING_DIGITS);
+  builder->Add("configurePinComplexityOrdered",
+               IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_ORDERED_SEQUENCE);
+  builder->Add("configurePinComplexityTooShort",
+               IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_COMPLEXITY_TOO_SHORT);
 }
 
 void PinSetupScreenHandler::Show(const std::string& token,

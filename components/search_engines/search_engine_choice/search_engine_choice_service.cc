@@ -66,6 +66,8 @@
 
 using ::country_codes::CountryId;
 using ::regional_capabilities::SearchEngineChoiceScreenConditions;
+using LocationCompatibility =
+    ::regional_capabilities::RegionalCapabilitiesService::LocationCompatibility;
 
 namespace search_engines {
 namespace {
@@ -279,6 +281,7 @@ regional_capabilities::FunnelStage ToFunnelStage(
     case SearchEngineChoiceScreenConditions::kAlreadyBeingShown:
     case SearchEngineChoiceScreenConditions::kUsingPersistedGuestSessionChoice:
     case SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation:
+    case SearchEngineChoiceScreenConditions::kUnavailableCurrentLocation:
     case SearchEngineChoiceScreenConditions::kAccountNotEligible:
     case SearchEngineChoiceScreenConditions::kIneligibleSurface:
     case SearchEngineChoiceScreenConditions::kManaged:
@@ -469,7 +472,8 @@ enum class PendingDisplayStateStatus {
   kTimedOut = 1,
   kUploaded = 2,
   kStayPending = 3,
-  kMaxValue = kStayPending,
+  kProgramMismatch = 4,
+  kMaxValue = kProgramMismatch,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/search/enums.xml:PendingChoiceScreenDisplayStateStatus)
 
@@ -611,8 +615,12 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
     return SearchEngineChoiceScreenConditions::kControlledByPolicy;
   }
 
-  if (!regional_capabilities_service_
-           ->IsChoiceScreenCompatibleWithCurrentLocation()) {
+  if (regional_capabilities_service_
+          ->IsChoiceScreenCompatibleWithCurrentLocation() ==
+      LocationCompatibility::kIncompatible) {
+    // Only check for `kIncompatible` here, do not flag `kLocationUnknown`. The
+    // latter will be handled as part of Dynamic checks, which may respond
+    // differently according to the calling context.
     return SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation;
   }
 
@@ -640,10 +648,25 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
 
 SearchEngineChoiceScreenConditions
 SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
-    const TemplateURLService& template_url_service) const {
+    const TemplateURLService& template_url_service,
+    DynamicConditionsCheckContext context) const {
 #if !BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
   return SearchEngineChoiceScreenConditions::kUnsupportedBrowserType;
 #else
+
+  switch (regional_capabilities_service_
+              ->IsChoiceScreenCompatibleWithCurrentLocation()) {
+    case LocationCompatibility::kIncompatible:
+      return SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation;
+    case LocationCompatibility::kLocationUnknown:
+      if (!context.allow_unknown_current_location) {
+        return SearchEngineChoiceScreenConditions::kUnavailableCurrentLocation;
+      }
+      break;
+    case LocationCompatibility::kCompatible:
+      break;
+  }
+
   switch (EvaluateSearchProviderChoice(template_url_service)) {
     case ChoiceStatus::kValid:
       return SearchEngineChoiceScreenConditions::kAlreadyCompleted;
@@ -819,19 +842,33 @@ void SearchEngineChoiceService::RecordChoiceMade(
     TemplateURLService* template_url_service) {
   CHECK_NE(choice_location, ChoiceMadeLocation::kOther);
 
+  auto is_in_choice_screen_region =
+      regional_capabilities_service_->IsInSearchEngineChoiceScreenRegion();
+
   // TODO(https://crbug.com/435638443): Add regression test to check that
   // choices made after restore detection are properly recorded.
-  // Tri-bool, `nullopt` means there is no choice to keep nor wipe.
-  std::optional<bool> should_keep_existing_choice_record = std::nullopt;
+  bool should_keep_existing_choice_record = false;
   if (auto completion_metadata = GetChoiceCompletionMetadata(*profile_prefs_);
       completion_metadata.has_value()) {
+    std::optional<SearchEngineChoiceWipeReason> record_wipe_reason =
+        std::nullopt;
     if (IsChoiceImported(completion_metadata.value(),
                          CHECK_DEREF(client_.get()), profile_prefs_.get(),
                          /* include_previous_just_in_time_detection= */ true)) {
       // Clear sentinel data associated with the previous choice being renewed.
-      should_keep_existing_choice_record = false;
+      record_wipe_reason =
+          SearchEngineChoiceWipeReason::kChoiceRemadeAfterImport;
+    } else if (regional_capabilities_service_->GetSerializedActiveProgram() !=
+                   completion_metadata->serialized_program &&
+               // Don't wipe pre-existing choices outside of choice program
+               // regions.
+               is_in_choice_screen_region) {
+      record_wipe_reason = SearchEngineChoiceWipeReason::kProgramChanged;
+    }
+
+    if (record_wipe_reason.has_value()) {
+      WipeSearchEngineChoicePrefs(*profile_prefs_, *record_wipe_reason);
     } else {
-      // Don't modify the prefs if they were already set.
       should_keep_existing_choice_record = true;
     }
   }
@@ -840,17 +877,15 @@ void SearchEngineChoiceService::RecordChoiceMade(
   // is part of that logic.
   ClearSearchEngineChoiceInvalidation(*profile_prefs_);
 
-  if (should_keep_existing_choice_record.has_value()) {
-    if (should_keep_existing_choice_record.value()) {
-      return;
-    }
-
-    WipeSearchEngineChoicePrefs(
-        *profile_prefs_,
-        SearchEngineChoiceWipeReason::kChoiceRemadeAfterImport);
+  if (should_keep_existing_choice_record) {
+    // There is an existing record AND we should keep it. In this case, being
+    // called from a choice screen is not expected.
+    CHECK_NE(choice_location, ChoiceMadeLocation::kChoiceScreen,
+             base::NotFatalUntil::M153);
+    return;
   }
 
-  if (!regional_capabilities_service_->IsInSearchEngineChoiceScreenRegion()) {
+  if (!is_in_choice_screen_region) {
     return;
   }
 
@@ -875,10 +910,13 @@ void SearchEngineChoiceService::RecordChoiceMade(
 
 void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
     const ChoiceScreenDisplayState& display_state) {
-  if (!regional_capabilities_service_->IsInSearchEngineChoiceScreenRegion(
-          display_state.country_id)) {
+  if (!regional_capabilities_service_
+           ->IsInCurrentSearchEngineChoiceScreenRegion(
+               display_state.country_id)) {
+    // The current choice screen declaring that it's for a different
+    // country / region than the current one is not expected to happen.
     // Tests or command line can force this, but we want to avoid polluting the
-    // histograms with unwanted country data.
+    // histograms with unwanted country data or unnecessary crashes, so no-op.
     return;
   }
 
@@ -890,8 +928,36 @@ void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
   // the choice screen more than once, which is bad UX.
   // See crbug.com/390272573 for context and past debugging attempts.
   if (!has_recorded_display_state_) {
-    CHECK(!profile_prefs_->HasPrefPath(
-        prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+    if (profile_prefs_->HasPrefPath(
+            prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState)) {
+      const base::DictValue& dict = profile_prefs_->GetDict(
+          prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
+      std::optional<ChoiceScreenDisplayState> pending_display_state =
+          ChoiceScreenDisplayState::FromDict(dict);
+
+      if (pending_display_state.has_value() &&
+          regional_capabilities_service_
+              ->IsInCurrentSearchEngineChoiceScreenRegion(
+                  pending_display_state->country_id)) {
+        // TODO(crbug.com/513536289): Consider comparing the active programs
+        // instead. It would require to start putting it in the display state
+        // cache. If programs are compatible, we should NOT have reached this
+        // state. Re-entry for the same program is a bug. See
+        // crbug.com/390272573.
+        NOTREACHED(base::NotFatalUntil::M153);
+      }
+
+      // If we are recording a new display state because we changed programs,
+      // we should wipe any pending one from that previous session & program.
+      profile_prefs_->ClearPref(
+          prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
+
+      // TODO(crbug.com/515743795): Check whether this also ends up being
+      // unreachable, using the histogram below.
+      base::UmaHistogramEnumeration(
+          "Search.ChoicePrefsCheck.PendingChoiceScreenDisplayStateStatus",
+          PendingDisplayStateStatus::kProgramMismatch);
+    }
     has_recorded_display_state_ = true;
   } else {
     // Re-entry, we just record a histogram and let the code otherwise
@@ -1002,6 +1068,8 @@ void SearchEngineChoiceService::ProcessPendingChoiceScreenDisplayState() {
     case PendingDisplayStateStatus::kStayPending:
       // Do nothing. Processing will be attempted again next time.
       return;
+    case PendingDisplayStateStatus::kProgramMismatch:
+      NOTREACHED();  // No expected to be returned here.
   }
   NOTREACHED();
 }
@@ -1011,6 +1079,10 @@ SearchEngineChoiceService::GetChoiceRenewalReasons(
     const regional_capabilities::ChoiceScreenEligibilityConfig&
         eligibility_config,
     const ChoiceCompletionMetadata& completion_metadata) const {
+  // TODO(crbug.com/515743795): Refactor implementation to ensure consistency
+  // with `RecordChoiceMade`, as it has a similar logic to decide whether to
+  // overwrite previous choices.
+
   ChoiceRenewalReasons reasons;
 
   if (!eligibility_config.should_preserve_imported_choice &&

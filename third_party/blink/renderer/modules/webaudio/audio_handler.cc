@@ -19,6 +19,8 @@
 #include <stdio.h>
 #endif
 
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
+
 namespace blink {
 
 AudioHandler::AudioHandler(NodeType node_type,
@@ -50,7 +52,7 @@ AudioHandler::AudioHandler(NodeType node_type,
 #endif
   node.context()->WarnIfContextClosed(this);
   uma_reporter_ = std::make_unique<AudioHandlerUmaReporter>(
-      std::string(NodeTypeName().Utf8()), sample_rate);
+      std::string(NodeTypeName()), sample_rate);
 }
 
 AudioHandler::~AudioHandler() {
@@ -100,7 +102,7 @@ BaseAudioContext* AudioHandler::Context() const {
   return context_.Get();
 }
 
-String AudioHandler::NodeTypeName() const {
+const char* AudioHandler::NodeTypeName() const {
   switch (node_type_) {
     case NodeType::kNodeTypeDestination:
       return "AudioDestinationNode";
@@ -210,7 +212,8 @@ void AudioHandler::SetInternalChannelInterpretation(
 void AudioHandler::SetChannelCount(unsigned channel_count,
                                    ExceptionState& exception_state) {
   DCHECK(IsMainThread());
-  DeferredTaskHandler::GraphAutoLocker locker(Context());
+  DeferredTaskHandler::GraphAutoLocker locker(
+      Context()->GetDeferredTaskHandler());
 
   if (channel_count > 0 &&
       channel_count <= BaseAudioContext::MaxNumberOfChannels()) {
@@ -241,7 +244,8 @@ V8ChannelCountMode::Enum AudioHandler::GetChannelCountMode() const {
 void AudioHandler::SetChannelCountMode(V8ChannelCountMode::Enum mode,
                                        ExceptionState& exception_state) {
   DCHECK(IsMainThread());
-  DeferredTaskHandler::GraphAutoLocker locker(Context());
+  DeferredTaskHandler::GraphAutoLocker locker(
+      Context()->GetDeferredTaskHandler());
 
   new_channel_count_mode_ = mode;
   if (new_channel_count_mode_ != channel_count_mode_) {
@@ -266,7 +270,8 @@ void AudioHandler::SetChannelInterpretation(
     V8ChannelInterpretation::Enum interpretation,
     ExceptionState& exception_state) {
   DCHECK(IsMainThread());
-  DeferredTaskHandler::GraphAutoLocker locker(Context());
+  DeferredTaskHandler::GraphAutoLocker locker(
+      Context()->GetDeferredTaskHandler());
 
   AudioBus::ChannelInterpretation old_mode = channel_interpretation_;
 
@@ -298,8 +303,7 @@ void AudioHandler::ProcessIfNecessary(uint32_t frames_to_process) {
 
   TRACE_EVENT2(TRACE_DISABLED_BY_DEFAULT("webaudio.audionode"),
                "AudioHandler::ProcessIfNecessary", "this",
-               reinterpret_cast<void*>(this), "node type",
-               NodeTypeName().Ascii());
+               reinterpret_cast<void*>(this), "node type", NodeTypeName());
 
   // Ensure that we only process once per rendering quantum.
   // This handles the "fanout" problem where an output is connected to multiple
@@ -567,10 +571,10 @@ void AudioHandler::UpdateChannelInterpretation() {
 void AudioHandler::SendLogMessage(const String& function_name,
                                   const String& message) {
   WebRtcLogMessage(
-      String::Format("[WA]AH::%s %s [type=%s, this=0x%" PRIXPTR "]",
-                     function_name.Utf8().c_str(), message.Utf8().c_str(),
-                     NodeTypeName().Utf8().c_str(),
-                     reinterpret_cast<uintptr_t>(this))
+      StrCat({"[WA]AH::", function_name, " ", message,
+              " [type=", NodeTypeName(), ", this=0x",
+              String::Format("%" PRIXPTR, reinterpret_cast<uintptr_t>(this)),
+              "]"})
           .Utf8());
 }
 

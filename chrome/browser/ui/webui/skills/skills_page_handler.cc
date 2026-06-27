@@ -6,6 +6,7 @@
 
 #include "base/check_deref.h"
 #include "base/types/optional_util.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
@@ -13,6 +14,7 @@
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skill.mojom.h"
 #include "components/skills/public/skills_metrics.h"
+#include "components/skills/public/skills_prefs.h"
 #include "components/skills/public/skills_types.h"
 #include "components/sync/protocol/skill_specifics.pb.h"
 #include "components/tabs/public/tab_interface.h"
@@ -86,6 +88,11 @@ SkillsPageHandler::SkillsPageHandler(
       web_contents_(CHECK_DEREF(web_contents)),
       profile_(CHECK_DEREF(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()))) {
+  pref_registrar_.Init(profile_->GetPrefs());
+  pref_registrar_.Add(
+      skills::prefs::kChromeSkillsEnabled,
+      base::BindRepeating(&SkillsPageHandler::OnSkillsEnabledPrefChanged,
+                          base::Unretained(this)));
   if (auto* service =
           SkillsServiceFactory::GetForProfile(base::to_address(profile_))) {
     service_observation_.Observe(service);
@@ -105,7 +112,7 @@ void SkillsPageHandler::OpenSkillsDialog(
     tab_controller->ShowDialog(
         skill.value_or(skills::Skill()),
         ResolveEntryPointForManagementPage(base::OptionalToPtr(skill)),
-        dialog_type);
+        dialog_type, nullptr);
   } else {
     RecordSkillsManagementError(SkillsManagementError::kTabControllerDNE);
   }
@@ -220,6 +227,10 @@ void SkillsPageHandler::GetInitial1PSkills(
       std::move(callback), mojom::BrowseSkillsInitialState::New());
   auto* service =
       SkillsServiceFactory::GetForProfile(base::to_address(profile_));
+  if (!service) {
+    std::move(scoped_callback).Run(mojom::BrowseSkillsInitialState::New());
+    return;
+  }
   auto state = mojom::BrowseSkillsInitialState::New();
   state->topics_info_list = service->Get1PTopicsInfo();
   state->skill_map = Translate1PSkills(service->Get1PSkills());
@@ -277,6 +288,11 @@ void SkillsPageHandler::RecordSkillsManagementAction(
     skills::mojom::SkillsManagementPage page,
     skills::mojom::SkillsManagementAction action) {
   skills::RecordSkillsManagementAction(page, action);
+}
+
+void SkillsPageHandler::OnSkillsEnabledPrefChanged() {
+  page_->SetSkillsEnabled(SkillsServiceFactory::IsSkillsEnabledForProfile(
+      base::to_address(profile_)));
 }
 
 }  // namespace skills

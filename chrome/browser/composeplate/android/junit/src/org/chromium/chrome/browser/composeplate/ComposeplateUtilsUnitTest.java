@@ -20,7 +20,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
@@ -34,6 +33,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.theme.ThemeUtils;
@@ -88,6 +88,33 @@ public class ComposeplateUtilsUnitTest {
     }
 
     @Test
+    public void testCanShowComposeplateButtonOnNtp() {
+        // Case 1: mobile, feature Composeplate is enabled, and the composeplate button should be
+        // shown.
+        DeviceInfo.setIsDesktopForTesting(false);
+        when(mMockComposeplateUtilsJni.isAimEntrypointEligible(eq(mProfile))).thenReturn(true);
+        assertFalse(DeviceInfo.isDesktop());
+        assertTrue(ComposeplateUtils.canShowComposeplateButtonOnNtp(mProfile));
+
+        // Case 2: mobile, feature Composeplate is disabled, and the composeplate button should not
+        // be shown.
+        when(mMockComposeplateUtilsJni.isAimEntrypointEligible(eq(mProfile))).thenReturn(false);
+        assertFalse(ComposeplateUtils.canShowComposeplateButtonOnNtp(mProfile));
+
+        // Case 3: Desktop, feature Composeplate is enabled, but the composeplate button should not
+        // be shown.
+        DeviceInfo.setIsDesktopForTesting(true);
+        when(mMockComposeplateUtilsJni.isAimEntrypointEligible(eq(mProfile))).thenReturn(true);
+        assertTrue(DeviceInfo.isDesktop());
+        assertFalse(ComposeplateUtils.canShowComposeplateButtonOnNtp(mProfile));
+
+        // Case 4: Desktop, feature Composeplate is disabled, and the composeplate button should not
+        // be shown.
+        when(mMockComposeplateUtilsJni.isAimEntrypointEligible(eq(mProfile))).thenReturn(false);
+        assertFalse(ComposeplateUtils.canShowComposeplateButtonOnNtp(mProfile));
+    }
+
+    @Test
     public void testApplyWhiteBackgroundAndShadow() {
         // Verifies the apply case.
         ComposeplateUtils.applyWhiteBackground(mContext, mView, /* apply= */ true);
@@ -121,7 +148,7 @@ public class ComposeplateUtilsUnitTest {
     public void testGetSearchBoxIconColorTint() {
         // Verifies the color tint for customized background images.
         assertEquals(
-                AppCompatResources.getColorStateList(mContext, R.color.default_icon_color_dark),
+                mContext.getColorStateList(R.color.default_icon_color_dark),
                 ComposeplateUtils.getSearchBoxIconColorTint(
                         mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ true));
 

@@ -25,9 +25,6 @@ class PrefService;
 class SharingMessageBridge;
 class TemplateURLService;
 
-namespace accessibility_annotator {
-class AccessibilityAnnotatorBackend;
-}  // namespace accessibility_annotator
 
 namespace account_settings {
 class AccountSettingService;
@@ -146,11 +143,6 @@ class CommonControllerBuilder {
   CommonControllerBuilder();
   ~CommonControllerBuilder();
 
-  // Setters to inject dependencies. Each of these setters must be invoked
-  // before invoking `Build()`. In some cases it is allowed to inject nullptr.
-  void SetAccessibilityAnnotatorBackend(
-      accessibility_annotator::AccessibilityAnnotatorBackend*
-          accessibility_annotator_backend);
   void SetAccountSettingService(
       account_settings::AccountSettingService* account_setting_service);
   void SetAddressDataManagerGetter(
@@ -202,10 +194,12 @@ class CommonControllerBuilder {
           profile_password_store,
       const scoped_refptr<password_manager::PasswordStoreInterface>&
           account_password_store);
+#if !BUILDFLAG(IS_IOS)
   void SetPlusAddressServices(
       plus_addresses::PlusAddressSettingService* plus_address_setting_service,
       const scoped_refptr<plus_addresses::PlusAddressWebDataService>&
           plus_address_webdata_service);
+#endif  // !BUILDFLAG(IS_IOS)
   void SetPrefService(PrefService* pref_service);
   void SetPrefServiceSyncable(
       sync_preferences::PrefServiceSyncable* pref_service_syncable);
@@ -277,10 +271,12 @@ class CommonControllerBuilder {
   std::unique_ptr<syncer::DataTypeController>
   CreateOutgoingPasswordSharingInvitationDataTypeController(
       syncer::SyncService* sync_service);
+#if !BUILDFLAG(IS_IOS)
   std::unique_ptr<syncer::DataTypeController>
   CreatePlusAddressDataTypeController();
   std::unique_ptr<syncer::DataTypeController>
   CreatePlusAddressSettingDataTypeController();
+#endif  // !BUILDFLAG(IS_IOS)
   std::unique_ptr<syncer::DataTypeController>
   CreatePreferencesDataTypeController(version_info::Channel channel);
   std::unique_ptr<syncer::DataTypeController>
@@ -316,8 +312,6 @@ class CommonControllerBuilder {
   CreateAiThreadDataTypeController();
   std::unique_ptr<syncer::DataTypeController>
   CreateGeminiThreadDataTypeController();
-  std::unique_ptr<syncer::DataTypeController>
-  CreateAccessibilityAnnotationDataTypeController();
   std::unique_ptr<syncer::DataTypeController>
   CreateContextualTaskDataTypeController();
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -373,8 +367,6 @@ class CommonControllerBuilder {
 
   // For all above, nullopt indicates the corresponding setter wasn't invoked.
   // nullptr indicates the setter was invoked with nullptr.
-  SafeOptional<raw_ptr<accessibility_annotator::AccessibilityAnnotatorBackend>>
-      accessibility_annotator_backend_;
   SafeOptional<raw_ptr<account_settings::AccountSettingService>>
       account_setting_service_;
   base::RepeatingCallback<autofill::AddressDataManager*()>
@@ -420,10 +412,12 @@ class CommonControllerBuilder {
   SafeOptional<raw_ptr<bookmarks::BookmarkModel>> bookmark_model_;
   SafeOptional<raw_ptr<supervised_user::FamilyLinkSettingsService>>
       family_link_settings_service_;
+#if !BUILDFLAG(IS_IOS)
   SafeOptional<raw_ptr<plus_addresses::PlusAddressSettingService>>
       plus_address_setting_service_;
   SafeOptional<scoped_refptr<plus_addresses::PlusAddressWebDataService>>
       plus_address_webdata_service_;
+#endif  // !BUILDFLAG(IS_IOS)
   SafeOptional<raw_ptr<collaboration::CollaborationService>>
       collaboration_service_;
   SafeOptional<raw_ptr<contextual_tasks::ContextualTasksService>>

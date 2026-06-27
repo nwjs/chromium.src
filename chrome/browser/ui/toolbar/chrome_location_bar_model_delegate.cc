@@ -37,9 +37,11 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/common/constants.h"
+#include "ui/base/ui_base_features.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/extensions/extension_ui_util.h"
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
 #include "components/vector_icons/vector_icons.h"     // nogncheck
 #endif
@@ -126,10 +128,15 @@ bool ChromeLocationBarModelDelegate::ShouldDisplayURL() const {
   };
 
   GURL url = entry->GetURL();
-  if (is_ntp(entry->GetVirtualURL()) || is_ntp(url) ||
-      IsContextualTasksPage()) {
+  if (is_ntp(entry->GetVirtualURL()) || is_ntp(url)) {
     return false;
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (IsContextualTasksPage()) {
+    return false;
+  }
+#endif
 
   Profile* profile = GetProfile();
   return !profile || !search::IsInstantNTPURL(url, profile);
@@ -190,11 +197,20 @@ const gfx::VectorIcon* ChromeLocationBarModelDelegate::GetVectorIconOverride()
   }
 
   if (url.SchemeIs(content::kChromeUIScheme)) {
-    return &omnibox::kProductChromeRefreshIcon;
+    return &(features::IsRoundedIconsEnabled()
+                 ? omnibox::kChromeProductIcon
+                 : omnibox::kProductChromeRefreshOldIcon);
   }
 
-  if (url.SchemeIs(extensions::kExtensionScheme)) {
-    return &vector_icons::kExtensionChromeRefreshIcon;
+  // If there is no active WebContents (which can happen during toolbar
+  // initialization), no extension chip is shown.
+  content::WebContents* web_contents = GetActiveWebContents();
+  if (web_contents &&
+      !extensions::ui_util::GetEnabledExtensionNameForUrl(url, *web_contents)
+           .empty()) {
+    return &(features::IsRoundedIconsEnabled()
+                 ? vector_icons::kChromeExtensionIcon
+                 : vector_icons::kExtensionChromeRefreshOldIcon);
   }
 #endif
 

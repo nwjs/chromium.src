@@ -216,7 +216,7 @@ constexpr base::FeatureParam<std::string> kBocaGeminiUrl{
 // The URL to use for Gemini guided learning in Boca.
 constexpr base::FeatureParam<std::string> kBocaGeminiGuidedLearningUrl{
     &kBocaGeminiIntegration, "BocaGeminiGuidedLearningUrl",
-    "https://gemini.google.com/guided-learning"};
+    "https://gemini.google.com/classtools"};
 
 // Enables or disables Boca network restriction for Boca on ChromeOS.
 BASE_FEATURE(kBocaNetworkRestriction, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -233,6 +233,9 @@ BASE_FEATURE(kBocaAdjustCaptionBubbleOnExpand,
 
 // Enables or disables keeping the Boca SWA open when the session is ended.
 BASE_FEATURE(kBocaKeepSWAOpenOnSessionEnded, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables or disables showing material type UI indicator in Boca SWA.
+BASE_FEATURE(kBocaMaterialTypeUiIndicator, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables enforcing sequential execution for Boca Session load.
 BASE_FEATURE(kBocaSequentialSessionLoad, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -604,11 +607,6 @@ BASE_FEATURE(kEnableTouchscreenMappingExperience,
 BASE_FEATURE(kEnableTouchpadsInDiagnosticsApp,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, touchscreen cards will be shown in the diagnostics app's input
-// section.
-BASE_FEATURE(kEnableTouchscreensInDiagnosticsApp,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // If enabled, touchscreen calibration will be shown in settings.
 BASE_FEATURE(kEnableTouchscreenCalibration, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -668,10 +666,6 @@ BASE_FEATURE(kFastPairBleRotation, base::FEATURE_ENABLED_BY_DEFAULT);
 // debug devices to trigger Fast Pair notifications.
 BASE_FEATURE(kFastPairDebugMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables using longterm Handshake retry logic for Fast Pair.
-BASE_FEATURE(kFastPairHandshakeLongTermRefactor,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables prototype support for Fast Pair for keyboards.
 BASE_FEATURE(kFastPairKeyboards, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -713,12 +707,6 @@ const base::FeatureParam<std::string> kFastPairPwaCompanionDeviceIds{
 
 // Enables the "Saved Devices" Fast Pair page in scenario in Bluetooth Settings.
 BASE_FEATURE(kFastPairSavedDevices, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables the "Saved Devices" Fast Pair strict interpretation of opt-in status,
-// meaning that a user's preferences determine if retroactive pairing and
-// subsequent pairing scenarios are enabled.
-BASE_FEATURE(kFastPairSavedDevicesStrictOptIn,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, allows the creation of up to 16 desks (default is 8). This flag
 // is intended to be controlled by the feature management module.
@@ -786,7 +774,7 @@ BASE_FEATURE(kFjordOobeForSquid, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kFjordOobeForceEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls if the Fjord image switch screen is shown during OOBE.
-BASE_FEATURE(kFjordOobeImageSwitch, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFjordOobeImageSwitch, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables the Flex Auto-Enrollment feature on ChromeOS
 BASE_FEATURE(kFlexAutoEnrollment, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -822,9 +810,6 @@ BASE_FEATURE(kForestFeature, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kFullscreenAlertBubble,
              "EnableFullscreenBubble",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Debugging UI for ChromeOS FuseBox service.
-BASE_FEATURE(kFuseBoxDebug, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the fwupd dbus client should be active. This is used only
 // for testing to prevent the fwupd service from spooling and re-activating
@@ -1212,12 +1197,6 @@ BASE_FEATURE(kLocalFactorsPasswordComplexity, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables local authentication controller with PIN support.
 BASE_FEATURE(kLocalAuthenticationWithPin, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables cross device supported reports within the feedback tool.
-// (This feature is only available for dogfooders)
-BASE_FEATURE(kLinkCrossDeviceDogfoodFeedback,
-             "LinkCrossDeviceDogFoodFeedback",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables nearby-internals logs to be automatically saved to disk and attached
 // to feedback reports.
 BASE_FEATURE(kLinkCrossDeviceInternals, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1310,9 +1289,6 @@ BASE_FEATURE(kNearbyPresence, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables a limit on the number of notifications that can show.
 BASE_FEATURE(kNotificationLimit, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the Night Light feature.
-BASE_FEATURE(kNightLight, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Extracts controller logic from child views of `NotificationCenterView` to
 // place it in a new `NotificationCenterController` class.
 BASE_FEATURE(kNotificationCenterController, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1326,6 +1302,10 @@ BASE_FEATURE(kNotificationScrollBar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables notifications to be shown within context menus.
 BASE_FEATURE(kNotificationsInContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Kill switch for https://crbug.com/502771678. Forces OEM apps to receive
+// updates from the Chrome Web Store, which is the safe default.
+BASE_FEATURE(kOemAppsMustUpdateFromWebstore, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether to enable on-device grammar check service.
 BASE_FEATURE(kOnDeviceGrammarCheck, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1523,9 +1503,6 @@ BASE_FEATURE(kOrcaServiceConnection, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables or disables proto-based Orca service communication logic.
 BASE_FEATURE(kOrcaServiceProto, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, Orca will only be available in English locales.
-BASE_FEATURE(kOrcaOnlyInEnglishLocales, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables or disables Orca resizing support.
 BASE_FEATURE(kOrcaResizingSupport, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1535,12 +1512,6 @@ BASE_FEATURE(kOrcaSupportDemoMode, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables Jelly colors and components to appear in the Parent Access Widget
 // if jelly-colors is also enabled.
 BASE_FEATURE(kParentAccessJelly, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables a notification warning users that their Thunderbolt device is not
-// supported on their CrOS device.
-// TODO(crbug.com/40199811): Revisit this flag when there is a way to query
-// billboard devices correctly.
-BASE_FEATURE(kPcieBillboardNotification, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Limits the items on the shelf to the ones associated with windows the
 // currently active desk.
@@ -1602,8 +1573,6 @@ BASE_FEATURE(kProjectorUseDVSPlaybackEndpoint,
 
 // Controls whether the quick dim prototype is enabled.
 BASE_FEATURE(kQuickDim, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kQuickAppAccessTestUI, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables or disables fingerprint quick unlock.
 // Note, that this feature is set from session manager via
@@ -1725,16 +1694,6 @@ BASE_FEATURE(kShimlessRMA3pDiagnosticsDevMode,
 // Controls whether Shimless diagnostics IWAs can access user permission through
 // requesting permission at install time.
 BASE_FEATURE(kShimlessRMA3pDiagnosticsAllowPermissionPolicy,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables or disables the skip option of hardware validation on Shimless RMA
-// landing page.
-BASE_FEATURE(kShimlessRMAHardwareValidationSkip,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables or disables the option of grey out specific input fields on Shimless
-// RMA device information page.
-BASE_FEATURE(kShimlessRMADynamicDeviceInfoInputs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables the option to allow customized Serial Number namings.
@@ -1866,7 +1825,7 @@ BASE_FEATURE(kUseAndroidStagingSmds, base::FEATURE_DISABLED_BY_DEFAULT);
 // This feature toggles which dhcpcd version is used for IPv4 provisioning.
 // If it is enabled, dhcpcd10 will be used, otherwise the legacy dhcpcd7 will be
 // used. Note that IPv6 (DHCPv6-PD) always uses dhcpcd10.
-BASE_FEATURE(kUseDHCPCD10, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseDHCPCD10, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the new `TokenHandleStoreImpl` will be used instead of
 // `TokenHandleUtil`.
@@ -2392,6 +2351,10 @@ bool IsBocaKeepSWAOpenOnSessionEndedEnabled() {
   return base::FeatureList::IsEnabled(kBocaKeepSWAOpenOnSessionEnded);
 }
 
+bool IsBocaMaterialTypeUiIndicatorEnabled() {
+  return base::FeatureList::IsEnabled(kBocaMaterialTypeUiIndicator);
+}
+
 bool IsBocaSequentialSessionLoadEnabled() {
   return base::FeatureList::IsEnabled(kBocaSequentialSessionLoad);
 }
@@ -2618,10 +2581,6 @@ bool IsFastPairDebugMetadataEnabled() {
   return base::FeatureList::IsEnabled(kFastPairDebugMetadata);
 }
 
-bool IsFastPairHandshakeLongTermRefactorEnabled() {
-  return base::FeatureList::IsEnabled(kFastPairHandshakeLongTermRefactor);
-}
-
 bool IsFastPairKeyboardsEnabled() {
   return base::FeatureList::IsEnabled(kFastPairKeyboards);
 }
@@ -2632,14 +2591,6 @@ bool IsFastPairPwaCompanionEnabled() {
 
 bool IsFastPairSavedDevicesEnabled() {
   return base::FeatureList::IsEnabled(kFastPairSavedDevices);
-}
-
-bool IsFastPairSavedDevicesStrictOptInEnabled() {
-  return base::FeatureList::IsEnabled(kFastPairSavedDevicesStrictOptIn);
-}
-
-bool IsFileManagerFuseBoxDebugEnabled() {
-  return base::FeatureList::IsEnabled(kFuseBoxDebug);
 }
 
 bool IsFilesLocalImageSearchEnabled() {
@@ -2851,14 +2802,6 @@ bool IsLauncherContinueSectionWithRecentsEnabled() {
              kLauncherContinueSectionWithRecentsRollout);
 }
 
-bool IsLauncherNudgeShortIntervalEnabled() {
-  return base::FeatureList::IsEnabled(kLauncherNudgeShortInterval);
-}
-
-bool IsLinkCrossDeviceDogfoodFeedbackEnabled() {
-  return base::FeatureList::IsEnabled(kLinkCrossDeviceDogfoodFeedback);
-}
-
 bool IsLinkCrossDeviceInternalsEnabled() {
   return base::FeatureList::IsEnabled(kLinkCrossDeviceInternals);
 }
@@ -2965,6 +2908,10 @@ bool AreOngoingProcessesEnabled() {
   return base::FeatureList::IsEnabled(kOngoingProcesses);
 }
 
+bool IsOemAppsMustUpdateFromWebstoreEnabled() {
+  return base::FeatureList::IsEnabled(kOemAppsMustUpdateFromWebstore);
+}
+
 bool IsOobeJellyEnabled() {
   return base::FeatureList::IsEnabled(kOobeJelly);
 }
@@ -3056,10 +3003,6 @@ bool IsOobeSplitModifierKeyboardInfoEnabled() {
 
 bool IsParentAccessJellyEnabled() {
   return base::FeatureList::IsEnabled(kParentAccessJelly);
-}
-
-bool IsPcieBillboardNotificationEnabled() {
-  return base::FeatureList::IsEnabled(kPcieBillboardNotification);
 }
 
 bool IsPerDeskShelfEnabled() {
@@ -3213,14 +3156,6 @@ bool IsShimlessRMA3pDiagnosticsAllowPermissionPolicyEnabled() {
       kShimlessRMA3pDiagnosticsAllowPermissionPolicy);
 }
 
-bool IsShimlessRMAHardwareValidationSkipEnabled() {
-  return base::FeatureList::IsEnabled(kShimlessRMAHardwareValidationSkip);
-}
-
-bool IsShimlessRMADynamicDeviceInfoInputsEnabled() {
-  return base::FeatureList::IsEnabled(kShimlessRMADynamicDeviceInfoInputs);
-}
-
 bool IsShimlessRMAFlexibleSerialNumberNameEnabled() {
   return base::FeatureList::IsEnabled(kShimlessRMAFlexibleSerialNumberName);
 }
@@ -3274,10 +3209,6 @@ bool IsTouchscreenMappingExperienceEnabled() {
 
 bool IsTouchpadInDiagnosticsAppEnabled() {
   return base::FeatureList::IsEnabled(kEnableTouchpadsInDiagnosticsApp);
-}
-
-bool IsTouchscreenInDiagnosticsAppEnabled() {
-  return base::FeatureList::IsEnabled(kEnableTouchscreensInDiagnosticsApp);
 }
 
 bool IsTouchscreenCalibrationEnabled() {

@@ -52,6 +52,7 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
+#include "ui/views/view_tracker.h"
 #include "ui/views/widget/widget.h"
 
 #if DCHECK_IS_ON()
@@ -332,19 +333,29 @@ void PopupBaseView::DoHide() {
     // navigates into the menu, otherwise some screen readers will ignore
     // any focus events outside of the menu, including a focus event on
     // the form control itself.
-    NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuPopupEnd, true);
-    NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuEnd, true);
-    GetViewAccessibility().EndPopupFocusOverride();
-
-    // Also fire an accessible focus event on what currently has focus,
-    // typically the widget associated with this popup.
-    if (parent_widget_) {
-      if (views::FocusManager* focus_manager =
-              parent_widget_->GetFocusManager()) {
-        if (View* focused_view = focus_manager->GetFocusedView()) {
-          focused_view->GetViewAccessibility().FireFocusAfterMenuClose();
-        }
-      }
+    if (!TrackAndRun(
+            this,
+            [this]() {
+              NotifyAccessibilityEventDeprecated(
+                  ax::mojom::Event::kMenuPopupEnd, true);
+            },
+            [this]() {
+              NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuEnd,
+                                                 true);
+            },
+            [this]() { GetViewAccessibility().EndPopupFocusOverride(); },
+            [this]() {
+              if (parent_widget_) {
+                if (views::FocusManager* focus_manager =
+                        parent_widget_->GetFocusManager()) {
+                  if (View* focused_view = focus_manager->GetFocusedView()) {
+                    focused_view->GetViewAccessibility()
+                        .FireFocusAfterMenuClose();
+                  }
+                }
+              }
+            })) {
+      return;
     }
   }
 
@@ -365,17 +376,37 @@ void PopupBaseView::DoHide() {
 }
 
 void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
+  views::ViewTracker selected_view_tracker(&selected_view);
   if (!is_ax_menu_start_event_fired_) {
     // Fire the menu start event once, right before the first item is selected.
     // By firing these and the matching kMenuEnd events, we are telling screen
     // readers that the focus is only changing temporarily, and the screen
     // reader will restore the focus back to the appropriate textfield when the
     // menu closes.
-    NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuStart, true);
-    NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuPopupStart, true);
+    if (!TrackAndRun(
+            this,
+            [this]() {
+              NotifyAccessibilityEventDeprecated(ax::mojom::Event::kMenuStart,
+                                                 true);
+            },
+            [this]() {
+              NotifyAccessibilityEventDeprecated(
+                  ax::mojom::Event::kMenuPopupStart, true);
+            })) {
+      return;
+    }
 
     is_ax_menu_start_event_fired_ = true;
   }
+
+  // Ensure the selected view was not destroyed, as e.g. firing native
+  // accessibility events on Windows can synchronously re-enter the browser
+  // thread and destroy the view.
+  // TODO(crbug.com/514228954): Consider removing accessibility event calls.
+  if (!selected_view_tracker.view()) {
+    return;
+  }
+
   selected_view.GetViewAccessibility().SetPopupFocusOverride();
 #if DCHECK_IS_ON()
   constexpr auto kDerivedClasses = base::MakeFixedFlatSet<std::string_view>(
@@ -570,6 +601,11 @@ bool PopupBaseView::DoUpdateBoundsAndRedrawPopup() {
       element_bounds, visible_content_area_bounds, preferred_size,
       kDefaultPreferredPopupSides);
 
+  if (OverlapsWithAnotherPrompt(popup_bounds)) {
+    HideController(SuggestionHidingReason::kOverlappingWithAnotherPrompt);
+    return false;
+  }
+
   if (BoundsOverlapWithPictureInPictureWindow(popup_bounds)) {
     HideController(
         SuggestionHidingReason::kOverlappingWithPictureInPictureWindow);
@@ -584,6 +620,33 @@ bool PopupBaseView::DoUpdateBoundsAndRedrawPopup() {
   UpdateClipPath();
   SchedulePaint();
   return true;
+}
+
+bool PopupBaseView::OverlapsWithAnotherPrompt(
+    const gfx::Rect& popup_bounds) const {
+  content::WebContents* web_contents = GetWebContents();
+  if (!web_contents) {
+    return false;
+  }
+
+  if (BoundsOverlapWithAnyOpenPrompt(popup_bounds, web_contents)) {
+    return true;
+  }
+  // On Windows, due to platform-specific implementation details, the previous
+  // check isn't reliable, and fails to detect open prompts. Since the most
+  // critical bubble is the permission bubble, we check for that specifically.
+  if (BoundsOverlapWithOpenPermissionsPrompt(popup_bounds, web_contents)) {
+    return true;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillPopupCheckHtmlFormPopupOverlap)) {
+    if (BoundsOverlapWithHtmlFormPopup(popup_bounds, web_contents)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void PopupBaseView::OnNativeFocusChanged(gfx::NativeView focused_now) {

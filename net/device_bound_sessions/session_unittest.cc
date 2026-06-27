@@ -548,6 +548,7 @@ TEST_F(SessionTest, DeferredEmptyCookieAttributesCredentialsField) {
 TEST_F(SessionTest, DeferredNarrowerScopeOrigin) {
   auto params = CreateValidParams();
   params.scope.origin = "https://sub.example.test";
+  params.fetcher_url = GURL("https://sub.example.test/index.html");
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
                        Session::CreateIfValid(params));
   ASSERT_TRUE(session);
@@ -573,6 +574,7 @@ TEST_F(SessionTest, DeferredNarrowerScopeOrigin) {
 TEST_F(SessionTest, NotDeferredNarrowerScopeOrigin) {
   auto params = CreateValidParams();
   params.scope.origin = "https://sub.example.test";
+  params.fetcher_url = GURL("https://sub.example.test/index.html");
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
                        Session::CreateIfValid(params));
   ASSERT_TRUE(session);
@@ -717,6 +719,13 @@ class InsecureDelegate : public CookieAccessDelegate {
   }
 };
 
+class SameSiteBypassNetworkDelegate : public TestNetworkDelegate {
+ public:
+  bool OnShouldForceIgnoreSiteForCookies(const URLRequest&) override {
+    return true;
+  }
+};
+
 TEST_F(SessionTest, NotDeferredNotSameSiteForCookies) {
   auto params = CreateValidParams();
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
@@ -748,6 +757,32 @@ TEST_F(SessionTest, DeferredNotSameSiteDelegate) {
   net::TestDelegate delegate;
   std::unique_ptr<URLRequest> request =
       context_->CreateRequest(kTestUrl, IDLE, &delegate, kDummyAnnotation);
+
+  DbscRequest dbsc_request(request.get());
+  EXPECT_TRUE(session->IsInScope(dbsc_request));
+  SessionKey session_key{SchemefulSite(session->origin()), session->id()};
+  EXPECT_TRUE(session
+                  ->MinimumBoundCookieLifetime(
+                      dbsc_request, FirstPartySetMetadata(), session_key)
+                  .is_zero());
+  EXPECT_EQ(request->device_bound_session_usage().size(), 1);
+  EXPECT_EQ(request->device_bound_session_usage().at(session_key),
+            SessionUsage::kDeferred);
+}
+
+TEST_F(SessionTest, DeferredNotSameSiteNetworkDelegate) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  context_builder->set_network_delegate(
+      std::make_unique<SameSiteBypassNetworkDelegate>());
+  std::unique_ptr<URLRequestContext> context = context_builder->Build();
+
+  auto params = CreateValidParams();
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
+                       Session::CreateIfValid(params));
+  ASSERT_TRUE(session);
+  net::TestDelegate delegate;
+  std::unique_ptr<URLRequest> request =
+      context->CreateRequest(kTestUrl, IDLE, &delegate, kDummyAnnotation);
 
   DbscRequest dbsc_request(request.get());
   EXPECT_TRUE(session->IsInScope(dbsc_request));
@@ -941,6 +976,33 @@ TEST_F(SessionTest, NetLogWrongInitiator) {
             "refresh_not_allowed_for_initiator");
 }
 
+TEST_F(SessionTest, CanSetBoundCookieWithSameSiteBypassNetworkDelegate) {
+  auto params = CreateValidParams();
+  params.credentials = {SessionParams::Credential{
+      "test_cookie",
+      /*attributes=*/"Secure; Domain=example.test; SameSite=Strict"}};
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
+                       Session::CreateIfValid(params));
+  ASSERT_TRUE(session);
+
+  auto can_set_bound_cookie = [&](URLRequestContext& context) {
+    net::TestDelegate delegate;
+    std::unique_ptr<URLRequest> request =
+        context.CreateRequest(kTestUrl, IDLE, &delegate, kDummyAnnotation);
+    DbscRequest dbsc_request(request.get());
+    return session->CanSetBoundCookie(dbsc_request, FirstPartySetMetadata());
+  };
+
+  EXPECT_FALSE(can_set_bound_cookie(*context_));
+
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  context_builder->set_network_delegate(
+      std::make_unique<SameSiteBypassNetworkDelegate>());
+  std::unique_ptr<URLRequestContext> context = context_builder->Build();
+
+  EXPECT_TRUE(can_set_bound_cookie(*context));
+}
+
 TEST_F(SessionTest, RefreshUrlExcludedFromSession) {
   auto params = CreateValidParams();
 
@@ -1059,6 +1121,36 @@ TEST_F(SessionTest, RefreshInitiators) {
       initiator_rule, GURL("https://subdomain.not-example.test").GetHost()));
   EXPECT_FALSE(MatchesHostPattern(
       initiator_rule, GURL("https://some-other-example.test").GetHost()));
+}
+
+TEST_F(SessionTest, CreateIfValid_SameOrigin_IncludeSiteFalse) {
+  auto params = CreateValidParams();
+  params.scope.origin = "https://example.test";
+  params.fetcher_url = GURL("https://example.test/index.html");
+  params.scope.include_site = false;
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
+                       Session::CreateIfValid(params));
+  ASSERT_TRUE(session);
+}
+
+TEST_F(SessionTest, CreateIfValid_CrossOrigin_IncludeSiteTrue) {
+  auto params = CreateValidParams();
+  params.scope.origin = "https://example.test";
+  params.fetcher_url = GURL("https://sub.example.test/index.html");
+  params.scope.include_site = true;
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Session> session,
+                       Session::CreateIfValid(params));
+  ASSERT_TRUE(session);
+}
+
+TEST_F(SessionTest, CreateIfValid_CrossOrigin_IncludeSiteFalse) {
+  auto params = CreateValidParams();
+  params.scope.origin = "https://example.test";
+  params.fetcher_url = GURL("https://sub.example.test/index.html");
+  params.scope.include_site = false;
+  EXPECT_THAT(Session::CreateIfValid(params),
+              ErrorIs(MatchesErrorType(
+                  SessionError::kCrossOriginRegistrationSiteNotIncluded)));
 }
 
 TEST_F(SessionTest, InvalidRefreshInitiators) {

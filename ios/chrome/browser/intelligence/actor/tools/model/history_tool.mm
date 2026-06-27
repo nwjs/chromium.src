@@ -66,6 +66,10 @@ base::WeakPtr<web::WebState> HistoryTool::GetTargetWebState() const {
   return web_state_;
 }
 
+ToolType HistoryTool::GetToolType() const {
+  return is_back_action_ ? ToolType::kBack : ToolType::kForward;
+}
+
 // static
 template <typename HistoryAction>
 base::expected<std::unique_ptr<HistoryTool>, ToolExecutionResult>
@@ -74,7 +78,8 @@ HistoryTool::CreateInternal(const HistoryAction& action, ProfileIOS* profile) {
     return base::unexpected(ToolExecutionResult(
         InternalToolErrorCode::kCreationMissingRequiredFields));
   }
-  auto resolution_result = ResolveTab(action.tab_id(), profile);
+  base::expected<TabResolutionResult, ToolExecutionResult> resolution_result =
+      ResolveTab(action.tab_id(), profile);
   if (!resolution_result.has_value()) {
     return base::unexpected(resolution_result.error());
   }

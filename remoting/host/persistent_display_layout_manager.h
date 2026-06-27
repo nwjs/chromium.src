@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "base/callback_list.h"
 #include "base/files/file_error_or.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
@@ -20,6 +21,10 @@
 #include "remoting/host/desktop_resizer.h"
 #include "remoting/proto/control.pb.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capture_types.h"
+
+namespace base {
+class SequencedTaskRunner;
+}  // namespace base
 
 namespace remoting {
 
@@ -59,7 +64,11 @@ class PersistentDisplayLayoutManager {
       GUARDED_BY_CONTEXT(sequence_checker_);
   std::unique_ptr<DesktopDisplayInfoMonitor> display_info_monitor_
       GUARDED_BY_CONTEXT(sequence_checker_);
+  base::CallbackListSubscription display_info_subscription_
+      GUARDED_BY_CONTEXT(sequence_checker_);
   base::WeakPtr<DesktopResizer> desktop_resizer_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+  scoped_refptr<base::SequencedTaskRunner> io_task_runner_
       GUARDED_BY_CONTEXT(sequence_checker_);
   std::unique_ptr<protocol::VideoLayout> latest_display_layout_
       GUARDED_BY_CONTEXT(sequence_checker_);

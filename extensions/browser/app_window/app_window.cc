@@ -43,6 +43,7 @@
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/browser/app_window/native_app_window.h"
 #include "extensions/browser/app_window/size_constraints.h"
+#include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_web_contents_observer.h"
@@ -70,24 +71,7 @@
 #include "extensions/browser/pref_names.h"
 #endif
 
-
 using blink::mojom::ConsoleMessageLevel;
-
-#include "extensions/browser/extension_host.h"
-//#include "extensions/common/extension_messages.h"
-
-#include "content/public/browser/render_frame_host.h"
-#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
-
-#include "extensions/browser/process_manager.h"
-#include "extensions/browser/app_window/app_window_contents.h"
-#include "extensions/browser/event_router.h"
-
-#include "content/nw/src/nw_base.h"
-#include "content/nw/src/nw_content.h"
-#include "content/nw/src/common/shell_switches.h"
-
-
 using content::BrowserContext;
 using content::WebContents;
 using web_modal::WebContentsModalDialogHost;
@@ -224,13 +208,7 @@ AppWindow::CreateParams::CreateParams()
       focused(true),
       always_on_top(false),
       visible_on_all_workspaces(false),
-      show_in_shelf(false),
-      skip_load(false),
-      show_in_taskbar(true),
-      new_instance(false),
-      skip_block_parser(false)
-{
-}
+      show_in_shelf(false) {}
 
 AppWindow::CreateParams::CreateParams(const CreateParams& other) = default;
 
@@ -300,35 +278,13 @@ gfx::Size AppWindow::CreateParams::GetWindowMaximumSize(
 AppWindow::AppWindow(BrowserContext* context,
                      std::unique_ptr<AppDelegate> app_delegate,
                      const Extension* extension)
-    : menu_(nullptr), browser_context_(context),
+    : browser_context_(context),
       extension_id_(extension->id()),
       session_id_(SessionID::NewUnique()),
       app_delegate_(std::move(app_delegate)) {
   ExtensionsBrowserClient* client = ExtensionsBrowserClient::Get();
   CHECK(!client->IsGuestSession(context) || context->IsOffTheRecord())
       << "Only off the record window may be opened in the guest mode.";
-}
-
-void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_different_document) {
-  base::ListValue args;
-  if (source->IsLoading()) {
-    args.Append("loading");
-    last_to_different_document_ = to_different_document;
-    if (!to_different_document) //NWJS#5001
-      return;
-  } else {
-    if (!last_to_different_document_)
-      return;
-    args.Append("loaded");
-  }
-  content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
-    ExtensionWebContentsObserver::GetForWebContents(web_contents())
-      ->GetLocalFrame(rfh)
-      ->MessageInvoke(
-                      extension_id(),
-                      "nw.Window",
-                      "LoadingStateChanged",
-                      std::move(args));
 }
 
 void AppWindow::Init(const GURL& url,
@@ -338,24 +294,7 @@ void AppWindow::Init(const GURL& url,
   // Initialize the render interface and web contents
   app_window_contents_ = std::move(app_window_contents);
   app_window_contents_->Initialize(browser_context(), creator_frame, url,
-                                   GetExtension(), params.new_instance || params.skip_block_parser);
-
-  nw::Package* package = nw::package();
-  std::string js_doc_start(params.inject_js_start), js_doc_end(params.inject_js_end);
-  if (js_doc_start.empty()) {
-    std::string* str = package->root()->FindString(::switches::kmInjectJSDocStart);
-    if (str)
-      js_doc_start = *str;
-  }
-  web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_start = js_doc_start;
-  if (js_doc_end.empty()) {
-    std::string* str = package->root()->FindString(::switches::kmInjectJSDocEnd);
-    if (str)
-      js_doc_end = *str;
-  }
-  web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
-  if (!js_doc_start.empty() || !js_doc_end.empty())
-    web_contents()->SyncRendererPrefs();
+                                   GetExtension(), false);
 
   initial_url_ = url;
 
@@ -381,21 +320,10 @@ void AppWindow::Init(const GURL& url,
 
   // Windows cannot be always-on-top in fullscreen mode for security reasons.
   cached_always_on_top_ = new_params.always_on_top;
-#if 0
   if (new_params.state == ui::mojom::WindowShowState::kFullscreen &&
       !ExtensionsBrowserClient::Get()->IsScreensaverInDemoMode(
           extension_id())) {
     new_params.always_on_top = false;
-  }
-#endif
-
-  title_override_ = new_params.title;
-  custom_app_icon_ = new_params.icon;
-  icon_override_ = new_params.icon;
-
-  content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
-  if (content::g_support_transparency) {
-    content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
   }
 
   requested_alpha_enabled_ = new_params.alpha_enabled;
@@ -434,9 +362,6 @@ void AppWindow::Init(const GURL& url,
     Show(new_params.focused ? SHOW_ACTIVE : SHOW_INACTIVE);
   }
 
-  if (!new_params.show_in_taskbar)
-    SetShowInTaskbar(false);
-
   OnNativeWindowChanged();
 
   ExtensionRegistry::Get(browser_context_)->AddObserver(this);
@@ -445,8 +370,7 @@ void AppWindow::Init(const GURL& url,
   app_delegate_->SetTerminatingCallback(base::BindOnce(
       &NativeAppWindow::Close, base::Unretained(native_app_window_.get())));
 
-  if (!params.skip_load)
-    app_window_contents_->LoadContents(new_params.creator_process_id);
+  app_window_contents_->LoadContents(new_params.creator_process_id);
 }
 
 AppWindow::~AppWindow() {
@@ -490,29 +414,9 @@ content::WebContents* AppWindow::AddNewContents(
     bool user_gesture,
     bool* was_blocked) {
   DCHECK(new_contents->GetBrowserContext() == browser_context_);
-  const extensions::Extension* extension = GetExtension();
-  extensions::AppWindow* app_window =
-      extensions::AppWindowClient::Get()->CreateAppWindow(browser_context_, extension);
-
-  extensions::AppWindow::CreateParams params;
-  std::string js_doc_start, js_doc_end;
-  nw::CalcNewWinParams(new_contents.get(), &params, &js_doc_start, &js_doc_end, std::string());
-  nw::SetCurrentNewWinManifest(std::u16string());
-  new_contents->GetMutableRendererPrefs()->
-    nw_inject_js_doc_start = js_doc_start;
-  new_contents->GetMutableRendererPrefs()->
-    nw_inject_js_doc_end = js_doc_end;
-  new_contents->SyncRendererPrefs();
-
-  if(window_features.bounds.width() != 0) {
-    params.content_spec.bounds = window_features.bounds; //NWJS#5517
-  }
-  params.skip_load = true;
-  GURL new_url = new_contents->GetURL();
-  app_window->Init(new_url,
-                   std::make_unique<AppWindowContentsImpl>(app_window, std::move(new_contents)),
-                   web_contents()->GetPrimaryMainFrame(),
-                   params);
+  app_delegate_->AddNewContents(browser_context_, std::move(new_contents),
+                                target_url, disposition, window_features,
+                                user_gesture);
   return nullptr;
 }
 
@@ -545,7 +449,6 @@ content::KeyboardEventProcessingResult AppWindow::PreHandleKeyboardEvent(
 bool AppWindow::HandleKeyboardEvent(
     WebContents* source,
     const input::NativeWebKeyboardEvent& event) {
-#if 0
   // If the window is currently fullscreen and not forced, ESC should leave
   // fullscreen.  If this code is being called for ESC, that means that the
   // KeyEvent's default behavior was not prevented by the content.
@@ -554,8 +457,6 @@ bool AppWindow::HandleKeyboardEvent(
     Restore();
     return true;
   }
-
-#endif
 
   return native_app_window_->HandleKeyboardEvent(event);
 }
@@ -680,12 +581,10 @@ void AppWindow::OnNativeWindowChanged() {
   if (cached_always_on_top_ && !IsFullscreen() &&
       !native_app_window_->IsMaximized() &&
       !native_app_window_->IsMinimized()) {
-#else
-  if (cached_always_on_top_) {
-#endif
     UpdateNativeAlwaysOnTop();
   }
 #endif
+#endif  // BUILDFLAG(IS_WIN)
 
   if (app_window_contents_)
     app_window_contents_->NativeWindowChanged(native_app_window_.get());
@@ -722,10 +621,9 @@ gfx::Rect AppWindow::GetClientBounds() const {
 }
 
 std::u16string AppWindow::GetTitle() const {
-  std::u16string override = base::UTF8ToUTF16(title_override_);
   const Extension* extension = GetExtension();
   if (!extension)
-    return override;
+    return std::u16string();
 
   // WebContents::GetTitle() will return the page's URL if there's no <title>
   // specified. However, we'd prefer to show the name of the extension in that
@@ -735,14 +633,12 @@ std::u16string AppWindow::GetTitle() const {
       web_contents() ? web_contents()->GetController().GetLastCommittedEntry()
                      : nullptr;
   if (!entry || entry->GetTitle().empty()) {
-    title = override.empty() ? base::UTF8ToUTF16(extension->name()) : override;
+    title = base::UTF8ToUTF16(extension->name());
   } else {
     title = web_contents()->GetTitle();
   }
   base::RemoveChars(title, u"\n", &title);
-  if (!title.empty())
-    return title;
-  return override;
+  return title;
 }
 
 void AppWindow::SetAppIconUrl(const GURL& url) {
@@ -839,10 +735,6 @@ void AppWindow::Restore() {
   }
 }
 
-void AppWindow::SetShowInTaskbar(bool show) {
-  GetBaseWindow()->SetShowInTaskbar(show);
-}
-
 void AppWindow::OSFullscreen() {
   SetFullscreen(FULLSCREEN_TYPE_OS, true);
 }
@@ -900,15 +792,14 @@ void AppWindow::SetAlwaysOnTop(bool always_on_top) {
   // As a security measure, do not allow fullscreen windows or windows that
   // overlap the taskbar to be on top. The property will be applied when the
   // window exits fullscreen and moves away from the taskbar.
-#if 0
   if ((!IsFullscreen() ||
        ExtensionsBrowserClient::Get()->IsScreensaverInDemoMode(
            extension_id())) &&
       !IntersectsWithTaskbar()) {
-#endif
     native_app_window_->SetZOrderLevel(always_on_top
                                            ? ui::ZOrderLevel::kFloatingWindow
                                            : ui::ZOrderLevel::kNormal);
+  }
 
   OnNativeWindowChanged();
 }
@@ -925,7 +816,6 @@ void AppWindow::RestoreAlwaysOnTop() {
 void AppWindow::GetSerializedState(base::DictValue* properties) const {
   DCHECK(properties);
 
-  properties->Set("resizable", native_app_window_->IsResizable());
   properties->Set("fullscreen", native_app_window_->IsFullscreenOrPending());
   properties->Set("minimized", native_app_window_->IsMinimized());
   properties->Set("maximized", native_app_window_->IsMaximized());
@@ -1032,9 +922,6 @@ bool AppWindow::IntersectsWithTaskbar() const {
 
 void AppWindow::UpdateNativeAlwaysOnTop() {
   DCHECK(cached_always_on_top_);
-#if 1
-  native_app_window_->SetZOrderLevel(ui::ZOrderLevel::kFloatingWindow);
-#else
   bool is_on_top =
       native_app_window_->GetZOrderLevel() == ui::ZOrderLevel::kFloatingWindow;
   bool fullscreen = IsFullscreen();
@@ -1049,7 +936,6 @@ void AppWindow::UpdateNativeAlwaysOnTop() {
     // always-on-top.
     native_app_window_->SetZOrderLevel(ui::ZOrderLevel::kFloatingWindow);
   }
-#endif
 }
 
 void AppWindow::ActivateContents(WebContents* contents) {
@@ -1061,7 +947,7 @@ void AppWindow::CloseContents(WebContents* contents) {
 }
 
 bool AppWindow::ShouldSuppressDialogs(WebContents* source) {
-  return false;
+  return true;
 }
 
 void AppWindow::RunFileChooser(
@@ -1257,13 +1143,6 @@ SkRegion* AppWindow::RawDraggableRegionsToSkRegion(
         region->draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
   }
   return sk_region;
-}
-
-content::JavaScriptDialogManager* AppWindow::GetJavaScriptDialogManager(
-    WebContents* source) {
-  ExtensionHost* host = ProcessManager::Get(browser_context())
-                            ->GetBackgroundHostForExtension(extension_id());
-  return host->GetJavaScriptDialogManager(source);
 }
 
 }  // namespace extensions

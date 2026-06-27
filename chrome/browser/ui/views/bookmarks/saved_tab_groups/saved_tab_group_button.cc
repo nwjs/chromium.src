@@ -113,7 +113,7 @@ SavedTabGroupButton::SavedTabGroupButton(const SavedTabGroup& group,
     show_animation_->Show();
   }
 
-  ConfigureInkDropForToolbar(this);
+  ConfigureInkDrop(this);
   SetImageLabelSpacing(
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           ChromeDistanceMetric::DISTANCE_RELATED_LABEL_HORIZONTAL_LIST) /
@@ -265,7 +265,8 @@ void SavedTabGroupButton::UpdateButtonLayout() {
   if (is_shared_) {
     SetImageModel(ButtonState::STATE_NORMAL,
                   ui::ImageModel::FromVectorIcon(
-                      kPeopleGroupIcon,
+                      features::IsRoundedIconsEnabled() ? kGroupCustomIcon
+                                                        : kPeopleGroupOldIcon,
                       GetSavedTabGroupForegroundColorId(tab_group_color_id_),
                       gfx::kFaviconSize));
   }

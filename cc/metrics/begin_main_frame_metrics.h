@@ -10,6 +10,27 @@
 
 namespace cc {
 
+// Reason that a BeginMainFrame was triggered. Used for metrics only,
+// specifically: |Compositing.BeginMainFrame.BMFReason*|.
+enum class BeginMainFrameReason {
+  kOther = 0,
+  kRAF = 1,
+  kIntersectionObserver = 2,
+  kCSSAnimation = 3,
+  kStyleInvalidation = 4,
+  kScroll = 5,
+  kInput = 6,
+  kServiceScriptedAnimations = 7,
+  kMaxValue = kServiceScriptedAnimations,
+};
+
+inline constexpr size_t BeginMainFrameReasonSize =
+    static_cast<size_t>(BeginMainFrameReason::kMaxValue) + 1;
+
+// We use this metric in a bitfield. UMA can only record 1000 buckets for a
+// histogram. So, assert that we do not go over this max size.
+static_assert(1 << BeginMainFrameReasonSize < 1000);
+
 // Latency timing data for Main Frame lifecycle updates triggered by cc.
 // The data is captured in LocalFrameViewUKMAggregator and passed back through
 // the proxy when a main frame ends. LayerTreeHost updates the update_layers_

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_context_menu_delegate.h"
 
+#include <string_view>
+
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
@@ -12,16 +14,17 @@
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_page_handler.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_util.h"
+#include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
+#include "components/sync_device_info/device_info.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition_utils.h"
@@ -39,14 +42,20 @@ static_assert(IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_DEVICE_LAST -
               "target devices in chrome_command_ids.h");
 
 void OnSendTabToDeviceComplete(base::WeakPtr<content::WebContents> web_contents,
+                               std::string_view device_name,
+                               syncer::DeviceInfo::FormFactor form_factor,
                                SendTabToSelfResult result) {
+  if (!web_contents ||
+      !base::FeatureList::IsEnabled(kSendTabToSelfPostSendToast)) {
+    return;
+  }
+
   switch (result) {
     case SendTabToSelfResult::kSuccess:
+      ShowTabSentSuccessToast(web_contents.get(), device_name, form_factor);
+      break;
     case SendTabToSelfResult::kSuccessThrottled:
-      if (web_contents &&
-          base::FeatureList::IsEnabled(kSendTabToSelfPostSendToast)) {
-        ShowTabSentSuccessToast(web_contents.get());
-      }
+      ShowTabSentThrottledToast(web_contents.get(), device_name, form_factor);
       break;
     case SendTabToSelfResult::kFailureInvalidUrl:
     case SendTabToSelfResult::kFailureNotTrackingMetadata:
@@ -55,6 +64,8 @@ void OnSendTabToDeviceComplete(base::WeakPtr<content::WebContents> web_contents,
     case SendTabToSelfResult::kFailureSyncDisabled:
     case SendTabToSelfResult::kFailureEntryRemoved:
     case SendTabToSelfResult::kFailureCommitTimeout:
+    case SendTabToSelfResult::kFailureNoInternetConnection:
+      ShowTabSentFailure(web_contents.get(), result);
       break;
   }
 }
@@ -155,13 +166,19 @@ void SendTabToSelfContextMenuDelegate::ExecuteCommand(int command_id,
       return;
     }
 
+    UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
+        web_contents_->GetBrowserContext(),
+        send_tab_to_self::kSendTabToSelfEnhancedDesktopUI);
+
     SendTabToSelfPageHandler* handler =
         SendTabToSelfPageHandler::GetOrCreateForWebContents(
             web_contents_.get());
     handler->SendTabToDevice(
         devices_[device_index].cache_guid, web_contents_->GetLastCommittedURL(),
         base::UTF16ToUTF8(web_contents_->GetTitle()),
-        base::BindOnce(&OnSendTabToDeviceComplete, web_contents_));
+        base::BindOnce(&OnSendTabToDeviceComplete, web_contents_,
+                       devices_[device_index].device_name,
+                       devices_[device_index].form_factor));
   }
 }
 

@@ -11,6 +11,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/task/bind_post_task.h"
 #include "base/trace_event/trace_event.h"
+#include "components/viz/common/gpu/context_provider.h"
 #include "device/vr/android/cardboard/cardboard_image_transport.h"
 #include "device/vr/android/cardboard/cardboard_sdk.h"
 #include "device/vr/public/mojom/isolated_xr_service.mojom.h"
@@ -461,17 +462,25 @@ void CardboardRenderLoop::SubmitFrame(int16_t frame_index,
 
 void CardboardRenderLoop::SubmitFrameDrawnIntoTexture(
     int16_t frame_index,
-    const std::vector<LayerId>& layer_ids,
-    const gpu::SyncToken& sync_token,
+    std::vector<device::mojom::XRLayerUpdatePtr> layer_updates,
+    const std::vector<gpu::SyncToken>& camera_sync_tokens,
     base::TimeDelta time_waited) {
   TRACE_EVENT1("gpu", "CardboardRenderLoop::SubmitFrameDrawnIntoTexture",
                "frame", frame_index);
   DVLOG(2) << __func__ << ": frame=" << frame_index;
 
-  // |layer_ids| is expected to contain only the base layer.
-  if (layer_ids.size() != 1) {
+  // |layer_updates| is expected to contain only the base layer.
+  if (layer_updates.size() != 1) {
     presentation_receiver_.ReportBadMessage(
         "Layers feature not enabled for this session");
+    return;
+  }
+
+  // For cardboard, no sync token for the camera should be received since there
+  // is no camera shared image.
+  if (!camera_sync_tokens.empty()) {
+    presentation_receiver_.ReportBadMessage(
+        "Received unexpected camera sync tokens.");
     return;
   }
 
@@ -483,13 +492,35 @@ void CardboardRenderLoop::SubmitFrameDrawnIntoTexture(
   // processing frame, defer it until that frame calls TryDeferredProcessing.
   webxr_->ProcessOrDefer(
       base::BindOnce(&CardboardRenderLoop::ProcessFrameDrawnIntoTexture,
-                     weak_ptr_factory_.GetWeakPtr(), sync_token));
+                     weak_ptr_factory_.GetWeakPtr(),
+                     layer_updates[0]->sync_token, camera_sync_tokens));
 }
 
 void CardboardRenderLoop::ProcessFrameDrawnIntoTexture(
-    const gpu::SyncToken& sync_token) {
-  cardboard_image_transport_->CreateGpuFenceForSyncToken(
-      sync_token,
+    const gpu::SyncToken& sync_token,
+    const std::vector<gpu::SyncToken>& camera_sync_tokens) {
+  // The current function is run immediately after the animating frame is
+  // moved to processing, so GetProcessingFrame() is guaranteed to be valid.
+  WebXrFrame* frame = webxr_->GetProcessingFrame();
+  CHECK(frame);
+
+  // For Cardboard, the camera image shared buffer is always empty and
+  // therefore is not included in this shared_images vector.
+  std::vector<scoped_refptr<gpu::ClientSharedImage>> shared_images{
+      frame->shared_buffer->shared_image};
+
+  std::vector<gpu::SyncToken> combined_sync_tokens;
+  combined_sync_tokens.reserve(camera_sync_tokens.size() + 1);
+  combined_sync_tokens.push_back(sync_token);
+  for (auto& camera_sync_token : camera_sync_tokens) {
+    combined_sync_tokens.push_back(camera_sync_token);
+  }
+
+  viz::ContextProvider* context_provider =
+      cardboard_image_transport_->GetContextProvider();
+  gpu::ClientSharedImage::CreateGpuFenceForSyncTokens(
+      std::move(shared_images), std::move(combined_sync_tokens),
+      context_provider->ContextGL(), context_provider->ContextSupport(),
       base::BindOnce(&CardboardRenderLoop::OnWebXrTokenSignaled, GetWeakPtr()));
 
   if (pending_getframedata_) {

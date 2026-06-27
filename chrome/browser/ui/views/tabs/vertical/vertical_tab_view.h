@@ -10,6 +10,7 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ui/tabs/tab_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -27,6 +28,7 @@
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/masked_targeter_delegate.h"
 #include "ui/views/view.h"
+#include "ui/views/view_observer.h"
 
 class GlowHoverController;
 class TabCloseButton;
@@ -52,7 +54,8 @@ class VerticalTabView : public views::View,
                         public views::MaskedTargeterDelegate,
                         public AlertIndicatorButton::Delegate,
                         public views::ContextMenuController,
-                        public HoverCardAnchorTarget {
+                        public HoverCardAnchorTarget,
+                        public views::ViewObserver {
   METADATA_HEADER(VerticalTabView, views::View)
 
  public:
@@ -110,6 +113,10 @@ class VerticalTabView : public views::View,
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnThemeChanged() override;
   void UpdateParentLayer() override;
+
+  // views::ViewObserver:
+  void OnViewFocused(views::View* observed_view) override;
+  void OnViewBlurred(views::View* observed_view) override;
 
   // Tab Painting Helpers
   void PaintTabBackgroundWithImages(gfx::Canvas* canvas,
@@ -170,11 +177,12 @@ class VerticalTabView : public views::View,
   void OnAXNameChanged(ax::mojom::StringAttribute attribute,
                        const std::optional<std::string>& name);
   void OnCollapseStateChanged(tabs::VerticalTabStripCollapseState state);
-  void OnDataChanged();
+  void OnTabStateChanged();
+  void OnTabDataChanged(TabChangeType change_type, const tabs::TabData& data);
   void SetSelection(bool selected);
-  void UpdateTabData(tabs::TabInterface* tab);
+  void UpdateTabData(const tabs::TabInterface* tab);
 
-  void UpdateTitle();
+  void UpdateTitle(std::u16string title, bool should_render_loading_title);
   void UpdateBorder();
   void UpdateThemeColors();
   void UpdateColors();
@@ -219,10 +227,11 @@ class VerticalTabView : public views::View,
   raw_ptr<glic::TabUnderlineView> glic_tab_underline_view_ = nullptr;
 
   base::CallbackListSubscription node_destroyed_subscription_;
-  base::CallbackListSubscription data_changed_subscription_;
+  base::CallbackListSubscription tab_state_changed_subscription_;
   base::CallbackListSubscription collapsed_state_changed_subscription_;
   base::CallbackListSubscription paint_as_active_subscription_;
   base::CallbackListSubscription ax_name_changed_subscription_;
+  base::CallbackListSubscription tab_data_changed_subscription_;
 
   tabs::TabData tab_data_;
   bool active_ = false;
@@ -243,6 +252,11 @@ class VerticalTabView : public views::View,
   bool should_fill_background_tab_color_ = false;
 
   std::optional<performance_manager::freezing::FreezingVote> freezing_vote_;
+
+  std::unique_ptr<tabs::TabDataObserver> tab_data_observer_;
+
+  base::ScopedObservation<views::View, views::ViewObserver>
+      close_button_observation_{this};
 
   base::WeakPtrFactory<VerticalTabView> weak_ptr_factory_{this};
 };

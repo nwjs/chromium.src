@@ -60,6 +60,7 @@
 #include "components/omnibox/browser/calculator_provider.h"
 #include "components/omnibox/browser/clipboard_provider.h"
 #include "components/omnibox/browser/contextual_search_provider.h"
+#include "components/omnibox/browser/cross_device_tab_provider.h"
 #include "components/omnibox/browser/document_provider.h"
 #include "components/omnibox/browser/enterprise_search_aggregator_provider.h"
 #include "components/omnibox/browser/featured_search_provider.h"
@@ -120,9 +121,6 @@ constexpr bool kIsDesktop = !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS);
 
 namespace {
 
-inline constexpr char kInvocationSourceParameterKey[] = "source";
-inline constexpr char kInvocationSourceOmnibox[] = "chrome.ob";
-inline constexpr char kInvocationSourceRealbox[] = "chrome.rb";
 
 using ScoringSignals = ::metrics::OmniboxScoringSignals;
 using ProviderType = AutocompleteProvider::Type;
@@ -1016,34 +1014,6 @@ void AutocompleteController::SetSmartComposeStats(
   smart_compose_stats_ = stats;
 }
 
-void AutocompleteController::UpdateMatchDestinationURLWithInvocationSource(
-    AutocompleteMatch* match) const {
-  if (!base::FeatureList::IsEnabled(omnibox::kOmniboxAppendInvocationSource)) {
-    return;
-  }
-
-  if (!AutocompleteMatch::IsSearchType(match->type) ||
-      !match->destination_url.is_valid() || !match->search_terms_args) {
-    return;
-  }
-
-  const TemplateURL* turl = match->GetTemplateURL(template_url_service_);
-  if (!turl || turl != template_url_service_->GetDefaultSearchProvider()) {
-    return;
-  }
-
-  std::string source_param;
-  if (omnibox::IsOmnibox(input_.current_page_classification())) {
-    source_param = kInvocationSourceOmnibox;
-  } else if (omnibox::IsNTPRealbox(input_.current_page_classification())) {
-    source_param = kInvocationSourceRealbox;
-  }
-
-  if (!source_param.empty()) {
-    match->destination_url = net::AppendOrReplaceQueryParameter(
-        match->destination_url, kInvocationSourceParameterKey, source_param);
-  }
-}
 
 void AutocompleteController::SetMatchDestinationURL(
     AutocompleteMatch* match) const {
@@ -1152,7 +1122,7 @@ bool AutocompleteController::ShouldRunProvider(
     return true;
   }
 
-  if (input_.InKeywordMode()) {
+  if (input_.in_keyword_mode()) {
     // Only a subset of providers are run when we're in a starter pack keyword
     // mode. Try to grab the TemplateURL to determine if we're in starter pack
     // mode and whether this provider should be run.
@@ -1451,6 +1421,10 @@ void AutocompleteController::InitializeSyncProviders(int provider_types) {
   if (provider_types & AutocompleteProvider::TYPE_RECENTLY_CLOSED_TABS) {
     providers_.push_back(base::MakeRefCounted<RecentlyClosedTabsProvider>(
         provider_client_.get(), this));
+  }
+  if (provider_types & AutocompleteProvider::TYPE_CROSS_DEVICE_TAB) {
+    providers_.push_back(
+        base::MakeRefCounted<CrossDeviceTabProvider>(provider_client_.get()));
   }
 #if BUILDFLAG(IS_ANDROID)
   if (provider_types & AutocompleteProvider::TYPE_TAB_GROUP) {
@@ -1773,7 +1747,7 @@ void AutocompleteController::AttachActions() {
       internal_result_.AttachContextualSearchOpenLensActionToMatches();
     }
 
-  } else if (input_.InKeywordMode()) {
+  } else if (input_.in_keyword_mode()) {
     AutocompleteInput keyword_input = input_;
     const TemplateURL* keyword_turl =
         AutocompleteInput::GetSubstitutingTemplateURLForInput(
@@ -1816,7 +1790,9 @@ void AutocompleteController::AttachActions() {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-  internal_result_.AttachSiteSearchActionToMatches(template_url_service_);
+  if (base::FeatureList::IsEnabled(omnibox::kOmniboxSiteSearch)) {
+    internal_result_.AttachSiteSearchActionToMatches(template_url_service_);
+  }
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
@@ -1873,12 +1849,10 @@ void AutocompleteController::UpdateAssociatedKeywords(
 
     // If this match is in keyword mode (e.g. the user tabbed into a keyword
     // then continued typing), don't attach a keyword chip to it.
-    std::u16string explicit_keyword(
-        match.GetSubstitutingExplicitlyInvokedKeyword(template_url_service_));
-    if (!explicit_keyword.empty()) {
+    if (match.IsExplicitlyInvokedKeyword(template_url_service_)) {
       // Also prevent other matches showing a keyword chip for the keyword the
       // user is already in.
-      added_keywords.insert(explicit_keyword);
+      added_keywords.insert(match.keyword);
       continue;
     }
 

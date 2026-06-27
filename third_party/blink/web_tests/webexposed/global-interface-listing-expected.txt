@@ -1326,7 +1326,6 @@ interface CanvasRenderingContext2D
     method getContextAttributes
     method getImageData
     method getLineDash
-    method getTextureFormat
     method getTransform
     method isContextLost
     method isPointInPath
@@ -1350,8 +1349,6 @@ interface CanvasRenderingContext2D
     method strokeRect
     method strokeText
     method strokeTextCluster
-    method transferBackFromGPUTexture
-    method transferToGPUTexture
     method transform
     method translate
     setter direction
@@ -2042,6 +2039,7 @@ interface Document : Node
     getter lastModified
     getter linkColor
     getter links
+    getter modelContext
     getter onabort
     getter onanimationcancel
     getter onanimationend
@@ -2181,6 +2179,7 @@ interface Document : Node
     getter routeMap
     getter scripts
     getter scrollingElement
+    getter spellCheckCustomDictionary
     getter styleSheets
     getter timeline
     getter title
@@ -2550,7 +2549,6 @@ interface Element : Node
     getter ariaValueMin
     getter ariaValueNow
     getter ariaValueText
-    getter ariaVirtualContent
     getter assignedSlot
     getter attributes
     getter childElementCount
@@ -2732,7 +2730,6 @@ interface Element : Node
     setter ariaValueMin
     setter ariaValueNow
     setter ariaValueText
-    setter ariaVirtualContent
     setter classList
     setter className
     setter containerTiming
@@ -2818,7 +2815,6 @@ interface ElementInternals
     getter ariaValueMin
     getter ariaValueNow
     getter ariaValueText
-    getter ariaVirtualContent
     getter behaviors
     getter form
     getter labels
@@ -2885,12 +2881,7 @@ interface ElementInternals
     setter ariaValueMin
     setter ariaValueNow
     setter ariaValueText
-    setter ariaVirtualContent
     setter role
-interface EmailVerifiedEvent : Event
-    attribute @@toStringTag
-    getter presentationToken
-    method constructor
 interface EncodedAudioChunk
     attribute @@toStringTag
     getter byteLength
@@ -3582,10 +3573,6 @@ interface GeolocationCoordinates
     getter speed
     method constructor
     method toJSON
-interface GeolocationPermissionStatus : PermissionStatus
-    attribute @@toStringTag
-    getter accuracyMode
-    method constructor
 interface GeolocationPosition
     attribute @@toStringTag
     getter coords
@@ -3986,7 +3973,8 @@ interface HTMLElement : Element
     getter draggable
     getter editContext
     getter enterKeyHint
-    getter focusgroup
+    getter focusGroup
+    getter focusGroupStart
     getter hidden
     getter inert
     getter innerText
@@ -4115,12 +4103,12 @@ interface HTMLElement : Element
     getter overscrollarea
     getter overscrollcontainer
     getter popover
-    getter scrollParent
     getter spellcheck
     getter style
     getter tabIndex
     getter title
     getter translate
+    getter unbounded
     getter virtualKeyboardPolicy
     getter writingSuggestions
     method attachInternals
@@ -4129,7 +4117,9 @@ interface HTMLElement : Element
     method constructor
     method focus
     method hidePopover
+    method scrollParent
     method showPopover
+    method showUnboundedElement
     method togglePopover
     setter accessKey
     setter autocapitalize
@@ -4139,7 +4129,8 @@ interface HTMLElement : Element
     setter draggable
     setter editContext
     setter enterKeyHint
-    setter focusgroup
+    setter focusGroup
+    setter focusGroupStart
     setter hidden
     setter inert
     setter innerText
@@ -4267,6 +4258,7 @@ interface HTMLElement : Element
     setter tabIndex
     setter title
     setter translate
+    setter unbounded
     setter virtualKeyboardPolicy
     setter writingSuggestions
 interface HTMLEmbedElement : HTMLElement
@@ -5929,15 +5921,10 @@ interface IntegrityViolationReportBody : ReportBody
     method toJSON
 interface InteractionContentfulPaint : PerformanceEntry
     attribute @@toStringTag
-    getter element
-    getter id
     getter interactionId
-    getter loadTime
+    getter largestContentfulPaint
     getter paintTime
     getter presentationTime
-    getter renderTime
-    getter size
-    getter url
     method constructor
     method toJSON
 interface InterestEvent : Event
@@ -6196,7 +6183,8 @@ interface MathMLElement : Element
     getter attributeStyleMap
     getter autofocus
     getter dataset
-    getter focusgroup
+    getter focusGroup
+    getter focusGroupStart
     getter nonce
     getter onabort
     getter onanimationcancel
@@ -6316,7 +6304,8 @@ interface MathMLElement : Element
     method constructor
     method focus
     setter autofocus
-    setter focusgroup
+    setter focusGroup
+    setter focusGroupStart
     setter nonce
     setter onabort
     setter onanimationcancel
@@ -6703,7 +6692,9 @@ interface MediaStreamTrackGenerator : MediaStreamTrack
     method constructor
 interface MediaStreamTrackProcessor
     attribute @@toStringTag
+    getter discardedFrames
     getter readable
+    getter totalFrames
     method constructor
 interface MediaStreamTrackVideoStats
     attribute @@toStringTag
@@ -7369,7 +7360,6 @@ interface OffscreenCanvasRenderingContext2D
     method getContextAttributes
     method getImageData
     method getLineDash
-    method getTextureFormat
     method getTransform
     method isContextLost
     method isPointInPath
@@ -7393,8 +7383,6 @@ interface OffscreenCanvasRenderingContext2D
     method strokeRect
     method strokeText
     method strokeTextCluster
-    method transferBackFromGPUTexture
-    method transferToGPUTexture
     method transform
     method translate
     setter direction
@@ -7796,6 +7784,18 @@ interface PerformanceScriptTiming : PerformanceEntry
     getter windowAttribution
     method constructor
     method toJSON
+interface PerformanceScrollTiming : PerformanceEntry
+    attribute @@toStringTag
+    getter checkerboardTime
+    getter deltaX
+    getter deltaY
+    getter firstFrameTime
+    getter framesExpected
+    getter framesProduced
+    getter scrollSource
+    getter target
+    method constructor
+    method toJSON
 interface PerformanceServerTiming
     attribute @@toStringTag
     getter description
@@ -7803,6 +7803,14 @@ interface PerformanceServerTiming
     getter name
     method constructor
     method toJSON
+interface PerformanceSoftNavigation : PerformanceEntry
+    attribute @@toStringTag
+    getter interactionId
+    getter navigationType
+    getter paintTime
+    getter presentationTime
+    method constructor
+    method getLargestInteractionContentfulPaint
 interface PerformanceTiming
     attribute @@toStringTag
     getter connectEnd
@@ -7931,6 +7939,7 @@ interface PreloadData
     attribute @@toStringTag
     getter as
     getter crossorigin
+    getter earlyHints
     getter url
     getter used
     method constructor
@@ -8002,7 +8011,6 @@ interface PressureObserver
     method unobserve
 interface PressureRecord
     attribute @@toStringTag
-    getter ownContributionEstimate
     getter source
     getter state
     getter time
@@ -8532,6 +8540,7 @@ interface Request
     method getRetryOptions
     method json
     method text
+    method textStream
 interface ResizeObserver
     attribute @@toStringTag
     method constructor
@@ -8572,6 +8581,7 @@ interface Response
     method formData
     method json
     method text
+    method textStream
 interface RestrictionTarget
     static method fromElement
     attribute @@toStringTag
@@ -8808,7 +8818,8 @@ interface SVGElement : Element
     getter autofocus
     getter className
     getter dataset
-    getter focusgroup
+    getter focusGroup
+    getter focusGroupStart
     getter nonce
     getter onabort
     getter onanimationcancel
@@ -8930,7 +8941,8 @@ interface SVGElement : Element
     method constructor
     method focus
     setter autofocus
-    setter focusgroup
+    setter focusGroup
+    setter focusGroupStart
     setter nonce
     setter onabort
     setter onanimationcancel
@@ -10150,14 +10162,6 @@ interface SnapEvent : Event
     getter snapTargetBlock
     getter snapTargetInline
     method constructor
-interface SoftNavigationEntry : PerformanceEntry
-    attribute @@toStringTag
-    getter interactionId
-    getter largestInteractionContentfulPaint
-    getter navigationType
-    getter paintTime
-    getter presentationTime
-    method constructor
 interface SourceBuffer : EventTarget
     attribute @@toStringTag
     getter appendWindowEnd
@@ -10201,7 +10205,16 @@ interface SourceBufferList : EventTarget
     setter onremovesourcebuffer
 interface SpeculationData
     attribute @@toStringTag
+    getter navigationDestinationURL
+    getter navigations
     getter preloads
+    method constructor
+interface SpeculationNavigationData
+    attribute @@toStringTag
+    getter eagerness
+    getter tags
+    getter type
+    getter url
     method constructor
 interface SpeechGrammar
     attribute @@toStringTag
@@ -10241,6 +10254,7 @@ interface SpeechRecognition : EventTarget
     getter phrases
     getter processLocally
     getter quality
+    getter unspokenPunctuation
     method abort
     method constructor
     method start
@@ -10264,6 +10278,7 @@ interface SpeechRecognition : EventTarget
     setter phrases
     setter processLocally
     setter quality
+    setter unspokenPunctuation
 interface SpeechRecognitionErrorEvent : Event
     attribute @@toStringTag
     getter error
@@ -12705,6 +12720,10 @@ interface WebTransportError : DOMException
     getter source
     getter streamErrorCode
     method constructor
+interface WebTransportReceiveStream : ReadableStream
+    attribute @@toStringTag
+    method constructor
+    method getStats
 interface WebTransportSendGroup
     attribute @@toStringTag
     method constructor
@@ -13472,6 +13491,7 @@ interface webkitSpeechRecognition : EventTarget
     getter phrases
     getter processLocally
     getter quality
+    getter unspokenPunctuation
     method abort
     method constructor
     method start
@@ -13495,6 +13515,7 @@ interface webkitSpeechRecognition : EventTarget
     setter phrases
     setter processLocally
     setter quality
+    setter unspokenPunctuation
 interface webkitSpeechRecognitionError : Event
     attribute @@toStringTag
     getter error
@@ -13889,7 +13910,6 @@ namespace console
     getter sessionStorage
     getter sharedStorage
     getter speechSynthesis
-    getter spellCheckCustomDictionary
     getter status
     getter statusbar
     getter styleMedia

@@ -242,6 +242,7 @@ class CORE_EXPORT FrameSelection final
   void EnsureInvalidationOfPreviousLayoutBlock();
 
   void PaintCaret(GraphicsContext&, const PhysicalOffset&);
+  const LayoutBlock* GetCaretLayoutBlock() const;
 
   // Used to suspend caret blinking while the mouse is down.
   void SetCaretBlinkingSuspended(bool);
@@ -326,6 +327,12 @@ class CORE_EXPORT FrameSelection final
       const InlineCursor& cursor) const;
   SelectionState ComputePaintingSelectionStateForCursor(
       const InlineCursorPosition& position) const;
+
+  // Returns the fragment-local character offset of the character covered by
+  // the block caret within |cursor|'s current text fragment, or std::nullopt
+  // if the block caret does not overlap this fragment.
+  std::optional<unsigned> ComputeBlockCaretCharacterOffset(
+      const InlineCursor& cursor) const;
 
   // Notifications from the Document.
   void ContextDestroyed();

@@ -1372,7 +1372,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   EXPECT_EQ(embedder_support::GetUserAgent(), user_agent3);
 
   // Third, a list with multiple languages. Incognito mode should return only
-  // the first.
+  // the first language's default set of languages.
   browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
                                               "ar,am,en-GB,ru,zu");
   FlushNetworkInterface();
@@ -1380,7 +1380,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   std::string user_agent4;
   ASSERT_TRUE(FetchHeaderEcho("accept-language", &accept_language4));
   if (GetProfile()->IsOffTheRecord()) {
-    EXPECT_EQ(system ? kNoAcceptLanguage : "ar", accept_language4);
+    EXPECT_EQ(system ? kNoAcceptLanguage : "ar,en-US;q=0.9,en;q=0.8",
+              accept_language4);
   } else {
     EXPECT_EQ(system ? kNoAcceptLanguage
                      : "ar,am;q=0.9,en-GB;q=0.8,en;q=0.7,ru;q=0.6,zu;q=0.5",
@@ -2097,7 +2098,12 @@ class NetworkContextConfigurationManagedProxySettingsBrowserTest
  public:
   const size_t kTestMaxConnectionsPerProxy = 16;
 
-  NetworkContextConfigurationManagedProxySettingsBrowserTest() = default;
+  NetworkContextConfigurationManagedProxySettingsBrowserTest() {
+    // The test still works as this is overridden by the policy
+    // kPermitSocketPoolSizeRandomizationForProxies below.
+    scoped_feature_list_.InitAndEnableFeature(
+        net::features::kTcpSocketPoolLimitRandomization);
+  }
 
   NetworkContextConfigurationManagedProxySettingsBrowserTest(
       const NetworkContextConfigurationManagedProxySettingsBrowserTest&) =
@@ -2123,6 +2129,10 @@ class NetworkContextConfigurationManagedProxySettingsBrowserTest
                  policy::POLICY_SOURCE_CLOUD,
                  base::Value(static_cast<int>(kTestMaxConnectionsPerProxy)),
                  /*external_data_fetcher=*/nullptr);
+    policies.Set(policy::key::kAllowSocketPoolSizeRandomizationForProxies,
+                 policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_MACHINE,
+                 policy::POLICY_SOURCE_CLOUD, base::Value(false),
+                 /*external_data_fetcher=*/nullptr);
     UpdateChromePolicy(policies);
   }
 
@@ -2133,6 +2143,9 @@ class NetworkContextConfigurationManagedProxySettingsBrowserTest
   size_t GetExpectedMaxConnectionsPerProxyForWebSocket() const override {
     return kTestMaxConnectionsPerProxy;
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(

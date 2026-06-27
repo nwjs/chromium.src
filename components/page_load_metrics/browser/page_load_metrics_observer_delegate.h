@@ -116,6 +116,8 @@ class PageLoadMetricsObserverDelegate {
   // The state of index-th restore from the back-forward cache.
   virtual const BackForwardCacheRestore& GetBackForwardCacheRestore(
       size_t index) const = 0;
+  // Get the number of back-forward cache restores recognized thus far.
+  virtual size_t GetNumBackForwardCacheRestores() const = 0;
 
   // True if the page load started in the foreground.
   virtual bool StartedInForeground() const = 0;
@@ -223,10 +225,11 @@ class PageLoadMetricsObserverDelegate {
   virtual const ContentfulPaintTimingInfo&
   GetSoftNavigationLargestContentfulPaint() const = 0;
 
-  // Returns the current soft navigation - https://bit.ly/soft-navigation
-  // Soft navigations are JS-driven same-document navigations that are using the
-  // history API or the new Navigation API, triggered by a user gesture and
-  // meaningfully modify the DOM, replacing the previous content with new one.
+  // Returns the current soft navigation - Soft navigations are JS-driven
+  // same-document navigations that are using the history API or the new
+  // Navigation API, triggered by a user gesture and meaningfully modify the
+  // DOM, replacing the previous content with new one.
+  // See https://github.com/WICG/soft-navigations for more details.
   virtual const mojom::SoftNavigationMetrics& GetSoftNavigationMetrics()
       const = 0;
 

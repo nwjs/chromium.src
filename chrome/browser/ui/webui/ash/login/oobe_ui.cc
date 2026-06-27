@@ -41,7 +41,6 @@
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/multidevice_setup/multidevice_setup_service_factory.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_requisition_manager.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/system/input_device_settings.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -150,9 +149,9 @@
 #include "chrome/grit/component_extension_resources.h"
 #include "chrome/grit/gaia_auth_host_resources.h"
 #include "chrome/grit/gaia_auth_host_resources_map.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/oobe_resources.h"
 #include "chrome/grit/oobe_resources_map.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/experiences/arc/arc_features.h"
 #include "chromeos/ash/services/auth_factor_config/in_process_instances.h"
 #include "chromeos/ash/services/cellular_setup/public/mojom/esim_manager.mojom.h"
@@ -413,9 +412,7 @@ bool OobeUIConfig::IsWebUIEnabled(content::BrowserContext* browser_context) {
   bool is_running_test = command_line->HasSwitch(ash::switches::kTestName) ||
                          command_line->HasSwitch(::switches::kTestType);
 
-  return ash::ProfileHelper::IsSigninProfile(
-             Profile::FromBrowserContext(browser_context)) ||
-         is_running_test;
+  return IsSigninBrowserContext(browser_context) || is_running_test;
 }
 
 void OobeUI::ConfigureOobeDisplay() {
@@ -731,14 +728,16 @@ OobeUI::OobeUI(content::WebUI* web_ui, const GURL& url)
   display_type_ = GetDisplayType(url);
 
   // TODO(crbug.com/489929275): Avoid using g_browser_process.
+  const PrefService& local_state =
+      CHECK_DEREF(g_browser_process->local_state());
   policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash =
       g_browser_process->platform_part()->browser_policy_connector_ash();
 
   auto core_oobe_handler = std::make_unique<CoreOobeHandler>();
   core_handler_ = core_oobe_handler.get();
   core_oobe_ =
-      std::make_unique<CoreOobe>(browser_policy_connector_ash, display_type_,
-                                 core_oobe_handler->AsWeakPtr());
+      std::make_unique<CoreOobe>(local_state, browser_policy_connector_ash,
+                                 display_type_, core_oobe_handler->AsWeakPtr());
   web_ui->AddMessageHandler(std::move(core_oobe_handler));
 
   ConfigureOobeDisplay();
@@ -854,8 +853,9 @@ base::DictValue OobeUI::GetLocalizedStrings() {
   }
   localized_strings.Set("oobeClasses", oobeClasses);
 
-  bool keyboard_driven_oobe = ash::system::InputDeviceSettings::Get()
-                                  ->ForceKeyboardDrivenUINavigation();
+  bool keyboard_driven_oobe =
+      ash::system::InputDeviceSettings::ForceKeyboardDrivenUINavigation(
+          CHECK_DEREF(g_browser_process->local_state()));
   localized_strings.Set("highlightStrength",
                         keyboard_driven_oobe ? "strong" : "normal");
   return localized_strings;

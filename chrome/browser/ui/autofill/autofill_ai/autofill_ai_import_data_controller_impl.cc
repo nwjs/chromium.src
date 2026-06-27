@@ -103,7 +103,8 @@ void AutofillAiImportDataControllerImpl::ShowPrompt(
   if (bubble_view() || !MaySetUpBubble()) {
     if (!prompt_result_callback.is_null()) {
       std::move(prompt_result_callback)
-          .Run(AutofillClient::AutofillAiBubbleResult::kUnknown, {});
+          .Run(AutofillClient::AutofillAiBubbleResult::kUnknown, std::nullopt,
+               {});
     }
     return;
   }
@@ -129,7 +130,7 @@ void AutofillAiImportDataControllerImpl::OnSaveButtonClicked() {
     OnBubbleClosed(AutofillClient::AutofillAiBubbleResult::kAccepted);
   } else if (!GetSaveUpdateState().prompt_result_callback.is_null()) {
     std::move(GetSaveUpdateState().prompt_result_callback)
-        .Run(AutofillClient::AutofillAiBubbleResult::kAccepted,
+        .Run(AutofillClient::AutofillAiBubbleResult::kAccepted, std::nullopt,
              {GetNoticeStringId(), GetPrimaryButtonTextId(IsSavePrompt())});
   }
 }
@@ -174,11 +175,13 @@ void AutofillAiImportDataControllerImpl::OnGoToWalletLinkClicked() {
               web_contents())) {
     reopen_bubble_when_web_contents_becomes_visible_ = true;
     const EntityInstance& new_entity = GetSaveUpdateState().new_entity;
-    bool is_private_pass =
-        IsMaskedStorageSupported(new_entity.type(), new_entity.record_type());
-    ShowSingletonTab(
-        browser, GURL(is_private_pass ? chrome::kWalletPrivatePassHelpCenterURL
-                                      : chrome::kWalletPassesPageURL));
+    EntityInstance::WalletPassType pass_type =
+        GetWalletPassType(new_entity.type(), new_entity.record_type());
+    CHECK_NE(pass_type, EntityInstance::WalletPassType::kUnsupported);
+    GURL wallet_url(pass_type == EntityInstance::WalletPassType::kPublic
+                        ? chrome::kWalletPassesPageURL
+                        : chrome::kWalletPrivatePassHelpCenterURL);
+    ShowSingletonTab(browser, wallet_url);
   }
 }
 
@@ -308,7 +311,8 @@ void AutofillAiImportDataControllerImpl::MaybeRunSaveUpdateCallback(
     AutofillClient::AutofillAiBubbleResult result) {
   if (IsSaveUpdatePrompt() &&
       !GetSaveUpdateState().prompt_result_callback.is_null()) {
-    std::move(GetSaveUpdateState().prompt_result_callback).Run(result, {});
+    std::move(GetSaveUpdateState().prompt_result_callback)
+        .Run(result, std::nullopt, {});
   }
 }
 

@@ -371,6 +371,80 @@ TEST_P(WaylandEventSourceTest, NoSyntheticReleaseOnIntraClientFocusChange) {
   EXPECT_TRUE(pointer_delegate_->IsPointerButtonPressed(EF_RIGHT_MOUSE_BUTTON));
 }
 
+TEST_P(WaylandEventSourceTest, TabletToolProximityInUAF) {
+  auto* event_source = connection_->event_source();
+
+  // Create two windows.
+  MockWaylandPlatformWindowDelegate delegate1(connection_.get());
+  auto window1 = CreateWaylandWindowWithParams(PlatformWindowType::kWindow,
+                                               kDefaultBounds, &delegate1);
+
+  MockWaylandPlatformWindowDelegate delegate2(connection_.get());
+  auto window2 = CreateWaylandWindowWithParams(PlatformWindowType::kWindow,
+                                               kDefaultBounds, &delegate2);
+
+  // Set `window1` as focused.
+  event_source->OnTabletToolProximityIn(window1.get(), gfx::PointF(), {},
+                                        base::TimeTicks::Now());
+
+  // Set up `delegate1` to destroy `window2` when it receives `kMouseExited`.
+  // When `window1` is the `tablet_tool_focused_window_`, calling
+  // `OnTabletToolProximityIn(window2)` will call `OnTabletToolProximityOut()`,
+  // which dispatches `kMouseExited` to `window1`.
+
+  EXPECT_CALL(delegate1, DispatchEvent(::testing::_))
+      .WillOnce([&](Event* event) {
+        if (event->type() == EventType::kMouseExited) {
+          window2.reset();
+        }
+      });
+
+  // This should not crash.
+  event_source->OnTabletToolProximityIn(window2.get(), gfx::PointF(), {},
+                                        base::TimeTicks::Now());
+}
+
+// Check that if an event dispatched by ReleasePressedPointerButtons causes the
+// target window to be destroyed, we don't cause a UAF or dangling pointer.
+TEST_P(WaylandEventSourceTest, ReleasePressedPointerButtonsUAF) {
+  PostToServerAndWait([](wl::TestWaylandServerThread* server) {
+    wl_seat_send_capabilities(server->seat()->resource(),
+                              WL_SEAT_CAPABILITY_POINTER);
+  });
+  ASSERT_TRUE(connection_->seat()->pointer());
+
+  // Record two pressed buttons so ReleasePressedPointerButtons iterates twice.
+  EXPECT_CALL(delegate_, DispatchEvent(_)).Times(::testing::AnyNumber());
+  PostToServerAndWait([surface_id = window_->root_surface()->get_surface_id()](
+                          wl::TestWaylandServerThread* server) {
+    auto* const surface =
+        server->GetObject<wl::MockSurface>(surface_id)->resource();
+    auto* const pointer = server->seat()->pointer()->resource();
+    wl_pointer_send_enter(pointer, server->GetNextSerial(), surface, 0, 0);
+    wl_pointer_send_button(pointer, server->GetNextSerial(),
+                           server->GetNextTime(), BTN_LEFT,
+                           WL_POINTER_BUTTON_STATE_PRESSED);
+    wl_pointer_send_button(pointer, server->GetNextSerial(),
+                           server->GetNextTime(), BTN_RIGHT,
+                           WL_POINTER_BUTTON_STATE_PRESSED);
+    wl_pointer_send_frame(pointer);
+  });
+  ASSERT_TRUE(pointer_delegate_->IsPointerButtonPressed(EF_LEFT_MOUSE_BUTTON));
+  ASSERT_TRUE(pointer_delegate_->IsPointerButtonPressed(EF_RIGHT_MOUSE_BUTTON));
+
+  // Destroy the window on the first mouse release.
+  EXPECT_CALL(delegate_, DispatchEvent(_))
+      .WillOnce([&](Event* event) {
+        EXPECT_EQ(event->type(), EventType::kMouseReleased);
+        window_.reset();
+      })
+      .WillRepeatedly(::testing::Return());
+
+  // Release both pressed buttons.
+  pointer_delegate_->ReleasePressedPointerButtons(window_.get(),
+                                                  base::TimeTicks::Now());
+}
+
 INSTANTIATE_TEST_SUITE_P(
     EventsDispatchPolicyTest,
     WaylandEventSourceTest,

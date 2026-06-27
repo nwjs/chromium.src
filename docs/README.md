@@ -205,6 +205,7 @@ used when committed.
 *   [Code Coverage](testing/code_coverage.md) - Code coverage for Chromium.
 *   [Code Coverage in Gerrit](testing/code_coverage_in_gerrit.md) - Per-CL code
     coverage in Gerrit to assist code reviews.
+*   [Chrome for Testing](chrome_for_testing/README.md) - The functional and behavioral differences of Chrome for Testing from standard Chrome.
 *   [Chrome for Testing configuration](chrome_for_testing/chrome_for_testing_configuration.md) - Customizing Chrome for Testing required components installation and UI behavior.
 
 ### Configuration Docs
@@ -442,6 +443,9 @@ used when committed.
 ### Speed
 *   [Chrome Speed](speed/README.md) - Documentation for performance measurements and regressions in Chrome.
 *   [Chrome Speed Metrics](speed_metrics/README.md) - Documentation about user experience metrics on the web and their JavaScript APIs.
+
+### Stability
+*   [Overview of stability/crash metrics and reporting](stability.md) - Describes the different ways Chrome monitors stability and attempts to improve stability.
 
 ### UI
 *   [Chromium UI Platform](ui/index.md) - All things user interface

@@ -54,9 +54,10 @@ if (swift_toolchain_path == -1) {
   # TODO(crbug.com/40915887) The custom swift toolchain not does currently work
   # with Xcode 15 beta 1.
   if (_can_use_hermetic_swift && !(is_ios && xcode_version_int >= 1500)) {
-    # Version of the hermetic compiler. Needs to be updated when a new version of
-    # the compiler is rolled to ensure that all outputs are regenerated. It must
-    # be kept in sync with the `version` of `third_party/swift-toolchain` in
+    # Version of the hermetic compiler. Needs to be updated when a new version
+    # of the compiler is rolled to ensure that all outputs are regenerated. It
+    # must be kept in sync with the `version` of `third_party/swift-toolchain`
+    # in
     # //DEPS.
     swiftc_version = "swift-5.8-release"
 
@@ -108,6 +109,23 @@ template("single_apple_toolchain") {
     toolchain_args = {
       # Populate toolchain args from the invoker.
       forward_variables_from(invoker.toolchain_args, "*")
+
+      # Re-evaluate use_apple_linker inside toolchain_args to resolve the GN
+      # parent-child context evaluation mismatch.
+      #
+      # Since GN arguments inside toolchain_args are static values and do not
+      # dynamically propagate their global dependency formulas inside the
+      # toolchain() definition block (which is processed in the default
+      # toolchain context), we must explicitly duplicate the evaluation logic
+      # here to force both contexts to stay in sync.
+      # LINT.IfChange(use_apple_linker)
+      use_apple_linker =
+          host_os == "mac" && current_os == "mac" && !use_thin_lto &&
+          host_cpu == "arm64" && current_cpu == "arm64" &&
+          !(use_remoteexec && use_system_xcode)
+      use_lld = !use_apple_linker
+
+      # LINT.ThenChange(//build/config/compiler/compiler.gni:use_apple_linker)
 
       # The host toolchain value computed by the default toolchain's setup
       # needs to be passed through unchanged to all secondary toolchains to
@@ -506,7 +524,7 @@ template("single_apple_toolchain") {
     tool("cc") {
       depfile = "{{output}}.d"
       precompiled_header_type = "gcc"
-      command = "$coverage_wrapper$cc $md -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} -c {{source}} -o {{output}}"
+      command = "$coverage_wrapper$cc $md -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} -fmodule-name=\"{{cc_module_name}}_Private\"  -c {{source}} -o {{output}}"
       depsformat = "gcc"
       description = "CC {{output}}"
       outputs = [ "$object_subdir/{{source_name_part}}.o" ]
@@ -515,7 +533,8 @@ template("single_apple_toolchain") {
     tool("cxx") {
       depfile = "{{output}}.d"
       precompiled_header_type = "gcc"
-      command = "$coverage_wrapper$cxx $md -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} {{module_deps_no_self}} -c {{source}} -o {{output}}"
+
+      command = "$coverage_wrapper$cxx $md -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} {{module_deps}} -fmodule-name=\"{{cc_module_name}}_Private\" -c {{source}} -o {{output}}"
       depsformat = "gcc"
       description = "CXX {{output}}"
       outputs = [ "$object_subdir/{{source_name_part}}.o" ]
@@ -527,7 +546,7 @@ template("single_apple_toolchain") {
 
       # Module file doesn't need coverage instrumentation because module files
       # represent interfaces rather than implementations.
-      command = "$cxx -MD -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} {{module_deps_no_self}} -fmodule-name={{cc_module_name}} -c -x c++ -Xclang -emit-module {{source}} -o {{output}}"
+      command = "$cxx -MD -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} {{module_deps_no_self}} -fmodule-name=\"{{cc_module_name}}\" -c -x c++ -Xclang -emit-module {{source}} -o {{output}}"
       depsformat = "gcc"
       description = "CXX_MODULE {{output}}"
       outputs = [ "$object_subdir/{{source_name_part}}.pcm" ]
@@ -571,8 +590,9 @@ template("single_apple_toolchain") {
         # Specify explicit path for libtool.
         libtool = invoker.bin_path + "libtool"
 
-        # Apple's libtool fails if the response file is empty (e.g., for empty targets).
-        # We work around this by writing a dummy archive with the ar magic number.
+        # Apple's libtool fails if the response file is empty (e.g., for empty
+        # targets). We work around this by writing a dummy archive with the ar
+        # magic number.
         command = "rm -f {{output}} && if [ -s \"$rspfile\" ]; then TOOL_VERSION=${tool_versions.filter_libtool} $python_path $script $libtool -static -D {{arflags}} -o {{output}} @$rspfile; else printf '!<arch>\n' > {{output}}; fi"
         description = "LIBTOOL-STATIC {{output}}"
       } else {

@@ -103,6 +103,10 @@
         <include name="IDR_COPRESENCE_HTML" file="resources\empty.html" type="BINDATA" />
         <include name="IDR_COPRESENCE_JS" file="resources\empty.js" type="BINDATA" />
       </if>
+      <if expr="not is_android">
+        <!-- Page not available for guest. -->
+        <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
+      </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_CREDITS_HTML" file="resources\empty.html" type="BINDATA" />

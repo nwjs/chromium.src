@@ -110,15 +110,15 @@ FFTSetup FftSetupForSize(unsigned log2fft_size) {
 }  // namespace
 
 // Normal constructor: allocates for a given FFT size.
-FFTFrame::FFTFrame(unsigned fft_size)
-    : fft_size_(fft_size),
-      log2fft_size_(static_cast<unsigned>(log2(fft_size))),
-      real_data_(fft_size),
-      imag_data_(fft_size) {
-  CHECK_GE(fft_size, MinFFTSize());
-  CHECK_LE(fft_size, MaxFFTSize());
+void FFTFrame::PlatformConstruct() {
+  CHECK_GE(fft_size_, MinFFTSize());
+  CHECK_LE(fft_size_, MaxFFTSize());
+
   // We only allow power of two
   CHECK_EQ(1UL << log2fft_size_, fft_size_);
+
+  real_data_.Allocate(fft_size_ / 2);
+  imag_data_.Allocate(fft_size_ / 2);
 
   // Initialize the FFT setup here so that it will be ready when we compute
   // FFTs.
@@ -132,36 +132,9 @@ FFTFrame::FFTFrame(unsigned fft_size)
   frame_.imagp = imag_data_.Data();
 }
 
-// Creates a blank/empty frame (interpolate() must later be called).
-FFTFrame::FFTFrame() : real_data_(0), imag_data_(0) {
-  // Later will be set to correct values when interpolate() is called.
-  frame_.realp = nullptr;
-  frame_.imagp = nullptr;
-
-  fft_size_ = 0;
-  log2fft_size_ = 0;
-}
-
-// Copy constructor.
-FFTFrame::FFTFrame(const FFTFrame& frame)
-    : fft_size_(frame.fft_size_),
-      log2fft_size_(frame.log2fft_size_),
-      real_data_(frame.fft_size_),
-      imag_data_(frame.fft_size_),
-      fft_setup_(frame.fft_setup_) {
-  // Setup frame data.
-  frame_.realp = real_data_.Data();
-  frame_.imagp = imag_data_.Data();
-
-  // Copy/setup frame data.
-  real_data_.as_span().copy_from(frame.real_data_.as_span());
-  imag_data_.as_span().copy_from(frame.imag_data_.as_span());
-}
-
-FFTFrame::~FFTFrame() {}
-
-void FFTFrame::DoFFT(const float* data) {
-  vDSP_ctoz((DSPComplex*)data, 2, &frame_, 1, fft_size_ / 2);
+void FFTFrame::PlatformDoFFT(base::span<const float> data_span) {
+  vDSP_ctoz(reinterpret_cast<const DSPComplex*>(data_span.data()), 2, &frame_,
+            1, fft_size_ / 2);
   vDSP_fft_zrip(fft_setup_, &frame_, 1, log2fft_size_, FFT_FORWARD);
 
   // vDSP_FFT_zrip returns a result that is twice as large as would be expected.
@@ -171,28 +144,31 @@ void FFTFrame::DoFFT(const float* data) {
   // the correct scaling.
   float scale = 0.5f;
 
-  vector_math::Vsmul(frame_.realp, 1, &scale, frame_.realp, 1, fft_size_ / 2);
-  vector_math::Vsmul(frame_.imagp, 1, &scale, frame_.imagp, 1, fft_size_ / 2);
+  base::span<float> real_span = real_data_.as_span();
+  base::span<float> imag_span = imag_data_.as_span();
+  vector_math::Vsmul(real_span, scale, real_span, fft_size_ / 2);
+  vector_math::Vsmul(imag_span, scale, imag_span, fft_size_ / 2);
 }
 
-void FFTFrame::DoInverseFFT(float* data) {
+void FFTFrame::PlatformDoInverseFFT(base::span<float> data_span) {
   vDSP_fft_zrip(fft_setup_, &frame_, 1, log2fft_size_, FFT_INVERSE);
-  vDSP_ztoc(&frame_, 1, (DSPComplex*)data, 2, fft_size_ / 2);
+  vDSP_ztoc(&frame_, 1, reinterpret_cast<DSPComplex*>(data_span.data()), 2,
+            fft_size_ / 2);
 
   // Do final scaling so that x == IFFT(FFT(x)).
   float scale = 1.0f / fft_size_;
-  vector_math::Vsmul(data, 1, &scale, data, 1, fft_size_);
+  vector_math::Vsmul(data_span, scale, data_span, fft_size_);
 }
 
-unsigned FFTFrame::MinFFTSize() {
+unsigned FFTFrame::PlatformMinFFTSize() {
   return 1u << kMinFFTPow2Size;
 }
 
-unsigned FFTFrame::MaxFFTSize() {
+unsigned FFTFrame::PlatformMaxFFTSize() {
   return 1u << kMaxFFTPow2Size;
 }
 
-void FFTFrame::Initialize(float sample_rate) {
+void FFTFrame::PlatformInitialize(float sample_rate) {
   // Initialize the vector now so it's ready for use when we construct
   // FFTFrames.
   FFTSetups();
@@ -209,7 +185,7 @@ void FFTFrame::Initialize(float sample_rate) {
   InitializeFFTSetupForSize(hrtf_order - 1);
 }
 
-void FFTFrame::Cleanup() {
+void FFTFrame::PlatformCleanup() {
   auto& setups = FFTSetups();
 
   for (wtf_size_t k = 0; k < setups.size(); ++k) {

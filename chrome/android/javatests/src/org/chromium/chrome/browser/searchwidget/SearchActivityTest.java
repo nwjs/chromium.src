@@ -15,7 +15,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNonNativeNtpUrl;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNtpUrl;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -65,6 +65,7 @@ import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteControllerJni;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
+import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionIntentHandler;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.SearchEnginePromoType;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -286,7 +287,8 @@ public class SearchActivityTest {
         locationBar.beginQuery(IntentOrigin.SEARCH_WIDGET, SearchType.VOICE, null);
         verify(mHandler, times(0))
                 .startVoiceRecognition(
-                        eq(VoiceRecognitionHandler.VoiceInteractionSource.SEARCH_WIDGET), any());
+                        eq(VoiceRecognitionIntentHandler.VoiceInteractionSource.SEARCH_WIDGET),
+                        any());
 
         mTestDelegate.shouldDelayNativeInitializationCallback.waitForCallback(0);
         Assert.assertEquals(0, mTestDelegate.showSearchEngineDialogIfNeededCallback.getCallCount());
@@ -303,7 +305,8 @@ public class SearchActivityTest {
 
         verify(mHandler)
                 .startVoiceRecognition(
-                        eq(VoiceRecognitionHandler.VoiceInteractionSource.SEARCH_WIDGET), any());
+                        eq(VoiceRecognitionIntentHandler.VoiceInteractionSource.SEARCH_WIDGET),
+                        any());
     }
 
     @Test
@@ -382,7 +385,7 @@ public class SearchActivityTest {
                                             mActivityTestRule.getActivity(), IntentOrigin.HUB);
                             client.requestOmniboxForResult(
                                     client.newIntentBuilder()
-                                            .setPageUrl(new GURL(getOriginalNonNativeNtpUrl()))
+                                            .setPageUrl(new GURL(getOriginalNtpUrl()))
                                             .setIncognito(true)
                                             .setResolutionType(ResolutionType.SEND_TO_CALLER)
                                             .build());
@@ -424,7 +427,7 @@ public class SearchActivityTest {
                                             mActivityTestRule.getActivity(), IntentOrigin.HUB);
                             client.requestOmniboxForResult(
                                     client.newIntentBuilder()
-                                            .setPageUrl(new GURL(getOriginalNonNativeNtpUrl()))
+                                            .setPageUrl(new GURL(getOriginalNtpUrl()))
                                             .setIncognito(true)
                                             .setResolutionType(ResolutionType.SEND_TO_CALLER)
                                             .build());

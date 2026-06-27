@@ -4,11 +4,17 @@
 
 #include "components/autofill/core/browser/field_type_utils.h"
 
+#include <stddef.h>
+
+#include <optional>
+
 #include "base/check.h"
+#include "base/check_op.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/notreached.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/field_types.h"
 
 namespace autofill {
@@ -158,8 +164,6 @@ bool IsDateFieldType(FieldType field_type) {
     case ALTERNATIVE_FULL_NAME:
     case ALTERNATIVE_GIVEN_NAME:
     case ALTERNATIVE_FAMILY_NAME:
-    case NAME_LAST_PREFIX:
-    case NAME_LAST_CORE:
     case PASSPORT_NUMBER:
     case PASSPORT_ISSUING_COUNTRY:
     case LOYALTY_MEMBERSHIP_PROGRAM:
@@ -300,8 +304,6 @@ bool IsAffixFormatStringEnabledForType(FieldType type) {
     case ALTERNATIVE_FULL_NAME:
     case ALTERNATIVE_GIVEN_NAME:
     case ALTERNATIVE_FAMILY_NAME:
-    case NAME_LAST_PREFIX:
-    case NAME_LAST_CORE:
     case PASSPORT_ISSUING_COUNTRY:
     case PASSPORT_EXPIRATION_DATE:
     case PASSPORT_ISSUE_DATE:
@@ -342,6 +344,11 @@ bool IsAffixFormatStringEnabledForType(FieldType type) {
       return true;
   }
   NOTREACHED();
+}
+
+bool IsAffixFormatStringEnabledForType(AttributeType type) {
+  std::optional<FieldType> field_type = type.field_type();
+  return field_type && IsAffixFormatStringEnabledForType(*field_type);
 }
 
 }  // namespace autofill

@@ -19,6 +19,7 @@
 #include "components/multistep_filter/core/multistep_filter_util.h"
 #include "components/multistep_filter/core/storage/filter_store.h"
 #include "components/tabs/public/mock_tab_interface.h"
+#include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
 #include "content/public/test/mock_navigation_handle.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
@@ -32,6 +33,8 @@ using ::testing::_;
 
 namespace {
 
+constexpr int64_t kTestNavigationId = 0;
+
 class MockFilterUiController : public FilterUiController {
  public:
   explicit MockFilterUiController(tabs::TabInterface& tab)
@@ -43,10 +46,6 @@ class MockFilterUiController : public FilterUiController {
               (std::optional<UrlFilterSuggestion> suggestion),
               (override));
   MOCK_METHOD(void, ClearSuggestion, (), (override));
-  MOCK_METHOD(bool,
-              ShouldSuppressSuggestions,
-              (const GURL& url),
-              (const, override));
 };
 
 class MockMultistepFilterService : public MultistepFilterService {
@@ -57,6 +56,7 @@ class MockMultistepFilterService : public MultistepFilterService {
       : MultistepFilterService(std::move(annotation_index_client),
                                std::move(filter_store),
                                /*identity_manager=*/nullptr,
+                               /*consent_helper=*/nullptr,
                                /*log_router=*/nullptr) {}
 
   MOCK_METHOD(void,
@@ -217,9 +217,14 @@ TEST_F(ChromeFilterNavigationObserverTest, DelegateOnSuggestionGenerated) {
   ASSERT_TRUE(captured_callback);
 
   const GURL suggestion_url("https://suggestion.com");
-  UrlFilterSuggestion suggestion(
-      suggestion_url, base::UTF8ToUTF16(GetEtldPlusOne(suggestion_url)),
-      base::Time::Now(), /*attribute_ui_labels=*/{});
+  UrlFilterSuggestion suggestion(UrlFilterSuggestion::Params{
+      .navigation_url = suggestion_url,
+      .source_domain = base::UTF8ToUTF16(GetEtldPlusOne(suggestion_url)),
+      .extraction_timestamp = base::Time::Now(),
+      .attribute_ui_labels = {},
+      .triggering_navigation_id = kTestNavigationId,
+      .triggering_domain = GetEtldPlusOne(suggestion_url),
+      .task_type = "task1"});
   EXPECT_CALL(*mock_controller,
               OnSuggestionGenerated(testing::Optional(suggestion)));
   std::move(captured_callback).Run(suggestion);
@@ -235,24 +240,6 @@ TEST_F(ChromeFilterNavigationObserverTest, DelegateHandlesNullController) {
   // No controller is attached to the tab, so calls should be gracefully
   // handled without crashing.
   std::move(captured_callback).Run(std::nullopt);
-}
-
-TEST_F(ChromeFilterNavigationObserverTest, DelegateShouldSuppressSuggestions) {
-  auto mock_controller =
-      std::make_unique<testing::NiceMock<MockFilterUiController>>(*mock_tab_);
-
-  const GURL test_url("https://test.com");
-
-  EXPECT_CALL(*mock_controller, ShouldSuppressSuggestions(test_url))
-      .WillOnce(testing::Return(true));
-  EXPECT_CALL(*mock_service(), GenerateFilterSuggestions).Times(0);
-  EXPECT_CALL(*mock_controller,
-              OnSuggestionGenerated(testing::Eq(std::nullopt)));
-
-  auto simulator = content::NavigationSimulator::CreateRendererInitiated(
-      test_url, main_rfh());
-  simulator->SetHasUserGesture(true);
-  simulator->Commit();
 }
 
 TEST_F(ChromeFilterNavigationObserverTest, NavigationWithController) {

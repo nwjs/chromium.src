@@ -19,6 +19,7 @@
 #include "ash/public/cpp/login_screen.h"
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/barrier_closure.h"
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
@@ -124,6 +125,7 @@
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/user_activity/user_activity_detector.h"
 #include "ui/base/user_activity/user_activity_observer.h"
 #include "ui/message_center/public/cpp/notification.h"
@@ -307,14 +309,26 @@ bool UserHasAnyLocalAuthFactors(const UserContext& context) {
           context.GetAuthFactorsData().FindPinFactor() != nullptr);
 }
 
-// Whether the user has setup a PIN as a secondary factor or not.
-// A PIN is considered a secondary factor, when a user has a PIN and an online
-// password.
-bool UserHasPinAsSecondaryFactor(const UserContext& context) {
+// Checks if the user has a PIN present, an online password present, AND
+// if the PIN is allowed by the QuickUnlock policy.
+//
+// Returns true if and only if all three conditions are met:
+//   1. The user has a PIN set up.
+//   2. The user also has an online password set up.
+//   3. The AuthPolicyConnector confirms that the PIN is allowed by the
+//      QuickUnlock policy for the account.
+//
+// Otherwise, returns false.
+bool IsPinPresentAndAllowedAsSecondaryFactor(const UserContext& context) {
+  // Treat unset as allowed as consumers should always have PIN enabled.
+  bool isPinAllowedByQuickUnlock =
+      AuthPolicyConnector::Get()
+          ->IsPinAllowedByQuickUnlockPolicy(context.GetAccountId())
+          .value_or(true);
   bool has_pin = context.GetAuthFactorsData().FindPinFactor() != nullptr;
   bool has_online_password =
       context.GetAuthFactorsData().FindOnlinePasswordFactor() != nullptr;
-  return has_pin && has_online_password;
+  return has_pin && has_online_password && isPinAllowedByQuickUnlock;
 }
 
 }  // namespace
@@ -424,7 +438,8 @@ ExistingUserController::ExistingUserController(
     // for now because first session is very short and it will be a auto sign
     // out in 90s if idle.
     demo_login_controller_ = std::make_unique<ash::DemoLoginController>(
-        &local_state_.get(),
+        &local_state_.get(), shared_url_loader_factory_.get(),
+        browser_policy_connector_ash_->GetDeviceCloudPolicyManager(),
         base::BindRepeating(&ExistingUserController::ConfigureAutoLogin,
                             base::Unretained(this)));
   }
@@ -607,7 +622,8 @@ void ExistingUserController::PerformLogin(
       !new_user_context.GetChallengeResponseKeys().empty();
 
   if (new_user_context.IsUsingPin()) {
-    const quick_unlock::PinSaltStorageImpl pin_salt_storage;
+    const quick_unlock::PinSaltStorageImpl pin_salt_storage(
+        &local_state_.get());
 
     std::optional<Key> key =
         quick_unlock::PinStorageCryptohome::TransformPinKey(
@@ -735,7 +751,7 @@ void ExistingUserController::OnAuthFailure(const AuthFailure& failure) {
   } else if (is_known_user &&
              failure.reason() == AuthFailure::MISSING_CRYPTOHOME) {
     ForceOnlineLoginForAccountId(last_login_attempt_account_id_);
-    RecordReauthReason(last_login_attempt_account_id_,
+    RecordReauthReason(local_state_.get(), last_login_attempt_account_id_,
                        ReauthReason::kMissingCryptohome);
   } else if (is_known_user &&
              failure.reason() == AuthFailure::UNRECOVERABLE_CRYPTOHOME) {
@@ -744,7 +760,7 @@ void ExistingUserController::OnAuthFailure(const AuthFailure& failure) {
     // the condition met. We should surface that up and deal with it on the
     // chromium level, including making the decision user-driven.
     ForceOnlineLoginForAccountId(last_login_attempt_account_id_);
-    RecordReauthReason(last_login_attempt_account_id_,
+    RecordReauthReason(local_state_.get(), last_login_attempt_account_id_,
                        ReauthReason::kUnrecoverableCryptohome);
   } else {
     // Check networking after trying to login in case user is
@@ -846,9 +862,9 @@ bool ExistingUserController::MaybeShowRemoveLocalAuthFactorsScreen(
     return false;
   }
 
-  // If PIN is setup as a secondary factor, we should not remove it, as it may
-  // have been setup by the QuickUnlock policy.
-  if (UserHasPinAsSecondaryFactor(user_context)) {
+  // If PIN is present and allowed as a secondary factor, we should not remove
+  // it, as it may have been setup by the QuickUnlock policy.
+  if (IsPinPresentAndAllowedAsSecondaryFactor(user_context)) {
     return false;
   }
   // Only check for policy after the check for auth mode and auth flow,
@@ -990,7 +1006,9 @@ void ExistingUserController::ShowAutoLaunchManagedGuestSessionNotification() {
       message_center::NotifierId(message_center::NotifierType::SYSTEM_COMPONENT,
                                  kAutoLaunchNotifierId,
                                  NotificationCatalogName::kAutoLaunch),
-      data, std::move(delegate), vector_icons::kBusinessIcon,
+      data, std::move(delegate),
+      ::features::IsRoundedIconsEnabled() ? vector_icons::kDomainIcon
+                                          : vector_icons::kBusinessOldIcon,
       message_center::SystemNotificationWarningLevel::NORMAL);
   notification.SetSystemPriority();
   notification.set_pinned(true);

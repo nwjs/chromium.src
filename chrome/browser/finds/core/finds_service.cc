@@ -20,6 +20,7 @@
 #include "chrome/browser/finds/core/finds_features.h"
 #include "chrome/browser/finds/core/finds_metrics.h"
 #include "chrome/browser/finds/core/finds_pref_names.h"
+#include "chrome/browser/finds/core/finds_tab_helper.h"
 #include "chrome/browser/finds/core/finds_utils.h"
 #include "chrome/browser/notifications/scheduler/public/client_overview.h"
 #include "chrome/browser/notifications/scheduler/public/notification_data.h"
@@ -31,11 +32,15 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/history/core/browser/history_service.h"
-#include "components/history/core/browser/history_types.h"
 #include "components/optimization_guide/proto/features/finds.pb.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/sync/base/user_selectable_type.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
+#include "components/unified_consent/pref_names.h"
+#include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using SuggestionTheme =
@@ -201,11 +206,6 @@ void FindsService::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(
       prefs::kFindsNotInterestedThemesLastTimestamp);
   registry->RegisterBooleanPref(prefs::kFindsOptInPromoUserInteracted, false);
-  // TODO(crbug.com/497928018): Remove the deprecated user interacted pref.
-  registry->RegisterIntegerPref(prefs::kFindsOptInPromoInteractedCount, 0);
-  // TODO(crbug.com/497928018): Remove the deprecated user interacted pref.
-  registry->RegisterInt64Pref(prefs::kFindsOptInPromoLastInteractedTimestamp,
-                              0);
   registry->RegisterIntegerPref(prefs::kFindsOptInPromoShownCount, 0);
   registry->RegisterInt64Pref(prefs::kFindsOptInPromoLastShownTimestamp, 0);
 }
@@ -214,11 +214,36 @@ FindsService::FindsService(
     OptimizationGuideKeyedService* opt_guide_service,
     history::HistoryService* history_service,
     PrefService* pref_service,
-    notifications::NotificationScheduleService* notification_schedule_service)
+    notifications::NotificationScheduleService* notification_schedule_service,
+    syncer::SyncService* sync_service)
     : opt_guide_service_(opt_guide_service),
       history_service_(history_service),
       pref_service_(pref_service),
-      notification_schedule_service_(notification_schedule_service) {
+      notification_schedule_service_(notification_schedule_service),
+      sync_service_(sync_service) {
+  CHECK(pref_service_);
+  // Observe changes to the underlying permission signals to proactively clear
+  // scheduled notifications if the user revokes history sync or MSBB
+  // permissions.
+  pref_change_registrar_.Init(pref_service_);
+  pref_change_registrar_.Add(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled,
+      base::BindRepeating(
+          &FindsService::MaybeDeleteNotificationsOnPermissionLoss,
+          base::Unretained(this)));
+
+  if (sync_service_) {
+    sync_observation_.Observe(sync_service_);
+  }
+
+  if (history_service_) {
+    history_observation_.Observe(history_service_);
+  }
+
+  // Clean up any stale existing scheduled notifications if permissions are not
+  // currently granted.
+  MaybeDeleteNotificationsOnPermissionLoss();
+
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(
@@ -238,12 +263,53 @@ void FindsService::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
+void FindsService::OnStateChanged(syncer::SyncService* sync) {
+  MaybeDeleteNotificationsOnPermissionLoss();
+}
+
+void FindsService::OnSyncShutdown(syncer::SyncService* sync) {
+  sync_observation_.Reset();
+  sync_service_ = nullptr;
+}
+
+void FindsService::OnHistoryDeletions(
+    history::HistoryService* history_service,
+    const history::DeletionInfo& deletion_info) {
+  if (notification_schedule_service_) {
+    notification_schedule_service_->DeleteNotifications(
+        notifications::SchedulerClientType::kChromeFinds);
+  }
+}
+
+void FindsService::MaybeDeleteNotificationsOnPermissionLoss() {
+  if (!IsFindsFeatureAllowedForUser() && notification_schedule_service_) {
+    notification_schedule_service_->DeleteNotifications(
+        notifications::SchedulerClientType::kChromeFinds);
+  }
+}
+
 void FindsService::ExecuteModelAndScheduleNotification(
     base::OnceCallback<void(Result)> callback) {
   if (!IsAllowedByEnterprisePolicy(pref_service_)) {
     RecordFindsResultAndRunCallback(
         std::move(callback), {Result::Status::kDisabledByEnterprisePolicy,
                               "Error: Feature disabled by enterprise policy."});
+    return;
+  }
+
+  if (!IsHistorySyncAndMsbbEnabled(sync_service_, pref_service_)) {
+    RecordFindsResultAndRunCallback(
+        std::move(callback), {Result::Status::kDisabledByHistorySyncOrMsbb,
+                              "Error: Feature disabled because History Sync or "
+                              "MSBB is not enabled."});
+    return;
+  }
+
+  if (finds::features::kBlockModelExecution.Get()) {
+    RecordFindsResultAndRunCallback(
+        std::move(callback),
+        {Result::Status::kModelExecutionDisabledByParam,
+         "Error: Model execution disabled by feature parameter."});
     return;
   }
 
@@ -283,7 +349,7 @@ void FindsService::ExecuteModelAndScheduleNotification(
 
 void FindsService::RecordThemeURLVisited(
     optimization_guide::proto::FindsMetadata::ThemeType theme_type) {
-  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+  if (!IsFindsFeatureAllowedForUser()) {
     return;
   }
 
@@ -291,20 +357,50 @@ void FindsService::RecordThemeURLVisited(
     return;
   }
 
-  // Increment the theme url visit count for the given theme type and notify
-  // observers if the threshold is met.
+  // Increment the theme url visit count for the given theme type and record
+  // if theme url visit count opt in criteria has been fulfilled.
   theme_url_visit_count_[theme_type]++;
   if (theme_url_visit_count_[theme_type] >=
       finds::features::kThemeUrlVisitCountForOptIn.Get()) {
-    NotifyOptInCriteriaFulfilled(FindsOptInTriggerReason::kThemeUrlVisitCount);
+    theme_opt_in_criteria_fulfilled_ = true;
 
     // Reset the count for the theme type.
     theme_url_visit_count_[theme_type] = 0;
   }
 }
 
+void FindsService::RecordNTPVisited() {
+  if (!IsFindsFeatureAllowedForUser()) {
+    return;
+  }
+
+  if (theme_opt_in_criteria_fulfilled_) {
+    NotifyOptInCriteriaFulfilled(FindsOptInTriggerReason::kThemeUrlVisitCount);
+    theme_opt_in_criteria_fulfilled_ = false;
+  }
+}
+
+bool FindsService::RecordRecentSearchSuggestionClickAndCheckThresholdReached() {
+  omnibox_recent_search_suggestion_click_count_++;
+  if (omnibox_recent_search_suggestion_click_count_ >=
+      features::kOmniboxRecentSearchSuggestionCountThreshold.Get()) {
+    omnibox_recent_search_suggestion_click_count_ = 0;
+    return true;
+  }
+  return false;
+}
+
+void FindsService::RecentSearchSuggestionCountForOptInReached() {
+  if (!IsFindsFeatureAllowedForUser()) {
+    return;
+  }
+
+  NotifyOptInCriteriaFulfilled(
+      FindsOptInTriggerReason::kOmniboxRecentSearchSuggestionCount);
+}
+
 void FindsService::SRPBackNavigationCountForOptInReached() {
-  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+  if (!IsFindsFeatureAllowedForUser()) {
     return;
   }
 
@@ -312,8 +408,16 @@ void FindsService::SRPBackNavigationCountForOptInReached() {
       FindsOptInTriggerReason::kSrpBackNavigationCount);
 }
 
+bool FindsService::IsFindsFeatureAllowedForUser() {
+  return IsAllowedByEnterprisePolicy(pref_service_) &&
+         IsHistorySyncAndMsbbEnabled(sync_service_, pref_service_);
+}
+
 void FindsService::MaybeRescheduleNotifications() {
   if (!notification_schedule_service_) {
+    return;
+  }
+  if (!IsFindsFeatureAllowedForUser()) {
     return;
   }
   notification_schedule_service_->GetClientOverview(
@@ -339,12 +443,8 @@ bool FindsService::ScheduleNotificationForInternalsPage() {
 }
 
 void FindsService::CheckFindsNotificationsEnabledAndMaybeExecute() {
-  // TODO(crbug.com/497928018): Remove this when deprecated pref removed.
-  pref_service_->ClearPref(prefs::kFindsOptInPromoInteractedCount);
-  pref_service_->ClearPref(prefs::kFindsOptInPromoLastInteractedTimestamp);
-
 #if BUILDFLAG(IS_ANDROID)
-  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+  if (!IsFindsFeatureAllowedForUser()) {
     return;
   }
   FindsServiceAndroid::CheckAreFindsNotificationsEnabledAndroid(
@@ -494,7 +594,7 @@ bool FindsService::ScheduleNotificationWithModelResult(
           std::move(scheduler_params)));
   // Track model execution timestamp to properly cooldown the model from being
   // rerun during the window between scheduling and notification being shown.
-  finds::MarkModelExecutionLastTimestamp(pref_service_);
+  MarkModelExecutionLastTimestamp(pref_service_);
 
   return true;
 }
@@ -510,7 +610,7 @@ void FindsService::NotifyOptInCriteriaFulfilled(
   for (auto& observer : observers_) {
     observer.OnOptInCriteriaFulfilled();
   }
-  finds::RecordOptInCriteriaFulfilled(reason);
+  RecordOptInCriteriaFulfilled(reason);
 }
 
 }  // namespace finds

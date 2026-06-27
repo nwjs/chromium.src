@@ -15,9 +15,10 @@
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_iph_background_view.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_mutator.h"
-#import "ios/chrome/browser/app_bar/ui/app_bar_utils.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_view.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -54,12 +55,16 @@ constexpr CGFloat kSpotlightViewVerticalInset = 2;
 // Offset of the tab count label in the tab grid button tab group state.
 constexpr CGFloat kTabGroupLabelOffset = 3;
 
+// The size of the assistant button highlight.
+constexpr CGFloat kAssistantHighlightWidth = 44;
+constexpr CGFloat kAssistantHighlightHeight = 30;
+
 // The spacing inside the stack view.
 constexpr CGFloat kStackViewSpacing = 4;
 // The horizontal margins of the stack view.
 constexpr CGFloat kStackViewHorizontalMargin = 8;
 // The vertical offset of the stack view in portrait.
-constexpr CGFloat kStackViewLandscapeVerticalOffset = 2;
+constexpr CGFloat kStackViewPortraitVerticalOffset = 2;
 
 // The inner padding of the buttons.
 constexpr CGFloat kButtonHorizontalPadding = 4;
@@ -107,7 +112,9 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 
 }  // namespace
 
-@interface AppBarViewController () <UIContextMenuInteractionDelegate>
+@interface AppBarViewController () <AppBarViewDelegate,
+                                    LayoutStateObserver,
+                                    UIContextMenuInteractionDelegate>
 @end
 
 @implementation AppBarViewController {
@@ -138,21 +145,34 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   NSArray<NSLayoutConstraint*>* _tabGridButtonTabGroupStateConstraints;
   // Cached state for the assistant button.
   AppBarAssistantButtonState _assistantButtonState;
+  // Whether the assistant button is highlighted.
+  BOOL _assistantButtonHighlighted;
   // Cached avatar for the assistant button.
   UIImage* _assistantButtonAvatar;
+  // The highlight view for the assistant button.
+  UIView* _assistantHighlightView;
+  // Constraints for the assistant highlight view.
+  NSArray<NSLayoutConstraint*>* _assistantHighlightConstraints;
   // The background view.
   AppBarBackgroundView* _backgroundView;
-  // The stack view constraints that are updated on rotation.
-  NSLayoutConstraint* _stackViewTopConstraint;
-  NSLayoutConstraint* _stackViewBottomConstraint;
+  // Whether the buttons are enabled.
+  BOOL _buttonsEnabled;
+  // Whether the assistant button is enabled.
+  BOOL _assistantButtonEnabled;
+  // Whether the user is signed in.
+  BOOL _signedIn;
   // Container view for the Tab Grid button's custom preview.
   UIView* _tabGridContentView;
   // The alpha for the titles of the buttons.
   CGFloat _buttonsTitleAlpha;
+  // The fullscreen progress.
+  CGFloat _fullscreenProgress;
   // Background view for the IPH.
   AppBarIPHBackgroundView* _IPHBackgroundView;
   // Whether the App Bar content is rotated.
   BOOL _isRotated;
+  // The current rotation angle.
+  CGFloat _angle;
   // Constraints to make buttons square in landscape so that long press
   // animation does not leak beyond bounds of app bar.
   NSArray<NSLayoutConstraint*>* _buttonWidthConstraints;
@@ -161,6 +181,29 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   // Spacers to for button layout in landscape.
   UIView* _leadingSpacer;
   UIView* _trailingSpacer;
+  // The button currently being previewed by a context menu.
+  __weak UIButton* _previewedButton;
+}
+
+- (void)dealloc {
+  [_layoutState removeObserver:self];
+}
+
+- (void)setLayoutState:(LayoutState*)layoutState {
+  if (_layoutState == layoutState) {
+    return;
+  }
+  [_layoutState removeObserver:self];
+  _layoutState = layoutState;
+  [_layoutState addObserver:self];
+}
+
+#pragma mark - LayoutStateObserver
+
+- (void)layoutState:(LayoutState*)layoutState
+    didChangeAppBarPosition:(AppBarPosition)appBarPosition {
+  [self updateButtonsTitleAlpha];
+  [self updateTabSwitcherGuide];
 }
 
 #pragma mark - Accessors & Mutators
@@ -183,6 +226,11 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 - (void)updateForAngle:(CGFloat)angle {
   [self loadViewIfNeeded];
 
+  if (_angle == angle) {
+    return;
+  }
+  _angle = angle;
+
   _isRotated = (angle != 0);
 
   CGAffineTransform transform = CGAffineTransformMakeRotation(angle);
@@ -201,8 +249,8 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     _leadingSpacer.hidden = YES;
     _trailingSpacer.hidden = YES;
   }
-
-  [self updateStackViewConstraintsForPortrait:!_isRotated];
+  [_stackView setNeedsLayout];
+  [_stackView layoutIfNeeded];
 }
 
 - (void)toggleSpotlightView:(BOOL)shouldShow {
@@ -210,7 +258,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   _spotlightView.hidden = !shouldShow;
 }
 
-- (void)showIPHBackground {
+- (void)showIPHBackgroundWithCentering:(BOOL)centered {
   if (!_IPHBackgroundView) {
     _IPHBackgroundView = [[AppBarIPHBackgroundView alloc] init];
     _IPHBackgroundView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -219,6 +267,8 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 
     AddSameConstraints(_backgroundView, _IPHBackgroundView);
   }
+
+  _IPHBackgroundView.centered = centered;
 
   UIView* background = _IPHBackgroundView;
 
@@ -238,20 +288,32 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 
 #pragma mark - UIViewController
 
+- (void)loadView {
+  AppBarView* view = [[AppBarView alloc] init];
+  view.delegate = self;
+  self.view = view;
+}
+
 - (void)viewDidLoad {
   [super viewDidLoad];
 
+  _angle = CGFLOAT_MAX;
   _backgroundView = [[AppBarBackgroundView alloc] init];
   _backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
   [self.view insertSubview:_backgroundView atIndex:0];
 
   _buttonsTitleAlpha = 1;
+  _buttonsEnabled = YES;
+  _assistantButtonEnabled = YES;
+  _fullscreenProgress = 1;
 
   _assistantButton = [self createAssistantButton];
   _openNewTabButton = [self createOpenNewTabButton];
   _tabGridButton = [self createTabGridButton];
   [self updateTabGridButtonForTabGridVisibility];
   [self updateNewTabButtonAccessibilityLabel];
+  [self updateNewTabButtonAccessibilityHint];
+  [self updateTabSwitcherGuide];
 
   // When rotated in landscape, add spacers at the beginning and end of the
   // stack view so that the buttons width match the "height" of the stack view,
@@ -284,11 +346,6 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   UIView* view = self.view;
   [view addSubview:_stackView];
 
-  _stackViewTopConstraint =
-      [_stackView.topAnchor constraintEqualToAnchor:view.topAnchor];
-  _stackViewBottomConstraint =
-      [_stackView.bottomAnchor constraintEqualToAnchor:view.bottomAnchor];
-
   [NSLayoutConstraint activateConstraints:@[
     [_backgroundView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
     [_backgroundView.trailingAnchor
@@ -299,18 +356,17 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     [_stackView.leadingAnchor
         constraintEqualToAnchor:view.leadingAnchor
                        constant:kStackViewHorizontalMargin],
-    _stackViewTopConstraint,
+    [_stackView.topAnchor constraintEqualToAnchor:view.topAnchor],
     [_stackView.trailingAnchor
         constraintEqualToAnchor:view.trailingAnchor
                        constant:-kStackViewHorizontalMargin],
-    _stackViewBottomConstraint,
+    [_stackView.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
     [view.heightAnchor constraintEqualToConstant:kAppBarHeight],
   ]];
 
   [self.layoutGuideCenter referenceView:_stackView underName:kAppBarGuide];
-
-  // The AppBar is created in "portrait" orientation.
-  [self updateStackViewConstraintsForPortrait:YES];
+  [self.layoutGuideCenter referenceView:_assistantButton
+                              underName:kAppBarAssistantButtonGuide];
 }
 
 - (void)viewWillLayoutSubviews {
@@ -318,22 +374,6 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   [self updateAssistantButtonTitleIfNeeded];
   [self updateTabGridButtonTitleIfNeeded];
   [self updateOpenNewTabButtonTitleIfNeeded];
-}
-
-#pragma mark - UIContentContainer
-
-- (void)viewWillTransitionToSize:(CGSize)size
-       withTransitionCoordinator:
-           (id<UIViewControllerTransitionCoordinator>)coordinator {
-  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-
-  __weak __typeof__(self) weakSelf = self;
-  [coordinator
-      animateAlongsideTransition:^(
-          id<UIViewControllerTransitionCoordinatorContext> context) {
-        [weakSelf updateUIForTransitionToSize:size];
-      }
-                      completion:nil];
 }
 
 #pragma mark - AppBarConsumer
@@ -352,6 +392,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   [self updateTabGridButtonForTabGridVisibility];
   [self updateNewTabButtonForTabGroupsVisibility];
   [self updateNewTabButtonAccessibilityLabel];
+  [self updateNewTabButtonAccessibilityHint];
 }
 
 - (void)setIncognito:(BOOL)incognito {
@@ -360,9 +401,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   }
   _backgroundView.incognito = incognito;
   [self updateNewTabButtonAccessibilityLabel];
-  if (incognito) {
-    _assistantButton.enabled = NO;
-  }
+  [self updateAssistantButton];
 }
 
 - (void)setInTabGroup:(BOOL)inTabGroup {
@@ -380,7 +419,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
       return;
     case AppBarButtonTypeNewTab:
       _openNewTabButtonMenu = menu;
-      _openNewTabButton.menu = menu;
+      [self updateNewTabButtonForTabGroupsVisibility];
       return;
     case AppBarButtonTypeTabGrid:
       _tabGridButtonMenu = menu;
@@ -389,8 +428,16 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   NOTREACHED();
 }
 
-- (void)setAssistantButtonState:(AppBarAssistantButtonState)state {
+- (void)setAssistantButtonState:(AppBarAssistantButtonState)state
+                    highlighted:(BOOL)highlighted
+                        enabled:(BOOL)enabled
+                         avatar:(UIImage*)avatar
+                       signedIn:(BOOL)signedIn {
   _assistantButtonState = state;
+  _assistantButtonHighlighted = highlighted;
+  _assistantButtonEnabled = enabled;
+  _assistantButtonAvatar = avatar;
+  _signedIn = signedIn;
 
   [self updateAssistantButton];
 }
@@ -415,25 +462,28 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 }
 
 - (void)setButtonsEnabled:(BOOL)enabled {
-  _assistantButton.enabled = enabled && !_backgroundView.incognito;
+  _buttonsEnabled = enabled;
   _openNewTabButton.enabled = enabled;
   _tabGridButton.enabled = enabled;
+  [self updateAssistantButton];
+}
+
+#pragma mark - AppBarViewDelegate
+
+- (void)appBarViewDidMoveToWindow:(AppBarView*)view {
+  [self updateTabSwitcherGuide];
 }
 
 #pragma mark - FullscreenUIElement
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
-  // The App Bar and the button titles should be fully visible in landscape
-  // orientation.
-  CGFloat targetAlpha =
-      AppBarPositionForView(self.view) == AppBarPosition::kBottom ? progress
-                                                                  : 1.0;
-  [self setButtonsTitleAlpha:targetAlpha animationDuration:0];
+  _fullscreenProgress = progress;
+  [self updateButtonsTitleAlpha];
 }
 
 - (void)animateFullscreenWithAnimator:(FullscreenAnimator*)animator {
   CGFloat targetAlpha =
-      AppBarPositionForView(self.view) == AppBarPosition::kBottom
+      self.layoutState.appBarPosition == AppBarPosition::kBottom
           ? animator.finalProgress
           : 1.0;
   [self setButtonsTitleAlpha:targetAlpha animationDuration:animator.duration];
@@ -442,8 +492,9 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 #pragma mark - FullscreenBrowserAgentObserving
 
 - (void)fullscreenWillUpdateState:(FullscreenBrowserAgent*)agent {
+  _fullscreenProgress = agent->bottom_progress();
   CGFloat targetAlpha =
-      AppBarPositionForView(self.view) == AppBarPosition::kBottom
+      self.layoutState.appBarPosition == AppBarPosition::kBottom
           ? agent->bottom_progress()
           : 1.0;
   [self setButtonsTitleAlpha:targetAlpha
@@ -452,17 +503,27 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 
 #pragma mark - Private
 
-// Updates the stack view constraints based on the orientation.
-- (void)updateStackViewConstraintsForPortrait:(BOOL)portrait {
-  CGFloat offset = portrait ? 0 : -kStackViewLandscapeVerticalOffset;
-  _stackViewTopConstraint.constant = offset;
-  _stackViewBottomConstraint.constant = offset;
+// Updates the buttons' title alpha based on the current orientation and
+// fullscreen progress.
+- (void)updateButtonsTitleAlpha {
+  CGFloat targetAlpha =
+      self.layoutState.appBarPosition == AppBarPosition::kBottom
+          ? _fullscreenProgress
+          : 1.0;
+  [self setButtonsTitleAlpha:targetAlpha animationDuration:0];
 }
 
-// Handles updating the UI for a size transition.
-- (void)updateUIForTransitionToSize:(CGSize)size {
-  if (size.width > size.height) {
-    [self updateForFullscreenProgress:1.0];
+// Conditionally registers the Tab Switcher layout guide.
+// It should only be registered to the App Bar if the App Bar is visible.
+- (void)updateTabSwitcherGuide {
+  if (!self.view.window) {
+    return;
+  }
+  if (self.layoutState.appBarPosition == AppBarPosition::kNone) {
+    [self.layoutGuideCenter referenceView:nil underName:kTabSwitcherGuide];
+  } else {
+    [self.layoutGuideCenter referenceView:_tabGridButton
+                                underName:kTabSwitcherGuide];
   }
 }
 
@@ -503,9 +564,9 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
                     truncatedTitle:l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK)];
     case AppBarAssistantButtonState::kAIM:
       return l10n_util::GetNSString(IDS_OMNIBOX_AI_MODE_SCOPE_PLACEHOLDER_TEXT);
-    default:
-      return @"TODO(crbug.com/484000888): To be removed when lens is "
-             @"implemented";
+    case AppBarAssistantButtonState::kAccount:
+      return _signedIn ? l10n_util::GetNSString(IDS_IOS_APP_BAR_ACCOUNT)
+                       : l10n_util::GetNSString(IDS_IOS_APP_BAR_SIGN_IN);
   }
 }
 
@@ -572,10 +633,6 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   NSString* title = [self assistantButtonTitleForCurrentState];
   UIImage* image;
   switch (_assistantButtonState) {
-    case AppBarAssistantButtonState::kLens:
-      title = @"TODO(crbug.com/484000888): Use actual text";
-      image = CustomAppBarSymbol(kCameraLensSymbol);
-      break;
     case AppBarAssistantButtonState::kAsk:
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
       image = CustomAppBarSymbol(kGeminiBrandedLogoSymbol);
@@ -586,12 +643,69 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     case AppBarAssistantButtonState::kAIM:
       image = CustomAppBarSymbol(kMagnifyingglassSparkSymbol);
       break;
+    case AppBarAssistantButtonState::kAccount:
+      image =
+          _assistantButtonAvatar
+              ? [_assistantButtonAvatar
+                    imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal]
+              : DefaultAppBarSymbol(kPersonCropCircleSymbol);
+      break;
   }
 
   UIButtonConfiguration* configuration = _assistantButton.configuration;
   configuration.title = title;
   configuration.image = image ? image : CustomAppBarSymbol(kCameraLensSymbol);
+
+  // Set up custom background view if not already done
+  if (_assistantButtonHighlighted && !configuration.background.customView) {
+    UIView* customBackgroundView = [[UIView alloc] init];
+    customBackgroundView.backgroundColor = [UIColor clearColor];
+
+    _assistantHighlightView = [[UIView alloc] init];
+    _assistantHighlightView.translatesAutoresizingMaskIntoConstraints = NO;
+    _assistantHighlightView.backgroundColor = [UIColor colorWithWhite:1.0
+                                                                alpha:0.2];
+    _assistantHighlightView.layer.cornerRadius =
+        kAssistantHighlightHeight / 2.0;
+    _assistantHighlightView.layer.masksToBounds = YES;
+    _assistantHighlightView.hidden = YES;
+
+    [customBackgroundView addSubview:_assistantHighlightView];
+    configuration.background.backgroundColor = [UIColor clearColor];
+    configuration.background.customView = customBackgroundView;
+  }
+  _assistantHighlightView.hidden = !_assistantButtonHighlighted;
+
+  if (_assistantButtonHighlighted) {
+    configuration.baseForegroundColor = [UIColor whiteColor];
+  } else {
+    configuration.baseForegroundColor = ButtonsForegroundColor();
+  }
+
   _assistantButton.configuration = configuration;
+
+  // Update constraints to point to the current imageView
+  if (_assistantHighlightConstraints) {
+    [NSLayoutConstraint deactivateConstraints:_assistantHighlightConstraints];
+    _assistantHighlightConstraints = nil;
+  }
+
+  if (_assistantHighlightView && _assistantButton.imageView) {
+    _assistantHighlightConstraints = @[
+      [_assistantHighlightView.centerXAnchor
+          constraintEqualToAnchor:_assistantButton.imageView.centerXAnchor],
+      [_assistantHighlightView.centerYAnchor
+          constraintEqualToAnchor:_assistantButton.imageView.centerYAnchor],
+      [_assistantHighlightView.widthAnchor
+          constraintEqualToConstant:kAssistantHighlightWidth],
+      [_assistantHighlightView.heightAnchor
+          constraintEqualToConstant:kAssistantHighlightHeight],
+    ];
+    [NSLayoutConstraint activateConstraints:_assistantHighlightConstraints];
+  }
+
+  _assistantButton.enabled =
+      _buttonsEnabled && _assistantButtonEnabled && !_backgroundView.incognito;
 }
 
 // Returns a new "Assistant" button.
@@ -631,9 +745,11 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 
 // Updates the title configuration for buttons.
 - (void)updateButtonTitleConfiguration:(UIButtonConfiguration*)config
-                        highlightAlpha:(CGFloat)highlightAlpha {
+                        highlightAlpha:(CGFloat)highlightAlpha
+                                button:(UIButton*)button {
   // Text fades on highlight/disabled AND scroll.
-  CGFloat textAlpha = highlightAlpha * _buttonsTitleAlpha;
+  CGFloat targetAlpha = (button == _previewedButton) ? 1.0 : _buttonsTitleAlpha;
+  CGFloat textAlpha = highlightAlpha * targetAlpha;
 
   config.titleTextAttributesTransformer =
       ^NSDictionary<NSAttributedStringKey, id>*(
@@ -647,17 +763,52 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   };
 }
 
+// Updates the vertical content insets of a button configuration based on the
+// current orientation.
+- (void)updateVerticalInsetsForButtonConfiguration:
+    (UIButtonConfiguration*)config {
+  BOOL portrait = !_isRotated;
+  CGFloat topInset =
+      portrait ? (kButtonVerticalPadding - kStackViewPortraitVerticalOffset)
+               : kButtonVerticalPadding;
+  CGFloat bottomInset =
+      portrait ? (kButtonVerticalPadding + kStackViewPortraitVerticalOffset)
+               : kButtonVerticalPadding;
+  config.contentInsets =
+      NSDirectionalEdgeInsetsMake(topInset, kButtonHorizontalPadding,
+                                  bottomInset, kButtonHorizontalPadding);
+}
+
 // Updates the configuration for standard buttons.
 - (void)updateStandardButtonConfiguration:(UIButton*)button {
   UIButtonConfiguration* config = button.configuration;
   CGFloat highlightAlpha = ButtonHighlightAlpha(button);
 
-  // Image only fades on highlight/disabled.
-  config.imageColorTransformer = ^UIColor*(UIColor* color) {
-    return [ButtonsForegroundColor() colorWithAlphaComponent:highlightAlpha];
-  };
+  BOOL isAssistantButtonHighlighted =
+      (button == _assistantButton && _assistantButtonHighlighted);
 
-  [self updateButtonTitleConfiguration:config highlightAlpha:highlightAlpha];
+  CGFloat activeAlpha = isAssistantButtonHighlighted ? 1.0 : highlightAlpha;
+
+  BOOL isAssistantButtonWithAvatar =
+      (button == _assistantButton &&
+       _assistantButtonState == AppBarAssistantButtonState::kAccount &&
+       _assistantButtonAvatar != nil);
+  if (isAssistantButtonWithAvatar) {
+    config.imageColorTransformer = nil;
+  } else {
+    config.imageColorTransformer = ^UIColor*(UIColor* color) {
+      UIColor* baseColor = isAssistantButtonHighlighted
+                               ? [UIColor whiteColor]
+                               : ButtonsForegroundColor();
+      return [baseColor colorWithAlphaComponent:activeAlpha];
+    };
+  }
+
+  [self updateButtonTitleConfiguration:config
+                        highlightAlpha:activeAlpha
+                                button:button];
+
+  [self updateVerticalInsetsForButtonConfiguration:config];
 
   button.configuration = config;
 }
@@ -674,7 +825,9 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 
   CGFloat highlightAlpha = ButtonHighlightAlpha(button);
 
-  [self updateButtonTitleConfiguration:config highlightAlpha:highlightAlpha];
+  [self updateButtonTitleConfiguration:config
+                        highlightAlpha:highlightAlpha
+                                button:button];
 
   UIColor* symbolColor = ButtonsForegroundColor();
   UIColor* baseLabelColor =
@@ -683,6 +836,8 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   symbolView.tintColor = [symbolColor colorWithAlphaComponent:highlightAlpha];
   countLabel.textColor =
       [baseLabelColor colorWithAlphaComponent:highlightAlpha];
+
+  [self updateVerticalInsetsForButtonConfiguration:config];
 
   button.configuration = config;
 }
@@ -778,8 +933,6 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
         NSDirectionalEdgeInsetsMake(
             kSpotlightViewVerticalInset, kSpotlightViewHorizontalInset,
             kSpotlightViewVerticalInset, kSpotlightViewHorizontalInset));
-    [self.layoutGuideCenter referenceView:_spotlightView
-                                underName:kTabSwitcherGuide];
   }
 
   [button
@@ -831,14 +984,15 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 // Updates the new tab button for whether the tab groups page in the tab grid or
 // a tab group is visible.
 - (void)updateNewTabButtonForTabGroupsVisibility {
-  _openNewTabButton.menu = _openNewTabButtonMenu;
   if (_isTabGroupsPageVisible || (_isTabGridVisible && _isTabGroupVisible)) {
+    _openNewTabButton.menu = _openNewTabButtonMenu;
     _openNewTabButton.showsMenuAsPrimaryAction = YES;
     return;
   }
 
   // The context menu for the New Tab button should appear on a long press when
   // the tab groups page is not visible.
+  _openNewTabButton.menu = nil;
   _openNewTabButton.showsMenuAsPrimaryAction = NO;
 }
 
@@ -858,8 +1012,19 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     }
   } else {
     _openNewTabButton.accessibilityLabel =
-        l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_NEW_TAB);
+        _backgroundView.incognito
+            ? l10n_util::GetNSString(IDS_IOS_TOOLBAR_OPEN_NEW_TAB_INCOGNITO)
+            : l10n_util::GetNSString(IDS_IOS_TOOLBAR_OPEN_NEW_TAB);
   }
+}
+
+// Updates the accessibility hint for the new tab button based on the current
+// state.
+- (void)updateNewTabButtonAccessibilityHint {
+  _openNewTabButton.accessibilityHint =
+      _isTabGridVisible
+          ? nil
+          : l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_NEW_TAB);
 }
 
 // Updates the Tab Grid button for the given Tab Grid showing state.
@@ -895,12 +1060,20 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
                     label.textColor = labelColor;
                   }
                   completion:nil];
+  _tabGridButton.accessibilityHint =
+      _isTabGridVisible
+          ? nil
+          : l10n_util::GetNSString(IDS_IOS_TOOLBAR_ACCESSIBILITY_HINT_TAB_GRID);
 }
 
 // Calls the button's setNeedsUpdateConfiguration, either immediately or in an
 // animation block.
 - (void)setNeedsUpdateConfiguration:(UIButton*)button
                   animationDuration:(NSTimeInterval)duration {
+  if (!button) {
+    // Do nothing if -viewDidLoad has not been called yet.
+    return;
+  }
   if (duration > 0) {
     // Cross-fade to the new color along with the current animation.
     [UIView transitionWithView:button
@@ -908,11 +1081,16 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
                        options:UIViewAnimationOptionTransitionCrossDissolve
                     animations:^{
                       [button setNeedsUpdateConfiguration];
+                      [button layoutIfNeeded];
                     }
                     completion:nil];
   } else {
-    // Update the color immediately.
-    [button setNeedsUpdateConfiguration];
+    // Update the color immediately, bypassing UIButtonConfiguration's implicit
+    // animations.
+    [UIView performWithoutAnimation:^{
+      [button setNeedsUpdateConfiguration];
+      [button layoutIfNeeded];
+    }];
   }
 }
 
@@ -921,7 +1099,8 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 // Called when the Assistant button is tapped.
 - (void)didTapAssistantButton {
   base::RecordAction(base::UserMetricsAction("MobileToolbarAssistant"));
-  [self.mutator assistantButtonTappedWithState:_assistantButtonState];
+  [self.mutator assistantButtonTappedWithState:_assistantButtonState
+                                      fromView:_assistantButton];
 }
 
 // Called when the New Tab button is tapped.
@@ -966,6 +1145,12 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     return nil;
   }
 
+  if ([view isKindOfClass:[UIButton class]]) {
+    _previewedButton = (UIButton*)view;
+    [_previewedButton setNeedsUpdateConfiguration];
+    [_previewedButton layoutIfNeeded];
+  }
+
   return [UIContextMenuConfiguration
       configurationWithIdentifier:nil
                   previewProvider:nil
@@ -1006,6 +1191,21 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     return [[UITargetedPreview alloc] initWithView:view parameters:parameters];
   }
   return nil;
+}
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction*)interaction
+       willEndForConfiguration:(UIContextMenuConfiguration*)configuration
+                      animator:(id<UIContextMenuInteractionAnimating>)animator {
+  if (interaction.view == _previewedButton) {
+    __weak __typeof(self) weakSelf = self;
+    [animator addAnimations:^{
+      __strong __typeof(weakSelf) strongSelf = weakSelf;
+      if (strongSelf) {
+        strongSelf->_previewedButton = nil;
+        [interaction.view setNeedsUpdateConfiguration];
+      }
+    }];
+  }
 }
 
 @end

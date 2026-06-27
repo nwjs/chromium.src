@@ -442,6 +442,42 @@ ci.builder(
         ],
     ),
     targets = targets.bundle(
+        additional_compile_targets = [
+            "all",
+        ],
+    ),
+    cores = 32,
+    ssd = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "arm64",
+        short_name = "bld",
+    ),
+    contact_team_email = "chrome-linux-engprod@google.com",
+    execution_timeout = 6 * time.hour,
+)
+
+ci.thin_tester(
+    name = "linux-arm64-dbg-tests",
+    description_html = "Linux ARM64 Debug tests.",
+    parent = "ci/linux-arm64-dbg",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "arm64",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.DEBUG,
+            target_arch = builder_config.target_arch.ARM,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    targets = targets.bundle(
         targets = [
             "chromium_linux_gtests",
         ],
@@ -464,6 +500,11 @@ ci.builder(
                     shards = 24,
                 ),
             ),
+            "sync_integration_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 5,
+                ),
+            ),
         },
     ),
     targets_settings = targets.settings(
@@ -475,7 +516,6 @@ ci.builder(
         short_name = "dbg",
     ),
     contact_team_email = "chrome-linux-engprod@google.com",
-    execution_timeout = 6 * time.hour,
 )
 
 ci.builder(
@@ -522,16 +562,13 @@ ci.builder(
 )
 
 ci.thin_tester(
-    name = "linux-webium-product-rel",
-    description_html = "Webium Product Linux tests.",
+    name = "linux-no-initial-webui-rel",
+    description_html = "Runs tests with Initial WebUI disabled to check legacy UI path. See b/505579819.",
     parent = "ci/Linux Builder",
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
             config = "chromium",
-            apply_configs = [
-                "use_clang_coverage",
-            ],
         ),
         chromium_config = builder_config.chromium_config(
             config = "chromium",
@@ -544,8 +581,6 @@ ci.thin_tester(
         ),
     ),
     targets = targets.bundle(
-        # TODO(crbug.com/479924070): add chromedriver_py_tests. It currently
-        # does not accept a command line flag to run the chrome binary.
         targets = [
             "browser_tests",
             "interactive_ui_tests",
@@ -555,40 +590,37 @@ ci.thin_tester(
             "isolate_profile_data",
             "linux-jammy",
             "retry_only_failed_tests",
-            targets.mixin(
-                args = [
-                    "--enable-features=InitialWebUI:high_stream_priority/true,WebUIReloadButton:WebUIReloadButtonDeferBrowserViewShow/true/WebUIReloadButtonKeepVisibleUntilPaint/true,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit,InitialWebUIWithoutExtensions,SendGPUChannelEarly",
-                ],
-                swarming = targets.swarming(
-                    hard_timeout_sec = 14400,
-                ),
-            ),
         ],
         per_test_modifications = {
             "browser_tests": targets.mixin(
-                # Linux Tests uses 20 shards. 20 / 4 = 5.
+                args = [
+                    "--disable-features=InitialWebUI,WebUIReloadButton,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit",
+                ],
                 swarming = targets.swarming(
-                    shards = 5,
+                    shards = 20,
                 ),
             ),
             "interactive_ui_tests": targets.mixin(
-                # Linux Tests uses 3 shards. 3 / 4 = 0.75 ~ 1.
+                args = [
+                    "--disable-features=InitialWebUI,WebUIReloadButton,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit",
+                ],
                 swarming = targets.swarming(
-                    shards = 1,
+                    shards = 4,
                 ),
+            ),
+            "unit_tests": targets.mixin(
+                args = [
+                    "--disable-features=InitialWebUI,WebUIReloadButton,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit",
+                ],
             ),
         },
     ),
-    # TODO(crbug.com/479924070): Re-enable gardener rotations once the
-    # builder is stable.
-    gardener_rotations = args.ignore_default(None),
-    tree_closing = False,
     console_view_entry = consoles.console_view_entry(
-        category = "release",
-        short_name = "webium-product",
+        category = "linux",
+        short_name = "no-webui",
     ),
+    cq_mirrors_console_view = "mirrors",
     contact_team_email = "chrome-webium-product-eng@google.com",
-    execution_timeout = 4 * time.hour,
 )
 
 ci.thin_tester(
@@ -721,14 +753,14 @@ ci.thin_tester(
                 # crbug.com/1508286
                 # crbug.com/404871436
                 swarming = targets.swarming(
-                    shards = 60,
+                    shards = 70,
                 ),
             ),
             "content_browsertests": targets.mixin(
                 # crbug.com/1508286
                 # crbug.com/404871436
                 swarming = targets.swarming(
-                    shards = 12,
+                    shards = 13,
                 ),
             ),
             "content_unittests": targets.mixin(
@@ -767,7 +799,7 @@ ci.thin_tester(
             ),
             "sync_integration_tests": targets.mixin(
                 swarming = targets.swarming(
-                    shards = 6,
+                    shards = 8,
                 ),
             ),
             "telemetry_perf_unittests": targets.mixin(

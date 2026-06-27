@@ -47,7 +47,6 @@
 #include "chrome/browser/sessions/session_service_utils.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -379,14 +378,17 @@ BrowserProcessPlatformPart::browser_policy_connector_ash() {
       g_browser_process->browser_policy_connector());
 }
 
+void BrowserProcessPlatformPart::InitializeTimezoneResolverManager() {
+  CHECK(!timezone_resolver_manager_);
+  timezone_resolver_manager_ =
+      std::make_unique<ash::system::TimeZoneResolverManager>(
+          ash::SystemLocationProvider::GetInstance(),
+          session_manager::SessionManager::Get());
+}
+
 ash::system::TimeZoneResolverManager*
 BrowserProcessPlatformPart::GetTimezoneResolverManager() {
-  if (!timezone_resolver_manager_.get()) {
-    timezone_resolver_manager_ =
-        std::make_unique<ash::system::TimeZoneResolverManager>(
-            ash::SystemLocationProvider::GetInstance(),
-            session_manager::SessionManager::Get());
-  }
+  CHECK(timezone_resolver_manager_);
   return timezone_resolver_manager_.get();
 }
 

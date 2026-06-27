@@ -54,11 +54,9 @@ class SharedImageFormat;
 
 namespace blink {
 
-class Canvas2dGPUTransferOption;
 class CanvasContextCreationAttributesCore;
 class CanvasRenderingContext2DSettings;
 class ExceptionState;
-class GPUTexture;
 class ImageData;
 class ImageDataSettings;
 class TextCluster;
@@ -71,7 +69,6 @@ class V8CanvasTextBaseline;
 class V8CanvasDirection;
 class V8CanvasFontKerning;
 class V8CanvasFontVariantCaps;
-class V8GPUTextureFormat;
 class V8UnionElementOrElementImage;
 enum class PredefinedColorSpace;
 
@@ -139,25 +136,6 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
                     int dirty_width,
                     int dirty_height,
                     ExceptionState&);
-
-  // Transfers a canvas' existing back-buffer to a GPUTexture for use in a
-  // WebGPU pipeline. The canvas' image can be used as a texture, or the texture
-  // can be bound as a color attachment and modified. After its texture is
-  // transferred, the canvas will be reset into an empty, freshly-initialized
-  // state.
-  GPUTexture* transferToGPUTexture(const Canvas2dGPUTransferOption*,
-                                   ExceptionState& exception_state);
-
-  // Replaces the canvas' back-buffer texture with the passed-in GPUTexture.
-  // The GPUTexture immediately becomes inaccessible to WebGPU.
-  // A GPUValidationError will occur if the GPUTexture is used after
-  // `transferBackFromGPUTexture` is called.
-  void transferBackFromGPUTexture(ExceptionState& exception_state);
-
-  // Returns the format of the GPUTexture that `transferToGPUTexture` will
-  // return. This is useful if you need to create the WebGPU render pipeline
-  // before `transferToGPUTexture` is first called.
-  V8GPUTextureFormat getTextureFormat() const;
 
   virtual bool CanCreateResourceProvider() = 0;
   virtual CanvasResourceProvider* GetOrCreateResourceProvider() = 0;
@@ -263,15 +241,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
   void Trace(Visitor*) const override;
 
   // Implementing methods from CanvasRenderingContext
-  SkAlphaType GetAlphaType() const final {
-    return color_params_.GetAlphaType();
-  }
-  viz::SharedImageFormat GetSharedImageFormat() const final {
-    return color_params_.GetSharedImageFormat();
-  }
-  gfx::ColorSpace GetColorSpace() const final {
-    return color_params_.GetGfxColorSpace();
-  }
+  bool IsOpaque() const final { return GetAlphaType() == kOpaque_SkAlphaType; }
   void DisableAccelerationForCanvas2D() final { DisableAcceleration(); }
   bool Is2DCanvasAccelerated() const final;
   void PageVisibilityChanged() override {}
@@ -338,6 +308,14 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
 
   bool context_restorable_{true};
 
+  viz::SharedImageFormat GetSharedImageFormat() const {
+    return color_params_.GetSharedImageFormat();
+  }
+  gfx::ColorSpace GetColorSpace() const {
+    return color_params_.GetGfxColorSpace();
+  }
+  SkAlphaType GetAlphaType() const { return color_params_.GetAlphaType(); }
+
  private:
   virtual bool IsHibernating() const { return false; }
   virtual CanvasResourceProvider* GetResourceProvider() const { NOTREACHED(); }
@@ -361,9 +339,6 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasRenderingContext,
 
   int num_readbacks_performed_ = 0;
   unsigned read_count_ = 0;
-  Member<GPUTexture> webgpu_access_texture_ = nullptr;
-  std::unique_ptr<Canvas2DResourceProviderSharedImage>
-      resource_provider_from_webgpu_access_;
   Canvas2DColorParams color_params_;
   base::RepeatingClosure on_restore_failed_callback_for_testing_;
 };

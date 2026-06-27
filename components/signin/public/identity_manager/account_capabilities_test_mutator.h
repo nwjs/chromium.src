@@ -23,7 +23,7 @@ class AccountCapabilitiesTestMutator {
   GetSupportedAccountCapabilityNames();
 
   // Exposes setters for the supported capabilities.
-  // keep-sorted start sticky_prefixes=#if group_prefixes=#endif
+  // keep-sorted start sticky_prefixes=#if,BUILDFLAG group_prefixes=#endif
   void set_can_fetch_family_member_info(bool value);
 #if !BUILDFLAG(IS_IOS)
   void set_can_have_email_address_displayed(bool value);
@@ -39,7 +39,8 @@ class AccountCapabilitiesTestMutator {
 #if BUILDFLAG(IS_IOS)
   void set_can_sign_in_to_chrome(bool value);
 #endif
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_IOS)
   void set_can_submit_feedback(bool value);
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
@@ -71,6 +72,12 @@ class AccountCapabilitiesTestMutator {
       bool value);
   void set_is_subject_to_enterprise_features(bool value);
   void set_is_subject_to_parental_controls(bool value);
+#if BUILDFLAG(IS_IOS)
+  void set_must_fetch_apple_age_range_in_chrome(bool value);
+#endif
+#if BUILDFLAG(IS_IOS)
+  void set_must_skip_apple_age_range_in_chrome(bool value);
+#endif
   // keep-sorted end
 
   // Modifies all supported capabilities at once.

@@ -31,8 +31,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_suggestion.SuggestionMetricsService;
 import org.chromium.chrome.browser.tab_group_suggestion.SuggestionMetricsService.GroupCreationSource;
 import org.chromium.chrome.browser.tab_group_suggestion.SuggestionMetricsServiceFactory;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
+import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.components.visited_url_ranking.url_grouping.CachedSuggestions;
 import org.chromium.components.visited_url_ranking.url_grouping.GroupSuggestion;
@@ -63,7 +62,6 @@ public class GroupSuggestionsButtonControllerImplUnitTest {
     @Mock private Tab mThirdTab;
     @Mock private TabModel mTabModel;
     @Mock private Profile mProfile;
-    @Mock private TabGroupModelFilter mTabGroupModelFilter;
 
     @Before
     public void setUp() throws Exception {
@@ -75,7 +73,6 @@ public class GroupSuggestionsButtonControllerImplUnitTest {
         when(mSecondTab.getProfile()).thenReturn(mProfile);
         when(mThirdTab.getProfile()).thenReturn(mProfile);
 
-        when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabModel.getTabById(TAB_ID)).thenReturn(mMockTab);
         when(mTabModel.getTabById(SECOND_TAB_ID)).thenReturn(mSecondTab);
         when(mTabModel.getTabById(THIRD_TAB_ID)).thenReturn(mThirdTab);
@@ -221,7 +218,7 @@ public class GroupSuggestionsButtonControllerImplUnitTest {
         var controller = new GroupSuggestionsButtonControllerImpl(mMockGroupSuggestionService);
 
         controller.shouldShowButton(mMockTab, WINDOW_ID);
-        controller.onButtonClicked(mSecondTab, mTabGroupModelFilter);
+        controller.onButtonClicked(mSecondTab, mTabModel);
 
         verify(suggestionCallback).onResult(suggestionCallbackArgumentCaptor.capture());
         var responseMetadata = suggestionCallbackArgumentCaptor.getValue();
@@ -246,16 +243,16 @@ public class GroupSuggestionsButtonControllerImplUnitTest {
         var controller = new GroupSuggestionsButtonControllerImpl(mMockGroupSuggestionService);
 
         controller.shouldShowButton(mMockTab, WINDOW_ID);
-        controller.onButtonClicked(mMockTab, mTabGroupModelFilter);
+        controller.onButtonClicked(mMockTab, mTabModel);
 
         verify(suggestionCallback).onResult(suggestionCallbackArgumentCaptor.capture());
         var responseMetadata = suggestionCallbackArgumentCaptor.getValue();
-        verify(mTabGroupModelFilter)
+        verify(mTabModel)
                 .mergeListOfTabsToGroup(
                         eq(List.of(mSecondTab, mThirdTab)),
                         eq(mMockTab),
                         eq(null),
-                        eq(MergeNotificationType.NOTIFY_ALWAYS));
+                        eq(TabGroupMergeNotificationType.NOTIFY_ALWAYS));
 
         assertEquals(UserResponse.ACCEPTED, responseMetadata.getUserResponse());
         verify(mSuggestionMetricsService)

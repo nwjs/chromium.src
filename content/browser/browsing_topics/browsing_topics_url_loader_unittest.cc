@@ -760,21 +760,23 @@ TEST_F(BrowsingTopicsURLLoaderTest, RedirectTopicsUpdated) {
   EXPECT_FALSE(browser_client().last_get_topics_param());
   EXPECT_TRUE(browser_client().last_observe_param());
 
-  remote_loader->FollowRedirect(/*removed_headers=*/{},
-                                /*modified_headers=*/{},
-                                /*modified_cors_exempt_headers=*/{},
+  remote_loader->FollowRedirect(/*headers_update_params=*/{},
                                 /*new_url=*/std::nullopt);
   base::RunLoop().RunUntilIdle();
 
   const std::vector<FollowRedirectParams>& follow_redirect_params =
       pending_request->test_url_loader->follow_redirect_params();
+
   EXPECT_EQ(follow_redirect_params.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers[0],
+  EXPECT_EQ(
+      follow_redirect_params[0].headers_update_params.removed_headers.size(),
+      1u);
+  EXPECT_EQ(follow_redirect_params[0].headers_update_params.removed_headers[0],
             "Sec-Browsing-Topics");
 
-  EXPECT_THAT(follow_redirect_params[0].modified_headers.GetHeader(
-                  "Sec-Browsing-Topics"),
+  EXPECT_THAT(follow_redirect_params[0]
+                  .headers_update_params.modified_headers.GetHeader(
+                      "Sec-Browsing-Topics"),
               testing::Optional(std::string(kExpectedHeaderForOrigin2)));
 
   EXPECT_EQ(browser_client().handle_topics_web_api_count(), 3u);
@@ -838,21 +840,22 @@ TEST_F(BrowsingTopicsURLLoaderTest, RedirectNotEligibleForTopics) {
   EXPECT_FALSE(browser_client().last_get_topics_param());
   EXPECT_TRUE(browser_client().last_observe_param());
 
-  remote_loader->FollowRedirect(/*removed_headers=*/{},
-                                /*modified_headers=*/{},
-                                /*modified_cors_exempt_headers=*/{},
+  remote_loader->FollowRedirect(/*headers_update_params=*/{},
                                 /*new_url=*/std::nullopt);
   base::RunLoop().RunUntilIdle();
 
   const std::vector<FollowRedirectParams>& follow_redirect_params =
       pending_request->test_url_loader->follow_redirect_params();
   EXPECT_EQ(follow_redirect_params.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers.size(), 1u);
-  EXPECT_EQ(follow_redirect_params[0].removed_headers[0],
+  EXPECT_EQ(
+      follow_redirect_params[0].headers_update_params.removed_headers.size(),
+      1u);
+  EXPECT_EQ(follow_redirect_params[0].headers_update_params.removed_headers[0],
             "Sec-Browsing-Topics");
 
-  EXPECT_EQ(follow_redirect_params[0].modified_headers.GetHeader(
-                "Sec-Browsing-Topics"),
+  EXPECT_EQ(follow_redirect_params[0]
+                .headers_update_params.modified_headers.GetHeader(
+                    "Sec-Browsing-Topics"),
             std::nullopt);
 
   pending_request->client->OnReceiveResponse(CreateResponseHead(true),

@@ -14,12 +14,12 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
@@ -27,6 +27,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -41,10 +42,6 @@
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/widget/widget.h"
-
-#if BUILDFLAG(IS_MAC)
-#include "chrome/browser/platform_util.h"
-#endif  // BUILDFLAG(IS_MAC)
 
 // static
 views::Widget* RelaunchRecommendedBubbleView::ShowBubble(
@@ -92,7 +89,9 @@ bool RelaunchRecommendedBubbleView::ShouldShowCloseButton() const {
 
 ui::ImageModel RelaunchRecommendedBubbleView::GetWindowIcon() {
   return ui::ImageModel::FromVectorIcon(
-      vector_icons::kBusinessIcon, ui::kColorIcon,
+      features::IsRoundedIconsEnabled() ? vector_icons::kDomainIcon
+                                        : vector_icons::kBusinessOldIcon,
+      ui::kColorIcon,
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           views::DISTANCE_BUBBLE_HEADER_VECTOR_ICON_SIZE));
 }
@@ -100,8 +99,9 @@ ui::ImageModel RelaunchRecommendedBubbleView::GetWindowIcon() {
 void RelaunchRecommendedBubbleView::Init() {
   SetLayoutManager(std::make_unique<views::FillLayout>());
   auto label = std::make_unique<views::Label>(
-      l10n_util::GetPluralStringFUTF16(IDS_RELAUNCH_RECOMMENDED_BODY,
-                                       chrome::GetIncognitoBrowserCount()),
+      l10n_util::GetPluralStringFUTF16(
+          IDS_RELAUNCH_RECOMMENDED_BODY,
+          GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount()),
       views::style::CONTEXT_DIALOG_BODY_TEXT);
 
   label->SetMultiLine(true);

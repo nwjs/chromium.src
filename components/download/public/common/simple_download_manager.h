@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
@@ -52,12 +53,17 @@ class COMPONENTS_DOWNLOAD_EXPORT SimpleDownloadManager {
   virtual bool CanDownload(DownloadUrlParameters* parameters) = 0;
 
   using DownloadVector = std::vector<raw_ptr<DownloadItem, VectorExperimental>>;
+  using GetDownloadCallback = base::OnceCallback<void(DownloadItem*)>;
+  using GetAllDownloadsCallback = base::OnceCallback<void(DownloadVector)>;
   // Add all initialized download items to |downloads|, no matter the type or
   // state, without clearing |downloads| first. If active downloads are not
   // initialized, this call will not return them. Caller should call
   // GetUninitializedActiveDownloadsIfAny() below to retrieve uninitialized
   // active downloads.
   virtual void GetAllDownloads(DownloadVector* downloads) = 0;
+
+  // Asynchronously gets all downloads using a callback.
+  virtual void GetAllDownloadsAsync(GetAllDownloadsCallback callback) = 0;
 
   // Gets all the active downloads that are initialized yet.
   virtual void GetUninitializedActiveDownloadsIfAny(DownloadVector* downloads) {
@@ -66,13 +72,17 @@ class COMPONENTS_DOWNLOAD_EXPORT SimpleDownloadManager {
   // Get the download item for |guid|.
   virtual DownloadItem* GetDownloadByGuid(const std::string& guid) = 0;
 
+  // Asynchronously gets the download item for |guid| using a callback.
+  virtual void GetDownloadByGuidAsync(const std::string& guid,
+                                      GetDownloadCallback callback) = 0;
+
   // Checks whether downloaded files still exist. Updates state of downloads
   // that refer to removed files. The check runs in the background and may
   // finish asynchronously after this method returns.
   virtual void CheckForHistoryFilesRemoval() {}
 
  protected:
-  // Called when the manager is initailized.
+  // Called when the manager is initialized.
   void OnInitialized();
 
   // Called when a new download is created.

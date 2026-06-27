@@ -27,6 +27,9 @@
 #include "components/sync/service/sync_service_impl.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#if BUILDFLAG(IS_ANDROID)
+#include "ui/base/device_form_factor.h"
+#endif
 
 using search_engines_helper::HasSearchEngine;
 using testing::IsNull;
@@ -54,6 +57,18 @@ class SingleClientSearchEnginesSyncTestBase : public SyncTest {
       : SyncTest(test_type) {}
   ~SingleClientSearchEnginesSyncTestBase() override = default;
 
+  void SetUpOnMainThread() override {
+    SyncTest::SetUpOnMainThread();
+#if BUILDFLAG(IS_ANDROID)
+    const ui::DeviceFormFactor form_factor = ui::GetDeviceFormFactor();
+    if (form_factor != ui::DEVICE_FORM_FACTOR_TABLET &&
+        form_factor != ui::DEVICE_FORM_FACTOR_DESKTOP) {
+      GTEST_SKIP() << "Search engines sync is only supported on Large Form "
+                      "Factor (LFF) Android devices.";
+    }
+#endif
+  }
+
   bool SetupClients() override {
     if (!SyncTest::SetupClients()) {
       return false;
@@ -61,15 +76,8 @@ class SingleClientSearchEnginesSyncTestBase : public SyncTest {
 
     // Wait for models to load.
     search_test_utils::WaitForTemplateURLServiceToLoad(
-        TemplateURLServiceFactory::GetForProfile(verifier()));
-    search_test_utils::WaitForTemplateURLServiceToLoad(
         TemplateURLServiceFactory::GetForProfile(GetProfile(0)));
 
-    return true;
-  }
-
-  bool UseVerifier() override {
-    // TODO(crbug.com/40724973): rewrite test to not use verifier.
     return true;
   }
 };
@@ -80,10 +88,14 @@ class SingleClientSearchEnginesSyncTest
  public:
   SingleClientSearchEnginesSyncTest()
       : SingleClientSearchEnginesSyncTestBase(SINGLE_CLIENT) {
+    std::vector<base::test::FeatureRef> enabled_features;
+#if BUILDFLAG(IS_ANDROID)
+    enabled_features.push_back(syncer::kSyncSearchEnginesAndroidLFF);
+#endif
     if (GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly) {
-      scoped_feature_list_.InitAndEnableFeature(
-          syncer::kReplaceSyncPromosWithSignInPromos);
+      enabled_features.push_back(syncer::kReplaceSyncPromosWithSignInPromos);
     }
+    scoped_feature_list_.InitWithFeatures(enabled_features, {});
   }
   ~SingleClientSearchEnginesSyncTest() override = default;
 
@@ -95,11 +107,11 @@ class SingleClientSearchEnginesSyncTest
 
 IN_PROC_BROWSER_TEST_P(SingleClientSearchEnginesSyncTest, Sanity) {
   ASSERT_TRUE(SetupSync());
-  ASSERT_TRUE(search_engines_helper::ServiceMatchesVerifier(0));
   search_engines_helper::AddSearchEngine(/*profile_index=*/0,
                                          /*keyword=*/"test0");
   ASSERT_TRUE(UpdatedProgressMarkerChecker(GetSyncService(0)).Wait());
-  ASSERT_TRUE(search_engines_helper::ServiceMatchesVerifier(0));
+  EXPECT_TRUE(search_engines_helper::HasSearchEngineInFakeServer(
+      "test0", GetFakeServer()));
 }
 
 IN_PROC_BROWSER_TEST_P(SingleClientSearchEnginesSyncTest,
@@ -306,13 +318,16 @@ class
  public:
   SingleClientSearchEnginesSyncTestWithSeparateLocalAndAccountSearchEnginesEnabled()
       : SingleClientSearchEnginesSyncTestBase(SINGLE_CLIENT) {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{syncer::kSeparateLocalAndAccountSearchEngines,
-                              // This is needed to enable search engines in
-                              // transport mode.
-                              switches::kEnablePreferencesAccountStorage,
-                              syncer::kReplaceSyncPromosWithSignInPromos},
-        /*disabled_features=*/{});
+    std::vector<base::test::FeatureRef> enabled_features = {
+        syncer::kSeparateLocalAndAccountSearchEngines,
+        // This is needed to enable search engines in transport mode.
+        switches::kEnablePreferencesAccountStorage,
+        syncer::kReplaceSyncPromosWithSignInPromos,
+    };
+#if BUILDFLAG(IS_ANDROID)
+    enabled_features.push_back(syncer::kSyncSearchEnginesAndroidLFF);
+#endif
+    feature_list_.InitWithFeatures(enabled_features, {});
   }
 
   // This test suite runs in transport-only mode because it deals with sepe.
@@ -513,11 +528,16 @@ IN_PROC_BROWSER_TEST_F(
     SingleClientSearchEnginesSyncTestWithSeparateLocalAndAccountSearchEnginesEnabled,
     ShouldPreserveLocalAndAccountSearchEnginesAcrossRestart) {
   ASSERT_TRUE(SetupClients());
+  // Account-based search engines (like key2) reside only in sync's private
+  // database and are not persisted locally, so
+  // WaitForTemplateURLServiceToLoad() cannot load them. Calling
+  // AwaitSyncTransportActive() ensures that the sync engine has initialized and
+  // loaded the account-based search engines from its local sync database.
+  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   EXPECT_TRUE(HasSearchEngine(/*profile_index=*/0, "key1"));
   EXPECT_TRUE(HasSearchEngine(/*profile_index=*/0, "key2"));
 
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   EXPECT_FALSE(search_engines_helper::HasSearchEngineInFakeServer(
       "key1", GetFakeServer()));
   EXPECT_TRUE(search_engines_helper::HasSearchEngineInFakeServer(
@@ -562,7 +582,7 @@ IN_PROC_BROWSER_TEST_F(
       "key1", GetFakeServer()));
 }
 
-#if !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(
     SingleClientSearchEnginesSyncTestWithSeparateLocalAndAccountSearchEnginesEnabled,
     PRE_ShouldClearAccountDataOnStartupIfSignInAllowedBitChanged) {

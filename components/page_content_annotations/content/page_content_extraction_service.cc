@@ -37,6 +37,16 @@ namespace page_content_annotations {
 
 namespace {
 
+// LINT.IfChange(EnablementSource)
+enum class EnablementSource {
+  kNone = 0,
+  kFeatureFlag = 1,
+  kObserverPresent = 2,
+  kBoth = 3,
+  kMaxValue = kBoth,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/optimization/enums.xml:PageContentExtractionEnablementSource)
+
 WebStateWrapper ToWebStateWrapper(content::WebContents* web_contents) {
   return WebStateWrapper(
       web_contents->GetBrowserContext()->IsOffTheRecord(),
@@ -94,6 +104,12 @@ std::unique_ptr<PageContentCacheHandler> CreatePageContentCacheHandler(
 }
 
 }  // namespace
+
+bool IsPageContentValid(const PageContent& content) {
+  return std::visit(
+      [](const auto& ref_counted_ptr) { return ref_counted_ptr != nullptr; },
+      content);
+}
 
 bool IsAnnotatedPageContentPtr(const PageContent& content) {
   return std::holds_alternative<RefCountedAnnotatedPageContentPtr>(content);
@@ -156,12 +172,29 @@ void PageContentExtractionService::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-bool PageContentExtractionService::ShouldEnablePageContentExtraction() const {
+PageContentExtractionEnablementReason
+PageContentExtractionService::GetPageContentExtractionEnablementReason(
+    bool is_on_demand) const {
   if (base::FeatureList::IsEnabled(page_content_annotations::features::
                                        kAnnotatedPageContentExtraction)) {
-    return true;
+    return PageContentExtractionEnablementReason::
+        kAutomaticExtractionFeatureEnabled;
   }
-  return !observers_.empty();
+  if (!observers_.empty()) {
+    return PageContentExtractionEnablementReason::kObserverRegistered;
+  }
+  if (is_on_demand &&
+      base::FeatureList::IsEnabled(
+          features::kPageContentExtractionAllowOnDemandWithoutObservers)) {
+    return PageContentExtractionEnablementReason::kBypassedObservers;
+  }
+  return PageContentExtractionEnablementReason::kDisabled;
+}
+
+bool PageContentExtractionService::ShouldEnablePageContentExtraction(
+    bool is_on_demand) const {
+  return GetPageContentExtractionEnablementReason(is_on_demand) !=
+         PageContentExtractionEnablementReason::kDisabled;
 }
 
 void PageContentExtractionService::OnPageContentExtracted(
@@ -295,10 +328,33 @@ void PageContentExtractionService::OnVisibilityChanged(
 
 void PageContentExtractionService::OnNewNavigation(
     std::optional<int64_t> tab_id,
-    content::WebContents* web_contents) {
+    content::WebContents* web_contents,
+    bool is_same_document) {
   if (is_page_content_cache_enabled_) {
     page_content_cache_handler_->OnNewNavigation(
         tab_id, ToWebStateWrapper(web_contents));
+  }
+
+  if (!is_same_document) {
+    bool feature_enabled = base::FeatureList::IsEnabled(
+        page_content_annotations::features::kAnnotatedPageContentExtraction);
+    bool has_observers = !observers_.empty();
+
+    EnablementSource source = EnablementSource::kNone;
+    if (feature_enabled && has_observers) {
+      source = EnablementSource::kBoth;
+    } else if (feature_enabled) {
+      source = EnablementSource::kFeatureFlag;
+    } else if (has_observers) {
+      source = EnablementSource::kObserverPresent;
+    }
+
+    base::UmaHistogramEnumeration(
+        "OptimizationGuide.PageContentExtraction.EnablementSourcePerNavigation",
+        source);
+    base::UmaHistogramCounts100(
+        "OptimizationGuide.PageContentExtraction.ObserverCountPerNavigation",
+        std::distance(observers_.begin(), observers_.end()));
   }
 }
 

@@ -224,12 +224,12 @@ std::unique_ptr<ConnectJob> ClientSocketPool::CreateConnectJob(
     resolution_callback = base::BindRepeating(
         &OnHostResolution, common_connect_job_params_->spdy_session_pool,
         // TODO(crbug.com/40181080): Pass along as SchemeHostPort.
-        SpdySessionKey(HostPortPair::FromSchemeHostPort(group_id.destination()),
-                       group_id.privacy_mode(), GetProxyChain(),
-                       SessionUsage::kDestination, socket_tag,
-                       group_id.network_anonymization_key(),
-                       group_id.secure_dns_policy(),
-                       group_id.disable_cert_network_fetches()),
+        SpdySessionKey(
+            HostPortPair::FromSchemeHostPort(group_id.destination()),
+            group_id.privacy_mode(), GetProxyChain(),
+            SessionUsage::kDestination, socket_tag,
+            group_id.network_anonymization_key(), group_id.secure_dns_policy(),
+            group_id.disable_cert_network_fetches(), group_id.target_network()),
         is_for_websockets_);
   }
 
@@ -256,7 +256,7 @@ std::unique_ptr<ConnectJob> ClientSocketPool::CreateConnectJob(
       group_id.privacy_mode(), resolution_callback, request_priority,
       socket_tag, group_id.network_anonymization_key(),
       group_id.secure_dns_policy(), group_id.disable_cert_network_fetches(),
-      common_connect_job_params_, delegate);
+      common_connect_job_params_, group_id.target_network(), delegate);
 }
 
 void ClientSocketPool::UpdateStateBeforeAllocation() {

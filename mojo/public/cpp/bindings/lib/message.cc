@@ -49,8 +49,6 @@ GetSmallSLSMessageDispatchContext() {
   return sls;
 }
 
-thread_local base::MetricsSubSampler g_sub_sampler;
-
 void SetMessageDispatchContext(internal::MessageDispatchContext* context) {
   if (base::FeatureList::IsEnabled(kMojoBindingsInlineSLS)) {
     GetSmallSLSMessageDispatchContext().emplace(context);
@@ -250,7 +248,7 @@ Message::Message(uint32_t name,
   int64_t creation_timeticks_us = 0;
   // Sub-sample end to end time histogram on the sender side to reduce overhead.
   if (base::TimeTicks::IsConsistentAcrossProcesses() &&
-      g_sub_sampler.ShouldSample(0.001)) {
+      base::ShouldRecordSubsampledMetric(0.001)) {
     creation_timeticks_us =
         (base::TimeTicks::Now() - base::TimeTicks()).InMicroseconds();
   }

@@ -36,6 +36,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/vector2d.h"
+#include "ui/gfx/text_constants.h"
 #include "ui/menus/simple_menu_model.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -48,7 +49,7 @@
 #endif
 
 class AccessibilityLabelsMenuObserver;
-class Browser;
+class BrowserWindowInterface;
 #if BUILDFLAG(ENABLE_COMPOSE)
 class ChromeComposeClient;
 #endif
@@ -85,6 +86,10 @@ class MediaPlayerAction;
 }
 }  // namespace blink
 
+namespace dictation {
+class DictationMenuObserver;
+}
+
 namespace ui {
 class DataTransferEndpoint;
 }
@@ -103,13 +108,18 @@ class DlpRulesManager;
 }  // namespace policy
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+namespace split_tabs {
+enum class SplitTabLayout;
+}
+#endif
+
 class RenderViewContextMenu
     : public RenderViewContextMenuBase,
       public custom_handlers::ProtocolHandlerRegistry::Observer {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kExitFullscreenMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kComposeMenuItem);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kGlicCloseMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kGlicReloadMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kGlicArchiveConversationMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kGlicShareImageMenuItem);
@@ -143,6 +153,9 @@ class RenderViewContextMenu
   bool IsCommandIdVisible(int command_id) const override;
   bool IsCommandIdEnabled(int command_id) const override;
   void ExecuteCommand(int command_id, int event_flags) override;
+  bool IsItemForCommandIdDynamic(int command_id) const override;
+  std::u16string GetLabelForCommandId(int command_id) const override;
+  ui::ImageModel GetIconForCommandId(int command_id) const override;
   void AddSpellCheckServiceItem(bool is_checked) override;
   void AddAccessibilityLabelsServiceItem(bool is_checked) override;
 
@@ -169,7 +182,8 @@ class RenderViewContextMenu
 
   // This may return nullptr (e.g. for WebUI dialogs). Virtual to allow tests to
   // override.
-  virtual Browser* GetBrowser() const;
+  virtual BrowserWindowInterface* GetBrowser() const;
+  bool IsNormalBrowser() const;
 
   // May return nullptr if the WebContents does not have an associated
   // BrowserWindowInterface (e.g. in isolated WebUI, or in tests).
@@ -232,6 +246,9 @@ class RenderViewContextMenu
                                bool started_from_context_menu) override;
 
  private:
+  std::u16string GetElidedSelectionText(size_t max_length,
+                                        gfx::BreakType break_type);
+
   void ExecGlic();
 
   friend class RenderViewContextMenuTest;
@@ -322,6 +339,7 @@ class RenderViewContextMenu
   // Returns true if the items were appended. This might not happen in all
   // cases, e.g. these are only appended if a screen reader is enabled.
   bool AppendAccessibilityLabelsItems();
+  void AppendDictationItems();
   void AppendSearchProvider();
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   void AppendCurrentExtensionItems();
@@ -329,6 +347,10 @@ class RenderViewContextMenu
   void AppendPrintPreviewItems();
   void AppendSearchWebForImageItems();
   void AppendGlicShareImageItem();
+  bool CanAppendRegionSearchItem() const;
+  bool CanAppendGlicShareImageItem() const;
+  void AppendLensGeminiSection();
+  void AppendRevisedTextSelectionSection();
   void AppendProtocolHandlerSubMenu();
   void AppendSharingItems();
   void AppendClickToCallItem();
@@ -337,13 +359,22 @@ class RenderViewContextMenu
   void AppendSendTabToSelfItem(bool add_separator);
   bool AppendQRCodeGeneratorItem(bool for_image,
                                  bool draw_icon,
-                                 bool add_separator);
+                                 bool add_separator,
+                                 bool ignore_simplification = false);
+  void AddItemWithOptionalIcon(int command,
+                               int string,
+                               const gfx::VectorIcon& icon);
+  bool IsPasswordField() const;
+  bool ShouldUseSimplifiedTextSelection() const;
 
   std::unique_ptr<ui::DataTransferEndpoint> CreateDataEndpoint(
       bool notify_if_restricted) const;
 
   // Helper function for checking policies.
   bool IsSaveAsItemAllowedByPolicy(const GURL& item_url) const;
+
+  // Helper functions for checking policies.
+  bool IsSearchAllowedByPolicy() const;
 
   // Helper function for checking if text query should be opened in Lens. Checks
   // whether Lens is available and whether the text selection entrypoint flag is
@@ -480,7 +511,7 @@ class RenderViewContextMenu
   // next to the active tab. If the active tab is already in the split view,
   // then the tab that wasn't the source of the link will be navigated to the
   // link instead.
-  void OpenLinkInSplitView();
+  void OpenLinkInSplitView(split_tabs::SplitTabLayout layout);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   // The destination URL to use if the user tries to search for or navigate to
@@ -553,6 +584,8 @@ class RenderViewContextMenu
 
   std::unique_ptr<LinkToTextMenuObserver> link_to_text_menu_observer_;
 
+  std::unique_ptr<dictation::DictationMenuObserver> dictation_menu_observer_;
+
   // In the case of a MimeHandlerView this will point to the WebContents that
   // embeds the MimeHandlerViewGuest. Otherwise this will be the same as
   // |source_web_contents_|.
@@ -587,6 +620,8 @@ class RenderViewContextMenu
   std::unique_ptr<ui::SimpleMenuModel> send_tab_to_self_submenu_;
   std::unique_ptr<send_tab_to_self::SendTabToSelfContextMenuDelegate>
       send_tab_to_self_submenu_delegate_;
+
+  std::unique_ptr<ui::SimpleMenuModel> split_layout_submenu_;
 
   //  Used for CTR metrics of menu item for opening Glic.
   bool glic_item_shown_ = false;

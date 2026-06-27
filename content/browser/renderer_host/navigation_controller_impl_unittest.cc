@@ -35,6 +35,7 @@
 #include "content/common/frame.mojom.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/bindings_policy.h"
@@ -529,9 +530,9 @@ TEST_F(NavigationControllerTest, LoadURL) {
 
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   // Load another...
   controller.LoadURL(url2, Referrer(), ui::PAGE_TRANSITION_TYPED,
@@ -1146,9 +1147,9 @@ TEST_F(NavigationControllerTest, LoadURL_ExistingPending) {
 
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   const GURL kExistingURL2("http://foo/bee");
   NavigationSimulator::NavigateAndCommitFromBrowser(contents(), kExistingURL2);
@@ -1193,9 +1194,9 @@ TEST_F(NavigationControllerTest, LoadURL_PrivilegedPending) {
                 ->bindings());
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   // Navigate cross-process to a second URL.
   const GURL kExistingURL2("http://foo/eh");
@@ -1873,9 +1874,9 @@ TEST_F(NavigationControllerTest, Back_NewPending) {
 
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   // controller.LoadURL(kUrl2, ui::PAGE_TRANSITION_TYPED);
   NavigationSimulator::NavigateAndCommitFromDocument(kUrl2, main_test_rfh());
@@ -1916,9 +1917,9 @@ TEST_F(NavigationControllerTest, Forward) {
 
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   auto forward_navigation = NavigationSimulator::CreateHistoryNavigation(
       1, contents(), false /* is_renderer_initiated */);
@@ -1985,9 +1986,9 @@ TEST_F(NavigationControllerTest, Forward_GeneratesNewPage) {
 
   // Simulate a user gesture so that the above entry is not marked to be skipped
   // on back.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   auto forward_navigation = NavigationSimulator::CreateHistoryNavigation(
       1, contents(), false /* is_renderer_initiated */);
@@ -2398,9 +2399,9 @@ TEST_F(NavigationControllerTest, LinkClick) {
   navigation_entry_committed_counter_ = 0;
 
   // Simulate a user gesture.
-  main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
+  EXPECT_TRUE(main_test_rfh()->frame_tree_node()->UpdateUserActivationState(
       blink::mojom::UserActivationUpdateType::kNotifyActivation,
-      blink::mojom::UserActivationNotificationType::kTest);
+      blink::mojom::UserActivationNotificationType::kTest));
 
   NavigationSimulator::NavigateAndCommitFromDocument(url2, main_test_rfh());
   EXPECT_EQ(1U, navigation_entry_committed_counter_);
@@ -2647,9 +2648,10 @@ TEST_F(NavigationControllerTest, RestoreNavigate) {
   EXPECT_EQ(0, our_controller.GetLastCommittedEntryIndex());
   EXPECT_FALSE(our_controller.GetPendingEntry());
   if (AreStrictSiteInstancesEnabled()) {
-    EXPECT_EQ(
-        url,
-        our_controller.GetLastCommittedEntry()->site_instance()->GetSiteURL());
+    EXPECT_EQ(url, our_controller.GetLastCommittedEntry()
+                       ->site_instance()
+                       ->GetSecurityPrincipal()
+                       .GetDeprecatedSiteURL());
   } else {
     // Verify we get the default SiteInstance since |url| does not require a
     // dedicated process.
@@ -2722,9 +2724,10 @@ TEST_F(NavigationControllerTest, RestoreNavigateAfterFailure) {
   EXPECT_EQ(0, our_controller.GetLastCommittedEntryIndex());
   EXPECT_FALSE(our_controller.GetPendingEntry());
   if (AreStrictSiteInstancesEnabled()) {
-    EXPECT_EQ(
-        url,
-        our_controller.GetLastCommittedEntry()->site_instance()->GetSiteURL());
+    EXPECT_EQ(url, our_controller.GetLastCommittedEntry()
+                       ->site_instance()
+                       ->GetSecurityPrincipal()
+                       .GetDeprecatedSiteURL());
   } else {
     // Verify we get the default SiteInstance since |url| does not require a
     // dedicated process.

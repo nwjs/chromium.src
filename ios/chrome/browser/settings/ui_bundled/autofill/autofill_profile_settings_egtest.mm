@@ -159,9 +159,7 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
         autofill::features::kAutofillAiWithDataSchema);
   }
 
-  if ([self isRunningTest:@selector(testAddAndDeleteEntityUsingMenu)] ||
-      [self isRunningTest:@selector(testEditButtonEnablesOnAddingEntity)] ||
-      [self isRunningTest:@selector(testAutoExitEditModeOnDeletion)]) {
+  if ([self isRunningTest:@selector(testAddAndDeleteEntityUsingMenu)]) {
     config.features_enabled.push_back(
         autofill::features::debug::kAutofillAiForceOptIn);
   }
@@ -1087,6 +1085,14 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the Enhanced Autofill switch can be toggled.
 - (void)testToggleEnhancedAutofillSwitch {
+#if TARGET_OS_SIMULATOR
+  // TODO(crbug.com/516484560): Re-enable this flaky test on iOS below 26 on
+  // simulator.
+  if (!base::ios::IsRunningOnIOS26OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Flaky on iOS below 26 on simulator.");
+  }
+#endif
+
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
 
   [self openAutofillProfilesSettings];

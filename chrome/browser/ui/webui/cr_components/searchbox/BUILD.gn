@@ -4,7 +4,7 @@
 
 import("//ui/webui/webui_features.gni")
 
-assert(enable_webui_ntp)
+assert(!is_ios || enable_webui_ntp)
 
 source_set("searchbox") {
   sources = [
@@ -13,11 +13,14 @@ source_set("searchbox") {
     "searchbox_omnibox_client.h",
     "searchbox_utils.h",
   ]
+  public_deps = [ "//components/tabs:public" ]
   deps = [
     "//base",
     "//chrome/browser/autocomplete",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui/omnibox",
+    "//chrome/browser/ui/views/permissions",
+    "//chrome/browser/ui/views/permissions:embedded_permission_prompt_observer",
     "//components/contextual_search:prefs",
     "//components/contextual_search:public",
     "//components/contextual_tasks/public",
@@ -33,6 +36,9 @@ source_set("searchbox") {
     "//ui/gfx",
     "//ui/webui/resources/cr_components/composebox:mojo_bindings",
   ]
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/views/drive_picker_host:mojo_bindings" ]
+  }
 }
 
 source_set("searchbox_impl") {
@@ -52,8 +58,8 @@ source_set("searchbox_impl") {
     "//chrome/browser/contextual_search",
     "//chrome/browser/contextual_tasks",
     "//chrome/browser/contextual_tasks:ui",
-    "//chrome/browser/new_tab_page",
     "//chrome/browser/contextual_tasks:user_data",
+    "//chrome/browser/feature_engagement",
     "//chrome/browser/omnibox",
     "//chrome/browser/predictors",
     "//chrome/browser/preloading",
@@ -66,7 +72,7 @@ source_set("searchbox_impl") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/contextual_search",
     "//chrome/browser/ui/omnibox",
-    "//chrome/browser/ui/tabs:tabs_public",
+    "//chrome/browser/ui/views/permissions:embedded_permission_prompt_observer",
     "//chrome/browser/ui/webui",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
@@ -82,9 +88,12 @@ source_set("searchbox_impl") {
   ]
   if (!is_android) {
     deps += [
+      "//chrome/browser/new_tab_page",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/tabs",
+      "//chrome/browser/ui/views/drive_picker_host",
+      "//chrome/browser/ui/webui/drive_picker_host:drive_picker_host_request",
     ]
   }
 }

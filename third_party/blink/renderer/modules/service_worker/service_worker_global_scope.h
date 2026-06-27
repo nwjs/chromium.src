@@ -30,6 +30,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_SERVICE_WORKER_GLOBAL_SCOPE_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_SERVICE_WORKER_GLOBAL_SCOPE_H_
 
+#include <stdint.h>
+
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
@@ -547,7 +549,7 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
       DispatchContentDeleteEventCallback callback) override;
   void Ping(PingCallback callback) override;
   void SetIdleDelay(base::TimeDelta delay) override;
-  void AddKeepAlive() override;
+  void AddKeepAlive(uint64_t keepalive_sequence_number) override;
   void ClearKeepAlive() override;
   void AddMessageToConsole(mojom::blink::ConsoleMessageLevel,
                            const String& message) override;
@@ -755,6 +757,7 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
   // ServiceWorker event queue where all events are queued before
   // they are dispatched.
   std::unique_ptr<ServiceWorkerEventQueue> event_queue_;
+  uint64_t observed_keepalive_sequence_number_ = 0;
 
   // InitializeGlobalScope() pauses the top level script evaluation when this
   // flag is true.
@@ -807,15 +810,14 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
 
   struct RaceNetworkRequestInfo {
     int fetch_event_id;
-    String token;
     mojo::PendingRemote<network::mojom::blink::URLLoaderFactory>
         url_loader_factory;
+    bool IsValid() const { return url_loader_factory.is_valid(); }
   };
   // TODO(crbug.com/918702) HashMap cannot use base::UnguessableToken as a
   // key. As a workaround uses String as a key instead.
-  HashMap<String, std::unique_ptr<RaceNetworkRequestInfo>>
-      race_network_requests_;
-  HashMap<int, RaceNetworkRequestInfo*> race_network_request_fetch_event_ids_;
+  HashMap<String, RaceNetworkRequestInfo> race_network_requests_;
+  HashMap<int, String> fetch_event_ids_to_token_map_;
 
   HeapMojoAssociatedRemote<mojom::blink::AssociatedInterfaceProvider>
       remote_associated_interfaces_{this};

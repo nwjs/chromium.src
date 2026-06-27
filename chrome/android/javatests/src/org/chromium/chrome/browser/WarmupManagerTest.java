@@ -46,7 +46,7 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
@@ -163,9 +163,7 @@ public class WarmupManagerTest {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mTabModel.mergeListOfTabsToGroup(
-                                tabs,
-                                tabs.get(0),
-                                TabGroupModelFilter.MergeNotificationType.DONT_NOTIFY);
+                                tabs, tabs.get(0), TabGroupMergeNotificationType.DONT_NOTIFY);
                     });
         }
     }
@@ -245,10 +243,7 @@ public class WarmupManagerTest {
     @UiThreadTest
     public void testInflateLayout() {
         int layoutId = R.layout.custom_tabs_control_container;
-        int toolbarId =
-                ChromeFeatureList.sCctToolbarRefactor.isEnabled()
-                        ? R.layout.new_custom_tab_toolbar
-                        : R.layout.custom_tabs_toolbar;
+        int toolbarId = R.layout.new_custom_tab_toolbar;
         mWarmupManager.initializeViewHierarchy(mContext, layoutId, toolbarId);
         Assert.assertTrue(mWarmupManager.hasViewHierarchyWithToolbar(layoutId, mContext));
     }

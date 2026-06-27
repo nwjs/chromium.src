@@ -173,7 +173,8 @@ void MediaStreamDevicesController::RequestPermissions(
   }
 
   content::PermissionRequestDescription permission_request_description{
-      std::move(permission_types), request.user_gesture};
+      std::move(permission_types), request.user_gesture,
+      request.security_origin};
   permission_request_description.requested_audio_capture_device_ids =
       requested_audio_capture_device_ids;
   permission_request_description.requested_video_capture_device_ids =
@@ -425,10 +426,11 @@ bool MediaStreamDevicesController::IsUserAcceptAllowedOnAndroid(
     }
   }
 
-  // Don't approve device requests if the tab was hidden.
-  // TODO(qinmin): Add a test for this. http://crbug.com/396869.
+  // Don't approve device requests if the tab was hidden, unless there is an
+  // active Picture-in-Picture document.
   // TODO(raymes): Shouldn't this apply to all permissions not just audio/video?
-  return web_contents_->GetRenderWidgetHostView()->IsShowing();
+  return web_contents_->GetRenderWidgetHostView()->IsShowing() ||
+         web_contents_->HasPictureInPictureDocument();
 }
 #endif
 

@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
+#include "base/scoped_observation.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
 #include "components/send_tab_to_self/send_tab_to_self_model_observer.h"
 
@@ -15,8 +16,6 @@
 @protocol SendTabToSelfModelBridgeObserver <NSObject>
 
 @required
-- (void)sendTabToSelfModelLoaded:(send_tab_to_self::SendTabToSelfModel*)model;
-
 - (void)sendTabToSelfModel:(send_tab_to_self::SendTabToSelfModel*)model
      didAddEntriesRemotely:
          (const std::vector<const send_tab_to_self::SendTabToSelfEntry*>&)
@@ -47,7 +46,6 @@ class SendTabToSelfModelBridge : public SendTabToSelfModelObserver {
   ~SendTabToSelfModelBridge() override;
 
  private:
-  void SendTabToSelfModelLoaded() override;
   void EntriesAddedRemotely(
       const std::vector<const SendTabToSelfEntry*>&) override;
   void EntriesRemovedRemotely(const std::vector<std::string>&) override;
@@ -55,6 +53,8 @@ class SendTabToSelfModelBridge : public SendTabToSelfModelObserver {
   __weak id<SendTabToSelfModelBridgeObserver> observer_;
 
   SendTabToSelfModel* model_;  // weak
+  base::ScopedObservation<SendTabToSelfModel, SendTabToSelfModelObserver>
+      model_observation_{this};
 };
 
 }  // namespace send_tab_to_self

@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -167,7 +168,8 @@ class ManifestToWebAppInstallInfoJobTest : public WebAppTest {
 TEST_F(ManifestToWebAppInstallInfoJobTest, BasicFieldsPopulated) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({blink::features::kFileHandlingIcons,
-                                 blink::features::kWebAppManifestLockScreen},
+                                 blink::features::kWebAppManifestLockScreen,
+                                 blink::features::kUnframedIwa},
                                 /*disabled_features=*/{});
 
   SetupBasicPageState();
@@ -1155,7 +1157,7 @@ TEST_F(ManifestToWebAppInstallInfoTrustedIconTest, MultiPurposeIcons) {
 
   // Verify the same bitmap has been parsed and generated as per the
   // requirements, since it is both maskable and any, and is the largest icon.
-  const std::map<SquareSizePx, SkBitmap>& icon_map_parsed =
+  const OrderedSizeToBitmap& icon_map_parsed =
       ShouldPreferMaskable() ? web_app_info->trusted_icon_bitmaps.maskable
                              : web_app_info->trusted_icon_bitmaps.any;
   for (const auto& icon_data : icon_map_parsed) {
@@ -1215,7 +1217,7 @@ TEST_F(ManifestToWebAppInstallInfoTrustedIconTest,
 
   // Verify the correct bitmap has been parsed and generated as per the
   // requirements.
-  const std::map<SquareSizePx, SkBitmap>& icon_map_parsed =
+  const OrderedSizeToBitmap& icon_map_parsed =
       ShouldPreferMaskable() ? web_app_info->trusted_icon_bitmaps.maskable
                              : web_app_info->trusted_icon_bitmaps.any;
   const SkColor final_color =
@@ -1294,7 +1296,7 @@ TEST_F(ManifestToWebAppInstallInfoTrustedIconTest, SVGIconsNoSize) {
 
   // Verify the correct bitmap has been parsed and downloaded as per the
   // requirements.
-  const std::map<SquareSizePx, SkBitmap>& icon_map_parsed =
+  const OrderedSizeToBitmap& icon_map_parsed =
       ShouldPreferMaskable() ? web_app_info->trusted_icon_bitmaps.maskable
                              : web_app_info->trusted_icon_bitmaps.any;
   for (const auto& icon_data : icon_map_parsed) {
@@ -2211,6 +2213,37 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   auto icons = shortcut_info.GetShortcutIconInfosForPurpose(IconPurpose::ANY);
   ASSERT_EQ(1u, icons.size());
   EXPECT_EQ(default_icon_url, icons[0].url);
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest,
+       AcceptsUnframedDisplayOverrideWhenTheFeatureIsEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(blink::features::kUnframedIwa);
+
+  ASSERT_TRUE(base::FeatureList::IsEnabled(blink::features::kUnframedIwa));
+
+  SetupBasicPageState();
+  blink::mojom::ManifestPtr& manifest = GetPageManifest();
+  manifest->display_override.push_back(
+      blink::Manifest::DisplayOverride::CreateUnframed({FooUrlPattern()}));
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_THAT(
+      web_app_info->display_override,
+      testing::ElementsAre(DisplayOverride::CreateUnframed({FooUrlPattern()})));
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest,
+       IgnoresUnframedDisplayOverrideWhenTheFeatureIsDisabled) {
+  ASSERT_FALSE(base::FeatureList::IsEnabled(blink::features::kUnframedIwa));
+
+  SetupBasicPageState();
+  blink::mojom::ManifestPtr& manifest = GetPageManifest();
+  manifest->display_override.push_back(
+      blink::Manifest::DisplayOverride::CreateUnframed());
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_THAT(web_app_info->display_override, testing::IsEmpty());
 }
 
 }  // namespace

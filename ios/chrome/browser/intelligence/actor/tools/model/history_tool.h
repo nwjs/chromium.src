@@ -7,6 +7,7 @@
 
 #import "base/memory/weak_ptr.h"
 #import "base/types/expected.h"
+#import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 
 class ProfileIOS;
@@ -42,6 +43,7 @@ class HistoryTool : public ActorTool {
   // ActorTool:
   void Execute(ToolExecutionCallback callback) override;
   base::WeakPtr<web::WebState> GetTargetWebState() const override;
+  ToolType GetToolType() const override;
 
  private:
   // Internal helper to create the public `Create` method.

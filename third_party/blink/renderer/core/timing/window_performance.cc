@@ -54,6 +54,7 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_cross_origin_mode.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_navigation_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -80,6 +81,8 @@
 #include "third_party/blink/renderer/core/page/page_hidden_state.h"
 #include "third_party/blink/renderer/core/paint/timing/container_timing.h"
 #include "third_party/blink/renderer/core/performance_entry_names.h"
+#include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
+#include "third_party/blink/renderer/core/speculation_rules/speculation_candidate.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
 #include "third_party/blink/renderer/core/timing/global_performance.h"
 #include "third_party/blink/renderer/core/timing/interaction_contentful_paint.h"
@@ -93,14 +96,15 @@
 #include "third_party/blink/renderer/core/timing/performance_navigation_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_observer.h"
 #include "third_party/blink/renderer/core/timing/performance_paint_timing.h"
+#include "third_party/blink/renderer/core/timing/performance_soft_navigation.h"
 #include "third_party/blink/renderer/core/timing/performance_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_timing_for_reporting.h"
 #include "third_party/blink/renderer/core/timing/preload_data.h"
 #include "third_party/blink/renderer/core/timing/responsiveness_metrics.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_context.h"
-#include "third_party/blink/renderer/core/timing/soft_navigation_entry.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/core/timing/speculation_data.h"
+#include "third_party/blink/renderer/core/timing/speculation_navigation_data.h"
 #include "third_party/blink/renderer/core/timing/timing_utils.h"
 #include "third_party/blink/renderer/core/timing/visibility_state_entry.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
@@ -108,6 +112,8 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/loader/fetch/cross_origin_attribute_value.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
@@ -577,6 +583,8 @@ void WindowPerformance::ReportLongTask(base::TimeTicks start_time,
           task_context, has_multiple_contexts, DomWindow()->GetFrame());
   DOMWindow* culprit_dom_window = attribution.second;
   if (!culprit_dom_window || !culprit_dom_window->GetFrame() ||
+      !CanAccessOrigin(DomWindow()->GetFrame(),
+                       culprit_dom_window->GetFrame()) ||
       !culprit_dom_window->GetFrame()->DeprecatedLocalOwner()) {
     AddLongTaskTiming(start_time, end_time, attribution.first,
                       performance_entry_names::kWindow, g_empty_atom,
@@ -1428,25 +1436,20 @@ void WindowPerformance::AddContainerTiming(
 void WindowPerformance::TryReportAsFirstInputTiming(
     PerformanceEventTiming* event_timing_entry) {
   CHECK(event_timing_entry);
+  CHECK(event_timing_entry->HasInteractionId());
 
   // If we have already emitted, bail out.
   if (first_input_timing_) {
     return;
   }
-
-  PerformanceEventTiming* new_first_input_entry = nullptr;
-
-  CHECK(event_timing_entry->HasKnownInteractionID());
-  if (event_timing_entry->interactionId() != 0) {
-    new_first_input_entry =
-        PerformanceEventTiming::CreateFirstInputTiming(event_timing_entry);
-  }
-
-  if (!new_first_input_entry) {
+  if (!event_timing_entry->IsInteraction()) {
     return;
   }
 
+  PerformanceEventTiming* new_first_input_entry =
+      PerformanceEventTiming::CreateFirstInputTiming(event_timing_entry);
   CHECK_EQ("first-input", new_first_input_entry->entryType());
+
   if (HasObserverFor(PerformanceEntry::kFirstInput)) {
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kEventTimingExplicitlyRequested);
@@ -1481,20 +1484,16 @@ void WindowPerformance::AddVisibilityStateEntry(bool is_visible,
   }
 }
 
-void WindowPerformance::AddSoftNavigationEntry(
-    const AtomicString& name,
+PerformanceSoftNavigation* WindowPerformance::AddSoftNavigation(
     base::TimeTicks timestamp,
     const DOMPaintTimingInfo& paint_timing_info,
-    uint32_t navigation_id,
-    V8NavigationType::Enum navigation_type,
-    uint64_t interaction_id,
-    InteractionContentfulPaint* largest_interaction_contentful_paint) {
+    SoftNavigationContext* context) {
   CHECK(RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
       GetExecutionContext()));
-  SoftNavigationEntry* entry = MakeGarbageCollected<SoftNavigationEntry>(
-      name, MonotonicTimeToDOMHighResTimeStamp(timestamp), paint_timing_info,
-      DomWindow(), navigation_id, navigation_type, interaction_id,
-      largest_interaction_contentful_paint);
+  PerformanceSoftNavigation* entry =
+      MakeGarbageCollected<PerformanceSoftNavigation>(
+          MonotonicTimeToDOMHighResTimeStamp(timestamp), paint_timing_info,
+          context);
 
   if (HasObserverFor(PerformanceEntry::kSoftNavigation)) {
     UseCounter::Count(GetExecutionContext(),
@@ -1503,6 +1502,7 @@ void WindowPerformance::AddSoftNavigationEntry(
   }
 
   AddSoftNavigationToPerformanceTimeline(entry);
+  return entry;
 }
 
 void WindowPerformance::PageVisibilityChanged() {
@@ -1534,22 +1534,44 @@ EventCounts* WindowPerformance::eventCounts() {
 
 SpeculationData* WindowPerformance::getSpeculations() {
   LocalDOMWindow* window = DomWindow();
-  if (!window || !window->document() || !window->document()->Fetcher()) {
+  if (!window || !window->document()) {
     return MakeGarbageCollected<SpeculationData>(
-        HeapVector<Member<PreloadData>>());
+        HeapVector<Member<PreloadData>>(),
+        HeapVector<Member<SpeculationNavigationData>>(), KURL());
   }
 
+  Document* document = window->document();
+
+  // Collect preloads.
   HeapVector<Member<PreloadData>> preloads;
-  const auto& preload_records =
-      window->document()->Fetcher()->GetPreloadRecords();
-  for (const auto& [url, info] : preload_records) {
-    preloads.push_back(MakeGarbageCollected<PreloadData>(
-        url, info.resource_type,
-        info.crossorigin.value_or(kCrossOriginAttributeNotSet),
-        info.used_time));
+  if (document->Fetcher()) {
+    const auto& preload_records = document->Fetcher()->GetPreloadRecords();
+    for (const auto& [url, info] : preload_records) {
+      preloads.push_back(MakeGarbageCollected<PreloadData>(
+          url, info.as, info.crossorigin, info.early_hints, info.used_time));
+    }
   }
 
-  return MakeGarbageCollected<SpeculationData>(std::move(preloads));
+  // Collect navigational speculations (prefetches and prerenders).
+  HeapVector<Member<SpeculationNavigationData>> navigations;
+  if (DocumentSpeculationRules* spec_rules =
+          DocumentSpeculationRules::FromIfExists(*document)) {
+    const auto& candidates = spec_rules->sent_candidates();
+    for (const SpeculationCandidate* candidate : candidates) {
+      std::optional<Vector<String>> tags;
+      // When no tag is specified, the candidate has tags=[""]
+      // (a single null atom as default). Treat this as no tags.
+      const auto& candidate_tags = candidate->tags();
+      if (!(candidate_tags.size() == 1 && candidate_tags[0].empty())) {
+        tags = candidate_tags;
+      }
+      navigations.push_back(MakeGarbageCollected<SpeculationNavigationData>(
+          candidate->action(), candidate->url(), tags, candidate->eagerness()));
+    }
+  }
+
+  return MakeGarbageCollected<SpeculationData>(
+      std::move(preloads), std::move(navigations), navigation_destination_url_);
 }
 
 uint64_t WindowPerformance::interactionCount() const {

@@ -57,30 +57,42 @@ TEST_P(AutofillEntityInstanceTest, MaskedAttribute) {
   EXPECT_TRUE(attribute.masked());
 }
 
-TEST_P(AutofillEntityInstanceTest, MaskedServerEntityWithMaskedAttributes) {
+TEST_P(AutofillEntityInstanceTest, MaskedEntityWithMaskedAttributes) {
   AttributeInstance attribute((AttributeType(kPassportNumber)));
   ASSERT_TRUE(attribute.type().is_obfuscated());
   test_api(attribute).mark_as_masked();
 
   EntityInstance entity = test::GetEntityInstance(
       {attribute}, {.record_type = EntityInstance::RecordType::kServerWallet});
-  EXPECT_TRUE(entity.IsMaskedServerEntity());
-  EXPECT_FALSE(entity.IsUnmaskedServerEntity());
+  EXPECT_TRUE(entity.IsMaskedEntity());
+  EXPECT_FALSE(entity.IsUnmaskedEntity());
 
   // Local entities must never have masked attributes.
   EntityInstance invalid_entity = test::GetEntityInstance(
       {attribute}, {.record_type = EntityInstance::RecordType::kLocal});
-  EXPECT_CHECK_DEATH(invalid_entity.IsMaskedServerEntity());
+  EXPECT_CHECK_DEATH(invalid_entity.IsMaskedEntity());
 }
 
-TEST_P(AutofillEntityInstanceTest, NeitherMaskedNorUnmaskedServerEntity) {
+TEST_P(AutofillEntityInstanceTest, MaskedPersonalContextEntity) {
+  AttributeInstance attribute((AttributeType(kPassportNumber)));
+  ASSERT_TRUE(attribute.type().is_obfuscated());
+  test_api(attribute).mark_as_masked();
+
+  EntityInstance entity = test::GetEntityInstance(
+      {attribute},
+      {.record_type = EntityInstance::RecordType::kPersonalContext});
+  EXPECT_TRUE(entity.IsMaskedEntity());
+  EXPECT_FALSE(entity.IsUnmaskedEntity());
+}
+
+TEST_P(AutofillEntityInstanceTest, NeitherMaskedNorUnmaskedEntity) {
   AttributeInstance attribute((AttributeType(kPassportNumber)));
   ASSERT_TRUE(attribute.type().is_obfuscated());
 
   EntityInstance entity = test::GetEntityInstance(
       {attribute}, {.record_type = EntityInstance::RecordType::kLocal});
-  EXPECT_FALSE(entity.IsMaskedServerEntity());
-  EXPECT_FALSE(entity.IsUnmaskedServerEntity());
+  EXPECT_FALSE(entity.IsMaskedEntity());
+  EXPECT_FALSE(entity.IsUnmaskedEntity());
 }
 
 TEST_P(AutofillEntityInstanceTest, ServerEntityWithoutObfuscatedAttributes) {
@@ -89,8 +101,8 @@ TEST_P(AutofillEntityInstanceTest, ServerEntityWithoutObfuscatedAttributes) {
 
   EntityInstance entity = test::GetEntityInstance(
       {attribute}, {.record_type = EntityInstance::RecordType::kServerWallet});
-  EXPECT_FALSE(entity.IsMaskedServerEntity());
-  EXPECT_FALSE(entity.IsUnmaskedServerEntity());
+  EXPECT_FALSE(entity.IsMaskedEntity());
+  EXPECT_FALSE(entity.IsUnmaskedEntity());
 }
 
 TEST_P(AutofillEntityInstanceTest, ServerEntityWithUnmaskedAttributes) {
@@ -99,8 +111,8 @@ TEST_P(AutofillEntityInstanceTest, ServerEntityWithUnmaskedAttributes) {
 
   EntityInstance entity = test::GetEntityInstance(
       {attribute}, {.record_type = EntityInstance::RecordType::kServerWallet});
-  EXPECT_FALSE(entity.IsMaskedServerEntity());
-  EXPECT_TRUE(entity.IsUnmaskedServerEntity());
+  EXPECT_FALSE(entity.IsMaskedEntity());
+  EXPECT_TRUE(entity.IsUnmaskedEntity());
 }
 
 TEST_P(AutofillEntityInstanceTest, Attributes) {
@@ -186,26 +198,44 @@ TEST_P(AutofillEntityInstanceTest, Attributes_StructuredName) {
   EXPECT_EQ(GetInfo(passport_name, NAME_LAST), u"Name");
 }
 
-// Tests that AttributeInstance honors the affix formats.
+// Tests that AttributeInstance honors the affix formats (only) for
+// identification numbers.
 TEST_P(AutofillEntityInstanceTest, Attributes_IdentificationNumbers) {
   auto from_affix = [](std::u16string fs) {
     return AutofillFormatString(std::move(fs), FormatString_Type_AFFIX);
   };
 
-  AttributeInstance passport_number((AttributeType(kPassportNumber)));
-  passport_number.SetInfo(PASSPORT_NUMBER, u"LR0123456",
-                          /*app_locale=*/"", /*format_string=*/std::nullopt,
-                          VerificationStatus::kObserved);
-  EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER), u"LR0123456");
-  EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
-                    {.format_string = from_affix(u"0")}),
-            u"LR0123456");
-  EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
-                    {.format_string = from_affix(u"4")}),
-            u"LR01");
-  EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
-                    {.format_string = from_affix(u"-4")}),
-            u"3456");
+  {
+    AttributeInstance passport_number((AttributeType(kPassportNumber)));
+    passport_number.SetInfo(PASSPORT_NUMBER, u"LR0123456",
+                            /*app_locale=*/"", /*format_string=*/std::nullopt,
+                            VerificationStatus::kObserved);
+    EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER), u"LR0123456");
+    EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
+                      {.format_string = from_affix(u"0")}),
+              u"LR0123456");
+    EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
+                      {.format_string = from_affix(u"4")}),
+              u"LR01");
+    EXPECT_EQ(GetInfo(passport_number, PASSPORT_NUMBER,
+                      {.format_string = from_affix(u"-4")}),
+              u"3456");
+  }
+
+  {
+    // A non-identification-number attribute must ignore the affix format
+    // string.
+    AttributeInstance vehicle_make((AttributeType(kVehicleMake)));
+    vehicle_make.SetInfo(VEHICLE_MAKE, u"Mercedes", /*app_locale=*/"",
+                         /*format_string=*/std::nullopt,
+                         VerificationStatus::kObserved);
+    EXPECT_EQ(GetInfo(vehicle_make, VEHICLE_MAKE,
+                      {.format_string = from_affix(u"-4")}),
+              u"Mercedes");
+    EXPECT_EQ(GetInfo(vehicle_make, PASSPORT_NUMBER,
+                      {.format_string = from_affix(u"-4")}),
+              u"Mercedes");
+  }
 }
 
 // Tests that AttributeInstance appropriately manages dates.
@@ -251,25 +281,14 @@ TEST_P(AutofillEntityInstanceTest, AttributesFlightFormat) {
   }
 
   {
-    // A mal-formed flight number.
-    AttributeInstance flight_number(
-        (AttributeType(kFlightReservationFlightNumber)));
-    flight_number.SetInfo(
-        FLIGHT_RESERVATION_FLIGHT_NUMBER, u"AA", /*app_locale*/ "",
-        /*format_string=*/std::nullopt, VerificationStatus::kNoStatus);
-    EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER), u"AA");
-    EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER,
+    // A non-flight attribute must ignore the format string.
+    AttributeInstance vehicle_make((AttributeType(kVehicleMake)));
+    vehicle_make.SetInfo(VEHICLE_MAKE, u"Mercedes", /*app_locale=*/"",
+                         /*format_string=*/std::nullopt,
+                         VerificationStatus::kObserved);
+    EXPECT_EQ(GetInfo(vehicle_make, FLIGHT_RESERVATION_FLIGHT_NUMBER,
                       {.format_string = from_flight_number(u"A")}),
-              u"AA");
-    EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER,
-                      {.format_string = from_flight_number(u"N")}),
-              u"AA");
-    EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER,
-                      {.format_string = from_flight_number(u"F")}),
-              u"AA");
-    EXPECT_EQ(GetInfo(flight_number, FLIGHT_RESERVATION_FLIGHT_NUMBER,
-                      {.format_string = from_flight_number(u"F")}),
-              u"AA");
+              u"Mercedes");
   }
 }
 
@@ -606,38 +625,122 @@ TEST_P(AutofillEntityInstanceTest, IsSubsetOf_BothMasked_OneIsSuffixOfOther) {
   EXPECT_FALSE(entity2.IsSubsetOf(entity1));
 }
 
-// Tests that entity types that support masked storage have at least one
-// obfuscated attribute. Masked storage only makes sense for entities that have
-// obfuscated attributes since all unobfuscated attributes are already
-// transmitted via sync and therefore stored locally.
-TEST_P(AutofillEntityInstanceTest, IsMaskedStorageSupported) {
+// Tests that Google Wallet private passes have at least one
+// obfuscated attribute. Private passes should only be used for entities
+// with obfuscated attributes, since entities without them can be safely stored
+// locally.
+TEST_P(AutofillEntityInstanceTest, GetWalletPassType) {
   for (EntityType t : DenseSet<EntityType>::all()) {
     EXPECT_TRUE(
-        !IsMaskedStorageSupported(t,
-                                  EntityInstance::RecordType::kServerWallet) ||
+        GetWalletPassType(t, EntityInstance::RecordType::kServerWallet) !=
+            EntityInstance::WalletPassType::kPrivate ||
         std::ranges::any_of(t.attributes(),
                             [](AttributeType a) { return a.is_obfuscated(); }))
         << t;
-    EXPECT_FALSE(
-        IsMaskedStorageSupported(t, EntityInstance::RecordType::kLocal))
+    EXPECT_EQ(GetWalletPassType(t, EntityInstance::RecordType::kLocal),
+              EntityInstance::WalletPassType::kUnsupported)
         << t;
   }
 }
 
-// Tests explicitly for some entity types that they support masked storage.
-TEST_P(AutofillEntityInstanceTest, IsMaskedStorageSupportedSelectTypes) {
+// Tests explicitly for the expected WalletPassType of some entity types.
+TEST_P(AutofillEntityInstanceTest, GetWalletPassTypeExpectedTypes) {
   using enum EntityTypeName;
-  EXPECT_TRUE(IsMaskedStorageSupported(
-      EntityType(kDriversLicense), EntityInstance::RecordType::kServerWallet));
-  EXPECT_TRUE(
-      IsMaskedStorageSupported(EntityType(kKnownTravelerNumber),
-                               EntityInstance::RecordType::kServerWallet));
-  EXPECT_TRUE(IsMaskedStorageSupported(
-      EntityType(kNationalIdCard), EntityInstance::RecordType::kServerWallet));
-  EXPECT_TRUE(IsMaskedStorageSupported(
-      EntityType(kPassport), EntityInstance::RecordType::kServerWallet));
-  EXPECT_TRUE(IsMaskedStorageSupported(
-      EntityType(kRedressNumber), EntityInstance::RecordType::kServerWallet));
+  EXPECT_EQ(GetWalletPassType(EntityType(kDriversLicense),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPrivate);
+  EXPECT_EQ(GetWalletPassType(EntityType(kKnownTravelerNumber),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPrivate);
+  EXPECT_EQ(GetWalletPassType(EntityType(kNationalIdCard),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPrivate);
+  EXPECT_EQ(GetWalletPassType(EntityType(kPassport),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPrivate);
+  EXPECT_EQ(GetWalletPassType(EntityType(kRedressNumber),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPrivate);
+
+  EXPECT_EQ(GetWalletPassType(EntityType(kFlightReservation),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPublic);
+  EXPECT_EQ(GetWalletPassType(EntityType(kVehicle),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kPublic);
+
+  EXPECT_EQ(GetWalletPassType(EntityType(kOrder),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kUnsupported);
+  EXPECT_EQ(GetWalletPassType(EntityType(kShipment),
+                              EntityInstance::RecordType::kServerWallet),
+            EntityInstance::WalletPassType::kUnsupported);
+}
+
+// Tests that personal context SPII types have at least one obfuscated
+// attribute for sensitive categories (Spii), since entities without them can
+// be safely stored locally.
+TEST_P(AutofillEntityInstanceTest, GetPersonalContextSpiiType) {
+  for (EntityType t : DenseSet<EntityType>::all()) {
+    EXPECT_TRUE(
+        GetPersonalContextSpiiType(
+            t, EntityInstance::RecordType::kPersonalContext) !=
+            EntityInstance::PersonalContextSpiiType::kSpii ||
+        std::ranges::any_of(t.attributes(),
+                            [](AttributeType a) { return a.is_obfuscated(); }))
+        << t;
+    EXPECT_EQ(GetPersonalContextSpiiType(t, EntityInstance::RecordType::kLocal),
+              EntityInstance::PersonalContextSpiiType::kUnsupported)
+        << t;
+    EXPECT_EQ(GetPersonalContextSpiiType(
+                  t, EntityInstance::RecordType::kServerWallet),
+              EntityInstance::PersonalContextSpiiType::kUnsupported)
+        << t;
+  }
+}
+
+// Tests explicitly for the expected PersonalContextSpiiType of some entity
+// types.
+TEST_P(AutofillEntityInstanceTest, GetPersonalContextSpiiTypeExpectedTypes) {
+  using enum EntityTypeName;
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kDriversLicense),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kSpii);
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kNationalIdCard),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kSpii);
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kPassport),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kSpii);
+
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kFlightReservation),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kNoSpii);
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kVehicle),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kNoSpii);
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kOrder),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kNoSpii);
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kShipment),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kNoSpii);
+
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kKnownTravelerNumber),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kUnsupported);
+  EXPECT_EQ(
+      GetPersonalContextSpiiType(EntityType(kRedressNumber),
+                                 EntityInstance::RecordType::kPersonalContext),
+      EntityInstance::PersonalContextSpiiType::kUnsupported);
 }
 
 // Tests that all obfuscated attributes of entity types that can be stored in
@@ -655,10 +758,11 @@ TEST_P(AutofillEntityInstanceTest, IsMaskedStorageSupportedSelectTypes) {
 // Should this test start to fail, then the form import logic must be updated.
 // For example, you might need to fetch the unmasked entity from the Wallet
 // server before sending the update request.
-TEST_P(AutofillEntityInstanceTest, ObfuscatedAttributesAreImportonstraints) {
+TEST_P(AutofillEntityInstanceTest, ObfuscatedAttributesAreImportConstraints) {
   for (const EntityType entity_type : DenseSet<EntityType>::all()) {
-    if (!IsMaskedStorageSupported(entity_type,
-                                  EntityInstance::RecordType::kServerWallet)) {
+    if (GetWalletPassType(entity_type,
+                          EntityInstance::RecordType::kServerWallet) !=
+        EntityInstance::WalletPassType::kPrivate) {
       continue;
     }
     for (const AttributeType attribute_type : entity_type.attributes()) {

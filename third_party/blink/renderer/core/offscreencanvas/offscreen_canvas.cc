@@ -7,9 +7,11 @@
 #include <memory>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_element_elementimage.h"
@@ -178,7 +180,7 @@ void OffscreenCanvas::SetPlaceholderCanvasId(DOMNodeId canvas_id) {
     OffscreenCanvasRegistry::From(GetExecutionContext())
         .Register(canvas_id, this);
   }
-  if (GetTopExecutionContext() &&
+  if (HasPlaceholderCanvas() && GetTopExecutionContext() &&
       GetTopExecutionContext()->IsDedicatedWorkerGlobalScope()) {
     WorkerAnimationFrameProvider* animation_frame_provider =
         To<DedicatedWorkerGlobalScope>(GetTopExecutionContext())
@@ -363,6 +365,13 @@ DOMMatrix* OffscreenCanvas::getElementTransform(
                                         "The ElementImage has been closed.");
       return nullptr;
     }
+    if (paint_record->paint_state.canvas_node_id == kInvalidDOMNodeId ||
+        paint_record->paint_state.canvas_node_id != PlaceholderCanvasId()) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kInvalidStateError,
+          "The ElementImage was captured from a different canvas.");
+      return nullptr;
+    }
     gfx::Transform transform = GetElementTransform(
         paint_record->paint_state, Size(), draw_transform->Matrix());
     return MakeGarbageCollected<DOMMatrix>(transform,
@@ -440,7 +449,7 @@ ScriptPromise<Blob> OffscreenCanvas::convertToBlob(
 }
 
 bool OffscreenCanvas::IsOpaque() const {
-  return context_ && !context_->CreationAttributes().alpha;
+  return RenderingContext() && RenderingContext()->IsOpaque();
 }
 
 CanvasRenderingContext* OffscreenCanvas::GetCanvasRenderingContext(
@@ -673,6 +682,28 @@ UniqueFontSelector* OffscreenCanvas::GetFontSelector() {
       MakeGarbageCollected<UniqueFontSelector>(base_selector);
   unique_font_selector_ = unique_font_selector;
   return unique_font_selector;
+}
+
+bool OffscreenCanvas::IsPageVisible() const {
+  if (base::FeatureList::IsEnabled(
+          blink::features::kOffscreenCanvasPropagateVisibility)) {
+    return is_parent_visible_;
+  }
+  return true;
+}
+
+void OffscreenCanvas::SetParentVisibility(bool visible) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kOffscreenCanvasPropagateVisibility)) {
+    return;
+  }
+  if (is_parent_visible_ == visible) {
+    return;
+  }
+  is_parent_visible_ = visible;
+  if (context_) {
+    context_->PageVisibilityChanged();
+  }
 }
 
 void OffscreenCanvas::Trace(Visitor* visitor) const {

@@ -93,7 +93,8 @@ using CompositingReasons = uint64_t;
   V(Scrollbar)                                                                 \
   V(LinkHighlight)                                                             \
   V(DevToolsOverlay)                                                           \
-  V(ViewTransitionContent)
+  V(ViewTransitionContent)                                                     \
+  V(UnboundedElement)
 
 class PLATFORM_EXPORT CompositingReason {
   DISALLOW_NEW();
@@ -163,7 +164,8 @@ class PLATFORM_EXPORT CompositingReason {
         kActiveOpacityAnimation | kWillChangeOpacity | kBackdropFilter |
         kWillChangeBackdropFilter | kWillChangeMixBlendMode |
         kActiveBackdropFilterAnimation | kViewTransitionPseudoElement |
-        kTransform3DSceneLeaf | kElementCapture | kCanvasChild,
+        kTransform3DSceneLeaf | kElementCapture | kCanvasChild |
+        kUnboundedElement,
     kDirectReasonsForFilterProperty =
         kActiveFilterAnimation | kWillChangeFilter,
 

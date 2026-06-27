@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/html/forms/external_popup_menu.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
@@ -73,6 +74,8 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/display/screen_info.h"
+#include "ui/gfx/geometry/rect_conversions.h"
 
 namespace blink {
 
@@ -95,6 +98,15 @@ HTMLOptionElement* EventTargetOption(const Event& event) {
     return option;
   }
   return nullptr;
+}
+
+bool SelectIsInResizeMode(const HTMLSelectElement& select) {
+  auto* box = select.GetLayoutBox();
+  if (!box || !box->Layer()) {
+    return false;
+  }
+  auto* scrollable_area = box->Layer()->GetScrollableArea();
+  return scrollable_area && scrollable_area->InResizeMode();
 }
 
 bool CanAssignToSelectSlot(const Node& node) {
@@ -621,7 +633,6 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
 }
 
 void MenuListSelectType::ManuallyAssignSlots() {
-  VectorOf<Node> option_nodes;
   HTMLButtonElement* first_button = nullptr;
   VectorOf<Node> all_children_except_first_button;
   bool after_first_element = false;
@@ -639,9 +650,6 @@ void MenuListSelectType::ManuallyAssignSlots() {
       }
     }
     all_children_except_first_button.push_back(child);
-    if (CanAssignToSelectSlot(child)) {
-      option_nodes.push_back(child);
-    }
   }
 
   CHECK(button_slot_);
@@ -750,6 +758,11 @@ void MenuListSelectType::ShowPopup(PopupMenu::ShowEventType type) {
     gfx::Rect visual_viewport_rect =
         document.GetPage()->GetVisualViewport().RootFrameToViewport(
             local_root_rect);
+    float dpr = ExternalPopupMenu::GetDprForSizeAdjustment(*select_);
+    if (dpr != 1.0f) {
+      visual_viewport_rect =
+          gfx::ScaleToRoundedRect(visual_viewport_rect, 1.0f / dpr);
+    }
     visual_viewport_rect.Intersect(
         gfx::Rect(document.GetPage()->GetVisualViewport().Size()));
     if (visual_viewport_rect.IsEmpty())
@@ -1360,6 +1373,12 @@ bool ListBoxSelectType::DefaultEventHandler(const Event& event) {
             static_cast<int16_t>(WebPointerProperties::Button::kLeft) ||
         !mouse_event->ButtonDown())
       return false;
+
+    // Dragging a resize handle also produces left-button mousemove events.
+    // While resize is active, do not run listbox drag-selection/autoscroll.
+    if (SelectIsInResizeMode(*select_)) {
+      return false;
+    }
 
     if (auto* layout_object = select_->GetLayoutObject()) {
       layout_object->GetFrameView()->UpdateAllLifecyclePhasesExceptPaint(

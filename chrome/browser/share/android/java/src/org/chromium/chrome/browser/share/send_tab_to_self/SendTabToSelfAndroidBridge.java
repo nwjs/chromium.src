@@ -4,15 +4,36 @@
 
 package org.chromium.chrome.browser.share.send_tab_to_self;
 
+import android.app.Activity;
+import android.content.Context;
+import android.content.res.Resources;
+
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.ApplicationStatus;
+import org.chromium.base.ContextUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.SendTabToSelfTabCardLabelData;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.messages.MessageBannerProperties;
+import org.chromium.components.messages.MessageDispatcher;
+import org.chromium.components.messages.MessageDispatcherProvider;
+import org.chromium.components.messages.MessageIdentifier;
+import org.chromium.components.messages.MessageScopeType;
+import org.chromium.components.messages.PrimaryActionClickBehavior;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.widget.Toast;
 
 import java.util.List;
 
@@ -34,28 +55,77 @@ public class SendTabToSelfAndroidBridge {
     // TODO(crbug.com/40618597): Add logic back in to track whether model is loaded.
     // private boolean mIsNativeSendTabToSelfModelLoaded;
 
+    // TODO(crbug.com/492072882): Eventually remove the commitConfirmation parameter once
+    // confirmation feedback behavior is fully unified and centralized across all Android sites.
     /**
      * Handles the action when the user selects a device.
      *
      * @param profile The profile to use for sending.
-     * @param webContents The web contents of the current tab, or null if not available. When
-     *     null, page context such as scroll position, form fields and navigation history will
-     *     not be captured.
+     * @param webContents The web contents of the current tab, or null if not available. When null,
+     *     page context such as scroll position, form fields and navigation history will not be
+     *     captured.
      * @param targetDeviceSyncCacheGuid The GUID of the target device.
+     * @param targetDeviceName The name of the target device.
      * @param url The URL being shared.
      * @param title The title of the page being shared.
+     * @param commitConfirmation Callback to receive the commit result.
      */
     public static void sendTabToDevice(
             Profile profile,
             @Nullable WebContents webContents,
             String targetDeviceSyncCacheGuid,
+            String targetDeviceName,
             String url,
             String title,
-            CommitConfirmationCallback commitConfirmation) {
+            @Nullable CommitConfirmationCallback commitConfirmation) {
         SendTabToSelfAndroidBridgeJni.get()
                 .sendTabToDevice(
-                        profile, webContents, targetDeviceSyncCacheGuid, url, title,
-                        commitConfirmation);
+                        profile,
+                        webContents,
+                        targetDeviceSyncCacheGuid,
+                        url,
+                        title,
+                        result -> {
+                            showPostSendToast(result, targetDeviceName);
+                            if (commitConfirmation != null) {
+                                commitConfirmation.onResult(result);
+                            }
+                        });
+    }
+
+    private static void showPostSendToast(
+            @SendTabToSelfResult int result, String targetDeviceName) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)) {
+            return;
+        }
+        Context appContext = ContextUtils.getApplicationContext();
+        switch (result) {
+            case SendTabToSelfResult.SUCCESS:
+                String successMessage =
+                        appContext.getString(
+                                R.string.send_tab_to_self_post_send_success_toast_android,
+                                targetDeviceName);
+                Toast.makeText(appContext, successMessage, Toast.LENGTH_SHORT).show();
+                break;
+            case SendTabToSelfResult.SUCCESS_THROTTLED:
+                String throttledMessage =
+                        appContext.getString(
+                                R.string.send_tab_to_self_post_send_throttled_toast_android,
+                                targetDeviceName);
+                Toast.makeText(appContext, throttledMessage, Toast.LENGTH_SHORT).show();
+                break;
+            case SendTabToSelfResult.FAILURE_NO_INTERNET_CONNECTION:
+            case SendTabToSelfResult.FAILURE_COMMIT_TIMEOUT:
+                String noInternetMessage =
+                        appContext.getString(R.string.send_tab_to_self_post_send_no_internet_toast);
+                Toast.makeText(appContext, noInternetMessage, Toast.LENGTH_SHORT).show();
+                break;
+            default:
+                String failureMessage =
+                        appContext.getString(R.string.send_tab_to_self_post_send_failure_toast);
+                Toast.makeText(appContext, failureMessage, Toast.LENGTH_SHORT).show();
+                break;
+        }
     }
 
     /**
@@ -89,16 +159,84 @@ public class SendTabToSelfAndroidBridge {
         return SendTabToSelfAndroidBridgeJni.get().getAllTargetDeviceInfos(profile);
     }
 
-    /**
-     * @param webContents WebContents where a navigation was just completed.
-     */
-    public static void updateActiveWebContents(WebContents webContents) {
-        SendTabToSelfAndroidBridgeJni.get().updateActiveWebContents(webContents);
-    }
 
     public static @Nullable @EntryPointDisplayReason Integer getEntryPointDisplayReason(
             Profile profile, String url) {
         return SendTabToSelfAndroidBridgeJni.get().getEntryPointDisplayReason(profile, url);
+    }
+
+    /**
+     * Attaches SendTabToSelfTabCardLabelData to a Tab to indicate which device sent it.
+     *
+     * @param tab The Tab to attach the user data to.
+     * @param senderDeviceName The name of the device that sent the tab.
+     */
+    @CalledByNative
+    public static void attachTabLabel(Tab tab, String senderDeviceName) {
+        if (tab == null || senderDeviceName == null || senderDeviceName.isEmpty()) return;
+
+        tab.getUserDataHost()
+                .setUserData(
+                        SendTabToSelfTabCardLabelData.class,
+                        new SendTabToSelfTabCardLabelData(
+                                tab, senderDeviceName, System.currentTimeMillis()));
+    }
+
+    @CalledByNative
+    public static void showMessageBanner(@Nullable WebContents webContents, String deviceName) {
+        // The tab or web page has been closed or destroyed.
+        if (webContents == null) return;
+        WindowAndroid windowAndroid = webContents.getTopLevelNativeWindow();
+        // The tab is detached from the UI or the containing activity is being torn down.
+        if (windowAndroid == null) return;
+        MessageDispatcher messageDispatcher = MessageDispatcherProvider.from(windowAndroid);
+        // The activity is being recreated, destroyed, or does not support messaging.
+        if (messageDispatcher == null) return;
+
+        Context context = ContextUtils.getApplicationContext();
+        Resources res = context.getResources();
+
+        PropertyModel message =
+                new PropertyModel.Builder(MessageBannerProperties.ALL_KEYS)
+                        .with(
+                                MessageBannerProperties.MESSAGE_IDENTIFIER,
+                                MessageIdentifier.SEND_TAB_TO_SELF)
+                        .with(
+                                MessageBannerProperties.TITLE,
+                                res.getString(R.string.send_tab_to_self_message_banner_title))
+                        .with(
+                                MessageBannerProperties.DESCRIPTION,
+                                res.getString(
+                                        R.string.send_tab_to_self_message_banner_subtitle,
+                                        deviceName))
+                        .with(
+                                MessageBannerProperties.PRIMARY_BUTTON_TEXT,
+                                res.getString(R.string.send_tab_to_self_message_open))
+                        .with(MessageBannerProperties.ICON_RESOURCE_ID, R.drawable.send_tab)
+                        .with(
+                                MessageBannerProperties.ON_PRIMARY_ACTION,
+                                SendTabToSelfAndroidBridge::onMessageBannerPrimaryAction)
+                        .build();
+
+        messageDispatcher.enqueueMessage(
+                message, webContents, MessageScopeType.WEB_CONTENTS, false);
+    }
+
+    /**
+     * Handles the primary action click on the message banner by showing the tab switcher in the
+     * currently focused activity, then dismissing the banner.
+     *
+     * @return The behavior to follow after the click (dismiss immediately).
+     */
+    private static @PrimaryActionClickBehavior int onMessageBannerPrimaryAction() {
+        Activity activity = ApplicationStatus.getLastTrackedFocusedActivity();
+        if (activity instanceof ChromeTabbedActivity) {
+            ChromeTabbedActivity tabbedActivity = (ChromeTabbedActivity) activity;
+            if (tabbedActivity.getLayoutManager() != null) {
+                tabbedActivity.getLayoutManager().showLayout(LayoutType.TAB_SWITCHER, true);
+            }
+        }
+        return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
     }
 
     @NativeMethods
@@ -117,8 +255,6 @@ public class SendTabToSelfAndroidBridge {
 
         @JniType("std::vector")
         List<TargetDeviceInfo> getAllTargetDeviceInfos(@JniType("Profile*") Profile profile);
-
-        void updateActiveWebContents(WebContents webContents);
 
         @Nullable Integer getEntryPointDisplayReason(
                 @JniType("Profile*") Profile profile, String url);

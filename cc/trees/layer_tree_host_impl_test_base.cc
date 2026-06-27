@@ -34,18 +34,18 @@ std::unique_ptr<LayerTreeHostImpl> CreateLayerTreeHostImplForTesting(
     RasterDarkModeFilter* dark_mode_filter,
     int id,
     scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
-    LayerTreeHostSchedulingClient* scheduling_client) {
+    LayerTreeHostSchedulingDelegate* scheduling_delegate) {
   if (settings.trees_in_viz_in_viz_process) {
     return TestVizLayerTreeHostImpl::Create(
         settings, delegate, task_runner_provider,
         rendering_stats_instrumentation, task_graph_runner,
         std::move(mutator_host), dark_mode_filter, id,
-        std::move(image_worker_task_runner), scheduling_client);
+        std::move(image_worker_task_runner), scheduling_delegate);
   }
   return ClientLayerTreeHostImpl::Create(
       settings, delegate, task_runner_provider, rendering_stats_instrumentation,
       task_graph_runner, std::move(mutator_host), dark_mode_filter, id,
-      std::move(image_worker_task_runner), scheduling_client);
+      std::move(image_worker_task_runner), scheduling_delegate);
 }
 
 TestFrameData::TestFrameData() {
@@ -199,7 +199,8 @@ void LayerTreeHostImplTestBase::SetNeedsOneBeginImplFrameOnImplThread() {
 void LayerTreeHostImplTestBase::SetNeedsPrepareTilesOnImplThread() {
   did_request_prepare_tiles_ = true;
 }
-void LayerTreeHostImplTestBase::SetNeedsCommitOnImplThread(bool urgent) {
+void LayerTreeHostImplTestBase::SetNeedsCommitOnImplThread(BeginMainFrameReason,
+                                                           bool urgent) {
   did_request_commit_ = true;
 }
 void LayerTreeHostImplTestBase::SetVideoNeedsBeginFrames(
@@ -995,15 +996,18 @@ LayerTreeHostImplTest::LayerTreeHostImplTest() {
     case CommitToActiveTreeTreesInVizClient:
     case CommitToPendingTreeTreesInVizClient:
     case CommitToActiveTreeTreesInVizService:
-      scoped_feature_list_.InitAndEnableFeature(features::kTreesInViz);
+      scoped_feature_list_.InitWithFeatures({features::kTreesInViz},
+                                            {features::kSnapFlingNearExtremes});
       break;
     case CommitToActiveTreeAnimationsInVizService:
       scoped_feature_list_.InitWithFeatures(
-          {features::kTreesInViz, features::kTreeAnimationsInViz}, {});
+          {features::kTreesInViz, features::kTreeAnimationsInViz},
+          {features::kSnapFlingNearExtremes});
       break;
     case CommitToActiveTree:
     case CommitToPendingTree:
-      scoped_feature_list_.InitAndDisableFeature(features::kTreesInViz);
+      scoped_feature_list_.InitWithFeatures(
+          {}, {features::kTreesInViz, features::kSnapFlingNearExtremes});
       break;
   }
 }

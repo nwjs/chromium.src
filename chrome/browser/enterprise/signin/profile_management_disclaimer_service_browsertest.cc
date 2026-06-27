@@ -10,9 +10,8 @@
 #include "base/test/scoped_mock_time_message_loop_task_runner.h"
 #include "base/test/test_future.h"
 #include "base/test/test_mock_time_task_runner.h"
-#include "chrome/browser/ui/signin/signin_view_controller.h"
-#include "chrome/browser/browser_features.h"
 #include "base/time/time_override.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/enterprise/signin/enterprise_signin_prefs.h"
 #include "chrome/browser/enterprise/signin/profile_management_disclaimer_service_factory.h"
@@ -57,7 +56,7 @@ enum class ManagedProfileCreationResult {
 struct ManagementDisclaimerTestParam {
   std::string test_name;
   // Preconditions:
-  std::optional<signin::SigninChoice> user_choice = std::nullopt;
+  std::optional<signin::SigninChoice> user_choice;
   policy::ProfileSeparationPolicies policies;
   bool is_managed;
 
@@ -195,7 +194,12 @@ const ManagementDisclaimerTestParam kManagementDisclaimerTestParams[] = {
     // - Profile creation is enforced by policy
     // - No User choice
     {
+#if BUILDFLAG(IS_MAC)
+        // TODO(crbug.com/505194363): Re-enable once deflaked.
+        .test_name = "DISABLED_Managed_EnforcedByPolicy_Dismiss",
+#else
         .test_name = "Managed_EnforcedByPolicy_Dismiss",
+#endif
         .user_choice = std::nullopt,
         .policies = policy::ProfileSeparationPolicies(
             /*profile_separation_settings=*/policy::ProfileSeparationSettings::

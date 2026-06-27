@@ -1315,9 +1315,23 @@ TEST_F(ShellSurfaceTest, ActivationPermissionLegacy) {
   EXPECT_TRUE(HasPermissionToActivate(window));
 }
 
+class LegacyTestSecurityDelegate : public test::TestSecurityDelegate {
+ public:
+  bool CanSelfActivate(aura::Window* window) const override {
+    if (allow_self_activate_) {
+      return true;
+    }
+    return HasPermissionToActivate(window);
+  }
+  void SetAllowSelfActivate(bool allow) { allow_self_activate_ = allow; }
+
+ private:
+  bool allow_self_activate_ = true;
+};
+
 TEST_F(ShellSurfaceTest, WidgetActivationLegacy) {
   constexpr gfx::Size kBufferSize(64, 64);
-  auto security_delegate = std::make_unique<test::TestSecurityDelegate>();
+  auto security_delegate = std::make_unique<LegacyTestSecurityDelegate>();
 
   auto shell_surface1 = test::ShellSurfaceBuilder(kBufferSize)
                             .SetSecurityDelegate(security_delegate.get())
@@ -1339,6 +1353,8 @@ TEST_F(ShellSurfaceTest, WidgetActivationLegacy) {
   EXPECT_FALSE(widget1->IsActive());
   EXPECT_TRUE(widget2->IsActive());
 
+  security_delegate->SetAllowSelfActivate(false);
+
   // Grant permission to activate the first window.
   GrantPermissionToActivate(widget1->GetNativeWindow(), base::Days(1));
 
@@ -1355,6 +1371,8 @@ TEST_F(ShellSurfaceTest, WidgetActivationLegacy) {
 
 TEST_F(ShellSurfaceTest, WidgetActivation) {
   test::MockSecurityDelegate security_delegate;
+  ON_CALL(security_delegate, CanSelfActivate(testing::_))
+      .WillByDefault(testing::Return(true));
   constexpr gfx::Size kBufferSize(64, 64);
   std::unique_ptr<ShellSurface> shell_surface1 =
       test::ShellSurfaceBuilder(kBufferSize)
@@ -1389,6 +1407,62 @@ TEST_F(ShellSurfaceTest, WidgetActivation) {
   shell_surface2->surface_for_testing()->RequestActivation();
   EXPECT_TRUE(widget1->IsActive());
   EXPECT_FALSE(widget2->IsActive());
+}
+
+// Verified that a newly created `xdg_toplevel` with No `kPermissionKey`
+// does not take focus upon self-activation, when the SecurityDelegate denies
+// this type of self-activation.
+TEST_F(ShellSurfaceTest, CanSelfActivateEnforcedOnInitialShow) {
+  constexpr gfx::Size kBufferSize(64, 64);
+
+  // 1. Victim window: a previously-active surface.
+  testing::NiceMock<test::MockSecurityDelegate> allow_delegate;
+  EXPECT_CALL(allow_delegate, CanSelfActivate(testing::_))
+      .WillRepeatedly(testing::Return(true));
+
+  std::unique_ptr<ShellSurface> victim =
+      test::ShellSurfaceBuilder(kBufferSize)
+          .SetSecurityDelegate(&allow_delegate)
+          .BuildShellSurface();
+  views::Widget* victim_widget = victim->GetWidget();
+  ASSERT_TRUE(victim_widget->IsActive());
+
+  // 2. Attacker security context: simulates production
+  //    ChromeSecurityDelegate::CanSelfActivate for a Crostini window with no
+  //    kPermissionKey grant. CanSelfActivate is hard-denied.
+  testing::NiceMock<test::MockSecurityDelegate> deny_delegate;
+
+  // We expect CanSelfActivate to be called ONCE during the initial show
+  // (commit).
+  EXPECT_CALL(deny_delegate, CanSelfActivate(testing::_))
+      .WillOnce(testing::Return(false));
+
+  // 3. Attacker creates a new xdg_toplevel and commits.
+  std::unique_ptr<ShellSurface> attacker =
+      test::ShellSurfaceBuilder(kBufferSize)
+          .SetSecurityDelegate(&deny_delegate)
+          .BuildShellSurface();
+
+  views::Widget* attacker_widget = attacker->GetWidget();
+  aura::Window* attacker_window = attacker_widget->GetNativeWindow();
+
+  // 4. Confirm the production gate WOULD have denied this: no kPermissionKey
+  //    was ever granted on the new window.
+  EXPECT_FALSE(HasPermissionToActivate(attacker_window))
+      << "kPermissionKey should be unset on a freshly-spawned toplevel";
+
+  // 5. VERIFY FIX: focus was NOT stolen.
+  EXPECT_FALSE(attacker_widget->IsActive())
+      << "Attacker toplevel should NOT have self-activated on first commit";
+  EXPECT_TRUE(victim_widget->IsActive())
+      << "Victim window should have retained keyboard focus";
+
+  // 6. Contrast: the post-ready path IS gated.
+  EXPECT_CALL(deny_delegate, CanSelfActivate(attacker_window))
+      .WillOnce(testing::Return(false));
+  attacker->RequestActivation();
+  EXPECT_TRUE(victim_widget->IsActive());
+  EXPECT_FALSE(attacker_widget->IsActive());
 }
 
 TEST_F(ShellSurfaceTest, EmulateOverrideRedirect) {
@@ -3597,6 +3671,136 @@ TEST_F(ShellSurfaceTest, PropertyResolverTest) {
     EXPECT_EQ(2, shell_surface->GetWidget()->GetNativeWindow()->GetProperty(
                      ash::kShelfItemTypeKey));
   }
+}
+
+TEST_F(ShellSurfaceTest, OverlayEventTargeting) {
+  auto shell_surface = test::ShellSurfaceBuilder({100, 100})
+                           .SetFrame(SurfaceFrameType::NORMAL)
+                           .BuildShellSurface();
+  shell_surface->GetWidget()->GetNativeWindow()->SetProperty(
+      aura::client::kSkipImeProcessing, true);
+
+  EXPECT_FALSE(shell_surface->HasOverlay());
+
+  aura::Window* window = shell_surface->GetWidget()->GetNativeWindow();
+  aura::Window* parent_window = window->parent();
+  aura::WindowTargeter parent_targeter;
+  int frame_height = views::GetCaptionButtonLayoutSize(
+                         views::CaptionButtonLayoutSize::kNonBrowserCaption)
+                         .height();
+
+  // Test case 1: Overlay does NOT overlap the frame.
+  {
+    ShellSurfaceBase::OverlayParams params(std::make_unique<views::View>());
+    params.overlaps_frame = false;
+    shell_surface->AddOverlay(std::move(params));
+
+    EXPECT_TRUE(shell_surface->HasOverlay());
+
+    // Point inside the frame (above the overlay).
+    gfx::Point point_in_frame(10, frame_height - 1);
+    gfx::Point point_in_parent_frame = point_in_frame;
+    aura::Window::ConvertPointToTarget(window, parent_window,
+                                       &point_in_parent_frame);
+
+    ui::MouseEvent event_in_frame(ui::EventType::kMousePressed,
+                                  point_in_parent_frame, point_in_parent_frame,
+                                  base::TimeTicks::Now(), 0, 0);
+    ui::EventTarget* target_in_frame =
+        parent_targeter.FindTargetForEvent(parent_window, &event_in_frame);
+    EXPECT_TRUE(target_in_frame);
+
+    // The event should NOT be targeted to the overlay widget's window.
+    EXPECT_FALSE(shell_surface->overlay_widget_for_testing()
+                     ->GetNativeWindow()
+                     ->Contains(static_cast<aura::Window*>(target_in_frame)));
+
+    // Point inside the overlay (near the bottom).
+    gfx::Point point_in_overlay(10, 100 - 5);
+    gfx::Point point_in_parent_overlay = point_in_overlay;
+    aura::Window::ConvertPointToTarget(window, parent_window,
+                                       &point_in_parent_overlay);
+
+    ui::MouseEvent event_in_overlay(
+        ui::EventType::kMousePressed, point_in_parent_overlay,
+        point_in_parent_overlay, base::TimeTicks::Now(), 0, 0);
+    ui::EventTarget* target_in_overlay =
+        parent_targeter.FindTargetForEvent(parent_window, &event_in_overlay);
+    EXPECT_TRUE(target_in_overlay);
+    // The event should be targeted exactly to the overlay widget's window.
+    EXPECT_EQ(shell_surface->overlay_widget_for_testing()->GetNativeWindow(),
+              static_cast<aura::Window*>(target_in_overlay));
+
+    shell_surface->RemoveOverlay();
+  }
+
+  // Test case 2: Overlay overlaps the frame.
+  {
+    ShellSurfaceBase::OverlayParams params(std::make_unique<views::View>());
+    params.overlaps_frame = true;
+    shell_surface->AddOverlay(std::move(params));
+    EXPECT_TRUE(shell_surface->HasOverlay());
+
+    // Point inside the frame (which is now covered by the overlay).
+    gfx::Point point_in_frame(10, frame_height - 1);
+    gfx::Point point_in_parent_frame = point_in_frame;
+    aura::Window::ConvertPointToTarget(window, parent_window,
+                                       &point_in_parent_frame);
+
+    ui::MouseEvent event_in_frame(ui::EventType::kMousePressed,
+                                  point_in_parent_frame, point_in_parent_frame,
+                                  base::TimeTicks::Now(), 0, 0);
+    ui::EventTarget* target_in_frame =
+        parent_targeter.FindTargetForEvent(parent_window, &event_in_frame);
+    EXPECT_TRUE(target_in_frame);
+    // The event SHOULD be targeted exactly to the overlay widget's window.
+    EXPECT_EQ(shell_surface->overlay_widget_for_testing()->GetNativeWindow(),
+              static_cast<aura::Window*>(target_in_frame));
+
+    shell_surface->RemoveOverlay();
+  }
+}
+
+TEST_F(ShellSurfaceTest, OverlayEventTargetingWithEmptyRootSurface) {
+  // Create a shell surface with a 1x1 root surface to simulate the
+  // ArcGhostWindowView scenario where the Wayland surface hasn't fully
+  // initialized but the overlay is shown.
+  auto shell_surface = test::ShellSurfaceBuilder({1, 1})
+                           .SetMinimumSize(gfx::Size(100, 100))
+                           .SetFrame(SurfaceFrameType::NORMAL)
+                           .BuildShellSurface();
+  shell_surface->GetWidget()->GetNativeWindow()->SetProperty(
+      aura::client::kSkipImeProcessing, true);
+
+  aura::Window* window = shell_surface->GetWidget()->GetNativeWindow();
+  aura::Window* parent_window = window->parent();
+  aura::WindowTargeter parent_targeter;
+
+  ShellSurfaceBase::OverlayParams params(std::make_unique<views::View>());
+  params.overlaps_frame = false;
+  shell_surface->AddOverlay(std::move(params));
+  EXPECT_TRUE(shell_surface->HasOverlay());
+
+  // Point inside the overlay, but way outside the 1x1 root surface.
+  // The overlay's bounds are based on the widget's bounds (100x100), not the
+  // root surface's bounds (1x1).
+  gfx::Point point_in_overlay(50, 50);
+  gfx::Point point_in_parent_overlay = point_in_overlay;
+  aura::Window::ConvertPointToTarget(window, parent_window,
+                                     &point_in_parent_overlay);
+
+  ui::MouseEvent event_in_overlay(
+      ui::EventType::kMousePressed, point_in_parent_overlay,
+      point_in_parent_overlay, base::TimeTicks::Now(), 0, 0);
+  ui::EventTarget* target_in_overlay =
+      parent_targeter.FindTargetForEvent(parent_window, &event_in_overlay);
+  EXPECT_TRUE(target_in_overlay);
+
+  // The event should be targeted exactly to the overlay widget's window,
+  // even though the root surface bounds are 1x1, because the overlay bounds
+  // are based on the widget bounds.
+  EXPECT_EQ(shell_surface->overlay_widget_for_testing()->GetNativeWindow(),
+            static_cast<aura::Window*>(target_in_overlay));
 }
 
 TEST_F(ShellSurfaceTest, Overlay) {

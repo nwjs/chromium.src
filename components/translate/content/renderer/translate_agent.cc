@@ -154,6 +154,12 @@ void TranslateAgent::PageCaptured(
   // slight overhead in running the model when unnecessary.
   if (url.is_empty() || url.SchemeIs(content::kChromeUIScheme) ||
       url.SchemeIs(content::kChromeDevToolsScheme) || url.IsAboutBlank()) {
+    LanguageDetectionDetails details;
+    details.time = base::Time::Now();
+    details.url = url;
+    details.has_run_lang_detection = false;
+    RegisterPageInternal(std::move(details),
+                         /*page_level_translation_criteria_met=*/false);
     return;
   }
 
@@ -177,10 +183,10 @@ void TranslateAgent::PageCaptured(
     details.adopted_language = language;
     details.contents = contents->as_string();
     details.has_run_lang_detection = true;
-    ResetPage();
 
-    last_details_ = std::move(details);
-    RenewPageRegistration();
+    bool criteria =
+        !details.has_notranslate && !details.adopted_language.empty();
+    RegisterPageInternal(std::move(details), criteria);
     return;
   }
 
@@ -225,9 +231,6 @@ void TranslateAgent::PageCaptured(
     details.has_run_lang_detection = true;
   }
 
-  if (language.empty())
-    return;
-
   details.time = base::Time::Now();
   details.url = web_detection_details.url;
   details.content_language = content_language;
@@ -243,12 +246,27 @@ void TranslateAgent::PageCaptured(
   // translate-internals tab exists.
   details.contents = contents->as_string();
 
+  bool criteria = !details.has_notranslate && !details.adopted_language.empty();
+  RegisterPageInternal(std::move(details), criteria);
+}
+
+void TranslateAgent::RegisterPageInternal(
+    LanguageDetectionDetails details,
+    bool page_level_translation_criteria_met) {
+  WebLocalFrame* main_frame = render_frame()->GetWebFrame();
+  if (!main_frame) {
+    return;
+  }
+
   // For the same render frame with the same url, each time when its texts are
   // captured, it should be treated as a new page to do translation.
   ResetPage();
+  GetTranslateHandler()->RegisterPage(
+      receiver_.BindNewPipeAndPassRemote(
+          main_frame->GetTaskRunner(blink::TaskType::kInternalTranslation)),
+      details, page_level_translation_criteria_met);
 
   last_details_ = std::move(details);
-  RenewPageRegistration();
 }
 
 void TranslateAgent::RenewPageRegistration() {
@@ -256,20 +274,9 @@ void TranslateAgent::RenewPageRegistration() {
     return;
   }
 
-  WebLocalFrame* main_frame = render_frame()->GetWebFrame();
-  if (!main_frame) {
-    return;
-  }
-
   LanguageDetectionDetails details = std::move(*last_details_);
-
-  ResetPage();
-  GetTranslateHandler()->RegisterPage(
-      receiver_.BindNewPipeAndPassRemote(
-          main_frame->GetTaskRunner(blink::TaskType::kInternalTranslation)),
-      details, !details.has_notranslate && !details.adopted_language.empty());
-
-  last_details_ = std::move(details);
+  bool criteria = !details.has_notranslate && !details.adopted_language.empty();
+  RegisterPageInternal(std::move(details), criteria);
 }
 
 void TranslateAgent::CancelPendingTranslation() {
@@ -331,7 +338,7 @@ void TranslateAgent::ExecuteScript(const std::string& script) {
   if (!main_frame)
     return;
 
-  WebScriptSource source = WebScriptSource(WebString::FromUtf8(script));
+  WebScriptSource source = WebScriptSource(WebString::FromAscii(script));
   main_frame->ExecuteScriptInIsolatedWorld(
       world_id_, source, blink::BackForwardCacheAware::kAllow);
 }
@@ -343,7 +350,7 @@ bool TranslateAgent::ExecuteScriptAndGetBoolResult(const std::string& script,
     return fallback;
 
   v8::HandleScope handle_scope(main_frame->GetAgentGroupScheduler()->Isolate());
-  WebScriptSource source = WebScriptSource(WebString::FromUtf8(script));
+  WebScriptSource source = WebScriptSource(WebString::FromAscii(script));
   v8::Local<v8::Value> result =
       main_frame->ExecuteScriptInIsolatedWorldAndReturnValue(
           world_id_, source, blink::BackForwardCacheAware::kAllow);
@@ -362,7 +369,7 @@ std::string TranslateAgent::ExecuteScriptAndGetStringResult(
 
   v8::Isolate* isolate = main_frame->GetAgentGroupScheduler()->Isolate();
   v8::HandleScope handle_scope(isolate);
-  WebScriptSource source = WebScriptSource(WebString::FromUtf8(script));
+  WebScriptSource source = WebScriptSource(WebString::FromAscii(script));
   v8::Local<v8::Value> result =
       main_frame->ExecuteScriptInIsolatedWorldAndReturnValue(
           world_id_, source, blink::BackForwardCacheAware::kAllow);
@@ -388,7 +395,7 @@ double TranslateAgent::ExecuteScriptAndGetDoubleResult(
     return 0.0;
 
   v8::HandleScope handle_scope(main_frame->GetAgentGroupScheduler()->Isolate());
-  WebScriptSource source = WebScriptSource(WebString::FromUtf8(script));
+  WebScriptSource source = WebScriptSource(WebString::FromAscii(script));
   v8::Local<v8::Value> result =
       main_frame->ExecuteScriptInIsolatedWorldAndReturnValue(
           world_id_, source, blink::BackForwardCacheAware::kAllow);
@@ -406,7 +413,7 @@ int64_t TranslateAgent::ExecuteScriptAndGetIntegerResult(
     return 0;
 
   v8::HandleScope handle_scope(main_frame->GetAgentGroupScheduler()->Isolate());
-  WebScriptSource source = WebScriptSource(WebString::FromUtf8(script));
+  WebScriptSource source = WebScriptSource(WebString::FromAscii(script));
   v8::Local<v8::Value> result =
       main_frame->ExecuteScriptInIsolatedWorldAndReturnValue(
           world_id_, source, blink::BackForwardCacheAware::kAllow);

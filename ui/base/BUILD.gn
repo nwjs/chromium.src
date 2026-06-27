@@ -603,6 +603,7 @@ component("base") {
       "Carbon.framework",
       "CoreVideo.framework",
       "Foundation.framework",
+      "IOKit.framework",
       "QuartzCore.framework",
       "UniformTypeIdentifiers.framework",
     ]
@@ -780,6 +781,8 @@ static_library("test_support") {
     "resource/mock_resource_bundle_delegate.h",
     "test/idle_test_utils.cc",
     "test/idle_test_utils.h",
+    "test/mock_base_window.cc",
+    "test/mock_base_window.h",
   ]
 
   if (is_mac) {
@@ -950,10 +953,7 @@ if (is_android) {
 
 bundle_data("ui_base_unittests_bundle_data") {
   testonly = true
-  sources = [
-    "//testing/buildbot/filters/ios.ui_base_unittests.filter",
-    "test/data/data_pack_unittest/truncated-header.pak",
-  ]
+  sources = [ "test/data/data_pack_unittest/truncated-header.pak" ]
   outputs = [ "{{bundle_resources_dir}}/" +
               "{{source_root_relative_dir}}/{{source_file_part}}" ]
 }
@@ -1114,6 +1114,7 @@ test("ui_base_unittests") {
       "cocoa/base_view_unittest.mm",
       "cocoa/bubble_closer_unittest.mm",
       "cocoa/cocoa_base_utils_unittest.mm",
+      "cocoa/command_dispatcher_unittest.mm",
       "cocoa/constrained_window/constrained_window_animation_unittest.mm",
       "cocoa/defaults_utils_unittest.mm",
       "cocoa/nsmenu_additions_unittest.mm",

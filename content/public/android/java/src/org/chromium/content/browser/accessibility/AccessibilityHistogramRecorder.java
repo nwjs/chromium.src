@@ -131,10 +131,6 @@ public class AccessibilityHistogramRecorder {
             "Accessibility.Android.Performance.TimeOfScrollToMakeVisible";
 
     @VisibleForTesting
-    public static final String ACCESSIBILITY_CREATE_ACCESSIBILITY_NODE_INFO_COUNT =
-            "Accessibility.Android.Performance.CreateAccessibilityNodeInfo.Count";
-
-    @VisibleForTesting
     public static final String ACCESSIBILITY_FAKE_CACHE_HEALTH_INDEX =
             "Accessibility.Android.Performance.FakeCache.CacheHealthIndex";
 
@@ -193,7 +189,6 @@ public class AccessibilityHistogramRecorder {
     private int mNodeWasReturnedFromCache;
     private int mNodeWasCreatedFromScratch;
     private int mNodeWasFreshInCache;
-    private int mCreateAccessibilityNodeInfoCount;
 
     // These track the usage if the | mFakeAndroidCache |.
     private int mStaleNodesOnFakeCacheCount;
@@ -351,11 +346,6 @@ public class AccessibilityHistogramRecorder {
         mNodeWasFreshInCache++;
     }
 
-    /** Increment the count of calls to createAccessibilityNodeInfo. */
-    public void incrementCreateAccessibilityNodeInfoCount() {
-        mCreateAccessibilityNodeInfoCount++;
-    }
-
     /** Set the time this instance was shown to the current time in ms. */
     public void updateTimeOfFirstShown() {
         mTimeOfFirstShown = SystemClock.elapsedRealtime();
@@ -398,7 +388,6 @@ public class AccessibilityHistogramRecorder {
         recordEventsHistograms();
         recordCacheHistograms();
         recordTotalTimeCreateAccessibilityNodeInfoHistogram();
-        recordCreateAccessibilityNodeInfoCountHistogram();
         recordFakeCacheHistograms();
     }
 
@@ -573,19 +562,6 @@ public class AccessibilityHistogramRecorder {
                 80);
     }
 
-    /** Record UMA histogram for the number of calls of AccessibilityNodeInfo objects */
-    public void recordCreateAccessibilityNodeInfoCountHistogram() {
-        if (mCreateAccessibilityNodeInfoCount == 0) return;
-
-        RecordHistogram.recordCustomCountHistogram(
-                ACCESSIBILITY_CREATE_ACCESSIBILITY_NODE_INFO_COUNT,
-                mCreateAccessibilityNodeInfoCount,
-                1,
-                1000000,
-                50);
-        mCreateAccessibilityNodeInfoCount = 0;
-    }
-
     /** Record UMA histogram for the number of stale nodes on the fake cache */
     public void recordFakeCacheHistograms() {
         if (mTotalNodesCount <= 0) {
@@ -643,6 +619,8 @@ public class AccessibilityHistogramRecorder {
 
             RecordHistogram.recordPercentageHistogram(
                     ACCESSIBILITY_FAKE_CACHE_HEALTH_INDEX, cacheHealthIndex);
+        }
+        if (mNodesRemovedFromFakeCacheSet.size() > 0) {
             mNodesAddedToFakeCacheSet.clear();
             mNodesRemovedFromFakeCacheSet.clear();
         }
@@ -691,5 +669,11 @@ public class AccessibilityHistogramRecorder {
                 /* numBuckets= */ 80);
 
         mTimeScrollToMakeVisible = -1;
+    }
+
+    public int getPreviousCacheSizeForTesting() {
+        return mTotalFakeCacheNodesCount
+                - mNodesAddedToFakeCacheSet.size()
+                + mNodesRemovedFromFakeCacheSet.size();
     }
 }

@@ -127,9 +127,15 @@ class SystemIdentityManager {
   using FetchCapabilitiesCallback =
       base::OnceCallback<void(std::map<std::string, CapabilityResult>)>;
 
-  // Callback invoked when the `CanSigninToChrome()` capability is fetched.
-  using FetchCanSigninToChromeCallback =
-      base::OnceCallback<void(CapabilityResult)>;
+  // Callback invoked when the `FetchCapabilities()` operation completes for a
+  // subset of the capabilities. Can be called multiple times as capabilities
+  // are fetched.
+  using FetchPartialCapabilitiesCallback =
+      base::RepeatingCallback<void(std::map<std::string, CapabilityResult>)>;
+
+  // Callback invoked when the `FetchCapabilitiesWithPartial()` operation
+  // completes.
+  using FetchCapabilitiesCompletion = base::OnceClosure;
 
   // Callback invoked when `HandleMDMNotification` completes. Is is invoked
   // with a boolean indicating whether the device is blocked or not.
@@ -275,14 +281,21 @@ class SystemIdentityManager {
       id<SystemIdentity> identity) = 0;
 
   // Asynchronously returns the capabilities for `identity`.
+  // TODO(crbug.com/517899430): remove this method once it's replaced by
+  // FetchCapabilitiesWithPartial.
   virtual void FetchCapabilities(id<SystemIdentity> identity,
                                  const std::vector<std::string>& names,
                                  FetchCapabilitiesCallback callback) = 0;
 
-  // Asynchronously returns the `CanSigninToChrome` capability for `identity`.
-  // TODO(crbug.com/507833087): Remove and use account capabilities instead.
-  virtual void FetchCanSigninToChrome(id<SystemIdentity> identity,
-                                      FetchCanSigninToChromeCallback callback);
+  // Asynchronously returns the capabilities for `identity`.
+  // `completion` is called once all capabilities in `names` are fetched or have
+  // failed. `partial_callback` is called multiple times as a subset of
+  // capabilities in `names` are fetched.
+  virtual void FetchCapabilitiesWithPartial(
+      id<SystemIdentity> identity,
+      const std::vector<std::string>& names,
+      FetchCapabilitiesCompletion completion,
+      FetchPartialCapabilitiesCallback partial_callback);
 
   // Registers the provider for building external privacy context.
   virtual void RegisterExternalPrivacyContextProvider(

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/auto_reset.h"
+#include "base/byte_size.h"
 #include "base/check.h"
 #include "base/check_is_test.h"
 #include "base/check_op.h"
@@ -33,6 +34,7 @@
 #include "base/no_destructor.h"
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/state_transitions.h"
 #include "base/strings/strcat.h"
@@ -50,6 +52,7 @@
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "content/browser/agent_cluster_key.h"
 #include "content/browser/back_forward_cache/back_forward_cache_impl.h"
+#include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browsing_topics/header_util.h"
 #include "content/browser/child_process_security_policy_impl.h"
@@ -75,6 +78,7 @@
 #include "content/browser/preloading/prefetch/prefetch_document_manager.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_serving_page_metrics_container.h"
+#include "content/browser/preloading/preload_activation_report_manager.h"
 #include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/browser/preloading/prerender/prerender_metrics.h"
 #include "content/browser/preloading/prerender/prerender_navigation_utils.h"
@@ -140,6 +144,7 @@
 #include "content/public/browser/reduce_accept_language_utils.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/tracing_support.h"
@@ -189,6 +194,7 @@
 #include "services/network/public/mojom/connection_change_observer_client.mojom.h"
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
+#include "services/network/public/mojom/link_header.mojom.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "services/network/public/mojom/supports_loading_mode.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -217,6 +223,7 @@
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/loader/mixed_content.mojom.h"
 #include "third_party/blink/public/mojom/loader/transferrable_url_loader.mojom.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
@@ -415,42 +422,32 @@ void AddAdditionalRequestHeaders(
   // Next, set the HTTP Origin if needed.
   std::optional<std::string> existing_origin =
       headers->GetHeader(net::HttpRequestHeaders::kOrigin);
-  if (NeedsHTTPOrigin(method)) {
-    // TODO(https://crbug.com/491783215): investigate whether it is possible to
-    // set Origin headers (at least on navigation requests) exclusively in the
-    // browser process and kill any renderer that provides Origin itself.
+  bool needs_http_origin = NeedsHTTPOrigin(method);
+  if (needs_http_origin) {
     url::Origin origin_header_value = initiator_origin.value_or(url::Origin());
     origin_header_value = Referrer::SanitizeOriginForRequest(
         url, origin_header_value, referrer->policy);
     std::string serialized_origin = origin_header_value.Serialize();
-    if (existing_origin && existing_origin != serialized_origin &&
-        !is_browser_initiated && !is_history &&
-        base::FeatureList::IsEnabled(features::kDumpOnOriginHeaderMismatch)) {
-      // TODO(https://crbug.com/487795397): this should
-      // be a `bad_message::ReceivedBadMessage` and return `false` once
-      // DumpWithoutCrashing data is evaluated.
-      SCOPED_CRASH_KEY_STRING64("Bug487795397", "invalid_header",
-                                net::HttpRequestHeaders::kOrigin);
-      SCOPED_CRASH_KEY_STRING64("Bug487795397", "existing_origin",
-                                existing_origin.value());
-      SCOPED_CRASH_KEY_STRING64("Bug487795397", "serialized_origin",
-                                serialized_origin);
-      SCOPED_CRASH_KEY_BOOL("Bug487795397", "needs_origin_header", true);
-      base::debug::DumpWithoutCrashing();
-    }
     headers->SetHeader(net::HttpRequestHeaders::kOrigin, serialized_origin);
-  } else if (existing_origin && !is_browser_initiated && !is_history &&
-             base::FeatureList::IsEnabled(
-                 features::kDumpOnUnexpectedOriginHeader)) {
-    // TODO(https://crbug.com/40093290): this should
-    // be a `bad_message::ReceivedBadMessage` and return `false` once
-    // DumpWithoutCrashing() data is evaluated.
-    SCOPED_CRASH_KEY_STRING64("Bug487795397", "invalid_header",
-                              net::HttpRequestHeaders::kOrigin);
-    SCOPED_CRASH_KEY_STRING64("Bug487795397", "existing_origin",
+  } else if (!is_browser_initiated && !is_history) {
+    headers->RemoveHeader(net::HttpRequestHeaders::kOrigin);
+  }
+  if (existing_origin && !is_browser_initiated && !is_history &&
+      base::FeatureList::IsEnabled(features::kKillOnUnexpectedOriginHeader)) {
+    // A well-behaved renderer will never provide an Origin header on a
+    // navigation request, and will instead rely on the browser process to set
+    // it. History navigations are excluded from this enforcement because it is
+    // valid behavior for a renderer-initiated history navigation to reach this
+    // point with an Origin header populated from an existing navigation entry.
+    SCOPED_CRASH_KEY_STRING64("Bug487795397", "renderer_provided_origin",
                               existing_origin.value());
-    SCOPED_CRASH_KEY_BOOL("Bug487795397", "needs_origin_header", false);
-    base::debug::DumpWithoutCrashing();
+    SCOPED_CRASH_KEY_STRING64(
+        "Bug487795397", "current_header_origin",
+        headers->GetHeader(net::HttpRequestHeaders::kOrigin).value_or(""));
+    SCOPED_CRASH_KEY_BOOL("Bug487795397", "needs_origin_header",
+                          needs_http_origin);
+    bad_message::ReceivedBadMessage(render_view_host->GetProcess(),
+                                    bad_message::NR_BAD_ORIGIN_HEADER);
   }
 
   if (base::FeatureList::IsEnabled(features::kDocumentPolicyNegotiation)) {
@@ -1399,6 +1396,16 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
   common_params->request_destination =
       GetDestinationFromFrameTreeNode(frame_tree_node);
 
+  GURL original_url = common_params->url;
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeOriginalUrlDuringNavigation)) {
+    // It is safe to convert GURL to an Origin and back in the code below
+    // because we only want to discard the rest of the URL (e.g., path and
+    // params). The actual underlying Origin is not needed, which could be
+    // inherited or opaque in sandbox cases.
+    original_url = common_params->url.DeprecatedGetOriginAsURL();
+  }
+
   // TODO(clamy): See if the navigation start time should be measured in the
   // renderer and sent to the browser instead of being measured here.
   blink::mojom::CommitNavigationParamsPtr commit_params =
@@ -1411,7 +1418,7 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           /*redirect_response=*/
           std::vector<network::mojom::URLResponseHeadPtr>(),
           /*redirect_infos=*/std::vector<net::RedirectInfo>(),
-          /*post_content_type=*/std::string(), common_params->url,
+          /*post_content_type=*/std::string(), original_url,
           common_params->method,
           /*can_load_local_resources=*/false,
           /*page_state=*/std::string(),
@@ -1445,7 +1452,7 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           /*should_have_sticky_user_activation=*/false,
           /*old_page_info=*/nullptr, /*http_response_code=*/-1,
           blink::mojom::NavigationApiHistoryEntryArrays::New(),
-          /*early_hints_preloaded_resources=*/std::vector<GURL>(),
+          std::vector<network::mojom::LinkHeaderPtr>(),
           // This timestamp will be populated when the commit IPC is sent.
           /*commit_sent=*/base::TimeTicks(), /*srcdoc_value=*/std::string(),
           /*should_load_data_url=*/false,
@@ -1466,7 +1473,7 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
-          frame_tree_node->current_frame_host()->GetCachedPermissionStatuses(),
+          /*initial_permission_statuses=*/std::nullopt,
           /*should_skip_screenshot=*/false,
           /*force_new_document_sequence_number=*/false,
           /*navigation_metrics_token=*/base::UnguessableToken::Create(),
@@ -1517,6 +1524,7 @@ NavigationRequest::CreateForSynchronousRendererCommit(
     bool is_same_document,
     const GURL& url,
     const url::Origin& origin,
+    const std::optional<url::Origin>& initiator_origin,
     const std::optional<GURL>& initiator_base_url,
     const net::IsolationInfo& isolation_info_for_subresources,
     blink::mojom::ReferrerPtr referrer,
@@ -1537,10 +1545,8 @@ NavigationRequest::CreateForSynchronousRendererCommit(
   // copying so many parameters here.
   blink::mojom::CommonNavigationParamsPtr common_params =
       blink::mojom::CommonNavigationParams::New(
-          url,
-          // TODO(nasko): Investigate better value to pass for
-          // |initiator_origin|.
-          origin, initiator_base_url, std::move(referrer), transition,
+          url, initiator_origin, initiator_base_url, std::move(referrer),
+          transition,
           is_same_document ? blink::mojom::NavigationType::SAME_DOCUMENT
                            : blink::mojom::NavigationType::DIFFERENT_DOCUMENT,
           blink::NavigationDownloadPolicy(), should_replace_current_entry,
@@ -1563,6 +1569,15 @@ NavigationRequest::CreateForSynchronousRendererCommit(
   // by navigations that went through the browser (e.g. page_state is only
   // set in CommitNavigationParams of history navigations) or these values are
   // not used by the browser after commit.
+  // It is safe to convert GURL to an Origin and back in the code below because
+  // we only want to discard the rest of the URL (e.g., path and params). The
+  // actual underlying Origin is not needed, which could be inherited or opaque
+  // in sandbox cases.
+  const GURL original_url_for_renderer =
+      base::FeatureList::IsEnabled(
+          features::kSanitizeOriginalUrlDuringNavigation)
+          ? original_url.DeprecatedGetOriginAsURL()
+          : original_url;
   blink::mojom::CommitNavigationParamsPtr commit_params =
       blink::mojom::CommitNavigationParams::New(
           url::Origin(),
@@ -1572,7 +1587,7 @@ NavigationRequest::CreateForSynchronousRendererCommit(
           /*redirect_response=*/
           std::vector<network::mojom::URLResponseHeadPtr>(),
           /*redirect_infos=*/std::vector<net::RedirectInfo>(),
-          /*post_content_type=*/std::string(), original_url,
+          /*post_content_type=*/std::string(), original_url_for_renderer,
           /*original_method=*/method,
           /*can_load_local_resources=*/false,
           /*page_state=*/std::string(),
@@ -1605,7 +1620,7 @@ NavigationRequest::CreateForSynchronousRendererCommit(
           /*should_have_sticky_user_activation=*/false,
           /*old_page_info=*/nullptr, http_response_code,
           blink::mojom::NavigationApiHistoryEntryArrays::New(),
-          /*early_hints_preloaded_resources=*/std::vector<GURL>(),
+          std::vector<network::mojom::LinkHeaderPtr>(),
           // This timestamp will be populated when the commit IPC is sent.
           /*commit_sent=*/base::TimeTicks(), /*srcdoc_value=*/std::string(),
           /*should_load_data_url=*/false,
@@ -1626,7 +1641,7 @@ NavigationRequest::CreateForSynchronousRendererCommit(
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
           /*visited_link_salt=*/std::nullopt,
           /*local_surface_id=*/std::nullopt,
-          render_frame_host->GetCachedPermissionStatuses(),
+          /*initial_permission_statuses=*/std::nullopt,
           /*should_skip_screenshot=*/false,
           /*force_new_document_sequence_number=*/false,
           /*navigation_metrics_token=*/base::UnguessableToken::Create(),
@@ -1798,7 +1813,13 @@ NavigationRequest::NavigationRequest(
         !common_params_->initiator_base_url->is_empty());
   CHECK(!blink::IsRendererDebugURL(common_params_->url));
   CHECK(common_params_->method == "POST" || !common_params_->post_data);
-  CHECK_EQ(common_params_->url, commit_params_->original_url);
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeOriginalUrlDuringNavigation)) {
+    CHECK_EQ(common_params_->url.DeprecatedGetOriginAsURL(),
+             commit_params_->original_url);
+  } else {
+    CHECK_EQ(common_params_->url, commit_params_->original_url);
+  }
   // Navigations can't be a replacement and a reload at the same time.
   CHECK(!common_params_->should_replace_current_entry ||
         !NavigationTypeUtils::IsReload(common_params_->navigation_type));
@@ -1808,6 +1829,7 @@ NavigationRequest::NavigationRequest(
   CHECK(IsInOutermostMainFrame() || commit_params_->data_url_as_string.empty());
 #endif
   CheckSoftNavigationHeuristicsInvariants();
+  ScopedCrashKeys crash_keys(*this);
 
 #if !BUILDFLAG(IS_ANDROID)
   // It should not be possible to navigate away from the initial WebUI page,
@@ -1817,8 +1839,16 @@ NavigationRequest::NavigationRequest(
       GetContentClient()->browser()->IsInitialWebUIURL(
           frame_tree_node_->current_frame_host()
               ->GetSiteInstance()
-              ->GetSiteURL());
-  CHECK(!current_rfh_is_initial_webui || IsInitialWebUINavigation());
+              ->GetSecurityPrincipal()
+              .GetDeprecatedSiteURL());
+  if (current_rfh_is_initial_webui && !IsInitialWebUINavigation()) {
+    // TODO(crbug.com/511971445): Turn this into a CHECK again once
+    // investigation on what can cause this is finished.
+    base::debug::DumpWithoutCrashing();
+    // We should not allow navigating away from initial WebUI. Mark this
+    // request for cancellation in BeginNavigation().
+    should_cancel_on_leaving_initial_webui_ = true;
+  }
   if (IsInitialWebUINavigation()) {
     // Initial WebUI navigations must satisfy all these conditions
     // - Is browser initiated
@@ -1845,7 +1875,6 @@ NavigationRequest::NavigationRequest(
   }
 #endif
 
-  ScopedCrashKeys crash_keys(*this);
 
   ComputeDownloadPolicy();
 
@@ -2300,14 +2329,15 @@ NavigationRequest::~NavigationRequest() {
   TRACE_EVENT("navigation", "NavigationRequest::~NavigationRequest",
               perfetto::TerminatingFlow::FromPointer(this));
   is_destructing_ = true;
-#if DCHECK_IS_ON()
+
+#if !BUILDFLAG(IS_ANDROID)
   // If |is_safe_to_delete_| is false, it means |this| is being deleted at an
   // unexpected time, more specifically a time that is likely to lead to
   // crashing when the stack unwinds (use after free). The typical scenario for
   // this is calling to the delegate when the delegate is not expected to make
   // any sort of state change. For example, when the delegate is informed that a
   // navigation has started the delegate is not expected to call Stop().
-  DCHECK(is_safe_to_delete_);
+  CHECK(is_safe_to_delete_);
 #endif
 
   // Close "Initializing", or the last child event emitted in
@@ -2510,6 +2540,25 @@ void NavigationRequest::BeginNavigation() {
   ScopedCrashKeys crash_keys(*this);
   UpdateNavigationHandleTimingsOnBeginNavigation();
 
+  // Cancel the navigation if it is an invalid attempt to navigate away from
+  // an initial WebUI page.
+  if (should_cancel_on_leaving_initial_webui_) {
+#if BUILDFLAG(IS_ANDROID)
+    base::WeakPtr<NavigationRequest> this_ptr(weak_factory_.GetWeakPtr());
+#endif
+    StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+    if (!this_ptr) {
+      return;
+    }
+#endif
+    OnRequestFailedInternal(
+        network::URLLoaderCompletionStatus(net::ERR_ABORTED),
+        /*skip_throttles=*/false, /*error_page_content=*/std::nullopt,
+        /*collapse_frame=*/false);
+    return;
+  }
+
   if (begin_navigation_callback_for_testing_) {
     std::move(begin_navigation_callback_for_testing_).Run();
   }
@@ -2535,7 +2584,19 @@ void NavigationRequest::BeginNavigation() {
               "CSP Embedded Enforcement is specified by the embedder",
               sanitized_blocked_url.spec().c_str()));
 
+#if BUILDFLAG(IS_ANDROID)
+      base::WeakPtr<NavigationRequest> this_ptr(weak_factory_.GetWeakPtr());
+#endif
       StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+      if (!this_ptr) {
+        // DO NOT ADD CODE after this. The previous call to StartNavigation has
+        // destroyed the NavigationRequest.
+        // TODO(crbug.com/504574017): Remove if we can disallow StartNavigation
+        // from triggering synchronous deletion.
+        return;
+      }
+#endif
       OnRequestFailedInternal(
           network::URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CSP),
           false /*skip_throttles*/, std::nullopt /*error_page_content*/,
@@ -2797,7 +2858,19 @@ void NavigationRequest::OnFencedFrameURLMappingComplete(
       return;
     }
 
+#if BUILDFLAG(IS_ANDROID)
+    base::WeakPtr<NavigationRequest> this_ptr(weak_factory_.GetWeakPtr());
+#endif
     StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+    if (!this_ptr) {
+      // DO NOT ADD CODE after this. The previous call to StartNavigation has
+      // destroyed the NavigationRequest.
+      // TODO(crbug.com/504574017): Remove if we can disallow StartNavigation
+      // from triggering synchronous deletion.
+      return;
+    }
+#endif
     OnRequestFailedInternal(
         network::URLLoaderCompletionStatus(net::ERR_INVALID_URL),
         false /* skip_throttles */, std::nullopt /* error_page_content*/,
@@ -2816,7 +2889,16 @@ void NavigationRequest::OnFencedFrameURLMappingComplete(
   const GURL& mapped_url_value =
       properties->mapped_url()->GetValueIgnoringVisibility();
   common_params_->url = mapped_url_value;
-  commit_params_->original_url = mapped_url_value;
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeOriginalUrlDuringNavigation)) {
+    // It is safe to convert GURL to an Origin and back in the code below
+    // because we only want to discard the rest of the URL (e.g., path and
+    // params). The actual underlying Origin is not needed, which could be
+    // inherited or opaque in sandbox cases.
+    commit_params_->original_url = mapped_url_value.DeprecatedGetOriginAsURL();
+  } else {
+    commit_params_->original_url = mapped_url_value;
+  }
 
   // Store the browser's view of the fenced frame properties along with any
   // embedder context for shared storage in the`NavigationRequest`. Upon commit,
@@ -2920,6 +3002,15 @@ void NavigationRequest::BeginNavigationImpl() {
     // Create a navigation handle so that the correct error code can be set on
     // it by OnRequestFailedInternal().
     StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+    if (!this_ptr) {
+      // DO NOT ADD CODE after this. The previous call to StartNavigation has
+      // destroyed the NavigationRequest.
+      // TODO(crbug.com/504574017): Remove if we can disallow StartNavigation
+      // from triggering synchronous deletion.
+      return;
+    }
+#endif
     OnRequestFailedInternal(network::URLLoaderCompletionStatus(net_error),
                             false /* skip_throttles */,
                             std::nullopt /* error_page_content */,
@@ -2934,6 +3025,15 @@ void NavigationRequest::BeginNavigationImpl() {
     // Create a navigation handle so that the correct error code can be set on
     // it by OnRequestFailedInternal().
     StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+    if (!this_ptr) {
+      // DO NOT ADD CODE after this. The previous call to StartNavigation has
+      // destroyed the NavigationRequest.
+      // TODO(crbug.com/504574017): Remove if we can disallow StartNavigation
+      // from triggering synchronous deletion.
+      return;
+    }
+#endif
     auto completion_status =
         network::URLLoaderCompletionStatus(net::ERR_ABORTED);
     error_navigation_trigger_ =
@@ -2952,6 +3052,15 @@ void NavigationRequest::BeginNavigationImpl() {
     // Create a navigation handle so that the correct error code can be set on
     // it by OnRequestFailedInternal().
     StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+    if (!this_ptr) {
+      // DO NOT ADD CODE after this. The previous call to StartNavigation has
+      // destroyed the NavigationRequest.
+      // TODO(crbug.com/504574017): Remove if we can disallow StartNavigation
+      // from triggering synchronous deletion.
+      return;
+    }
+#endif
     auto completion_status =
         network::URLLoaderCompletionStatus(net::ERR_NETWORK_ACCESS_REVOKED);
     OnRequestFailedInternal(completion_status, false /* skip_throttles  */,
@@ -2964,6 +3073,15 @@ void NavigationRequest::BeginNavigationImpl() {
   }
 
   StartNavigation();
+#if BUILDFLAG(IS_ANDROID)
+  if (!this_ptr) {
+    // DO NOT ADD CODE after this. The previous call to StartNavigation has
+    // destroyed the NavigationRequest.
+    // TODO(crbug.com/504574017): Remove if we can disallow StartNavigation
+    // from triggering synchronous deletion.
+    return;
+  }
+#endif
 
   // The previous call to `StartNavigation()` could have changed the
   // is_overriding_user_agent value in CommitNavigationParams. If we're trying
@@ -3320,8 +3438,7 @@ void NavigationRequest::StartNavigation() {
   SetState(WILL_START_REQUEST);
   is_navigation_started_ = true;
 
-  modified_request_headers_.Clear();
-  removed_request_headers_.clear();
+  headers_update_params_.Clear();
 
   throttle_registry_ = std::make_unique<NavigationThrottleRegistryImpl>(this);
 
@@ -3355,12 +3472,26 @@ void NavigationRequest::StartNavigation() {
   }
 
   {
-#if DCHECK_IS_ON()
-    DCHECK(is_safe_to_delete_);
-    base::AutoReset<bool> resetter(&is_safe_to_delete_, false);
-#endif
-    base::AutoReset<bool> resetter2(&ua_change_requires_reload_, false);
+#if !BUILDFLAG(IS_ANDROID)
+    {
+      CHECK(is_safe_to_delete_);
+      base::AutoReset<bool> resetter(&is_safe_to_delete_, false);
+      base::AutoReset<bool> resetter2(&ua_change_requires_reload_, false);
+      GetDelegate()->DidStartNavigation(this);
+    }
+#else
+    // Since there's no `is_safe_to_delete_` check, do a manual
+    // `ua_change_requires_reload_` reset so that AutoReset does not write to a
+    // deleted object if observers of DidStartNavigation cancel this
+    // NavigationRequest.
+    const bool saved_ua_change_requires_reload = ua_change_requires_reload_;
+    ua_change_requires_reload_ = false;
+    base::WeakPtr<NavigationRequest> weak_this = weak_factory_.GetWeakPtr();
     GetDelegate()->DidStartNavigation(this);
+    if (weak_this) {
+      ua_change_requires_reload_ = saved_ua_change_requires_reload;
+    }
+#endif
   }
 }
 
@@ -3615,6 +3746,15 @@ void NavigationRequest::OnRequestRedirected(
   CHECK(response_head->parsed_headers);
   response_head_ = std::move(response_head);
   ssl_info_ = response_head_->ssl_info;
+  BrowserContext* browser_context =
+      frame_tree_node_->navigator().controller().GetBrowserContext();
+
+  if (SiteIsolationPolicy::ShouldUrlUseApplicationIsolationLevel(
+          browser_context, GetURL())) {
+    GetContentClient()->browser()->EnsureRequiredHeadersForIsolatedApp(
+        browser_context, GetURL(), response_head_.get(),
+        frame_tree_node_->frame_tree_node_id());
+  }
 
   // Reset the page state as it can no longer be used at commit time since the
   // navigation was redirected.
@@ -3624,9 +3764,10 @@ void NavigationRequest::OnRequestRedirected(
   // for the redirected one.
   commit_params_->not_restored_reasons = nullptr;
 
-  // Reset the LCPP hint as the hint is for the original page and not for the
-  // redirected one.
-  commit_params_->lcpp_hint = nullptr;
+  // Reset the internal scroll-to-text-fragment as it was generated for the
+  // original page and must not be applied to a (potentially cross-origin)
+  // redirect target.
+  commit_params_->internal_scroll_to_text_fragment = std::nullopt;
 
   // Reset the tentative origin_to_commit, as the redirected one is different.
   tentative_data_origin_to_commit_ = std::nullopt;
@@ -3780,6 +3921,12 @@ void NavigationRequest::OnRequestRedirected(
           .IsSameOriginWith(redirect_info.new_url);
 
   did_encounter_cross_origin_redirect_ |= !is_same_origin_redirect;
+
+  // Reset the LCPP hint as the hint is for the original page and not for the
+  // redirected one. Only for cross-origin redirects.
+  if (!is_same_origin_redirect) {
+    commit_params_->lcpp_hint = nullptr;
+  }
 
   // Only same-origin navigations without cross-origin redirects can
   // expose response details (status-code / mime-type).
@@ -4394,7 +4541,8 @@ UrlInfo NavigationRequest::GetUrlInfo() {
   url_info_init.WithOACHeaderRequest(oac_header_request)
       .WithCOOPSiteIsolation(ShouldRequestSiteIsolationForCOOP())
       .WithWebExposedIsolationInfo(web_exposed_isolation_info)
-      .WithIsPdf(is_pdf_);
+      .WithEmbedderIsolationInfo(is_pdf_ ? EmbedderIsolationInfo::CreateForPdf()
+                                         : EmbedderIsolationInfo::CreateNone());
 
   // Compute the CrossOriginIsolationKey for the navigation.
   std::optional<AgentClusterKey::CrossOriginIsolationKey>
@@ -4694,6 +4842,15 @@ void NavigationRequest::OnResponseStarted(
   response_body_ = std::move(response_body);
   ssl_info_ = response_head_->ssl_info;
   auth_challenge_info_ = response_head_->auth_challenge_info;
+  BrowserContext* browser_context =
+      frame_tree_node_->navigator().controller().GetBrowserContext();
+
+  if (SiteIsolationPolicy::ShouldUrlUseApplicationIsolationLevel(
+          browser_context, GetURL())) {
+    GetContentClient()->browser()->EnsureRequiredHeadersForIsolatedApp(
+        browser_context, GetURL(), response_head_.get(),
+        frame_tree_node_->frame_tree_node_id());
+  }
 
   // TODO(crbug.com/40218207): Store the whole EarlyHints struct instead
   // of duplicating all of its fields.
@@ -5709,11 +5866,17 @@ void NavigationRequest::OnStartChecksComplete(
 
   devtools_instrumentation::OnNavigationRequestWillBeSent(*this);
 
-  // Merge headers with embedder's headers.
-  net::HttpRequestHeaders headers;
-  headers.AddHeadersFromString(begin_params_->headers);
-  headers.MergeFrom(TakeModifiedRequestHeaders());
-  begin_params_->headers = headers.ToString();
+  {
+    // Merge headers with embedder's headers.
+    net::HttpRequestHeaders headers;
+    headers.AddHeadersFromString(begin_params_->headers);
+    // `removed_headers` is only for redirects (see
+    // `NavigationRequest::RemoveRequestHeader()`) and must be empty here.
+    CHECK(headers_update_params_.removed_headers.empty());
+    headers.MergeFrom(headers_update_params_.modified_headers);
+    headers_update_params_.Clear();
+    begin_params_->headers = headers.ToString();
+  }
 
   // TODO(clamy): Avoid cloning the navigation params and create the
   // ResourceRequest directly here.
@@ -5772,6 +5935,14 @@ void NavigationRequest::OnStartChecksComplete(
             ->GetWeakPtr();
   }
 
+  // DevTools throttling profiles are only associated with local frame roots,
+  // not each individual frame.
+  RenderFrameHostImpl* local_root_rfh = frame_tree_node_->current_frame_host();
+  while (!local_root_rfh->is_local_root()) {
+    local_root_rfh = local_root_rfh->GetParent();
+  }
+  CHECK(local_root_rfh);
+
   loader_ = NavigationURLLoader::Create(
       browser_context, partition,
       std::make_unique<NavigationRequestInfo>(
@@ -5785,8 +5956,7 @@ void NavigationRequest::OnStartChecksComplete(
           upgrade_if_insecure_,
           blob_url_loader_factory_ ? blob_url_loader_factory_->Clone()
                                    : nullptr,
-          devtools_navigation_token(),
-          frame_tree_node_->current_frame_host()->devtools_frame_token(),
+          devtools_navigation_token(), local_root_rfh->devtools_frame_token(),
           BuildClientSecurityStateForNavigationFetch(),
           devtools_accepted_stream_types, is_pdf_, GetInitiatorProcessId(),
           initiator_document_token_, std::move(serving_page_metrics_container),
@@ -5919,14 +6089,42 @@ void NavigationRequest::MaybeAddResourceTimingEntryForCancelledNavigation() {
     return;
   }
 
-  network::URLLoaderCompletionStatus status;
-  status.encoded_data_length = response()->encoded_data_length;
-  status.completion_time = base::TimeTicks::Now();
-  AddResourceTimingEntryForFailedSubframeNavigation(status);
+  blink::mojom::SubframeResourceLengthsPtr resource_lengths;
+  // response() uses -1 to mean a missing response and 0 for a response with
+  // headers but no body.
+  if (response()->encoded_data_length >= 0) {
+    resource_lengths = blink::mojom::SubframeResourceLengths::New();
+    resource_lengths->encoded_data_length =
+        base::ByteSize(base::as_unsigned(response()->encoded_data_length));
+  }
+  AddResourceTimingEntryForFailedSubframeNavigation(
+      base::TimeTicks::Now(), std::move(resource_lengths));
 }
 
 void NavigationRequest::AddResourceTimingEntryForFailedSubframeNavigation(
     const network::URLLoaderCompletionStatus& status) {
+  auto resource_lengths = blink::mojom::SubframeResourceLengths::New();
+  // TODO(crbug.com/448661443): Remove signedness checks once
+  // URLLoaderCompletionStatus uses ByteSize.
+  if (status.encoded_data_length >= 0) {
+    resource_lengths->encoded_data_length =
+        base::ByteSize(base::as_unsigned(status.encoded_data_length));
+  }
+  if (status.encoded_body_length >= 0) {
+    resource_lengths->encoded_body_length =
+        base::ByteSize(base::as_unsigned(status.encoded_body_length));
+  }
+  if (status.decoded_body_length >= 0) {
+    resource_lengths->decoded_body_length =
+        base::ByteSize(base::as_unsigned(status.decoded_body_length));
+  }
+  AddResourceTimingEntryForFailedSubframeNavigation(
+      status.completion_time, std::move(resource_lengths));
+}
+
+void NavigationRequest::AddResourceTimingEntryForFailedSubframeNavigation(
+    base::TimeTicks completion_time,
+    blink::mojom::SubframeResourceLengthsPtr resource_lengths) {
   // For TAO-fail navigations, we would resort to fallback timing.
   // See HTMLFrameOwnerElement::ReportFallbackResourceTimingIfNeeded().
   CHECK(response());
@@ -5943,9 +6141,10 @@ void NavigationRequest::AddResourceTimingEntryForFailedSubframeNavigation(
 
   GetParentFrame()->AddResourceTimingEntryForFailedSubframeNavigation(
       frame_tree_node(), common_params().navigation_start,
-      commit_params().navigation_timing->redirect_end,
+      commit_params().navigation_timing->redirect_end, completion_time,
       commit_params().original_url, common_params().url,
-      std::move(response_head), allow_response_details, status);
+      std::move(response_head), allow_response_details,
+      std::move(resource_lengths));
 }
 
 void NavigationRequest::OnRedirectChecksComplete(
@@ -5997,8 +6196,9 @@ void NavigationRequest::OnRedirectChecksComplete(
 
   devtools_instrumentation::OnNavigationRequestWillBeSent(*this);
 
-  net::HttpRequestHeaders modified_headers = TakeModifiedRequestHeaders();
-  std::vector<std::string> removed_headers = TakeRemovedRequestHeaders();
+  network::HttpRequestHeadersUpdateParams headers_update_params =
+      std::move(headers_update_params_);
+  headers_update_params_.Clear();
 
   if (remove_extra_headers_on_cross_origin_redirect_ &&
       !url::Origin::Create(commit_params_->redirects.back())
@@ -6014,13 +6214,13 @@ void NavigationRequest::OnRedirectChecksComplete(
     net::HttpRequestHeaders headers;
     headers.AddHeadersFromString(nav_entry->extra_headers());
     for (const auto& header : headers.GetHeaderVector()) {
-      removed_headers.push_back(header.key);
+      headers_update_params.removed_headers.push_back(header.key);
     }
 
     // Update the NavigationEntry so that history navigations don't include the
     // extra headers.
     nav_entry->set_extra_headers(std::string());
-    nav_entry->set_remove_extra_headers_on_cross_origin_redirect(false);
+    nav_entry->SetRemoveExtraHeadersOnCrossOriginRedirect(false);
   }
 
   // The topics a request is allowed to see can change within its redirect
@@ -6047,7 +6247,8 @@ void NavigationRequest::OnRedirectChecksComplete(
 
   // Removes the topics header. This will effectively be a no-op if the topics
   // header wasn't sent for the previous request.
-  removed_headers.push_back(kBrowsingTopicsRequestHeaderKey);
+  headers_update_params.removed_headers.push_back(
+      kBrowsingTopicsRequestHeaderKey);
 
   TopicsHeaderValueResult topics_header_value_result =
       GetTopicsHeaderValueForNavigationRequest(frame_tree_node_,
@@ -6056,14 +6257,15 @@ void NavigationRequest::OnRedirectChecksComplete(
   topics_eligible_ = topics_header_value_result.topics_eligible;
 
   if (topics_header_value_result.header_value) {
-    modified_headers.SetHeader(kBrowsingTopicsRequestHeaderKey,
-                               *topics_header_value_result.header_value);
+    headers_update_params.modified_headers.SetHeader(
+        kBrowsingTopicsRequestHeaderKey,
+        *topics_header_value_result.header_value);
   }
 
   if (ad_auction_headers_eligible_) {
     // Redirects are ineligible for ad auction headers.
     ad_auction_headers_eligible_ = false;
-    removed_headers.push_back(kAdAuctionRequestHeaderKey);
+    headers_update_params.removed_headers.push_back(kAdAuctionRequestHeaderKey);
   }
 
   if (shared_storage_writable_opted_in_) {
@@ -6078,10 +6280,11 @@ void NavigationRequest::OnRedirectChecksComplete(
     if (shared_storage_writable_eligible_ !=
         previous_shared_storage_writable_eligible) {
       if (shared_storage_writable_eligible_) {
-        modified_headers.SetHeader(kSecSharedStorageWritableRequestHeaderKey,
-                                   "?1");
+        headers_update_params.modified_headers.SetHeader(
+            kSecSharedStorageWritableRequestHeaderKey, "?1");
       } else {
-        removed_headers.push_back(kSecSharedStorageWritableRequestHeaderKey);
+        headers_update_params.removed_headers.push_back(
+            kSecSharedStorageWritableRequestHeaderKey);
       }
     }
   }
@@ -6090,7 +6293,7 @@ void NavigationRequest::OnRedirectChecksComplete(
   // previous one.
   for (const auto& elem : network::GetClientHintToNameMap()) {
     const auto& header = elem.second;
-    removed_headers.push_back(header);
+    headers_update_params.removed_headers.push_back(header);
   }
 
   // Add any required Client Hints to the current request.
@@ -6114,11 +6317,12 @@ void NavigationRequest::OnRedirectChecksComplete(
         browser_context, client_hints_delegate, is_overriding_user_agent(),
         frame_tree_node_, commit_params_->frame_policy.container_policy,
         common_params_->url);
-    modified_headers.MergeFrom(client_hints_extra_headers);
+    headers_update_params.modified_headers.MergeFrom(
+        client_hints_extra_headers);
     // On a redirect, unless devtools has overridden the User-Agent header, we
     // should send the User-Agent string based on policy.
     if (!devtools_user_agent_override_) {
-      modified_headers.SetHeader(
+      headers_update_params.modified_headers.SetHeader(
           net::HttpRequestHeaders::kUserAgent,
           ComputeUserAgentValue(GetUserAgentOverride()));
     }
@@ -6141,17 +6345,16 @@ void NavigationRequest::OnRedirectChecksComplete(
                   &accept_language_headers);
       commit_params_->reduced_accept_language =
           reduced_accept_language.value_or("");
-      modified_headers.MergeFrom(accept_language_headers);
+      headers_update_params.modified_headers.MergeFrom(accept_language_headers);
     } else {
       // Remove the Accept-Language header passed from previous request, if any.
-      removed_headers.push_back(net::HttpRequestHeaders::kAcceptLanguage);
+      headers_update_params.removed_headers.push_back(
+          net::HttpRequestHeaders::kAcceptLanguage);
       commit_params_->reduced_accept_language = "";
     }
   }
 
-  loader_->FollowRedirect(std::move(removed_headers),
-                          std::move(modified_headers),
-                          /*modified_cors_exempt_headers=*/{});
+  loader_->FollowRedirect(std::move(headers_update_params));
 }
 
 void NavigationRequest::OnFailureChecksComplete(
@@ -6903,7 +7106,7 @@ void NavigationRequest::CommitNavigation() {
 
   if (early_hints_manager_) {
     commit_params_->early_hints_preloaded_resources =
-        early_hints_manager_->TakePreloadedResourceURLs();
+        early_hints_manager_->TakePreloadedResources();
   }
 
   if (response_head_) {
@@ -6954,6 +7157,19 @@ void NavigationRequest::CommitNavigation() {
         }
       }
     }
+  }
+
+  // Let the embedder fully replace the inherited container policy at
+  // commit (e.g., to grant all permissions-policy features to MIME
+  // handler extensions that previously ran as top-level frames).
+  // Runs after the fenced-frame fixup above so the override wins by
+  // construction; no current frame is both a fenced frame and a
+  // consumer of this hook.
+  if (auto container_policy_override =
+          GetContentClient()->browser()->GetContainerPolicyOverrideForCommit(
+              *this)) {
+    commit_params_->frame_policy.container_policy =
+        std::move(*container_policy_override);
   }
 
   // Create a view of the fenced frame properties from the perspective of the
@@ -7697,7 +7913,17 @@ net::Error NavigationRequest::CheckContentSecurityPolicy(
       network::UpgradeInsecureRequest(&common_params_->url);
       common_params_->referrer = Referrer::SanitizeForRequest(
           common_params_->url, *common_params_->referrer);
-      commit_params_->original_url = common_params_->url;
+      if (base::FeatureList::IsEnabled(
+              features::kSanitizeOriginalUrlDuringNavigation)) {
+        // It is safe to convert GURL to an Origin and back in the code below
+        // because we only want to discard the rest of the URL (e.g., path and
+        // params). The actual underlying Origin is not needed, which could be
+        // inherited or opaque in sandbox cases.
+        commit_params_->original_url =
+            common_params_->url.DeprecatedGetOriginAsURL();
+      } else {
+        commit_params_->original_url = common_params_->url;
+      }
     }
   }
 
@@ -7875,6 +8101,15 @@ NavigationRequest::CheckCSPEmbeddedEnforcement() {
   if (network::AllowsBlanketEnforcementOfRequiredCSP(
           GetParentFrame()->GetLastCommittedOrigin(), GetURL(), allow_csp_from,
           required_csp_)) {
+    if (GetURL().SchemeIsLocal() || GetURL().SchemeIsFile()) {
+      base::UmaHistogramEnumeration(
+          "Navigation.CSPEmbeddedEnforcement.Outcome",
+          NavigationCSPEmbeddedEnforcementOutcome::kAllowLocalScheme);
+    } else {
+      base::UmaHistogramEnumeration(
+          "Navigation.CSPEmbeddedEnforcement.Outcome",
+          NavigationCSPEmbeddedEnforcementOutcome::kAllowAllowCSPFromHeader);
+    }
     // Enforce the required CSPs on the frame by passing them down to blink.
     policy_container_builder_->AddContentSecurityPolicy(required_csp_->Clone());
     return CSPEmbeddedEnforcementResult::ALLOW_RESPONSE;
@@ -7889,6 +8124,9 @@ NavigationRequest::CheckCSPEmbeddedEnforcement() {
     // documents are handled through the standard code path with its own
     // URLLoaderFactory.
     CHECK(IsForMhtmlSubframe());
+    base::UmaHistogramEnumeration(
+        "Navigation.CSPEmbeddedEnforcement.Outcome",
+        NavigationCSPEmbeddedEnforcementOutcome::kAllowMHTML);
     return CSPEmbeddedEnforcementResult::ALLOW_RESPONSE;
   }
 
@@ -7905,9 +8143,15 @@ NavigationRequest::CheckCSPEmbeddedEnforcement() {
 
   if (network::Subsumes(*required_csp_,
                         response()->parsed_headers->content_security_policy)) {
+    base::UmaHistogramEnumeration(
+        "Navigation.CSPEmbeddedEnforcement.Outcome",
+        NavigationCSPEmbeddedEnforcementOutcome::kAllowSubsumes);
     return CSPEmbeddedEnforcementResult::ALLOW_RESPONSE;
   }
 
+  base::UmaHistogramEnumeration(
+      "Navigation.CSPEmbeddedEnforcement.Outcome",
+      NavigationCSPEmbeddedEnforcementOutcome::kBlock);
   AddDeferredConsoleMessage(
       blink::mojom::ConsoleMessageLevel::kError,
       base::StringPrintf(
@@ -7952,6 +8196,31 @@ void NavigationRequest::SanitizeRedirectsForCommit(
     for (net::RedirectInfo& redirect :
          redirect_infos_span.first(redirect_infos_span.size() - 1)) {
       redirect.new_url = redirect.new_url.DeprecatedGetOriginAsURL();
+    }
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeLocationHeadersDuringNavigation)) {
+    url::Origin final_origin = url::Origin::Create(common_params_->url);
+
+    // Sanitize the "Location" headers for redirects that are cross-origin to
+    // the final committed URL.
+    // TODO(crbug.com/495463654): Consider if we need to handle cases that
+    // inherit an origin (e.g. about:blank), or if we cross a CSP sandbox
+    // boundary where the origin becomes unique/opaque.
+    for (size_t i = 0; i < commit_params->redirect_response.size(); ++i) {
+      auto& response_head = commit_params->redirect_response[i];
+      if (!response_head || !response_head->headers ||
+          !response_head->headers->HasHeader("Location")) {
+        continue;
+      }
+
+      const GURL& target_url = commit_params->redirect_infos[i].new_url;
+      const url::Origin target_origin = url::Origin::Create(target_url);
+      if (!target_origin.IsSameOriginWith(final_origin)) {
+        response_head->headers->SetHeader("Location",
+                                          target_origin.GetURL().spec());
+      }
     }
   }
 }
@@ -8224,11 +8493,21 @@ void NavigationRequest::OnWillRedirectRequestProcessed(
   if (result.action() == NavigationThrottle::PROCEED) {
     // Notify the delegate that a redirect was encountered and will be followed.
     if (GetDelegate()) {
-#if DCHECK_IS_ON()
-      DCHECK(is_safe_to_delete_);
+      // TODO(crbug.com/504574017): Remove the WeakPtr check once Android
+      // WebView can avoid the synchronous deletion case.
+#if BUILDFLAG(IS_ANDROID)
+      base::WeakPtr<NavigationRequest> this_ptr(weak_factory_.GetWeakPtr());
+#else
+      CHECK(is_safe_to_delete_);
       base::AutoReset<bool> resetter(&is_safe_to_delete_, false);
 #endif
       GetDelegate()->DidRedirectNavigation(this);
+#if BUILDFLAG(IS_ANDROID)
+      if (!this_ptr) {
+        // The NavigationRequest was deleted during the above call.
+        return;
+      }
+#endif
     }
   } else {
     SetState(CANCELING);
@@ -8347,12 +8626,13 @@ void NavigationRequest::Resume(NavigationThrottle* resuming_throttle) {
       CHECK(response_body_callback_);
       response_body_watcher_.reset();
       base::WeakPtr<NavigationRequest> this_ptr(weak_factory_.GetWeakPtr());
+      std::string throttle_name = resuming_throttle->GetNameForLogging();
       std::move(response_body_callback_).Run(std::string());
       if (this_ptr.WasInvalidated()) {
         // TODO(https://crbug.com/411238078): Replace the debug code with a
         // comment once we ensure that this is the root cause.
         SCOPED_CRASH_KEY_STRING32("Bug411238078", "throttle",
-                                  resuming_throttle->GetNameForLogging());
+                                  throttle_name.c_str());
         base::debug::DumpWithoutCrashing();
         return;
       }
@@ -8797,6 +9077,13 @@ void NavigationRequest::DidCommitNavigation(
       "navigation", "BeforeUnloadExecutionMode", "BeforeUnloadExecutionMode",
       BeforeUnloadExecutionModeToString(GetBeforeUnloadExecutionMode()));
 
+  if (!activation_beacon_url_.is_empty()) {
+    auto* manager =
+        PreloadActivationReportManager::GetOrCreateForBrowserContext(
+            GetWebContents()->GetBrowserContext());
+    manager->ReportActivation(activation_beacon_url_, GetWebContents());
+  }
+
   // DO NOT ADD CODE after this.
   // UnblockPendingSubframeNavigationRequestsIfNeeded() resumes throttles, which
   // may cause the destruction of this NavigationRequest.
@@ -9081,11 +9368,21 @@ void NavigationRequest::ReadyToCommitNavigation(bool is_error) {
   commit_params_->origin_to_commit = origin_to_commit.value();
 
   if (!IsSameDocument()) {
-#if DCHECK_IS_ON()
-    DCHECK(is_safe_to_delete_);
+    // TODO(crbug.com/504574017): Remove the WeakPtr check once Android
+    // WebView can avoid the synchronous deletion case.
+#if BUILDFLAG(IS_ANDROID)
+    base::WeakPtr<NavigationRequest> this_ptr(weak_factory_.GetWeakPtr());
+#else
+    CHECK(is_safe_to_delete_);
     base::AutoReset<bool> resetter(&is_safe_to_delete_, false);
 #endif
     GetDelegate()->ReadyToCommitNavigation(this);
+#if BUILDFLAG(IS_ANDROID)
+    if (!this_ptr) {
+      // The NavigationRequest was deleted during the above call.
+      return;
+    }
+#endif
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -9329,7 +9626,7 @@ void NavigationRequest::WriteIntoTrace(
   ctx->set_navigation_id(navigation_id_);
   ctx->set_has_committed(HasCommitted());
   ctx->set_is_error_page(IsErrorPage());
-  ctx.Set(TraceProto::kFrameTreeNode, frame_tree_node_);
+  ctx.Set(TraceProto::kFrameTreeNode, frame_tree_node());
   if (state_ >= WILL_PROCESS_RESPONSE)
     ctx.Set(TraceProto::kRenderFrameHost, GetRenderFrameHost());
 
@@ -9484,13 +9781,13 @@ void NavigationRequest::SetPrerenderActivationNavigationState(
 
 void NavigationRequest::RemoveRequestHeader(std::string_view header_name) {
   CHECK(state_ == WILL_REDIRECT_REQUEST);
-  removed_request_headers_.emplace_back(header_name);
+  headers_update_params_.removed_headers.emplace_back(header_name);
 }
 
 void NavigationRequest::SetRequestHeader(std::string_view header_name,
                                          std::string_view header_value) {
   CHECK(state_ == WILL_START_REQUEST || state_ == WILL_REDIRECT_REQUEST);
-  modified_request_headers_.SetHeader(header_name, header_value);
+  headers_update_params_.modified_headers.SetHeader(header_name, header_value);
 }
 
 void NavigationRequest::SetLCPPNavigationHint(
@@ -9507,6 +9804,15 @@ NavigationRequest::GetLCPPNavigationHint() {
 
 const net::HttpResponseHeaders* NavigationRequest::GetResponseHeaders() {
   return response_head_.get() ? response_head_->headers.get() : nullptr;
+}
+
+const network::mojom::DeclarativePerformanceObserverPolicy*
+NavigationRequest::GetDeclarativePerformanceObserverPolicy() {
+  if (!response_head_.get() || !response_head_->parsed_headers) {
+    return nullptr;
+  }
+  return response_head_->parsed_headers->declarative_performance_observer_policy
+      .get();
 }
 
 mojom::DidCommitProvisionalLoadParamsPtr
@@ -11273,6 +11579,10 @@ bool NavigationRequest::IsServedFromBackForwardCache() const {
 bool NavigationRequest::IsPageActivation() const {
   return const_cast<NavigationRequest*>(this)->IsPrerenderedPageActivation() ||
          IsServedFromBackForwardCache();
+}
+
+bool NavigationRequest::IsNavigatingFromInitialEmptyDocument() const {
+  return frame_tree_node_->is_on_initial_empty_document();
 }
 
 std::unique_ptr<NavigationEntryImpl>

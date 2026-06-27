@@ -7,6 +7,7 @@
 #import <QuartzCore/QuartzCore.h>
 
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 
 namespace {
@@ -45,14 +46,34 @@ void AddCutoutToPath(UIBezierPath* path, CGRect bounds) {
   UIBezierPath* _maskPath;
   CGRect _lastBounds;
   CAShapeLayer* _shadowLayer;
+  UIVisualEffectView* _blurView;
+  // Shape layer used to render the background color. This allows the view's own
+  // background color to remain transparent/clear, preventing EarlGrey from
+  // incorrectly identifying the entire bounding box of the view as opaque and
+  // blocking visibility of underlying elements in tests.
+  CAShapeLayer* _backgroundShapeLayer;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   self = [super initWithFrame:frame];
   if (self) {
+    self.opaque = NO;
+    _backgroundShapeLayer = [CAShapeLayer layer];
+    [self.layer insertSublayer:_backgroundShapeLayer atIndex:0];
+
+    [self registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
+                       withAction:@selector(updateBackgroundColor)];
+
     _maskLayer = [CAShapeLayer layer];
     _maskLayer.fillRule = kCAFillRuleEvenOdd;
     self.layer.mask = _maskLayer;
+
+    if (IsFullscreenRefactoringEnabled()) {
+      UIBlurEffect* blurEffect =
+          [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialDark];
+      _blurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+      [self addSubview:_blurView];
+    }
 
     _shadowLayer = [CAShapeLayer layer];
     [self.layer addSublayer:_shadowLayer];
@@ -65,6 +86,9 @@ void AddCutoutToPath(UIBezierPath* path, CGRect bounds) {
 
 - (void)layoutSubviews {
   [super layoutSubviews];
+  if (_blurView) {
+    _blurView.frame = self.bounds;
+  }
   [self updateMask];
 }
 
@@ -92,28 +116,41 @@ void AddCutoutToPath(UIBezierPath* path, CGRect bounds) {
     return;
   }
   CAShapeLayer* shadowLayer = _shadowLayer;
+  UIVisualEffectView* blurView = _blurView;
   _hideColorBackground = hideColorBackground;
+
+  if (!hideColorBackground && blurView) {
+    blurView.hidden = NO;
+  }
+
   [UIView animateWithDuration:kColorTransitionDuration
-                   animations:^{
-                     [self updateBackgroundColor];
-                     shadowLayer.opacity = hideColorBackground ? 0 : 1;
-                   }];
+      animations:^{
+        [self updateBackgroundColor];
+        shadowLayer.opacity = hideColorBackground ? 0 : 1;
+        if (blurView) {
+          blurView.alpha = hideColorBackground ? 0 : 1;
+        }
+      }
+      completion:^(BOOL finished) {
+        if (hideColorBackground && blurView) {
+          blurView.hidden = YES;
+        }
+      }];
 }
 
 #pragma mark - Private
 
 // Updates the background color of the app bar.
 - (void)updateBackgroundColor {
+  UIColor* color = [UIColor colorNamed:kAppBarColor];
   if (self.hideColorBackground) {
-    self.backgroundColor = [UIColor clearColor];
-    return;
+    color = [UIColor clearColor];
+  } else if (self.incognito) {
+    color = [UIColor colorNamed:kAppBarIncognitoColor];
+  } else if (IsFullscreenRefactoringEnabled()) {
+    color = [UIColor clearColor];
   }
-  if (self.incognito) {
-    self.backgroundColor = [UIColor colorNamed:kAppBarIncognitoColor];
-    return;
-  }
-
-  self.backgroundColor = [UIColor colorNamed:kAppBarColor];
+  _backgroundShapeLayer.fillColor = color.CGColor;
 }
 
 // Updates the cut out mask if the shape of the app bar changed.
@@ -136,6 +173,7 @@ void AddCutoutToPath(UIBezierPath* path, CGRect bounds) {
   [_maskPath closePath];
 
   _maskLayer.path = _maskPath.CGPath;
+  _backgroundShapeLayer.path = _maskPath.CGPath;
 
   // Inner shadow implementation.
   // Create a path that is specifically above the top cutout edge.

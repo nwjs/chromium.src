@@ -29,22 +29,6 @@
 #include "content/nw/src/browser/browser_view_layout.h"
 #include "content/nw/src/nw_content.h"
 
-#if defined(OS_WIN)
-#include <objbase.h>
-#include <wrl/client.h>
-#include <shobjidl.h>
-#include <dwmapi.h>
-
-#include "base/win/windows_version.h"
-#include "ui/base/win/hidden_window.h"
-#include "ui/gfx/canvas.h"
-#include "ui/gfx/win/icon_util.h"
-#include "ui/gfx/font_list.h"
-#include "ui/gfx/platform_font.h"
-#include "ui/display/win/dpi.h"
-#include "ui/views/win/hwnd_util.h"
-#endif
-
 using nw::BrowserViewLayout;
 using extensions::AppWindow;
 using extensions::Extension;
@@ -83,7 +67,6 @@ void NativeAppWindowViews::Init(
       create_params.GetContentMinimumSize(gfx::Insets()));
   size_constraints_.set_maximum_size(
       create_params.GetContentMaximumSize(gfx::Insets()));
-  saved_size_constraints_ = size_constraints_;
   Observe(app_window_->web_contents());
 
   // TODO(pbos): It's not clear to me how this ends up destructed.
@@ -348,32 +331,6 @@ void NativeAppWindowViews::OnFocus() {
 
 // NativeAppWindow implementation.
 
-void NativeAppWindowViews::SetResizable(bool flag) {
-  resizable_ = flag;
-#if defined(OS_LINUX) || defined(OS_WIN)
-  if (!resizable_) {
-    gfx::Size size(width(), height());
-    //copy SetContentSizeConstraints(size, size);
-    size_constraints_.set_minimum_size(size);
-    size_constraints_.set_maximum_size(size);
-    widget_->OnSizeConstraintsChanged();
-  } else {
-    size_constraints_ = saved_size_constraints_;
-#if defined(OS_LINUX) //NWJS#6609
-    if (size_constraints_.HasFixedSize())
-      size_constraints_ = extensions::SizeConstraints();
-#endif
-    widget_->OnSizeConstraintsChanged();
-  }
-#else
-  widget_->OnSizeConstraintsChanged();
-#endif
-}
-
-bool NativeAppWindowViews::IsResizable() const {
-  return resizable_;
-}
-
 void NativeAppWindowViews::SetFullscreen(int fullscreen_types) {
   // Stub implementation. See also ChromeNativeAppWindowViews.
   widget_->SetFullscreen(fullscreen_types !=
@@ -426,39 +383,6 @@ bool NativeAppWindowViews::HasFrameColor() const {
   return false;
 }
 
-void NativeAppWindowViews::SetShowInTaskbar(bool show) {
-#if defined(OS_WIN)
-  views::Widget* widget = widget_->GetTopLevelWidget();
-
-  if (show == false && base::win::GetVersion() < base::win::Version::VISTA) {
-    // Change the owner of native window. Only needed on Windows XP.
-    ::SetParent(views::HWNDForWidget(widget),
-                ui::GetHiddenWindow());
-  }
-
-  Microsoft::WRL::ComPtr<ITaskbarList3> taskbar;
-  HRESULT result = ::CoCreateInstance(CLSID_TaskbarList, nullptr,
-                                      CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&taskbar));
-  if (FAILED(result)) {
-    return;
-  }
-
-  result = taskbar->HrInit();
-  if (FAILED(result)) {
-    return;
-  }
-
-  if (show)
-    result = taskbar->AddTab(views::HWNDForWidget(widget));
-  else
-    result = taskbar->DeleteTab(views::HWNDForWidget(widget));
-
-  if (FAILED(result)) {
-    return;
-  }
-#endif
-}
-
 SkColor NativeAppWindowViews::ActiveFrameColor() const {
   return SK_ColorBLACK;
 }
@@ -503,9 +427,6 @@ void NativeAppWindowViews::SetContentSizeConstraints(
   // Intentionally the same as maximize.
   SetCanFullscreen(GetCanMaximizeWindow());
   SetCanResize(GetCanResizeWindow());
-
-  saved_size_constraints_ = size_constraints_;
-
   widget_->OnSizeConstraintsChanged();
 }
 

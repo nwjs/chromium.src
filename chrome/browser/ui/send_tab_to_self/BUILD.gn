@@ -21,7 +21,10 @@ source_set("send_tab_to_self") {
     "//components/send_tab_to_self",
     "//ui/menus",
   ]
-  deps = [ "//chrome/browser/ui/browser_window" ]
+  deps = [
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/views/toolbar",
+  ]
 }
 
 source_set("impl") {
@@ -40,7 +43,9 @@ source_set("impl") {
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/views/send_tab_to_self",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/user_education",
     "//components/send_tab_to_self",
+    "//ui/strings:ui_strings_grit",
   ]
   public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }

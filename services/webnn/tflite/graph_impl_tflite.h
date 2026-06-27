@@ -37,7 +37,7 @@ class ContextImplTflite;
 class GraphImplTflite final : public WebNNGraphImpl {
  public:
   static void CreateAndBuild(
-      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       ComputeResourceInfo compute_resource_info,
       base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
@@ -50,7 +50,7 @@ class GraphImplTflite final : public WebNNGraphImpl {
 
   class ComputeResources;
   GraphImplTflite(
-      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       ComputeResourceInfo compute_resource_info,
       base::flat_map<std::string, TensorDescriptor> input_name_to_descriptor,
       base::flat_map<std::string, TensorDescriptor> output_name_to_descriptor,
@@ -69,6 +69,7 @@ class GraphImplTflite final : public WebNNGraphImpl {
   CreateAndBuildOnBackgroundThread(
       ContextProperties context_properties,
       mojom::Device context_device,
+      bool is_xnnpack_enabled,
       mojom::GraphInfoPtr graph_info,
       base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
           constant_operands,
@@ -78,7 +79,7 @@ class GraphImplTflite final : public WebNNGraphImpl {
       base::File weights_file);
 
   static void DidCreateAndBuild(
-      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       base::WeakPtr<WebNNContextImpl> context,
       ComputeResourceInfo compute_resource_info,
       WebNNContextImpl::CreateGraphImplCallback callback,

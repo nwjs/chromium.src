@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {BrowserProxy, PageCallbackRouter, PageHandlerRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import type {OmniboxAimAppElement, PageRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import {aimBrowserProxyFactory, OmniboxPopupAimPageHandlerRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import type {OmniboxAimAppElement, OmniboxPopupAimPageRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -11,18 +11,6 @@ import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-
-class TestAimBrowserProxy {
-  callbackRouter: PageCallbackRouter;
-  handler: TestMock<PageHandlerRemote>&PageHandlerRemote;
-  page: PageRemote;
-
-  constructor() {
-    this.callbackRouter = new PageCallbackRouter();
-    this.handler = TestMock.fromClass(PageHandlerRemote);
-    this.page = this.callbackRouter.$.bindNewPipeAndPassRemote();
-  }
-}
 
 function createDefaultInputState(): InputState {
   return {
@@ -42,21 +30,29 @@ function createDefaultInputState(): InputState {
     hintText: '',
     maxInputsByType: {},
     maxTotalInputs: 0,
+    isCanvasQuerySubmitted: false,
   };
 }
 
 suite('AimAppTest', function() {
-  let testProxy: TestAimBrowserProxy;
+  let handler: TestMock<OmniboxPopupAimPageHandlerRemote>&
+      OmniboxPopupAimPageHandlerRemote;
+  let page: OmniboxPopupAimPageRemote;
   let metrics: MetricsTracker;
 
   setup(() => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    testProxy = new TestAimBrowserProxy();
-    BrowserProxy.setInstance(testProxy as unknown as BrowserProxy);
+    handler = TestMock.fromClass(OmniboxPopupAimPageHandlerRemote);
+    const {instance, remote} = aimBrowserProxyFactory.createForTest(handler);
+    aimBrowserProxyFactory.setInstance(instance);
+    page = remote;
     metrics = fakeMetricsPrivate();
     loadTimeData.overrideValues({
       voiceSearchCoherenceComposeboxesEnabled: false,
       voiceSearchCoherenceCobrowsingComposeboxEnabled: false,
+      contextButtonShapeIsOblong: false,
+      webuiOmniboxSimplificationEnabled: false,
+      contextualMenuUsePecApi: false,
     });
   });
 
@@ -64,6 +60,7 @@ suite('AimAppTest', function() {
     loadTimeData.overrideValues({
       voiceSearchCoherenceComposeboxesEnabled: false,
       voiceSearchCoherenceCobrowsingComposeboxEnabled: false,
+      contextualMenuUsePecApi: false,
     });
   });
   // TODO(crbug.com/479888362): Disabled by gardener due to failure without
@@ -81,7 +78,7 @@ suite('AimAppTest', function() {
     assertTrue(!!app.$.composebox.input);
 
     // Close without preserving context (default is false).
-    testProxy.page.clearPopup();
+    page.clearPopup();
     await microtasksFinished();
     assertTrue(!app.$.composebox.input);
   });
@@ -99,8 +96,8 @@ suite('AimAppTest', function() {
     assertTrue(!!app.$.composebox.input);
 
     // Close with preserving context.
-    testProxy.page.setPreserveContextOnClose(true);
-    testProxy.page.clearPopup();
+    page.setPreserveContextOnClose(true);
+    page.clearPopup();
     await microtasksFinished();
     assertTrue(!!app.$.composebox.input);
   });
@@ -117,12 +114,12 @@ suite('AimAppTest', function() {
     });
 
     // Close with preserving context.
-    testProxy.page.setPreserveContextOnClose(true);
-    testProxy.page.clearPopup();
+    page.setPreserveContextOnClose(true);
+    page.clearPopup();
     await microtasksFinished();
 
     // Re-open (onPopupShown) should reset preserveContextOnClose to false.
-    testProxy.page.onPopupShown({
+    page.onPopupShown({
       input: '',
       attachments: [],
       toolMode: 0,
@@ -130,7 +127,7 @@ suite('AimAppTest', function() {
     await microtasksFinished();
 
     // Close again, should clear input because it was reset to false.
-    testProxy.page.clearPopup();
+    page.clearPopup();
     await microtasksFinished();
     assertTrue(!app.$.composebox.input);
 
@@ -151,7 +148,7 @@ suite('AimAppTest', function() {
       glowAnimationPlayed = true;
     };
 
-    testProxy.page.onPopupShown({
+    page.onPopupShown({
       input: '',
       attachments: [],
       toolMode: 0,
@@ -170,9 +167,9 @@ suite('AimAppTest', function() {
     };
 
     // Simulate preserving context.
-    testProxy.page.setPreserveContextOnClose(true);
+    page.setPreserveContextOnClose(true);
 
-    testProxy.page.onPopupShown({
+    page.onPopupShown({
       input: '',
       attachments: [],
       toolMode: 0,
@@ -183,7 +180,7 @@ suite('AimAppTest', function() {
 
     // Reset for next show (implicit in onPopupShown).
     // If we show again, it SHOULD play.
-    testProxy.page.onPopupShown({
+    page.onPopupShown({
       input: '',
       attachments: [],
       toolMode: 0,
@@ -204,9 +201,38 @@ suite('AimAppTest', function() {
           composed: true,
         }));
 
-    const result = await testProxy.handler.whenCalled('showContextMenu');
+    const result = await handler.whenCalled('showContextMenu');
     assertEquals(point.x, result.x);
     assertEquals(point.y, result.y);
+  });
+
+  test('ContextMenuEntrypointMenuOpenWorkaround', async function() {
+    const app = document.createElement('omnibox-aim-app');
+    document.body.appendChild(app);
+    await microtasksFinished();
+
+    // Enable the context menu so the real entrypoint button is rendered.
+    app.$.composebox.contextMenuEnabled = true;
+    await microtasksFinished();
+
+    const contextButton = app.$.composebox.getContextEntrypointElement();
+    assertTrue(!!contextButton);
+
+    // Click event triggers workaround.
+    app.$.composebox.dispatchEvent(
+        new CustomEvent('context-menu-entrypoint-click', {
+          detail: {x: 10, y: 20},
+          bubbles: true,
+          composed: true,
+        }));
+
+    assertTrue(contextButton.classList.contains('menu-open'));
+
+    // Mojom callback clears class.
+    page.onContextMenuClosed();
+    await microtasksFinished();
+
+    assertFalse(contextButton.classList.contains('menu-open'));
   });
 
   test('UsesCompactLayoutInTallModeWhenNoAllowedInputs', async function() {
@@ -329,4 +355,58 @@ suite('AimAppTest', function() {
             composebox.$.animatedSearchElement.requiresVoice,
             'voice search animation should exist');
       });
+
+  test('adjusts size on voice permissions dialogue changed', async () => {
+    const app: OmniboxAimAppElement = document.createElement('omnibox-aim-app');
+    document.body.appendChild(app);
+    await microtasksFinished();
+
+    // Simulate the event being fired with specific dimensions.
+    app.$.composebox.dispatchEvent(
+        new CustomEvent('embedded-voice-permission-prompt-changed', {
+          detail: {
+            isOpened: true,
+            height: 120,
+            width: 250,
+          },
+          bubbles: true,
+          composed: true,
+        }));
+
+    await microtasksFinished();
+
+    // Verify CSS custom properties are updated on composebox.
+    assertTrue(
+        app.$.composebox.classList.contains('has-embedded-permission-prompt'));
+    assertEquals(
+        '120px',
+        app.$.composebox.style.getPropertyValue(
+            '--cr_composebox_minimum_height'));
+    assertEquals(
+        '250px',
+        app.$.composebox.style.getPropertyValue(
+            '--cr_composebox_minimum_width'));
+
+    // Simulate the dialogue closing.
+    app.$.composebox.dispatchEvent(
+        new CustomEvent('embedded-voice-permission-prompt-changed', {
+          detail: {isOpened: false, height: 0, width: 0},
+          bubbles: true,
+          composed: true,
+        }));
+
+    await microtasksFinished();
+
+    // Verify CSS custom properties are reset.
+    assertFalse(
+        app.$.composebox.classList.contains('has-embedded-permission-prompt'));
+    assertEquals(
+        '',
+        app.$.composebox.style.getPropertyValue(
+            '--cr_composebox_minimum_height'));
+    assertEquals(
+        '',
+        app.$.composebox.style.getPropertyValue(
+            '--cr_composebox_minimum_width'));
+  });
 });

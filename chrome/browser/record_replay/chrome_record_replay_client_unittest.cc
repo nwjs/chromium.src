@@ -7,10 +7,12 @@
 #include <optional>
 
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/record_replay/task_parameters_extractor_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "components/record_replay/core/browser/activity_discovery_service.h"
+#include "components/record_replay/core/browser/task_discovery_service.h"
+#include "components/record_replay/core/browser/task_parameters_extractor.h"
 #include "components/record_replay/core/common/record_replay_features.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "content/public/test/mock_navigation_handle.h"
@@ -26,10 +28,21 @@ using testing::_;
 using testing::Return;
 using testing::ReturnRef;
 
-class MockActivityDiscoveryService : public ActivityDiscoveryService {
+class MockTaskParametersExtractor : public TaskParametersExtractor {
+ public:
+  MockTaskParametersExtractor() = default;
+  ~MockTaskParametersExtractor() override = default;
+
+  MOCK_METHOD((std::map<std::string, std::string>),
+              GetParameterValueSelectorsForUrl,
+              (const GURL& url),
+              (override));
+};
+
+class MockTaskDiscoveryService : public TaskDiscoveryService {
  public:
   MOCK_METHOD(void,
-              ShouldOfferActivity,
+              ShouldOfferTask,
               (const GURL& url, base::OnceCallback<void(bool)> callback),
               (override));
   MOCK_METHOD(std::optional<AutomationMetadata>, GetMetadata, (), (override));
@@ -53,7 +66,7 @@ class ChromeRecordReplayClientTest : public ChromeRenderViewHostTestHarness {
   tabs::MockTabInterface& tab() { return *tab_; }
   ChromeRecordReplayClient& client() { return *client_; }
 
-  void ReinitializeClient(std::unique_ptr<ActivityDiscoveryService> service) {
+  void ReinitializeClient(std::unique_ptr<TaskDiscoveryService> service) {
     client_.emplace(*tab_, std::move(service));
   }
 
@@ -75,9 +88,9 @@ TEST_F(ChromeRecordReplayClientTest, GetPrimaryMainFrameUrl) {
   EXPECT_EQ(client().GetPrimaryMainFrameUrl(), url2);
 }
 
-TEST_F(ChromeRecordReplayClientTest, DidFinishNavigation_OffersActivity) {
-  auto mock_service = std::make_unique<MockActivityDiscoveryService>();
-  EXPECT_CALL(*mock_service, ShouldOfferActivity(_, _))
+TEST_F(ChromeRecordReplayClientTest, DidFinishNavigation_OffersTask) {
+  auto mock_service = std::make_unique<MockTaskDiscoveryService>();
+  EXPECT_CALL(*mock_service, ShouldOfferTask(_, _))
       .WillOnce([](const GURL& url, base::OnceCallback<void(bool)> callback) {
         std::move(callback).Run(true);
       });
@@ -95,6 +108,31 @@ TEST_F(ChromeRecordReplayClientTest, DidFinishNavigation_OffersActivity) {
   handle.set_url(GURL("https://deephand.github.io/deephand-bahn"));
 
   client().DidFinishNavigation(&handle);
+}
+
+TEST_F(ChromeRecordReplayClientTest, DOMContentLoaded_ExtractsParameters) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+
+  auto* mock_extractor = static_cast<MockTaskParametersExtractor*>(
+      record_replay::TaskParametersExtractorFactory::GetInstance()
+          ->SetTestingFactoryAndUse(
+              profile,
+              base::BindRepeating([](content::BrowserContext* context)
+                                      -> std::unique_ptr<KeyedService> {
+                return std::make_unique<MockTaskParametersExtractor>();
+              })));
+  ASSERT_TRUE(mock_extractor);
+
+  const GURL url("https://example.com/");
+
+  // Set the expectation for 2 calls (1 from DidFinishNavigation, 1 from
+  // DOMContentLoaded)
+  EXPECT_CALL(*mock_extractor, GetParameterValueSelectorsForUrl(url))
+      .Times(2)
+      .WillRepeatedly(Return(std::map<std::string, std::string>{}));
+
+  content::WebContentsTester::For(web_contents())->NavigateAndCommit(url);
 }
 
 }  // namespace

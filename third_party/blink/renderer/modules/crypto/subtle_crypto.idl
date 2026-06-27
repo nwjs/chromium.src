@@ -52,7 +52,7 @@ typedef (object or DOMString) AlgorithmIdentifier;
 
     [CallWith=ScriptState, ImplementedAs=verifySignature,
      MeasureAs=SubtleCryptoVerify, RaisesException]
-    Promise<any> verify(
+    Promise<boolean> verify(
         AlgorithmIdentifier algorithm,
         CryptoKey key,
         BufferSource signature,
@@ -139,6 +139,9 @@ typedef (object or DOMString) AlgorithmIdentifier;
         AlgorithmIdentifier decapsulationAlgorithm,
         CryptoKey decapsulationKey,
         BufferSource ciphertext);
+    [CallWith=ScriptState, MeasureAs=SubtleCryptoGetPublicKey,
+     RaisesException, RuntimeEnabled=WebCryptoPQC]
+    Promise<CryptoKey> getPublicKey(CryptoKey key, sequence<KeyUsage> keyUsages);
 
     [CallWith=ScriptState, RuntimeEnabled=WebCryptoPQC]
     static boolean supports(

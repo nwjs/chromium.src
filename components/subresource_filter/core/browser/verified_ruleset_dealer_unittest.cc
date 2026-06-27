@@ -279,7 +279,7 @@ TEST_F(SubresourceFilterVerifiedRulesetDealerTest,
        OpenAndSetRulesetFileValidNoChecksum) {
   // See also SubresourceFilterBrowserTest.InvalidRuleset_Checksum, corrupting
   // in this manner doesn't invalidate the Flatbuffer Verifier check.
-  testing::TestRuleset::CorruptByFilling(rulesets().indexed_1(), 28246, 28247,
+  testing::TestRuleset::CorruptByFilling(rulesets().indexed_1(), 1000, 1001,
                                          32);
   RulesetFilePtr file = ruleset_dealer()->OpenAndSetRulesetFile(
       /*expected_checksum=*/0, rulesets().indexed_1().path);
@@ -304,10 +304,13 @@ TEST_F(SubresourceFilterVerifiedRulesetDealerTest,
 // the corrupted file is detected as invalid.
 TEST_F(SubresourceFilterVerifiedRulesetDealerTest,
        OpenAndSetRulesetFileInvalidChecksum) {
-  int expected_checksum = base::PersistentHash(rulesets().indexed_1().contents);
+  // Mask the hash with 0x7fffffff to strip the sign bit and force it to be
+  // positive before casting to an int to match production.
+  int expected_checksum = static_cast<int>(
+      base::PersistentHash(rulesets().indexed_1().contents) & 0x7fffffff);
   // See also SubresourceFilterBrowserTest.InvalidRuleset_Checksum, corrupting
   // in this manner doesn't invalidate the Flatbuffer Verifier check.
-  testing::TestRuleset::CorruptByFilling(rulesets().indexed_1(), 28246, 28247,
+  testing::TestRuleset::CorruptByFilling(rulesets().indexed_1(), 1000, 1001,
                                          32);
   RulesetFilePtr file = ruleset_dealer()->OpenAndSetRulesetFile(
       expected_checksum, rulesets().indexed_1().path);

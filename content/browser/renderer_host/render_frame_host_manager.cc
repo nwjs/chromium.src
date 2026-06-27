@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -76,6 +77,7 @@
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -1121,15 +1123,9 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
   }
 
   // A same-RenderFrameHost navigation committed.
+  UpdateViewVisibilityAfterCommit(/*was_same_render_frame_host=*/true);
 
   if (render_frame_host_->is_local_root() && render_frame_host_->GetView()) {
-    // RenderFrames are created with a hidden RenderWidgetHost. When
-    // navigation finishes, we show it if the delegate is shown. CommitPending()
-    // takes care of this in the cross-process case, as well as other cases
-    // where a RenderFrameHost is swapped in.
-    if (!frame_tree_node_->frame_tree().IsHidden())
-      render_frame_host_->GetView()->Show();
-
     bool is_prerendering = render_frame_host_->lifecycle_state() ==
                            LifecycleStateImpl::kPrerendering;
     auto* rwhi = static_cast<RenderWidgetHostImpl*>(
@@ -1177,6 +1173,32 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
       UMA_HISTOGRAM_ENUMERATION(
           kBackForwardCachePageWithFormStorableHistogramName,
           BackForwardCacheMetrics::PageWithFormStorable::kPageSeen);
+    }
+  }
+}
+
+void RenderFrameHostManager::UpdateViewVisibilityAfterCommit(
+    bool was_same_render_frame_host) {
+  if (!render_frame_host_->GetView()) {
+    return;
+  }
+
+  RenderWidgetHostViewBase* view =
+      static_cast<RenderWidgetHostViewBase*>(render_frame_host_->GetView());
+
+  // RenderFrames are created with a hidden RenderWidgetHost. When navigation
+  // finishes, we show it if the delegate is shown.
+  if (frame_tree_node_->GetFrameType() == FrameType::kPrimaryMainFrame) {
+    delegate_->PrimaryMainFrameCommitted(render_frame_host_.get());
+  } else if (render_frame_host_->is_local_root()) {
+    if (!frame_tree_node_->frame_tree().IsHidden()) {
+      // Prerenders won't be a child view, but they'll be hidden so won't be
+      // shown.
+      CHECK(view->IsRenderWidgetHostViewChildFrame());
+      static_cast<RenderWidgetHostViewChildFrame*>(view)->Show();
+      if (!was_same_render_frame_host && render_frame_host_->child_count()) {
+        render_frame_host_->SetVisibilityForChildViews(true);
+      }
     }
   }
 }
@@ -1482,8 +1504,7 @@ void RenderFrameHostManager::UnloadOldFrame(
   //
   // This is well under the required shutdown time of the renderer process
   // which has security implications if exceeded (https://crbug.com/1177674).
-  if (features::ShouldAckCOREarlyForViewTransition() &&
-      !old_render_frame_host->GetParentOrOuterDocument() &&
+  if (!old_render_frame_host->GetParentOrOuterDocument() &&
       view_transition_commit_info.HasViewTransitionResources() &&
       view_transition_commit_info.delay_layer_tree_view_deletion) {
     view_transition_commit_info.view_transition_resources
@@ -2748,8 +2769,11 @@ void RenderFrameHostManager::UpdateUserActivationState(
           blink::mojom::UserActivationUpdateType::kNotifyActivation) {
     outer_delegate_proxy->GetAssociatedRemoteFrame()->UpdateUserActivationState(
         update_type, notification_type);
-    GetOuterDelegateNode()->UpdateUserActivationState(update_type,
-                                                      notification_type);
+    // Ignore the result here, since a failure when providing a user activation
+    // isn't really why `UpdateUserActivationState` is [[nodiscard]].  It's
+    // when a gesture can't be consumed that it's potentially an issue.
+    std::ignore = GetOuterDelegateNode()->UpdateUserActivationState(
+        update_type, notification_type);
   }
 }
 
@@ -3640,7 +3664,8 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
     SiteInstanceImpl* parent_site_instance =
         frame_tree_node_->parent()->GetSiteInstance();
     if (GetContentClient()->browser()->ShouldStayInParentProcessForNTP(
-            dest_url_info.url, parent_site_instance->GetSiteURL())) {
+            dest_url_info.url, parent_site_instance->GetSecurityPrincipal()
+                                   .GetDeprecatedSiteURL())) {
       // NTP is considered non-isolated.
       CHECK(!dest_url_info.IsIsolated());
       AppendReason(reason,
@@ -3661,7 +3686,7 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
              dest_url_info.url.SchemeIs(url::kDataScheme) &&
              !was_server_redirect && !frame_tree_node_->IsMainFrame() &&
              source_instance && !dest_url_info.is_sandboxed &&
-             !dest_url_info.is_pdf) {
+             !dest_url_info.embedder_isolation_info.is_pdf()) {
     // In the case a subframe data: URL (excluding server redirects, see
     // CanUseSourceSiteInstance), if it can't use the source SiteInstance, it
     // should have its own SiteInstance that shares a group with the initiator.
@@ -4168,7 +4193,7 @@ bool RenderFrameHostManager::CanUseSourceSiteInstance(
   // PDF content should never share a SiteInstance with non-PDF content. In
   // practice, this prevents the PDF viewer extension from incorrectly sharing
   // a process with PDF content that was loaded from a data URL.
-  if (dest_url_info.is_pdf) {
+  if (dest_url_info.embedder_isolation_info.is_pdf()) {
     CHECK(!source_instance->GetProcess()->IsPdf());
     AppendReason(reason,
                  "CanUseSourceSiteInstance => false "
@@ -4626,7 +4651,9 @@ RenderFrameHostManager::CreateSpeculativeRenderFrame(
     }
     // And since we are reusing the RenderViewHost make sure it is hidden, like
     // a new RenderViewHost would be, until navigation commits.
-    render_view_host->GetWidget()->GetView()->Hide();
+    static_cast<RenderWidgetHostViewBase*>(
+        render_view_host->GetWidget()->GetView())
+        ->Hide();
   }
 
   // TODO(https://crbug.com/503784536): CHECK-exclusion: Convert to CHECK once
@@ -5112,18 +5139,6 @@ bool RenderFrameHostManager::ReinitializeMainRenderFrame(
   }
 
   CHECK(render_frame_host->IsRenderFrameLive());
-
-  // The RenderWidgetHostView goes away with the render process. Initializing a
-  // RenderFrame means we'll be creating (or reusing, https://crbug.com/419087)
-  // a RenderWidgetHostView. The new RenderWidgetHostView should take its
-  // visibility from the RenderWidgetHostImpl, but this call exists to handle
-  // cases where it did not during a same-process navigation.
-  // TODO(danakj): We now hide the widget unconditionally (treating main frame
-  // and child frames alike) and show in DidFinishNavigation() always, so this
-  // should be able to go away. Try to remove this.
-  if (render_frame_host == render_frame_host_.get())
-    EnsureRenderFrameHostVisibilityConsistent();
-
   return true;
 }
 
@@ -5402,7 +5417,7 @@ void RenderFrameHostManager::CommitPending(
     // blink::Page of changes to the PageVisibilityState. This currently does
     // not affect the visibility of the blink::WidgetBase. We should unify these
     // two visibility states to prevent them from drifting.
-    old_view->Hide();
+    static_cast<RenderWidgetHostViewBase*>(old_view)->Hide();
     if (old_render_frame_host->child_count()) {
       old_render_frame_host->SetVisibilityForChildViews(false);
     }
@@ -5600,6 +5615,9 @@ void RenderFrameHostManager::CommitPending(
     }
   }
 
+  bool is_child_view = static_cast<RenderWidgetHostViewBase*>(new_view)
+                           ->IsRenderWidgetHostViewChildFrame();
+
   // If this is a subframe or inner frame tree, it should have a
   // CrossProcessFrameConnector created already.  Use it to link the new RFH's
   // view to the proxy that belongs to the parent frame's SiteInstance. If this
@@ -5614,8 +5632,7 @@ void RenderFrameHostManager::CommitPending(
     proxy_to_parent_or_outer_delegate->SetChildRWHView(
         static_cast<RenderWidgetHostViewChildFrame*>(new_view),
         old_size ? &*old_size : nullptr, allow_paint_holding);
-  } else if (static_cast<RenderWidgetHostViewBase*>(new_view)
-                 ->IsRenderWidgetHostViewChildFrame()) {
+  } else if (is_child_view) {
     // Only use this mechanism when there is no proxy to parent or outer
     // delegate. Otherwise we will partially duplicate SetChildRWHView work.
     delegate_->NotifySwappedRWHVChildFrameFromRenderManager(
@@ -5623,16 +5640,7 @@ void RenderFrameHostManager::CommitPending(
         allow_paint_holding);
   }
 
-  if (render_frame_host_->is_local_root()) {
-    // RenderFrames are created with a hidden RenderWidgetHost. When navigation
-    // finishes, we show it if the delegate is shown.
-    if (!frame_tree_node_->frame_tree().IsHidden()) {
-      new_view->Show();
-      if (render_frame_host_->child_count()) {
-        render_frame_host_->SetVisibilityForChildViews(true);
-      }
-    }
-  }
+  UpdateViewVisibilityAfterCommit(/*was_same_render_frame_host=*/false);
 
   // If we took the fallback content, we mark paint-holding as active to start a
   // timeout to clear the fallback content in case the new renderer does not
@@ -5952,19 +5960,6 @@ void RenderFrameHostManager::ExecuteRemoteFramesBroadcastMethod(
   render_frame_host_->browsing_context_state()
       ->ExecuteRemoteFramesBroadcastMethod(callback, group_to_skip,
                                            outer_delegate_proxy);
-}
-
-void RenderFrameHostManager::EnsureRenderFrameHostVisibilityConsistent() {
-  RenderWidgetHostView* view = GetRenderWidgetHostView();
-  if (view &&
-      static_cast<RenderWidgetHostImpl*>(view->GetRenderWidgetHost())
-              ->IsHidden() != frame_tree_node_->frame_tree().IsHidden()) {
-    if (frame_tree_node_->frame_tree().IsHidden()) {
-      view->Hide();
-    } else {
-      view->Show();
-    }
-  }
 }
 
 void RenderFrameHostManager::EnsureRenderFrameHostPageFocusConsistent() {

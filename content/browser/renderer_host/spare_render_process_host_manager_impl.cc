@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <optional>
 
+#include "base/byte_size.h"
 #include "base/check.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory_coordinator/utils.h"
@@ -22,10 +23,21 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 
 namespace content {
+
+// Enables killing spare renders when memory pressure signal is received.
+BASE_FEATURE(kKillSpareRenderOnMemoryPressure,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, only the extra RPHs (controlled by the MultipleSpareRPHs
+// experiment) are killed on memory pressure. Does nothing if
+// kKillSpareRenderOnMemoryPressure is disabled.
+BASE_FEATURE(kSpareRPHKeepOneAliveOnMemoryPressure,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 using performance_scenarios::LoadingScenario;
 using performance_scenarios::PerformanceScenarioObserverList;
@@ -35,21 +47,10 @@ using SpareProcessMaybeTakeAction =
 
 namespace {
 
-// Enables killing spare renders when memory pressure signal is received.
-BASE_FEATURE(kKillSpareRenderOnMemoryPressure,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // If enabled, MEMORY_PRESSURE_LEVEL_CRITICAL is used as the threshold that
 // determines when a spare RPH can be created or killed. By default,
 // MEMORY_PRESSURE_LEVEL_MODERATE is used.
 BASE_FEATURE(kSpareRPHUseCriticalMemoryPressure,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, only the extra RPHs (controlled by the MultipleSpareRPHs
-// experiment) are killed on memory pressure. Does nothing if
-// kKillSpareRenderOnMemoryPressure is disabled.
-BASE_FEATURE(kSpareRPHKeepOneAliveOnMemoryPressure,
-             "kSpareRPHKeepOneAliveOnMemoryPressure",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -227,7 +228,7 @@ std::string GetNoSpareRendererAllocationForCOOPUMAName(
 // trial is not activated on excluded machines.
 size_t GetSpareRPHCount() {
   // Exclude machines with less than 4gigs of ram.
-  if (base::SysInfo::AmountOfPhysicalMemory() < base::GiB(4)) {
+  if (base::SysInfo::AmountOfTotalPhysicalMemory() < base::GiBU(4)) {
     return 1u;
   }
   return features::kMultipleSpareRPHsCount.Get();
@@ -326,10 +327,12 @@ int GetMemoryLimitThreshold() {
 }  // namespace
 
 SpareRenderProcessHostManagerImpl::SpareRenderProcessHostManagerImpl()
-    : memory_pressure_listener_registration_(
-          FROM_HERE,
-          base::MemoryPressureListenerTag::kSpareRenderProcessHostManagerImpl,
-          this),
+    : memory_consumer_registration_(
+          "SpareRenderProcessHostManagerImpl",
+          std::nullopt,  // TODO(crbug.com/489671163): Add traits.
+          this,
+          base::MemoryConsumerRegistration::CheckUnregister::kDisabled,
+          base::MemoryConsumerRegistration::CheckRegistryExists::kDisabled),
       metrics_heartbeat_timer_(
           FROM_HERE,
           base::Minutes(2),
@@ -502,7 +505,7 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::WarmupSpare(
   // Don't create a spare renderer when the system is under load.  This is
   // currently approximated by only looking at the memory pressure.  See also
   // https://crbug.com/852905.
-  if (GetMemoryLimit() <= GetMemoryLimitThreshold()) {
+  if (memory_limit() <= GetMemoryLimitThreshold()) {
     no_spare_renderer_reason_ = NoSpareRendererReason::kMemoryPressure;
     return nullptr;
   }
@@ -625,7 +628,7 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
       site_instance->GetSecurityPrincipal().IsGuest()
 #if !BUILDFLAG(IS_ANDROID)
       || GetContentClient()->browser()->IsTopChromeWebUIURL(
-             site_instance->GetSiteURL())
+             site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL())
 #endif
   ) {
     action = SpareProcessMaybeTakeAction::kRefusedBySiteInstance;
@@ -955,16 +958,16 @@ void SpareRenderProcessHostManagerImpl::SetIsBrowserIdle(bool is_browser_idle) {
   MaybeCreateExtraSpare();
 }
 
-void SpareRenderProcessHostManagerImpl::OnMemoryPressure(
-    base::MemoryPressureLevel memory_pressure_level) {
-  if (memory_pressure_level == base::MEMORY_PRESSURE_LEVEL_NONE) {
-    // Now that the system is no longer under memory pressure, check if we need
-    // to start another spare.
+void SpareRenderProcessHostManagerImpl::OnUpdateMemoryLimit() {
+  // If the system is no longer under memory pressure, check if we need
+  // to start another spare.
+  if (memory_limit() > GetMemoryLimitThreshold()) {
     MaybeCreateExtraSpare();
-    return;
   }
+}
 
-  if (GetMemoryLimit() > GetMemoryLimitThreshold()) {
+void SpareRenderProcessHostManagerImpl::OnReleaseMemory() {
+  if (memory_limit() > GetMemoryLimitThreshold()) {
     return;
   }
 
@@ -1014,7 +1017,7 @@ bool SpareRenderProcessHostManagerImpl::ShouldCreateExtraSpare() const {
   }
 
   // Don't create spares when under memory pressure.
-  if (GetMemoryLimit() < base::kNoMemoryPressureThreshold) {
+  if (memory_limit() < base::kNoMemoryPressureThreshold) {
     return false;
   }
 
@@ -1056,7 +1059,8 @@ bool SpareRenderProcessHostManagerImpl::
     return true;
   }
 
-  const int total_memory_mb = base::SysInfo::AmountOfPhysicalMemory().InMiB();
+  const int total_memory_mb =
+      base::SysInfo::AmountOfTotalPhysicalMemory().InMiB();
   const int available_memory_threshold_mb =
       total_memory_mb >= kLargeMemoryDeviceThresholdMb.Get()
           ? kLargeMemoryDeviceAvailableMemoryThresholdMb.Get()

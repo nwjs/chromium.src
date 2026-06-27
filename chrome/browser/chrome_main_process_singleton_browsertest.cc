@@ -17,7 +17,6 @@
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
@@ -27,6 +26,7 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
@@ -194,7 +194,7 @@ IN_PROC_BROWSER_TEST_F(ChromeMainTest, SecondLaunchWithProfileEmail) {
       ->SetAuthInfo(GaiaId("gaia_id_2"), base::UTF8ToUTF16(kProfileEmail2),
                     /*is_consented_primary_account=*/false);
   base::RunLoop run_loop;
-  g_browser_process->FlushLocalStateAndReply(
+  g_browser_process->local_state()->CommitPendingWrite(
       base::BindLambdaForTesting([&run_loop]() { run_loop.Quit(); }));
   run_loop.Run();
 

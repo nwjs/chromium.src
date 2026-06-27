@@ -23,7 +23,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DimenRes;
 import androidx.annotation.DrawableRes;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
 import androidx.core.widget.ImageViewCompat;
 
@@ -68,6 +67,7 @@ import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorLi
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.ui.accessibility.KeyboardFocusUtil;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -349,8 +349,7 @@ public class ToolbarTablet extends ToolbarLayout {
                     isIncognitoBranded()
                             ? R.color.default_icon_color_blue_light
                             : R.color.default_icon_color_accent1_tint_list;
-            ImageViewCompat.setImageTintList(
-                    mBookmarkButton, AppCompatResources.getColorStateList(getContext(), tint));
+            ImageViewCompat.setImageTintList(mBookmarkButton, getContext().getColorStateList(tint));
             mBookmarkButton.setContentDescription(getContext().getString(R.string.edit_bookmark));
         } else {
             mBookmarkButtonImageRes = R.drawable.ic_star_24dp;
@@ -395,7 +394,8 @@ public class ToolbarTablet extends ToolbarLayout {
             @Nullable SigninButtonCoordinator signinButtonCoordinator,
             ThemeColorProvider themeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
-            @Nullable Supplier<Integer> incognitoWindowCountSupplier) {
+            @Nullable Supplier<Integer> incognitoWindowCountSupplier,
+            WindowAndroid windowAndroid) {
         assert tabSwitcherButtonCoordinator != null;
         super.initialize(
                 toolbarDataProvider,
@@ -413,7 +413,8 @@ public class ToolbarTablet extends ToolbarLayout {
                 signinButtonCoordinator,
                 themeColorProvider,
                 incognitoStateProvider,
-                incognitoWindowCountSupplier);
+                incognitoWindowCountSupplier,
+                windowAndroid);
         mReloadButtonCoordinator = assertNonNull(reloadButtonCoordinator);
         mBackButtonCoordinator = assertNonNull(backButtonCoordinator);
         mForwardButtonCoordinator = assertNonNull(forwardButtonCoordinator);

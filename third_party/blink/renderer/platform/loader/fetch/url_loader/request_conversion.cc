@@ -306,12 +306,6 @@ void PopulateResourceRequest(const ResourceRequestHead& src,
     dest->cors_exempt_headers.SetHeader(kCorsExemptRequestedWithHeaderName,
                                         src.GetRequestedWithHeader().Utf8());
   }
-  // Set Purpose header to cors_exempt_headers rather than headers to be
-  // exempted from CORS checks.
-  if (!src.GetPurposeHeader().empty()) {
-    dest->cors_exempt_headers.SetHeader(kPurposeHeaderName,
-                                        src.GetPurposeHeader().Utf8());
-  }
   // Set Last-Event-ID header to cors_exempt_headers for EventSource.
   // HTTP headers are Latin-1 byte strings, but the Last-Event-ID header is
   // encoded as UTF-8.
@@ -370,7 +364,7 @@ void PopulateResourceRequest(const ResourceRequestHead& src,
   dest->has_user_gesture = src.HasUserGesture();
   dest->enable_load_timing = true;
   dest->enable_upload_progress = src.ReportUploadProgress();
-  dest->throttling_profile_id = src.GetDevToolsToken();
+  dest->throttling_profile_id = src.GetDevToolsThrottlingToken();
   dest->trust_token_params = ConvertTrustTokenParams(src.TrustTokenParams());
   dest->required_ip_address_space = src.GetTargetAddressSpace();
   if (src.HasFetchRetryOptions()) {

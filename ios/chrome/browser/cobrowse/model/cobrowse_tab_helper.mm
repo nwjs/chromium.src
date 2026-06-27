@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/cobrowse/model/cobrowse_tab_helper.h"
 
 #import "base/functional/bind.h"
+#import "base/strings/sys_string_conversions.h"
 #import "base/task/sequenced_task_runner.h"
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_service.h"
@@ -41,7 +42,14 @@ void CobrowseTabHelper::WasShown(web::WebState* web_state) {
     return;
   }
 
-  if (ShouldHideAssistantForURL(web_state->GetLastCommittedURL())) {
+  GURL url = web_state->GetVisibleURL();
+  if (ShouldCloseAssistant(url)) {
+    [scene_handler_ closeAssistant];
+    delegate_->SetSessionActive(false);
+    return;
+  }
+
+  if (ShouldHideAssistant(url)) {
     [scene_handler_ hideAssistant];
     return;
   }
@@ -51,9 +59,8 @@ void CobrowseTabHelper::WasShown(web::WebState* web_state) {
     // established before showing the assistant. This avoids crashes during
     // transitions (e.g., from Tab Grid to Browser).
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(^{
-          [scene_handler_ showAssistant];
-        }));
+        FROM_HERE, base::BindOnce(&CobrowseTabHelper::ShowAssistant,
+                                  weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
@@ -64,16 +71,28 @@ void CobrowseTabHelper::DidStartNavigation(
     return;
   }
 
-  if (ShouldHideAssistantForURL(navigation_context->GetUrl())) {
-    [scene_handler_ hideAssistant];
+  const GURL& url = navigation_context->GetUrl();
+  if (ShouldCloseAssistant(url)) {
+    [scene_handler_ closeAssistant];
     delegate_->SetSessionActive(false);
     return;
   }
 
+  if (ShouldHideAssistant(url)) {
+    [scene_handler_ hideAssistant];
+    return;
+  }
+
+  // Do not trigger the assistant on reloads.
+  if (ui::PageTransitionCoreTypeIs(navigation_context->GetPageTransition(),
+                                   ui::PAGE_TRANSITION_RELOAD)) {
+    return;
+  }
+
   if (delegate_->CanShowAssistantForWebState(web_state)) {
-    delegate_->SetSessionActive(true);
     delegate_->ConfigureAssistantContextForWebState(web_state);
     [scene_handler_ showAssistant];
+    delegate_->SetSessionActive(true);
   }
 }
 
@@ -83,7 +102,7 @@ void CobrowseTabHelper::WebStateDestroyed(web::WebState* web_state) {
 
 #pragma mark - Private helpers
 
-bool CobrowseTabHelper::ShouldHideAssistantForURL(const GURL& url) {
+bool CobrowseTabHelper::ShouldCloseAssistant(const GURL& url) {
   if (IsUrlNtp(url)) {
     return true;
   }
@@ -98,5 +117,16 @@ bool CobrowseTabHelper::ShouldHideAssistantForURL(const GURL& url) {
     return true;
   }
 
+  return false;
+}
+
+void CobrowseTabHelper::ShowAssistant() {
+  [scene_handler_ showAssistant];
+}
+
+bool CobrowseTabHelper::ShouldHideAssistant(const GURL& url) {
+  if (delegate_ && delegate_->IsTabGridVisible()) {
+    return true;
+  }
   return false;
 }

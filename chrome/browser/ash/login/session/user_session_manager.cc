@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/metrics/login_unlock_throughput_recorder.h"
@@ -76,7 +77,6 @@
 #include "chrome/browser/ash/login/existing_user_controller.h"
 #include "chrome/browser/ash/login/helper.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
-#include "chrome/browser/ash/login/login_pref_names.h"
 #include "chrome/browser/ash/login/onboarding_user_activity_counter.h"
 #include "chrome/browser/ash/login/profile_auth_data.h"
 #include "chrome/browser/ash/login/quick_unlock/pin_backend.h"
@@ -133,7 +133,6 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_flusher.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -652,7 +651,8 @@ bool MaybeStartManagementTransition(Profile* profile) {
 bool MaybeShowManagedTermsOfService(Profile* profile) {
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   if (user_manager->IsCurrentUserNew() ||
-      !profile->GetPrefs()->IsManagedPreference(::prefs::kTermsOfServiceURL)) {
+      !profile->GetPrefs()->IsManagedPreference(
+          ash::prefs::kTermsOfServiceURL)) {
     return false;
   }
 
@@ -676,8 +676,8 @@ UserSessionManager* UserSessionManager::GetInstance() {
 
 // static
 void UserSessionManager::RegisterPrefs(PrefRegistrySimple* registry) {
-  registry->RegisterStringPref(::prefs::kRLZBrand, std::string());
-  registry->RegisterBooleanPref(::prefs::kRLZDisabled, false);
+  registry->RegisterStringPref(ash::prefs::kRLZBrand, std::string());
+  registry->RegisterBooleanPref(ash::prefs::kRLZDisabled, false);
 }
 
 UserSessionManager::UserSessionManager(
@@ -1606,17 +1606,27 @@ void UserSessionManager::InitProfilePreferences(
           base::FeatureList::IsEnabled(
               syncer::kEstimateNewSignInUsersWithFinchAvailablePopulation));
     }
+
+    const signin::ConsentLevel consent_level =
+        !identity_manager->HasPrimaryAccount(ConsentLevel::kSync) &&
+                base::FeatureList::IsEnabled(
+                    syncer::kReplaceSyncPromosWithSignInPromos) &&
+                base::FeatureList::IsEnabled(
+                    ::switches::kChromeOsUseConsentLevelSigninForNewUsers)
+            ? ConsentLevel::kSignin
+            : ConsentLevel::kSync;
+
     const signin::PrimaryAccountMutator::PrimaryAccountError
         set_account_result =
             identity_manager->GetPrimaryAccountMutator()->SetPrimaryAccount(
-                account_id, ConsentLevel::kSync,
+                account_id, consent_level,
                 signin_metrics::AccessPoint::kAshUserSessionManager);
     VLOG(1) << "SetPrimaryAccount result="
             << static_cast<int>(set_account_result);
 
     // TODO(http://crbug.com/40916881): Remove.
     const CoreAccountInfo& identity_manager_account_info =
-        identity_manager->GetPrimaryAccountInfo(ConsentLevel::kSync);
+        identity_manager->GetPrimaryAccountInfo(consent_level);
     if (identity_manager_account_info.gaia != gaia_id) {
       signin::PrimaryAccountMutator::PrimaryAccountError
           set_account_result_copy = set_account_result;
@@ -1640,8 +1650,8 @@ void UserSessionManager::InitProfilePreferences(
           identity_manager_account_info.account_id.ToString().c_str(), 32);
     }
 
-    CHECK(identity_manager->HasPrimaryAccount(ConsentLevel::kSync));
-    CHECK_EQ(identity_manager->GetPrimaryAccountInfo(ConsentLevel::kSync).gaia,
+    CHECK(identity_manager->HasPrimaryAccount(consent_level));
+    CHECK_EQ(identity_manager->GetPrimaryAccountInfo(consent_level).gaia,
              gaia_id);
 
     DCHECK_EQ(account_id,

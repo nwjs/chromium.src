@@ -158,6 +158,14 @@ class ServiceWorkerVersionTest
     return version->ping_controller_.IsActivated();
   }
 
+  void StopTimeoutTimer(ServiceWorkerVersion* version) const {
+    version->StopTimeoutTimer();
+  }
+
+  void ResetWorkerHost(ServiceWorkerVersion* version) const {
+    version->worker_host_.reset();
+  }
+
   void NotifyScriptEvaluationStart(ServiceWorkerVersion* version) {
     version->OnScriptEvaluationStart();
   }
@@ -680,8 +688,8 @@ TEST_P(ServiceWorkerVersionTest, DevToolsAttachThenDetach) {
         version_->timeout_timer_.user_task().Run();
         base::RunLoop().RunUntilIdle();
 
-        const bool worker_stopped_or_stopping =
-            version_->OnRequestTermination();
+        const bool worker_stopped_or_stopping = version_->OnRequestTermination(
+            version_->GetLatestExternalKeepaliveSequenceNumberForTest());
 
         EXPECT_EQ(!expect_running, worker_stopped_or_stopping);
         const bool worker_running =
@@ -737,7 +745,7 @@ TEST_P(ServiceWorkerVersionTest, RequestTerminationWithDevToolsAttached) {
   // worker's idle timeout is set to the default value forcefully because the
   // worker needs to be running until DevTools is detached even if there's no
   // inflight event.
-  version_->OnRequestTermination();
+  version_->OnRequestTermination(0);
   service_worker->FlushForTesting();
   EXPECT_EQ(blink::mojom::kServiceWorkerDefaultIdleDelayInSeconds,
             service_worker->idle_delay()->InSeconds());
@@ -1341,6 +1349,48 @@ TEST_P(ServiceWorkerVersionTest, StallInStopping_DetachThenRestart) {
   EXPECT_EQ(blink::ServiceWorkerStatusCode::kOk, start_status.value());
 }
 
+// When the browser issues `Stop` on a worker that is still `kStarting`,
+// `installed_scripts_sender_` must be torn down promptly so a renderer wedged
+// in `ThreadSafeScriptContainer::WaitOnWorkerThread` can wake before
+// `kStopWorkerTimeout` expires. Regression test for crbug.com/484218883.
+TEST_P(ServiceWorkerVersionTest, InstalledScriptsSenderResetOnStopping) {
+  // `installed_scripts_sender_` is only created for installed versions.
+  version_->SetStatus(ServiceWorkerVersion::INSTALLED);
+
+  // Stall in starting; the `StopWorker` IPC is left unanswered so the worker
+  // remains in `kStopping` and `OnStoppedInternal` does not run.
+  helper_->AddNewPendingInstanceClient<DelayedFakeEmbeddedWorkerInstanceClient>(
+      helper_.get());
+  std::optional<blink::ServiceWorkerStatusCode> status;
+  base::RunLoop run_loop;
+  version_->StartWorker(
+      ServiceWorkerMetrics::EventType::UNKNOWN,
+      ReceiveServiceWorkerStatus(&status, run_loop.QuitClosure()));
+  base::RunLoop().RunUntilIdle();
+
+  ASSERT_EQ(blink::EmbeddedWorkerStatus::kStarting, version_->running_status());
+  ASSERT_NE(nullptr, version_->installed_scripts_sender_);
+
+  // Trigger the start timeout to force a `Stop` while still `kStarting`.
+  // `kStartNewWorkerTimeout` (5m) exceeds `kStartInstalledWorkerTimeout` (60s),
+  // so backdating by it triggers the timeout regardless of installed state.
+  EXPECT_TRUE(version_->timeout_timer_.IsRunning());
+  version_->start_time_ = base::TimeTicks::Now() -
+                          ServiceWorkerVersion::kStartNewWorkerTimeout -
+                          base::Minutes(1);
+  version_->timeout_timer_.user_task().Run();
+  run_loop.Run();
+  EXPECT_EQ(blink::ServiceWorkerStatusCode::kErrorTimeout, status.value());
+  base::RunLoop().RunUntilIdle();
+
+  // The worker is still `kStopping` (the renderer never acked `StopWorker`),
+  // but `installed_scripts_sender_` has already been dropped by `OnStopping`.
+  // Without this, a renderer wedged in `WaitOnWorkerThread` could not wake
+  // until `OnStoppedInternal` ran after `kStopWorkerTimeout`.
+  EXPECT_EQ(blink::EmbeddedWorkerStatus::kStopping, version_->running_status());
+  EXPECT_EQ(nullptr, version_->installed_scripts_sender_);
+}
+
 TEST_P(ServiceWorkerVersionTest, RendererCrashDuringEvent) {
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
 
@@ -1899,6 +1949,53 @@ TEST_P(ServiceWorkerVersionTest, PendingExternalRequest) {
   run_loop.Run();
 }
 
+TEST_P(ServiceWorkerVersionTest, StaleRequestTerminationWithExternalKeepalive) {
+  using Result = ServiceWorkerExternalRequestResult;
+  using TimeoutType = ServiceWorkerExternalRequestTimeoutType;
+
+  std::optional<blink::ServiceWorkerStatusCode> status;
+  base::RunLoop run_loop;
+  version_->StartWorker(
+      ServiceWorkerMetrics::EventType::UNKNOWN,
+      ReceiveServiceWorkerStatus(&status, run_loop.QuitClosure()));
+  run_loop.Run();
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk, status.value());
+  ASSERT_EQ(blink::EmbeddedWorkerStatus::kRunning, version_->running_status());
+
+  // Simulate the browser dispatching a new event/request to the worker.
+  // Internally increments browser's latest_external_keepalive_sequence_number_.
+  const base::Uuid uuid = base::Uuid::GenerateRandomV4();
+  EXPECT_EQ(Result::kOk,
+            version_->StartExternalRequest(uuid, TimeoutType::kDefault));
+
+  // Verify that the browser advanced the keepalive sequence number to 1.
+  const uint64_t keepalive_sequence_number =
+      version_->GetLatestExternalKeepaliveSequenceNumberForTest();
+  EXPECT_EQ(1u, keepalive_sequence_number);
+
+  // Finish the request. The worker has no active requests now and is
+  // technically eligible to be terminated if it has been idle long enough.
+  EXPECT_EQ(Result::kOk, version_->FinishExternalRequest(uuid));
+  EXPECT_EQ(0u, version_->GetExternalRequestCountForTest());
+
+  // Simulate a delayed message arriving from the renderer. The renderer says:
+  // "I was idle, can I terminate? My sequence number is 0." Because the browser
+  // knows it recently dispatched a request that pushed the sequence number to
+  // 1, it recognizes this request as stale.
+  EXPECT_FALSE(version_->OnRequestTermination(keepalive_sequence_number - 1));
+
+  // The browser rejects the termination. The worker stays alive to handle
+  // the (potentially still arriving) events of sequence number 1.
+  EXPECT_EQ(blink::EmbeddedWorkerStatus::kRunning, version_->running_status());
+
+  // Simulate the proper, up-to-date message arriving from the renderer.
+  // The renderer says: "I finished sequence number 1, and I'm idle. Can I
+  // terminate?" Because the sequence number matches the browser's current
+  // sequence number, it is accepted.
+  EXPECT_TRUE(version_->OnRequestTermination(keepalive_sequence_number));
+  EXPECT_NE(blink::EmbeddedWorkerStatus::kRunning, version_->running_status());
+}
+
 // Tests worker lifetime with ServiceWorkerVersion::StartExternalRequest.
 TEST_P(ServiceWorkerVersionTest, WorkerLifetimeWithExternalRequest) {
   SetupTestTickClock();
@@ -1934,8 +2031,8 @@ TEST_P(ServiceWorkerVersionTest, WorkerLifetimeWithExternalRequest) {
         base::RunLoop().RunUntilIdle();
 
         version_->OnPongFromWorker();  // Avoids ping timeout.
-        const bool worker_stopped_or_stopping =
-            version_->OnRequestTermination();
+        const bool worker_stopped_or_stopping = version_->OnRequestTermination(
+            version_->GetLatestExternalKeepaliveSequenceNumberForTest());
 
         EXPECT_EQ(!expect_running, worker_stopped_or_stopping);
         const bool worker_running =
@@ -2009,7 +2106,8 @@ TEST_P(ServiceWorkerVersionTest,
   base::RunLoop().RunUntilIdle();
 
   // Expect the worker to be still running.
-  const bool worker_stopped_or_stopping = version_->OnRequestTermination();
+  const bool worker_stopped_or_stopping = version_->OnRequestTermination(
+      version_->GetLatestExternalKeepaliveSequenceNumberForTest());
   EXPECT_FALSE(worker_stopped_or_stopping);
   EXPECT_EQ(blink::EmbeddedWorkerStatus::kRunning, version_->running_status());
 }
@@ -2363,6 +2461,81 @@ TEST_P(ServiceWorkerVersionTest,
 
   EXPECT_NE(blink::ServiceWorkerStatusCode::kOk, status.value());
   EXPECT_FALSE(is_update_scheduled());
+}
+
+// A synchronous observer that checks whether the `ServiceWorkerVersion` is
+// still discoverable in `ServiceWorkerContextCore` while `OnStoppedSync()` is
+// executing. Part of the regression test for https://crbug.com/513424000.
+class SyncObserverForTest : public ServiceWorkerContextObserverSynchronous {
+ public:
+  SyncObserverForTest(ServiceWorkerContextWrapper* wrapper,
+                      int64_t expected_version_id)
+      : wrapper_(wrapper), expected_version_id_(expected_version_id) {}
+
+  void OnStoppedSync(
+      int64_t version_id,
+      const GURL& scope,
+      const blink::ServiceWorkerToken& service_worker_token) override {
+    if (version_id != expected_version_id_) {
+      return;
+    }
+
+    called_ = true;
+    // Verify that the version is erased from `live_versions_` before observers
+    // are notified. If it were still in the map, looking it up would wrap a raw
+    // pointer undergoing destruction into a new `scoped_refptr`, causing a
+    // double free.
+    EXPECT_FALSE(wrapper_->GetLiveVersion(version_id));
+  }
+
+  bool called() const { return called_; }
+
+ private:
+  raw_ptr<ServiceWorkerContextWrapper> wrapper_;
+  int64_t expected_version_id_;
+  bool called_ = false;
+};
+
+// Verifies that during the destruction of a `ServiceWorkerVersion`, synchronous
+// observers notified via `OnStoppedSync()` cannot re-acquire a reference to the
+// version being destroyed (e.g. via `GetLiveVersion()`). This ensures the
+// version is erased from the live map prior to observer notifications,
+// preventing double-free and use-after-free vulnerabilities.
+// Regression test for https://crbug.com/513424000.
+TEST_P(ServiceWorkerVersionTest, RemoveLiveVersion_NoResurrection) {
+  // Ensure the version starts with exactly 1 reference, representing the sole
+  // reference held by `version_`.
+  EXPECT_TRUE(version_->HasOneRef());
+
+  // Initiate starting the worker. This transitions `running_status` to
+  // `kStarting`, which ensures that when the version is destroyed,
+  // `RemoveLiveVersion()` will notify `OnStoppedSync()` observers.
+  version_->StartWorker(ServiceWorkerMetrics::EventType::UNKNOWN,
+                        base::DoNothing());
+  EXPECT_EQ(blink::EmbeddedWorkerStatus::kStarting, version_->running_status());
+
+  // Attach a synchronous observer to intercept `OnStoppedSync()`.
+  SyncObserverForTest sync_observer(helper_->context_wrapper(),
+                                    version_->version_id());
+  helper_->context_wrapper()->AddSyncObserver(&sync_observer);
+
+  // Drop all internal references (e.g., pending timer callbacks and worker
+  // hosts) that were created by `StartWorker()`, so that `version_` remains the
+  // only reference.
+  StopTimeoutTimer(version_.get());
+  ResetWorkerHost(version_.get());
+  registration_.reset();
+  EXPECT_TRUE(version_->HasOneRef());
+
+  // Trigger destruction of the version. As part of destruction,
+  // `RemoveLiveVersion()` is invoked. The observer verifies that the version is
+  // erased from the live map prior to the observer notification.
+  version_.reset();
+  EXPECT_TRUE(sync_observer.called());
+
+  // Unregister the observer before it goes out of scope to prevent dangling
+  // pointer crashes during fixture teardown.
+  helper_->context_wrapper()->RemoveSyncObserver(&sync_observer);
 }
 
 }  // namespace service_worker_version_unittest

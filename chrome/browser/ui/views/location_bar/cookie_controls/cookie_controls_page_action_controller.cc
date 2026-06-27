@@ -14,9 +14,9 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
-#include "chrome/browser/ui/page_actions/page_action_observer.h"
+#include "chrome/browser/ui/page_action/page_action_observer.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_coordinator.h"
 #include "chrome/grit/generated_resources.h"
@@ -28,6 +28,7 @@
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/views/vector_icons.h"
 
 namespace {
@@ -114,8 +115,11 @@ int GetLabelForStatus(CookieControlsState controls_state) {
 
 const gfx::VectorIcon& GetVectorIcon(CookieControlsState controls_state) {
   return controls_state == CookieControlsState::kBlocked3pc
-             ? views::kEyeCrossedRefreshIcon
-             : views::kEyeRefreshIcon;
+             ? features::IsRoundedIconsEnabled()
+                   ? views::kVisibilityOffIcon
+                   : views::kEyeCrossedRefreshOldIcon
+         : features::IsRoundedIconsEnabled() ? views::kVisibilityIcon
+                                             : views::kEyeRefreshOldIcon;
 }
 }  // namespace
 

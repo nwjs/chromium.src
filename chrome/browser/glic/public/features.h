@@ -13,19 +13,23 @@
 
 namespace features {
 
-BASE_DECLARE_FEATURE(kGlicTabRestoration);
 BASE_DECLARE_FEATURE(kGlicAndroidSidePanel);
 
-BASE_DECLARE_FEATURE(kGlicDaisyChainViaCoordinator);
 BASE_DECLARE_FEATURE(kGlicClearTurnIdOnPanelWillOpen);
 BASE_DECLARE_FEATURE(kGlicChromeStatusIcon);
 extern const base::FeatureParam<int> kGlicChromeStatusIconSizePx;
 extern const base::FeatureParam<bool> kGlicChromeStatusIconUseAltIcon;
+extern const base::FeatureParam<bool> kGlicChromeStatusIconLogOnly;
+extern const base::FeatureParam<std::string> kGlicChromeStatusIconOtherAppID;
+
+BASE_DECLARE_FEATURE(kGlicOSIconVariant);
+extern const base::FeatureParam<int> kGlicOSIconVariantParam;
 
 BASE_DECLARE_FEATURE(kGlicOrphanedReattachment);
 
 BASE_DECLARE_FEATURE(kAutoOpenGlicForPdf);
 extern const base::FeatureParam<bool> kAutoOpenGlicForPdfWithOnboarding;
+extern const base::FeatureParam<base::TimeDelta> kAutoOpenGlicCooldown;
 
 BASE_DECLARE_FEATURE(kGlicInvoke);
 
@@ -96,6 +100,19 @@ BASE_DECLARE_FEATURE(kGlicContextualCueingV2AutoSubmit);
 BASE_DECLARE_FEATURE(kGlicWebDragAndDropFileUpload);
 
 BASE_DECLARE_FEATURE(kGlicOptInImpressionMetrics);
+
+BASE_DECLARE_FEATURE(kGlicContentsInitiallyHidden);
+BASE_DECLARE_FEATURE(kGlicShowForSignedOut);
+
+BASE_DECLARE_FEATURE(kGlicSetWebContentsVisibilityWhenToggling);
+
+BASE_DECLARE_FEATURE(kGlicSetWebContentsVisibilityWhenToggling);
+
+BASE_DECLARE_FEATURE(kGlicAnchorEntryPointForOnboardedUsers);
+BASE_DECLARE_FEATURE(kGlicProcessCounterAbuseVerdict);
+BASE_DECLARE_FEATURE(kGlicNoWebUiLoader);
+BASE_DECLARE_FEATURE(kGlicGeminiEnterpriseSettingsEnabled);
+
 }  // namespace features
 
 #endif  // CHROME_BROWSER_GLIC_PUBLIC_FEATURES_H_

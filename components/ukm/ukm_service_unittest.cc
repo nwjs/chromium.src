@@ -34,6 +34,7 @@
 #include "components/metrics/metrics_log.h"
 #include "components/metrics/metrics_log_uploader.h"
 #include "components/metrics/metrics_pref_names.h"
+#include "components/metrics/metrics_reporting_choice_service.h"
 #include "components/metrics/test/test_metrics_provider.h"
 #include "components/metrics/test/test_metrics_service_client.h"
 #include "components/metrics/ukm_demographic_metrics_provider.h"
@@ -236,6 +237,8 @@ class UkmServiceTest : public testing::Test {
       : task_runner_(new base::TestSimpleTaskRunner),
         task_runner_current_default_handle_(task_runner_) {
     UkmService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::ClearCachedFeatureStateForTesting();
     ClearPrefs();
   }
 
@@ -246,6 +249,9 @@ class UkmServiceTest : public testing::Test {
     prefs_.ClearPref(prefs::kUkmClientId);
     prefs_.ClearPref(prefs::kUkmSessionId);
     prefs_.ClearPref(prefs::kUkmUnsentLogStore);
+    prefs_.ClearPref(metrics::prefs::kMetricsReportingLevel);
+    prefs_.ClearPref(metrics::prefs::kMetricsReportingMigrationDone);
+    prefs_.ClearPref(metrics::prefs::kMetricsConsentRestructureFeatureState);
   }
 
   int GetPersistedLogCount() { return ukm::GetPersistedLogCount(prefs_); }
@@ -281,6 +287,8 @@ class UkmReduceAddEntryIpcTest : public testing::Test {
  public:
   UkmReduceAddEntryIpcTest() {
     UkmService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::ClearCachedFeatureStateForTesting();
     ClearPrefs();
     scoped_feature_list_.InitAndEnableFeature(ukm::kUkmReduceAddEntryIPC);
   }
@@ -292,6 +300,9 @@ class UkmReduceAddEntryIpcTest : public testing::Test {
     prefs_.ClearPref(prefs::kUkmClientId);
     prefs_.ClearPref(prefs::kUkmSessionId);
     prefs_.ClearPref(prefs::kUkmUnsentLogStore);
+    prefs_.ClearPref(metrics::prefs::kMetricsReportingLevel);
+    prefs_.ClearPref(metrics::prefs::kMetricsReportingMigrationDone);
+    prefs_.ClearPref(metrics::prefs::kMetricsConsentRestructureFeatureState);
   }
 
  protected:
@@ -302,6 +313,76 @@ class UkmReduceAddEntryIpcTest : public testing::Test {
  private:
   base::test::TaskEnvironment task_environment;
 };
+
+struct UrlTruncationTestCase {
+  std::string name;
+  std::string url;
+  std::string expected_url;
+  ukm::TruncationStatus expected_status;
+};
+
+std::vector<UrlTruncationTestCase> GetTruncationTestCases() {
+  std::vector<UrlTruncationTestCase> cases;
+
+  const std::string path_string =
+      "https://example.com/" + std::string(10000, 'a');
+  cases.push_back({"LongUrlWithoutQuery", path_string,
+                   path_string.substr(0, 2048),
+                   ukm::TRUNCATED_AT_URL_WITHOUT_QUERY});
+
+  const std::string query_string =
+      "https://example.com/a?q=" + std::string(10000, 'a');
+  cases.push_back({"LongQuery", query_string, query_string.substr(0, 2048),
+                   ukm::TRUNCATED_AT_FULL_PATH});
+
+  cases.push_back({"ShortURL", "https://example.com/short",
+                   "https://example.com/short", ukm::NOT_TRUNCATED});
+
+  const std::string origin_string =
+      "https://" + std::string(2500, 'a') + ".com/";
+  cases.push_back({"LongOrigin", origin_string, origin_string.substr(0, 2048),
+                   ukm::TRUNCATED_AT_ORIGIN});
+
+  const std::string expected_origin_boundary =
+      "https://" + std::string(2036, 'a') + ".com";
+  const std::string origin_boundary_string = expected_origin_boundary + "/";
+  cases.push_back({"OriginBoundary", origin_boundary_string,
+                   expected_origin_boundary, ukm::TRUNCATED_AT_ORIGIN});
+
+  const std::string exactly_limit_string =
+      "https://example.com/" + std::string(2028, 'a');
+  cases.push_back({"ExactlyLimit", exactly_limit_string, exactly_limit_string,
+                   ukm::NOT_TRUNCATED});
+
+  const std::string just_above_limit_string =
+      "https://example.com/" + std::string(2030, 'a');
+  cases.push_back({"JustAboveLimit", just_above_limit_string,
+                   just_above_limit_string.substr(0, 2048),
+                   ukm::TRUNCATED_AT_URL_WITHOUT_QUERY});
+
+  const std::string expected_cutoff_after =
+      "https://example.com/" + std::string(2027, 'a') + "?";
+  const std::string cutoff_after_delimiter_string =
+      expected_cutoff_after + "q=c";
+  cases.push_back({"CutoffAfterDelimiter", cutoff_after_delimiter_string,
+                   expected_cutoff_after, ukm::TRUNCATED_AT_FULL_PATH});
+
+  const std::string expected_cutoff_at =
+      "https://example.com/" + std::string(2028, 'a');
+  const std::string cutoff_at_delimiter_string = expected_cutoff_at + "?q=c";
+  cases.push_back({"CutoffAtDelimiter", cutoff_at_delimiter_string,
+                   expected_cutoff_at, ukm::TRUNCATED_AT_FULL_PATH});
+
+  const std::string expected_cutoff_before =
+      "https://example.com/" + std::string(2028, 'a');
+  const std::string cutoff_before_delimiter_string =
+      expected_cutoff_before + "b?q=c";
+  cases.push_back({"CutoffBeforeDelimiter", cutoff_before_delimiter_string,
+                   expected_cutoff_before,
+                   ukm::TRUNCATED_AT_URL_WITHOUT_QUERY});
+
+  return cases;
+}
 }  // namespace
 
 TEST_F(UkmServiceTest, ClientIdClonedInstall) {
@@ -984,6 +1065,48 @@ TEST_F(UkmServiceTest, SystemProfileTest) {
             proto_report.system_profile().brand_code());
 }
 
+TEST_F(UkmServiceTest, RecordingEnabledWithoutConsentRestructure) {
+  // 1. Consent restructure is NOT enabled.
+  prefs_.SetBoolean(metrics::prefs::kMetricsConsentRestructureFeatureState,
+                    false);
+  prefs_.SetBoolean(metrics::prefs::kMetricsReportingMigrationDone, false);
+  metrics::MetricsReportingChoiceService::ClearCachedFeatureStateForTesting();
+
+  UkmService service(&prefs_, &client_,
+                     std::make_unique<MockDemographicMetricsProvider>());
+  service.Initialize();
+
+  // MSBB consented, APPS not consented.
+  service.UpdateRecording({MSBB});
+  service.EnableRecording();
+  EXPECT_TRUE(service.recording_enabled(MSBB));
+  EXPECT_FALSE(service.recording_enabled(APPS));
+}
+
+TEST_F(UkmServiceTest, RecordingEnabledWithConsentRestructure) {
+  // 2. Consent restructure is enabled.
+  prefs_.SetBoolean(metrics::prefs::kMetricsConsentRestructureFeatureState,
+                    true);
+  prefs_.SetBoolean(metrics::prefs::kMetricsReportingMigrationDone, true);
+  metrics::MetricsReportingChoiceService::ClearCachedFeatureStateForTesting();
+
+  UkmService service(&prefs_, &client_,
+                     std::make_unique<MockDemographicMetricsProvider>());
+  service.Initialize();
+
+  // Even if only MSBB is consented, both should be enabled if service
+  // recording is enabled.
+  service.UpdateRecording({MSBB});
+  service.EnableRecording();
+  EXPECT_TRUE(service.recording_enabled(MSBB));
+  EXPECT_TRUE(service.recording_enabled(APPS));
+
+  // If service recording is disabled, both should be disabled.
+  service.DisableRecording();
+  EXPECT_FALSE(service.recording_enabled(MSBB));
+  EXPECT_FALSE(service.recording_enabled(APPS));
+}
+
 TEST_F(UkmServiceTest, AddUserDemograhicsWhenAvailableAndFeatureEnabled) {
   int number_of_invocations = 0;
   int test_birth_year = 1983;
@@ -1296,7 +1419,13 @@ TEST_F(UkmServiceTest, PurgeMidUpload) {
   EXPECT_FALSE(client_.uploader()->is_uploading());
 }
 
-TEST_F(UkmServiceTest, SourceURLLength) {
+class UkmServiceSourceURLLengthTest
+    : public UkmServiceTest,
+      public testing::WithParamInterface<UrlTruncationTestCase> {};
+
+TEST_P(UkmServiceSourceURLLengthTest, Truncation) {
+  const auto& test_case = GetParam();
+  EXPECT_LE(test_case.expected_url.size(), 2048u);
   UkmService service(&prefs_, &client_,
                      std::make_unique<MockDemographicMetricsProvider>());
   TestRecordingHelper recorder(&service);
@@ -1306,12 +1435,8 @@ TEST_F(UkmServiceTest, SourceURLLength) {
   service.UpdateRecording({UkmConsentType::MSBB});
   service.EnableReporting();
 
-  auto id = GetAllowlistedSourceId(0);
-
-  // This URL is too long to be recorded fully.
-  const std::string long_string =
-      "https://example.com/" + std::string(10000, 'a');
-  recorder.UpdateSourceURL(id, GURL(long_string));
+  SourceId source_id = GetAllowlistedSourceId(0);
+  recorder.UpdateSourceURL(source_id, GURL(test_case.url));
 
   service.Flush(metrics::MetricsLogsEventManager::CreateReason::kUnknown);
   EXPECT_EQ(1, GetPersistedLogCount());
@@ -1319,8 +1444,18 @@ TEST_F(UkmServiceTest, SourceURLLength) {
   auto proto_report = GetPersistedReport();
   ASSERT_EQ(1, proto_report.sources_size());
   const Source& proto_source = proto_report.sources(0);
-  EXPECT_EQ("URLTooLong", proto_source.urls(0).url());
+
+  EXPECT_EQ(test_case.expected_url, proto_source.urls(0).url());
+  EXPECT_EQ(test_case.expected_status,
+            proto_source.urls(0).truncation_status());
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    UkmServiceSourceURLLengthTestGroup,
+    UkmServiceSourceURLLengthTest,
+    testing::ValuesIn(GetTruncationTestCases()),
+    [](const testing::TestParamInfo<UkmServiceSourceURLLengthTest::ParamType>&
+           info) { return info.param.name; });
 
 TEST_F(UkmServiceTest, UnreferencedNonAllowlistedSources) {
   const GURL kURL("https://google.com/foobar");
@@ -2047,6 +2182,8 @@ class UkmServiceTestWithIndependentAppKM
       : task_runner_(new base::TestSimpleTaskRunner),
         task_runner_current_default_handle_(task_runner_) {
     UkmService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::ClearCachedFeatureStateForTesting();
 
     prefs_.ClearPref(prefs::kUkmClientId);
     prefs_.ClearPref(prefs::kUkmSessionId);
@@ -2139,6 +2276,8 @@ class UkmServiceTestWithIndependentAppKMFullConsent
       : task_runner_(new base::TestSimpleTaskRunner),
         task_runner_current_default_handle_(task_runner_) {
     UkmService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::RegisterPrefs(prefs_.registry());
+    metrics::MetricsReportingChoiceService::ClearCachedFeatureStateForTesting();
 
     prefs_.ClearPref(prefs::kUkmClientId);
     prefs_.ClearPref(prefs::kUkmSessionId);

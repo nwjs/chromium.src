@@ -26,7 +26,6 @@
 #include "chrome/browser/ui/passwords/password_generation_popup_observer.h"
 #include "chrome/browser/ui/passwords/password_generation_popup_view.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
@@ -132,9 +131,7 @@ PasswordGenerationPopupControllerImpl::PasswordGenerationPopupControllerImpl(
           autofill::FormControlType::kInputPassword)),
       generation_element_id_(ui_data.generation_element_id),
       max_length_(ui_data.max_length),
-      controller_common_(bounds,
-                         ui_data.text_direction,
-                         web_contents->GetNativeView()),
+      controller_common_(bounds, ui_data.text_direction),
       state_(kOfferGeneration),
       key_press_handler_manager_(new KeyPressRegistrator(frame)) {
   // There may not always be a ZoomController, e.g. in tests.
@@ -371,7 +368,9 @@ std::u16string PasswordGenerationPopupControllerImpl::GetPrimaryAccountEmail() {
 }
 
 gfx::NativeView PasswordGenerationPopupControllerImpl::container_view() const {
-  return controller_common_.container_view;
+  return WebContentsObserver::web_contents()
+             ? WebContentsObserver::web_contents()->GetNativeView()
+             : gfx::NativeView();
 }
 
 content::WebContents* PasswordGenerationPopupControllerImpl::GetWebContents()

@@ -133,9 +133,6 @@ class TestBrowserWindow : public BrowserWindow,
   void TabDraggingStatusChanged(bool is_dragging) override {}
   void LinkOpeningFromGesture(WindowOpenDisposition disposition) override {}
   void FocusAppMenu() override {}
-  void FocusInactivePopupForAccessibility() override {}
-  void RotatePaneFocus(bool forwards) override {}
-  void FocusWebContentsPane() override {}
   void ShowAppMenu() override {}
   void PreHandleDragUpdate(const content::DropData& drop_data,
                            const gfx::PointF& point) override {}
@@ -175,9 +172,7 @@ class TestBrowserWindow : public BrowserWindow,
       const std::string& target_language,
       translate::TranslateErrors error_type,
       bool is_user_gesture) override;
-  void StartPartialTranslate(const std::string& source_language,
-                             const std::string& target_language,
-                             const std::u16string& text_selection) override;
+
   DownloadBubbleUIController* GetDownloadBubbleUIController() override;
   void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
@@ -256,6 +251,7 @@ class TestBrowserWindow : public BrowserWindow,
     void SaveStateToContents(content::WebContents* contents) override {}
     void Revert() override {}
     OmniboxView* GetOmniboxView() override;
+    OmniboxPopupView* GetOmniboxPopupView() override;
     OmniboxController* GetOmniboxController() override;
     bool ShouldCloseOmniboxPopup(ui::MouseEvent* event) override;
     ChipController* GetChipController() override;

@@ -15,7 +15,6 @@
 #include "base/containers/to_vector.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/zip.h"
-#include "chrome/browser/accessibility_annotator/accessibility_annotator_enablement_service_factory.h"
 #include "chrome/browser/account_settings/account_setting_service_factory.h"
 #include "chrome/browser/autofill/android/entity_instance_android.h"
 #include "chrome/browser/autofill/android/entity_instance_with_labels.h"
@@ -25,12 +24,10 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
+#include "chrome/browser/personal_context/personal_context_enablement_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "components/accessibility_annotator/core/accessibility_annotator_enablement_service.h"
-#include "components/accessibility_annotator/core/accessibility_annotator_features.h"
-#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/accessibility_annotator/core/url_constants.h"
 #include "components/account_settings/account_setting_service.h"
 #include "components/autofill/core/browser/autofill_field.h"
@@ -46,6 +43,9 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/consent_auditor/consent_auditor.h"
+#include "components/personal_context/core/personal_context_enablement_service.h"
+#include "components/personal_context/core/personal_context_features.h"
+#include "components/personal_context/core/personal_context_types.h"
 #include "components/wallet/core/common/wallet_features.h"
 #include "third_party/jni_zero/jni_zero.h"
 
@@ -82,27 +82,26 @@ EntityDataManagerAndroid::EntityDataManagerAndroid(
 
 EntityDataManagerAndroid::~EntityDataManagerAndroid() = default;
 
-static jboolean JNI_EntityDataManager_IsAccessibilityAnnotatorSettingVisible(
+static jboolean JNI_EntityDataManager_IsPersonalContextSettingVisible(
     JNIEnv* env,
     Profile* profile) {
   CHECK(profile);
 
   if (!base::FeatureList::IsEnabled(
-          accessibility_annotator::features::kAccessibilityAnnotator)) {
+          personal_context::features::kPersonalContext)) {
     return false;
   }
 
-  accessibility_annotator::AccessibilityAnnotatorEnablementService*
-      enablement_service =
-          AccessibilityAnnotatorEnablementServiceFactory::GetForProfile(
-              profile);
+  personal_context::PersonalContextEnablementService* enablement_service =
+      PersonalContextEnablementServiceFactory::GetForProfile(profile);
   return enablement_service &&
          enablement_service->GetEnablementState() ==
-             accessibility_annotator::RemoteAnnotatorEnablementState::kEnabled;
+             personal_context::PersonalContextEnablementState::kEnabled;
 }
 
-static std::string JNI_EntityDataManager_GetAccessibilityAnnotatorSettingsUrl(
+static std::string JNI_EntityDataManager_GetPersonalContextSettingsUrl(
     JNIEnv* env) {
+  // TODO(b/511173039): Rename when service files are updated.
   return accessibility_annotator::kAccessibilityAnnotatorSettingsURL;
 }
 
@@ -136,6 +135,12 @@ void EntityDataManagerAndroid::Destroy(JNIEnv* env) {
 bool EntityDataManagerAndroid::IsEligibleToAutofillAi(JNIEnv* env) {
   return RunMayPerformAutofillAiAction(AutofillAiAction::kOptIn,
                                        /*entity_type=*/std::nullopt);
+}
+
+bool EntityDataManagerAndroid::IsEligibleToAutofillAiForType(JNIEnv* env,
+                                                              int entity_type) {
+  EntityType type(static_cast<EntityTypeName>(entity_type));
+  return RunMayPerformAutofillAiAction(AutofillAiAction::kOptIn, type);
 }
 
 bool EntityDataManagerAndroid::GetAutofillAiOptInStatus(JNIEnv* env) {
@@ -208,7 +213,7 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
           : EntityInstance::RecordType::kLocal;
   EntityInstance entity_instance =
       entity_android.ToEntityInstance(entity_data_manager_->GetEntityInstance(
-          EntityInstance::EntityId(entity_android.guid)));
+          EntityInstance::EntityId(entity_android.metadata.guid)));
 
   AddOrUpdateEntityInstance(std::move(entity_instance), targeted_record_type,
                             description_string_id, accept_button_string_id,
@@ -231,13 +236,14 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
                                  entity_instance.record_type());
   }
 
-  if (base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses)) {
-    const bool is_masked_storage_supported = IsMaskedStorageSupported(
-        entity_instance.type(), entity_instance.record_type());
+  if (targeted_record_type == EntityInstance::RecordType::kServerWallet &&
+      base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses)) {
     // Wallet passes are strictly read-only from the client's perspective in
     // settings. Therefore, we only ever "Save" them. Any downstream "Update"
     // attempts are inapplicable.
-    if (is_masked_storage_supported) {
+    if (GetWalletPassType(entity_instance.type(),
+                          entity_instance.record_type()) ==
+        EntityInstance::WalletPassType::kPrivate) {
       consent_auditor::ConsentAuditor::SessionId session_id;
       if (base::FeatureList::IsEnabled(
               wallet::features::kWalletApiPrivatePassesConsent)) {
@@ -252,12 +258,12 @@ void EntityDataManagerAndroid::AddOrUpdateEntityInstance(
               weak_ptr_factory_.GetWeakPtr(), std::move(on_local_save_fallback),
               entity_instance));
     } else {
-      // If `IsMaskedStorageSupported` returns true for
-      // `entity_instance.type()` and `targeted_record_type` the user
+      // If `GetWalletPassType()` returns `kPrivate` for
+      // `entity_instance.type()` and `targeted_record_type`, the user
       // initially wanted to store the entity on the server but became
       // ineligible.
-      if (IsMaskedStorageSupported(entity_instance.type(),
-                                   targeted_record_type)) {
+      if (GetWalletPassType(entity_instance.type(), targeted_record_type) ==
+          EntityInstance::WalletPassType::kPrivate) {
         std::move(on_local_save_fallback).Run();
       }
       entity_data_manager().AddOrUpdateEntityInstance(
@@ -301,7 +307,8 @@ EntityDataManagerAndroid::GetEntitiesWithLabels(JNIEnv* env) {
               type,
               type.enabled(entity_data_manager_->GetVariationCountryCode()),
               IsEligibleForWalletStorage(type),
-              IsMaskedStorageSupported(type, entity->record_type())),
+              GetWalletPassType(type, entity->record_type()) ==
+                  EntityInstance::WalletPassType::kPrivate),
           entity->type().GetNameForI18n(),
           base::JoinString(label, kLabelSeparator), stored_in_wallet,
           stored_in_wallet ? std::make_optional(GetWalletManagementURL(*entity))
@@ -320,8 +327,9 @@ std::vector<EntityTypeAndroid> EntityDataManagerAndroid::GetWritableEntityTypes(
         entity_type,
         entity_type.enabled(entity_data_manager_->GetVariationCountryCode()),
         IsEligibleForWalletStorage(entity_type),
-        IsMaskedStorageSupported(entity_type,
-                                 EntityInstance::RecordType::kServerWallet));
+        GetWalletPassType(entity_type,
+                          EntityInstance::RecordType::kServerWallet) ==
+            EntityInstance::WalletPassType::kPrivate);
   }
   return entity_types;
 }
@@ -336,8 +344,8 @@ EntityDataManagerAndroid::GetSortedEntityTypesForListDisplay(
     return EntityTypeAndroid(
         type, type.enabled(entity_data_manager_->GetVariationCountryCode()),
         IsEligibleForWalletStorage(type),
-        IsMaskedStorageSupported(type,
-                                 EntityInstance::RecordType::kServerWallet));
+        GetWalletPassType(type, EntityInstance::RecordType::kServerWallet) ==
+            EntityInstance::WalletPassType::kPrivate);
   });
 }
 
@@ -365,9 +373,22 @@ bool EntityDataManagerAndroid::CanEnableOrDisableAutofillAi(JNIEnv* env) {
                                        /*entity_type=*/std::nullopt);
 }
 
+bool EntityDataManagerAndroid::CanEnableOrDisableAutofillAiForType(
+    JNIEnv* env, int entity_type) {
+  EntityType type(static_cast<EntityTypeName>(entity_type));
+  return RunMayPerformAutofillAiAction(AutofillAiAction::kEnableOrDisable,
+                                       type);
+}
+
 bool EntityDataManagerAndroid::CanListEntityInstancesInSettings(JNIEnv* env) {
   return RunMayPerformAutofillAiAction(
       AutofillAiAction::kListEntityInstancesInSettings,
+      /*entity_type=*/std::nullopt);
+}
+
+bool EntityDataManagerAndroid::CanShowWalletDataSharingPromotion(JNIEnv* env) {
+  return RunMayPerformAutofillAiAction(
+      AutofillAiAction::kWalletDataSharingPromotion,
       /*entity_type=*/std::nullopt);
 }
 
@@ -396,9 +417,7 @@ bool EntityDataManagerAndroid::RunMayPerformAutofillAiAction(
 bool EntityDataManagerAndroid::IsEligibleForWalletStorage(
     EntityType entity_type) const {
   return RunMayPerformAutofillAiAction(AutofillAiAction::kImportToWallet,
-                                       entity_type) &&
-         base::FeatureList::IsEnabled(
-             features::kAutofillEnableSaveToWalletFromSettings);
+                                       entity_type);
 }
 
 void EntityDataManagerAndroid::OnSavePrivatePassToWalletFinished(

@@ -102,6 +102,24 @@
 
 namespace blink {
 
+namespace features {
+
+BASE_FEATURE(kPreventSvgFilterPaint, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(bool,
+                   kPreventSvgFilterPaintOnLocalFrameRestricted,
+                   &kPreventSvgFilterPaint,
+                   false);
+BASE_FEATURE_PARAM(bool,
+                   kPreventSvgFilterPaintOnRemoteFrame,
+                   &kPreventSvgFilterPaint,
+                   false);
+BASE_FEATURE_PARAM(bool,
+                   kPreventSvgFilterPaintOnWebPlugin,
+                   &kPreventSvgFilterPaint,
+                   false);
+
+}  // namespace features
+
 namespace {
 
 // This function is for convenience of debugging. For example, we can set a
@@ -193,6 +211,17 @@ void PaintPropertyTreeBuilder::SetupContextForFrame(
   PaintPropertyTreeBuilderFragmentContext& context =
       full_context.fragment_context;
 
+  // Potentially disable svg filter applied to restricted local frame.
+  if (base::FeatureList::IsEnabled(features::kPreventSvgFilterPaint) &&
+      features::kPreventSvgFilterPaintOnLocalFrameRestricted.Get() &&
+      frame_view.GetFrame().IsCrossOriginToParentOrOuterDocument()) {
+    const blink::EffectPaintPropertyNode* candidate_effect =
+        GetFirstParentEffectWithoutReferenceFilter(context.current_effect);
+    if (candidate_effect) {
+      context.current_effect = candidate_effect;
+    }
+  }
+
   // Block fragmentation doesn't cross frame boundaries.
   context.current.is_in_block_fragmentation = false;
 
@@ -252,6 +281,7 @@ class FragmentPaintPropertyTreeBuilder {
 
  private:
   ALWAYS_INLINE std::pair<bool, bool> CanPropagateSubpixelAccumulation() const;
+  ALWAYS_INLINE void FixAbsoluteContextToContainerBox();
   ALWAYS_INLINE void UpdatePaintOffset();
   ALWAYS_INLINE void UpdateForPaintOffsetTranslation(
       std::optional<gfx::Vector2d>&);
@@ -3653,6 +3683,41 @@ void FragmentPaintPropertyTreeBuilder::UpdateClipIsolationNode() {
     context_.current.clip = properties_->ClipIsolationNode();
 }
 
+void FragmentPaintPropertyTreeBuilder::FixAbsoluteContextToContainerBox() {
+  const LayoutObject* parent_object = object_.Parent();
+  if (!parent_object) {
+    return;
+  }
+
+  const auto* parent_properties =
+      parent_object->FirstFragment().PaintProperties();
+  if (!parent_properties) {
+    return;
+  }
+
+  // If we have a scroll translation transform, then use whatever is the parent
+  // of that to escape the scroll translation. Otherwise, conceptually we can
+  // figure out which transform node is the deepest one in the parent's stack,
+  // but that should just be the local border box transform. Use that instead as
+  // a more robust getter.
+  if (parent_properties->ScrollTranslation()) {
+    context_.current.transform =
+        parent_properties->ScrollTranslation()->Parent();
+  } else {
+    context_.current.transform =
+        &parent_object->FirstFragment().LocalBorderBoxProperties().Transform();
+  }
+
+  // If we have a scroll parent, use that. Otherwise use the root scroll node.
+  if (parent_properties->Scroll() && parent_properties->Scroll()->Parent()) {
+    context_.current.scroll = parent_properties->Scroll()->Parent();
+  } else {
+    context_.current.scroll = &ScrollPaintPropertyNode::Root();
+  }
+
+  context_.current.paint_offset = parent_object->FirstFragment().PaintOffset();
+}
+
 void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
   if (object_.IsBoxModelObject()) {
     const auto& box_model_object = To<LayoutBoxModelObject>(object_);
@@ -3664,6 +3729,14 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
         DCHECK_EQ(full_context_.container_for_absolute_position,
                   box_model_object.Container());
         SwitchToOOFContext(context_.absolute_position);
+        if (object_.StyleRef().StyleType() == kPseudoIdBackdrop) {
+          Element& overscroll_target = To<PseudoElement>(object_.GetNode())
+                                           ->UltimateOriginatingElement();
+          if (overscroll_target.GetPseudoElement(
+                  kPseudoIdOverscrollAreaParent)) {
+            FixAbsoluteContextToContainerBox();
+          }
+        }
         break;
       }
       case EPosition::kSticky:
@@ -3935,6 +4008,14 @@ void FragmentPaintPropertyTreeBuilder::UpdateForSelf() {
     context_.current.clip = context_.clip_ancestor_for_transition_pseudo_root;
     context_.current.transform =
         context_.transform_ancestor_for_transition_pseudo_root;
+  }
+
+  // For unbounded elements, we re-parent the clip tree to the root node, so
+  // these elements escape ancestor clips.
+  if (auto* html_element = DynamicTo<HTMLElement>(object_.GetNode());
+      html_element && html_element->IsUnboundedElementActive()) {
+    DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
+    context_.current.clip = &ClipPaintPropertyNode::Root();
   }
 
   if (&fragment_data_ == &object_.FirstFragment())
@@ -4490,6 +4571,27 @@ bool PaintPropertyTreeBuilder::ScheduleDeferredOpacityNodeUpdate(
     return true;
   }
   return false;
+}
+
+// static
+const blink::EffectPaintPropertyNode*
+PaintPropertyTreeBuilder::GetFirstParentEffectWithoutReferenceFilter(
+    const blink::EffectPaintPropertyNodeOrAlias* node_or_alias) {
+  if (!node_or_alias) {
+    return nullptr;
+  }
+  const blink::EffectPaintPropertyNode* current_effect =
+      &node_or_alias->Unalias();
+  const blink::EffectPaintPropertyNode* candidate_effect = nullptr;
+  while (current_effect) {
+    const blink::EffectPaintPropertyNode* next_effect =
+        current_effect->UnaliasedParent();
+    if (current_effect->HasReferenceFilter()) {
+      candidate_effect = next_effect;
+    }
+    current_effect = next_effect;
+  }
+  return candidate_effect;
 }
 
 // Fast-path for directly updating transforms. This

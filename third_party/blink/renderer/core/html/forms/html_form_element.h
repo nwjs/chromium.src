@@ -58,7 +58,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   // queue a task to register a new tool if `this` already has an existing
   // `active_webmcp_tool_`, and if the form control change impacts the tool's
   // generated input schema.
-  void ScheduleWebMCPSchemaUpdate();
+  void ScheduleWebMCPSchemaUpdateIfActive();
   enum RelAttribute {
     kNone = 0,
     kNoReferrer = 1 << 0,
@@ -243,7 +243,6 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   void RemoveFromPastNamesMap(HTMLElement&);
   bool PastNamesEmpty() const;
 
-  bool IsValidWebMCPForm() const;
   void ScheduleDeclarativeWebMCPToolRegistration();
   void RegisterDeclarativeWebMCPTool();
   void ReportInvalidMCPFormIssueIfNeeded(const String& name,
@@ -277,12 +276,17 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
     HTMLFormMcpTool& operator=(const HTMLFormMcpTool&) = delete;
     HTMLFormMcpTool(HTMLFormElement& form,
                     String tool_name,
-                    String tool_description)
+                    String tool_description,
+                    String tool_title)
         : tool_name_(tool_name),
           tool_description_(tool_description),
+          tool_title_(tool_title),
           form_(form) {
       CHECK(!tool_name.IsNull() && !tool_description.IsNull());
     }
+    String ToolName() const override { return tool_name_; }
+    String ToolDescription() const override { return tool_description_; }
+    String ToolTitle() const override { return tool_title_; }
     String ComputeInputSchema() override;
     Element* FormElement() const override { return form_; }
     void ExecuteTool(
@@ -298,19 +302,14 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
         const String& input_arguments,
         bool require_submit_button,
         HTMLFormControlElement** submit_button);
-    String ToolName() const { return tool_name_; }
-    String ToolDescription() const { return tool_description_; }
     const String& LastComputedSchema() const { return last_computed_schema_; }
     void SetLastComputedSchema(String schema) {
       last_computed_schema_ = schema;
     }
-    bool IsValidTool() const { return !tool_name_.IsNull(); }
     std::optional<base::UnguessableToken> InvocationId() const {
       return invocation_id_;
     }
-    bool CurrentlyRunning() const {
-      return IsValidTool() && is_currently_running_;
-    }
+    bool CurrentlyRunning() const { return is_currently_running_; }
     HTMLFormControlElement* ActiveToolSubmitButton() const {
       CHECK(is_currently_running_);
       return active_submit_button_;
@@ -327,8 +326,16 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
 
     bool is_currently_running_ = false;
     bool is_handling_submit_ = false;
+    // Both `tool_name_` and `tool_description_` are guaranteed to be non-null
+    // (i.e., `blink::String::IsNull()`), since the `toolname` and
+    // `tooldescription` attributes must be present on `form_`, for it to
+    // represent a valid declarative tool.
+    //
+    // `tool_title_` on the other hand can be `IsNull()` if the `tooltitle`
+    // attribute is not present, which is valid.
     String tool_name_;
     String tool_description_;
+    String tool_title_;
     String last_computed_schema_;
     Member<HTMLFormElement> form_;
     Member<HTMLFormControlElement> active_submit_button_;

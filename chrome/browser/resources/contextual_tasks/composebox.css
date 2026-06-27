@@ -37,6 +37,7 @@
   --composebox-submit-container-inline-end:
       var(--composebox-last-icon-inline-end);
   --composebox-last-icon-inline-end: 12px;
+  --cr-composebox-entrypoint-icon-animation-delay: 750ms;
   --cr-composebox-tool-chip-animation: none;
   --cr-composebox-tool-chip-height: var(--icon-menu-button-size);
   --cr-searchbox-height: 52px;
@@ -54,6 +55,13 @@
   --document-icon-size: 16px;
   --injected-input-icon-size: 24px;
   --lens-submit-icon-extra-spacing: 0;
+
+  /* Energy Effect Motion Curves */
+  --emphasized-curve: cubic-bezier(0.2, 0, 0, 1);
+  --emphasized-decelerate-curve: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --emphasized-accelerate-curve: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --standard-accelerate-curve: cubic-bezier(0.3, 0, 1, 1);
+  --standard-decelerate-curve: cubic-bezier(0, 0, 0, 1);
 }
 
 :host([energy-effect-enabled_]) {
@@ -144,6 +152,15 @@
 }
 
 #composebox::part(composebox) {
+  /* Plus button padding. */
+  --contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start:
+      12px;
+  --contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-end:
+      8px;
+
+  /* Context menu padding. */
+  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start:
+      0;
   min-height: var(--composebox-min-height);
 }
 
@@ -189,6 +206,35 @@
   opacity: 0;
 }
 
+#composebox,
+#contextualTasksSuggestionsContainer {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+:host([is-zero-state]) #composebox,
+:host([is-zero-state]) #contextualTasksSuggestionsContainer {
+  opacity: 0;
+  transform: translateY(12px);
+  will-change: transform, opacity;
+}
+
+@keyframes zero-state-enter-composebox {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:host(.play-zero-state[is-zero-state]) #composebox,
+:host(.play-zero-state[is-zero-state]) #contextualTasksSuggestionsContainer {
+  animation: zero-state-enter-composebox 900ms var(--emphasized-curve) both;
+}
+
 #composebox {
   --cr-composebox-font-size: 16px;
   --expanded-border-radius: var(--composebox-border-radius);
@@ -197,8 +243,6 @@
   --text-input-top-spacing: 12px;
   --composebox-context-menu-entrypoint-button-color:
       var(--color-composebox-voice-lens-button);
-  --contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start: 0;
-
   box-shadow: none;
   box-sizing: border-box;
   display: block;
@@ -304,8 +348,6 @@
 }
 
 :host([is-zero-state][energy-effect-enabled_]) #composebox::part(input-container) {
-  animation: zero-state-input-plate-ease-in 900ms
-    var(--emphasized-curve-energy-effect-enabled);
   height: 100%;
 }
 
@@ -344,7 +386,11 @@
 #composebox::part(context-menu-entrypoint-icon) {
   --cr-icon-button-fill-color: var(--composebox-context-menu-entrypoint-button-color);
   --cr-icon-button-icon-size: var(--icon-menu-icon-size);
-  --cr-icon-button-margin-start: 4px;
+  /* Do not set '--cr-icon-button-margin-start' here. Use
+  * 'contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start'
+  * and the 'inline-end version'. These variables are set in
+  * '#composebox::part(composebox)'.
+  */
   --cr-icon-button-size: var(--icon-menu-button-size);
 }
 
@@ -355,7 +401,6 @@
   --cr-composebox-entrypoint-border-radius: 100px;
   --cr-composebox-entrypoint-height: 36px;
   --cr-composebox-entrypoint-width: 48px;
-  --cr-icon-button-margin-start: 8px;
 }
 
 :host([energy-effect-animation-enabled_]) #composebox::part(context-menu-entrypoint-icon),
@@ -389,6 +434,7 @@
 :host([energy-effect-enabled_][in-tool-mode_]) #composebox::part(context-menu-entrypoint-icon),
 :host([energy-effect-enabled_][in-tool-mode_]) #composebox::part(entrypoint-button) {
   --cr-composebox-entrypoint-background-color: transparent;
+  --cr-icon-button-hover-background-color: transparent;
 }
 
 :host([energy-effect-enabled_]) #composebox::part(entrypoint-button)::before {
@@ -412,6 +458,9 @@
 
 #composebox::part(cancel-icon) {
   --cr-icon-button-fill-color: var(--color-composebox-cancel-button);
+  --cr-icon-button-hover-background-color:
+      var(--color-composebox-cancel-button-hover-background,
+          var(--color-composebox-hover));
   /*
    * Inner icon size of cancel button == cancel button size,
    * unlike other buttons.
@@ -430,6 +479,8 @@
 
 #composebox::part(lens-icon) {
   --cr-icon-button-fill-color: var(--color-composebox-voice-lens-button);
+  --cr-icon-button-hover-background-color:
+      var(--color-composebox-lens-button-hover-background);
   --cr-icon-button-icon-size: var(--icon-menu-icon-size);
   --cr-icon-button-size: var(--icon-menu-button-size);
   /* Override the expanding fade in animation to make the icon appear instantly. */
@@ -573,7 +624,8 @@
 }
 
 /* Lens is only shown in side panel, so adjust spacing. */
-:host([is-side-panel]) #composebox[submit-enabled]::part(voice-icon) {
+:host([is-side-panel][show-lens-button])
+    #composebox[submit-enabled]::part(voice-icon) {
   inset-inline-end: calc(var(--composebox-submit-container-size)
       + var(--icon-menu-button-size)
       + 2 * var(--icon-menu-spacing)
@@ -594,7 +646,7 @@
 }
 
 /* Lens is only shown in side panel, so adjust spacing. */
-:host([is-side-panel]) #composebox::part(voice-icon) {
+:host([is-side-panel][show-lens-button]) #composebox::part(voice-icon) {
   inset-inline-end: calc(
       var(--icon-menu-button-size)
       + var(--icon-menu-spacing)
@@ -644,7 +696,7 @@
   --color-searchbox-results-icon-focused-outline: rgba(153, 200, 255, 1);
 
   align-items: flex-start;
-  background-color: var(--search-background-color);
+  background-color: transparent;
   justify-content: flex-start;
   margin-top: 16px;
   padding-inline-end: 8px;
@@ -668,9 +720,9 @@
   padding-inline-end: 10px;
 }
 
-:host([is-zero-state][energy-effect-animation-enabled_]) #contextualTasksSuggestionsContainer {
-  animation: zero-state-recommendations-enter 600ms
-    var(--emphasized-decelerate-curve) forwards;
+:host(.play-zero-state[is-zero-state]) #contextualTasksSuggestionsContainer::part(match-wrapper) {
+  animation: zero-state-recommendations-enter 600ms var(--emphasized-decelerate-curve) both;
+  animation-delay: calc(var(--match-wrapper-index, 0) * 50ms);
 }
 
 @keyframes zero-state-recommendations-enter {

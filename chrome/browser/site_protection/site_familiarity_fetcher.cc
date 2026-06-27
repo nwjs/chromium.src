@@ -13,6 +13,8 @@
 #include "chrome/browser/site_protection/site_familiarity_utils.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
+#include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
+#include "components/safe_browsing/content/browser/web_ui/web_ui_content_info_singleton.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "extensions/common/constants.h"
 #include "url/origin.h"
@@ -41,6 +43,9 @@ bool IsUrlFamiliarForTesting(const GURL& url) {
 
 }  // anonymous namespace
 
+// This class logs site familiarity determinations using CRSBLOG.
+// These logs can be viewed by first opening chrome://safe-browsing/#tab-log,
+// then navigating to the URL of interest in a separate tab.
 SiteFamiliarityFetcher::SiteFamiliarityFetcher(Profile* profile)
     : profile_(profile) {}
 
@@ -56,15 +61,22 @@ void SiteFamiliarityFetcher::ResetFamiliarUrlsForTesting() {
 
 void SiteFamiliarityFetcher::Start(const GURL& url,
                                    SiteFamiliarityFetcher::Callback callback) {
+  CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << url;
   fetch_url_ = url;
   callback_ = std::move(callback);
-  // Clear state in case there are in-progress requests.
-  fetched_history_ = false;
-  fetched_sb_list_ = false;
+  // Clear state and cancel in-progress requests.
+  task_tracker_.TryCancelAll();
   weak_factory_.InvalidateWeakPtrs();
+  fetched_history_ = false;
+  has_record_older_than_threshold_ = false;
+  fetched_sb_list_ = false;
+  is_on_sb_list_ = false;
+  has_engagement_score_higher_than_threshold_ = false;
 
   if (IsUrlFamiliarForTesting(fetch_url_)) {
-    OnComputedVerdictWithoutFetches(/*is_site_familiar=*/true);
+    CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << fetch_url_
+            << " is familiar for testing";
+    OnComputedVerdict(Verdict::kFamiliar);
     return;
   }
 
@@ -73,7 +85,9 @@ void SiteFamiliarityFetcher::Start(const GURL& url,
     // cases it won't currently matter how site familiarity is set here, due to
     // https://crbug.com/452135534. Disable v8 optimizers for the remaining
     // cases, such as browser-initiated top-level navigations to data: URLs.
-    OnComputedVerdictWithoutFetches(/*is_site_familiar=*/false);
+    CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << fetch_url_
+            << " is data scheme";
+    OnComputedVerdict(Verdict::kUnfamiliar);
     return;
   }
 
@@ -82,7 +96,9 @@ void SiteFamiliarityFetcher::Start(const GURL& url,
     // Given that extensions were either explicitly installed by the user or
     // installed via enterprise policy, consider chrome://extension URLs to be
     // familiar.
-    OnComputedVerdictWithoutFetches(/*is_site_familiar=*/true);
+    CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << fetch_url_
+            << " is extension scheme";
+    OnComputedVerdict(Verdict::kFamiliar);
     return;
   }
 
@@ -92,7 +108,9 @@ void SiteFamiliarityFetcher::Start(const GURL& url,
     // ChromeContentBrowserClient::AreV8OptimizationsDisabledForSite().
     // Visits to most web-safe non-http, non-https schemes are not recorded in
     // chrome://history. See CanAddURLToHistory().
-    OnComputedVerdictWithoutFetches(/*is_site_familiar=*/false);
+    CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << fetch_url_
+            << " is not HTTP/HTTPS";
+    OnComputedVerdict(Verdict::kUnfamiliar);
     return;
   }
 
@@ -100,7 +118,24 @@ void SiteFamiliarityFetcher::Start(const GURL& url,
           kSkipSiteFamiliarityDeferralForDefaultSearchEngine) &&
       IsDefaultSearchEngineUrl(fetch_url_, profile_)) {
     // Assume the default search engine search results are familiar to the user.
-    OnComputedVerdictWithoutFetches(/*is_site_familiar=*/true);
+    CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << fetch_url_
+            << " is default search engine";
+    OnComputedVerdict(Verdict::kFamiliar);
+    return;
+  }
+
+  // The SiteEngagementService provides a synchronous API, so just compute that
+  // familiarity component now.
+  site_engagement::SiteEngagementService* site_engagement_service =
+      site_engagement::SiteEngagementService::Get(profile_);
+  has_engagement_score_higher_than_threshold_ =
+      site_engagement_service->GetScore(fetch_url_) >=
+      kMinSiteEngagementScoreForFamiliarity;
+
+  if (has_engagement_score_higher_than_threshold_) {
+    CRSBLOG << "SiteFamiliarityFetcher::Start [URL]: " << fetch_url_
+            << " has high engagement score";
+    OnComputedVerdict(Verdict::kFamiliar);
     return;
   }
 
@@ -115,14 +150,6 @@ void SiteFamiliarityFetcher::Start(const GURL& url,
                      weak_factory_.GetWeakPtr()),
       &task_tracker_);
   StartFetchingSafeBrowsingHighConfidenceAllowlist();
-
-  // The SiteEngagementService provides a synchronous API, so just compute that
-  // familiarity component now.
-  site_engagement::SiteEngagementService* site_engagement_service =
-      site_engagement::SiteEngagementService::Get(profile_);
-  has_engagement_score_higher_than_threshold_ =
-      site_engagement_service->GetScore(fetch_url_) >=
-      kMinSiteEngagementScoreForFamiliarity;
 }
 
 void SiteFamiliarityFetcher::
@@ -143,15 +170,6 @@ void SiteFamiliarityFetcher::
 
   OnGotHighConfidenceAllowlistResult(
       /*url_on_safe_browsing_high_confidence_allowlist=*/true,
-      /*logging_details=*/std::nullopt);
-}
-
-void SiteFamiliarityFetcher::OnComputedVerdictWithoutFetches(
-    bool is_site_familiar) {
-  OnFetchedHistory(history::HistoryLastVisitResult());
-  OnGotHighConfidenceAllowlistResult(
-      /*url_on_safe_browsing_high_confidence_allowlist=*/
-      is_site_familiar,
       /*logging_details=*/std::nullopt);
 }
 
@@ -176,21 +194,51 @@ void SiteFamiliarityFetcher::OnGotHighConfidenceAllowlistResult(
 }
 
 void SiteFamiliarityFetcher::RunCallbackIfFinished() {
-  if (!fetched_history_ || !fetched_sb_list_) {
-    // Not finished.
-    return;
-  }
-
   if (!callback_) {
     // Callback was already run.
     return;
   }
 
-  Verdict verdict = (has_engagement_score_higher_than_threshold_ ||
-                     has_record_older_than_threshold_ || is_on_sb_list_)
-                        ? Verdict::kFamiliar
-                        : Verdict::kUnfamiliar;
-  std::move(callback_).Run(verdict);
+  // If any component of the familiarity heuristic is done and the result was
+  // true, we can set the verdict to familiar and stop all additional
+  // processing.
+  if (has_engagement_score_higher_than_threshold_ ||
+      has_record_older_than_threshold_ || is_on_sb_list_) {
+    OnComputedVerdict(Verdict::kFamiliar, /*log_verdict=*/true);
+    return;
+  }
+
+  if (!fetched_history_ || !fetched_sb_list_) {
+    // Still waiting for some fetches to complete.
+    return;
+  }
+
+  // All fetches completed but none of them confirmed familiarity.
+  OnComputedVerdict(Verdict::kUnfamiliar, /*log_verdict=*/true);
+}
+
+void SiteFamiliarityFetcher::OnComputedVerdict(Verdict verdict,
+                                               bool log_verdict) {
+  if (!callback_) {
+    return;
+  }
+
+  if (log_verdict) {
+    CRSBLOG << "SiteFamiliarityFetcher decision [URL]: " << fetch_url_
+            << " [Verdict]: "
+            << (verdict == Verdict::kFamiliar ? "Familiar" : "Unfamiliar")
+            << " [Engagement>Threshold]: "
+            << has_engagement_score_higher_than_threshold_
+            << " [History>Threshold]: " << has_record_older_than_threshold_
+            << " [OnSBAllowlist]: " << is_on_sb_list_;
+  }
+
+  // Safely copy and clear the callback before cleanup to prevent UAF if the
+  // callback destroys `this`.
+  Callback callback = std::move(callback_);
+  task_tracker_.TryCancelAll();
+  weak_factory_.InvalidateWeakPtrs();
+  std::move(callback).Run(verdict);
 }
 
 }  //  namespace site_protection

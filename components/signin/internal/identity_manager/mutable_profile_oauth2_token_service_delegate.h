@@ -21,6 +21,8 @@
 #include "components/signin/internal/identity_manager/account_tracker_service.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
+#include "components/signin/internal/identity_manager/token_binding_helper.h"
+#include "components/signin/public/base/binding_key_registration_token_result.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/webdata/token_service_table.h"
@@ -33,7 +35,6 @@
 
 class SigninClient;
 class TokenWebData;
-class TokenBindingHelper;
 
 // This enum is used to know if an account is known by the client has a valid
 // refresh token or not.
@@ -128,6 +129,13 @@ class MutableProfileOAuth2TokenServiceDelegate
   std::string GetTokenForMultilogin(
       const CoreAccountId& account_id) const override;
   bool RefreshTokenIsAvailable(const CoreAccountId& account_id) const override;
+  bool GenerateBindingKeyRegistrationToken(
+      base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
+          supported_algorithms,
+      std::string_view auth_code,
+      base::OnceCallback<void(
+          std::optional<signin::BindingKeyRegistrationTokenResult>)> callback)
+      override;
   bool IsRefreshTokenBoundToKey(const CoreAccountId& account_id) const override;
   std::vector<uint8_t> GetWrappedBindingKey(
       const CoreAccountId& account_id) const override;
@@ -141,6 +149,10 @@ class MutableProfileOAuth2TokenServiceDelegate
       TokenBindingHelper::GenerateAssertionCallback callback) override;
   void AddBindingKeyToService(
       base::span<const uint8_t> wrapped_binding_key) override;
+  TokenBindingHelper::SaveBindingKeyResult UpdateRefreshTokenBindingKey(
+      const CoreAccountId& account_id,
+      std::string_view refresh_token,
+      std::vector<uint8_t> wrapped_binding_key);
   std::vector<CoreAccountId> GetAccounts() const override;
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory()
       const override;

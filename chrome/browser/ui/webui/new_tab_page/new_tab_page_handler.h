@@ -22,9 +22,9 @@
 #include "chrome/browser/new_tab_page/promos/promo_service.h"
 #include "chrome/browser/new_tab_page/promos/promo_service_observer.h"
 #include "chrome/browser/search/background/ntp_custom_background_service.h"
-#include "chrome/browser/search/background/ntp_custom_background_service_observer.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_observer.h"
+#include "chrome/browser/ui/search/ntp_user_data_logger.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_controller_observer.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/common/search/ntp_logging_events.h"
@@ -34,6 +34,7 @@
 #include "components/search_provider_logos/logo_common.h"
 #include "components/segmentation_platform/public/result.h"
 #include "components/themes/ntp_background_service_observer.h"
+#include "components/themes/ntp_custom_background_service_observer.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -43,10 +44,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/native_theme_observer.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/search/ntp_user_data_logger.h"
-#endif
 
 class GURL;
 class OptimizationGuideKeyedService;
@@ -231,6 +228,8 @@ class NewTabPageHandler
   void IncrementDictPrefKeyCount(const std::string& pref_name,
                                  const std::string& key);
 
+// TODO(b/502297163): Implement for Android.
+#if !BUILDFLAG(IS_ANDROID)
   // Returns a HaTS trigger id associated with the given combination of user
   // interaction and module id if one exists, or nullptr otherwise to indicate
   // that there is no configured survey trigger id for such combination. The
@@ -239,6 +238,7 @@ class NewTabPageHandler
   const std::string& GetSurveyTriggerIdForModuleAndInteraction(
       std::string_view interaction,
       const std::string& module_id);
+#endif
 
   void SetModuleHidden(const std::string& module_id, bool hidden);
 
@@ -258,15 +258,16 @@ class NewTabPageHandler
   // loadable.
   bool SyncMicrosoftModulesWithAuth();
 
-// TODO(b/502297163): Implement for Android.
-#if !BUILDFLAG(IS_ANDROID)
   NTPUserDataLogger logger_;
+#if !BUILDFLAG(IS_ANDROID)
   base::ScopedObservation<ThemeService, ThemeServiceObserver>
       theme_service_observation_{this};
+#endif
   base::ScopedObservation<PromoService, PromoServiceObserver>
       promo_service_observation_{this};
   base::ScopedObservation<MicrosoftAuthService, MicrosoftAuthServiceObserver>
       microsoft_auth_service_observation_{this};
+#if !BUILDFLAG(IS_ANDROID)
   base::ScopedObservation<new_tab_footer::NewTabFooterController,
                           new_tab_footer::NewTabFooterControllerObserver>
       footer_controller_observation_{this};
@@ -301,7 +302,10 @@ class NewTabPageHandler
                           NtpCustomBackgroundServiceObserver>
       ntp_custom_background_service_observation_{this};
   std::optional<base::TimeTicks> promo_load_start_time_;
+// TODO(b/502297163): Implement for Android.
+#if !BUILDFLAG(IS_ANDROID)
   base::DictValue interaction_module_id_trigger_dict_;
+#endif
   // Notifies this when the browser window context changes.
   base::CallbackListSubscription browser_window_changed_subscription_;
   // Triggered when the searchbox's contextual menu entrypoint is displayed.

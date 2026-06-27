@@ -9,13 +9,13 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
-#include "chrome/browser/password_manager/actor_login/internal/actor_login_siwg_controller.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_quality_logger_interface.h"
 #include "components/password_manager/core/browser/actor_login/internal/actor_login_delegate.h"
+#include "components/password_manager/core/browser/actor_login/internal/actor_login_siwg_controller_interface.h"
+#include "components/password_manager/core/browser/actor_login/internal/actor_login_web_content_interface.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
 #include "components/password_manager/core/browser/password_manager_interface.h"
-#include "content/public/browser/page.h"
 #include "content/public/browser/web_contents_user_data.h"
 
 namespace password_manager {
@@ -25,6 +25,7 @@ class PasswordManagerClient;
 namespace actor_login {
 
 class ActorLoginCredentialFiller;
+class ActorLoginDelegateClient;
 class ActorLoginGetCredentialsHelper;
 class ActorLoginMetricsHelper;
 
@@ -32,22 +33,14 @@ class ActorLoginMetricsHelper;
 // intrinsically tied to a specific browser tab.
 class ActorLoginDelegateImpl
     : public ActorLoginDelegate,
-      public content::WebContentsObserver,
+      public ActorLoginWebContentInterface,
       public content::WebContentsUserData<ActorLoginDelegateImpl>,
       public password_manager::PasswordManagerInterface::Observer {
  public:
-  using PasswordDriverSupplierForPrimaryMainFrame =
-      base::RepeatingCallback<password_manager::PasswordManagerDriver*(
-          content::WebContents*)>;
-
   static ActorLoginDelegate* GetOrCreate(
       content::WebContents* web_contents,
-      password_manager::PasswordManagerClient* client);
-
-  static ActorLoginDelegate* GetOrCreateForTesting(
-      content::WebContents* web_contents,
-      ::password_manager::PasswordManagerClient* client,
-      PasswordDriverSupplierForPrimaryMainFrame driver_supplier);
+      ActorLoginDelegateClient* actor_login_delegate_client,
+      password_manager::PasswordManagerClient* password_manager_client);
 
   ~ActorLoginDelegateImpl() override;
 
@@ -72,13 +65,15 @@ class ActorLoginDelegateImpl
   void OnLoginSuccessful(
       const password_manager::PasswordForm& pending_form) override;
 
-  // content::WebContentsObserver implementation:
-  void WebContentsDestroyed() override;
-  void PrimaryPageChanged(content::Page& page) override;
+  // ActorLoginWebContentInterface implementation:
+  void OnPrimaryPageChanged() override;
+  void OnContextDestroyed() override;
 
 #if defined(UNIT_TEST)
   // TODO(crbug.com/508169237): Utilize `WebContentsTester` instead.
-  ActorLoginSiwgController* siwg_controller() { return siwg_controller_.get(); }
+  ActorLoginSiwgControllerInterface* siwg_controller() {
+    return siwg_controller_.get();
+  }
 #endif
 
  private:
@@ -89,12 +84,8 @@ class ActorLoginDelegateImpl
   // will call when no instance exists and it needs to create one.
   ActorLoginDelegateImpl(
       content::WebContents* web_contents,
-      password_manager::PasswordManagerClient* client,
-      PasswordDriverSupplierForPrimaryMainFrame driver_supplier);
-
-  // Checks whether the currently ongoing task is in focus, either in
-  // the tab or in its corresponding Glic UI instance.
-  bool IsTaskInFocus();
+      ActorLoginDelegateClient* actor_login_delegate_client,
+      password_manager::PasswordManagerClient* password_manager_client);
 
   // Private helper methods for handling task completion. They should be
   // invoked asynchronously.
@@ -116,7 +107,7 @@ class ActorLoginDelegateImpl
   void ProcessPasswordResult(
       base::expected<LoginStatusResult, ActorLoginError> result);
 
-  void OnActorTaskStateChanged(actor::ActorTask& task);
+  void RemoveFederatedEmbedderLoginRequest();
 
   bool ShouldCleanUpConflictingPermissions(
       const password_manager::PasswordForm& form) const;
@@ -148,11 +139,11 @@ class ActorLoginDelegateImpl
   // Helper for `GetCredentials`. Scoped to one `GetCredentials` request.
   std::unique_ptr<ActorLoginGetCredentialsHelper> get_credentials_helper_;
 
-  // Callback that returns a `PasswordManagerDriver` corresponding to the
-  // primary main frame of the passed-in `WebContents`.
-  PasswordDriverSupplierForPrimaryMainFrame driver_supplier_;
+  base::WeakPtr<ActorLoginDelegateClient> actor_login_delegate_client_;
 
-  raw_ptr<password_manager::PasswordManagerClient> client_ = nullptr;
+  // Can be null on Android when using third-party password manager.
+  raw_ptr<password_manager::PasswordManagerClient> password_manager_client_ =
+      nullptr;
 
   // Helper for recording Actor.Login metrics. The helper is created at the
   // beginning of a `GetCredentials` or `AttemptLogin` request, and it's
@@ -168,14 +159,7 @@ class ActorLoginDelegateImpl
   // and click the SiwG button. After the prototype, the click will be done
   // through `ExecutionEngine`.
   // Scoped to one `AttemptLogin` request.
-  std::unique_ptr<ActorLoginSiwgController> siwg_controller_;
-
-  // Track the currently acting task to know when we can remove the
-  // FederatedEmbedderLoginRequest from the `WebContents`. This is needed to
-  // ensure that the request is removed in cases such as the task being stopped
-  // by user action, which can happen before the login flow completes.
-  actor::TaskId acting_task_id_;
-  base::CallbackListSubscription actor_task_state_subscription_;
+  std::unique_ptr<ActorLoginSiwgControllerInterface> siwg_controller_;
 
   // Stores the credential with which the latest `AttemptLogin` request was
   // made. This is used to clean up the permission after the login attempt.

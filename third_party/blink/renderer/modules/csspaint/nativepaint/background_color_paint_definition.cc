@@ -59,6 +59,11 @@ Color InterpolateColor(unsigned index,
 bool CompositorMayHaveIncorrectDamageRect(const Element* element) {
   LayoutObject* layout_object = element->GetLayoutObject();
   DCHECK(layout_object);
+  if (element->GetDocument().Lifecycle().GetState() <=
+      DocumentLifecycle::kInPrePaint) {
+    return false;
+  }
+
   auto& first_fragment =
       layout_object->EnclosingLayer()->GetLayoutObject().FirstFragment();
   if (!first_fragment.HasLocalBorderBoxProperties())
@@ -163,7 +168,7 @@ void ExtractKeyframes(const Element* element,
 
 bool ValidateColorValue(const Element* element,
                         const CSSValue* value,
-                        const InterpolableValue* interpolable_value) {
+                        const TypedInterpolationValue* interpolation_value) {
   if (value) {
     if (value->IsIdentifierValue()) {
       CSSValueID value_id = To<CSSIdentifierValue>(value)->GetValueID();
@@ -196,13 +201,15 @@ bool ValidateColorValue(const Element* element,
     const CSSValue* computed_value = StyleResolver::ComputeValue(
         const_cast<Element*>(element), property_name, *value);
     return computed_value->IsColorValue();
-  } else if (interpolable_value) {
+  } else if (interpolation_value) {
     // Transition keyframes store a pair of color values: one for the actual
     // color and one for the reported color (conditionally resolved). This is to
     // prevent JavaScript code from snooping the visited status of links. The
     // color to use for the animation is stored first in the list.
     // We need to further check that the color is a simple RGBA color and does
     // not require blending with other colors (e.g. currentcolor).
+    const InterpolableValue* interpolable_value =
+        interpolation_value->Value().interpolable_value.Get();
     if (!interpolable_value->IsList())
       return false;
 
@@ -229,8 +236,9 @@ struct DowncastTraits<BackgroundColorPaintWorkletInput> {
 
 Animation* BackgroundColorPaintDefinition::GetAnimationIfCompositable(
     const Element* element) {
-  if (CompositorMayHaveIncorrectDamageRect(element))
+  if (CompositorMayHaveIncorrectDamageRect(element)) {
     return nullptr;
+  }
 
   return GetAnimationForProperty(element, GetCSSPropertyBackgroundColor(),
                                  ValidateColorValue);

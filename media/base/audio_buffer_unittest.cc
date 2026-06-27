@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+#include <algorithm>
+#include <array>
 #include <limits>
 #include <memory>
 
@@ -175,14 +177,15 @@ TEST(AudioBufferTest, CopyFrom) {
       kSampleFormatU8, kChannelLayout,
       ChannelLayoutToChannelCount(kChannelLayout), kSampleRate, 1, 1,
       kSampleRate / 100, base::TimeDelta());
-  scoped_refptr<AudioBuffer> new_buffer =
-      AudioBuffer::CopyFrom(kSampleFormatU8,
-                            original_buffer->channel_layout(),
-                            original_buffer->channel_count(),
-                            original_buffer->sample_rate(),
-                            original_buffer->frame_count(),
-                            &original_buffer->channel_data()[0],
-                            original_buffer->timestamp());
+  std::vector<base::span<const uint8_t>> channel_spans;
+  for (auto channel : original_buffer->channels()) {
+    channel_spans.push_back(channel);
+  }
+  scoped_refptr<AudioBuffer> new_buffer = AudioBuffer::CopyFrom(
+      kSampleFormatU8, original_buffer->channel_layout(),
+      original_buffer->channel_count(), original_buffer->sample_rate(),
+      original_buffer->frame_count(), channel_spans,
+      original_buffer->timestamp());
   EXPECT_EQ(original_buffer->frame_count(), new_buffer->frame_count());
   EXPECT_EQ(original_buffer->timestamp(), new_buffer->timestamp());
   EXPECT_EQ(original_buffer->duration(), new_buffer->duration());
@@ -190,6 +193,63 @@ TEST(AudioBufferTest, CopyFrom) {
   EXPECT_EQ(original_buffer->channel_count(), new_buffer->channel_count());
   EXPECT_EQ(original_buffer->channel_layout(), new_buffer->channel_layout());
   EXPECT_FALSE(original_buffer->end_of_stream());
+}
+
+TEST(AudioBufferTest, CopyFromSpanInterleaved) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannelCount = 2;
+  constexpr int kFrameCount = 4;
+  constexpr uint8_t kTestData[] = {0, 1, 2, 3, 4, 5, 6, 7};
+  const base::TimeDelta kTimestamp = base::Microseconds(1337);
+  const std::array<base::span<const uint8_t>, 1> data = {
+      base::span<const uint8_t>(kTestData)};
+
+  scoped_refptr<AudioBuffer> buffer =
+      AudioBuffer::CopyFrom(kSampleFormatU8, kChannelLayout, kChannelCount,
+                            kSampleRate, kFrameCount, data, kTimestamp);
+
+  EXPECT_EQ(kChannelLayout, buffer->channel_layout());
+  EXPECT_EQ(kChannelCount, buffer->channel_count());
+  EXPECT_EQ(kSampleRate, buffer->sample_rate());
+  EXPECT_EQ(kFrameCount, buffer->frame_count());
+  EXPECT_EQ(kTimestamp, buffer->timestamp());
+  EXPECT_EQ(sizeof(kTestData), buffer->data_size());
+  EXPECT_FALSE(buffer->end_of_stream());
+
+  ASSERT_EQ(1u, buffer->channels().size());
+  EXPECT_TRUE(std::ranges::equal(buffer->channels()[0].first(sizeof(kTestData)),
+                                 base::span<const uint8_t>(kTestData)));
+}
+
+TEST(AudioBufferTest, CopyFromSpanPlanar) {
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannelCount = 2;
+  constexpr int kFrameCount = 4;
+  constexpr uint8_t kChannel0Data[] = {0, 1, 2, 3};
+  constexpr uint8_t kChannel1Data[] = {4, 5, 6, 7};
+  const base::TimeDelta kTimestamp = base::Microseconds(1337);
+  const std::array<base::span<const uint8_t>, kChannelCount> data = {
+      base::span<const uint8_t>(kChannel0Data),
+      base::span<const uint8_t>(kChannel1Data)};
+
+  scoped_refptr<AudioBuffer> buffer = AudioBuffer::CopyFrom(
+      kSampleFormatPlanarU8, kChannelLayout, kChannelCount, kSampleRate,
+      kFrameCount, data, kTimestamp);
+
+  EXPECT_EQ(kChannelLayout, buffer->channel_layout());
+  EXPECT_EQ(kChannelCount, buffer->channel_count());
+  EXPECT_EQ(kSampleRate, buffer->sample_rate());
+  EXPECT_EQ(kFrameCount, buffer->frame_count());
+  EXPECT_EQ(kTimestamp, buffer->timestamp());
+  EXPECT_FALSE(buffer->end_of_stream());
+
+  ASSERT_EQ(static_cast<size_t>(kChannelCount), buffer->channels().size());
+  EXPECT_TRUE(
+      std::ranges::equal(buffer->channels()[0].first(sizeof(kChannel0Data)),
+                         base::span<const uint8_t>(kChannel0Data)));
+  EXPECT_TRUE(
+      std::ranges::equal(buffer->channels()[1].first(sizeof(kChannel1Data)),
+                         base::span<const uint8_t>(kChannel1Data)));
 }
 
 TEST(AudioBufferTest, CopyFromAudioBus) {
@@ -231,24 +291,24 @@ TEST(AudioBufferTest, CopyFromAudioBus) {
 }
 
 TEST(AudioBufferTest, CopyBitstreamFrom) {
-  const ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
-  const int kChannelCount = ChannelLayoutToChannelCount(kChannelLayout);
-  const int kFrameCount = 128;
-  const uint8_t kTestData[] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
-                               11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-                               22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannelCount = 2;
+  constexpr int kFrameCount = 128;
+  constexpr uint8_t kTestData[] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+                                   11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+                                   22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
   const base::TimeDelta kTimestamp = base::Microseconds(1337);
-  const uint8_t* const data[] = {kTestData};
 
   scoped_refptr<AudioBuffer> buffer = AudioBuffer::CopyBitstreamFrom(
       kSampleFormatAc3, kChannelLayout, kChannelCount, kSampleRate, kFrameCount,
-      data, sizeof(kTestData), kTimestamp);
+      base::span<const uint8_t>(kTestData), kTimestamp);
 
   EXPECT_EQ(kChannelLayout, buffer->channel_layout());
-  EXPECT_EQ(kFrameCount, buffer->frame_count());
+  EXPECT_EQ(kChannelCount, buffer->channel_count());
   EXPECT_EQ(kSampleRate, buffer->sample_rate());
   EXPECT_EQ(kFrameCount, buffer->frame_count());
   EXPECT_EQ(kTimestamp, buffer->timestamp());
+  EXPECT_EQ(sizeof(kTestData), buffer->data_size());
   EXPECT_TRUE(buffer->IsBitstreamFormat());
   EXPECT_FALSE(buffer->end_of_stream());
 }
@@ -273,24 +333,26 @@ TEST(AudioBufferTest, CreateBitstreamBuffer) {
 }
 
 TEST(AudioBufferTest, CopyBitstreamFromIECDts) {
-  const ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
-  const int kChannelCount = ChannelLayoutToChannelCount(kChannelLayout);
+  constexpr ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
+  constexpr int kChannelCount = 2;
   constexpr int kFrameCount = 512;
   constexpr uint8_t kTestData[] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
                                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
                                    22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+  constexpr size_t kExpectedDataSize =
+      kFrameCount * kChannelCount * sizeof(float);
   const base::TimeDelta kTimestamp = base::Microseconds(1337);
-  const uint8_t* const data[] = {kTestData};
 
   scoped_refptr<AudioBuffer> buffer = AudioBuffer::CopyBitstreamFrom(
       kSampleFormatIECDts, kChannelLayout, kChannelCount, kSampleRate,
-      kFrameCount, data, sizeof(kTestData), kTimestamp);
+      kFrameCount, base::span<const uint8_t>(kTestData), kTimestamp);
 
   EXPECT_EQ(kChannelLayout, buffer->channel_layout());
-  EXPECT_EQ(kFrameCount, buffer->frame_count());
+  EXPECT_EQ(kChannelCount, buffer->channel_count());
   EXPECT_EQ(kSampleRate, buffer->sample_rate());
   EXPECT_EQ(kFrameCount, buffer->frame_count());
   EXPECT_EQ(kTimestamp, buffer->timestamp());
+  EXPECT_EQ(kExpectedDataSize, buffer->data_size());
   EXPECT_TRUE(buffer->IsBitstreamFormat());
   EXPECT_FALSE(buffer->end_of_stream());
 }
@@ -355,7 +417,8 @@ TEST(AudioBufferTest, FrameSize) {
                                22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
   const base::TimeDelta kTimestamp = base::Microseconds(1337);
 
-  const uint8_t* const data[] = {kTestData};
+  const std::array<base::span<const uint8_t>, 1> data = {
+      base::span<const uint8_t>(kTestData)};
   scoped_refptr<AudioBuffer> buffer =
       AudioBuffer::CopyFrom(kSampleFormatU8,
                             CHANNEL_LAYOUT_STEREO,
@@ -785,9 +848,13 @@ TEST(AudioBufferTest, AudioBufferMemoryPool) {
       kSampleRate / 100, base::TimeDelta());
 
   // Creating and returning a buffer should increase pool size.
+  std::vector<base::span<const uint8_t>> channel_spans;
+  for (auto channel : buffer->channels()) {
+    channel_spans.push_back(channel);
+  }
   scoped_refptr<AudioBuffer> b1 = AudioBuffer::CopyFrom(
       kSampleFormatU8, buffer->channel_layout(), buffer->channel_count(),
-      buffer->sample_rate(), buffer->frame_count(), &buffer->channel_data()[0],
+      buffer->sample_rate(), buffer->frame_count(), channel_spans,
       buffer->timestamp(), pool);
   EXPECT_EQ(0u, pool->GetPoolSizeForTesting());
   b1 = nullptr;
@@ -872,9 +939,13 @@ TEST(AudioBufferTest, AudioBufferMemoryPoolPlanar) {
       kSampleRate / 100, base::TimeDelta());
 
   // Creating and returning a buffer should increase pool size.
+  std::vector<base::span<const uint8_t>> channel_spans;
+  for (auto channel : buffer->channels()) {
+    channel_spans.push_back(channel);
+  }
   scoped_refptr<AudioBuffer> b1 = AudioBuffer::CopyFrom(
       kSampleFormatPlanarF32, buffer->channel_layout(), buffer->channel_count(),
-      buffer->sample_rate(), buffer->frame_count(), &buffer->channel_data()[0],
+      buffer->sample_rate(), buffer->frame_count(), channel_spans,
       buffer->timestamp(), pool);
   EXPECT_EQ(0u, pool->GetPoolSizeForTesting());
   b1 = nullptr;

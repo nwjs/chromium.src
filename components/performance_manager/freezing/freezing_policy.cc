@@ -1181,7 +1181,7 @@ void FreezingPolicy::UpdateFrozenStateOnCPUMeasurement(
 }
 
 void FreezingPolicy::OnOptOutPolicyChanged(
-    std::string_view browser_context_id) {
+    const base::UnguessableToken& browser_context_id) {
   CHECK(opt_out_checker_);
   // Check all pages  with the given `browser_context_id` to see if they're
   // opted out of freezing by the new policy.
@@ -1264,7 +1264,7 @@ void FreezingPolicy::RecordFreezingEligibilityUKM() {
   // will start subsampling those UKM events. Thus, it's better to subsample the
   // event emission code itself to increase the proportion of emitted events
   // that are actually recorded.
-  if (!metrics_subsampler_.ShouldSample(0.01)) {
+  if (!base::ShouldRecordSubsampledMetric(0.01)) {
     return;
   }
 

@@ -2217,7 +2217,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.CharacterIndex.TimedOut" enum="Boolean"
-    expires_after="2026-08-16">
+    expires_after="2026-11-01">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2230,7 +2230,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.CharacterIndex2" units="ms"
-    expires_after="2026-08-16">
+    expires_after="2026-11-01">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2285,36 +2285,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="TextInputClient.InSyncRequest.CharacterIndex" enum="Boolean"
-    expires_after="2026-08-16">
-  <owner>joenotcharles@google.com</owner>
-  <owner>input-dev@chromium.org</owner>
-  <summary>
-    Recorded per call from a browser process thread to query
-    GetCharacterIndexAtPoint on a renderer process, with True if the thread is
-    already inside a call to GetCharacterIndexAtPoint or GetFirstRectForRange,
-    False otherwise. The call is intended to be synchronous, but nested event
-    loops can cause it to re-enter. This counts how often that happens.
-
-    Only recorded on macOS.
-  </summary>
-</histogram>
-
-<histogram name="TextInputClient.InSyncRequest.FirstRect" enum="Boolean"
-    expires_after="2026-10-25">
-  <owner>joenotcharles@google.com</owner>
-  <owner>input-dev@chromium.org</owner>
-  <summary>
-    Recorded per call from a browser process thread to query
-    GetFirstRectForRange on a renderer process, with True if the thread is
-    already inside a call to GetCharacterIndexAtPoint or GetFirstRectForRange,
-    False otherwise. The call is intended to be synchronous, but nested event
-    loops can cause it to re-enter. This counts how often that happens.
-
-    Only recorded on macOS.
-  </summary>
-</histogram>
-
 <histogram name="TextInputClient.LockWait2" units="ms"
     expires_after="2026-10-25">
   <owner>joenotcharles@google.com</owner>
@@ -2332,7 +2302,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Touch.DevicePosture.{Instance}" enum="PostureMode"
-    expires_after="2026-06-20">
+    expires_after="2027-06-20">
   <owner>robliao@chromium.org</owner>
   <owner>wangsongjin@microsoft.com</owner>
   <owner>gerchiko@microsoft.com</owner>

@@ -8,7 +8,7 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
-#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -22,6 +22,7 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 
 namespace {
 
@@ -29,9 +30,13 @@ const gfx::VectorIcon& GetVectorIconForState(password_manager::ui::State state,
                                              bool is_blocklisted) {
   if (is_blocklisted &&
       base::FeatureList::IsEnabled(features::kSavePasswordsContextualUi)) {
-    return vector_icons::kPasswordManagerOffIcon;
+    return features::IsRoundedIconsEnabled()
+               ? vector_icons::kPasswordManagerOffIcon
+               : vector_icons::kPasswordManagerOffOldIcon;
   }
-  return vector_icons::kPasswordManagerIcon;
+  return features::IsRoundedIconsEnabled()
+             ? vector_icons::kPasswordManagerIcon
+             : vector_icons::kPasswordManagerOldIcon;
 }
 
 }  // namespace

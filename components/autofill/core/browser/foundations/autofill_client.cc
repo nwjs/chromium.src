@@ -4,29 +4,42 @@
 
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 
+#include <stdint.h>
+
+#include <map>
+#include <memory>
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "base/containers/flat_set.h"
-#include "base/functional/callback.h"
-#include "base/memory/raw_ptr.h"
-#include "base/no_destructor.h"
+#include "base/containers/span.h"
+#include "base/i18n/rtl.h"
 #include "base/notimplemented.h"
 #include "build/build_config.h"
-#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
+#include "components/autofill/core/browser/country_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/compose/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
+#include "components/autofill/core/browser/integrators/password_form_classification.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/studies/autofill_ablation_study.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
+#include "components/autofill/core/common/aliases.h"
+#include "components/autofill/core/common/unique_ids.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
-#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
-#include "components/version_info/channel.h"
+#include "components/personal_context/core/personal_context_types.h"
+#include "components/profile_metrics/browser_profile_type.h"
+#include "net/base/schemeful_site.h"
+#include "ui/gfx/geometry/rect_f.h"
 
 namespace autofill {
 
@@ -110,21 +123,29 @@ AutofillClient::GetPasswordManagerFieldClassificationModelHandler() {
 AutofillComposeDelegate* AutofillClient::GetComposeDelegate() {
   return nullptr;
 }
+const AutofillComposeDelegate* AutofillClient::GetComposeDelegate() const {
+  return const_cast<AutofillClient*>(this)->GetComposeDelegate();
+}
 
 accessibility_annotator::AccessibilityQueryService*
 AutofillClient::GetAccessibilityQueryService() {
   return nullptr;
 }
 
-accessibility_annotator::RemoteAnnotatorEnablementState
-AutofillClient::GetAccessibilityAnnotatorEnablementState() const {
-  return accessibility_annotator::RemoteAnnotatorEnablementState::
-      kDisabledNotEligible;
+personal_context::PersonalContextEnablementState
+AutofillClient::GetPersonalContextEnablementState() const {
+  return personal_context::PersonalContextEnablementState::kDisabledNotEligible;
 }
 
 PasswordManagerDelegate* AutofillClient::GetPasswordManagerDelegate(
     const FieldGlobalId& field_id) {
   return nullptr;
+}
+
+const PasswordManagerDelegate* AutofillClient::GetPasswordManagerDelegate(
+    const FieldGlobalId& field_id) const {
+  return const_cast<AutofillClient*>(this)->GetPasswordManagerDelegate(
+      field_id);
 }
 
 void AutofillClient::GetAiPageContent(GetAiPageContentCallback callback) {
@@ -198,8 +219,13 @@ const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
   return AutofillAblationStudy::disabled_study();
 }
 
+bool AutofillClient::IsAndroidLargeFormFactor() const {
+  return false;
+}
+
 #if BUILDFLAG(IS_ANDROID)
-void AutofillClient::ShowAtMemoryBottomSheet() {}
+void AutofillClient::ShowAtMemoryBottomSheet(
+    base::span<const Suggestion> suggestions) {}
 
 AutofillSnackbarControllerImpl*
 AutofillClient::GetAutofillSnackbarController() {
@@ -347,8 +373,16 @@ void AutofillClient::ShowAutofillAiFetchFromWalletFailureNotification() {
   NOTIMPLEMENTED();
 }
 
-void AutofillClient::ShowEmailVerifiedToast() {
+void AutofillClient::ShowEmailVerifiedToast(const GURL& issuer) {
   NOTIMPLEMENTED();
+}
+
+void AutofillClient::ShowEmailVerificationPopup(
+    const gfx::RectF& element_bounds,
+    const net::SchemefulSite& issuer_site,
+    const std::u16string& email,
+    base::OnceCallback<void(EmailVerificationPermissionUiResult)> callback) {
+  std::move(callback).Run(EmailVerificationPermissionUiResult::kIgnored);
 }
 
 OtpFieldDetector* AutofillClient::GetOtpFieldDetector() {

@@ -71,6 +71,9 @@ class HashStoreContents {
   // successfully removed.
   virtual bool RemoveEntry(const std::string& path) = 0;
 
+  // Returns true if this store supports super MACs.
+  virtual bool SupportsSuperMac() const = 0;
+
   // Only needed if this store supports super MACs.
   virtual const base::DictValue* GetContents() const = 0;
 
@@ -81,6 +84,15 @@ class HashStoreContents {
 
   // Stores a super MAC value for this hash store.
   virtual void SetSuperMac(const std::string& super_mac) = 0;
+
+  // Retrieves the super encrypted hash value previously stored by
+  // SetSuperEncryptedHash. May be empty if no super encrypted hash has been
+  // stored or if this store does not support it.
+  virtual std::string GetSuperEncryptedHash() const = 0;
+
+  // Stores a super encrypted hash value for this hash store.
+  virtual void SetSuperEncryptedHash(
+      const std::string& super_encrypted_hash) = 0;
 };
 
 #endif  // SERVICES_PREFERENCES_TRACKED_HASH_STORE_CONTENTS_H_

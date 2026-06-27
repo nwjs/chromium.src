@@ -24,6 +24,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
 #include "components/vector_icons/vector_icons.h"
+#include "ui/base/ui_base_features.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/device_info.h"
@@ -756,7 +757,7 @@ class OmniboxPedalCreateGoogleDoc : public OmniboxPedalAuthRequired {
                  "create?usp=chrome_actions")) {}
 
   const gfx::VectorIcon& GetVectorIcon() const override {
-    return omnibox::kDriveDocsIcon;
+    return omnibox::kDriveDocsCustomIcon;
   }
 
   std::vector<SynonymGroupSpec> SpecifySynonymGroups(
@@ -812,7 +813,7 @@ class OmniboxPedalCreateGoogleSheet : public OmniboxPedalAuthRequired {
                  "create?usp=chrome_actions")) {}
 
   const gfx::VectorIcon& GetVectorIcon() const override {
-    return omnibox::kDriveSheetsIcon;
+    return omnibox::kDriveSheetsCustomIcon;
   }
 
   std::vector<SynonymGroupSpec> SpecifySynonymGroups(
@@ -868,7 +869,7 @@ class OmniboxPedalCreateGoogleSlide : public OmniboxPedalAuthRequired {
                  "create?usp=chrome_actions")) {}
 
   const gfx::VectorIcon& GetVectorIcon() const override {
-    return omnibox::kDriveSlidesIcon;
+    return omnibox::kDriveSlidesCustomIcon;
   }
 
   std::vector<SynonymGroupSpec> SpecifySynonymGroups(
@@ -1095,7 +1096,7 @@ class OmniboxPedalCreateGoogleForm : public OmniboxPedalAuthRequired {
                  "create?usp=chrome_actions")) {}
 
   const gfx::VectorIcon& GetVectorIcon() const override {
-    return omnibox::kDriveFormsIcon;
+    return omnibox::kDriveFormsCustomIcon;
   }
 
   std::vector<SynonymGroupSpec> SpecifySynonymGroups(
@@ -1317,7 +1318,8 @@ class OmniboxPedalCloseIncognitoWindows : public OmniboxPedal {
             GURL()) {}
 
   const gfx::VectorIcon& GetVectorIcon() const override {
-    return omnibox::kIncognitoCr2023Icon;
+    return features::IsRoundedIconsEnabled() ? omnibox::kIncognitoIcon
+                                             : omnibox::kIncognitoCr2023OldIcon;
   }
 
   std::vector<SynonymGroupSpec> SpecifySynonymGroups(
@@ -1371,7 +1373,8 @@ class OmniboxPedalPlayChromeDinoGame : public OmniboxPedal {
 
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
   const gfx::VectorIcon& GetVectorIcon() const override {
-    return omnibox::kDinoCr2023Icon;
+    return features::IsRoundedIconsEnabled() ? omnibox::kOfflineDinoIcon
+                                             : omnibox::kDinoCr2023OldIcon;
   }
 #endif
 
@@ -1999,13 +2002,21 @@ class OmniboxPedalSetChromeAsDefaultBrowser : public OmniboxPedal {
 
 const gfx::VectorIcon& GetSharingHubVectorIcon() {
 #if BUILDFLAG(IS_MAC)
-  return omnibox::kShareMacChromeRefreshIcon;
+  return features::IsRoundedIconsEnabled()
+             ? omnibox::kIosShareIcon
+             : omnibox::kShareMacChromeRefreshOldIcon;
 #elif BUILDFLAG(IS_WIN)
-  return omnibox::kShareWinChromeRefreshIcon;
+  return features::IsRoundedIconsEnabled()
+             ? omnibox::kShareWindowsIcon
+             : omnibox::kShareWinChromeRefreshOldIcon;
 #elif BUILDFLAG(IS_LINUX)
-  return omnibox::kShareLinuxChromeRefreshIcon;
+  return features::IsRoundedIconsEnabled()
+             ? omnibox::kSendIcon
+             : omnibox::kShareLinuxChromeRefreshOldIcon;
 #else
-  return omnibox::kShareChromeRefreshIcon;
+  return features::IsRoundedIconsEnabled()
+             ? omnibox::kShareIcon
+             : omnibox::kShareChromeRefreshOldIcon;
 #endif
 }
 

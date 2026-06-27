@@ -172,6 +172,13 @@ class LocalFrameMojoHandler
       bool wants_result,
       int32_t world_id,
       JavaScriptExecuteRequestInIsolatedWorldCallback callback) final;
+  void InvokeScriptToolForInspector(
+      const base::UnguessableToken& invocation_id,
+      const String& tool_name,
+      const String& input_arguments,
+      InvokeScriptToolForInspectorCallback callback) final;
+  void NotifyInspectorOfCrossDocumentScriptToolResult(
+      const base::UnguessableToken& invocation_id) final;
 #if BUILDFLAG(IS_MAC)
   void GetCharacterIndexAtPoint(const base::UnguessableToken& request_token,
                                 const gfx::Point& point) final;
@@ -232,6 +239,7 @@ class LocalFrameMojoHandler
       base::TimeTicks redirect_time,
       base::TimeTicks request_start,
       base::TimeTicks response_start,
+      base::TimeTicks completion_time,
       uint32_t response_code,
       const String& mime_type,
       network::mojom::blink::LoadTimingInfoPtr load_timing_info,
@@ -240,7 +248,7 @@ class LocalFrameMojoHandler
       bool is_secure_transport,
       bool is_validated,
       const String& normalized_server_timing,
-      const ::network::URLLoaderCompletionStatus& completion_status) final;
+      mojom::blink::SubframeResourceLengthsPtr resource_lengths) final;
   void GetScrollPosition(GetScrollPositionCallback callback) final;
 
   // blink::mojom::LocalMainFrame overrides:
@@ -272,6 +280,7 @@ class LocalFrameMojoHandler
       double randomized_trigger_rate,
       mojom::blink::ConfidenceLevel confidence) final;
   void SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) override;
+  void NotifyRelatedPagesFinalized(bool has_other_related_pages) final;
 
   // mojom::FullscreenVideoElementHandler implementation:
   void RequestFullscreenVideoElement() final;

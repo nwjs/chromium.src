@@ -215,9 +215,6 @@ std::unique_ptr<MessagePump> MessagePump::Create(MessagePumpType type) {
 // static
 void MessagePump::InitializeFeatures() {
   ResetAlignWakeUpsState();
-#if BUILDFLAG(IS_WIN)
-  MessagePumpWin::InitializeFeatures();
-#endif
 }
 
 // static

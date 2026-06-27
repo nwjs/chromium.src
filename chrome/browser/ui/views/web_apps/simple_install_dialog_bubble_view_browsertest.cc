@@ -14,8 +14,9 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/views/web_apps/web_app_dialog_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
@@ -27,6 +28,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_pref_guardrails.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -65,9 +67,9 @@ std::unique_ptr<WebAppInstallInfo> GetAppInfo() {
 // Creates an installation tracker for ML installability promoter required by
 // the install dialog.
 std::unique_ptr<webapps::MlInstallOperationTracker> GetInstallTracker(
-    Browser* browser) {
+    BrowserWindowInterface* browser) {
   content::WebContents* web_contents =
-      browser->tab_strip_model()->GetActiveWebContents();
+      browser->GetTabStripModel()->GetActiveWebContents();
   return webapps::MLInstallabilityPromoter::FromWebContents(web_contents)
       ->RegisterCurrentInstallForWebContents(
           webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON);
@@ -77,14 +79,16 @@ constexpr char kInstallDialogName[] = "WebAppSimpleInstallDialog";
 
 class SimpleInstallDialogBubbleViewBrowserTest : public WebAppBrowserTestBase {
  public:
-  SimpleInstallDialogBubbleViewBrowserTest()
-      : prevent_close_on_deactivate_(
-            web_app::SetDontCloseOnDeactivateForTesting()) {}
+  SimpleInstallDialogBubbleViewBrowserTest() {
+    feature_list_.InitAndDisableFeature(features::kWebAppInstallDialog);
+  }
   ~SimpleInstallDialogBubbleViewBrowserTest() override = default;
 
  private:
-  base::AutoReset<bool> prevent_close_on_deactivate_;
-};
+  base::test::ScopedFeatureList feature_list_;
+  web_app::test::ScopedDontCloseInstallDialogsOnDeactivate
+      prevent_close_on_deactivate_;
+};  // namespace
 
 IN_PROC_BROWSER_TEST_F(SimpleInstallDialogBubbleViewBrowserTest,
                        ShowBubbleInPWAWindow) {
@@ -297,7 +301,9 @@ IN_PROC_BROWSER_TEST_F(SimpleInstallDialogBubbleViewBrowserTest,
                       /*width=*/500, /*height=*/500);
   EXPECT_TRUE(popup_value.has_value());
   content::WebContents* popup_contents = popup_value.value();
-  Browser* popup_browser = chrome::FindBrowserWithTab(popup_contents);
+  BrowserWindowInterface* popup_browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          popup_contents);
 
   std::unique_ptr<webapps::MlInstallOperationTracker> install_tracker =
       GetInstallTracker(popup_browser);
@@ -306,7 +312,7 @@ IN_PROC_BROWSER_TEST_F(SimpleInstallDialogBubbleViewBrowserTest,
       views::test::AnyWidgetTestPasskey{}, kInstallDialogName);
   base::test::TestFuture<bool, std::unique_ptr<WebAppInstallInfo>> test_future;
   ShowSimpleInstallDialogForWebApps(
-      popup_browser->tab_strip_model()->GetActiveWebContents(), GetAppInfo(),
+      popup_browser->GetTabStripModel()->GetActiveWebContents(), GetAppInfo(),
       std::move(install_tracker), test_future.GetCallback());
 
   views::Widget* widget = widget_waiter.WaitIfNeededAndGet();
@@ -334,7 +340,9 @@ IN_PROC_BROWSER_TEST_F(SimpleInstallDialogBubbleViewBrowserTest,
                       GURL("https://www.example.com"));
   EXPECT_TRUE(popup_value.has_value());
   content::WebContents* popup_contents = popup_value.value();
-  Browser* popup_browser = chrome::FindBrowserWithTab(popup_contents);
+  BrowserWindowInterface* popup_browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          popup_contents);
 
   std::unique_ptr<webapps::MlInstallOperationTracker> install_tracker =
       GetInstallTracker(popup_browser);
@@ -361,9 +369,17 @@ IN_PROC_BROWSER_TEST_F(SimpleInstallDialogBubbleViewBrowserTest,
 
 class PictureInPictureSimpleInstallDialogOcclusionTest
     : public MixinBasedInProcessBrowserTest {
+ public:
+  PictureInPictureSimpleInstallDialogOcclusionTest() {
+    feature_list_.InitAndDisableFeature(features::kWebAppInstallDialog);
+  }
+
  protected:
   DocumentPictureInPictureMixinTestBase picture_in_picture_test_base_{
       &mixin_host_};
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PictureInPictureSimpleInstallDialogOcclusionTest,

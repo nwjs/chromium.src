@@ -230,22 +230,17 @@ base::ListValue FloatArrayToList(base::span<const float> data) {
   return list;
 }
 
-bool FloatArrayFromList(const base::ListValue& list,
-                        size_t expected_count,
-                        float* data) {
-  DCHECK(data);
-  DCHECK_LT(0u, expected_count);
+bool FloatArrayFromList(const base::ListValue& list, base::span<float> data) {
+  DCHECK(!data.empty());
   size_t count = list.size();
-  if (count != expected_count)
+  if (count != data.size()) {
     return false;
-  std::vector<double> double_data(count);
+  }
   for (size_t ii = 0; ii < count; ++ii) {
     if (!list[ii].is_double())
       return false;
-    double_data[ii] = list[ii].GetDouble();
+    data[ii] = list[ii].GetDouble();
   }
-  for (size_t ii = 0; ii < count; ++ii)
-    UNSAFE_TODO(data[ii]) = static_cast<float>(double_data[ii]);
   return true;
 }
 
@@ -458,11 +453,11 @@ bool TransformFromList(const base::ListValue& list, gfx::Transform* transform) {
   DCHECK(transform);
   if (list.size() != 16)
     return false;
-  float data[16];
+  std::array<float, 16> data;
   for (size_t ii = 0; ii < 16; ++ii) {
     if (!list[ii].is_double())
       return false;
-    UNSAFE_TODO(data[ii]) = list[ii].GetDouble();
+    data[ii] = list[ii].GetDouble();
   }
   *transform = gfx::Transform::ColMajorF(data);
   return true;
@@ -637,8 +632,9 @@ bool FilterOperationFromDict(const base::Value& dict_value,
       break;
     case cc::FilterOperation::COLOR_MATRIX: {
       cc::FilterOperation::Matrix mat;
-      if (!matrix || !FloatArrayFromList(*matrix, 20u, &mat[0]))
+      if (!matrix || !FloatArrayFromList(*matrix, mat)) {
         return false;
+      }
       filter.set_matrix(mat);
     } break;
     case cc::FilterOperation::ZOOM:
@@ -851,14 +847,16 @@ uint8_t StringToColorSpaceRangeId(const std::string& token) {
 #undef MATCH_ENUM_CASE
 
 base::ListValue Matrix3x3ToList(const skcms_Matrix3x3& mat) {
-  float data[9];
-  UNSAFE_TODO(memcpy(data, mat.vals, sizeof(mat)));
-  return FloatArrayToList(data);
+  static_assert(sizeof(mat.vals) == sizeof(float) * 9u);
+  // SAFETY: `mat.vals` is 3x3 array of floats.
+  return FloatArrayToList(UNSAFE_BUFFERS(base::span(&mat.vals[0][0], 9u)));
 }
 
-bool Matrix3x3FromList(const base::ListValue& list, skcms_Matrix3x3* mat) {
-  DCHECK(mat);
-  return FloatArrayFromList(list, 9u, reinterpret_cast<float*>(mat->vals));
+bool Matrix3x3FromList(const base::ListValue& list, skcms_Matrix3x3& mat) {
+  static_assert(sizeof(mat.vals) == sizeof(float) * 9u);
+  // SAFETY: `mat.vals` is 3x3 array of floats.
+  return FloatArrayFromList(list,
+                            UNSAFE_BUFFERS(base::span(&mat.vals[0][0], 9u)));
 }
 
 base::ListValue TransferFunctionToList(const skcms_TransferFunction& fn) {
@@ -876,9 +874,10 @@ base::ListValue TransferFunctionToList(const skcms_TransferFunction& fn) {
 bool TransferFunctionFromList(const base::ListValue& list,
                               skcms_TransferFunction* fn) {
   DCHECK(fn);
-  float data[7];
-  if (!FloatArrayFromList(list, 7u, data))
+  std::array<float, 7> data;
+  if (!FloatArrayFromList(list, data)) {
     return false;
+  }
   fn->a = data[0];
   fn->b = data[1];
   fn->c = data[2];
@@ -934,7 +933,7 @@ bool ColorSpaceFromDict(const base::DictValue& dict,
     const base::ListValue* custom_primary_matrix =
         dict.FindList("custom_primary_matrix");
     if (!custom_primary_matrix ||
-        !Matrix3x3FromList(*custom_primary_matrix, &t_custom_primary_matrix)) {
+        !Matrix3x3FromList(*custom_primary_matrix, t_custom_primary_matrix)) {
       return false;
     }
   }
@@ -1187,7 +1186,6 @@ void CompositorRenderPassDrawQuadToDict(
   dict->Set("mask_texture_size", SizeToDict(draw_quad->mask_texture_size));
   dict->Set("filters_scale", Vector2dFToDict(draw_quad->filters_scale));
   dict->Set("filters_origin", PointFToDict(draw_quad->filters_origin));
-  dict->Set("tex_coord_rect", RectFToDict(draw_quad->tex_coord_rect));
   dict->Set("backdrop_filter_quality", draw_quad->backdrop_filter_quality);
   dict->Set("force_anti_aliasing_off", draw_quad->force_anti_aliasing_off);
   dict->Set("intersects_damage_under", draw_quad->intersects_damage_under);
@@ -1344,7 +1342,6 @@ bool CompositorRenderPassDrawQuadFromDict(
   const base::DictValue* mask_texture_size = dict.FindDict("mask_texture_size");
   const base::DictValue* filters_scale = dict.FindDict("filters_scale");
   const base::DictValue* filters_origin = dict.FindDict("filters_origin");
-  const base::DictValue* tex_coord_rect = dict.FindDict("tex_coord_rect");
   std::optional<double> backdrop_filter_quality =
       dict.FindDouble("backdrop_filter_quality");
   std::optional<bool> force_anti_aliasing_off =
@@ -1353,12 +1350,12 @@ bool CompositorRenderPassDrawQuadFromDict(
       dict.FindBool("intersects_damage_under");
 
   if (!render_pass_id || !mask_uv_rect || !mask_texture_size ||
-      !filters_scale || !filters_origin || !tex_coord_rect ||
-      !backdrop_filter_quality || !force_anti_aliasing_off) {
+      !filters_scale || !filters_origin || !backdrop_filter_quality ||
+      !force_anti_aliasing_off) {
     return false;
   }
   uint64_t render_pass_id_as_int;
-  gfx::RectF t_mask_uv_rect, t_tex_coord_rect;
+  gfx::RectF t_mask_uv_rect;
   gfx::Size t_mask_texture_size;
   gfx::Vector2dF t_filters_scale;
   gfx::PointF t_filters_origin;
@@ -1366,19 +1363,18 @@ bool CompositorRenderPassDrawQuadFromDict(
       !RectFFromDict(*mask_uv_rect, &t_mask_uv_rect) ||
       !SizeFromDict(*mask_texture_size, &t_mask_texture_size) ||
       !Vector2dFFromDict(*filters_scale, &t_filters_scale) ||
-      !PointFFromDict(*filters_origin, &t_filters_origin) ||
-      !RectFFromDict(*tex_coord_rect, &t_tex_coord_rect)) {
+      !PointFFromDict(*filters_origin, &t_filters_origin)) {
     return false;
   }
   CompositorRenderPassId t_render_pass_id{render_pass_id_as_int};
 
   ResourceId mask_resource_id = common.resource_id;
-  draw_quad->SetAll(
-      common.shared_quad_state, common.rect, common.visible_rect,
-      common.needs_blending, t_render_pass_id, mask_resource_id, t_mask_uv_rect,
-      t_mask_texture_size, t_filters_scale, t_filters_origin, t_tex_coord_rect,
-      force_anti_aliasing_off.value(), backdrop_filter_quality.value(),
-      intersects_damage_under && intersects_damage_under.value());
+  draw_quad->SetAll(common.shared_quad_state, common.rect, common.visible_rect,
+                    common.needs_blending, t_render_pass_id, mask_resource_id,
+                    t_mask_uv_rect, t_mask_texture_size, t_filters_scale,
+                    t_filters_origin, force_anti_aliasing_off.value(),
+                    backdrop_filter_quality.value(),
+                    intersects_damage_under && intersects_damage_under.value());
   return true;
 }
 

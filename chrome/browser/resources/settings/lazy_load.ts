@@ -7,6 +7,7 @@ import './ai_page/ai_mode_search_page.js';
 import './ai_page/ai_suggestions_page.js';
 import './ai_page/history_search_page.js';
 import './ai_page/offer_writing_help_page.js';
+import './ai_page/skills_page.js';
 import './appearance_page/appearance_fonts_page.js';
 import './autofill_page/autofill_ai_section.js';
 import './autofill_page/autofill_section.js';
@@ -65,7 +66,6 @@ import './site_settings/javascript_page.js';
 import './site_settings/keyboard_lock_page.js';
 import './site_settings/local_fonts_page.js';
 import './site_settings/local_network_page.js';
-import './site_settings/local_network_access_page.js';
 import './site_settings/loopback_network_page.js';
 import './site_settings/microphone_page.js';
 import './site_settings/midi_devices_page.js';
@@ -97,10 +97,10 @@ import './site_settings/zoom_levels.js';
 // <if expr="not is_chromeos">
 import './a11y_page/live_caption.js';
 import './people_page/import_data_dialog.js';
-import './people_page/account_page.js';
-import './people_page/google_services_page.js';
 import './people_page/manage_profile.js';
 // </if>
+import './people_page/account_page.js';
+import './people_page/google_services_page.js';
 import './people_page/signout_dialog.js';
 import './people_page/sync_controls_page.js';
 import './people_page/sync_page.js';
@@ -144,12 +144,10 @@ export {CrTextareaElement} from 'chrome://resources/cr_elements/cr_textarea/cr_t
 export {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 export {getToastManager} from 'chrome://resources/cr_elements/cr_toast/cr_toast_manager.js';
 export {CrTooltipElement} from 'chrome://resources/cr_elements/cr_tooltip/cr_tooltip.js';
-// <if expr="not is_chromeos">
 export {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote, PageRemote} from 'chrome://resources/js/batch_upload_promo.mojom-webui.js';
 export type {PageHandlerInterface} from 'chrome://resources/js/batch_upload_promo.mojom-webui.js';
 export {BatchUploadPromoProxyImpl} from 'chrome://resources/js/batch_upload_promo/batch_upload_promo_proxy.js';
 export type {BatchUploadPromoProxy} from 'chrome://resources/js/batch_upload_promo/batch_upload_promo_proxy.js';
-// </if>
 export type {IronListElement} from 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
 export {AccessibilityBrowserProxyImpl} from './a11y_page/a11y_browser_proxy.js';
 export type {AccessibilityBrowserProxy} from './a11y_page/a11y_browser_proxy.js';
@@ -162,12 +160,13 @@ export {SettingsLiveCaptionElement} from './a11y_page/live_caption.js';
 export {SettingsLiveTranslateElement} from './a11y_page/live_translate.js';
 // </if>
 
+export {SettingsAiModeSearchPageElement} from './ai_page/ai_mode_search_page.js';
 export {isFeatureDisabledByPolicy, SettingsAiPolicyIndicator} from './ai_page/ai_policy_indicator.js';
 export {SettingsAiSuggestionsPageElement} from './ai_page/ai_suggestions_page.js';
 export {AiEnterpriseFeaturePrefName, AiPageActions, FeatureOptInState, SettingsAiPageFeaturePrefName} from './ai_page/constants.js';
-export {SettingsAiModeSearchPageElement} from './ai_page/ai_mode_search_page.js';
 export {SettingsHistorySearchPageElement} from './ai_page/history_search_page.js';
 export {COMPOSE_PROACTIVE_NUDGE_DISABLED_SITES_PREF, COMPOSE_PROACTIVE_NUDGE_PREF, SettingsOfferWritingHelpPageElement} from './ai_page/offer_writing_help_page.js';
+export {SettingsSkillsPageElement} from './ai_page/skills_page.js';
 export {SettingsAppearanceFontsPageElement} from './appearance_page/appearance_fonts_page.js';
 export {SettingsAddressEditDialogElement} from './autofill_page/address_edit_dialog.js';
 export {SettingsAddressRemoveConfirmationDialogElement} from './autofill_page/address_remove_confirmation_dialog.js';
@@ -221,6 +220,7 @@ export {SettingsAddLanguagesDialogElement} from './languages_page/add_languages_
 // <if expr="not is_macosx">
 export {SettingsEditDictionaryPageElement} from './languages_page/edit_dictionary_page.js';
 // </if>
+
 export {getLanguageHelperInstance} from './languages_page/languages.js';
 export {LanguagesBrowserProxyImpl} from './languages_page/languages_browser_proxy.js';
 export type {LanguagesBrowserProxy} from './languages_page/languages_browser_proxy.js';
@@ -230,8 +230,11 @@ export type {LanguageSettingsMetricsProxy} from './languages_page/languages_sett
 export type {LanguageHelper, LanguagesModel} from './languages_page/languages_types.js';
 export {SettingsSpellCheckPageElement} from './languages_page/spell_check_page.js';
 export {SettingsTranslatePageElement} from './languages_page/translate_page.js';
+// </if>
+
 export {SettingsAccountPageElement} from './people_page/account_page.js';
 export {SettingsGoogleServicesPageElement} from './people_page/google_services_page.js';
+// <if expr="not is_chromeos">
 export {ImportDataBrowserProxyImpl, ImportDataStatus} from './people_page/import_data_browser_proxy.js';
 export type {BrowserProfile, ImportDataBrowserProxy} from './people_page/import_data_browser_proxy.js';
 export {SettingsImportDataDialogElement} from './people_page/import_data_dialog.js';
@@ -263,7 +266,7 @@ export {SecureDnsInputElement} from './privacy_page/security/secure_dns_input.js
 export {SecureDnsV2ResolverType, SettingsSecureDnsV2Element} from './privacy_page/security/secure_dns_v2.js';
 export {BioEnrollDialogPage, SettingsSecurityKeysBioEnrollDialogElement} from './privacy_page/security/security_keys_bio_enroll_dialog.js';
 export {Ctap2Status, SampleStatus, SecurityKeysBioEnrollProxyImpl, SecurityKeysCredentialBrowserProxyImpl, SecurityKeysPinBrowserProxyImpl, SecurityKeysResetBrowserProxyImpl} from './privacy_page/security/security_keys_browser_proxy.js';
-export type {SecurityKeysBioEnrollProxy, SecurityKeysCredentialBrowserProxy, SecurityKeysPinBrowserProxy, SecurityKeysResetBrowserProxy} from './privacy_page/security/security_keys_browser_proxy.js';
+export type {Credential, CredentialManagementResponse, Enrollment, EnrollmentResponse, SecurityKeysBioEnrollProxy, SecurityKeysCredentialBrowserProxy, SecurityKeysPinBrowserProxy, SecurityKeysResetBrowserProxy, SensorInfo, SetPinResponse, StartCredentialManagementResponse} from './privacy_page/security/security_keys_browser_proxy.js';
 export {CredentialManagementDialogPage, SettingsSecurityKeysCredentialManagementDialogElement} from './privacy_page/security/security_keys_credential_management_dialog.js';
 export {ResetDialogPage, SettingsSecurityKeysResetDialogElement} from './privacy_page/security/security_keys_reset_dialog.js';
 export {SetPinDialogPage, SettingsSecurityKeysSetPinDialogElement} from './privacy_page/security/security_keys_set_pin_dialog.js';

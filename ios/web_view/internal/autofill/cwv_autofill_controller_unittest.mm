@@ -187,6 +187,57 @@ class CWVAutofillControllerTest : public web::WebTest {
     web_frames_manager_->AddWebFrame(std::move(frame));
   }
 
+  void RegisterFormActivity(bool has_user_gesture = true) {
+    auto frame = web::FakeWebFrame::Create(base::SysNSStringToUTF8(frame_id_),
+                                           /*is_main_frame=*/true, GURL());
+    web::WebFrame* frame_ptr = frame.get();
+    AddWebFrame(std::move(frame));
+
+    autofill::FormActivityParams params;
+    params.form_name = base::SysNSStringToUTF8(kTestFormName);
+    params.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier);
+    params.type = "focus";
+    params.has_user_gesture = has_user_gesture;
+    form_activity_tab_helper_->FormActivityRegistered(frame_ptr, params);
+  }
+
+  void PrepareFormActivity() {
+    RegisterFormActivity();
+
+    OCMExpect([password_controller_
+        checkIfSuggestionsAvailableForForm:[OCMArg any]
+                            hasUserGesture:YES
+                                  webState:&web_state_
+                         completionHandler:[OCMArg checkWithBlock:^(void (
+                                               ^suggestionsAvailable)(BOOL)) {
+                           suggestionsAvailable(NO);
+                           return YES;
+                         }]]);
+
+    base::test::TestFuture<NSArray<CWVAutofillSuggestion*>*> suggestions_future;
+
+    base::OnceCallback<void(NSArray<CWVAutofillSuggestion*>*)> cpp_callback =
+        suggestions_future.GetCallback();
+
+    __block base::OnceCallback<void(NSArray<CWVAutofillSuggestion*>*)>*
+        block_safe_callback = &cpp_callback;
+
+    void (^completion_block)(NSArray<CWVAutofillSuggestion*>*) =
+        ^(NSArray<CWVAutofillSuggestion*>* suggestions) {
+          if (*block_safe_callback) {
+            std::move(*block_safe_callback).Run(suggestions);
+          }
+        };
+
+    [autofill_controller_ fetchSuggestionsForFormWithName:kTestFormName
+                                          fieldIdentifier:kTestFieldIdentifier
+                                                fieldType:@""
+                                                  frameID:frame_id_
+                                        completionHandler:completion_block];
+
+    EXPECT_TRUE(suggestions_future.Wait());
+  }
+
   TestingPrefServiceSimple pref_service_;
   web::FakeBrowserState browser_state_;
   autofill::TestPersonalDataManager personal_data_manager_;
@@ -219,6 +270,8 @@ TEST_F(CWVAutofillControllerTest, FetchProfileSuggestions) {
                      forFormName:kTestFormName
                  fieldIdentifier:kTestFieldIdentifier
                          frameID:frame_id_];
+
+  RegisterFormActivity();
 
   OCMExpect([password_controller_
       checkIfSuggestionsAvailableForForm:[OCMArg any]
@@ -262,6 +315,8 @@ TEST_F(CWVAutofillControllerTest, FetchPasswordSuggestions) {
                      type:autofill::SuggestionType::kAutocompleteEntry
                   payload:autofill::Suggestion::Payload()
            requiresReauth:NO];
+  RegisterFormActivity();
+
   OCMExpect([password_controller_
       checkIfSuggestionsAvailableForForm:[OCMArg any]
                           hasUserGesture:YES
@@ -312,12 +367,14 @@ TEST_F(CWVAutofillControllerTest, AcceptSuggestion) {
                      type:autofill::SuggestionType::kAutocompleteEntry
                   payload:autofill::Suggestion::Payload()
            requiresReauth:NO];
-  CWVAutofillSuggestion* suggestion =
-      [[CWVAutofillSuggestion alloc] initWithFormSuggestion:form_suggestion
-                                                   formName:kTestFormName
-                                            fieldIdentifier:kTestFieldIdentifier
-                                                    frameID:frame_id_
-                                       isPasswordSuggestion:NO];
+  CWVAutofillSuggestion* suggestion = [[CWVAutofillSuggestion alloc]
+      initWithFormSuggestion:form_suggestion
+                    formName:kTestFormName
+              formRendererID:autofill::FormRendererId(1)
+             fieldIdentifier:kTestFieldIdentifier
+             fieldRendererID:autofill::FieldRendererId(2)
+                     frameID:frame_id_
+        isPasswordSuggestion:NO];
   __block BOOL accept_completion_was_called = NO;
   [autofill_controller_ acceptSuggestion:suggestion
                                  atIndex:0
@@ -336,11 +393,110 @@ TEST_F(CWVAutofillControllerTest, AcceptSuggestion) {
                                              frameID:frame_id_]);
 }
 
+// Tests that accepting a suggestion generated for Form 1 / Field A
+// after focus has rapidly shifted to Form 2 / Field B only fills Form 1 / Field
+// A.
+TEST_F(CWVAutofillControllerTest, AcceptSuggestionAfterFocusShift) {
+  FormSuggestion* form_suggestion = [FormSuggestion
+      suggestionWithValue:kTestFieldValue
+       displayDescription:nil
+                     icon:nil
+                     type:autofill::SuggestionType::kAutocompleteEntry
+                  payload:autofill::Suggestion::Payload()
+           requiresReauth:NO];
+
+  NSString* frame_id_1 = frame_id_;
+  [autofill_agent_ addSuggestion:form_suggestion
+                     forFormName:kTestFormName
+                 fieldIdentifier:kTestFieldIdentifier
+                         frameID:frame_id_1];
+
+  RegisterFormActivity();
+
+  OCMExpect([password_controller_
+      checkIfSuggestionsAvailableForForm:[OCMArg any]
+                          hasUserGesture:YES
+                                webState:&web_state_
+                       completionHandler:[OCMArg checkWithBlock:^(void (
+                                             ^suggestionsAvailable)(BOOL)) {
+                         suggestionsAvailable(NO);
+                         return YES;
+                       }]]);
+
+  base::test::TestFuture<NSArray<CWVAutofillSuggestion*>*> suggestions_future;
+  base::OnceCallback<void(NSArray<CWVAutofillSuggestion*>*)> fetch_callback =
+      suggestions_future.GetCallback();
+  __block base::OnceCallback<void(NSArray<CWVAutofillSuggestion*>*)>*
+      block_safe_fetch_callback = &fetch_callback;
+
+  [autofill_controller_
+      fetchSuggestionsForFormWithName:kTestFormName
+                      fieldIdentifier:kTestFieldIdentifier
+                            fieldType:@""
+                              frameID:frame_id_1
+                    completionHandler:^(
+                        NSArray<CWVAutofillSuggestion*>* suggestions) {
+                      if (*block_safe_fetch_callback) {
+                        std::move(*block_safe_fetch_callback).Run(suggestions);
+                      }
+                    }];
+
+  NSArray<CWVAutofillSuggestion*>* fetched_suggestions =
+      suggestions_future.Get();
+  ASSERT_EQ(1U, fetched_suggestions.count);
+  CWVAutofillSuggestion* suggestion_1 = fetched_suggestions.firstObject;
+
+  NSString* const kTestFormName2 = @"FormName2";
+  NSString* const kTestFieldIdentifier2 = @"FieldIdentifier2";
+  NSString* const frame_id_2 = @"Frame2";
+
+  auto frame_2 = web::FakeWebFrame::Create(base::SysNSStringToUTF8(frame_id_2),
+                                           /*is_main_frame=*/false, GURL());
+  web::WebFrame* frame_ptr_2 = frame_2.get();
+  AddWebFrame(std::move(frame_2));
+
+  autofill::FormActivityParams params_2;
+  params_2.form_name = base::SysNSStringToUTF8(kTestFormName2);
+  params_2.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier2);
+  params_2.type = "focus";
+  params_2.has_user_gesture = true;
+  form_activity_tab_helper_->FormActivityRegistered(frame_ptr_2, params_2);
+
+  base::test::TestFuture<void> accept_future;
+  base::OnceClosure accept_callback = accept_future.GetCallback();
+  __block base::OnceClosure* block_safe_accept_callback = &accept_callback;
+
+  [autofill_controller_ acceptSuggestion:suggestion_1
+                                 atIndex:0
+                       completionHandler:^{
+                         if (*block_safe_accept_callback) {
+                           std::move(*block_safe_accept_callback).Run();
+                         }
+                       }];
+
+  EXPECT_TRUE(accept_future.Wait());
+
+  EXPECT_NSEQ(
+      form_suggestion,
+      [autofill_agent_ selectedSuggestionForFormName:kTestFormName
+                                     fieldIdentifier:kTestFieldIdentifier
+                                             frameID:frame_id_1]);
+
+  EXPECT_EQ(nil,
+            [autofill_agent_ selectedSuggestionForFormName:kTestFormName2
+                                           fieldIdentifier:kTestFieldIdentifier2
+                                                   frameID:frame_id_2]);
+
+  EXPECT_OCMOCK_VERIFY(password_controller_);
+}
+
 // Tests CWVAutofillController accepts credit card as suggestion.
 TEST_F(CWVAutofillControllerTest, AcceptCreditCardAsSuggestion) {
   autofill::CreditCard credit_card = autofill::test::GetCreditCard();
   CWVCreditCard* cwv_credit_card =
       [[CWVCreditCard alloc] initWithCreditCard:credit_card];
+
+  PrepareFormActivity();
 
   __block BOOL accept_completion_was_called = NO;
   [autofill_controller_ acceptCreditCardAsSuggestion:cwv_credit_card
@@ -353,6 +509,45 @@ TEST_F(CWVAutofillControllerTest, AcceptCreditCardAsSuggestion) {
                                           /*run_message_loop=*/true, ^bool {
                                             return accept_completion_was_called;
                                           }));
+
+  FormSuggestion* recorded_suggestion =
+      [autofill_agent_ selectedSuggestionForFormName:kTestFormName
+                                     fieldIdentifier:kTestFieldIdentifier
+                                             frameID:frame_id_];
+  EXPECT_TRUE(recorded_suggestion);
+  EXPECT_EQ(recorded_suggestion.type,
+            autofill::SuggestionType::kCreditCardEntry);
+  EXPECT_OCMOCK_VERIFY(password_controller_);
+}
+
+TEST_F(CWVAutofillControllerTest, AcceptVirtualCreditCardAsSuggestion) {
+  autofill::CreditCard credit_card = autofill::test::GetCreditCard();
+  credit_card.set_record_type(autofill::CreditCard::RecordType::kVirtualCard);
+  CWVCreditCard* cwv_credit_card =
+      [[CWVCreditCard alloc] initWithCreditCard:credit_card];
+
+  PrepareFormActivity();
+
+  __block BOOL accept_completion_was_called = NO;
+  [autofill_controller_ acceptCreditCardAsSuggestion:cwv_credit_card
+                                             atIndex:0
+                                   completionHandler:^{
+                                     accept_completion_was_called = YES;
+                                   }];
+
+  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout,
+                                          /*run_message_loop=*/true, ^bool {
+                                            return accept_completion_was_called;
+                                          }));
+
+  FormSuggestion* recorded_suggestion =
+      [autofill_agent_ selectedSuggestionForFormName:kTestFormName
+                                     fieldIdentifier:kTestFieldIdentifier
+                                             frameID:frame_id_];
+  EXPECT_TRUE(recorded_suggestion);
+  EXPECT_EQ(recorded_suggestion.type,
+            autofill::SuggestionType::kVirtualCreditCardEntry);
+  EXPECT_OCMOCK_VERIFY(password_controller_);
 }
 
 // Tests CWVAutofillController delegate focus callback is invoked.

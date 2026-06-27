@@ -57,6 +57,7 @@ class BookmarkClientImpl : public power_bookmarks::BookmarkClientBase {
   bool CanSetPermanentNodeTitle(
       const bookmarks::BookmarkNode* permanent_node) override;
   bool IsNodeManaged(const bookmarks::BookmarkNode* node) override;
+  bookmarks::BookmarkFormFactor GetBookmarkFormFactor() override;
   std::string EncodeLocalOrSyncableBookmarkSyncMetadata() override;
   std::string EncodeAccountBookmarkSyncMetadata() override;
   void DecodeLocalOrSyncableBookmarkSyncMetadata(
@@ -71,9 +72,9 @@ class BookmarkClientImpl : public power_bookmarks::BookmarkClientBase {
       std::unique_ptr<bookmarks::BookmarkNode> node) override;
   void SchedulePersistentTimerForDailyMetrics(
       base::RepeatingClosure metrics_callback) override;
-  void GetEncryptor(
-      base::OnceCallback<void(os_crypt_async::Encryptor encryptor)> callback)
-      override;
+  void GetEncryptor(base::OnceCallback<
+                    void(scoped_refptr<os_crypt_async::Encryptor> encryptor)>
+                        callback) override;
 
  private:
   // Pointer to the associated ProfileIOS. Must outlive

@@ -405,6 +405,12 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="RemoteException"/>
 </enum>
 
+<enum name="AndroidWebViewGmsApiCallResult">
+  <int value="0" label="SUCCESS"/>
+  <int value="1" label="TIMEOUT"/>
+  <int value="2" label="UNKNOWN_ERROR"/>
+</enum>
+
 <enum name="AndroidWebViewMediaIntegrityApiStatus">
   <int value="0" label="DISABLED"/>
   <int value="1" label="ENABLED_WITHOUT_APP_IDENTITY"/>
@@ -513,12 +519,6 @@ chromium-metrics-reviews@google.com.
       label="(Obsolete) DISALLOWED_SITE_DETECTED. Removed in 2025/02"/>
   <int value="4" label="TIMEOUT"/>
   <int value="5" label="UNKNOWN_ERROR"/>
-</enum>
-
-<enum name="AndroidWebViewSupportedThreatTypesResult">
-  <int value="0" label="SUCCESS"/>
-  <int value="1" label="TIMEOUT"/>
-  <int value="2" label="UNKNOWN_ERROR"/>
 </enum>
 
 <enum name="AndroidWebViewTextSelectionMenuOrdering">
@@ -722,8 +722,10 @@ chromium-metrics-reviews@google.com.
   <int value="161" label="Page.isPrerendering (deprecated)"/>
   <int value="162" label="Profile.addCustomHeader"/>
   <int value="163" label="Profile.getCustomHeaders"/>
-  <int value="164" label="WebSettingsCompat.setRendererLibraryPrefetchMode"/>
-  <int value="165" label="WebSettingsCompat.getRendererLibraryPrefetchMode"/>
+  <int value="164"
+      label="(Obsolete) WebSettingsCompat.setRendererLibraryPrefetchMode"/>
+  <int value="165"
+      label="(Obsolete) WebSettingsCompat.getRendererLibraryPrefetchMode"/>
   <int value="166" label="BackForwardCacheSettings.setTimeoutInSec"/>
   <int value="167" label="BackForwardCacheSettings.setMaxPagesInCache"/>
   <int value="168" label="WebSettingsCompat.addWebNavigationListener"/>
@@ -752,6 +754,7 @@ chromium-metrics-reviews@google.com.
   <int value="191" label="WebSettingsCompat.clearMaxPrefetches"/>
   <int value="192" label="WebSettingsCompat.clearPrefetchTtl"/>
   <int value="193" label="WebSettingsCompat.clearMaxPrerenders"/>
+  <int value="194" label="WebViewCompat.navigate"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -830,9 +833,9 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="(02) SCENE_OVERLAY"/>
   <int value="4"
       label="(XX) START_SURFACE (with tab switcher if enabled. Deprecated)"/>
-  <int value="5" label="(10) SELECTION_POPUP"/>
-  <int value="6" label="(11) MANUAL_FILLING"/>
-  <int value="7" label="(09) FULLSCREEN"/>
+  <int value="5" label="(09) SELECTION_POPUP"/>
+  <int value="6" label="(10) MANUAL_FILLING"/>
+  <int value="7" label="(08) FULLSCREEN"/>
   <int value="8" label="(03) BOTTOM_SHEET"/>
   <int value="9" label="(15) TAB_MODAL_HANDLER"/>
   <int value="10"
@@ -843,16 +846,18 @@ chromium-metrics-reviews@google.com.
   <int value="14" label="(21) SHOW_READING_LIST"/>
   <int value="15" label="(22) MINIMIZE_APP_AND_CLOSE_TAB"/>
   <int value="16" label="(17) FIND_TOOLBAR"/>
-  <int value="17" label="(14) LOCATION_BAR"/>
+  <int value="17" label="(12) LOCATION_BAR"/>
   <int value="18" label="(01) XR_DELEGATE"/>
   <int value="19" label="(XX) PAGE_INSIGHTS_BOTTOM_SHEET (Deprecated)"/>
   <int value="20" label="(18) BOTTOM_CONTROLS"/>
   <int value="21" label="(07) HUB"/>
   <int value="22" label="(06) ARCHIVED_TABS_DIALOG"/>
   <int value="23" label="(20) NATIVE_PAGE"/>
-  <int value="24" label="(12) CANCEL_TAB_STRIP_DRAG"/>
-  <int value="25" label="(04) CANCEL_TAB_SWITCHER_DRAG"/>
-  <int value="26" label="(05) ACTOR_OVERLAY"/>
+  <int value="24" label="(11) CANCEL_TAB_STRIP_DRAG"/>
+  <int value="25" label="(05) CANCEL_TAB_SWITCHER_DRAG"/>
+  <int value="26" label="(14) ACTOR_OVERLAY"/>
+  <int value="27" label="(04) FUSEBOX_POPUP"/>
+  <int value="28" label="(13) REALBOX"/>
 </enum>
 
 <!-- LINT.IfChange(BackPressTabCloseType) -->
@@ -873,6 +878,18 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Filtered weaker signals"/>
 </enum>
 
+<!-- LINT.IfChange(BottomSheet.State) -->
+
+<enum name="BottomSheet.State">
+  <int value="0" label="Hidden"/>
+  <int value="1" label="Peek"/>
+  <int value="2" label="Half"/>
+  <int value="3" label="Full"/>
+  <int value="4" label="Scrolling"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/browser_ui/bottomsheet/android/java/src/org/chromium/components/browser_ui/bottomsheet/BottomSheetController.java:SheetState) -->
+
 <!-- LINT.IfChange(BringTabToFrontResult) -->
 
 <enum name="BringTabToFrontResult">
@@ -891,18 +908,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/document/ChromeLauncherActivity.java:BringTabToFrontResult) -->
-
-<enum name="BrowserControlsLockReason">
-  <summary>The reason why browser controls were locked.</summary>
-  <int value="0" label="CHROME_URL"/>
-  <int value="1" label="TAB_CONTENT_DANGEROUS"/>
-  <int value="2" label="EDITABLE_NODE_FOCUS"/>
-  <int value="3" label="TAB_ERROR"/>
-  <int value="4" label="TAB_HIDDEN"/>
-  <int value="5" label="FULLSCREEN_LOADING"/>
-  <int value="6" label="A11Y_ENABLED"/>
-  <int value="7" label="FULLSCREEN_DISABLED"/>
-</enum>
 
 <enum name="CacheQuotaFreshness">
   <int value="0" label="Value returned from memory"/>
@@ -925,6 +930,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Webapp (not WebAPK)"/>
   <int value="5" label="Pre-First-Tab (Startup/Warmup)"/>
   <int value="6" label="Auth Tab"/>
+  <int value="7" label="DevTools"/>
 </enum>
 
 <enum name="ChromeStartupDelegateFailureType">
@@ -1035,7 +1041,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Messages Promo"/>
   <int value="1" label="Setting Card Promo"/>
   <int value="2" label="Educational Tip Promo"/>
-  <int value="3" label="FRE Promo"/>
+  <int value="3" label="FRE Promo (Deprecated)"/>
   <int value="4" label="App Menu Deep-link"/>
   <int value="5" label="Settings Row Deep-link"/>
 </enum>
@@ -1160,6 +1166,12 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Flip Horizontally"/>
   <int value="7" label="Flip Vertically"/>
   <int value="8" label="Undefined"/>
+</enum>
+
+<enum name="GlicPromoBottomSheetDismissReason">
+  <int value="0" label="Accept"/>
+  <int value="1" label="Reject"/>
+  <int value="2" label="Dismiss"/>
 </enum>
 
 <enum name="GmsShortVersionCode">
@@ -1412,6 +1424,9 @@ chromium-metrics-reviews@google.com.
   <int value="67" label="SaveUpdateEntity"/>
   <int value="68" label="SigninSurvey"/>
   <int value="69" label="ExtensionsRequestAccess"/>
+  <int value="70" label="KnownInterceptionDisclosure"/>
+  <int value="71" label="SendTabToSelf"/>
+  <int value="72" label="GlicWindowResized"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1507,6 +1522,7 @@ chromium-metrics-reviews@google.com.
   <int value="10"
       label="Browser window creation from native feature (eg. extensions)"/>
   <int value="11" label="Upgrade to Android S multi-instance support"/>
+  <int value="12" label="Crash recovery"/>
 </enum>
 
 <enum name="NightMode">
@@ -1661,12 +1677,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Used on Search Suggestion in zero-prefix context"/>
   <int value="2" label="Used on Search Suggestion in non-zero-prefix context"/>
   <int value="3" label="Used on Search Suggestion in both contexts"/>
-</enum>
-
-<enum name="RendererLibraryPrefetchMode">
-  <int value="0" label="Default"/>
-  <int value="1" label="Disabled"/>
-  <int value="2" label="Enabled"/>
 </enum>
 
 <enum name="RestoreTabsOnFREDeviceRestoredFrom">
@@ -1936,6 +1946,20 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="LeftEdge"/>
   <int value="1" label="RightEdge"/>
 </enum>
+
+<!-- LINT.IfChange(TabBottomSheetStateTransition) -->
+
+<enum name="TabBottomSheetStateTransition">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Peek to Half"/>
+  <int value="2" label="Peek to Full"/>
+  <int value="3" label="Half to Peek"/>
+  <int value="4" label="Half to Full"/>
+  <int value="5" label="Full to Peek"/>
+  <int value="6" label="Full to Half"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/context_sharing/tab_bottom_sheet/android/java/src/org/chromium/chrome/browser/tab_bottom_sheet/TabBottomSheetMetrics.java:Transition) -->
 
 <enum name="TabGroupColorChangeActionType">
   <int value="0" label="VIA_COLOR_ICON"/>
@@ -2475,8 +2499,10 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="GeoLocationPermissions.getInstance"/>
   <int value="12" label="WebView.setDefaultTrafficStatsTag"/>
   <int value="13" label="WebView.setDefaultTrafficStatsUid"/>
-  <int value="14" label="WebViewCompat.setRendererLibraryPrefetchMode"/>
-  <int value="15" label="WebViewCompat.getRendererLibraryPrefetchMode"/>
+  <int value="14"
+      label="(Obsolete) WebViewCompat.setRendererLibraryPrefetchMode"/>
+  <int value="15"
+      label="(Obsolete) WebViewCompat.getRendererLibraryPrefetchMode"/>
 <!-- LINT.ThenChange(/android_webview/glue/java/src/com/android/webview/chromium/SharedStatics.java:ApiCall) -->
 
 </enum>
@@ -2857,11 +2883,12 @@ chromium-metrics-reviews@google.com.
   <int value="102" label="staticGetVariationsHeader"/>
   <int value="103" label="(Obsolete) staticSetDefaultTrafficStatsTag"/>
   <int value="104" label="(Obsolete) staticSetDefaultTrafficStatsUid"/>
-  <int value="105" label="staticSetRendererLibraryPrefetchMode"/>
-  <int value="106" label="staticGetRendererLibraryPrefetchMode"/>
+  <int value="105" label="(Obsolete) staticSetRendererLibraryPrefetchMode"/>
+  <int value="106" label="(Obsolete) staticGetRendererLibraryPrefetchMode"/>
   <int value="107" label="getDefaultCookieManager"/>
   <int value="108" label="getProfileStore"/>
   <int value="109" label="webViewInstanceGetSettings"/>
+  <int value="110" label="webViewInstanceGetAwContents"/>
 </enum>
 
 <!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup) -->

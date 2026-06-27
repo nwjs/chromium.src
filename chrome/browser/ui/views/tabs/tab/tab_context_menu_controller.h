@@ -7,9 +7,12 @@
 
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/menus/simple_menu_model.h"
+
+class TabMenuModel;
 
 namespace gfx {
 class Point;
@@ -34,12 +37,12 @@ class TabContextMenuController : public ui::SimpleMenuModel::Delegate {
     virtual bool IsContextMenuCommandChecked(
         TabStripModel::ContextMenuCommand command_id) = 0;
     virtual bool IsContextMenuCommandEnabled(
-        int index,
+        tabs::TabInterface* tab,
         TabStripModel::ContextMenuCommand command_id) = 0;
     virtual bool IsContextMenuCommandAlerted(
         TabStripModel::ContextMenuCommand command_id) = 0;
     virtual void ExecuteContextMenuCommand(
-        int index,
+        tabs::TabInterface* tab,
         TabStripModel::ContextMenuCommand command_id,
         int event_flags) = 0;
     virtual bool GetContextMenuAccelerator(int command_id,
@@ -49,13 +52,19 @@ class TabContextMenuController : public ui::SimpleMenuModel::Delegate {
     virtual ~Delegate() = default;
   };
 
-  explicit TabContextMenuController(int index, Delegate* delegate);
+  explicit TabContextMenuController(tabs::TabHandle tab_handle,
+                                    Delegate* delegate);
 
   ~TabContextMenuController() override;
 
-  // Loads the menu model and initializes the menu runner. This must be called
-  // before RunMenuAt.
+  // Loads the menu model and initializes the menu runner.
+  // `model` is the menu model managed by this controller.
+  // `tab_menu_model` must point to the same instance as `model` if it is indeed
+  // a `TabMenuModel`. This downcast pointer is cached to query tab-specific
+  // properties (e.g., extension items), decoupling the controller from the
+  // menu factory.
   void LoadModel(std::unique_ptr<ui::SimpleMenuModel> model,
+                 TabMenuModel* tab_menu_model = nullptr,
                  base::RepeatingClosure on_menu_closed = base::DoNothing());
 
   // Runs the menu model at the specified point within the given widget.
@@ -69,18 +78,21 @@ class TabContextMenuController : public ui::SimpleMenuModel::Delegate {
   // ui::SimpleMenuModel::Delegate:
   bool IsCommandIdChecked(int command_id) const override;
   bool IsCommandIdEnabled(int command_id) const override;
+  bool IsCommandIdVisible(int command_id) const override;
   bool IsCommandIdAlerted(int command_id) const override;
   void ExecuteCommand(int command_id, int event_flags) override;
   bool GetAcceleratorForCommandId(int command_id,
                                   ui::Accelerator* accelerator) const override;
 
   ui::SimpleMenuModel* GetMenuModel() { return model_.get(); }
+  TabMenuModel* GetTabMenuModel() { return tab_menu_model_; }
 
  private:
   std::unique_ptr<ui::SimpleMenuModel> model_;
   std::unique_ptr<views::MenuRunner> menu_runner_;
-  const int tab_index_;
+  tabs::TabHandle tab_handle_;
   raw_ptr<Delegate> delegate_;
+  raw_ptr<TabMenuModel> tab_menu_model_ = nullptr;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_TAB_TAB_CONTEXT_MENU_CONTROLLER_H_

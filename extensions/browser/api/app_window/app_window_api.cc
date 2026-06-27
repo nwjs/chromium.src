@@ -42,9 +42,6 @@
 #include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
-#include "content/nw/src/nw_base.h"
-#include "content/nw/src/browser/nw_content_browser_hooks.h"
-
 namespace app_window = extensions::api::app_window;
 namespace Create = app_window::Create;
 
@@ -66,8 +63,8 @@ constexpr char kConflictingBoundsOptions[] =
     "The $1 property cannot be specified for both inner and outer bounds.";
 constexpr char kAlwaysOnTopPermission[] =
     "The \"app.window.alwaysOnTop\" permission is required.";
-//constexpr char kInvalidUrlParameter[] =
-//    "The URL used for window creation must be local for security reasons.";
+constexpr char kInvalidUrlParameter[] =
+    "The URL used for window creation must be local for security reasons.";
 constexpr char kAlphaEnabledWrongChannel[] =
     "The alphaEnabled option requires dev channel or newer.";
 constexpr char kAlphaEnabledMissingPermission[] =
@@ -152,15 +149,11 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
   std::optional<Create::Params> params = Create::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
-  GURL url = extension()->ResolveExtensionURL(params->url);
+  GURL url;
   // URLs normally must be relative to the extension. We make an exception
   // to allow component apps to open chrome URLs (e.g. for the settings page
   // on ChromeOS).
   GURL absolute = GURL(params->url);
-
-  if (absolute.has_scheme())
-    url = absolute;
-#if 0
   if (absolute.has_scheme()) {
     if (extension()->location() == mojom::ManifestLocation::kComponent &&
         absolute.SchemeIs(content::kChromeUIScheme)) {
@@ -175,7 +168,7 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
       return RespondNow(Error(app_window_constants::kInvalidUrlParameter));
     }
   }
-#endif
+
   // TODO(jeremya): figure out a way to pass the opening WebContents through to
   // AppWindow::Create so we can set the opener at create time rather than
   // with a hack in AppWindowCustomBindings::GetView().
@@ -389,9 +382,6 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
 
   create_params.creator_process_id = source_process_id();
 
-  if (create_params.new_instance)
-    nw::SetPinningRenderer(false);
-
   AppWindow* app_window = nullptr;
   app_window =
       AppWindowClient::Get()->CreateAppWindow(browser_context(), extension());
@@ -405,9 +395,6 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
   app_window->Init(url, std::make_unique<AppWindowContentsImpl>(app_window),
                    render_frame_host(), create_params);
 
-  if (create_params.new_instance)
-    nw::SetPinningRenderer(true);
-
   if (ExtensionsBrowserClient::Get()->IsRunningInForcedAppMode() &&
       !app_window->is_ime_window()) {
     app_window->ForcedFullscreen();
@@ -415,11 +402,8 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
 
   if (AppWindowRegistry::Get(browser_context())
           ->HadDevToolsAttached(app_window->web_contents())) {
-    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-    if (!command_line->HasSwitch("skip-reopen-app-devtools")) {
     AppWindowClient::Get()->OpenDevToolsWindow(app_window->web_contents(),
                                                base::DoNothing());
-    }
   }
 
   // Delay sending the response until the newly created window has finished its

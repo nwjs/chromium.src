@@ -120,6 +120,8 @@ namespace http://www.w3.org/1999/xhtml
     property firstChild
     property firstElementChild
     property focus
+    property focusGroup
+    property focusGroupStart
     property getAnimations
     property getAttribute
     property getAttributeNS
@@ -1102,6 +1104,7 @@ html element td
     property width
 html element template
     property content
+    property htmlFor
     property shadowRootClonable
     property shadowRootCustomElementRegistry
     property shadowRootDelegatesFocus
@@ -1384,6 +1387,8 @@ namespace http://www.w3.org/2000/svg
     property firstChild
     property firstElementChild
     property focus
+    property focusGroup
+    property focusGroupStart
     property getAnimations
     property getAttribute
     property getAttributeNS

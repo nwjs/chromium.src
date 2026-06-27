@@ -74,6 +74,8 @@
 #include "third_party/blink/renderer/core/events/page_transition_event.h"
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/fetch/fetch_later_util.h"
+#include "third_party/blink/renderer/core/fragment_directive/fragment_directive.h"
+#include "third_party/blink/renderer/core/fragment_directive/text_directive.h"
 #include "third_party/blink/renderer/core/fragment_directive/text_fragment_anchor.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/csp/csp_source.h"
@@ -488,9 +490,26 @@ void FrameLoader::FinishedParsing() {
         !document_loader_ || document_loader_->IsCommittedButEmpty());
   }
 
-  if (frame_->View()) {
+  bool has_text_fragment = false;
+  if (frame_->GetDocument()) {
+    has_text_fragment = !frame_->GetDocument()
+                             ->fragmentDirective()
+                             .GetDirectives<TextDirective>()
+                             .empty();
+    if (!has_text_fragment && document_loader_) {
+      has_text_fragment = document_loader_->HasInternalScrollToTextFragment();
+    }
+  }
+
+  if (!has_text_fragment ||
+      (frame_->View() && frame_->GetPage() &&
+       frame_->GetPage()->RelatedPagesMutationFromPreviousPageFinalized())) {
     ProcessFragment(frame_->GetDocument()->Url(), document_loader_->LoadType(),
                     kNavigationToDifferentDocument);
+  } else {
+    // TODO(crbug.com/509527381): Consider adding a timeout to reset this back
+    // to false.
+    has_pending_cross_document_fragment_ = true;
   }
 
   frame_->GetDocument()->CheckCompleted();
@@ -567,6 +586,7 @@ void FrameLoader::ProcessScrollForSameDocumentNavigation(
   // We need to scroll to the fragment whether or not a hash change occurred,
   // since the user might have scrolled since the previous navigation.
   ProcessFragment(url, frame_load_type, kNavigationWithinSameDocument);
+  has_pending_cross_document_fragment_ = false;
 
   TakeObjectSnapshot();
 }
@@ -692,20 +712,6 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
 
   if (!AllowRequestForThisFrame(request))
     return;
-
-  // Block renderer-initiated loads of filesystem: URLs not in a Chrome App.
-  if (!base::FeatureList::IsEnabled(
-          features::kFileSystemUrlNavigationForChromeAppsOnly) &&
-      url.ProtocolIs("filesystem") &&
-      !base::FeatureList::IsEnabled(features::kFileSystemUrlNavigation)) {
-    frame_->GetDocument()->AddConsoleMessage(
-        MakeGarbageCollected<ConsoleMessage>(
-            mojom::blink::ConsoleMessageSource::kSecurity,
-            mojom::blink::ConsoleMessageLevel::kError,
-            StrCat({"Not allowed to navigate to ", url.Protocol(),
-                    " URL: ", url.ElidedString()})));
-    return;
-  }
 
   // Block renderer-initiated loads of data: and filesystem: URLs in the top
   // frame (unless they are reload requests).
@@ -1947,6 +1953,15 @@ FrameLoader::CreateWorkerCodeCacheHost() {
   if (!document_loader_)
     return mojo::NullRemote();
   return document_loader_->CreateCodeCacheHost();
+}
+
+void FrameLoader::ProcessPendingCrossDocumentFragment() {
+  if (!has_pending_cross_document_fragment_) {
+    return;
+  }
+  has_pending_cross_document_fragment_ = false;
+  ProcessFragment(frame_->GetDocument()->Url(), document_loader_->LoadType(),
+                  kNavigationToDifferentDocument);
 }
 
 }  // namespace blink

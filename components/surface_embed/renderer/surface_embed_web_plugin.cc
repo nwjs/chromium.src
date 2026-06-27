@@ -15,6 +15,7 @@
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/web/web_document.h"
+#include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_plugin_container.h"
@@ -113,8 +114,11 @@ void SurfaceEmbedWebPlugin::UpdateAllLifecyclePhases(
 
 void SurfaceEmbedWebPlugin::Paint(cc::PaintCanvas* canvas,
                                   const gfx::Rect& rect) {
-  // No action needed as we're using a compositor layer to render the red
-  // placeholder rectangle.
+  // No action needed as we're using a compositor layer to render.
+}
+
+viz::FrameSinkId SurfaceEmbedWebPlugin::GetFrameSinkId() {
+  return frame_sink_id_;
 }
 
 void SurfaceEmbedWebPlugin::UpdateGeometry(const gfx::Rect& window_rect,
@@ -313,9 +317,10 @@ void SurfaceEmbedWebPlugin::SynchronizeVisualProperties() {
 }
 
 void SurfaceEmbedWebPlugin::OnHostDisconnected() {
-  // If the browser side of the connection goes down, we're in an unexpected
-  // state. We expect the pipe to only be closed by the renderer.
-  NOTREACHED();
+  // We handle closing the connection unexpectedly via the sad plugin path,
+  // since that provides fallback painting behavior suggesting that something
+  // went wrong.
+  ChildProcessGone();
 }
 
 void SurfaceEmbedWebPlugin::SetFrameSinkId(
@@ -350,11 +355,18 @@ void SurfaceEmbedWebPlugin::UpdateLocalSurfaceIdFromChild(
 }
 
 void SurfaceEmbedWebPlugin::ChildProcessGone() {
+  frame_sink_id_ = viz::FrameSinkId();
   crashed_layer_ = cc::PictureLayer::Create(this);
   crashed_layer_->SetMasksToBounds(true);
   crashed_layer_->SetIsDrawable(true);
   container_->SetCcLayer(crashed_layer_.get());
   container_->ScheduleAnimation();
+}
+
+void SurfaceEmbedWebPlugin::RequestFocus() {
+  if (container_) {
+    container_->GetElement().Focus();
+  }
 }
 
 scoped_refptr<cc::DisplayItemList>

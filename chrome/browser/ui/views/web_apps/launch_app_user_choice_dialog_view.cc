@@ -23,7 +23,6 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
@@ -183,10 +182,12 @@ void LaunchAppUserChoiceDialogView::RunCloseCallback(
 
 void LaunchAppUserChoiceDialogView::OnIconsRead(
     IconMetadataFromDisk icon_metadata) {
-  SizeToBitmap icon_bitmaps = std::move(icon_metadata.icons_map);
-  if (icon_bitmaps.empty() || !icon_image_view_) {
+  if (icon_metadata.icons_map.empty() || !icon_image_view_) {
     return;
   }
+
+  UnorderedSizeToBitmap icon_bitmaps(icon_metadata.icons_map.begin(),
+                                     icon_metadata.icons_map.end());
 
   gfx::Size image_size{web_app::kWebAppIconSmall, web_app::kWebAppIconSmall};
   auto image_skia =

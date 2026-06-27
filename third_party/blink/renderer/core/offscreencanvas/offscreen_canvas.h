@@ -103,6 +103,10 @@ class CORE_EXPORT OffscreenCanvas final
     disable_reading_from_canvas_ = true;
   }
 
+  void SetFrameSinkIdForTesting(uint32_t client_id, uint32_t sink_id) {
+    SetFrameSinkId(client_id, sink_id);
+  }
+
   void SetFrameSinkId(uint32_t client_id, uint32_t sink_id) {
     client_id_ = client_id;
     sink_id_ = sink_id;
@@ -123,13 +127,8 @@ class CORE_EXPORT OffscreenCanvas final
   CanvasRenderingContext* RenderingContext() const override {
     return context_.Get();
   }
-  // Because OffscreenCanvas is not tied to a DOM, it's visibility cannot be
-  // determined synchronously.
-  // TODO(junov): Propagate changes in visibility from the placeholder canvas.
-  bool IsPageVisible() const override { return true; }
-  void SetTransferToGPUTextureWasInvoked() override {
-    transfer_to_gpu_texture_was_invoked_ = true;
-  }
+  bool IsPageVisible() const override;
+  void SetParentVisibility(bool visible) override;
   void DiscardResources() override;
 
   bool PushFrameIfNeeded();
@@ -146,9 +145,6 @@ class CORE_EXPORT OffscreenCanvas final
 
   // CanvasResourceProvider::Delegate implementation
   void NotifyGpuContextLost() override;
-  bool TransferToGPUTextureWasInvoked() override {
-    return transfer_to_gpu_texture_was_invoked_;
-  }
   void SetNeedsCompositingUpdate() override {}
 
   // EventTarget implementation
@@ -255,6 +251,7 @@ class CORE_EXPORT OffscreenCanvas final
   WeakMember<ExecutionContext> execution_context_;
 
   DOMNodeId placeholder_canvas_id_ = kInvalidDOMNodeId;
+  bool is_parent_visible_ = true;
   std::optional<TextDirection> text_direction_;
 
   // Required for the TextStyle lang attribute, only non-null if control
@@ -288,7 +285,6 @@ class CORE_EXPORT OffscreenCanvas final
   uint32_t client_id_ = 0;
   uint32_t sink_id_ = 0;
 
-  bool transfer_to_gpu_texture_was_invoked_ = false;
 };
 
 }  // namespace blink

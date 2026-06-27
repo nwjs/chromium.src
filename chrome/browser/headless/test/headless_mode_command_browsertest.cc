@@ -23,7 +23,10 @@
 #include "base/threading/platform_thread.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/headless/test/headless_mode_browsertest.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/headless/command_handler/headless_command_handler.h"
 #include "components/headless/command_handler/headless_command_switches.h"
@@ -42,9 +45,29 @@
 
 namespace headless {
 
-class HeadlessModeCommandBrowserTest : public HeadlessModeBrowserTest {
+class HeadlessModeCommandBrowserTest : public HeadlessModeBrowserTest,
+                                       public BrowserCollectionObserver {
  public:
   HeadlessModeCommandBrowserTest() = default;
+
+  void PreRunTestOnMainThread() override {
+    if (auto* collection = GlobalBrowserCollection::GetInstance()) {
+      browser_collection_observation_.Observe(collection);
+    }
+    HeadlessModeBrowserTest::PreRunTestOnMainThread();
+  }
+
+  void TearDownOnMainThread() override {
+    browser_collection_observation_.Reset();
+    HeadlessModeBrowserTest::TearDownOnMainThread();
+  }
+
+  void OnBrowserClosed(BrowserWindowInterface* browser) override {
+    // Unconditionally clear browser_ because Headless mode command tests
+    // shouldn't depend on the default browser. This avoids MSAN use-after-free
+    // if the browser is closed during PreRunTestOnMainThread's message loop.
+    SetBrowser(nullptr);
+  }
 
   void SetUp() override {
     ASSERT_TRUE(embedded_test_server()->Start());
@@ -85,6 +108,8 @@ class HeadlessModeCommandBrowserTest : public HeadlessModeBrowserTest {
   std::unique_ptr<base::RunLoop> run_loop_;
   bool test_complete_ = false;
   std::optional<HeadlessCommandHandler::Result> result_;
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observation_{this};
 };
 
 #define HEADLESS_MODE_COMMAND_BROWSER_TEST_WITH_TARGET_URL(                \
@@ -156,7 +181,8 @@ INSTANTIATE_TEST_SUITE_P(/* no prefix */,
                          ::testing::Bool());
 
 // TODO(crbug.com/40266323): Reenable once deflaked.
-#if BUILDFLAG(IS_MAC)
+// TODO(crbug.com/514143472): Reenable once deflaked.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_HeadlessDumpDom DISABLED_HeadlessDumpDom
 #else
 #define MAYBE_HeadlessDumpDom HeadlessDumpDom
@@ -300,7 +326,8 @@ INSTANTIATE_TEST_SUITE_P(
     HeadlessModeDumpDomCommandBrowserTestWithSubResourceTimeout,
     testing::Bool());
 
-#if BUILDFLAG(IS_MAC)
+// TODO(crbug.com/514143472): Reenable once deflaked.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_HeadlessDumpDomWithSubResourceTimeout \
   DISABLED_HeadlessDumpDomWithSubResourceTimeout
 #else
@@ -333,7 +360,8 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 // TODO(crbug.com/505163310): Reenable once deflaked.
-#if BUILDFLAG(IS_MAC)
+// TODO(crbug.com/514143472): Reenable once deflaked.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_DumpDomWithBeforeUnloadPreventDefault \
   DISABLED_DumpDomWithBeforeUnloadPreventDefault
 #else
@@ -382,8 +410,14 @@ class HeadlessModeScreenshotCommandBrowserTest
   base::FilePath screenshot_filename_;
 };
 
+// TODO(crbug.com/517342172): Re-enable this test on Linux MSAN.
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_HeadlessScreenshot DISABLED_HeadlessScreenshot
+#else
+#define MAYBE_HeadlessScreenshot HeadlessScreenshot
+#endif
 IN_PROC_BROWSER_TEST_F(HeadlessModeScreenshotCommandBrowserTest,
-                       HeadlessScreenshot) {
+                       MAYBE_HeadlessScreenshot) {
   ASSERT_THAT(ProcessCommands(),
               testing::Eq(HeadlessCommandHandler::Result::kSuccess));
 
@@ -447,8 +481,15 @@ class HeadlessModeScreenshotCommandWithBackgroundBrowserTest
   }
 };
 
+// TODO(crbug.com/517342172): Re-enable this test on Linux MSAN.
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_HeadlessScreenshotWithBackground \
+  DISABLED_HeadlessScreenshotWithBackground
+#else
+#define MAYBE_HeadlessScreenshotWithBackground HeadlessScreenshotWithBackground
+#endif
 IN_PROC_BROWSER_TEST_F(HeadlessModeScreenshotCommandWithBackgroundBrowserTest,
-                       HeadlessScreenshotWithBackground) {
+                       MAYBE_HeadlessScreenshotWithBackground) {
   ASSERT_THAT(ProcessCommands(),
               testing::Eq(HeadlessCommandHandler::Result::kSuccess));
 
@@ -497,7 +538,8 @@ class HeadlessModePrintToPdfCommandBrowserTest
 };
 
 // TODO(crbug.com/40266323): Reenable once deflaked.
-#if BUILDFLAG(IS_MAC)
+// TODO(crbug.com/514143472): Reenable once deflaked.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_HeadlessPrintToPdf DISABLED_HeadlessPrintToPdf
 #else
 #define MAYBE_HeadlessPrintToPdf HeadlessPrintToPdf
@@ -577,8 +619,16 @@ INSTANTIATE_TEST_SUITE_P(/* no prefix */,
                          HeadlessModeTaggedPrintToPdfCommandBrowserTest,
                          ::testing::Bool());
 
+// TODO(crbug.com/504964930): Reenable once deflaked.
+// TODO(crbug.com/514143472): Reenable once deflaked.
+#if BUILDFLAG(IS_LINUX) && \
+    (defined(MEMORY_SANITIZER) || defined(USE_JAVASCRIPT_COVERAGE))
+#define MAYBE_HeadlessTaggedPrintToPdf DISABLED_HeadlessTaggedPrintToPdf
+#else
+#define MAYBE_HeadlessTaggedPrintToPdf HeadlessTaggedPrintToPdf
+#endif
 IN_PROC_BROWSER_TEST_P(HeadlessModeTaggedPrintToPdfCommandBrowserTest,
-                       HeadlessTaggedPrintToPdf) {
+                       MAYBE_HeadlessTaggedPrintToPdf) {
   ASSERT_THAT(ProcessCommands(),
               testing::Eq(HeadlessCommandHandler::Result::kSuccess));
 

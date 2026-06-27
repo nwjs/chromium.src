@@ -18,6 +18,8 @@
 #import "base/types/expected.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
+#import "ios/chrome/browser/intelligence/actor/model/snackbar_actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
@@ -26,6 +28,9 @@
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/snapshots/model/fake_snapshot_generator_delegate.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
@@ -40,13 +45,16 @@
 #import "ios/web/public/test/web_task_environment.h"
 #import "ios/web/public/web_state.h"
 #import "testing/gtest/include/gtest/gtest.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
 
 namespace actor {
 
 class TestTool : public ActorTool {
  public:
-  TestTool(base::WeakPtr<web::WebState> web_state) : web_state_(web_state) {}
+  explicit TestTool(base::WeakPtr<web::WebState> web_state)
+      : web_state_(web_state) {}
   ~TestTool() override = default;
 
   void Execute(ToolExecutionCallback callback) override {
@@ -59,13 +67,40 @@ class TestTool : public ActorTool {
     return web_state_;
   }
 
+  ToolType GetToolType() const override { return ToolType::kUnknown; }
+
  private:
   base::WeakPtr<web::WebState> web_state_;
 };
 
+class MockActorTask : public ActorTask {
+ public:
+  MockActorTask(ActorTaskId task_id,
+                const std::string& title,
+                bool allow_incognito_web_states,
+                AggregatedJournal* journal,
+                bool* stop_called)
+      : ActorTask(task_id, title, allow_incognito_web_states, journal),
+        stop_called_(stop_called) {}
+
+  void Stop(ActorTaskStoppedReason stop_reason) override {
+    if (stop_called_) {
+      *stop_called_ = true;
+    }
+    ActorTask::Stop(stop_reason);
+  }
+
+ private:
+  raw_ptr<bool> stop_called_;
+};
+
 class ActorServiceTest : public PlatformTest {
  public:
-  ActorServiceTest() : web_client_(std::make_unique<web::FakeWebClient>()) {
+  explicit ActorServiceTest(
+      base::test::TaskEnvironment::TimeSource time_source =
+          base::test::TaskEnvironment::TimeSource::DEFAULT)
+      : web_client_(std::make_unique<web::FakeWebClient>()),
+        task_environment_(time_source) {
     ActorServiceFactory::GetInstance();
     profile_ = TestProfileIOS::Builder().Build();
   }
@@ -80,9 +115,41 @@ class ActorServiceTest : public PlatformTest {
   }
 
  protected:
+  // Wait for all currently queued or posted asynchronous tasks on the default
+  // task runner to finish executing. Since `base::SequencedTaskRunner` executes
+  // posted tasks in a strict first-in, first-out order, posting a task to quit
+  // a run loop guarantees that all previously posted tasks (such as deferred
+  // snackbar presentation tasks) have completed before the loop exits.
+  void WaitForTasksToComplete() {
+    base::RunLoop run_loop;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
+  }
+
+  void SwapTask(ActorService* service,
+                ActorTaskId task_id,
+                std::unique_ptr<ActorTask> task) {
+    service->active_tasks_[task_id] = std::move(task);
+  }
+
+  bool HasTask(ActorService* service, ActorTaskId task_id) {
+    return service->active_tasks_.find(task_id) != service->active_tasks_.end();
+  }
+
+  AggregatedJournal* GetJournal(ActorService* service) {
+    return service->journal_.get();
+  }
+
   web::ScopedTestingWebClient web_client_;
   web::WebTaskEnvironment task_environment_;
   std::unique_ptr<TestProfileIOS> profile_;
+};
+
+class ActorServiceMockTimeTest : public ActorServiceTest {
+ public:
+  ActorServiceMockTimeTest()
+      : ActorServiceTest(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
 };
 
 // Tests that `ActorService` is successfully created when the `kActorTools`
@@ -279,6 +346,38 @@ TEST_F(ActorServiceTest, GetWebStateForID_Controlled) {
   browser_list->RemoveBrowser(test_browser.get());
 }
 
+// Tests that AddControlledWebState correctly adds a WebState so that
+// GetWebStateForID finds it immediately before any actions are performed.
+TEST_F(ActorServiceTest, AddControlledWebState) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId task_id =
+      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto test_browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(test_browser.get());
+
+  auto fake_web_state = std::make_unique<web::FakeWebState>();
+  web::WebStateID web_state_id = fake_web_state->GetUniqueIdentifier();
+  auto* fake_web_state_ptr = fake_web_state.get();
+
+  test_browser->GetWebStateList()->InsertWebState(std::move(fake_web_state));
+
+  EXPECT_EQ(nullptr, service->GetWebStateForID(web_state_id, task_id));
+
+  service->AddControlledWebState(task_id, fake_web_state_ptr);
+
+  EXPECT_EQ(fake_web_state_ptr,
+            service->GetWebStateForID(web_state_id, task_id));
+
+  browser_list->RemoveBrowser(test_browser.get());
+}
+
 // Tests that GetWebStateForID does not find a tab in an incognito browser if
 // the task does not allow incognito.
 TEST_F(ActorServiceTest, GetWebStateForID_Incognito_NotAllowed) {
@@ -339,6 +438,266 @@ TEST_F(ActorServiceTest, GetWebStateForID_TaskNotFound) {
   web::WebState* resolved_web_state =
       service->GetWebStateForID(web_state_id, invalid_task_id);
   EXPECT_EQ(nullptr, resolved_web_state);
+}
+
+// Tests that PerformActions completes immediately when the WebState is not
+// loading.
+TEST_F(ActorServiceTest, PerformActions_NoLoading_InstantCompletion) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId task_id =
+      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto test_browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(test_browser.get());
+
+  auto fake_web_state = std::make_unique<web::FakeWebState>();
+  auto* fake_web_state_ptr = fake_web_state.get();
+  test_browser->GetWebStateList()->InsertWebState(std::move(fake_web_state));
+
+  std::vector<std::unique_ptr<ActorTool>> actions;
+  actions.push_back(
+      std::make_unique<TestTool>(fake_web_state_ptr->GetWeakPtr()));
+
+  bool callback_called = false;
+  service->PerformActions(
+      task_id, std::move(actions), "Update",
+      base::BindOnce(
+          [](bool* called, PerformActionsResult result) { *called = true; },
+          base::Unretained(&callback_called)));
+
+  // Run the queued tasks (tool execution and completion) deterministically.
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  EXPECT_TRUE(callback_called);
+
+  browser_list->RemoveBrowser(test_browser.get());
+}
+
+// Tests that PerformActions is deferred when the WebState is loading, and only
+// resolves when loading completes.
+TEST_F(ActorServiceTest, PerformActions_Loading_DeferredUntilStopLoading) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId task_id =
+      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto test_browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(test_browser.get());
+
+  auto fake_web_state = std::make_unique<web::FakeWebState>();
+  auto* fake_web_state_ptr = fake_web_state.get();
+  test_browser->GetWebStateList()->InsertWebState(std::move(fake_web_state));
+
+  // Set the WebState to a loading state.
+  fake_web_state_ptr->SetLoading(true);
+
+  std::vector<std::unique_ptr<ActorTool>> actions;
+  actions.push_back(
+      std::make_unique<TestTool>(fake_web_state_ptr->GetWeakPtr()));
+
+  bool callback_called = false;
+  service->PerformActions(
+      task_id, std::move(actions), "Update",
+      base::BindOnce(
+          [](bool* called, PerformActionsResult result) { *called = true; },
+          base::Unretained(&callback_called)));
+
+  // Run the queued execution tasks.
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  // Gating: The callback should not be executed yet because the page is
+  // loading.
+  EXPECT_FALSE(callback_called);
+
+  // Stop the load.
+  fake_web_state_ptr->SetLoading(false);
+
+  // Now the callback should execute successfully.
+  EXPECT_TRUE(callback_called);
+
+  browser_list->RemoveBrowser(test_browser.get());
+}
+
+// Tests that a loading WebState times out after 5 seconds, forcing the
+// deferred PerformActions callback to run to prevent hanging.
+TEST_F(ActorServiceMockTimeTest,
+       PerformActions_Loading_TimeoutResolvesCallback) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId task_id =
+      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto test_browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(test_browser.get());
+
+  auto fake_web_state = std::make_unique<web::FakeWebState>();
+  auto* fake_web_state_ptr = fake_web_state.get();
+  test_browser->GetWebStateList()->InsertWebState(std::move(fake_web_state));
+
+  // Set the WebState to a loading state.
+  fake_web_state_ptr->SetLoading(true);
+
+  std::vector<std::unique_ptr<ActorTool>> actions;
+  actions.push_back(
+      std::make_unique<TestTool>(fake_web_state_ptr->GetWeakPtr()));
+
+  bool callback_called = false;
+  service->PerformActions(
+      task_id, std::move(actions), "Update",
+      base::BindOnce(
+          [](bool* called, PerformActionsResult result) { *called = true; },
+          base::Unretained(&callback_called)));
+
+  // Run the queued execution tasks.
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  // Callback should be deferred.
+  EXPECT_FALSE(callback_called);
+
+  // Fast forward the environment by 7 seconds to trigger the load timeout.
+  task_environment_.FastForwardBy(base::Seconds(7));
+
+  // The callback must be resolved now due to the timeout.
+  EXPECT_TRUE(callback_called);
+
+  browser_list->RemoveBrowser(test_browser.get());
+}
+
+// Test that the snackbar task updates observer installed in the service only
+// tracks the latest created task.
+TEST_F(ActorServiceTest, TracksOnlyLatestCreatedTaskObserver) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto test_browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(test_browser.get());
+
+  id snackbar_commands =
+      OCMProtocolMock(@protocol(GeminiActorSnackbarCommands));
+  [test_browser->GetCommandDispatcher()
+      startDispatchingToTarget:snackbar_commands
+                   forProtocol:@protocol(GeminiActorSnackbarCommands)];
+
+  // Expect first task registration message.
+  [[snackbar_commands expect]
+      showGeminiActorSnackbarMessage:[OCMArg checkWithBlock:^BOOL(
+                                                 SnackbarMessage* message) {
+        return [message.title isEqualToString:@"First Task"] &&
+               [message.subtitle isEqualToString:@"Started"];
+      }]
+              additionalBottomOffset:kGeminiActorSnackbarBottomOffset];
+
+  // Create first task. This immediately emits a registration snackbar message.
+  ActorTaskId task_id1 =
+      service->CreateTask("First Task", /*allow_incognito_web_states=*/false);
+
+  WaitForTasksToComplete();
+  [snackbar_commands verify];
+
+  // Expect second task registration message.
+  [[snackbar_commands expect]
+      showGeminiActorSnackbarMessage:[OCMArg checkWithBlock:^BOOL(
+                                                 SnackbarMessage* message) {
+        return [message.title isEqualToString:@"Second Task"] &&
+               [message.subtitle isEqualToString:@"Started"];
+      }]
+              additionalBottomOffset:kGeminiActorSnackbarBottomOffset];
+
+  // Create second task. This replaces the observer installed in the service
+  // and emits a registration snackbar message for the second task.
+  service->CreateTask("Second Task", /*allow_incognito_web_states=*/false);
+
+  WaitForTasksToComplete();
+  [snackbar_commands verify];
+
+  // Now trigger a state update on the first task. Since the observer tracks
+  // only the latest created task, this update should not be tracked.
+  // We verify this by ensuring the mock rejects any new messages for the first
+  // task.
+  [[snackbar_commands reject]
+      showGeminiActorSnackbarMessage:[OCMArg checkWithBlock:^BOOL(
+                                                 SnackbarMessage* message) {
+        return [message.title isEqualToString:@"First Task"] &&
+               [message.subtitle isEqualToString:@"Started"];
+      }]
+              additionalBottomOffset:kGeminiActorSnackbarBottomOffset];
+
+  service->PerformActions(task_id1, {}, "Updating first again",
+                          base::BindOnce(^(PerformActionsResult result){
+                              // Do nothing.
+                          }));
+
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  [snackbar_commands verify];
+
+  [test_browser->GetCommandDispatcher()
+      stopDispatchingToTarget:snackbar_commands];
+  browser_list->RemoveBrowser(test_browser.get());
+}
+
+// Test that StopTask stops and erases the task, and verifies that Stop() is
+// called on the ActorTask.
+TEST_F(ActorServiceTest, StopTask) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  ActorTaskId task_id =
+      service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+
+  // Verify that the task exists in service's active tasks.
+  ASSERT_TRUE(HasTask(service, task_id));
+
+  // Swap the task with our MockActorTask.
+  bool stop_called = false;
+  SwapTask(service, task_id,
+           std::make_unique<MockActorTask>(task_id, "Test Task",
+                                           /*allow_incognito_web_states=*/false,
+                                           GetJournal(service), &stop_called));
+
+  // Stop the task.
+  service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);
+
+  // Verify that Stop() was called on our MockActorTask.
+  EXPECT_TRUE(stop_called);
+
+  // Verify the task is also erased from ActorService's active tasks.
+  EXPECT_FALSE(HasTask(service, task_id));
 }
 
 }  // namespace actor

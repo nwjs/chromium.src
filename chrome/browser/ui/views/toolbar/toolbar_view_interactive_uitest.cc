@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_accessibility_test.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_and_views_toolbar_interactive_uitest_base.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/common/chrome_features.h"
@@ -39,6 +40,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/base/web_view_focus_helper.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
@@ -78,76 +80,6 @@ function getDeepActiveElement() {
 }
 getDeepActiveElement().ariaLabel || getDeepActiveElement().tagName
   )JS";
-
-class WebViewFocusManager : views::FocusChangeListener,
-                            content::WebContentsObserver {
- public:
-  explicit WebViewFocusManager(views::FocusManager* focus_manager,
-                               content::WebContents* web_contents)
-      : focus_manager_(focus_manager) {
-    focus_manager->AddFocusChangeListener(this);
-    Observe(web_contents);
-  }
-
-  ~WebViewFocusManager() override {
-    focus_manager_->RemoveFocusChangeListener(this);
-  }
-
-  void AdvanceFocus(bool reverse) {
-    base::Time start = base::Time::Now();
-    // Try-bots sometimes don't register these key presses (even with if the
-    // view is copyable), so we try multiple times to avoid flakes.
-    do {
-      run_loop_ = std::make_unique<base::RunLoop>();
-      ASSERT_TRUE(ui_test_utils::SendKeyPressToWindowSync(
-          web_contents()->GetTopLevelNativeWindow(), ui::VKEY_TAB, false,
-          reverse, false, false));
-      base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-          FROM_HERE, run_loop_->QuitClosure(), base::Seconds(1));
-      run_loop_->Run();
-      run_loop_.reset();
-    } while (!done_ && (base::Time::Now() < start + base::Seconds(5)));
-  }
-
- private:
-  // content::WebContentsObserver overrides
-  void OnFocusChangedInPage(
-      const content::FocusedNodeDetails& details) override {
-    if (details.node_bounds_in_screen.IsEmpty()) {
-      // Focus is leaving the web contents
-      return;
-    }
-    Done();
-  }
-
-  // views::FocusChangeListener
-  void OnDidChangeFocus(views::View* focused_before,
-                        views::View* focused_now) override {
-    Done();
-  }
-
-  void Done() {
-    done_ = true;
-    if (run_loop_) {
-      run_loop_->Quit();
-    }
-  }
-
-  bool done_ = false;
-  std::unique_ptr<base::RunLoop> run_loop_;
-  raw_ptr<views::FocusManager> focus_manager_;
-};
-
-void AdvanceFocus(views::FocusManager* focus_manager, bool reverse) {
-  views::View* view = focus_manager->GetFocusedView();
-  if (views::WebView* web_view = views::AsViewClass<views::WebView>(view)) {
-    WebViewFocusManager web_view_focus_manager(focus_manager,
-                                               web_view->web_contents());
-    web_view_focus_manager.AdvanceFocus(reverse);
-  } else {
-    focus_manager->AdvanceFocus(reverse);
-  }
-}
 
 int GetIDForFocusedViewElement(const views::View* view) {
   const std::string kReloadControlName =
@@ -252,6 +184,13 @@ void ToolbarViewTest::RunToolbarCycleFocusTest(Browser* browser) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL url1 = embedded_test_server()->GetURL("/title1.html");
   const GURL url2 = embedded_test_server()->GetURL("/title2.html");
+
+  // Move mouse off of toolbar. Having the mouse over the reload button when a
+  // page finishes loading may temporarily disable the reload button, making it
+  // no longer focusable, which will cause walking through focusable elements to
+  // skip over it, and the test will then fail.
+  RunTestSequence(InstrumentToolbar(), MoveMouseOffOfReloadButton());
+
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, url1));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, url2));
   // Navigate back once so forward is enabled too.
@@ -299,7 +238,7 @@ void ToolbarViewTest::RunToolbarCycleFocusTest(Browser* browser) {
   bool found_app_menu = false;
   const views::View* view = first_view;
   do {
-    AdvanceFocus(focus_manager, false);
+    ui_test_utils::AdvanceFocus(focus_manager, false);
 
     view = focus_manager->GetFocusedView();
     int id = GetIDForFocusedViewElement(view);
@@ -335,7 +274,7 @@ void ToolbarViewTest::RunToolbarCycleFocusTest(Browser* browser) {
   // Now press Shift-Tab to cycle backwards.
   std::vector<int> reverse_ids;
   do {
-    AdvanceFocus(focus_manager, true);
+    ui_test_utils::AdvanceFocus(focus_manager, true);
 
     view = focus_manager->GetFocusedView();
     reverse_ids.push_back(GetIDForFocusedViewElement(view));

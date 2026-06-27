@@ -13,29 +13,29 @@
 
 #import "base/observer_list.h"
 #import "base/scoped_observation.h"
+#import "base/timer/timer.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #import "components/optimization_guide/core/hints/optimization_metadata.h"
 #import "components/optimization_guide/proto/contextual_cueing_metadata.pb.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper_observer.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
-#import "ios/chrome/browser/optimization_guide/mojom/zero_state_suggestions_service.mojom.h"
 #import "ios/web/public/favicon/favicon_url.h"
 #import "ios/web/public/web_state_observer.h"
 #import "ios/web/public/web_state_user_data.h"
-#import "mojo/public/cpp/bindings/remote.h"
 
 @protocol BWGCommands;
 @protocol HelpCommands;
 @protocol LocationBarBadgeCommands;
 @class GeminiPageContext;
+enum class IOSGeminiInvocationPageType;
 
 namespace gemini {
 enum class FloatyUpdateSource;
 }
 
 namespace ai {
-class ZeroStateSuggestionsServiceImpl;
+class ZeroStateSuggestionsService;
 }
 
 class GeminiSuggestionHandlerTest;
@@ -49,16 +49,13 @@ class GeminiTabHelper : public web::WebStateObserver,
 
   ~GeminiTabHelper() override;
 
-  // Set up generation of page Context and the callback to be run when the page
-  // context is ready.
-  void SetupPageContextGeneration(
-      base::RepeatingCallback<void(PageContextWrapperCallbackResponse)>
-          callback);
-
   // Forces the generation of page context immediately, bypassing any wait for
   // page load completion. Used when the page load timeout is exceeded.
   // This is no op if page has already finished loading.
   void ForcePageContextGeneration();
+
+  // Cancels any ongoing page context generation.
+  void CancelPageContextGeneration();
 
   // Executes the zero-state suggestions flow.
   void ExecuteZeroStateSuggestions(
@@ -85,9 +82,11 @@ class GeminiTabHelper : public web::WebStateObserver,
   // Whether Gemini is available for the current web state.
   bool IsGeminiAvailableForWebState();
 
-  // Returns true if the URL is eligible for Gemini (e.g. HTTP/HTTPS and not
-  // blocked for AIM/Search-related reasons).
-  bool IsUrlEligibleForGemini(const GURL& url);
+  // Returns the current type of page or WebState.
+  IOSGeminiInvocationPageType GetCurrentPageType();
+
+  // Whether Gemini Chat mode is available for the current web state.
+  bool IsGeminiChatAvailableForWebState();
 
   // Gets the client and server IDs for the Gemini session for the associated
   // WebState. server ID is optional because it may not be found or is expired.
@@ -128,6 +127,12 @@ class GeminiTabHelper : public web::WebStateObserver,
   // Sets a callback to be run when the page has finished loading.
   void SetPageLoadedCallback(base::RepeatingClosure callback);
 
+  // Requests the latest page context. Resolves immediately if the page is
+  // restricted to surface-level metadata, or asynchronously if deep extraction
+  // is required.
+  void GeneratePageContext(
+      base::RepeatingCallback<void(GeminiPageContext*)> callback);
+
   // Returns the partial PageContext for the current WebState, including URL,
   // Title, and Favicon.
   GeminiPageContext* GetPartialPageContext();
@@ -161,28 +166,12 @@ class GeminiTabHelper : public web::WebStateObserver,
   void WebStateDestroyed(web::WebState* web_state) override;
 
  private:
-  struct ZeroStateSuggestions {
-    ZeroStateSuggestions();
-    ~ZeroStateSuggestions();
-
-    // The zero-state suggestions service.
-    mojo::Remote<ai::mojom::ZeroStateSuggestionsService> service;
-    std::unique_ptr<ai::ZeroStateSuggestionsServiceImpl> service_impl;
-
-    // The zero-state suggestions data for the current page.
-    std::optional<std::vector<std::string>> suggestions;
-    bool can_apply = false;
-  };
-
   explicit GeminiTabHelper(web::WebState* web_state);
 
   friend class web::WebStateUserData<GeminiTabHelper>;
 
   // The PageContext wrapper used to provide context about a page.
   __strong PageContextWrapper* page_context_wrapper_ = nil;
-
-  // Clears the zero-state suggestions and resets the service.
-  void ClearZeroStateSuggestions();
 
   // Populates the page context fields if the wrapper exists.
   void PopulatePageContextFields();
@@ -232,10 +221,30 @@ class GeminiTabHelper : public web::WebStateObserver,
   // Removes the Gemini session from the prefs.
   void CleanupSessionFromPrefs();
 
-  // Parses the response of a zero state suggestions execution.
-  void ParseSuggestionsResponse(
-      base::OnceCallback<void(NSArray<NSString*>*)> callback,
-      ai::mojom::ZeroStateSuggestionsResponseResultPtr result);
+
+  // Whether Gemini can extract the current web state's page context.
+  bool CanExtractPageContextForGemini();
+
+  // TODO(crbug.com/516531773): Find solution for repetitive helper methods.
+  // Whether Gemini Live mode is currently active.
+  bool IsInGeminiLiveMode() const;
+
+  // Whether standard NextIA or Live mode is active.
+  bool IsNextIaOrLiveMode() const;
+
+  // Fetches the cached favicon or generates a default fallback.
+  UIImage* GetFavicon();
+
+  // Handles the asynchronous result from PageContextWrapper.
+  void OnPageContextWrapperResponse(
+      PageContextWrapperCallbackResponse expected_page_context);
+
+  // Tracks the best-effort extraction timeout.
+  base::OneShotTimer page_context_timeout_timer_;
+
+  // Stores the consumer callback waiting for the final context object.
+  base::RepeatingCallback<void(GeminiPageContext*)>
+      page_context_consumer_callback_;
 
   // WebState this tab helper is attached to.
   raw_ptr<web::WebState> web_state_ = nullptr;
@@ -272,8 +281,9 @@ class GeminiTabHelper : public web::WebStateObserver,
   // Whether to prevent contextual panel entry point.
   bool prevent_contextual_panel_entry_point_ = false;
 
-  // The zero-state suggestions data and service for the current page.
-  std::unique_ptr<ZeroStateSuggestions> zero_state_suggestions_;
+  // The service managing zero-state suggestions.
+  std::unique_ptr<ai::ZeroStateSuggestionsService>
+      zero_state_suggestions_service_;
 
   // Callback to be run when the page has finished loading.
   base::RepeatingClosure page_loaded_callback_;

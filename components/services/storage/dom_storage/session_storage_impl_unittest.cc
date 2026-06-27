@@ -19,6 +19,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -26,6 +27,7 @@
 #include "base/test/test_future.h"
 #include "base/token.h"
 #include "base/uuid.h"
+#include "build/build_config.h"
 #include "components/services/storage/dom_storage/dom_storage_constants.h"
 #include "components/services/storage/dom_storage/dom_storage_histogram_helper.h"
 #include "components/services/storage/dom_storage/features.h"
@@ -49,6 +51,7 @@ std::vector<uint8_t> StringViewToUint8Vector(std::string_view s) {
   return std::vector<uint8_t>(s.begin(), s.end());
 }
 
+}  // namespace
 // Base test fixture for `SessionStorageImpl` tests. Provides common setup
 // including database initialization, storage area binding, and helper methods.
 // Subclasses can parameterize tests to run on SQLite or LevelDB using
@@ -68,8 +71,6 @@ class SessionStorageImplTestBase : public testing::Test {
       delete;
 
   ~SessionStorageImplTestBase() override {
-    // Flush all tasks to make sure the database is fully closed.
-    RunUntilIdle();
     EXPECT_TRUE(temp_dir_.Delete());
   }
 
@@ -106,9 +107,35 @@ class SessionStorageImplTestBase : public testing::Test {
     return remote_session_storage_.get();
   }
 
+  void ResetSessionStorage() { session_storage_.reset(); }
+
+  // Resets `session_storage_` and waits for database shutdown tasks to finish.
   void ShutDownSessionStorage() {
+    if (!session_storage_) {
+      return;
+    }
+
     remote_session_storage_.FlushForTesting();
+
+    scoped_refptr<base::SequencedTaskRunner> db_task_runner;
+    // If the database was never opened, no need to wait for it to close.
+    if (session_storage_->GetDatabaseForTesting()) {
+      base::RunLoop loop;
+      session_storage_->GetDatabaseForTesting()
+          ->database()
+          .PostTaskWithThisObject(
+              base::BindLambdaForTesting([&](DomStorageDatabase*) {
+                db_task_runner = base::SequencedTaskRunner::GetCurrentDefault();
+                loop.Quit();
+              }));
+      loop.Run();
+    }
     session_storage_.reset();
+    if (db_task_runner) {
+      base::RunLoop flush_db;
+      db_task_runner->PostTask(FROM_HERE, flush_db.QuitClosure());
+      flush_db.Run();
+    }
   }
 
   void DoTestPut(const std::string& namespace_id,
@@ -150,7 +177,6 @@ class SessionStorageImplTestBase : public testing::Test {
 
  protected:
   const base::FilePath& temp_path() const { return temp_dir_.GetPath(); }
-  void RunUntilIdle() { task_environment_->RunUntilIdle(); }
   void FlushMojo() { remote_session_storage_.FlushForTesting(); }
 
   // Ensures the database connection is fully established. As a result,
@@ -344,6 +370,67 @@ TEST_P(SessionStorageImplTest, StartupShutdownSave) {
   // PutMetadata duration fires for each BindStorageArea.
   histograms.ExpectTotalCount(
       "Storage.SessionStorage.Duration.PutMetadata.OnDisk", 2);
+
+  ShutDownSessionStorage();
+
+  histograms.ExpectUniqueSample("Storage.SessionStorage.ShutdownDroppedChanges",
+                                false, 1);
+}
+
+TEST_P(SessionStorageImplTest, ShutdownDroppedChanges) {
+  base::HistogramTester histograms;
+
+  std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  session_storage()->CreateNamespace(namespace_id);
+
+  blink::StorageKey storage_key =
+      blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
+
+  mojo::Remote<blink::mojom::StorageArea> area;
+  session_storage()->BindStorageArea(storage_key, namespace_id,
+                                     area.BindNewPipeAndPassReceiver());
+
+  // Add a key/value pair to the storage area.  Next time, the area will load as
+  // non-empty, providing the test an opportunity to drop tasks on shutdown
+  // during the load.
+  EXPECT_TRUE(
+      test::PutSync(area.get(), StringViewToUint8Vector("key1"),
+                    StringViewToUint8Vector("value1"), std::nullopt,
+                    test::MakeStorageAreaSource(GURL(), kTestSourceToken)));
+
+  // Reload the database.
+  ShutDownSessionStorage();
+
+  histograms.ExpectUniqueSample("Storage.SessionStorage.ShutdownDroppedChanges",
+                                false, 1);
+
+  EnsureDatabaseOpen();
+
+  session_storage_impl()->CreateNamespace(namespace_id);
+
+  area.reset();
+  session_storage_impl()->BindStorageArea(storage_key, namespace_id,
+                                          area.BindNewPipeAndPassReceiver());
+
+  auto key2 = StringViewToUint8Vector("key2");
+  auto value2 = StringViewToUint8Vector("value2");
+
+  // Put a value in the area, forcing the area to load and then immediately
+  // shutdown while the area is loading.
+  session_storage_impl()->PutValueForTesting(
+      namespace_id, storage_key, key2, value2, /*callback=*/base::DoNothing());
+  ResetSessionStorage();
+
+  // Shutdown discards the put, which prevents `key2` and `value2` from
+  // persisting to the database.
+  histograms.ExpectBucketCount("Storage.SessionStorage.ShutdownDroppedChanges",
+                               true, 1);
+  histograms.ExpectTotalCount("Storage.SessionStorage.ShutdownDroppedChanges",
+                              2);
+
+  // Re-open the database, which allows test tear down to wait for shutdown to
+  // complete.
+  EnsureDatabaseOpen();
 }
 
 TEST_P(SessionStorageImplTest, CloneBeforeBrowserClone) {
@@ -695,9 +782,6 @@ TEST_P(SessionStorageImplTest, CorruptionOnDisk) {
 
   ShutDownSessionStorage();
 
-  // Also flush Task Scheduler tasks to make sure the database is fully closed.
-  RunUntilIdle();
-
   base::FilePath db_path =
       DomStorageDatabase::GetPath(StorageType::kSessionStorage, temp_path());
   if (IsSqliteEnabled()) {
@@ -754,16 +838,7 @@ TEST_P(SessionStorageImplTest, RecreateOnCommitFailure) {
   blink::StorageKey storage_key3 =
       blink::StorageKey::CreateFromStringForTesting("http://example.com");
 
-  std::optional<base::RunLoop> open_loop;
-  size_t num_database_open_requests = 0;
   size_t num_databases_destroyed = 0;
-  session_storage_impl()->SetDatabaseOpenCallbackForTesting(
-      base::BindLambdaForTesting([&] {
-        ++num_database_open_requests;
-        open_loop->Quit();
-      }));
-
-  open_loop.emplace();
 
   // Open three connections to the database.
   mojo::Remote<blink::mojom::StorageArea> area_o1;
@@ -779,7 +854,12 @@ TEST_P(SessionStorageImplTest, RecreateOnCommitFailure) {
                                      area_o2.BindNewPipeAndPassReceiver());
   session_storage()->BindStorageArea(storage_key3, namespace_id,
                                      area_o3.BindNewPipeAndPassReceiver());
-  open_loop->Run();
+
+  // Make sure the storage areas are bound and the database is open before we
+  // start failing commits.
+  FlushMojo();
+  EnsureDatabaseOpen();
+  WaitForDatabaseTasks();
 
   // Ensure that the first opened database always fails to write data.
   session_storage_impl()
@@ -792,33 +872,10 @@ TEST_P(SessionStorageImplTest, RecreateOnCommitFailure) {
                 base::BindLambdaForTesting([&] { ++num_databases_destroyed; }));
           }));
 
-  // Verify one attempt was made to open the database.
-  ASSERT_EQ(1u, num_database_open_requests);
-
-  // Setup a new RunLoop so we can wait until SessionStorageImpl tries to
-  // reconnect to the database, which should happen after several commit
-  // errors.
-  open_loop.emplace();
-
-  // Also prepare for another database connection, next time providing a
-  // functioning database.
-  session_storage_impl()->SetDatabaseOpenCallbackForTesting(
-      base::BindLambdaForTesting([&] {
-        ++num_database_open_requests;
-        open_loop->Quit();
-      }));
-
-  // Start a put operation on the third connection before starting to commit
-  // a lot of data on the first storage_key. This put operation should result in
-  // a pending commit that will get cancelled when the database connection is
-  // closed.
+  // Write data to trigger commit errors and force recovery. Recovery must
+  // fire after exactly kCommitErrorThreshold + 1 failing commits.
   auto value = StringViewToUint8Vector("avalue");
-  area_o3->Put(StringViewToUint8Vector("w3key"), value, std::nullopt,
-               test::MakeStorageAreaSource(),
-               base::BindOnce([](bool success) { EXPECT_TRUE(success); }));
-
-  // Repeatedly write data to the database, to trigger enough commit errors.
-  while (area_o1.is_connected()) {
+  for (int i = 0; i <= kCommitErrorThreshold; ++i) {
     // Every write needs to be different to make sure there actually is a
     // change to commit.
     std::vector<uint8_t> old_value = value;
@@ -826,19 +883,22 @@ TEST_P(SessionStorageImplTest, RecreateOnCommitFailure) {
     area_o1->Put(StringViewToUint8Vector("key"), value, std::nullopt,
                  test::MakeStorageAreaSource(),
                  base::BindOnce([](bool success) { EXPECT_TRUE(success); }));
+    // Deliver the Put to the impl, immediately commit it to the DB sequence,
+    // and wait for the commit's reply. The reply may fire recovery if this
+    // commit's failure pushes `commit_error_count_` past
+    // `kCommitErrorThreshold`.
     area_o1.FlushForTesting();
-    RunUntilIdle();
-    // And we need to flush after every change. Otherwise changes get batched up
-    // and only one commit is done some time later.
     session_storage_impl()->FlushAreaForTesting(namespace_id, storage_key1);
+    WaitForDatabaseTasks();
   }
+  // Recovery sets the db to nullptr.
+  ASSERT_FALSE(session_storage_impl()->GetDatabaseForTesting());
   area_o1.reset();
 
-  // Wait for a new database to be opened, which should happen after the first
-  // database is destroyed due to failures.
-  open_loop->Run();
+  // Wait for the post-recovery database to be fully connected before
+  // proceeding.
+  EnsureDatabaseOpen();
   EXPECT_EQ(1u, num_databases_destroyed);
-  EXPECT_EQ(2u, num_database_open_requests);
 
   // The connection to the second area should have closed as well.
   area_o2.FlushForTesting();
@@ -901,22 +961,18 @@ TEST_P(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
   blink::StorageKey storage_key1 =
       blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
 
-  std::optional<base::RunLoop> open_loop;
-  size_t num_database_open_requests = 0;
   size_t num_databases_destroyed = 0;
-  session_storage_impl()->SetDatabaseOpenCallbackForTesting(
-      base::BindLambdaForTesting([&] {
-        ++num_database_open_requests;
-        open_loop->Quit();
-      }));
-  open_loop.emplace();
 
-  // Open three connections to the database.
+  // Open a connection to the database.
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->CreateNamespace(namespace_id);
   session_storage()->BindStorageArea(storage_key1, namespace_id,
                                      area.BindNewPipeAndPassReceiver());
-  open_loop->Run();
+  // Make sure the storage area is bound and the database is open before we
+  // start failing commits.
+  FlushMojo();
+  EnsureDatabaseOpen();
+  WaitForDatabaseTasks();
 
   // Ensure that this database always fails to write data.
   session_storage_impl()
@@ -929,45 +985,33 @@ TEST_P(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
                 base::BindLambdaForTesting([&] { ++num_databases_destroyed; }));
           }));
 
-  // Verify one attempt was made to open the database.
-  EXPECT_EQ(1u, num_database_open_requests);
-
-  // Setup a new RunLoop so we can wait until SessionStorageImpl tries to
-  // reconnect to the database, which should happen after several commit
-  // errors.
-  open_loop.emplace();
-  session_storage_impl()->SetDatabaseOpenCallbackForTesting(
-      base::BindLambdaForTesting([&] {
-        ++num_database_open_requests;
-        open_loop->Quit();
-      }));
-
-  // Repeatedly write data to the database, to trigger enough commit errors.
+  // Write data to trigger commit errors and force recovery. Recovery must
+  // fire after exactly kCommitErrorThreshold + 1 failing commits.
   auto value = StringViewToUint8Vector("avalue");
   std::optional<std::vector<uint8_t>> old_value = std::nullopt;
-  while (area.is_connected()) {
+  for (int i = 0; i <= kCommitErrorThreshold; ++i) {
     // Every write needs to be different to make sure there actually is a
     // change to commit.
     area->Put(StringViewToUint8Vector("key"), value, old_value,
               test::MakeStorageAreaSource(),
               base::BindOnce([](bool success) { EXPECT_TRUE(success); }));
+    // Deliver the Put to the impl, immediately commit it to the DB sequence,
+    // and wait for the commit's reply. The reply may fire recovery if this
+    // commit's failure pushes `commit_error_count_` past
+    // `kCommitErrorThreshold`.
     area.FlushForTesting();
-    RunUntilIdle();
-    // And we need to flush after every change. Otherwise changes get batched up
-    // and only one commit is done some time later.
     session_storage_impl()->FlushAreaForTesting(namespace_id, storage_key1);
-
+    WaitForDatabaseTasks();
     old_value = value;
     value[0]++;
   }
+  // Recovery sets the db to nullptr.
+  ASSERT_FALSE(session_storage_impl()->GetDatabaseForTesting());
   area.reset();
 
-  // Wait for SessionStorageImpl to try to reconnect to the database, and
-  // connect that new request with a database implementation that always fails
-  // on write.
-  open_loop->Run();
-
-  EXPECT_EQ(2u, num_database_open_requests);
+  // Wait for the post-recovery database to be fully connected before
+  // proceeding.
+  EnsureDatabaseOpen();
   EXPECT_EQ(1u, num_databases_destroyed);
   session_storage_impl()
       ->GetDatabaseForTesting()
@@ -989,7 +1033,7 @@ TEST_P(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
               test::MakeStorageAreaSource(),
               base::BindOnce([](bool success) { EXPECT_TRUE(success); }));
     area.FlushForTesting();
-    RunUntilIdle();
+    WaitForDatabaseTasks();
     // And we need to flush after every change. Otherwise changes get batched up
     // and only one commit is done some time later.
     session_storage_impl()->FlushAreaForTesting(namespace_id, storage_key1);
@@ -999,7 +1043,7 @@ TEST_P(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
   }
 
   // Should still be connected after all that.
-  RunUntilIdle();
+  WaitForDatabaseTasks();
   EXPECT_TRUE(area.is_connected());
 
   // Verify recovery histogram was emitted for the first recovery.
@@ -1035,8 +1079,12 @@ class SessionStorageImplFakeDbTest : public SessionStorageImplTestBase {
 TEST_F(SessionStorageImplFakeDbTest, TransientErrorsAfterRecovery) {
   base::HistogramTester histograms;
 
+  size_t num_databases_destroyed = 0;
+
   // Each database starts with UpdateMaps returning IOError. The test switches
-  // the second database to OK mid-flight to simulate transient errors.
+  // the second database to OK mid-flight to simulate transient errors. The
+  // destroy override counts destruction so we can later assert recovery
+  // actually destroyed and re-created the database.
   ScopedDomStorageDatabaseFactoryForTesting scoped_factory(
       base::BindLambdaForTesting(
           [](StorageType, bool, scoped_refptr<base::SequencedTaskRunner> runner)
@@ -1046,16 +1094,14 @@ TEST_F(SessionStorageImplFakeDbTest, TransientErrorsAfterRecovery) {
             fake.AsyncCall(&FakeDomStorageDatabase::SetUpdateMapsStatus)
                 .WithArgs(DbStatus::IOError("test"));
             return fake;
+          }),
+      base::BindLambdaForTesting(
+          [&](const base::FilePath&,
+              DomStorageDatabaseFactory::StatusCallback callback) {
+            ++num_databases_destroyed;
+            base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+                FROM_HERE, base::BindOnce(std::move(callback), DbStatus::OK()));
           }));
-
-  std::optional<base::RunLoop> open_loop;
-  size_t num_database_open_requests = 0;
-  session_storage_impl()->SetDatabaseOpenCallbackForTesting(
-      base::BindLambdaForTesting([&] {
-        ++num_database_open_requests;
-        open_loop->Quit();
-      }));
-  open_loop.emplace();
 
   std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
   blink::StorageKey storage_key1 =
@@ -1063,39 +1109,41 @@ TEST_F(SessionStorageImplFakeDbTest, TransientErrorsAfterRecovery) {
 
   // Wait for the first database to open, then bind a storage area.
   session_storage()->CreateNamespace(namespace_id);
-  open_loop->Run();
-  ASSERT_EQ(1u, num_database_open_requests);
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->BindStorageArea(storage_key1, namespace_id,
                                      area.BindNewPipeAndPassReceiver());
+  // Make sure the storage area is bound and the database is open before we
+  // start the loop.
+  FlushMojo();
+  EnsureDatabaseOpen();
+  WaitForDatabaseTasks();
 
-  // Setup a new RunLoop to wait for the database to be recreated.
-  open_loop.emplace();
-  session_storage_impl()->SetDatabaseOpenCallbackForTesting(
-      base::BindLambdaForTesting([&] {
-        ++num_database_open_requests;
-        open_loop->Quit();
-      }));
-
-  // Repeatedly write data to trigger enough commit errors for recovery.
+  // Write data to trigger commit errors and force recovery. Recovery must
+  // fire after exactly kCommitErrorThreshold + 1 failing commits.
   auto value = StringViewToUint8Vector("avalue");
   std::optional<std::vector<uint8_t>> old_value = std::nullopt;
-  while (area.is_connected()) {
+  for (int i = 0; i <= kCommitErrorThreshold; ++i) {
     area->Put(StringViewToUint8Vector("key"), value, old_value,
               test::MakeStorageAreaSource(),
               base::BindOnce([](bool success) { EXPECT_TRUE(success); }));
+    // Deliver the Put to the impl, immediately commit it to the DB sequence,
+    // and wait for the commit's reply. The reply may fire recovery if this
+    // commit's failure pushes `commit_error_count_` past
+    // `kCommitErrorThreshold`.
     area.FlushForTesting();
     session_storage_impl()->FlushAreaForTesting(namespace_id, storage_key1);
-
+    WaitForDatabaseTasks();
     old_value = value;
     value[0]++;
   }
+  // Recovery sets the db to nullptr.
+  ASSERT_FALSE(session_storage_impl()->GetDatabaseForTesting());
   area.reset();
 
-  // Wait for the database to be recreated. The second database's UpdateMaps
-  // also returns IOError (set at creation above).
-  open_loop->Run();
-  EXPECT_EQ(2u, num_database_open_requests);
+  // Wait for the post-recovery database to be fully connected before
+  // proceeding.
+  EnsureDatabaseOpen();
+  EXPECT_EQ(1u, num_databases_destroyed);
 
   // Reconnect and write a few times to accumulate some errors (fewer than the
   // threshold).
@@ -1545,7 +1593,7 @@ TEST_P(SessionStorageImplTest, PurgeInactiveWrappers) {
             base::StringPrintf("http://example.com:%d", i));
     session_storage()->BindStorageArea(storage_key, namespace_id1,
                                        area.BindNewPipeAndPassReceiver());
-    RunUntilIdle();
+    FlushMojo();
     area.reset();
   }
 
@@ -1595,6 +1643,30 @@ TEST_P(SessionStorageImplTest, ClearDiskState) {
   // clears disk space on open.
   data = test::GetAllSync(area.get());
   EXPECT_EQ(0ul, data.size());
+}
+
+TEST_P(SessionStorageImplTest, ClearDiskStateOnOpenWithEmptyPathUsesInMemory) {
+  // When kClearDiskStateOnOpen is set but the path is empty (in-memory
+  // profile), the DB should be opened in-memory.
+  SetBackingMode(SessionStorageImpl::BackingMode::kNoDisk);
+
+  mojo::Remote<mojom::SessionStorageControl> remote;
+  auto impl = std::make_unique<SessionStorageImpl>(
+      base::FilePath(), SessionStorageImpl::BackingMode::kClearDiskStateOnOpen,
+      base::DoNothing(), remote.BindNewPipeAndPassReceiver());
+
+  // Trigger connection and verify data operations work.
+  std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  remote->CreateNamespace(namespace_id);
+  mojo::Remote<blink::mojom::StorageArea> area;
+  remote->BindStorageArea(
+      blink::StorageKey::CreateFromStringForTesting("http://foobar.com"),
+      namespace_id, area.BindNewPipeAndPassReceiver());
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area.get());
+  EXPECT_EQ(0ul, data.size());
+
+  // Verify in-memory mode was used despite kClearDiskStateOnOpen.
+  EXPECT_TRUE(impl->in_memory_);
 }
 
 TEST_P(SessionStorageImplTest, InterruptedCloneWithDelete) {
@@ -1723,8 +1795,6 @@ TEST_P(SessionStorageImplTest, TotalCloneChainDeletion) {
   session_storage()->DeleteNamespace(namespace_id4, false);
 }
 
-}  // namespace
-
 TEST_P(SessionStorageImplTest, PurgeMemoryDoesNotCrashOrHang) {
   std::string namespace_id1 =
       base::Uuid::GenerateRandomV4().AsLowercaseString();
@@ -1757,7 +1827,7 @@ TEST_P(SessionStorageImplTest, PurgeMemoryDoesNotCrashOrHang) {
 
   area_n2.reset();
 
-  RunUntilIdle();
+  FlushMojo();
 
   // Verify this doesn't crash or hang.
   session_storage_impl()->PurgeMemory();
@@ -1916,7 +1986,8 @@ TEST_P(SessionStorageImplTest, Bug1128318) {
   session_storage()->CloneNamespace(
       namespace_id2, namespace_id3,
       mojom::SessionStorageCloneType::kWaitForCloneOnNamespace);
-  RunUntilIdle();
+  EnsureDatabaseOpen();
+  FlushMojo();
 
   // At this point `namespace_id3` should be alive. It should not exist in meta
   // data yet, as that would only be populated once the actual clone happens.

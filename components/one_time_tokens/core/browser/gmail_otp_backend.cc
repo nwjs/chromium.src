@@ -7,6 +7,7 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "components/one_time_tokens/core/browser/email_one_time_token_fetcher.h"
 #include "components/one_time_tokens/core/browser/util/expiring_cache.h"
@@ -33,7 +34,7 @@ GmailOtpBackendImpl::GmailOtpBackendImpl(
       coordinator_(std::make_unique<EmailOneTimeTokenFetchCoordinator>(*this)),
       notification_cache_(
           kNotificationExpirationDuration,
-          &OneTimeTokenBackendNotification::notification_received_timestamp) {}
+          &OneTimeTokenBackendNotification::notification_received_timeticks) {}
 
 GmailOtpBackendImpl::~GmailOtpBackendImpl() = default;
 
@@ -41,7 +42,26 @@ ExpiringSubscription GmailOtpBackendImpl::Subscribe(base::Time expiration,
                                                     Callback callback) {
   ExpiringSubscription subscription =
       subscription_manager_.Subscribe(expiration, std::move(callback));
-  ProcessCachedNotifications();
+  if (!url_loader_factory_) {
+    base::UmaHistogramBoolean("Autofill.OneTimeTokens.Backend.Gmail.Success",
+                              false);
+    base::UmaHistogramEnumeration(
+        "Autofill.OneTimeTokens.Backend.Gmail.ErrorCode",
+        OneTimeTokenRetrievalError::kGmailOtpBackendInitializationFailed);
+
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](base::WeakPtr<GmailOtpBackendImpl> self) {
+                         if (self) {
+                           self->subscription_manager_.Notify(base::unexpected(
+                               OneTimeTokenRetrievalError::
+                                   kGmailOtpBackendInitializationFailed));
+                         }
+                       },
+                       weakptr_factory_.GetWeakPtr()));
+  } else {
+    ProcessCachedNotifications();
+  }
   return subscription;
 }
 
@@ -59,6 +79,9 @@ void GmailOtpBackendImpl::ProcessCachedNotifications() {
     return;
   }
   for (const auto& notification : notification_cache_.TakeItems()) {
+    base::UmaHistogramMediumTimes(
+        "Autofill.OneTimeTokens.Backend.Gmail.SubscriptionWaitLatency",
+        base::TimeTicks::Now() - notification.notification_received_timeticks);
     coordinator_->SignalNetworkRequestNeeded(notification);
   }
 }
@@ -104,6 +127,8 @@ void GmailOtpBackendImpl::OnResponseFromGmailOtpBackend(
   } else {
     base::UmaHistogramTimes("Autofill.OneTimeTokens.Backend.Gmail.ErrorLatency",
                             base::TimeTicks::Now() - trigger_time);
+    base::UmaHistogramEnumeration(
+        "Autofill.OneTimeTokens.Backend.Gmail.ErrorCode", reply.error());
   }
 
   active_fetchers_.erase(notification.encrypted_message_reference);

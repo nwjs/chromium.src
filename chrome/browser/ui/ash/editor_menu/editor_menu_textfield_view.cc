@@ -16,6 +16,7 @@
 #include "ui/base/ime/text_input_flags.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/size.h"
@@ -55,11 +56,6 @@ EditorMenuTextfieldView::~EditorMenuTextfieldView() = default;
 void EditorMenuTextfieldView::AddedToWidget() {
   // Only initialize the view after it is added to a widget.
   InitLayout();
-}
-
-void EditorMenuTextfieldView::OnThemeChanged() {
-  views::View::OnThemeChanged();
-  SetColors();
 }
 
 void EditorMenuTextfieldView::Layout(PassKey) {
@@ -105,32 +101,25 @@ void EditorMenuTextfieldView::InitLayout() {
   textfield_->RemoveHoverEffect();
   textfield_->SetExtraInsets(gfx::Insets::TLBR(
       0, 0, 0, kArrowButtonSize.width() + kArrowButtonInsets.width()));
+  textfield_->SetBackgroundColor(ui::kColorCrosSysInputFieldOnBase);
 
   arrow_button_ = AddChildView(views::ImageButton::CreateIconButton(
       base::BindRepeating(
           &EditorMenuTextfieldView::OnTextfieldArrowButtonPressed,
           weak_factory_.GetWeakPtr()),
-      vector_icons::kForwardArrowIcon,
+      ::features::IsRoundedIconsEnabled() ? vector_icons::kArrowForwardIcon
+                                          : vector_icons::kForwardArrowOldIcon,
       GetEditorMenuFreeformTextfieldArrowButtonTooltip()));
   arrow_button_->SetImageHorizontalAlignment(
       views::ImageButton::HorizontalAlignment::ALIGN_CENTER);
   arrow_button_->SetImageVerticalAlignment(
       views::ImageButton::VerticalAlignment::ALIGN_MIDDLE);
   arrow_button_->SetVisible(false);
-
-  SetColors();
 }
 
 void EditorMenuTextfieldView::OnTextfieldArrowButtonPressed() {
   CHECK(delegate_);
   delegate_->OnTextfieldArrowButtonPressed(textfield_->GetText());
-}
-
-void EditorMenuTextfieldView::SetColors() {
-  if (textfield_) {
-    textfield_->SetBackgroundColor(
-        GetColorProvider()->GetColor(ui::kColorCrosSysInputFieldOnBase));
-  }
 }
 
 BEGIN_METADATA(EditorMenuTextfieldView)

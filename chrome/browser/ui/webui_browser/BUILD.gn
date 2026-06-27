@@ -34,8 +34,11 @@ source_set("webui_browser") {
     "//chrome/browser/ui/views/side_panel",
     "//chrome/browser/ui/webui/cr_components/searchbox",
     "//chrome/browser/ui/webui/metrics_reporter",
+    "//chrome/browser/ui/webui/webui_toolbar",
+    "//components/browser_apis/tab_drag:mojom",
     "//components/browser_apis/tab_strip:mojom_experiment",
     "//components/browser_apis/tab_strip:mojom_ui_controller",
+    "//components/browser_apis/ui_controllers/toolbar:mojom",
     "//components/guest_contents/common:mojom",
     "//content/public/browser",
     "//ui/color",
@@ -55,8 +58,6 @@ source_set("impl") {
     "webui_browser_client_view.cc",
     "webui_browser_client_view.h",
     "webui_browser_exclusive_access_context.cc",
-    "webui_browser_extensions_container.cc",
-    "webui_browser_extensions_container.h",
     "webui_browser_modal_dialog_host.cc",
     "webui_browser_modal_dialog_host.h",
     "webui_browser_page_handler.cc",
@@ -96,6 +97,8 @@ source_set("impl") {
     "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//chrome/browser/ui/tabs:tabs_public",
+    "//chrome/browser/ui/tabs/tab_drag_api",
+    "//chrome/browser/ui/tabs/tab_drag_api:impl",
     "//chrome/browser/ui/tabs/tab_strip_api",
     "//chrome/browser/ui/tabs/tab_strip_api/controllers",
     "//chrome/browser/ui/toolbar",
@@ -105,9 +108,11 @@ source_set("impl") {
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/ui/webui/searchbox",
     "//chrome/browser/ui/webui/util",
+    "//chrome/browser/ui/webui/webui_toolbar:impl",
     "//chrome/browser/ui/zoom:browser_window_zoom_observer",
     "//chrome/common:chrome_features",
     "//components/browser_apis/tab_strip/resources",
+    "//components/browser_apis/ui_controllers/toolbar:mojom",
     "//components/guest_contents/browser",
     "//components/input",
     "//components/omnibox/browser:vector_icons",
@@ -144,7 +149,6 @@ mojom("browser_mojo_bindings") {
   sources = [
     "bookmark_bar.mojom",
     "browser.mojom",
-    "extensions_bar.mojom",
   ]
   public_deps = [
     "//components/browser_apis/tab_strip:mojom",
@@ -159,13 +163,20 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-  sources = [ "webui_browser_browsertest.cc" ]
+  sources = []
+
+  # TODO(crbug.com/451876195): Fix and re-enable these tests on CrOS.
+  if (!is_chromeos) {
+    sources += [ "webui_browser_browsertest.cc" ]
+  }
 
   deps = [
     ":impl",
     ":webui_browser",
     "//base/test:test_support",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/webui:webui_util",
+    "//chrome/browser/ui/webui/searchbox",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
     "//components/bookmarks/browser",

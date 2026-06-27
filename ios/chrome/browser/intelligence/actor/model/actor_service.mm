@@ -12,9 +12,11 @@
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/stringprintf.h"
 #import "base/types/expected.h"
+#import "components/actor/core/aggregated_journal.h"
+#import "components/actor/core/journal_details_builder.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
-#import "ios/chrome/browser/intelligence/actor/model/aggregated_journal.h"
+#import "ios/chrome/browser/intelligence/actor/model/snackbar_actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
 #import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
@@ -33,6 +35,9 @@ namespace actor {
 
 namespace {
 
+// Fallback tool name string when an action case cannot be mapped.
+constexpr char kUnknownTool[] = "unknown tool";
+
 // Logs a failure to create a tool to the journal.
 void LogToolCreationFailed(AggregatedJournal* journal,
                            ActorTaskId task_id,
@@ -40,8 +45,10 @@ void LogToolCreationFailed(AggregatedJournal* journal,
                            const ToolExecutionResult& error) {
   CHECK(journal);
 
-  std::vector<JournalDetails> details = {
-      {"error", GetToolExecutionResultMessage(error)}};
+  std::vector<mojom::JournalDetailsPtr> details =
+      JournalDetailsBuilder()
+          .AddError(GetToolExecutionResultMessage(error))
+          .Build();
 
   journal->Log(
       GURL(), task_id,
@@ -58,7 +65,7 @@ void LogToolCreationAttempt(AggregatedJournal* journal,
   journal->Log(
       GURL(), task_id,
       base::StringPrintf("Attempting to create tool: %s", tool_name.c_str()),
-      std::vector<JournalDetails>());
+      /*details=*/{});
 }
 
 }  // namespace
@@ -74,17 +81,29 @@ ActorService::ActorService(ProfileIOS* profile,
   CHECK(tool_factory_);
 }
 
-ActorService::~ActorService() = default;
+ActorService::~ActorService() {
+  Shutdown();
+}
 
-void ActorService::Shutdown() {}
+void ActorService::Shutdown() {
+  task_observer_ = nil;
+}
 
 ActorTaskId ActorService::CreateTask(const std::string& title,
                                      bool allow_incognito_web_states) {
   CHECK(IsActorEnabled());
 
   const ActorTaskId task_id = next_task_id_.GenerateNextId();
-  active_tasks_[task_id] = std::make_unique<ActorTask>(
+  auto task = std::make_unique<ActorTask>(
       task_id, title, allow_incognito_web_states, journal_.get());
+
+  // TODO(crbug.com/512521102): Cleanup observers lifecycle.
+  // Only the latest task is tracked.
+  task_observer_ =
+      [[SnackbarActorTaskUpdatesObserver alloc] initWithProfile:profile_];
+  task->AddObserver(task_observer_);
+
+  active_tasks_[task_id] = std::move(task);
   return task_id;
 }
 
@@ -97,8 +116,8 @@ CreateActorToolsResult ActorService::CreateActorTools(
   tools.reserve(actions.size());
 
   for (const auto& action : actions) {
-    std::string tool_name = ActorActionCaseToToolName(action.action_case())
-                                .value_or("unknown tool");
+    std::string tool_name =
+        ActorActionCaseToToolName(action.action_case()).value_or(kUnknownTool);
 
     LogToolCreationAttempt(journal_.get(), task_id, tool_name);
 
@@ -295,6 +314,16 @@ web::WebState* ActorService::GetWebStateForID(web::WebStateID web_state_id,
   return web_state;
 }
 
+void ActorService::AddControlledWebState(ActorTaskId task_id,
+                                         web::WebState* web_state) {
+  CHECK(IsActorEnabled());
+
+  auto it = active_tasks_.find(task_id);
+  if (it != active_tasks_.end()) {
+    it->second->AddControlledWebState(web_state);
+  }
+}
+
 void ActorService::PauseTask(ActorTaskId task_id, bool from_actor) {
   // TODO(crbug.com/496163986): Implement and test.
 }
@@ -302,7 +331,20 @@ void ActorService::PauseTask(ActorTaskId task_id, bool from_actor) {
 void ActorService::StopTask(ActorTaskId task_id,
                             ActorTaskStoppedReason reason) {
   // TODO(crbug.com/496163986): Implement and test.
+  auto it = active_tasks_.find(task_id);
+  if (it != active_tasks_.end()) {
+    it->second->Stop(reason);
+  }
   active_tasks_.erase(task_id);
+}
+
+// TODO(crbug.com/517583120): Remove when the temporary actuation prototype is
+// cleaned up.
+void ActorService::StopAllTasks() {
+  while (!active_tasks_.empty()) {
+    StopTask(active_tasks_.begin()->first,
+             ActorTaskStoppedReason::kStoppedByUser);
+  }
 }
 
 std::vector<optimization_guide::proto::Action::ActionCase>

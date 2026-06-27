@@ -28,6 +28,7 @@
 #include "components/tabs/public/tab_group_tab_collection.h"
 #include "components/web_modal/modal_dialog_host.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -199,6 +200,24 @@ base::WeakPtr<TabInterface> TabModel::GetWeakPtr() {
 
 content::WebContents* TabModel::GetContents() const {
   return contents_;
+}
+
+void TabModel::LoadIfNeeded() {
+  if (contents_ && contents_->GetController().NeedsReload()) {
+    contents_->GetController().LoadIfNecessary();
+  }
+}
+
+std::u16string TabModel::GetTitle() const {
+  return contents_ ? contents_->GetTitle() : std::u16string();
+}
+
+GURL TabModel::GetURL() const {
+  return contents_ ? contents_->GetLastCommittedURL() : GURL();
+}
+
+base::Time TabModel::GetLastActiveTime() const {
+  return contents_ ? contents_->GetLastActiveTime() : base::Time();
 }
 
 Profile* TabModel::GetProfile() const {
@@ -383,8 +402,8 @@ TabStripModel* TabModel::GetModelForTabInterface() const {
 // called from here instead of manually doing it in TabStripModel.
 void TabModel::UpdateProperties() {
   bool pinned = false;
-  std::optional<tab_groups::TabGroupId> group = std::nullopt;
-  std::optional<split_tabs::SplitTabId> split = std::nullopt;
+  std::optional<tab_groups::TabGroupId> group;
+  std::optional<split_tabs::SplitTabId> split;
 
   TabCollection* ancestor = parent_collection_;
   while (ancestor) {

@@ -27,6 +27,7 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager_test_api.h"
@@ -56,6 +57,7 @@
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/facilitated_payments/core/features/features.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_managed_status_finder.h"
@@ -270,8 +272,6 @@ class PaymentsDataManagerHelper : public PaymentsDataManagerTestBase {
 class PaymentsDataManagerTest : public PaymentsDataManagerHelper,
                                 public testing::Test {
  public:
-  long kClearTimestampForLocalCvcs = 1747828800;  // May 21, 2025.
-
   PaymentsDataManagerTest() {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{features::kAutofillEnableBuyNowPayLaterSyncing,
@@ -397,6 +397,28 @@ TEST_F(PaymentsDataManagerTest, OnPaymentsDataLoaded) {
   // are loaded from the WebDatabase.
   payments_data_manager().Refresh();
   WaitForOnPaymentsDataChanged();
+}
+
+// Verifies that `AddCallbackAfterRefreshCompleted` immediately triggers
+// the callback if no `Refresh()` operation is pending.
+TEST_F(PaymentsDataManagerTest, AddCallbackAfterRefreshCompleted_NoRefresh) {
+  base::test::TestFuture<void> future;
+  payments_data_manager().AddCallbackAfterRefreshCompleted(
+      future.GetCallback());
+  EXPECT_TRUE(future.IsReady());
+}
+
+// Verifies that `AddCallbackAfterRefreshCompleted` triggers the callback after
+// a `Refresh()` operation concluded.
+TEST_F(PaymentsDataManagerTest,
+       AddCallbackAfterRefreshCompleted_DuringRefresh) {
+  base::test::TestFuture<void> future;
+  payments_data_manager().Refresh();
+  payments_data_manager().AddCallbackAfterRefreshCompleted(
+      future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+  // Check that the callback is called eventually.
+  EXPECT_TRUE(future.Wait());
 }
 
 // Test that a local IBAN is removed from suggestions when it has a matching
@@ -775,51 +797,6 @@ TEST_F(PaymentsDataManagerTest, UpdateLocalCvc) {
   EXPECT_EQ(payments_data_manager().GetLocalCreditCards()[0]->cvc(), kNewCvc);
 }
 
-#if !BUILDFLAG(IS_IOS)
-// Test that cleanup for crbug.com/411681430 is working as expected.
-TEST_F(PaymentsDataManagerTest, ClearLocalCvcsUpToMay2025) {
-  AdvanceClock(kArbitraryTime - base::Time::Now());
-  // Add a credit card with older timestamp to the database.
-  CreditCard credit_card_1(base::Uuid::GenerateRandomV4().AsLowercaseString(),
-                           test::kEmptyOrigin);
-  test::SetCreditCardInfo(&credit_card_1, "John Doe",
-                          "4111111111111111" /* Visa */, "01", "2999", "1",
-                          u"123");
-  payments_data_manager().AddCreditCard(credit_card_1);
-  WaitForOnPaymentsDataChanged();
-
-  AdvanceClock(
-      (base::Time::FromSecondsSinceUnixEpoch(kClearTimestampForLocalCvcs + 1)) -
-      base::Time::Now());
-  // Add another credit card with timestamp later than
-  // `kClearTimestampForLocalCvcs` timestamp to the database.
-  CreditCard credit_card_2(base::Uuid::GenerateRandomV4().AsLowercaseString(),
-                           test::kEmptyOrigin);
-  test::SetCreditCardInfo(&credit_card_2, "John Doe",
-                          "378282246310005" /* AmEx */, "01", "2999", "1",
-                          u"0000");
-  payments_data_manager().AddCreditCard(credit_card_2);
-  WaitForOnPaymentsDataChanged();
-
-  ASSERT_EQ(payments_data_manager().GetLocalCreditCards().size(), 2U);
-  EXPECT_FALSE(payments_data_manager().GetLocalCreditCards()[0]->cvc().empty());
-  EXPECT_FALSE(payments_data_manager().GetLocalCreditCards()[1]->cvc().empty());
-
-  prefs::SetPaymentCvcStorage(prefs_.get(), false);
-  ResetPaymentsDataManager();
-
-  ASSERT_EQ(payments_data_manager().GetLocalCreditCards().size(), 2U);
-  EXPECT_TRUE(payments_data_manager()
-                  .GetCreditCardByGUID(credit_card_1.guid())
-                  ->cvc()
-                  .empty());
-  EXPECT_FALSE(payments_data_manager()
-                   .GetCreditCardByGUID(credit_card_2.guid())
-                   ->cvc()
-                   .empty());
-}
-#endif  // !BUILDFLAG(IS_IOS)
-
 // Test that verify add, update, remove server cvc function working as expected.
 TEST_P(PaymentsDataManagerServerTest, ServerCvc) {
   const std::u16string kCvc = u"111";
@@ -945,7 +922,9 @@ TEST_F(PaymentsDataManagerTest, AddCreditCard_CrazyCharacters) {
   card4.SetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR, u"2016");
   cards.push_back(card4);
 
-  payments_data_manager().SetCreditCards(&cards);
+  for (const CreditCard& card : cards) {
+    payments_data_manager().AddCreditCard(card);
+  }
 
   WaitForOnPaymentsDataChanged();
 
@@ -960,10 +939,9 @@ TEST_F(PaymentsDataManagerTest, AddCreditCard_CrazyCharacters) {
 TEST_F(PaymentsDataManagerTest, AddCreditCard_Invalid) {
   CreditCard card;
   card.SetRawInfo(CREDIT_CARD_NUMBER, u"Not_0123-5Checked");
+  payments_data_manager().AddCreditCard(card);
 
-  std::vector<CreditCard> cards;
-  cards.push_back(card);
-  payments_data_manager().SetCreditCards(&cards);
+  WaitForOnPaymentsDataChanged();
 
   ASSERT_EQ(1u, payments_data_manager().GetCreditCards().size());
   ASSERT_EQ(card, *payments_data_manager().GetCreditCards()[0]);
@@ -2920,9 +2898,7 @@ class PaymentsDataManagerStartupBenefitsTest
       public testing::Test,
       public testing::WithParamInterface<bool> {
  public:
-  PaymentsDataManagerStartupBenefitsTest() {
-    SetUpTest();
-  }
+  PaymentsDataManagerStartupBenefitsTest() { SetUpTest(); }
 
   ~PaymentsDataManagerStartupBenefitsTest() override = default;
 
@@ -2940,9 +2916,9 @@ TEST_P(PaymentsDataManagerStartupBenefitsTest,
   prefs::SetPaymentCardBenefits(prefs_.get(), IsBenefitsPrefTurnedOn());
   base::HistogramTester histogram_tester;
   ResetPaymentsDataManager();
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.PaymentMethods.CardBenefitsIsEnabled.Startup",
-        IsBenefitsPrefTurnedOn(), 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.PaymentMethods.CardBenefitsIsEnabled.Startup",
+      IsBenefitsPrefTurnedOn(), 1);
 }
 #endif  // !BUILDFLAG(IS_IOS)
 
@@ -3458,10 +3434,6 @@ TEST_F(
     GTEST_SKIP() << "This test should not run on automotive.";
   }
 #endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(IS_CHROMEOS)
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
   base::HistogramTester histogram_tester;
   for (int i = 0; i < prefs::kMaxValueForMandatoryReauthPromoShownCounter;
@@ -3496,12 +3468,9 @@ TEST_F(PaymentsDataManagerTest,
     GTEST_SKIP() << "This test should not run on automotive.";
   }
 #endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(IS_CHROMEOS)
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
   base::HistogramTester histogram_tester;
+
   // Simulate user is already opted in.
   payments_data_manager().SetPaymentMethodsMandatoryReauthEnabled(true);
 
@@ -3523,10 +3492,6 @@ TEST_F(PaymentsDataManagerTest,
     GTEST_SKIP() << "This test should not run on automotive.";
   }
 #endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(IS_CHROMEOS)
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
   base::HistogramTester histogram_tester;
   // Simulate user is already opted out.
@@ -3539,58 +3504,6 @@ TEST_F(PaymentsDataManagerTest,
       "ReauthOfferOptInDecision2",
       autofill_metrics::MandatoryReauthOfferOptInDecision::kAlreadyOptedOut, 1);
 }
-
-#if BUILDFLAG(IS_CHROMEOS)
-// Test that
-// `PaymentsDataManager::ShouldShowPaymentMethodsMandatoryReauthPromo()`
-// returns false if the `kAutofillEnablePaymentsMandatoryReauthChromeOs` flag is
-// disabled, even if the user is otherwise eligible (below the show limit).
-TEST_F(PaymentsDataManagerTest,
-       ShouldShowPaymentMethodsMandatoryReauthPromo_ChromeOSFlagDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
-
-  EXPECT_FALSE(
-      payments_data_manager().ShouldShowPaymentMethodsMandatoryReauthPromo());
-}
-
-// Test that
-// `PaymentsDataManager::ShouldShowPaymentMethodsMandatoryReauthPromo()`
-// returns false if the `kAutofillEnablePaymentsMandatoryReauthChromeOs` flag is
-// disabled, when the user is already opted in.
-TEST_F(
-    PaymentsDataManagerTest,
-    ShouldShowPaymentMethodsMandatoryReauthPromo_ChromeOSFlagDisabled_UserOptedIn) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
-
-  // Simulate user is already opted in.
-  payments_data_manager().SetPaymentMethodsMandatoryReauthEnabled(true);
-
-  EXPECT_FALSE(
-      payments_data_manager().ShouldShowPaymentMethodsMandatoryReauthPromo());
-}
-
-// Test that
-// `PaymentsDataManager::ShouldShowPaymentMethodsMandatoryReauthPromo()`
-// returns false if the `kAutofillEnablePaymentsMandatoryReauthChromeOs` flag is
-// disabled, when the user has already opted out.
-TEST_F(
-    PaymentsDataManagerTest,
-    ShouldShowPaymentMethodsMandatoryReauthPromo_ChromeOSFlagDisabled_UserOptedOut) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
-
-  // Simulate user is already opted out.
-  payments_data_manager().SetPaymentMethodsMandatoryReauthEnabled(false);
-
-  EXPECT_FALSE(
-      payments_data_manager().ShouldShowPaymentMethodsMandatoryReauthPromo());
-}
-#endif  // BUILDFLAG(IS_CHROMEOS)
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_CHROMEOS)
 
@@ -3720,6 +3633,155 @@ TEST_F(PaymentsDataManagerTest, RecordLocalCardAdded) {
       "Autofill.PaymentsDataManager.LocalCardAdded", true, 1);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+// Tests that unlinked eWallet creation options are successfully loaded from the
+// WebDatabase and cached in the PaymentsDataManager when Refresh() is called.
+TEST_P(PaymentsDataManagerServerTest,
+       GetEwalletCreationOptions_EwalletCreationOptionsCacheUpdated) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ::payments::facilitated::kEnableEwalletNewAccountLinking);
+
+  // Create an eWallet payment creation option.
+  sync_pb::PaymentInstrumentCreationOption creation_option;
+  creation_option.set_id("1234");
+
+  sync_pb::EwalletCreationOption* ewallet_option =
+      creation_option.mutable_ewallet_creation_option();
+  ewallet_option->set_issuer_display_name("ShopeePay");
+  ewallet_option->add_supported_payment_link_uris("shopeepay://.*");
+
+  ASSERT_TRUE(GetServerDataTable()->SetPaymentInstrumentCreationOptions(
+      {creation_option}));
+
+  EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::IsEmpty());
+
+  // We need to call `Refresh()` to ensure that the eWallet creation options
+  // are loaded again from the WebDatabase.
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::UnorderedElementsAre(Ewallet(
+                  /*instrument_id=*/0, /*nickname=*/u"",
+                  /*display_icon_url=*/GURL(), /*ewallet_name=*/u"ShopeePay",
+                  /*account_display_name=*/u"",
+                  /*supported_payment_link_uris=*/{u"shopeepay://.*"},
+                  /*is_fido_enrolled=*/false)));
+}
+
+// Tests that no unlinked eWallet creation options are cached in the
+// PaymentsDataManager if the eWallet sync/caching feature is disabled.
+TEST_P(PaymentsDataManagerServerTest,
+       GetEwalletCreationOptions_FlagDisabled_EwalletCreationOptionsNotCached) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ::payments::facilitated::kEnableEwalletNewAccountLinking);
+
+  sync_pb::PaymentInstrumentCreationOption creation_option;
+  creation_option.set_id("1234");
+  creation_option.mutable_ewallet_creation_option()->set_issuer_display_name(
+      "ShopeePay");
+
+  ASSERT_TRUE(GetServerDataTable()->SetPaymentInstrumentCreationOptions(
+      {creation_option}));
+
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::IsEmpty());
+}
+
+// Tests that calling ClearAllServerDataForTesting() clears all cached unlinked
+// eWallet creation options.
+TEST_P(PaymentsDataManagerServerTest,
+       ClearAllServerData_ClearsEwalletCreationOptions) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ::payments::facilitated::kEnableEwalletNewAccountLinking);
+
+  sync_pb::PaymentInstrumentCreationOption creation_option;
+  creation_option.set_id("1234");
+  creation_option.mutable_ewallet_creation_option()->set_issuer_display_name(
+      "ShopeePay");
+
+  ASSERT_TRUE(GetServerDataTable()->SetPaymentInstrumentCreationOptions(
+      {creation_option}));
+
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  ASSERT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::Not(testing::IsEmpty()));
+
+  payments_data_manager().ClearAllServerDataForTesting();
+
+  EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::IsEmpty());
+}
+
+// This test ensures that if the server accidentally returns duplicate unlinked
+// eWallet issuers it is handled gracefully in Chrome.
+TEST_P(PaymentsDataManagerServerTest,
+       GetEwalletCreationOptions_DuplicateIssuers) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ::payments::facilitated::kEnableEwalletNewAccountLinking);
+
+  // Create an eWallet payment creation option.
+  sync_pb::PaymentInstrumentCreationOption creation_option;
+  creation_option.set_id("1234");
+
+  sync_pb::EwalletCreationOption* ewallet_option =
+      creation_option.mutable_ewallet_creation_option();
+  ewallet_option->set_issuer_display_name("ShopeePay");
+  ewallet_option->add_supported_payment_link_uris("shopeepay://.*");
+
+  sync_pb::PaymentInstrumentCreationOption creation_option_2 = creation_option;
+  creation_option_2.set_id("5678");
+
+  ASSERT_TRUE(GetServerDataTable()->SetPaymentInstrumentCreationOptions(
+      {creation_option, creation_option_2}));
+
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::UnorderedElementsAre(Ewallet(
+                  /*instrument_id=*/0, /*nickname=*/u"",
+                  /*display_icon_url=*/GURL(), /*ewallet_name=*/u"ShopeePay",
+                  /*account_display_name=*/u"",
+                  /*supported_payment_link_uris=*/{u"shopeepay://.*"},
+                  /*is_fido_enrolled=*/false)));
+}
+
+// Tests that eWallet creation options are not returned if the
+// overall payment methods preference is disabled.
+TEST_P(PaymentsDataManagerServerTest,
+       GetEwalletCreationOptions_PaymentMethodsDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ::payments::facilitated::kEnableEwalletNewAccountLinking);
+
+  sync_pb::PaymentInstrumentCreationOption creation_option;
+  creation_option.set_id("1234");
+  creation_option.mutable_ewallet_creation_option()->set_issuer_display_name(
+      "ShopeePay");
+
+  ASSERT_TRUE(GetServerDataTable()->SetPaymentInstrumentCreationOptions(
+      {creation_option}));
+
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  ASSERT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::Not(testing::IsEmpty()));
+
+  // Disable overall payment methods pref.
+  prefs::SetAutofillPaymentMethodsEnabled(prefs_.get(), false);
+
+  EXPECT_THAT(payments_data_manager().GetEwalletCreationOptions(),
+              testing::IsEmpty());
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
 TEST_P(

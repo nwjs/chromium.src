@@ -13,7 +13,7 @@
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_window.h"
-#include "chrome/grit/branded_strings.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/widget/widget.h"
@@ -78,7 +78,8 @@ BrowserWindow::CreateBrowserWindow(Browser* browser,
   }
 
 #if BUILDFLAG(IS_MAC)
-  if (view->UsesImmersiveFullscreenMode()) {
+  if (WindowFeatureController::From(view->browser())
+          ->UsesImmersiveFullscreenMode()) {
     // This needs to happen after BrowserWidget has been initialized. It creates
     // a new Widget that copies the theme from BrowserWidget.
     view->CreateMacOverlayView();

@@ -21,6 +21,7 @@
 #include "components/payments/content/payment_request_converter.h"
 #include "components/payments/content/payment_request_web_contents_manager.h"
 #include "components/payments/content/secure_payment_confirmation_transaction_mode.h"
+#include "components/payments/content/secure_payment_confirmation_validation.h"
 #include "components/payments/core/error_message_util.h"
 #include "components/payments/core/error_strings.h"
 #include "components/payments/core/features.h"
@@ -42,6 +43,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "mojo/public/cpp/bindings/message.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/features.h"
@@ -62,6 +64,58 @@ mojom::PaymentAddressPtr RedactShippingAddress(
   address->recipient.clear();
   address->address_line.clear();
   return address;
+}
+
+// Returns true if the requested method data and payment options represent a
+// valid SecurePaymentConfirmation (SPC) request, or returns false and sets
+// `error_message` if any structural or parameters constraints are violated.
+//
+// Should only be called if `method_data` contains at least one SPC method.
+bool ValidateSecurePaymentConfirmationRequest(
+    const std::vector<mojom::PaymentMethodDataPtr>& method_data,
+    const mojom::PaymentOptionsPtr& options,
+    std::string* error_message) {
+  CHECK(error_message);
+  CHECK_GT(method_data.size(), 0u);
+
+  if (!base::FeatureList::IsEnabled(::features::kSecurePaymentConfirmation)) {
+    // If the SPC feature is not enabled and a website specifies
+    // "secure-payment-confirmation", the renderer should pass the browser a
+    // null SPC object.
+    for (const auto& method_data_entry : method_data) {
+      if (method_data_entry->supported_method ==
+              methods::kSecurePaymentConfirmation &&
+          method_data_entry->secure_payment_confirmation.get() != nullptr) {
+        *error_message = errors::kSpcDisabledMustBeNull;
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  if (method_data.size() > 1) {
+    *error_message = errors::kSpcMustBeOnlyPaymentMethod;
+    return false;
+  }
+
+  if (options->request_payer_name || options->request_payer_email ||
+      options->request_payer_phone || options->request_shipping) {
+    *error_message = errors::kSpcUnsupportedOptions;
+    return false;
+  }
+
+  const auto& method_data_entry = method_data.at(0);
+  CHECK_EQ(method_data_entry->supported_method,
+           payments::methods::kSecurePaymentConfirmation);
+
+  if (method_data_entry->secure_payment_confirmation.get() == nullptr) {
+    *error_message = errors::kSpcEnabledMustNotBeNull;
+    return false;
+  }
+
+  return IsValidSecurePaymentConfirmationRequest(
+      method_data_entry->secure_payment_confirmation, error_message);
 }
 }  // namespace
 
@@ -172,14 +226,29 @@ void PaymentRequest::Init(
     return;
   }
 
-  if (!details || !details->id || !details->total) {
-    log_.Error(errors::kInvalidPaymentDetails);
+  if (!options) {
+    log_.Error(errors::kInvalidPaymentOptions);
     ResetAndDeleteThis();
     return;
   }
 
-  if (!options) {
-    log_.Error(errors::kInvalidPaymentOptions);
+  // If SPC is present, validate that the renderer has sent valid data for it.
+  if (std::ranges::any_of(method_data, [](const auto& datum) {
+        return datum &&
+               datum->supported_method == methods::kSecurePaymentConfirmation;
+      })) {
+    std::string error_message;
+    if (!ValidateSecurePaymentConfirmationRequest(method_data, options,
+                                                  &error_message)) {
+      log_.Error(error_message);
+      mojo::ReportBadMessage(error_message);
+      ResetAndDeleteThis();
+      return;
+    }
+  }
+
+  if (!details || !details->id || !details->total) {
+    log_.Error(errors::kInvalidPaymentDetails);
     ResetAndDeleteThis();
     return;
   }
@@ -862,6 +931,11 @@ void PaymentRequest::OnInternalError(const std::string& error_message) {
   }
 
   ResetAndDeleteThis();
+}
+
+void PaymentRequest::SetWindowSizeCheckRejectionReason(
+    JourneyLogger::WindowSizeCheckRejectionReason reason) {
+  journey_logger_.SetWindowSizeCheckRejectionReason(reason);
 }
 
 void PaymentRequest::OnUserAuthAnotherWay() {

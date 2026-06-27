@@ -28,6 +28,7 @@
 
 #include <utility>
 
+#include "third_party/blink/renderer/core/animation/document_animations.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
 #include "third_party/blink/renderer/core/css/resolver/style_adjuster.h"
@@ -520,6 +521,29 @@ PseudoElement::AttachLayoutTreeScope::~AttachLayoutTreeScope() {
 void PseudoElement::AttachLayoutTree(AttachContext& context) {
   DCHECK(!GetLayoutObject());
 
+  // The backdrop generated for an element in the overscroll area is the first
+  // child of the corresponding ::-internal-overscroll-area-parent:
+  //
+  // - #container
+  //   - ::-internal-overscroll-area-parent
+  //     - ::backdrop
+  //     - #item
+  if (pseudo_id_ == kPseudoIdBackdrop) {
+    Element& originating = UltimateOriginatingElement();
+    if (PseudoElement* overscroll_parent =
+            originating.GetPseudoElement(kPseudoIdOverscrollAreaParent)) {
+      if (context.parent != overscroll_parent->GetLayoutObject()) {
+        AttachContext redirected_context(context);
+        redirected_context.parent = overscroll_parent->GetLayoutObject();
+        redirected_context.previous_in_flow = nullptr;
+        redirected_context.next_sibling = originating.GetLayoutObject();
+        redirected_context.next_sibling_valid = true;
+        AttachLayoutTree(redirected_context);
+        return;
+      }
+    }
+  }
+
   // Some elements may have 'display: list-item' but not be list items.
   // Do not create a layout object for the ::marker in that case.
   if (pseudo_id_ == kPseudoIdMarker) {
@@ -844,6 +868,13 @@ bool PseudoElement::IsInertRoot() const {
   // ::picker-icon and its descendants should not be included in the
   // accessibility tree.
   return pseudo_id_ == kPseudoIdPickerIcon;
+}
+
+void PseudoElement::RetargetAnimations() {
+  Element& originating_element = UltimateOriginatingElement();
+  originating_element.GetDocument()
+      .GetDocumentAnimations()
+      .RetargetAnimationsForPseudoElement(this);
 }
 
 }  // namespace blink

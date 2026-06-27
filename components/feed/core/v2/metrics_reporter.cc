@@ -39,7 +39,7 @@
 
 namespace feed {
 namespace {
-StreamKind kStreamKinds[] = {StreamKind::kForYou, StreamKind::kFollowing};
+StreamKind kStreamKinds[] = {StreamKind::kForYou};
 
 using feed::FeedEngagementType;
 using feed::FeedUserActionType;
@@ -79,8 +79,6 @@ std::string_view HistogramReplacement(const StreamType& stream_type) {
   switch (stream_type.GetKind()) {
     case StreamKind::kForYou:
       return "Feed.";
-    case StreamKind::kFollowing:
-      return "Feed.WebFeed.";
     case StreamKind::kUnknown:
       DCHECK(false) << "unknown feed kind";
       return "Feed.";
@@ -105,10 +103,6 @@ void ReportContentSuggestionsOpened(const StreamType& stream_type,
   switch (stream_type.GetKind()) {
     case StreamKind::kForYou:
       base::UmaHistogramExactLinear("NewTabPage.ContentSuggestions.Opened",
-                                    index_in_stream, kMaxSuggestionsTotal);
-      break;
-    case StreamKind::kFollowing:
-      base::UmaHistogramExactLinear("ContentSuggestions.Feed.WebFeed.Opened",
                                     index_in_stream, kMaxSuggestionsTotal);
       break;
     case StreamKind::kUnknown:
@@ -184,16 +178,6 @@ std::string_view NetworkRequestTypeUmaName(NetworkRequestType type) {
       return "UploadActions";
     case NetworkRequestType::kNextPage:
       return "NextPage";
-    case NetworkRequestType::kListWebFeeds:
-      return "ListFollowedWebFeeds";
-    case NetworkRequestType::kUnfollowWebFeed:
-      return "UnfollowWebFeed";
-    case NetworkRequestType::kFollowWebFeed:
-      return "FollowWebFeed";
-    case NetworkRequestType::kListRecommendedWebFeeds:
-      return "ListRecommendedWebFeeds";
-    case NetworkRequestType::kWebFeedListContents:
-      return "WebFeedListContents";
     case NetworkRequestType::kQueryInteractiveFeed:
       return "QueryInteractiveFeed";
     case NetworkRequestType::kQueryBackgroundFeed:
@@ -453,10 +437,6 @@ void MetricsReporter::ContentSliceViewed(const StreamType& stream_type,
   switch (stream_type.GetKind()) {
     case StreamKind::kForYou:
       base::UmaHistogramExactLinear("NewTabPage.ContentSuggestions.Shown",
-                                    index_in_stream, kMaxSuggestionsTotal);
-      break;
-    case StreamKind::kFollowing:
-      base::UmaHistogramExactLinear("ContentSuggestions.Feed.WebFeed.Shown",
                                     index_in_stream, kMaxSuggestionsTotal);
       break;
     case StreamKind::kUnknown:
@@ -796,7 +776,6 @@ void MetricsReporter::ReportCardOpenEndIfNeeded(bool success) {
 
   std::string histogram_name =
       base::StrCat({"ContentSuggestions.Feed.UserJourney.OpenCard",
-                    pending_open_.stream_type.IsWebFeed() ? ".WebFeed" : "",
                     success ? ".SuccessDuration" : ".Failure"});
 
   if (success) {
@@ -1048,11 +1027,9 @@ MetricsReporter::StreamStats& MetricsReporter::ForStream(
   switch (stream_type.GetKind()) {
     case StreamKind::kForYou:
       return for_you_stats_;
-    case StreamKind::kFollowing:
-      return web_feed_stats_;
     case StreamKind::kUnknown:
       DCHECK(false) << "unknown feed kind";
-      return web_feed_stats_;
+      return for_you_stats_;
   }
 }
 

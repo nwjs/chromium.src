@@ -72,11 +72,34 @@ ContextualTasksCloseButtonController::From(
 }
 
 void ContextualTasksCloseButtonController::OnEntryShown(SidePanelEntry* entry) {
+  is_panel_visible_ = true;
+  is_panel_hiding_ = false;
   MaybeNotifyVisibilityShouldChange();
+}
+
+void ContextualTasksCloseButtonController::OnEntryWillHide(
+    SidePanelEntry* entry,
+    SidePanelEntryHideReason reason) {
+  if (contextual_tasks::kShowEntryPoint.Get() !=
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+    is_panel_hiding_ = true;
+    MaybeNotifyVisibilityShouldChange();
+  }
+}
+
+void ContextualTasksCloseButtonController::OnEntryHideCancelled(
+    SidePanelEntry* entry) {
+  if (contextual_tasks::kShowEntryPoint.Get() !=
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+    is_panel_hiding_ = false;
+    MaybeNotifyVisibilityShouldChange();
+  }
 }
 
 void ContextualTasksCloseButtonController::OnEntryHidden(
     SidePanelEntry* entry) {
+  is_panel_hiding_ = false;
+  is_panel_visible_ = false;
   MaybeNotifyVisibilityShouldChange();
 }
 
@@ -135,8 +158,6 @@ void ContextualTasksCloseButtonController::MaybeNotifyVisibilityShouldChange() {
       eligibility_manager && eligibility_manager->AreEntryPointsEligible();
   auto* controller = contextual_tasks::ContextualTasksPanelController::From(
       browser_window_interface_);
-  const bool is_contextual_tasks_panel_open =
-      controller && controller->IsPanelOpenForContextualTask();
   const bool can_expand_to_full_tab =
       controller && controller->CanExpandToFullTab();
 
@@ -147,19 +168,25 @@ void ContextualTasksCloseButtonController::MaybeNotifyVisibilityShouldChange() {
    *  - Side panel is open.
    *  - Side panel can expand to full tab.
    **/
+  bool is_panel_state_eligible = is_panel_visible_ && !is_panel_hiding_;
   should_update_visibility_callbacks_.Notify(
       !IsVerticalTabOrIsImmersiveMode() && is_eligible &&
-      is_contextual_tasks_panel_open && can_expand_to_full_tab);
+      is_panel_state_eligible && can_expand_to_full_tab);
 
   if (controller) {
     content::WebContents* contents = controller->GetActiveWebContents();
     if (contents) {
       auto* ui = contextual_tasks::GetWebUiInterface(contents);
       if (ui) {
+        // The expand button option is enabled if the experimental flag is set,
+        // provided that the WebUI is eligible to expand to a full tab (checking
+        // co-browse eligibility strictly from its static load-time cached
+        // state).
         bool enabled =
-            IsVerticalTabOrIsImmersiveMode() ||
-            (contextual_tasks::GetExpandButtonOption() ==
-             contextual_tasks::ExpandButtonOption::kSidePanelExpandButton);
+            (IsVerticalTabOrIsImmersiveMode() ||
+             (contextual_tasks::GetExpandButtonOption() ==
+              contextual_tasks::ExpandButtonOption::kSidePanelExpandButton)) &&
+            ui->CanExpandToFullTab();
 
         ui->UpdateExpandButtonEnabled(enabled);
       }

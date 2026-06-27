@@ -118,9 +118,9 @@ PermissionRequest::GetDialogAnnotatedMessageText(
           case GeolocationPromptType::kApproximateOnly:
             message_id = IDS_GEOLOCATION_APPROXIMATE_INFOBAR_TEXT;
             break;
-          // TODO(crbug.com/417894145): Add support for the upgrade to precise
-          // prompt.
           case GeolocationPromptType::kUpgradeToPrecise:
+            message_id = IDS_GEOLOCATION_UPGRADE_INFOBAR_TEXT;
+            break;
           default:
             NOTREACHED();
         }
@@ -129,9 +129,6 @@ PermissionRequest::GetDialogAnnotatedMessageText(
     }
     case RequestType::kIdleDetection:
       message_id = IDS_IDLE_DETECTION_INFOBAR_TEXT;
-      break;
-    case RequestType::kLocalNetworkAccess:
-      message_id = IDS_LOCAL_NETWORK_ACCESS_INFOBAR_TEXT;
       break;
     case RequestType::kLocalNetwork:
       message_id = IDS_LOCAL_NETWORK_INFOBAR_TEXT;
@@ -423,9 +420,6 @@ std::u16string PermissionRequest::GetMessageTextFragment() const {
       break;
     case RequestType::kLocalFonts:
       message_id = IDS_FONT_ACCESS_PERMISSION_FRAGMENT;
-      break;
-    case RequestType::kLocalNetworkAccess:
-      message_id = IDS_LOCAL_NETWORK_ACCESS_PERMISSION_FRAGMENT;
       break;
     case RequestType::kLocalNetwork:
       message_id = IDS_LOCAL_NETWORK_PERMISSION_FRAGMENT;

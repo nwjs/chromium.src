@@ -45,10 +45,6 @@ class RenderFrameHost;
 class WebContents;
 }  // namespace content
 
-namespace nw {
-class Menu;
-}
-
 namespace extensions {
 
 class AppDelegate;
@@ -110,12 +106,6 @@ class AppWindow : public content::WebContentsDelegate,
   enum Frame {
     FRAME_CHROME,  // Chrome-style window frame.
     FRAME_NONE,    // Frameless window.
-  };
-
-  enum Position {
-    POS_NONE,
-    POS_CENTER,
-    POS_MOUSE,
   };
 
   enum FullscreenType {
@@ -213,20 +203,6 @@ class AppWindow : public content::WebContentsDelegate,
     // Icon URL to be used for setting the window icon.
     GURL window_icon_url;
 
-    bool skip_load;
-
-    bool show_in_taskbar;
-    bool new_instance;
-    bool skip_block_parser;
-
-    Position position;
-
-    std::string title;
-
-    std::string inject_js_start, inject_js_end;
-
-    gfx::Image icon;
-
     // The API enables developers to specify content or window bounds. This
     // function combines them into a single, constrained window size.
     gfx::Rect GetInitialWindowBounds(
@@ -275,12 +251,9 @@ class AppWindow : public content::WebContentsDelegate,
   WindowType window_type() const { return window_type_; }
   content::BrowserContext* browser_context() const { return browser_context_; }
   const gfx::Image& custom_app_icon() const { return custom_app_icon_; }
-  const gfx::Image& icon_override() const { return icon_override_; }
   const GURL& app_icon_url() const { return app_icon_url_; }
   const GURL& initial_url() const { return initial_url_; }
   bool is_hidden() const { return is_hidden_; }
-  const std::string& title_override() const { return title_override_; }
-  void set_title_override(const std::string& title) { title_override_ = title; }
 
   // Calls to this should always be guarded by a nullptr check as this can
   // return nullptr if the extension is no longer installed.
@@ -360,8 +333,6 @@ class AppWindow : public content::WebContentsDelegate,
   void Minimize();
   void Restore();
 
-  void SetShowInTaskbar(bool);
-
   // Transitions to OS fullscreen. See FULLSCREEN_TYPE_OS for more details.
   void OSFullscreen();
 
@@ -422,7 +393,6 @@ class AppWindow : public content::WebContentsDelegate,
       std::unique_ptr<AppWindowContents> contents) {
     app_window_contents_ = std::move(contents);
   }
-  raw_ptr<nw::Menu> menu_ = nullptr;
 
   void SetNativeAppWindowForTesting(
       std::unique_ptr<NativeAppWindow> native_app_window) {
@@ -444,10 +414,6 @@ class AppWindow : public content::WebContentsDelegate,
 
   // content::WebContentsDelegate implementation.
   void ActivateContents(content::WebContents* contents) override;
-  void LoadingStateChanged(content::WebContents* source,
-                           bool to_different_document) override;
-  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
-      content::WebContents* source) override;
   void CloseContents(content::WebContents* contents) override;
   bool ShouldSuppressDialogs(content::WebContents* source) override;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
@@ -568,7 +534,6 @@ class AppWindow : public content::WebContentsDelegate,
   // not own this object.
   raw_ptr<content::BrowserContext> browser_context_;
 
-  std::string title_override_;
   const ExtensionId extension_id_;
 
   // Identifier that is used when saving and restoring geometry for this
@@ -580,7 +545,6 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Custom icon shown in the task bar or in Chrome OS shelf.
   gfx::Image custom_app_icon_;
-  gfx::Image icon_override_;
 
   // Icon URL to be used for setting the app icon. If not empty, app_icon_ will
   // be fetched and set using this URL.
@@ -629,8 +593,6 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Whether `is_ime_window` was set in the CreateParams.
   bool is_ime_window_ = false;
-
-  bool last_to_different_document_ = false;
 
   // Whether `show_in_shelf` was set in the CreateParams.
   bool show_in_shelf_ = false;

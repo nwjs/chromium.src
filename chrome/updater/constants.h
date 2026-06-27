@@ -100,6 +100,12 @@ inline constexpr char kPatchWorkerSwitch[] = "patch-worker";
 // Run as an unzip worker.
 inline constexpr char kUnzipWorkerSwitch[] = "unzip-worker";
 
+#if BUILDFLAG(IS_MAC)
+// Command line switch to run the patch worker at background priority.
+inline constexpr char kPatchWorkerBackgroundPrioritySwitch[] =
+    "patch-worker-background-priority";
+#endif
+
 // Run as a network worker.
 inline constexpr char kNetWorkerSwitch[] = "net-worker";
 
@@ -595,6 +601,9 @@ inline constexpr bool kInstallPolicyDefault = kPolicyEnabled;
 inline constexpr bool kUpdatePolicyDefault = kPolicyEnabled;
 
 // Policy manager constants.
+// Policy source strings below are persisted to event history logs (see
+// //docs/updater/history_log.md) and serialized in GetPoliciesJson Mojo
+// responses. Changing the values is a backwards-incompatible change.
 inline constexpr char kSourceDMPolicyManager[] = "Device Management";
 inline constexpr char kSourceDefaultValuesPolicyManager[] = "Default";
 inline constexpr char kSourceDictValuesPolicyManager[] = "DictValuePolicy";

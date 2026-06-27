@@ -9,18 +9,18 @@
 #include "base/functional/callback_helpers.h"
 #include "base/test/task_environment.h"
 #include "components/gcm_driver/fake_gcm_driver.h"
-#include "components/sharing_message/fake_device_info.h"
 #include "components/sharing_message/fake_sharing_handler_registry.h"
 #include "components/sharing_message/features.h"
 #include "components/sharing_message/mock_sharing_message_handler.h"
 #include "components/sharing_message/proto/sharing_message.pb.h"
+#include "components/sharing_message/sharing_channel_sender.h"
 #include "components/sharing_message/sharing_constants.h"
 #include "components/sharing_message/sharing_fcm_handler.h"
-#include "components/sharing_message/sharing_fcm_sender.h"
 #include "components/sharing_message/sharing_handler_registry.h"
 #include "components/sync/protocol/device_info_specifics.pb.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/fake_device_info_sync_service.h"
+#include "components/sync_device_info/test_device_info_builder.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -51,10 +51,10 @@ void SetupFcmChannel(
   fcm_configuration->set_sender_id_auth_secret(kSenderIdAuthSecret);
 }
 
-class MockSharingFCMSender : public SharingFCMSender {
+class MockSharingChannelSender : public SharingChannelSender {
  public:
-  MockSharingFCMSender()
-      : SharingFCMSender(
+  MockSharingChannelSender()
+      : SharingChannelSender(
             /*sharing_message_bridge=*/nullptr,
             /*sync_preference=*/nullptr,
             /*gcm_driver=*/nullptr,
@@ -62,7 +62,7 @@ class MockSharingFCMSender : public SharingFCMSender {
             /*local_device_info_provider=*/nullptr,
             /*sync_service=*/nullptr,
             /*start_sync_flare=*/base::DoNothing()) {}
-  ~MockSharingFCMSender() override = default;
+  ~MockSharingChannelSender() override = default;
 
   MOCK_METHOD4(SendMessageToFcmTarget,
                void(const components_sharing_message::FCMChannelConfiguration&
@@ -85,13 +85,16 @@ class SharingFCMHandlerTest : public testing::Test {
     sharing_fcm_handler_ = std::make_unique<SharingFCMHandler>(
         &fake_gcm_driver_,
         fake_device_info_sync_service_.GetDeviceInfoTracker(),
-        &mock_sharing_fcm_sender_, &handler_registry_);
-    fake_device_info_ = CreateFakeDeviceInfo(
-        kSenderGuid, kSenderName,
-        syncer::DeviceInfo::SharingInfo(
-            {kSenderIdFCMToken, kSenderIdP256dh, kSenderIdAuthSecret},
-            /*chime_representative_target_id=*/std::string(),
-            std::set<syncer::DeviceInfo::SharingFeature>()));
+        &mock_sharing_channel_sender_, &handler_registry_);
+    fake_device_info_ =
+        syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kLinux)
+            .WithGuid(kSenderGuid)
+            .WithClientName(kSenderName)
+            .WithSharingInfo(
+                {{kSenderIdFCMToken, kSenderIdP256dh, kSenderIdAuthSecret},
+                 /*chime_representative_target_id=*/std::string(),
+                 std::set<syncer::DeviceInfo::SharingFeature>()})
+            .Build();
   }
 
   // Creates a gcm::IncomingMessage with SharingMessage and defaults.
@@ -109,7 +112,7 @@ class SharingFCMHandlerTest : public testing::Test {
   FakeSharingHandlerRegistry handler_registry_;
 
   testing::NiceMock<MockSharingMessageHandler> mock_sharing_message_handler_;
-  testing::NiceMock<MockSharingFCMSender> mock_sharing_fcm_sender_;
+  testing::NiceMock<MockSharingChannelSender> mock_sharing_channel_sender_;
 
   gcm::FakeGCMDriver fake_gcm_driver_;
   std::unique_ptr<SharingFCMHandler> sharing_fcm_handler_;
@@ -151,7 +154,7 @@ TEST_F(SharingFCMHandlerTest, AckMessageHandler) {
 
   EXPECT_CALL(mock_sharing_message_handler_,
               OnMessage(ProtoEquals(sharing_message), _));
-  EXPECT_CALL(mock_sharing_fcm_sender_, SendMessageToFcmTarget(_, _, _, _))
+  EXPECT_CALL(mock_sharing_channel_sender_, SendMessageToFcmTarget(_, _, _, _))
       .Times(0);
   handler_registry_.SetSharingHandler(SharingMessage::kAckMessage,
                                       &mock_sharing_message_handler_);
@@ -173,7 +176,7 @@ TEST_F(SharingFCMHandlerTest, PingMessageHandler) {
 
   // Tests OnMessage flow in SharingFCMHandler when no handler is registered.
   EXPECT_CALL(mock_sharing_message_handler_, OnMessage(_, _)).Times(0);
-  EXPECT_CALL(mock_sharing_fcm_sender_, SendMessageToFcmTarget(_, _, _, _))
+  EXPECT_CALL(mock_sharing_channel_sender_, SendMessageToFcmTarget(_, _, _, _))
       .Times(0);
   sharing_fcm_handler_->OnMessage(kTestAppId, incoming_message);
 
@@ -186,7 +189,7 @@ TEST_F(SharingFCMHandlerTest, PingMessageHandler) {
       });
   EXPECT_CALL(mock_sharing_message_handler_, OnMessage(_, _));
   EXPECT_CALL(
-      mock_sharing_fcm_sender_,
+      mock_sharing_channel_sender_,
       SendMessageToFcmTarget(FCMChannelMatcher(), Eq(kSharingAckMessageTTL),
                              ProtoEquals(sharing_ack_message), _));
   handler_registry_.SetSharingHandler(SharingMessage::kPingMessage,
@@ -196,7 +199,7 @@ TEST_F(SharingFCMHandlerTest, PingMessageHandler) {
   // Tests OnMessage flow in SharingFCMHandler after registered handler is
   // removed.
   EXPECT_CALL(mock_sharing_message_handler_, OnMessage(_, _)).Times(0);
-  EXPECT_CALL(mock_sharing_fcm_sender_, SendMessageToFcmTarget(_, _, _, _))
+  EXPECT_CALL(mock_sharing_channel_sender_, SendMessageToFcmTarget(_, _, _, _))
       .Times(0);
   handler_registry_.SetSharingHandler(SharingMessage::kPingMessage, nullptr);
   sharing_fcm_handler_->OnMessage(kTestAppId, incoming_message);
@@ -223,7 +226,7 @@ TEST_F(SharingFCMHandlerTest, PingMessageHandlerWithMessageIdInPayload) {
       });
   EXPECT_CALL(mock_sharing_message_handler_, OnMessage(_, _));
   EXPECT_CALL(
-      mock_sharing_fcm_sender_,
+      mock_sharing_channel_sender_,
       SendMessageToFcmTarget(FCMChannelMatcher(), Eq(kSharingAckMessageTTL),
                              ProtoEquals(sharing_ack_message), _));
   handler_registry_.SetSharingHandler(SharingMessage::kPingMessage,
@@ -256,7 +259,7 @@ TEST_F(SharingFCMHandlerTest, PingMessageHandlerWithResponse) {
           });
   EXPECT_CALL(mock_sharing_message_handler_, OnMessage(_, _));
   EXPECT_CALL(
-      mock_sharing_fcm_sender_,
+      mock_sharing_channel_sender_,
       SendMessageToFcmTarget(FCMChannelMatcher(), Eq(kSharingAckMessageTTL),
                              ProtoEquals(sharing_ack_message), _));
   handler_registry_.SetSharingHandler(SharingMessage::kPingMessage,
@@ -285,7 +288,7 @@ TEST_F(SharingFCMHandlerTest, PingMessageHandlerSecondaryUser) {
                         SharingMessageHandler::DoneCallback done_callback) {
         std::move(done_callback).Run(/*response=*/nullptr);
       });
-  EXPECT_CALL(mock_sharing_fcm_sender_,
+  EXPECT_CALL(mock_sharing_channel_sender_,
               SendMessageToFcmTarget(FCMChannelMatcher(), kSharingAckMessageTTL,
                                      ProtoEquals(sharing_ack_message), _));
   handler_registry_.SetSharingHandler(SharingMessage::kPingMessage,
@@ -315,7 +318,7 @@ TEST_F(SharingFCMHandlerTest,
                         SharingMessageHandler::DoneCallback done_callback) {
         std::move(done_callback).Run(/*response=*/nullptr);
       });
-  EXPECT_CALL(mock_sharing_fcm_sender_,
+  EXPECT_CALL(mock_sharing_channel_sender_,
               SendMessageToServerTarget(ServerChannelMatcher(),
                                         ProtoEquals(sharing_ack_message), _));
   handler_registry_.SetSharingHandler(SharingMessage::kPingMessage,

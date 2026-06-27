@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "base/barrier_callback.h"
+#include "base/barrier_closure.h"
 #include "base/check.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
@@ -134,6 +135,12 @@ SqlPersistentStore::SqlPersistentStore(
 SqlPersistentStore::~SqlPersistentStore() = default;
 
 void SqlPersistentStore::Initialize(ErrorCallback callback) {
+  if (net::features::kSqlDiskCacheSerialInitialize.Get()) {
+    std::vector<InitResultOrError> results;
+    results.reserve(GetSizeOfShards());
+    InitializeNextShard(std::move(callback), std::move(results));
+    return;
+  }
   auto barrier_callback = base::BarrierCallback<InitResultOrError>(
       GetSizeOfShards(),
       base::BindOnce(&SqlPersistentStore::OnInitializeFinished,
@@ -141,6 +148,32 @@ void SqlPersistentStore::Initialize(ErrorCallback callback) {
   for (const auto& backend_shard : backend_shards_) {
     backend_shard->Initialize(user_max_bytes_, barrier_callback);
   }
+}
+
+void SqlPersistentStore::InitializeNextShard(
+    ErrorCallback callback,
+    std::vector<InitResultOrError> results) {
+  if (results.size() == GetSizeOfShards()) {
+    OnInitializeFinished(std::move(callback), std::move(results));
+    return;
+  }
+  const size_t shard_index = results.size();
+  backend_shards_[shard_index]->Initialize(
+      user_max_bytes_, base::BindOnce(&SqlPersistentStore::OnShardInitialized,
+                                      weak_factory_.GetWeakPtr(),
+                                      std::move(callback), std::move(results)));
+}
+
+void SqlPersistentStore::OnShardInitialized(
+    ErrorCallback callback,
+    std::vector<InitResultOrError> results,
+    InitResultOrError result) {
+  if (!result.has_value()) {
+    std::move(callback).Run(result.error());
+    return;
+  }
+  results.push_back(std::move(result));
+  InitializeNextShard(std::move(callback), std::move(results));
 }
 
 void SqlPersistentStore::OpenOrCreateEntry(const CacheEntryKey& key,
@@ -229,9 +262,14 @@ void SqlPersistentStore::WriteEntryData(
     EntryWriteBuffer buffer,
     bool truncate,
     bool doomed_new_entry,
+    bool sparse_write,
+    int64_t header_size,
     ResIdOrErrorCallback callback) {
+  const int64_t max_sparse_data_size =
+      max_bytes_ / kSqlBackendMaxSparseDataRatioDenominator;
   GetShard(key).WriteEntryData(key, res_id_or_last_used_time, old_body_end,
                                std::move(buffer), truncate, doomed_new_entry,
+                               sparse_write, header_size, max_sparse_data_size,
                                std::move(callback));
 }
 
@@ -389,7 +427,7 @@ void SqlPersistentStore::ResumePendingEviction(
       base::MakeRefCounted<base::RefCountedData<std::atomic_int64_t>>(
           std::in_place,
           std::max<int64_t>(size_of_all_entries - high_watermark_, 0));
-  auto barrier_callback = base::BarrierCallback<ResIdListOrError>(
+  auto barrier_callback = base::BarrierCallback<EvictionResult>(
       GetSizeOfShards(),
       base::BindOnce(&SqlPersistentStore::OnPendingEvictionFinished,
                      weak_factory_.GetWeakPtr(), excluded_res_id_sets,
@@ -408,15 +446,14 @@ void SqlPersistentStore::OnPendingEvictionFinished(
     scoped_refptr<base::RefCountedData<std::atomic_bool>> eviction_abort_flag,
     base::TimeTicks start_time,
     ErrorCallback callback,
-    std::vector<ResIdListOrError> results) {
+    std::vector<EvictionResult> results) {
   Error error = Error::kOk;
   size_t count = 0;
   for (const auto& result : results) {
-    if (!result.has_value()) {
-      error = result.error();
-      break;
+    if (result.error != Error::kOk) {
+      error = result.error;
     }
-    count += result.value().size();
+    count += result.evicted_entry_count;
   }
   RecordEvictionHistograms(
       is_idle_time_eviction ? "ResumeEvictionOnIdleTime" : "ResumeEviction",
@@ -451,7 +488,7 @@ void SqlPersistentStore::StartNewEviction(
           std::in_place,
           std::max<int64_t>(size_of_all_entries - high_watermark_, 0));
   eviction_result_callback_ = std::move(callback);
-  auto barrier_callback = base::BarrierCallback<ResIdListOrError>(
+  auto barrier_callback = base::BarrierCallback<EvictionResult>(
       GetSizeOfShards(),
       base::BindOnce(&SqlPersistentStore::OnEvictionFinished,
                      weak_factory_.GetWeakPtr(), is_idle_time_eviction,
@@ -469,15 +506,14 @@ void SqlPersistentStore::StartNewEviction(
 void SqlPersistentStore::OnEvictionFinished(
     bool is_idle_time_eviction,
     base::TimeTicks start_time,
-    std::vector<ResIdListOrError> results) {
+    std::vector<EvictionResult> results) {
   Error error = Error::kOk;
   size_t count = 0;
   for (const auto& result : results) {
-    if (!result.has_value()) {
-      error = result.error();
-      break;
+    if (result.error != Error::kOk) {
+      error = result.error;
     }
-    count += result.value().size();
+    count += result.evicted_entry_count;
   }
 
   RecordEvictionHistograms(
@@ -617,6 +653,26 @@ void SqlPersistentStore::RunNextCheckpoint(
                                std::move(callback))));
 }
 
+void SqlPersistentStore::MaybeRunIncrementalVacuum(
+    scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
+    base::OnceCallback<void(bool)> callback) {
+  if (!net::features::kSqlDiskCacheIncrementalVacuum.Get()) {
+    std::move(callback).Run(false);
+    return;
+  }
+  auto barrier_callback = base::BarrierCallback<bool>(
+      GetSizeOfShards(), base::BindOnce(
+                             [](base::OnceCallback<void(bool)> callback,
+                                const std::vector<bool>& results) {
+                               std::move(callback).Run(std::ranges::all_of(
+                                   results, std::identity{}));
+                             },
+                             std::move(callback)));
+  for (const auto& backend_shard : backend_shards_) {
+    backend_shard->MaybeRunIncrementalVacuum(abort_flag, barrier_callback);
+  }
+}
+
 void SqlPersistentStore::EnableStrictCorruptionCheckForTesting() {
   for (const auto& backend_shard : backend_shards_) {
     backend_shard->EnableStrictCorruptionCheckForTesting();  // IN-TEST
@@ -627,6 +683,14 @@ void SqlPersistentStore::SetSimulateDbFailureForTesting(bool fail) {
   for (const auto& backend_shard : backend_shards_) {
     backend_shard->SetSimulateDbFailureForTesting(fail);  // IN-TEST
   }
+}
+
+void SqlPersistentStore::SetSimulateDbShardFailureForTesting(  // IN-TEST
+    size_t shard_index,
+    bool fail) {
+  CHECK_LT(shard_index, backend_shards_.size());
+  backend_shards_[shard_index]->SetSimulateDbFailureForTesting(  // IN-TEST
+      fail);
 }
 
 void SqlPersistentStore::RazeAndPoisonForTesting() {
@@ -650,7 +714,7 @@ SqlPersistentStore::IndexState SqlPersistentStore::GetIndexStateForHash(
 void SqlPersistentStore::SetInMemoryEntryDataHints(CacheEntryKey::Hash key_hash,
                                                    ResId res_id,
                                                    MemoryEntryDataHints hints) {
-  return GetShard(key_hash).SetInMemoryEntryDataHints(res_id, hints);
+  return GetShard(key_hash).SetInMemoryEntryDataHints(key_hash, res_id, hints);
 }
 
 std::optional<MemoryEntryDataHints>
@@ -754,6 +818,20 @@ SqlPersistentStore::EntryInfo::EntryInfo(EntryInfo&&) = default;
 SqlPersistentStore::EntryInfo& SqlPersistentStore::EntryInfo::operator=(
     EntryInfo&&) = default;
 
+SqlPersistentStore::EntryMetadata::EntryMetadata(
+    ResId res_id,
+    base::Time last_used,
+    std::optional<int64_t> bytes_usage)
+    : res_id(res_id), last_used(last_used), bytes_usage(bytes_usage) {}
+SqlPersistentStore::EntryMetadata::~EntryMetadata() = default;
+SqlPersistentStore::EntryMetadata::EntryMetadata(const EntryMetadata&) =
+    default;
+SqlPersistentStore::EntryMetadata& SqlPersistentStore::EntryMetadata::operator=(
+    const EntryMetadata&) = default;
+SqlPersistentStore::EntryMetadata::EntryMetadata(EntryMetadata&&) = default;
+SqlPersistentStore::EntryMetadata& SqlPersistentStore::EntryMetadata::operator=(
+    EntryMetadata&&) = default;
+
 SqlPersistentStore::ReadResult::ReadResult() = default;
 SqlPersistentStore::ReadResult::~ReadResult() = default;
 SqlPersistentStore::ReadResult::ReadResult(const ReadResult&) = default;
@@ -798,7 +876,7 @@ int64_t SqlPersistentStore::StoreStatus::GetEstimatedDiskUsage() const {
 
 SqlPersistentStore::InMemoryIndexAndDoomedResIds::InMemoryIndexAndDoomedResIds(
     SqlPersistentStoreInMemoryIndex&& index,
-    std::vector<SqlPersistentStore::ResId> doomed_entry_res_ids)
+    ResIdList doomed_entry_res_ids)
     : index(std::move(index)),
       doomed_entry_res_ids(std::move(doomed_entry_res_ids)) {}
 SqlPersistentStore::InMemoryIndexAndDoomedResIds::
@@ -824,15 +902,32 @@ SqlPersistentStore::EvictionTarget::operator=(const EvictionTarget&) = default;
 bool SqlPersistentStore::EvictionTarget::operator==(
     const EvictionTarget& other) const = default;
 
-SqlPersistentStore::EvictionResult::EvictionResult(
-    std::vector<ResId> deleted_res_ids,
-    EvictionTargetQueue pending_eviction_targets)
-    : deleted_res_ids(std::move(deleted_res_ids)),
-      pending_eviction_targets(std::move(pending_eviction_targets)) {}
+SqlPersistentStore::EvictionResult::EvictionResult(Error error,
+                                                   size_t evicted_entry_count)
+    : error(error), evicted_entry_count(evicted_entry_count) {}
 SqlPersistentStore::EvictionResult::~EvictionResult() = default;
 SqlPersistentStore::EvictionResult::EvictionResult(EvictionResult&&) = default;
 SqlPersistentStore::EvictionResult&
 SqlPersistentStore::EvictionResult::operator=(EvictionResult&&) = default;
+
+SqlPersistentStore::EvictionResultWithMetadata::EvictionResultWithMetadata(
+    EvictionResult result,
+    EvictionTargetQueue pending_eviction_targets,
+    std::optional<SqlPersistentStoreInMemoryIndex> index,
+    StoreStatus store_status,
+    bool index_mismatch_detected)
+    : result(std::move(result)),
+      pending_eviction_targets(std::move(pending_eviction_targets)),
+      index(std::move(index)),
+      store_status(std::move(store_status)),
+      index_mismatch_detected(index_mismatch_detected) {}
+SqlPersistentStore::EvictionResultWithMetadata::~EvictionResultWithMetadata() =
+    default;
+SqlPersistentStore::EvictionResultWithMetadata::EvictionResultWithMetadata(
+    EvictionResultWithMetadata&&) = default;
+SqlPersistentStore::EvictionResultWithMetadata&
+SqlPersistentStore::EvictionResultWithMetadata::operator=(
+    EvictionResultWithMetadata&&) = default;
 
 SqlPersistentStore::InitResult::InitResult(
     std::optional<int64_t> max_bytes,

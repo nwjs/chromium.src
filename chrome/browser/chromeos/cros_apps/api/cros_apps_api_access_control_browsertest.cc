@@ -10,8 +10,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -89,7 +89,7 @@ class CrosAppsApiAccessControlBrowsertestBase : public InProcessBrowserTest {
     // Create the browser with a default WebContents for running the tests.
     Browser::CreateParams params(profile, /*user_gesture=*/true);
     BrowserWindowInterface* const new_browser = Browser::Create(params);
-    CHECK_EQ(1u, chrome::GetTotalBrowserCount());
+    CHECK_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
     SetBrowser(new_browser);
     browser()->window()->Show();
 
@@ -206,6 +206,26 @@ IN_PROC_BROWSER_TEST_F(CrosAppsApiAccessControlWithNoFeatureFlagsBrowsertest,
   EXPECT_FALSE(IsChromeOSGlobalExposed(child_frame));
   ExpectRendererCrashOnBindTestInterface(child_frame,
                                          kNotAllowedToAccessApiError);
+}
+
+IN_PROC_BROWSER_TEST_F(CrosAppsApiAccessControlWithNoFeatureFlagsBrowsertest,
+                       ChildWindowHasApi) {
+  SetUpTestApi(
+      /*allowlisted_origins=*/{test_server().GetOrigin(kFooHost)},
+      /*required_features=*/{});
+
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(NavigateToURL(web_contents,
+                            test_server().GetURL(kFooHost, "/empty.html")));
+  EXPECT_TRUE(IsTestApiExposed(web_contents));
+
+  content::WebContentsAddedObserver child_observer;
+  ASSERT_TRUE(content::ExecJs(web_contents, "window.open('/empty.html')"));
+  content::WebContents* child_contents = child_observer.GetWebContents();
+  content::WaitForLoadStop(child_contents);
+  ASSERT_TRUE(child_contents);
+
+  EXPECT_TRUE(IsTestApiExposed(child_contents));
 }
 
 IN_PROC_BROWSER_TEST_F(CrosAppsApiAccessControlWithNoFeatureFlagsBrowsertest,

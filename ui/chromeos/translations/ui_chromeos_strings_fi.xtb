@@ -72,6 +72,7 @@
 <translation id="1577977504532381335">Tutustu järjestelmänvalvojakäytäntöön</translation>
 <translation id="158849752021629804">Kotiverkko tarvitaan</translation>
 <translation id="1589128298353575783"><ph name="NUMBER_OF_PB" /> Pt</translation>
+<translation id="1593594475886691512">Alustetaan…</translation>
 <translation id="1601786938618212857">ZIP</translation>
 <translation id="1620510694547887537">Kamera</translation>
 <translation id="162175252992296058">portugali, Yhdysvaltain kansainvälinen näppäimistö</translation>
@@ -149,6 +150,7 @@
 <translation id="2142680004883808240">venäjä, foneettinen YaZHert-näppäimistö</translation>
 <translation id="2143778271340628265">Manuaalinen välityspalvelimen määritys</translation>
 <translation id="2148716181193084225">Tänään</translation>
+<translation id="2148756636027685713">Alustus valmis</translation>
 <translation id="2161573825856688200">Google-projekti</translation>
 <translation id="2163152940313951844">Virheellinen merkki: <ph name="CHARACTER_NAME" /></translation>
 <translation id="2178056538281447670">Microsoft 365</translation>
@@ -216,6 +218,7 @@
 <translation id="2653059201992392941">Sinulla on <ph name="RETRIES" /> yritystä jäljellä.</translation>
 <translation id="2663066752008346276">burma (Myanmar), myansan-näppäimistö</translation>
 <translation id="2664412712123763093">Tiedoston sijainti</translation>
+<translation id="2665919335226618153">Harmin paikka! Alustuksen aikana tapahtui virhe.</translation>
 <translation id="2672394942808662069">Kanada, monikielinen</translation>
 <translation id="2707357721402813583">iiri</translation>
 <translation id="2708477391501452176">ranskalainen BÉPO</translation>
@@ -228,6 +231,7 @@
 <translation id="2735623501230989521">Myönnä Parallels Desktopille pääsy kansiossa <ph name="FOLDER_NAME" /> oleviin tiedostoihin</translation>
 <translation id="2764206540577097904">Olet käyttänyt oman Google Workspace ‐tallennustilasi kokonaan.</translation>
 <translation id="2771816809568414714">Juusto</translation>
+<translation id="2783909841122647548">Debian-pakettien asennusta ei enää tueta. <ph name="BEGIN_LINK" />Lue lisää<ph name="END_LINK" /></translation>
 <translation id="2802583107108007218">Lue lisää näistä rajoituksista</translation>
 <translation id="2803375539583399270">Lisää PIN-koodi</translation>
 <translation id="2817444452774702982">gruusia</translation>
@@ -289,6 +293,7 @@
 <translation id="3293023191599135697">WEP-verkkoja ei tueta</translation>
 <translation id="3295006446256079333">Tämä määrä</translation>
 <translation id="3295357220137379386">Laite on varattu</translation>
+<translation id="3305389145870741612">Alustus voi kestää pari sekuntia. Odota.</translation>
 <translation id="3307875152560779385">ukraina</translation>
 <translation id="3326821416087822643">Pakataan tiedostoa <ph name="FILE_NAME" />…</translation>
 <translation id="3335337277364016868">Nauhoitusvuosi</translation>
@@ -585,6 +590,7 @@
 <translation id="5580591966435005537">virtuaalikone</translation>
 <translation id="5583640892426849032">Askelpalautin</translation>
 <translation id="5583664733673201137">Välimerkkileveys on täysleveä</translation>
+<translation id="5585912436068747822">Alustaminen epäonnistui</translation>
 <translation id="5596627076506792578">Lisäasetukset</translation>
 <translation id="5602622065581044566">bulgaria, foneettinen näppäimistö</translation>
 <translation id="5604409170937514933">ruotsi</translation>
@@ -671,6 +677,7 @@
 <translation id="6220423280121890987">punjabi</translation>
 <translation id="6224240818060029162">tanska</translation>
 <translation id="6224253798271602650">Alusta <ph name="DRIVE_NAME" /></translation>
+<translation id="6224481128663248237">Alustus onnistui!</translation>
 <translation id="6241349547798190358">hollanti (Belgia)</translation>
 <translation id="6267547857941397424">Verkko <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signaalin vahvuus <ph name="SIGNAL_STRENGTH" /> %, puhelimen akun varaus <ph name="BATTERY_STATUS" /> %, yhdistä</translation>
 <translation id="6269630227984243955">malaiji</translation>

@@ -18,15 +18,16 @@
 #include "base/state_transitions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
-#include "chrome/browser/actor/aggregated_journal.h"
+#include "chrome/browser/actor/aggregated_journal_render_frame_binder.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/tools/observation_delay_metrics.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
-#include "chrome/common/actor/journal_details_builder.h"
-#include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/aggregated_journal.h"
+#include "components/actor/core/journal_details_builder.h"
+#include "components/actor/core/task_id.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/form_predictions_tracker.h"
 #include "components/page_content_annotations/content/browser/page_settled_monitor.h"
@@ -157,7 +158,7 @@ ObservationDelayController::ObservationDelayController(
       GURL::EmptyGURL(), task_id, "ObservationDelay: Created",
       JournalDetailsBuilder().Add("May Use PageStability", true).Build());
 
-  journal.EnsureJournalBound(target_frame);
+  AggregatedJournalRenderFrameBinder::EnsureBound(journal, target_frame);
 
   // Note: It's important that the PageStabilityMonitor be created on the same
   // interface as tool invocation since it relies on being created before a
@@ -294,6 +295,12 @@ void ObservationDelayController::MoveToState(State new_state) {
           "WaitForLoadCompletion", {});
       break;
     }
+    case State::kWaitForPdfLoadCompletion: {
+      inner_journal_entry_ = journal_->CreatePendingAsyncEntry(
+          GURL::EmptyGURL(), task_id_, MakeBrowserTrackUUID(task_id_),
+          "WaitForPdfLoadCompletion", {});
+      break;
+    }
     case State::kWaitForVisualStateUpdate: {
       inner_journal_entry_ = journal_->CreatePendingAsyncEntry(
           GURL::EmptyGURL(), task_id_, MakeBrowserTrackUUID(task_id_),
@@ -393,6 +400,9 @@ void ObservationDelayController::WillMoveToState(
     case PageSettledMonitorState::kWaitForLoadCompletion:
       actor_state = State::kWaitForLoadCompletion;
       break;
+    case PageSettledMonitorState::kWaitForPdfLoadCompletion:
+      actor_state = State::kWaitForPdfLoadCompletion;
+      break;
     case PageSettledMonitorState::kWaitForVisualStateUpdate:
       actor_state = State::kWaitForVisualStateUpdate;
       break;
@@ -437,6 +447,11 @@ void ObservationDelayController::OnMilestoneReached(
       std::move(resume_callback_).Run();
       break;
     case page_content_annotations::PageSettledMonitor::Milestone::
+        kPdfLoadCompletion:
+      // Just resume the monitor.
+      std::move(resume_callback_).Run();
+      break;
+    case page_content_annotations::PageSettledMonitor::Milestone::
         kVisualStateUpdate:
       // Just resume the monitor.
       std::move(resume_callback_).Run();
@@ -465,6 +480,11 @@ void ObservationDelayController::OnEvent(
     case page_content_annotations::PageSettledMonitor::Event::kLoadCompleted:
       if (metrics_) {
         metrics_->OnLoadCompleted();
+      }
+      break;
+    case page_content_annotations::PageSettledMonitor::Event::kPdfLoadCompleted:
+      if (metrics_) {
+        metrics_->OnPdfLoadCompleted();
       }
       break;
     case page_content_annotations::PageSettledMonitor::Event::
@@ -519,6 +539,12 @@ void ObservationDelayController::DCheckStateTransition(State old_state,
                State::kDone,
                State::kPageNavigated}},
           {State::kWaitForLoadCompletion,
+              {State::kDidTimeout,
+               State::kDone,
+               State::kPageNavigated,
+               State::kWaitForPdfLoadCompletion,
+               State::kWaitForVisualStateUpdate}},
+          {State::kWaitForPdfLoadCompletion,
               {State::kDidTimeout,
                State::kDone,
                State::kPageNavigated,
@@ -586,6 +612,8 @@ std::string_view ObservationDelayController::StateToString(State state) {
       return "WaitForFederatedLogin";
     case State::kWaitForLoadCompletion:
       return "WaitForLoadCompletion";
+    case State::kWaitForPdfLoadCompletion:
+      return "WaitForPdfLoadCompletion";
     case State::kWaitForVisualStateUpdate:
       return "WaitForVisualStateUpdate";
     case State::kMaybeDelayForLcp:

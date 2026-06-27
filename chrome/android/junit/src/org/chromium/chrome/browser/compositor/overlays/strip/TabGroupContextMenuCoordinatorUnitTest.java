@@ -20,7 +20,7 @@ import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.Persi
 import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType.OFF_THE_RECORD;
 import static org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils.UNSET_TAB_GROUP_TITLE;
 import static org.chromium.ui.listmenu.ListMenuItemProperties.TITLE;
-import static org.chromium.ui.listmenu.ListMenuSubmenuItemProperties.SUBMENU_ITEMS;
+import static org.chromium.ui.listmenu.ListMenuSubmenuItemProperties.SUBMENU_PROVIDER;
 
 import android.app.Activity;
 import android.os.SystemClock;
@@ -73,7 +73,6 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabRemover;
 import org.chromium.chrome.browser.tabmodel.TabUngrouper;
@@ -90,6 +89,7 @@ import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_groups.TabGroupsFeatureMap;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.TestActivity;
@@ -113,6 +113,7 @@ import java.util.function.BiConsumer;
 @EnableFeatures({
     ChromeFeatureList.DATA_SHARING,
 })
+@DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
 public class TabGroupContextMenuCoordinatorUnitTest {
     private static final int TAB_ID = 1;
     private static final Token TAB_GROUP_ID = new Token(3L, 4L);
@@ -134,7 +135,6 @@ public class TabGroupContextMenuCoordinatorUnitTest {
     @Mock private TabRemover mTabRemover;
     @Mock private TabUngrouper mTabUngrouper;
     @Mock private TabCreator mTabCreator;
-    @Mock private TabGroupModelFilter mTabGroupModelFilter;
 
     // Share state
     @Mock private TabGroupSyncService mTabGroupSyncService;
@@ -234,7 +234,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         mTabModel.setTabCreatorForTesting(mTabCreator);
         mTotalTabCountSupplier = ObservableSuppliers.createNonNull(3);
         when(mTabModel.getTabCountSupplier()).thenReturn(mTotalTabCountSupplier);
-        mTabsInGroup = setUpTabGroupModelFilter();
+        mTabsInGroup = setUpTabsInGroup();
         when(mProfile.isOffTheRecord()).thenReturn(true);
         when(mMultiInstanceManager.getCurrentInstanceId()).thenReturn(INSTANCE_ID_1);
         when(mMultiInstanceManager.getInstanceInfo(ACTIVE))
@@ -242,15 +242,10 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         mSavedTabGroup.collaborationId = COLLABORATION_ID;
         mOnItemClickedCallback =
                 TabGroupContextMenuCoordinator.getMenuItemClickedCallback(
-                        activity,
-                        () -> mTabModel,
-                        mTabGroupModelFilter,
-                        mMultiInstanceManager,
-                        mDataSharingTabManager);
+                        activity, () -> mTabModel, mMultiInstanceManager, mDataSharingTabManager);
         mTabGroupContextMenuCoordinator =
                 TabGroupContextMenuCoordinator.createContextMenuCoordinator(
                         mTabModel,
-                        mTabGroupModelFilter,
                         mMultiInstanceManager,
                         mWindowAndroid,
                         mDataSharingTabManager,
@@ -634,7 +629,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         keyboardVisibilityListener.keyboardVisibilityChanged(false);
 
         // Verify the group title is updated.
-        verify(mTabGroupModelFilter).setTabGroupTitle(eq(TAB_GROUP_ID), eq(newTitle));
+        verify(mTabModel).setTabGroupTitle(eq(TAB_GROUP_ID), eq(newTitle));
 
         // Remove the custom title set by the user by clearing the edit box.
         newTitle = "";
@@ -642,7 +637,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         keyboardVisibilityListener.keyboardVisibilityChanged(false);
 
         // Verify the previous title is deleted and is default to "N tabs"
-        verify(mTabGroupModelFilter).deleteTabGroupTitle(TAB_GROUP_ID);
+        verify(mTabModel).deleteTabGroupTitle(TAB_GROUP_ID);
         assertEquals("1 tab", groupTitleEditText.getText().toString());
     }
 
@@ -714,20 +709,19 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         }
     }
 
-    private List<Tab> setUpTabGroupModelFilter() {
+    private List<Tab> setUpTabsInGroup() {
         MockTab tab = mTabModel.addTab(TAB_ID);
         tab.setTabGroupId(TAB_GROUP_ID);
         tab.setUrl(EXAMPLE_URL);
-        when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
-        when(mTabGroupModelFilter.getTabUngrouper()).thenReturn(mTabUngrouper);
-        when(mTabGroupModelFilter.isTabInTabGroup(tab)).thenReturn(true);
-        when(mTabGroupModelFilter.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
-        when(mTabGroupModelFilter.getTabGroupTitle(TAB_GROUP_ID)).thenReturn(UNSET_TAB_GROUP_TITLE);
-        when(mTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB_ID);
-        when(mTabGroupModelFilter.getTabCountForGroup(eq(TAB_GROUP_ID))).thenReturn(1);
+        when(mTabModel.getTabUngrouper()).thenReturn(mTabUngrouper);
+        when(mTabModel.isTabInTabGroup(tab)).thenReturn(true);
+        when(mTabModel.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
+        when(mTabModel.getTabGroupTitle(TAB_GROUP_ID)).thenReturn(UNSET_TAB_GROUP_TITLE);
+        when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB_ID);
+        when(mTabModel.getTabCountForGroup(eq(TAB_GROUP_ID))).thenReturn(1);
         List<Tab> tabsInGroup = Arrays.asList(tab);
-        when(mTabGroupModelFilter.getTabsInGroup(eq(TAB_GROUP_ID))).thenReturn(tabsInGroup);
-        when(mTabGroupModelFilter.getRelatedTabList(eq(TAB_ID))).thenReturn(tabsInGroup);
+        when(mTabModel.getTabsInGroup(eq(TAB_GROUP_ID))).thenReturn(tabsInGroup);
+        when(mTabModel.getRelatedTabList(eq(TAB_ID))).thenReturn(tabsInGroup);
         return tabsInGroup;
     }
 
@@ -1067,7 +1061,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
     public void testMoveGroupLeft_pinnedTabExistsFurtherLeft() {
         mTabGroupContextMenuCoordinator.setIsGesturesEnabledForTesting(true);
         List<Tab> tabsInGroup = setUpReorderingMocks();
-        when(mTabGroupModelFilter.getTabsInGroup(eq(TAB_GROUP_ID))).thenReturn(tabsInGroup);
+        when(mTabModel.getTabsInGroup(eq(TAB_GROUP_ID))).thenReturn(tabsInGroup);
 
         when(mTabModel.indexOf(tabsInGroup.get(0))).thenReturn(2);
         when(mTabModel.findFirstNonPinnedTabIndex()).thenReturn(1);
@@ -1117,7 +1111,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         ListItem moveToWindowItem = modelList.get(5);
         assertNotNull(moveToWindowItem);
 
-        var subMenu = moveToWindowItem.model.get(SUBMENU_ITEMS);
+        var subMenu = moveToWindowItem.model.get(SUBMENU_PROVIDER).get();
         assertEquals("Submenu should have 2 items", 2, subMenu.size());
 
         ListItem otherWindowItem = subMenu.get(1);
@@ -1153,7 +1147,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         ListItem moveToWindowItem = modelList.get(5);
         assertNotNull(moveToWindowItem);
 
-        var subMenu = moveToWindowItem.model.get(SUBMENU_ITEMS);
+        var subMenu = moveToWindowItem.model.get(SUBMENU_PROVIDER).get();
         assertEquals("Submenu should have 2 items", 2, subMenu.size());
 
         ListItem otherWindowItem = subMenu.get(1);
@@ -1198,7 +1192,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         // Click on "Move group to another window" to open a submenu.
         int moveToIndex = -1;
         for (int i = 0; i < modelList.size(); i++) {
-            if (modelList.get(i).model.containsKey(SUBMENU_ITEMS)) {
+            if (modelList.get(i).model.containsKey(SUBMENU_PROVIDER)) {
                 moveToIndex = i;
                 break;
             }
@@ -1244,7 +1238,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         // Go to submenu.
         int moveToIndex = -1;
         for (int i = 0; i < modelList.size(); i++) {
-            if (modelList.get(i).model.containsKey(SUBMENU_ITEMS)) {
+            if (modelList.get(i).model.containsKey(SUBMENU_PROVIDER)) {
                 moveToIndex = i;
                 break;
             }

@@ -58,6 +58,7 @@
 #include "cc/trees/tree_synchronizer.h"
 #include "cc/view_transition/view_transition_request.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
+#include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/traced_value.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
@@ -248,15 +249,16 @@ void LayerTreeImpl::DidUpdateScrollOffset(
   if (can_realize_now) {
     CHECK_NE(scroll_node->transform_id, kInvalidPropertyNodeId);
     TransformTree& transform_tree = property_trees()->transform_tree_mutable();
-    auto* transform_node = transform_tree.Node(scroll_node->transform_id);
-    if (transform_node->scroll_offset() !=
+    auto& transform_node =
+        transform_tree.MutableNode(scroll_node->transform_id);
+    if (transform_node.scroll_offset() !=
         scroll_tree.current_scroll_offset(id)) {
-      transform_node->SetScrollOffset(scroll_tree.current_scroll_offset(id),
-                                      DamageReason::kCompositorScroll);
-      transform_node->needs_local_transform_update = true;
+      transform_node.SetScrollOffset(scroll_tree.current_scroll_offset(id),
+                                     DamageReason::kCompositorScroll);
+      transform_node.needs_local_transform_update = true;
       transform_tree.set_needs_update(true);
     }
-    transform_node->SetTransformChanged(DamageReason::kCompositorScroll);
+    transform_node.SetTransformChanged(DamageReason::kCompositorScroll);
     property_trees()->set_changed(true);
     set_needs_update_draw_properties();
   }
@@ -553,11 +555,11 @@ void LayerTreeImpl::UpdateViewportContainerSizes() {
 
     // Expand all clips between the outer viewport and the inner viewport.
     auto* outer_ancestor =
-        property_trees->clip_tree_mutable().parent(outer_clip_node);
+        property_trees->clip_tree_mutable().MutableParent(outer_clip_node);
     while (outer_ancestor && outer_ancestor->id != kRootPropertyNodeId) {
       outer_ancestor->clip.Union(outer_clip_node->clip);
       outer_ancestor =
-          property_trees->clip_tree_mutable().parent(outer_ancestor);
+          property_trees->clip_tree_mutable().MutableParent(outer_ancestor);
     }
   }
 
@@ -661,62 +663,58 @@ OwnedLayerImplList LayerTreeImpl::SwapLayers(OwnedLayerImplList new_layers) {
   return result;
 }
 
-void LayerTreeImpl::SetPropertyTrees(PropertyTrees& property_trees,
-                                     bool preserve_change_tracking) {
-  PropertyTreesChangeState change_state;
-  property_trees.GetChangeState(change_state);
-  SetPropertyTrees(property_trees, change_state, preserve_change_tracking);
-}
+void LayerTreeImpl::SetPropertyTrees(
+    PropertyTrees& property_trees,
+    const ViewportPropertyIds& viewport_property_ids,
+    bool preserve_change_tracking) {
+  if (preserve_change_tracking) {
+    property_trees_.CollectChangeState();
+    property_trees.ApplyChangeStateFrom(property_trees_);
+  }
 
-void LayerTreeImpl::SetPropertyTrees(const PropertyTrees& property_trees,
-                                     PropertyTreesChangeState& change_state,
-                                     bool preserve_change_tracking) {
   // Updating the scroll tree shouldn't clobber the currently scrolling node so
   // stash it and restore it at the end of this method.  To maintain the
   // current scrolling node we need to use element ids which are stable across
   // the property tree update in SetPropertyTrees.
   ElementId scrolling_element_id;
   if (IsActiveTree()) {
-    if (ScrollNode* scrolling_node = CurrentlyScrollingNode())
+    if (ScrollNode* scrolling_node = CurrentlyScrollingNode()) {
       scrolling_element_id = scrolling_node->element_id;
+    }
   }
 
   std::vector<std::unique_ptr<RenderSurfaceImpl>> old_render_surfaces;
   property_trees_.effect_tree_mutable().TakeRenderSurfaces(
       &old_render_surfaces);
 
-  if (preserve_change_tracking) {
-    change_state.full_tree_damaged |= property_trees_.full_tree_damaged();
-    property_trees_.GetChangedNodes(change_state.changed_effect_nodes,
-                                    change_state.changed_transform_nodes);
-  }
-
   // TODO(crbug.com/492151880): This could use std::move semantics when
   // populating the pending tree, but the assignment operator for PropertyTrees
   // is full of non-standard behaviors.
   property_trees_ = property_trees;
 
-  property_trees_.ApplyChangedNodes(change_state.changed_effect_nodes,
-                                    change_state.changed_transform_nodes);
-  property_trees_.set_changed(change_state.changed);
-  property_trees_.set_needs_rebuild(change_state.needs_rebuild);
-  property_trees_.set_full_tree_damaged(change_state.full_tree_damaged);
-  property_trees_.effect_tree_mutable().ApplyRenderSurfaceChangedFlags(
-      change_state.surface_property_changed_flags);
+  property_trees_.ApplyChangedNodes(property_trees.changed_effect_nodes(),
+                                    property_trees.changed_transform_nodes());
+  property_trees_.set_changed(property_trees.changed());
+  property_trees_.set_needs_rebuild(property_trees.needs_rebuild());
+  property_trees_.set_full_tree_damaged(property_trees.full_tree_damaged());
   bool render_surfaces_changed =
       property_trees_.effect_tree_mutable().CreateOrReuseRenderSurfaces(
           &old_render_surfaces, this);
-  if (render_surfaces_changed)
+  property_trees_.effect_tree_mutable().ApplyRenderSurfaceChangedFlags(
+      property_trees.surface_property_changed_flags());
+  if (render_surfaces_changed) {
     set_needs_update_draw_properties();
-  property_trees_.effect_tree_mutable().PullCopyRequestsFrom(
-      change_state.effect_tree_copy_requests);
+  }
+  auto copy_requests = property_trees.effect_tree_mutable().TakeCopyRequests();
+  property_trees_.effect_tree_mutable().PullCopyRequestsFrom(copy_requests);
   property_trees_.set_is_main_thread(false);
   property_trees_.set_is_active(IsActiveTree());
   // The value of some effect node properties (like is_drawn) depends on
   // whether we are on the active tree or not. So, we need to update the
   // effect tree.
-  if (IsActiveTree())
+  if (IsActiveTree()) {
     property_trees_.effect_tree_mutable().set_needs_update(true);
+  }
 
   const ScrollNode* scrolling_node = nullptr;
   if (scrolling_element_id) {
@@ -724,6 +722,12 @@ void LayerTreeImpl::SetPropertyTrees(const PropertyTrees& property_trees,
     scrolling_node = scroll_tree.FindNodeFromElementId(scrolling_element_id);
   }
   SetCurrentlyScrollingNode(scrolling_node);
+
+  // Viewport property IDs store indices pointing into property trees. Updating
+  // property trees above invalidates the old viewport property IDs, so they
+  // must be updated immediately to ensure they remain valid for any subsequent
+  // queries against the new trees.
+  SetViewportPropertyIds(viewport_property_ids);
 }
 
 void LayerTreeImpl::PullPropertiesFrom(
@@ -834,7 +838,7 @@ void LayerTreeImpl::PullPropertyTreesFrom(
   }
 
   SetPropertyTrees(commit_state.property_trees,
-                   commit_state.property_trees_change_state,
+                   commit_state.viewport_property_ids,
                    preserve_change_tracking);
 }
 
@@ -956,7 +960,8 @@ void LayerTreeImpl::PushPropertyTreesTo(LayerTreeImpl* target_tree) {
   // This either overwrites active tree's property tree completely with pending
   // tree's property tree OR merge pending tree's property tree on active tree's
   // property tree depending upon |preserve_change_tracking| flag.
-  target_tree->SetPropertyTrees(property_trees_, preserve_change_tracking);
+  target_tree->SetPropertyTrees(property_trees_, viewport_property_ids_,
+                                preserve_change_tracking);
 
   EventMetrics::List events_metrics, raster_event_metrics;
   events_metrics.swap(events_metrics_from_main_thread_);
@@ -1389,14 +1394,15 @@ void LayerTreeImpl::UpdateTransformAnimation(ElementId element_id,
 #endif
       TransformTree& transform_tree =
           property_trees()->transform_tree_mutable();
-      if (TransformNode* node = transform_tree.Node(transform_node_index)) {
+      if (transform_node_index != kInvalidPropertyNodeId) {
+        TransformNode& node = transform_tree.MutableNode(transform_node_index);
         ElementListType list_type = GetElementTypeForAnimation();
         bool has_potential_animation =
             mutator_host()->HasPotentiallyRunningAnimationForProperty(
                 element_id, list_type, property);
-        if (node->has_potential_animation != has_potential_animation) {
-          node->has_potential_animation = has_potential_animation;
-          node->maximum_animation_scale =
+        if (node.has_potential_animation != has_potential_animation) {
+          node.has_potential_animation = has_potential_animation;
+          node.maximum_animation_scale =
               mutator_host()->MaximumScale(element_id, list_type);
           transform_tree.set_needs_update(true);
           set_needs_update_draw_properties();
@@ -1766,27 +1772,48 @@ void LayerTreeImpl::SetViewportPropertyIds(const ViewportPropertyIds& ids) {
 }
 
 const TransformNode* LayerTreeImpl::OverscrollElasticityTransformNode() const {
-  return property_trees()->transform_tree().Node(
-      viewport_property_ids_.overscroll_elasticity_transform);
+  // TODO(500458345): Convert these to const refs.
+  int id = viewport_property_ids_.overscroll_elasticity_transform;
+  if (id == kInvalidPropertyNodeId) {
+    return nullptr;
+  }
+  return &property_trees()->transform_tree().Node(id);
 }
 
 const TransformNode* LayerTreeImpl::PageScaleTransformNode() const {
-  return property_trees()->transform_tree().Node(
-      viewport_property_ids_.page_scale_transform);
+  // TODO(500458345): Convert these to const refs.
+  int id = viewport_property_ids_.page_scale_transform;
+  if (id == kInvalidPropertyNodeId) {
+    return nullptr;
+  }
+  return &property_trees()->transform_tree().Node(id);
 }
 
 const ScrollNode* LayerTreeImpl::InnerViewportScrollNode() const {
-  return property_trees()->scroll_tree().Node(
-      viewport_property_ids_.inner_scroll);
+  // TODO(500458345): Convert these to const refs.
+  int id = viewport_property_ids_.inner_scroll;
+  if (id == kInvalidPropertyNodeId) {
+    return nullptr;
+  }
+  return &property_trees()->scroll_tree().Node(id);
 }
 
 const ClipNode* LayerTreeImpl::OuterViewportClipNode() const {
-  return property_trees()->clip_tree().Node(viewport_property_ids_.outer_clip);
+  // TODO(500458345): Convert these to const refs.
+  int id = viewport_property_ids_.outer_clip;
+  if (id == kInvalidPropertyNodeId) {
+    return nullptr;
+  }
+  return &property_trees()->clip_tree().Node(id);
 }
 
 const ScrollNode* LayerTreeImpl::OuterViewportScrollNode() const {
-  return property_trees()->scroll_tree().Node(
-      viewport_property_ids_.outer_scroll);
+  // TODO(500458345): Convert these to const refs.
+  int id = viewport_property_ids_.outer_scroll;
+  if (id == kInvalidPropertyNodeId) {
+    return nullptr;
+  }
+  return &property_trees()->scroll_tree().Node(id);
 }
 
 // For unit tests, we use the layer's id as its element id.
@@ -1868,10 +1895,9 @@ bool LayerTreeImpl::UpdateDrawProperties(
         property_trees()->GetToTarget(render_surface->TransformTreeIndex(),
                                       occlusion_surface->EffectTreeIndex(),
                                       &draw_transform);
-        const EffectNode* effect_node = property_trees()->effect_tree().Node(
+        const EffectNode& effect_node = property_trees()->effect_tree().Node(
             render_surface->EffectTreeIndex());
-        CHECK(effect_node);
-        draw_property_utils::ConcatInverseSurfaceContentsScale(*effect_node,
+        draw_property_utils::ConcatInverseSurfaceContentsScale(effect_node,
                                                                &draw_transform);
         draw_transform.PostTranslate(
             occlusion_surface->pixel_alignment_offset());
@@ -2540,18 +2566,18 @@ static bool PointIsClippedByAncestorClipNode(
       layer->layer_tree_impl()->property_trees();
   const ClipTree& clip_tree = property_trees->clip_tree();
   const TransformTree& transform_tree = property_trees->transform_tree();
-  gfx::Rect clip = gfx::ToEnclosingRect(clip_tree.Node(1)->clip);
+  gfx::Rect clip = gfx::ToEnclosingRect(clip_tree.Node(1).clip);
   if (!PointHitsRect(screen_space_point, gfx::Transform(), clip, nullptr))
     return true;
 
-  for (const ClipNode* clip_node = clip_tree.Node(layer->clip_tree_index());
-       clip_node->id > kViewportPropertyNodeId;
-       clip_node = clip_tree.parent(clip_node)) {
-    if (clip_node->AppliesLocalClip()) {
-      clip = gfx::ToEnclosingRect(clip_node->clip);
+  for (int id = layer->clip_tree_index(); id > kViewportPropertyNodeId;
+       id = clip_tree.Node(id).parent_id) {
+    const ClipNode& clip_node = clip_tree.Node(id);
+    if (clip_node.AppliesLocalClip()) {
+      clip = gfx::ToEnclosingRect(clip_node.clip);
 
       gfx::Transform screen_space_transform =
-          transform_tree.ToScreen(clip_node->transform_id);
+          transform_tree.ToScreen(clip_node.transform_id);
       if (!PointHitsRect(screen_space_point, screen_space_transform, clip,
                          nullptr)) {
         return true;
@@ -2911,11 +2937,15 @@ ElementId LayerTreeImpl::PointHitsNonCompositedScroll(
 static ElementId GetFrameElementIdForLayer(const LayerImpl* layer) {
   const auto& transform_tree =
       layer->layer_tree_impl()->property_trees()->transform_tree();
-  const auto* node = transform_tree.Node(layer->transform_tree_index());
-  while (node && !node->visible_frame_element_id) {
-    node = transform_tree.Node(node->parent_frame_id);
+  int node_id = layer->transform_tree_index();
+  while (node_id != kInvalidPropertyNodeId) {
+    const TransformNode& node = transform_tree.Node(node_id);
+    if (node.visible_frame_element_id) {
+      return node.visible_frame_element_id;
+    }
+    node_id = node.parent_frame_id;
   }
-  return node ? node->visible_frame_element_id : ElementId();
+  return ElementId();
 }
 
 static void FindClosestMatchingLayerForAttribution(
@@ -2967,11 +2997,14 @@ static void FindClosestMatchingLayerForAttribution(
   if (auto* layer = state->closest_match) {
     const auto& transform_tree =
         layer->layer_tree_impl()->property_trees()->transform_tree();
-    for (const auto* node = transform_tree.Node(layer->transform_tree_index());
-         node; node = transform_tree.Node(node->parent_frame_id)) {
-      hit_visible_frame_element_ids.erase(node->visible_frame_element_id);
-      if (hit_visible_frame_element_ids.size() == 0)
+    int node_id = layer->transform_tree_index();
+    while (node_id != kInvalidPropertyNodeId) {
+      const TransformNode& node = transform_tree.Node(node_id);
+      hit_visible_frame_element_ids.erase(node.visible_frame_element_id);
+      if (hit_visible_frame_element_ids.size() == 0) {
         break;
+      }
+      node_id = node.parent_frame_id;
     }
 
     if (hit_visible_frame_element_ids.size() > 0) {

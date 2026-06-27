@@ -63,11 +63,15 @@ def _get_crossbench_json_paths(out_dir: pathlib.Path) -> List[pathlib.Path]:
       if probe.startswith('cb.') or not probe_data:
         continue
       candidates = probe_data.get('json', [])
-      if len(candidates) > 1:
-        raise ValueError(f'Probe {probe} generated multiple json files, '
-                         f'debug_info={debug_info}')
-      if len(candidates) == 1:
-        probe_json_paths.append(pathlib.Path(candidates[0]))
+      if probe == 'trace_processor':
+        for candidate in candidates:
+          probe_json_paths.append(pathlib.Path(candidate))
+      else:
+        if len(candidates) > 1:
+          raise ValueError(f'Probe {probe} generated multiple json files, '
+                           f'debug_info={debug_info}')
+        if len(candidates) == 1:
+          probe_json_paths.append(pathlib.Path(candidates[0]))
   except AttributeError as e:
     raise AttributeError(f'debug_info={debug_info}') from e
 
@@ -109,6 +113,8 @@ def convert(crossbench_out_dir: pathlib.Path,
       metric = key
       if 'score' in lower_key:
         unit = 'unitless_biggerIsBetter'
+      elif lower_key.endswith('_bytes'):
+        unit = 'sizeInBytes_smallerIsBetter'
       else:
         unit = 'ms_smallerIsBetter'
     elif len(key_parts) == 2:
@@ -152,8 +158,9 @@ def _loadline1_results(loadline_csv: pathlib.Path):
       results.AddSharedDiagnosticToAllHistograms(
           key, generic_set.GenericSet([value]))
     else:
+      value_float = float(value.split()[0])
       data_point = histogram.Histogram.Create(key, 'unitless_biggerIsBetter',
-                                              float(value))
+                                              value_float)
     if data_point:
       results.AddHistogram(data_point)
 
@@ -171,9 +178,13 @@ def _loadline2_results(loadline_csv: pathlib.Path):
     metric_key = csv_reader.fieldnames[0]
     value_key = csv_reader.fieldnames[1]
     for line in csv_reader:
+      value_str = line[value_key]
+      if not value_str:
+        continue
+      value_float = float(value_str.split()[0])
       data_point = histogram.Histogram.Create(line[metric_key],
                                               'unitless_biggerIsBetter',
-                                              float(line[value_key]))
+                                              value_float)
       if data_point:
         results.AddHistogram(data_point)
     results.AddSharedDiagnosticToAllHistograms(

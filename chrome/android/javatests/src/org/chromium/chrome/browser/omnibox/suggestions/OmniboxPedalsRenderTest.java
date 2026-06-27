@@ -36,7 +36,7 @@ import org.chromium.chrome.test.util.OmniboxTestUtils.SuggestionInfo;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatchBuilder;
 import org.chromium.components.omnibox.AutocompleteResult;
-import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.action.OmniboxPedalId;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -53,7 +53,8 @@ public class OmniboxPedalsRenderTest {
     // 1: Initial version.
     // 2: Updated refine button assets with vector drawables.
     // 3: Default to bottom-anchored focused omnibox
-    private static final int RENDER_TEST_REVISION = 3;
+    // 4: Removed bottom toolbar functionality
+    private static final int RENDER_TEST_REVISION = 4;
 
     @ParameterAnnotations.ClassParameter
     private static final List<ParameterSet> sClassParams =
@@ -76,7 +77,7 @@ public class OmniboxPedalsRenderTest {
     private OmniboxTestUtils mOmniboxUtils;
 
     public OmniboxPedalsRenderTest(boolean nightMode) {
-        OmniboxFeatures.setHasDesktopExperienceForTesting(false);
+        OmniboxCapabilities.setHasDesktopExperienceForTesting(false);
         ChromeNightModeTestUtils.setUpNightModeForChromeActivity(nightMode);
         mRenderTestRule.setNightModeEnabled(nightMode);
         mRenderTestRule.setVariantPrefix("RegularTab");

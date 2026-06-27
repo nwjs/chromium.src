@@ -223,9 +223,10 @@ class ContentAutofillDriver : public AutofillDriver,
                         mojom::ActionPersistence action_persistence,
                         const FieldGlobalId& field_id,
                         const std::u16string& value) override;
-  void DispatchEmailVerifiedEvent(
-      FieldGlobalId field_id,
-      const std::string& presentation_token) override;
+  void SendEmailVerificationToken(FieldGlobalId email_field_id,
+                                  const std::string& email,
+                                  FieldGlobalId token_field_id,
+                                  const std::string& token) override;
   void ExtractFormWithField(FieldGlobalId field_id,
                             BrowserFormHandler final_handler) override;
   void RendererShouldAcceptDataListSuggestion(
@@ -300,6 +301,7 @@ class ContentAutofillDriver : public AutofillDriver,
                              base::TimeTicks timestamp) override;
   void TextFieldDidScroll(const FormData& form,
                           FieldRendererId field_id) override;
+  void OnEmailVerificationTokenShared(FieldRendererId field_id) override;
 
   void LiftForTest(FormData& form);
 

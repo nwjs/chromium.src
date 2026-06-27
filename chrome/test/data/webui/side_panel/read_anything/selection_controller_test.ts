@@ -127,11 +127,9 @@ suite('SelectionController', () => {
       assertFalse(selectionController.hasSelection());
     });
 
-    test('current selection start with no selection', () => {
+    test('current selection start with no selection returns null', () => {
       chrome.readingMode.isImmersiveEnabled = true;
-      const selectionStart = selectionController.getCurrentSelectionStart();
-      assertEquals(0, selectionStart.nodeId);
-      assertEquals(-1, selectionStart.offset);
+      assertFalse(!!selectionController.getCurrentSelectionStart());
     });
 
     test('current selection start with forward selection in one node', () => {
@@ -144,7 +142,8 @@ suite('SelectionController', () => {
       selectNodes(node, expectedAnchorOffset, node, expectedFocusOffset);
       const selectionStart = selectionController.getCurrentSelectionStart();
 
-      assertEquals(node.id, selectionStart.nodeId);
+      assertTrue(!!selectionStart);
+      assertEquals(node.node, selectionStart.node);
       assertEquals(expectedAnchorOffset, selectionStart.offset);
     });
 
@@ -158,7 +157,8 @@ suite('SelectionController', () => {
       selectNodes(node, expectedAnchorOffset, node, expectedFocusOffset);
       const selectionStart = selectionController.getCurrentSelectionStart();
 
-      assertEquals(node.id, selectionStart.nodeId);
+      assertTrue(!!selectionStart);
+      assertEquals(node.node, selectionStart.node);
       assertEquals(expectedFocusOffset, selectionStart.offset);
     });
 
@@ -174,7 +174,8 @@ suite('SelectionController', () => {
       selectNodes(node1, expectedAnchorOffset, node2, expectedFocusOffset);
       const selectionStart = selectionController.getCurrentSelectionStart();
 
-      assertEquals(node1.id, selectionStart.nodeId);
+      assertTrue(!!selectionStart);
+      assertEquals(node1.node, selectionStart.node);
       assertEquals(expectedAnchorOffset, selectionStart.offset);
     });
 
@@ -190,7 +191,8 @@ suite('SelectionController', () => {
       selectNodes(node2, expectedFocusOffset, node1, expectedAnchorOffset);
       const selectionStart = selectionController.getCurrentSelectionStart();
 
-      assertEquals(node1.id, selectionStart.nodeId);
+      assertTrue(!!selectionStart);
+      assertEquals(node1.node, selectionStart.node);
       assertEquals(expectedAnchorOffset, selectionStart.offset);
     });
 
@@ -365,6 +367,42 @@ suite('SelectionController', () => {
       assertEquals(parentIds[0], actualFocusId);
       assertEquals(highlightStart + anchorOffset, actualAnchorOffset);
       assertEquals(highlightStart + focusOffset, actualFocusOffset);
+    });
+
+    test('selection in node with axNodeOffset', () => {
+      const node = getNodeAt(1);
+      const axNodeOffset = 10;
+      nodeStore.setDomNode(node.node, node.id);
+      nodeStore.setAxNodeOffset(node.node, axNodeOffset);
+
+      const anchorOffset = 2;
+      const focusOffset = 5;
+      selectNodes(node, anchorOffset, node, focusOffset);
+
+      assertEquals(node.id, actualAnchorId);
+      assertEquals(node.id, actualFocusId);
+
+      assertEquals(anchorOffset + axNodeOffset, actualAnchorOffset);
+      assertEquals(focusOffset + axNodeOffset, actualFocusOffset);
+    });
+
+    test('selection in highlighted node with ancestor and axNodeOffset', () => {
+      const axNodeOffset = 20;
+      const highlightStart = 5;
+      highlightAtOffset(0, highlightStart);
+
+      const node = getNodeAt(0);  // This is the text node inside the span
+      const parentSpan = node.node.parentElement!;
+      nodeStore.setAxNodeOffset(parentSpan, axNodeOffset);
+
+      const anchorOffset = 2;
+      const focusOffset = 4;
+      selectNodes(node, anchorOffset, node, focusOffset);
+
+      assertEquals(parentIds[0], actualAnchorId);
+      // Expected = user_offset(2) + offset_in_span(5) + span_ax_offset(20) = 27
+      assertEquals(
+          anchorOffset + highlightStart + axNodeOffset, actualAnchorOffset);
     });
   });
 
@@ -981,6 +1019,61 @@ suite('SelectionController', () => {
       assertEquals(node3.text, selection.focusNode?.textContent);
       assertEquals(relativeAnchorOffset, selection.anchorOffset);
       assertEquals(relativeFocusOffset, selection.focusOffset);
+    });
+
+    test('selects correct text when side panel node has axNodeOffset', () => {
+      const axNodeOffset = 17;
+      const node = getNodeAt(1);
+      nodeStore.setDomNode(node.node, node.id);
+      nodeStore.setAxNodeOffset(node.node, axNodeOffset);
+
+      // Main panel selection starts at index 17
+      const mainAnchorOffset = 17;
+      const mainFocusOffset = 21;
+      selectNodesInMainPanel(
+          node.id, mainAnchorOffset, node.id, mainFocusOffset);
+
+      selectionController.updateSelection(selection, document.body);
+
+      assertEquals(node.node, selection.anchorNode);
+      assertEquals(0, selection.anchorOffset);  // 17 - 17
+      assertEquals(4, selection.focusOffset);   // 21 - 17
+    });
+
+    test('ignores selection that starts before axNodeOffset', () => {
+      const axNodeOffset = 17;
+      const node = getNodeAt(1);
+      nodeStore.setDomNode(node.node, node.id);
+      nodeStore.setAxNodeOffset(node.node, axNodeOffset);
+
+      // User selects text in the main panel with an offset that occurs before
+      // the portion of the rendered text node starting offset.
+      const mainAnchorOffset = 0;
+      const mainFocusOffset = 9;
+      selectNodesInMainPanel(
+          node.id, mainAnchorOffset, node.id, mainFocusOffset);
+
+      selectionController.updateSelection(selection, document.body);
+
+      assertFalse(!!selection.anchorNode);
+    });
+
+    test('ignores selection that starts after axNodeOffset range', () => {
+      const axNodeOffset = 17;
+      const node = getNodeAt(1);
+      nodeStore.setDomNode(node.node, node.id);
+      nodeStore.setAxNodeOffset(node.node, axNodeOffset);
+
+      // User selects text in the main panel with an offset that occurs after
+      // the portion of the rendered text node in the side panel.
+      const mainAnchorOffset = axNodeOffset + node.text.length + 1;
+      const mainFocusOffset = mainAnchorOffset + 5;
+      selectNodesInMainPanel(
+          node.id, mainAnchorOffset, node.id, mainFocusOffset);
+
+      selectionController.updateSelection(selection, document.body);
+
+      assertFalse(!!selection.anchorNode);
     });
   });
 });

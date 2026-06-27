@@ -24,10 +24,13 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
+import org.chromium.base.JniOnceCallback;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.blink.mojom.DisplayMode;
+import org.chromium.blink.mojom.ImmersivePlaybackConfirmationStatus;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -42,6 +45,7 @@ import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.init.ChromeActivityNativeDelegate;
 import org.chromium.chrome.browser.media.PictureInPicture;
+import org.chromium.chrome.browser.media.immersive_playback.ImmersivePlaybackSnackbarController;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
@@ -54,12 +58,13 @@ import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
+import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.ui.ExclusiveAccessManager;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.util.PictureInPictureWindowOptions;
 import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuUtils;
@@ -102,6 +107,8 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
     private final TabObserver mTabObserver;
     private final @Nullable ExclusiveAccessManager mExclusiveAccessManager;
+    private final @Nullable ImmersivePlaybackSnackbarController
+            mImmersivePlaybackSnackbarController;
 
     public ActivityTabWebContentsDelegateAndroid(
             Tab tab,
@@ -114,6 +121,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             Supplier<TabModelSelector> tabModelSelectorSupplier,
             Supplier<@Nullable CompositorViewHolder> compositorViewHolderSupplier,
             Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<SnackbarManager> snackbarManagerSupplier,
             @Nullable ExclusiveAccessManager exclusiveAccessManager) {
         mTab = tab;
         mActivity = activity;
@@ -126,6 +134,15 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mExclusiveAccessManager = exclusiveAccessManager;
+        mImmersivePlaybackSnackbarController =
+                isImmersivePlaybackEnabled()
+                        ? new ImmersivePlaybackSnackbarController(
+                                activity,
+                                snackbarManagerSupplier,
+                                modalDialogManagerSupplier,
+                                tab,
+                                fullscreenManager)
+                        : null;
         mTabObserver =
                 new EmptyTabObserver() {
                     @Override
@@ -275,9 +292,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
         if (disposition == WindowOpenDisposition.NEW_POPUP) {
             final boolean launchedMovablePopup =
-                    ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WINDOW_POPUP_LARGE_SCREEN)
-                            && PopupCreatorFactory.getInstance()
-                                    .moveTabToNewPopup(tab, windowFeatures);
+                    PopupCreatorFactory.getInstance().moveTabToNewPopup(tab, windowFeatures);
             addTabToModel.complete(!launchedMovablePopup);
             RecordHistogram.recordBooleanHistogram(
                     "Android.MultiWindowMode.PopupOpensInNewWindow", launchedMovablePopup);
@@ -329,7 +344,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                 tabModel.mergeListOfTabsToGroup(
                         Arrays.asList(newTab),
                         sourceTab,
-                        /* notify= */ MergeNotificationType.DONT_NOTIFY);
+                        /* notify= */ TabGroupMergeNotificationType.DONT_NOTIFY);
                 if (mChromeActivityNativeDelegate != null) {
                     assert Objects.equals(newTab.getTabGroupId(), sourceTab.getTabGroupId());
                     assert tabModel.getTabsInGroup(newTab.getTabGroupId()).contains(sourceTab);
@@ -343,10 +358,6 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
     @Override
     public void setContentsBounds(WebContents source, Rect bounds) {
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WINDOW_POPUP_LARGE_SCREEN)) {
-            return;
-        }
-
         if (!isPopup() || mActivity == null) {
             return;
         }
@@ -591,6 +602,25 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     }
 
     @Override
+    public void requestImmersivePlaybackConfirmation(JniOnceCallback<Integer> callback) {
+        if (!isImmersivePlaybackEnabled() || mImmersivePlaybackSnackbarController == null) {
+            callback.onResult(ImmersivePlaybackConfirmationStatus.FAILED);
+            return;
+        }
+
+        mImmersivePlaybackSnackbarController.show(
+                (status, stereoMode, projectionType) -> {
+                    // Pack the results into a single integer:
+                    // status (4 bits) | stereoMode (4 bits) | projectionType (4 bits).
+                    int packedResult = status | (stereoMode << 4) | (projectionType << 8);
+                    callback.onResult(packedResult);
+                },
+                // TODO(b/512831252): Instead of using a delay, we should properly handle
+                // interference with the ExclusiveAccess feature snackbars.
+                /* delayMs= */ 2000);
+    }
+
+    @Override
     public void fullscreenStateChangedForTab(
             RenderFrameHost renderFrameHost,
             boolean prefersNavigationBar,
@@ -641,6 +671,12 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         // TODO(b/504784078): Once the fullscreen limitation is resolved, we should update this
         // check.
         return mActivity == null || !MultiWindowUtils.getInstance().isInMultiWindowMode(mActivity);
+    }
+
+    @Override
+    protected boolean isImmersivePlaybackEnabled() {
+        return DeviceInfo.isXr()
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_XR_IMMERSIVE_PLAYER);
     }
 
     /**
@@ -767,6 +803,9 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
     @Override
     public void destroy() {
+        if (mImmersivePlaybackSnackbarController != null) {
+            mImmersivePlaybackSnackbarController.dismiss();
+        }
         mTab.removeObserver(mTabObserver);
     }
 

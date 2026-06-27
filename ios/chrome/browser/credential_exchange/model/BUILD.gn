@@ -51,6 +51,7 @@ source_set("credential_exchange_types") {
     "import_stats.h",
     "import_stats.mm",
   ]
+  deps = [ "//base" ]
 }
 
 swift_source_set("credential_export_manager_swift") {
@@ -88,8 +89,10 @@ source_set("unit_tests") {
     "//components/affiliations/core/browser:test_support",
     "//components/password_manager/core/browser:password_form",
     "//components/password_manager/core/browser:test_support",
+    "//components/password_manager/core/browser/import:importer",
     "//components/password_manager/core/browser/password_store:test_support",
     "//components/password_manager/core/browser/ui",
+    "//components/webauthn/core/browser:passkey_model",
     "//components/webauthn/core/browser:test_support",
     "//ios/chrome/browser/affiliations/model",
     "//ios/chrome/browser/passwords/model:store_factory",

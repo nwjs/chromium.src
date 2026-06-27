@@ -28,6 +28,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_all_accepted_credentials_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_client_inputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_client_outputs.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_cmtg_key_outputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_large_blob_inputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_large_blob_outputs.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_authentication_extensions_payment_inputs.h"
@@ -140,10 +141,6 @@ void RecordWebAuthnCspMetric(ExecutionContext* context,
   base::UmaHistogramBoolean(
       std::string("WebAuthentication.CspAllow.") + request_type.Utf8(),
       allowed);
-
-  if (!allowed) {
-    UseCounter::Count(context, WebFeature::kWebAuthenticationCspDisallowsRpId);
-  }
 }
 
 // RequiredOriginType enumerates the requirements on the environment to perform
@@ -604,8 +601,9 @@ void OnGetComplete(std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
   UseCounter::Count(resolver->GetExecutionContext(),
                     WebFeature::kCredentialManagerGetReturnedCredential);
   if (mediation == Mediation::IMMEDIATE) {
-    UseCounter::Count(resolver->GetExecutionContext(),
-                      WebFeature::kCredentialsGetImmediateMediationPasswordSuccess);
+    UseCounter::Count(
+        resolver->GetExecutionContext(),
+        WebFeature::kCredentialsGetImmediateMediationPasswordSuccess);
   }
   resolver->Resolve(mojo::ConvertTo<Credential*>(std::move(credential_info)));
 }
@@ -716,6 +714,11 @@ void OnMakePublicKeyCredentialComplete(
     extension_outputs->setPayment(
         ConvertTo<blink::AuthenticationExtensionsPaymentOutputs*>(
             credential->payment));
+  }
+  if (credential->cmtg_key) {
+    extension_outputs->setCmtgKey(
+        ConvertTo<blink::AuthenticationExtensionsCmtgKeyOutputs*>(
+            std::move(credential->cmtg_key)));
   }
   if (credential->echo_prf) {
     auto* prf_outputs = AuthenticationExtensionsPRFOutputs::Create();
@@ -828,8 +831,9 @@ void OnGetAssertionComplete(
       UseCounter::Count(resolver->GetExecutionContext(),
                         WebFeature::kWebAuthnConditionalUiGetSuccess);
     } else if (mediation == Mediation::IMMEDIATE) {
-      UseCounter::Count(resolver->GetExecutionContext(),
-                        WebFeature::kCredentialsGetImmediateMediationPublicKeySuccess);
+      UseCounter::Count(
+          resolver->GetExecutionContext(),
+          WebFeature::kCredentialsGetImmediateMediationPublicKeySuccess);
     }
 
     auto* authenticator_response =
@@ -894,7 +898,8 @@ void OnAuthenticatorGetCredentialComplete(
   auto password_response =
       std::move(get_credential_response->get_password_response());
   OnGetComplete(std::move(scoped_resolver), RequiredOriginType::kSecure,
-                mediation, CredentialManagerError::SUCCESS, std::move(password_response));
+                mediation, CredentialManagerError::SUCCESS,
+                std::move(password_response));
 }
 
 void OnSmsReceive(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
@@ -1330,6 +1335,11 @@ DOMException* AuthenticatorStatusToDOMException(
       return MakeGarbageCollected<DOMException>(
           DOMExceptionCode::kNotAllowedError,
           "No immediate discoverable credentials are found.");
+    case AuthenticatorStatus::CROSS_DEVICE_FALLBACK:
+      return MakeGarbageCollected<DOMException>(
+          DOMExceptionCode::kOperationError,
+          "crossDeviceFallbackUrl: The authenticator processed the fallback "
+          "URL.");
   }
   return nullptr;
 }
@@ -1527,21 +1537,12 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
   }
   if (IsImmediateGetRequest(*context, *options)) {
     if (options->password()) {
-      if (RuntimeEnabledFeatures::
-              AuthenticatorPasswordsOnlyImmediateRequestsEnabled(context)) {
-        ForwardRequestToAuthenticator(script_state, resolver, options);
-        return promise;
-      }
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kNotSupportedError,
-          "Immediate mediation is not yet implemented for requests that do "
-          "not accept PublicKeyCredential. An Immediate request for "
-          "passwords must also include a request for passkeys."));
-    } else {
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kNotSupportedError,
-          "Immediate mediation is not supported for this credential type"));
+      ForwardRequestToAuthenticator(script_state, resolver, options);
+      return promise;
     }
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kNotSupportedError,
+        "Immediate uiMode is not supported for this credential type"));
     return promise;
   }
   switch (options->mediation().AsEnum()) {

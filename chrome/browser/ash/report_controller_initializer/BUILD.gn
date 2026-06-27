@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
-
 assert(is_chromeos)
 
 static_library("report_controller_initializer") {
@@ -41,6 +39,7 @@ source_set("unit_tests") {
     ":report_controller_initializer",
     "//base",
     "//chrome/browser",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/settings",
     "//chrome/test:test_support",
     "//chromeos/ash/components/install_attributes:test_support",

@@ -1493,6 +1493,130 @@ suite('ContentController', () => {
         });
   });
 
+  suite('onRenderedTextMappingReady', () => {
+    let container: HTMLElement;
+    const axId1 = 101;
+    const axId2 = 102;
+
+    setup(() => {
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      chrome.readingMode.isReadabilitySelectTextEnabled = true;
+
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    test('splits and maps a single node to multiple AX nodes', () => {
+      const text = 'Part1Part2Part3';
+      const textNode = document.createTextNode(text);
+      container.appendChild(textNode);
+
+      contentController.onRenderedTextBlocksAvailable(container);
+
+      readingMode.getAxMapping = (index: number) => {
+        if (index === 0) {
+          return [
+            {axNodeId: axId1, start: 0, end: 5, axNodeOffset: 0},
+            {axNodeId: axId2, start: 5, end: 10, axNodeOffset: 100},
+          ];
+        }
+        return [];
+      };
+
+      contentController.onRenderedTextMappingReady();
+
+      assertEquals(3, container.childNodes.length);
+      const node1 = container.childNodes[0]!;
+      const node2 = container.childNodes[1]!;
+      const node3 = container.childNodes[2]!;
+
+      assertEquals(0, nodeStore.getAxNodeOffset(node1));
+      assertEquals(100, nodeStore.getAxNodeOffset(node2));
+
+      assertEquals('Part1', node1.textContent);
+      assertEquals('Part2', node2.textContent);
+      assertEquals('Part3', node3.textContent);
+
+      assertEquals(axId1, nodeStore.getAxId(node1));
+      assertEquals(axId2, nodeStore.getAxId(node2));
+      assertFalse(!!nodeStore.getAxId(node3));
+    });
+
+    test('handles gaps at the beginning of a block', () => {
+      const text = 'GapMapped';
+      const textNode = document.createTextNode(text);
+      container.appendChild(textNode);
+      contentController.onRenderedTextBlocksAvailable(container);
+
+      readingMode.getAxMapping =
+          () => [{axNodeId: axId1, start: 3, end: 9, axNodeOffset: 17}];
+
+      contentController.onRenderedTextMappingReady();
+
+      const mappedNode = container.childNodes[1]!;
+      assertEquals(2, container.childNodes.length);
+      assertEquals('Gap', container.childNodes[0]!.textContent);
+      assertEquals('Mapped', mappedNode.textContent);
+      assertEquals(axId1, nodeStore.getAxId(mappedNode));
+      assertEquals(17, nodeStore.getAxNodeOffset(mappedNode));
+    });
+
+    test('maps multiple segments with different axNodeOffsets', () => {
+      const text = 'Segment1Segment2';
+      const textNode = document.createTextNode(text);
+      container.appendChild(textNode);
+      contentController.onRenderedTextBlocksAvailable(container);
+
+      readingMode.getAxMapping = () =>
+          [{axNodeId: axId1, start: 0, end: 8, axNodeOffset: 17},
+           {axNodeId: axId2, start: 8, end: 16, axNodeOffset: 0},
+      ];
+
+      contentController.onRenderedTextMappingReady();
+
+      assertEquals(2, container.childNodes.length);
+      const node1 = container.childNodes[0]!;
+      const node2 = container.childNodes[1]!;
+
+      assertEquals('Segment1', node1.textContent);
+      assertEquals(17, nodeStore.getAxNodeOffset(node1));
+
+      assertEquals('Segment2', node2.textContent);
+      assertEquals(0, nodeStore.getAxNodeOffset(node2));
+    });
+
+    test('triggers selection update after mapping', () => {
+      let updateSelectionCalled = false;
+      readingMode.updateSelection = () => {
+        updateSelectionCalled = true;
+      };
+
+      container.textContent = 'text';
+      contentController.onRenderedTextBlocksAvailable(container);
+      readingMode.getAxMapping = () => [{axNodeId: axId1, start: 0, end: 4}];
+
+      contentController.onRenderedTextMappingReady();
+
+      assertTrue(updateSelectionCalled);
+    });
+
+    test('does nothing if feature is disabled', () => {
+      chrome.readingMode.isReadabilitySelectTextEnabled = false;
+      container.textContent = 'text';
+      contentController.onRenderedTextBlocksAvailable(container);
+
+      let mappingCalled = false;
+      readingMode.getAxMapping = () => {
+        mappingCalled = true;
+        return [];
+      };
+
+      contentController.onRenderedTextMappingReady();
+      assertFalse(mappingCalled);
+    });
+  });
+
   test('onRenderedTextMappingReady triggers contentController', () => {
     let triggered = false;
     contentController.onRenderedTextMappingReady = () => {

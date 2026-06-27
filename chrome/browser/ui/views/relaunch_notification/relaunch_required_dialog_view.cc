@@ -11,8 +11,8 @@
 #include "base/metrics/user_metrics_action.h"
 #include "build/branding_buildflags.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -23,6 +23,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/point.h"
@@ -94,13 +95,15 @@ std::u16string RelaunchRequiredDialogView::GetWindowTitle() const {
 
 ui::ImageModel RelaunchRequiredDialogView::GetWindowIcon() {
   return ui::ImageModel::FromVectorIcon(
-      ap_style_ ?
+      ap_style_
+          ?
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-                vector_icons::kGshieldIcon
+          vector_icons::kGshieldIcon
 #else
-                kSecurityIcon
+          features::IsRoundedIconsEnabled() ? kSecurityIcon : kSecurityOldIcon
 #endif
-                : vector_icons::kBusinessIcon,
+          : features::IsRoundedIconsEnabled() ? vector_icons::kDomainIcon
+                                              : vector_icons::kBusinessOldIcon,
       ui::kColorIcon,
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           views::DISTANCE_BUBBLE_HEADER_VECTOR_ICON_SIZE));
@@ -148,7 +151,7 @@ RelaunchRequiredDialogView::RelaunchRequiredDialogView(
       l10n_util::GetPluralStringFUTF16(
           ap_style_ ? IDS_ADVANCED_PROTECTION_RELAUNCH_REQUIRED_BODY
                     : IDS_RELAUNCH_REQUIRED_BODY,
-          chrome::GetIncognitoBrowserCount()),
+          GlobalBrowserCollection::GetInstance()->GetIncognitoBrowserCount()),
       views::style::CONTEXT_DIALOG_BODY_TEXT);
   label->SetMultiLine(true);
   label->SetHorizontalAlignment(gfx::ALIGN_LEFT);

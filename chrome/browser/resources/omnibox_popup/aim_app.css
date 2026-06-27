@@ -60,7 +60,6 @@
   --color-composebox-input-icon: var(--color-omnibox-results-icon);
   --color-composebox-lens-button: unset; /* Lens only */
   --color-composebox-pdf-chip-icon: var(--color-omnibox-text-dimmed);
-  --color-composebox-recent-tab-chip-outline: unset; /* Omnibox has no recent tab chip. */
   --color-composebox-scrim-background: unset; /* No scrim. */
   --color-composebox-submit-button-background: var(--color-omnibox-composebox-submit-button-background);
   --color-composebox-submit-button-energy: var(--color-omnibox-composebox-submit-button-energy);
@@ -68,7 +67,7 @@
   --color-composebox-submit-button-hover: var(--color-omnibox-action-icon-hover);
   --color-composebox-suggestion-activity: unset; /* No activity suggestion disclaimer. */
   --color-composebox-type-ahead: var(--color-omnibox-foreground-disabled);
-  --color-composebox-type-ahead-chip: var(--color-omnibox-foreground-disabled);
+  --color-composebox-type-ahead-chip: var(--color-omnibox-composebox-chip-background);
   --color-composebox-upload-button: var(--omnibox-results-chip-background);
   --color-composebox-upload-button-disabled: var(--color-omnibox-foreground-disabled);
   --color-composebox-voice-search-font: var(--color-omnibox-text);
@@ -154,6 +153,7 @@
 }
 
 #composebox::part(context-menu-and-tools) {
+  --omnibox-context-menu-container-margin-top: 0px;
   margin-top: var(--omnibox-context-menu-container-margin-top);
 }
 
@@ -161,12 +161,21 @@
   height: 40px;
 }
 
-cr-composebox[searchbox-layout-mode='TallBottomContext']::part(submit) {
+#composebox[searchbox-layout-mode='TallBottomContext']::part(submit) {
   bottom: 10px;
 }
 
-:host([energy-effect-enabled_]) cr-composebox[searchbox-layout-mode='TallBottomContext']::part(submit) {
+:host([energy-effect-enabled_])
+    #composebox[searchbox-layout-mode='TallBottomContext']::part(submit) {
   inset-inline-end: 8px;
+}
+
+/* Only set min height/width if it exists;
+ * otherwise use existing min height/width.
+ */
+#composebox.has-embedded-permission-prompt::part(composebox) {
+  min-height: var(--cr_composebox_minimum_height);
+  min-width: var(--cr_composebox_minimum_width);
 }
 
 #composebox::part(voice-icon) {
@@ -183,11 +192,12 @@ cr-composebox[searchbox-layout-mode='TallBottomContext']::part(submit) {
   inset-inline-end: 14px;
 }
 
-cr-composebox[submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown])::part(submit) {
+#composebox[submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown])::part(submit) {
   bottom: 6px;
 }
 
-:host([energy-effect-enabled_]) cr-composebox[submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown])::part(submit) {
+:host([energy-effect-enabled_])
+    #composebox[submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown])::part(submit) {
   bottom: 10px;
   inset-inline-end: 8px;
 }

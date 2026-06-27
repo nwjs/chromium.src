@@ -7,11 +7,12 @@
 #include <memory>
 
 #include "base/functional/callback_helpers.h"
+#include "build/buildflag.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/api/toast_specification.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/vector_icon_types.h"
 
 class ToastRegistryTest : public testing::Test {};
@@ -20,7 +21,11 @@ class ToastRegistryTest : public testing::Test {};
 TEST_F(ToastRegistryTest, DefaultToast) {
   const int string_id = 0;
   std::unique_ptr<ToastSpecification> spec =
-      ToastSpecification::Builder(vector_icons::kEmailIcon, string_id).Build();
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? vector_icons::kMailFilledIcon
+                                      : vector_icons::kEmailOldIcon,
+                                  string_id)
+          .Build();
 
   EXPECT_EQ(string_id, spec->body_string_id());
   EXPECT_FALSE(spec->has_close_button());
@@ -32,7 +37,10 @@ TEST_F(ToastRegistryTest, DefaultToast) {
 TEST_F(ToastRegistryTest, ToastWithCloseButton) {
   const int string_id = 0;
   std::unique_ptr<ToastSpecification> spec =
-      ToastSpecification::Builder(vector_icons::kEmailIcon, string_id)
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? vector_icons::kMailFilledIcon
+                                      : vector_icons::kEmailOldIcon,
+                                  string_id)
           .AddCloseButton()
           .Build();
 
@@ -47,7 +55,10 @@ TEST_F(ToastRegistryTest, ToastWithActionButton) {
   const int body_string_id = 0;
   const int action_button_string_id = 1;
   std::unique_ptr<ToastSpecification> spec =
-      ToastSpecification::Builder(vector_icons::kEmailIcon, body_string_id)
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? vector_icons::kMailFilledIcon
+                                      : vector_icons::kEmailOldIcon,
+                                  body_string_id)
           .AddActionButton(action_button_string_id, base::DoNothing())
           .AddCloseButton()
           .Build();
@@ -59,26 +70,33 @@ TEST_F(ToastRegistryTest, ToastWithActionButton) {
   EXPECT_FALSE(spec->has_menu());
 
   // Toasts with an action button must have a close button.
-  EXPECT_DEATH(
-      ToastSpecification::Builder(vector_icons::kEmailIcon, body_string_id)
-          .AddActionButton(action_button_string_id, base::DoNothing())
-          .Build(),
-      "");
+  EXPECT_DEATH(ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                               ? vector_icons::kMailFilledIcon
+                                               : vector_icons::kEmailOldIcon,
+                                           body_string_id)
+                   .AddActionButton(action_button_string_id, base::DoNothing())
+                   .Build(),
+               "");
 
   // A toast cannot have an action button, close button, and a menu.
-  EXPECT_DEATH(
-      ToastSpecification::Builder(vector_icons::kEmailIcon, body_string_id)
-          .AddActionButton(action_button_string_id, base::DoNothing())
-          .AddCloseButton()
-          .AddMenu()
-          .Build(),
-      "");
+  EXPECT_DEATH(ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                               ? vector_icons::kMailFilledIcon
+                                               : vector_icons::kEmailOldIcon,
+                                           body_string_id)
+                   .AddActionButton(action_button_string_id, base::DoNothing())
+                   .AddCloseButton()
+                   .AddMenu()
+                   .Build(),
+               "");
 }
 
 TEST_F(ToastRegistryTest, ToastWithMenu) {
   const int body_string_id = 0;
   std::unique_ptr<ToastSpecification> spec =
-      ToastSpecification::Builder(vector_icons::kEmailIcon, body_string_id)
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? vector_icons::kMailFilledIcon
+                                      : vector_icons::kEmailOldIcon,
+                                  body_string_id)
           .AddMenu()
           .Build();
   EXPECT_EQ(body_string_id, spec->body_string_id());
@@ -90,7 +108,9 @@ TEST_F(ToastRegistryTest, ToastWithMenu) {
 
 TEST_F(ToastRegistryTest, RegisterSpecification) {
   std::unique_ptr<ToastSpecification> unique_spec =
-      ToastSpecification::Builder(vector_icons::kEmailIcon,
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? vector_icons::kMailFilledIcon
+                                      : vector_icons::kEmailOldIcon,
                                   /*body_string_id=*/0)
           .Build();
 
@@ -120,20 +140,26 @@ TEST_F(ToastRegistryTest, RegisterDuplicateToastId) {
       std::make_unique<ToastRegistry>();
 
   toast_registry->RegisterToast(
-      ToastId::kImageCopied, ToastSpecification::Builder(
-                                 vector_icons::kEmailIcon, /*body_string_id=*/0)
-                                 .Build());
+      ToastId::kImageCopied,
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? vector_icons::kMailFilledIcon
+                                      : vector_icons::kEmailOldIcon,
+                                  /*body_string_id=*/0)
+          .Build());
 
   // Even though we are registering a slightly different toast, the
   // ToastRegistry should still hit a CHECK because we are using an already
   // registered ToastId.
-  EXPECT_DEATH(toast_registry->RegisterToast(
-                   ToastId::kImageCopied,
-                   ToastSpecification::Builder(vector_icons::kEmailIcon,
-                                               /*body_string_id=*/0)
-                       .AddCloseButton()
-                       .Build()),
-               "");
+  EXPECT_DEATH(
+      toast_registry->RegisterToast(
+          ToastId::kImageCopied,
+          ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                          ? vector_icons::kMailFilledIcon
+                                          : vector_icons::kEmailOldIcon,
+                                      /*body_string_id=*/0)
+              .AddCloseButton()
+              .Build()),
+      "");
 }
 
 TEST_F(ToastRegistryTest, RetrieveUnregisteredToastId) {

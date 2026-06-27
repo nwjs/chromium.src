@@ -9,6 +9,7 @@
 #include "base/notimplemented.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_controller.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_metrics.h"
 #include "chrome/browser/contextual_cueing/cueing_log.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -68,8 +69,14 @@ GlicCueTarget::~GlicCueTarget() = default;
 bool GlicCueTarget::IsEligible() const {
   return GlicEnabling::IsEnabledForProfile(
              browser_window_interface_->GetProfile()) &&
+         browser_window_interface_->GetProfile()->GetPrefs()->GetBoolean(
+             prefs::kGlicPinnedToTabstrip) &&
          !glic_keyed_service_->IsPanelShowingForBrowser(
-             *browser_window_interface_);
+             *browser_window_interface_) &&
+         // TODO(crbug.com/507551989): Default tab context sharing check won't
+         // be needed once tab sharing UI is implemented.
+         browser_window_interface_->GetProfile()->GetPrefs()->GetBoolean(
+             glic::prefs::kGlicDefaultTabContextEnabled);
 }
 
 void GlicCueTarget::OnClick(contextual_cueing::CueActionData data) {
@@ -95,13 +102,6 @@ void GlicCueTarget::InvokeGlic(contextual_cueing::CueActionData data,
              NewConversation()),
       glic::mojom::InvocationSource::kAutoOpenedByContextualCue);
   options.prompts.emplace_back(std::move(glic_data.prompt));
-
-  // Also pin the active tab if it isn't already pinned.
-  tabs::TabHandle active_handle = GetActiveTabHandle();
-  if (std::find(glic_data.tabs_to_share.begin(), glic_data.tabs_to_share.end(),
-                active_handle) == glic_data.tabs_to_share.end()) {
-    glic_data.tabs_to_share.push_back(active_handle);
-  }
 
   CUEING_LOG(
       base::StringPrintf("Sharing %d tabs", glic_data.tabs_to_share.size()));
@@ -133,58 +133,21 @@ ui::ImageModel GlicCueTarget::GetOmniboxChipIcon() const {
 }
 
 contextual_cueing::CueActionData GlicCueTarget::CueActionDataFromResponse(
-    const optimization_guide::proto::ContextualCueingResponse& response) const {
+    const optimization_guide::proto::ContextualCue& cue,
+    std::vector<tabs::TabHandle> tabs_to_show) const {
   contextual_cueing::GlicCueActionData data;
-  if (!response.has_gemini_in_chrome_surface()) {
+  if (!cue.has_gemini_in_chrome_surface()) {
     CUEING_LOG("Missing Gemini surface data.");
     return data;
   }
-  data.prompt = response.gemini_in_chrome_surface().prompt();
-
-  // TODO(crbug.com/507551989): Remove the kGlicDefaultTabContext check once UI
-  // exists to show which tabs would be shared.
-  if (browser_window_interface_->GetProfile()->GetPrefs()->GetBoolean(
-          prefs::kGlicDefaultTabContextEnabled)) {
-    auto& tab_handle_factory =
-        tabs::SessionMappedTabHandleFactory::GetInstance();
-    for (auto& tab : response.gemini_in_chrome_surface().tabs_to_share()) {
-      SessionID session_id = SessionID::FromSerializedValue(
-          static_cast<SessionID::id_type>(tab.tab_id()));
-      if (!session_id.is_valid()) {
-        continue;
-      }
-
-      tabs::TabHandle handle(
-          tab_handle_factory.GetHandleForSessionId(session_id.id()));
-      // Ensure tab is valid
-      if (handle.Get()) {
-        data.tabs_to_share.push_back(handle);
-      }
-    }
-
-    CUEING_LOG(
-        base::StringPrintf("%d tabs in response.", data.tabs_to_share.size()));
-
-  } else {
-    CUEING_LOG("Sharing no tabs because default tab context sharing is off.");
-  }
-
+  data.prompt = cue.gemini_in_chrome_surface().prompt();
+  data.tabs_to_share = std::move(tabs_to_show);
   return data;
 }
 
 optimization_guide::proto::ContextualCueingSurface GlicCueTarget::GetSurface()
     const {
   return optimization_guide::proto::CONTEXTUAL_CUEING_SURFACE_GEMINI_IN_CHROME;
-}
-
-tabs::TabHandle GlicCueTarget::GetActiveTabHandle() {
-  if (auto* tab_list_interface =
-          TabListInterface::From(&*browser_window_interface_)) {
-    if (tabs::TabInterface* active_tab = tab_list_interface->GetActiveTab()) {
-      return active_tab->GetHandle();
-    }
-  }
-  return tabs::TabHandle::Null();
 }
 
 }  // namespace glic

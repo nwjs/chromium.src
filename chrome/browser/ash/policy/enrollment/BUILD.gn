@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
-
 assert(is_chromeos)
 
 static_library("enrollment") {
@@ -52,6 +50,7 @@ static_library("enrollment") {
     "//build/config/cuttlefish:buildflags",
     "//build/config/squid:buildflags",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/policy/dev_mode",
     "//chrome/browser/ash/policy/enrollment/psm",
@@ -123,6 +122,7 @@ source_set("unit_tests") {
     "//build:branding_buildflags",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/enrollment/psm",
     "//chrome/browser/ash/policy/enrollment/psm:test_support",

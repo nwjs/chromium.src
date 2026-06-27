@@ -7,6 +7,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "content/browser/preloading/prefetch/prefetch_container_async_observer.h"
 #include "content/public/browser/prefetch_handle.h"
 
 namespace content {
@@ -43,11 +44,28 @@ class PrefetchHandleImpl final : public PrefetchHandle {
       PrefetchStatus prefetch_status_on_release_started_prefetch);
 
  private:
-  class PrefetchContainerObserver;
+  class PrefetchContainerObserverForCallback;
+
+  // The `content::PrefetchContainerObserver` to be registered to
+  // `PrefetchContainer`.
+  PrefetchContainerObserver& GetObserver() const;
+  // The underlying `PrefetchHandleImpl::PrefetchContainerObserver`, for setting
+  // the callbacks.
+  PrefetchContainerObserverForCallback& GetUnderlyingObserver() const;
 
   base::WeakPtr<PrefetchService> prefetch_service_;
   base::WeakPtr<PrefetchContainer> prefetch_container_;
-  std::unique_ptr<PrefetchContainerObserver> prefetch_container_observer_;
+
+  using AsyncObserverForCallback =
+      PrefetchContainerAsyncObserver<PrefetchContainerObserverForCallback>;
+
+  // Exactly one of these two is non-null, depending on
+  // `features::kPrefetchAsyncPrefetchHandleCallback`.
+  // TODO(crbug.com/480271813): Cleanup this once the feature is settled.
+  std::unique_ptr<PrefetchContainerObserverForCallback>
+      prefetch_container_observer_;
+  std::unique_ptr<AsyncObserverForCallback> prefetch_container_async_observer_;
+
   std::optional<PrefetchStatus> prefetch_status_on_release_started_prefetch_;
 };
 

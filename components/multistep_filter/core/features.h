@@ -10,6 +10,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 
 namespace multistep_filter {
 
@@ -20,6 +21,10 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kMultistepFilterSuggestionMaxCandidates);
 BASE_DECLARE_FEATURE_PARAM(std::string, kMultistepFilterAllowedDomains);
 
 BASE_DECLARE_FEATURE_PARAM(std::string, kMultistepFilterIndexServerApiBaseUrl);
+
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kMultistepFilterSessionDuration);
+
+BASE_DECLARE_FEATURE_PARAM(std::string, kCueTemplatesMap);
 
 }  // namespace multistep_filter
 

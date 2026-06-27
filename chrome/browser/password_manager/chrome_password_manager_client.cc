@@ -94,6 +94,7 @@
 #include "components/password_manager/core/browser/password_manager_settings_service.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_requirements_service.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
@@ -900,9 +901,9 @@ void ChromePasswordManagerClient::AutomaticPasswordSave(
 }
 
 void ChromePasswordManagerClient::PasswordWasAutofilled(
-    base::span<const PasswordForm> best_matches,
+    base::span<const password_manager::StoredCredential> best_matches,
     const url::Origin& origin,
-    base::span<const PasswordForm> federated_matches,
+    base::span<const password_manager::StoredCredential> federated_matches,
     bool was_autofilled_on_pageload) {
 #if !BUILDFLAG(IS_ANDROID)
   PasswordsClientUIDelegate* manage_passwords_ui_controller =
@@ -936,17 +937,15 @@ void ChromePasswordManagerClient::AutofillHttpAuth(
 
   // Make a copy of best matches as form_manager is not guaranteed to outlive
   // authentication.
-  std::vector<PasswordForm> best_matches;
-  for (const auto& result : form_manager->GetBestMatches()) {
-    best_matches.emplace_back(result);
-  }
+  std::vector<password_manager::StoredCredential> best_matches = base::ToVector(
+      form_manager->GetBestMatches(), &password_manager::CloneStoredCredential);
 
   httpauth_manager_.Autofill(
       preferred_match, form_manager,
       base::BindOnce(&ChromePasswordManagerClient::PasswordWasAutofilled,
                      weak_ptr_factory_.GetWeakPtr(), std::move(best_matches),
                      url::Origin::Create(form_manager->GetURL()),
-                     base::span<const PasswordForm>(),
+                     std::vector<password_manager::StoredCredential>(),
                      /*was_autofilled_on_pageload=*/false));
 }
 
@@ -1412,9 +1411,11 @@ void ChromePasswordManagerClient::MarkSharedCredentialsAsNotified(
     password_manager::PasswordForm updatedForm = form;
     updatedForm.sharing_notification_displayed = true;
     if (updatedForm.IsUsingAccountStore()) {
-      GetAccountPasswordStore()->UpdateLogin(std::move(updatedForm));
+      GetAccountPasswordStore()->UpdateLogin(
+          password_manager::FromPasswordForm(std::move(updatedForm)));
     } else {
-      GetProfilePasswordStore()->UpdateLogin(std::move(updatedForm));
+      GetProfilePasswordStore()->UpdateLogin(
+          password_manager::FromPasswordForm(std::move(updatedForm)));
     }
   }
 }
@@ -1585,6 +1586,11 @@ void ChromePasswordManagerClient::PresaveGeneratedPassword(
     const std::u16string& password_value) {
   content::RenderFrameHost* rfh =
       password_generation_driver_receivers_.GetCurrentTargetFrame();
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
+          rfh, form_data.url(),
+          BadMessageReason::CPMD_BAD_ORIGIN_PRESAVE_GENERATED_PASSWORD)) {
+    return;
+  }
   if (!password_manager::bad_message::CheckFrameNotPrerendering(rfh)) {
     return;
   }
@@ -1614,6 +1620,11 @@ void ChromePasswordManagerClient::PasswordNoLongerGenerated(
     const autofill::FormData& form_data) {
   content::RenderFrameHost* rfh =
       password_generation_driver_receivers_.GetCurrentTargetFrame();
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
+          rfh, form_data.url(),
+          BadMessageReason::CPMD_BAD_ORIGIN_PASSWORD_NO_LONGER_GENERATED)) {
+    return;
+  }
   if (!password_manager::bad_message::CheckFrameNotPrerendering(rfh)) {
     return;
   }
@@ -1995,14 +2006,10 @@ void ChromePasswordManagerClient::PropagatePredictionsToPasswordManager(
                                                 field_ids_for_renderer_form));
         break;
       case FieldTypeSource::kHeuristicsOrAutocomplete: {
-#if !BUILDFLAG(IS_ANDROID)
         bool use_model_predictions_for_actor =
             IsActorTaskActive() && base::FeatureList::IsEnabled(
                                        password_manager::features::
                                            kActorLoginLocalClassificationModel);
-#else
-        bool use_model_predictions_for_actor = false;
-#endif
         if (apply_client_side_prediction_override_ ||
             base::FeatureList::IsEnabled(
                 password_manager::features::

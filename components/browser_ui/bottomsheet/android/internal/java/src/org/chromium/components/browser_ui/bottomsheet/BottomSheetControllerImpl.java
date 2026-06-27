@@ -26,7 +26,6 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
-import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -48,7 +47,7 @@ import java.util.function.Supplier;
  * content was actually shown (see full doc on method).
  */
 @NullMarked
-class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCoordinator.Observer {
+class BottomSheetControllerImpl implements ManagedBottomSheetController {
     /** The initial capacity for the priority queue handling pending content show requests. */
     private static final int INITIAL_QUEUE_CAPACITY = 1;
 
@@ -119,6 +118,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
     /** The content being shown prior to the sheet being suppressed. */
     private @Nullable BottomSheetContent mContentWhenSuppressed;
 
+    private boolean mScrimVisible;
     private int mAppHeaderHeight;
     private int mBottomControlsOffset;
     private boolean mIsAnchoredToBottomControls;
@@ -242,12 +242,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
                         INITIAL_QUEUE_CAPACITY,
                         Comparator.comparingInt(BottomSheetContent::getPriority));
 
-        PropertyModel scrimProperties =
-                new PropertyModel.Builder(ScrimProperties.ALL_KEYS)
-                        .with(ScrimProperties.AFFECTS_STATUS_BAR, true)
-                        .with(ScrimProperties.ANCHOR_VIEW, mBottomSheet)
-                        .with(ScrimProperties.CLICK_DELEGATE, this::onScrimClicked)
-                        .build();
+        PropertyModel scrimProperties = createScrimParams();
 
         mBottomSheet.addObserver(
                 new EmptyBottomSheetObserver() {
@@ -265,7 +260,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
                         // trigger an update to account for this possibility.
                         ScrimManager scrimManager = mScrimManagerSupplier.get();
                         assumeNonNull(scrimManager);
-                        scrimVisibilityChanged(scrimManager.isShowingScrim());
+                        adjustBottomSheetZAxis(mScrimVisible);
                         if (mBottomSheet.getCurrentSheetContent() != null
                                 && mBottomSheet
                                         .getCurrentSheetContent()
@@ -276,6 +271,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
 
                         scrimManager.showScrim(scrimProperties);
                         mScrimShown = true;
+                        onScrimVisibilityChanged(true);
                         updateBackPressStateChangedSupplier();
                     }
 
@@ -337,9 +333,6 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
                     }
                 });
 
-        ScrimManager scrimManager = mScrimManagerSupplier.get();
-        assumeNonNull(scrimManager);
-        scrimManager.addObserver(this);
         // Add any of the pending observers that were added prior to the sheet being created.
         for (int i = 0; i < mPendingSheetObservers.size(); i++) {
             mBottomSheet.addObserver(mPendingSheetObservers.get(i));
@@ -357,11 +350,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
     public void setBottomControlsOffset(int bottomControlsOffset) {
         if (mBottomControlsOffset == bottomControlsOffset) return;
         mBottomControlsOffset = bottomControlsOffset;
-        var scrimManager = mScrimManagerSupplier.get();
-        if (scrimManager != null) {
-            // Set the appropriate offset for the current scrim state.
-            scrimVisibilityChanged(scrimManager.isShowingScrim());
-        }
+        adjustBottomSheetZAxis(mScrimVisible);
     }
 
     @Override
@@ -375,6 +364,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
                 .with(ScrimProperties.AFFECTS_STATUS_BAR, true)
                 .with(ScrimProperties.ANCHOR_VIEW, mBottomSheet)
                 .with(ScrimProperties.CLICK_DELEGATE, this::onScrimClicked)
+                .with(ScrimProperties.VISIBILITY_CALLBACK, this::onScrimVisibilityChanged)
                 .build();
     }
 
@@ -513,9 +503,11 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
         if (mBottomSheet == null) return;
 
         if (mBottomSheet.getCurrentSheetContent() != null) {
+            boolean shouldRestoreState =
+                    mBottomSheet.getCurrentSheetContent().shouldRestoreStateOnUnsuppress();
             @SheetState
             int openState =
-                    mContentWhenSuppressed == getCurrentSheetContent()
+                    mContentWhenSuppressed == getCurrentSheetContent() && shouldRestoreState
                             ? mSheetStateBeforeSuppress
                             : mBottomSheet.getOpeningState();
             mBottomSheet.setSheetState(openState, true);
@@ -570,17 +562,25 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
         boolean shouldSwapContent =
                 mBottomSheet.getCurrentSheetContent() != null
                         && canBottomSheetSwitchContent(content);
+        boolean isCobrowse = content.getPriority() == BottomSheetContent.ContentPriority.COBROWSE;
 
         // Always add the content to the queue, it will be handled after the sheet closes if
         // necessary. If already hidden, |showNextContent| will handle the request.
         mContentQueue.add(content);
 
+        // TODO(crbug.com/505050661): Remove COBROWSE condition once modes is implemented.
         if (mBottomSheet.getCurrentSheetContent() == null && !mSuppressionTokens.hasTokens()) {
             showNextContent(animate);
             return true;
         } else if (shouldSwapContent) {
-            mIsSuppressingCurrentContent = true;
-            mContentQueue.add(mBottomSheet.getCurrentSheetContent());
+            // If bottomSheet is CoBrowse we should close the previous sheet (instead of adding it
+            // back to the queue). There should never be 2 bottomSheets with coBrowse as
+            // TabBottomSheetManager ensures that we always close the previous coBrowse
+            // bottomSheet before ever showing a new one.
+            if (!isCobrowse) {
+                mIsSuppressingCurrentContent = true;
+                mContentQueue.add(mBottomSheet.getCurrentSheetContent());
+            }
             if (!mSuppressionTokens.hasTokens()) {
                 mBottomSheet.setSheetState(SheetState.HIDDEN, animate);
                 return true;
@@ -629,12 +629,17 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
 
     @Override
     public void expandSheet() {
+        expandSheet(true);
+    }
+
+    @Override
+    public void expandSheet(boolean animate) {
         if (mBottomSheet == null || mSuppressionTokens.hasTokens() || mBottomSheet.isHiding()) {
             return;
         }
 
         if (mBottomSheet.getCurrentSheetContent() == null) return;
-        mBottomSheet.setSheetState(SheetState.HALF, true);
+        mBottomSheet.setSheetState(SheetState.HALF, animate);
     }
 
     @Override
@@ -652,6 +657,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
     /**
      * Show the next {@link BottomSheetContent} if it is available and peek the sheet. If no content
      * is available the sheet's content is set to null.
+     *
      * @param animate Whether the sheet should animate opened.
      */
     private void showNextContent(boolean animate) {
@@ -747,10 +753,13 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
         mBottomSheet.onSheetBackgroundColorOverrideChanged();
     }
 
-    // ScrimCoordinator.Observer
+    private void onScrimVisibilityChanged(boolean visible) {
+        if (mScrimVisible == visible) return;
+        mScrimVisible = visible;
+        adjustBottomSheetZAxis(visible);
+    }
 
-    @Override
-    public void scrimVisibilityChanged(boolean scrimVisible) {
+    private void adjustBottomSheetZAxis(boolean scrimVisible) {
         if (mBottomSheet == null) return;
         assumeNonNull(mBottomSheetContainer);
         if (scrimVisible && mBottomSheet.isSheetOpen()) {
@@ -791,12 +800,17 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
      */
     private boolean canBottomSheetSwitchContent(BottomSheetContent nextContent) {
         BottomSheetContent currentContent = assumeNonNull(mBottomSheet).getCurrentSheetContent();
-        if (nextContent.getPriority() < assumeNonNull(currentContent).getPriority()
-                && !mBottomSheet.isSheetOpen()) {
+        // TODO(crbug.com/505050661): Remove COBROWSE condition once modes is implemented.
+        if (nextContent.getPriority() == BottomSheetContent.ContentPriority.COBROWSE) {
             return true;
         }
 
         if (assumeNonNull(currentContent).canBeSuppressed(nextContent)) {
+            return true;
+        }
+
+        if (nextContent.getPriority() < currentContent.getPriority()
+                && !mBottomSheet.isSheetOpen()) {
             return true;
         }
 

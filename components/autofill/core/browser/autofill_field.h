@@ -8,32 +8,40 @@
 #include <stddef.h>
 
 #include <array>
+#include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
 
+#include "base/compiler_specific.h"
+#include "base/containers/flat_map.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/data_quality/addresses/profile_token_quality.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
-#include "components/autofill/core/browser/form_parsing/regex_patterns.h"
 #include "components/autofill/core/browser/heuristic_source.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/proto/password_requirements.pb.h"
 #include "components/autofill/core/browser/suggestions/suggestion_util.h"
+#include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/html_field_types.h"
 #include "components/autofill/core/common/signatures.h"
+#include "components/autofill/core/common/unique_ids.h"
 
 namespace autofill {
 
 class AutofillQueryResponse_FormSuggestion_FieldSuggestion_FieldPrediction;
 class FormAutofillHistory;
 class FormFiller;
+class FormStructure;
 
 using FieldPrediction =
     AutofillQueryResponse_FormSuggestion_FieldSuggestion_FieldPrediction;
@@ -149,6 +157,14 @@ enum class FieldModifier {
   kMaxValue = kAutofill,
 };
 
+class FormStructure;
+
+class AutofillFieldCopyKey {
+ private:
+  friend class FormStructure;
+  AutofillFieldCopyKey() = default;
+};
+
 class AutofillField : public FormFieldData {
  public:
   using FieldLogEventType = std::variant<std::monostate,
@@ -165,8 +181,6 @@ class AutofillField : public FormFieldData {
   AutofillField();
   explicit AutofillField(const FormFieldData& field);
 
-  AutofillField(const AutofillField&) = delete;
-  AutofillField& operator=(const AutofillField&) = delete;
   AutofillField(AutofillField&&);
   AutofillField& operator=(AutofillField&&);
 
@@ -177,6 +191,9 @@ class AutofillField : public FormFieldData {
   // since it is likely missing some fields.
   static std::unique_ptr<AutofillField> CreateForPasswordManagerUpload(
       FieldSignature field_signature);
+
+  static std::unique_ptr<AutofillField> Clone(const AutofillField& other,
+                                              AutofillFieldCopyKey pass_key);
 
   // This is deprecated, consider using `AutofillField::field_modifiers_`
   // instead.
@@ -258,14 +275,12 @@ class AutofillField : public FormFieldData {
   void RemoveFieldModifier(FieldModifier modifier,
                            base::PassKey<FormFiller> pass_key);
 
-  // TODO(crbug.com/456719060): Remove `FormStructure` from the `pass_key` of
-  // both functions below after launching `kAutofillOptimizeCacheUpdates`.
   const std::vector<FieldModifier>& field_modifiers(
-      base::PassKey<FormStructure, FormAutofillHistory>) const {
+      base::PassKey<FormAutofillHistory>) const {
     return field_modifiers_;
   }
   void set_field_modifiers(std::vector<FieldModifier> field_modifiers,
-                           base::PassKey<FormStructure, FormFiller>) {
+                           base::PassKey<FormFiller>) {
     field_modifiers_ = std::move(field_modifiers);
   }
 
@@ -520,6 +535,9 @@ class AutofillField : public FormFieldData {
   };
 
   explicit AutofillField(FieldSignature field_signature);
+
+  AutofillField(const AutofillField&);
+  AutofillField& operator=(const AutofillField&);
 
   // Copies the information from `field_data` into the members of
   // `AutofillField` that were inherited from `FormFieldData`.

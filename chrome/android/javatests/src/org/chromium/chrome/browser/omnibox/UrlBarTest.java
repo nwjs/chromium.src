@@ -39,8 +39,9 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.ReusedCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
-import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.content_public.common.ContentUrlConstants;
+import org.chromium.url.GURL;
 
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -680,15 +681,27 @@ public class UrlBarTest {
     public void testCopyUrl_SchemePreservation() throws Exception {
         // Force desktop mode.
         ThreadUtils.runOnUiThreadBlocking(
-                () -> OmniboxFeatures.setHasDesktopExperienceForTesting(Boolean.TRUE));
+                () -> OmniboxCapabilities.setHasDesktopExperienceForTesting(Boolean.TRUE));
 
-        // Defocus so that loadUrl can update the URL bar text!
         mOmnibox.clearFocus();
 
         String url = "https://www.foo.com/index.html";
-        mActivityTestRule.loadUrl(url);
-
         mOmnibox.requestFocus();
+        LocationBarCoordinator locationBarCoordinator =
+                (LocationBarCoordinator)
+                        mActivityTestRule
+                                .getActivity()
+                                .getToolbarManager()
+                                .getToolbarLayoutForTesting()
+                                .getLocationBar();
+        UrlBarData urlBarData = UrlBarData.forUrlAndText(new GURL(url), "www.foo.com/index.html");
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    locationBarCoordinator
+                            .getMediatorForTesting()
+                            .setUrlBarText(
+                                    urlBarData, UrlBar.ScrollType.NO_SCROLL, UrlBarData.SELECT_ALL);
+                });
 
         String expectedStripped = "www.foo.com/index.html";
         mOmnibox.checkText(equalTo(expectedStripped), null);
@@ -711,7 +724,7 @@ public class UrlBarTest {
         Assert.assertEquals("bar", clipboardText);
 
         ThreadUtils.runOnUiThreadBlocking(
-                () -> OmniboxFeatures.setHasDesktopExperienceForTesting((Boolean) null));
+                () -> OmniboxCapabilities.setHasDesktopExperienceForTesting((Boolean) null));
     }
 
     private String getClipboardText() {

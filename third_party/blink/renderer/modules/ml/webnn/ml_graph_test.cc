@@ -20,12 +20,13 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "mojo/public/cpp/base/big_buffer.h"
+#include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
+#include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
-#include "mojo/public/cpp/bindings/unique_associated_receiver_set.h"
+#include "mojo/public/cpp/bindings/unique_receiver_set.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/cpp/operand_descriptor.h"
@@ -371,7 +372,7 @@ class WebNNContextHelper {
   std::map<blink::WebNNTensorToken, std::unique_ptr<FakeWebNNTensor>>
       tensor_impls_;
 
-  mojo::UniqueAssociatedReceiverSet<blink_mojom::WebNNGraphBuilder> builders_;
+  mojo::UniqueReceiverSet<blink_mojom::WebNNGraphBuilder> builders_;
 };
 
 class FakeWebNNGraph : public blink_mojom::WebNNGraph {
@@ -382,11 +383,6 @@ class FakeWebNNGraph : public blink_mojom::WebNNGraph {
   ~FakeWebNNGraph() override = default;
 
  private:
-  // Just return for testing the validation of inputs and outputs.
-  void Dispatch(
-      const HashMap<String, blink::WebNNTensorToken>& named_inputs,
-      const HashMap<String, blink::WebNNTensorToken>& named_outputs) override {}
-
   // TODO(crbug.com/354741414): Fix this dangling pointer.
   const raw_ref<MLGraphTest, DanglingUntriaged> helper_;
 };
@@ -426,13 +422,12 @@ class FakeWebNNTensor : public blink_mojom::WebNNTensor {
     base::span(buffer_).copy_prefix_from(src_buffer);
   }
 
-  void ExportTensor(uint64_t flow_id,
-                    const gpu::SyncToken& sync_token_fence) override {
+  void ExportTensor(uint64_t flow_id, uint64_t release_count) override {
     NOTIMPLEMENTED();
   }
 
   void ExportTensorSync(uint64_t flow_id,
-                        const gpu::SyncToken& sync_token_fence,
+                        uint64_t release_count,
                         ExportTensorSyncCallback callback) override {
     NOTIMPLEMENTED();
   }
@@ -485,14 +480,15 @@ class FakeWebNNGraphBuilder : public blink_mojom::WebNNGraphBuilder {
                    CreateGraphCallback callback) override {
     helper_->SetGraphInfo(std::move(graph_info));
 
-    mojo::PendingAssociatedRemote<blink_mojom::WebNNGraph> blink_remote;
+    mojo::PendingRemote<blink_mojom::WebNNGraph> blink_remote;
     // The receiver bind to FakeWebNNGraph.
-    mojo::MakeSelfOwnedAssociatedReceiver<blink_mojom::WebNNGraph>(
+    mojo::MakeSelfOwnedReceiver<blink_mojom::WebNNGraph>(
         std::make_unique<FakeWebNNGraph>(*helper_),
-        blink_remote.InitWithNewEndpointAndPassReceiver());
+        blink_remote.InitWithNewPipeAndPassReceiver());
 
     auto success = blink_mojom::CreateGraphSuccess::New(
-        std::move(blink_remote), Vector<blink_mojom::Device>());
+        std::move(blink_remote), blink::WebNNGraphToken(),
+        Vector<blink_mojom::Device>());
     std::move(callback).Run(std::move(success));
   }
 
@@ -523,9 +519,8 @@ class FakeWebNNContext : public blink_mojom::WebNNContext {
  private:
   // Override methods from webnn::mojom::WebNNContext.
   void CreateGraphBuilder(
-      mojo::PendingAssociatedReceiver<blink_mojom::WebNNGraphBuilder> receiver)
-      override {
-    mojo::MakeSelfOwnedAssociatedReceiver<blink_mojom::WebNNGraphBuilder>(
+      mojo::PendingReceiver<blink_mojom::WebNNGraphBuilder> receiver) override {
+    mojo::MakeSelfOwnedReceiver<blink_mojom::WebNNGraphBuilder>(
         std::make_unique<FakeWebNNGraphBuilder>(*helper_), std::move(receiver));
   }
 
@@ -551,6 +546,17 @@ class FakeWebNNContext : public blink_mojom::WebNNContext {
                                const gpu::SyncToken& fence,
                                CreateTensorCallback callback) override {
     NOTIMPLEMENTED();
+  }
+
+  void Dispatch(
+      const blink::WebNNGraphToken& graph,
+      const HashMap<String, blink::WebNNTensorToken>& named_inputs,
+      const HashMap<String, blink::WebNNTensorToken>& named_outputs) override {
+    // No-op for testing.
+  }
+
+  void DestroyGraph(const blink::WebNNGraphToken& graph_handle) override {
+    // No-op for testing.
   }
 
   // TODO(crbug.com/354741414): Fix this dangling pointer.
@@ -780,8 +786,10 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          /*where_condition=*/{webnn::SupportedDataTypes::All(), kMaxRank},
          /*where_value=*/{webnn::SupportedDataTypes::All(), kMaxRank}});
     auto success = blink_mojom::CreateContextSuccess::New(
-        std::move(blink_remote), std::move(context_properties),
-        blink::WebNNContextToken(), mojo::ScopedDataPipeProducerHandle(),
+        std::move(blink_remote),
+        /*compiler_context_remote=*/mojo::NullRemote(),
+        std::move(context_properties), blink::WebNNContextToken(),
+        mojo::ScopedDataPipeProducerHandle(),
         mojo::ScopedDataPipeConsumerHandle(), /*command_buffer_id=*/0);
     std::move(callback).Run(
         blink_mojom::CreateContextResult::NewSuccess(std::move(success)));

@@ -11,6 +11,14 @@ import type {BitmapN32} from '//resources/mojo/skia/public/mojom/bitmap.mojom-we
  */
 
 /**
+ * Declare url type enum type
+ */
+export enum UrlType {
+  GEMINI_REGULAR = 0,
+  GEMINI_GUIDED_LEARNING = 1,
+}
+
+/**
  * Declare tab information
  */
 export declare interface TabInfo {
@@ -18,6 +26,7 @@ export declare interface TabInfo {
   title: string;
   url: string;
   favicon: string;
+  urlType?: UrlType;
 }
 /**
  * Declare a browser window information
@@ -121,6 +130,12 @@ export enum StudentStatusDetail {
   MULTIPLE_DEVICE_SIGNED_IN = 9,
 }
 
+export enum GeminiEnablementState {
+  UNKNOWN = 0,
+  ENABLED = 1,
+  DISABLED = 2,
+}
+
 /**
  * Declare network state enum type
  */
@@ -177,6 +192,7 @@ export enum MaterialType {
   YOUTUBE_VIDEO = 2,
   LINK = 3,
   FORM = 4,
+  GUIDED_LEARNING = 5,
 }
 
 /**
@@ -274,6 +290,7 @@ export declare interface StudentActivity {
   // multi-group.
   joinMethod: JoinMethod;
   viewScreenSessionCode?: string;
+  geminiState: GeminiEnablementState;
 }
 
 /**
@@ -442,6 +459,11 @@ export declare interface ClientApiDelegate {
    * Stop the current screen share presentation for the student.
    */
   stopPresentingStudentScreen(): Promise<boolean>;
+
+  /**
+   * Get Gemini enabled status.
+   */
+  getGeminiStatus(): Promise<boolean>;
 }
 
 /**

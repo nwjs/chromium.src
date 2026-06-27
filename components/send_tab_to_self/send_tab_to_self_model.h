@@ -33,7 +33,8 @@ enum class SendTabToSelfResult {
   kFailureSyncDisabled = 7,
   kFailureEntryRemoved = 8,
   kFailureCommitTimeout = 9,
-  kMaxValue = kFailureCommitTimeout,
+  kFailureNoInternetConnection = 10,
+  kMaxValue = kFailureNoInternetConnection,
 };
 
 // The send tab to self model contains a list of entries of shared urls.
@@ -54,6 +55,10 @@ class SendTabToSelfModel {
   // Returns a specific entry. Returns null if the entry does not exist.
   virtual const SendTabToSelfEntry* GetEntryByGUID(
       const std::string& guid) const = 0;
+
+  // Returns unopened entries targeted to the local device.
+  virtual std::vector<const SendTabToSelfEntry*>
+  GetUnopenedEntriesTargetedToLocalDevice() const = 0;
 
   // Adds |url| at the top of the entries. The entry title will be a
   // trimmed copy of |title|. Allows clients to modify the state of the model
@@ -108,7 +113,7 @@ class SendTabToSelfModel {
 
  protected:
   // The observers.
-  base::ObserverList<SendTabToSelfModelObserver>::Unchecked observers_;
+  base::ObserverList<SendTabToSelfModelObserver> observers_;
 };
 
 }  // namespace send_tab_to_self

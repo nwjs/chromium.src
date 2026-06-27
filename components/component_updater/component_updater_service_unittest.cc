@@ -27,6 +27,7 @@
 #include "base/values.h"
 #include "build/branding_buildflags.h"
 #include "components/component_updater/component_updater_service_internal.h"
+#include "components/component_updater/pref_names.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/update_client/crx_update_item.h"
 #include "components/update_client/test_configurator.h"
@@ -141,7 +142,6 @@ class LoopHandler {
                 UpdateClient::CrxStateChangeCallback,
                 bool is_foreground,
                 Callback callback) {
-    EXPECT_FALSE(is_foreground);
     Handle(std::move(callback));
   }
 
@@ -330,7 +330,7 @@ TEST_F(ComponentUpdaterTest, RegisterComponent) {
 
   // Quit after two update checks have fired.
   LoopHandler loop_handler(2, quit_closure());
-  EXPECT_CALL(update_client(), Update(_, _, _, _, _))
+  EXPECT_CALL(update_client(), Update(_, _, _, /*is_foreground=*/false, _))
       .WillRepeatedly(Invoke(&loop_handler, &LoopHandler::OnUpdate));
 
   EXPECT_CALL(update_client(), IsUpdating(id1));
@@ -349,7 +349,7 @@ TEST_F(ComponentUpdaterTest, RegisterComponent) {
   ht.ExpectTotalCount("ComponentUpdater.UpdateCompleteTime", 2);
 }
 
-// Tests that on-demand updates invoke UpdateClient::Install.
+// Tests that on-demand updates invoke UpdateClient::Update.
 TEST_F(ComponentUpdaterTest, OnDemandUpdate) {
   base::HistogramTester ht;
 
@@ -366,16 +366,15 @@ TEST_F(ComponentUpdaterTest, OnDemandUpdate) {
       &cus, "ihfokbkgjpifnbbojhneepfflplebdkc",
       OnDemandUpdater::Priority::FOREGROUND);
 
-  // Register two components, then call |OnDemand| for each component, with
-  // foreground and background priorities. Expect calls to |Schedule| because
-  // components have registered, calls to |Install| and |Update| corresponding
-  // to each |OnDemand| invocation, and calls to |Stop| when the mocks are
-  // torn down.
+  // Register two components, then call `OnDemand` for each component, with
+  // foreground and background priorities. Expect calls to `Schedule` because
+  // components have registered, calls `Update` corresponding to each `OnDemand`
+  // invocation, and calls to `Stop` when the mocks are torn down.
   LoopHandler loop_handler(2, quit_closure());
   EXPECT_CALL(scheduler(), Schedule(_, _, _, _));
-  EXPECT_CALL(update_client(), Install(_, _, _, _))
-      .WillOnce(Invoke(&loop_handler, &LoopHandler::OnInstall));
-  EXPECT_CALL(update_client(), Update(_, _, _, _, _))
+  EXPECT_CALL(update_client(), Update(_, _, _, /*is_foreground=*/true, _))
+      .WillOnce(Invoke(&loop_handler, &LoopHandler::OnUpdate));
+  EXPECT_CALL(update_client(), Update(_, _, _, /*is_foreground=*/false, _))
       .WillOnce(Invoke(&loop_handler, &LoopHandler::OnUpdate));
   EXPECT_CALL(update_client(), Stop());
   EXPECT_CALL(scheduler(), Stop());
@@ -421,7 +420,7 @@ TEST_F(ComponentUpdaterTest, OnDemandUpdate) {
   ht.ExpectTotalCount("ComponentUpdater.UpdateCompleteTime", 2);
 }
 
-// Tests that throttling an update invokes UpdateClient::Install.
+// Tests that throttling an update invokes UpdateClient::Update.
 TEST_F(ComponentUpdaterTest, MaybeThrottle) {
   base::HistogramTester ht;
 
@@ -429,8 +428,8 @@ TEST_F(ComponentUpdaterTest, MaybeThrottle) {
   ON_CALL(scheduler(), Schedule(_, _, _, _)).WillByDefault(Return());
 
   LoopHandler loop_handler(1, quit_closure());
-  EXPECT_CALL(update_client(), Install(_, _, _, _))
-      .WillOnce(Invoke(&loop_handler, &LoopHandler::OnInstall));
+  EXPECT_CALL(update_client(), Update(_, _, _, /*is_foreground=*/true, _))
+      .WillOnce(Invoke(&loop_handler, &LoopHandler::OnUpdate));
   EXPECT_CALL(update_client(), Stop());
   EXPECT_CALL(scheduler(), Schedule(_, _, _, _));
   EXPECT_CALL(scheduler(), Stop());
@@ -459,12 +458,13 @@ TEST_F(ComponentUpdaterTest, ComponentDetails) {
   const std::string id = "abagagagagagagagagagagagagagagag";
   const std::string name = "test_name";
 
-  const auto version = base::Version("1.0");
+  const base::Version version("1.0");
 
   ComponentRegistration component(
       id, name, base::ToVector(update_client::abag_hash), version,
-      /*fingerprint=*/{}, {},
-      /*action_handler=*/nullptr, base::MakeRefCounted<MockInstaller>(),
+      /*fingerprint=*/{}, /*installer_attributes=*/{},
+      /*action_handler=*/nullptr,
+      /*installer=*/base::MakeRefCounted<MockInstaller>(),
       /*requires_network_encryption=*/false,
       /*supports_group_policy_enable_component_updates=*/true,
       /*allow_cached_copies=*/true,
@@ -494,12 +494,13 @@ TEST_F(ComponentUpdaterTest, UpdatesDisabled) {
   const std::string id = "abagagagagagagagagagagagagagagag";
   const std::string name = "test_name";
 
-  const auto version = base::Version("1.0");
+  const base::Version version("1.0");
 
   ComponentRegistration component(
       id, name, base::ToVector(update_client::abag_hash), version,
-      /*fingerprint=*/{}, {},
-      /*action_handler=*/nullptr, base::MakeRefCounted<MockInstaller>(),
+      /*fingerprint=*/{}, /*installer_attributes=*/{},
+      /*action_handler=*/nullptr,
+      /*installer=*/base::MakeRefCounted<MockInstaller>(),
       /*requires_network_encryption=*/false,
       /*supports_group_policy_enable_component_updates=*/true,
       /*allow_cached_copies=*/true,
@@ -514,6 +515,79 @@ TEST_F(ComponentUpdaterTest, UpdatesDisabled) {
   const CrxComponent& registered = *item.component;
 
   EXPECT_FALSE(registered.updates_enabled);
+}
+
+// Controlled by ComponentUpdatesEnabled policy.
+// See more at https://chromeenterprise.google/policies/#ComponentUpdatesEnabled
+TEST_F(ComponentUpdaterTest, UpdatesDisabledByPolicy) {
+  const std::string id = "abagagagagagagagagagagagagagagag";
+  const std::string name = "test_name";
+
+  const base::Version version("1.0");
+  // Simulate admin disabling component updates via policy.
+  configurator()->GetPrefService()->SetBoolean(prefs::kComponentUpdatesEnabled,
+                                               false);
+
+  ComponentRegistration component(
+      id, name, base::ToVector(update_client::abag_hash), version,
+      /*fingerprint=*/{}, /*installer_attributes=*/{},
+      /*action_handler=*/nullptr,
+      /*installer=*/base::MakeRefCounted<MockInstaller>(),
+      /*requires_network_encryption=*/false,
+      // Enables admin control of component updates. In production, this value
+      // is determined by the component implementation of
+      // ComponentInstallerPolicy::SupportsGroupPolicyEnabledComponentUpdates
+      /*supports_group_policy_enable_component_updates=*/true,
+      /*allow_cached_copies=*/true,
+      /*allow_updates_on_metered_connection=*/true,
+      /*allow_updates=*/true);
+
+  ASSERT_TRUE(component_updater().RegisterComponent(component));
+
+  CrxUpdateItem item;
+  ASSERT_TRUE(component_updater().GetComponentDetails(id, &item));
+  ASSERT_TRUE(item.component);
+  const CrxComponent& registered = *item.component;
+
+  EXPECT_FALSE(registered.updates_enabled);
+}
+
+// Components that override SupportsGroupPolicyEnabledComponentUpdates to return
+// false are always allowed to update, regardless of policy state.
+// See more at https://chromeenterprise.google/policies/#ComponentUpdatesEnabled
+TEST_F(ComponentUpdaterTest, CriticalComponentAlwaysUpdates) {
+  const std::string id = "abagagagagagagagagagagagagagagag";
+  const std::string name = "test_name";
+
+  const base::Version version("1.0");
+  // Simulate admin disabling component updates via policy.
+  configurator()->GetPrefService()->SetBoolean(prefs::kComponentUpdatesEnabled,
+                                               false);
+
+  ComponentRegistration component(
+      id, name, base::ToVector(update_client::abag_hash), version,
+      /*fingerprint=*/{}, /*installer_attributes=*/{},
+      /*action_handler=*/nullptr,
+      /*installer=*/base::MakeRefCounted<MockInstaller>(),
+      /*requires_network_encryption=*/false,
+      // Exempt the component from the policy that disables updates.
+      /*supports_group_policy_enable_component_updates=*/false,
+      /*allow_cached_copies=*/true,
+      /*allow_updates_on_metered_connection=*/true,
+      /*allow_updates=*/true);
+
+  ASSERT_TRUE(component_updater().RegisterComponent(component));
+
+  CrxUpdateItem item;
+  ASSERT_TRUE(component_updater().GetComponentDetails(id, &item));
+  ASSERT_TRUE(item.component);
+  const CrxComponent& registered = *item.component;
+
+  EXPECT_EQ(registered.app_id, id);
+  EXPECT_EQ(registered.version, version);
+  EXPECT_EQ(registered.name, name);
+
+  EXPECT_TRUE(registered.updates_enabled);
 }
 
 }  // namespace component_updater

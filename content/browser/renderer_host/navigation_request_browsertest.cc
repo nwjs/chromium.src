@@ -31,6 +31,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -63,6 +64,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/default_handlers.h"
+#include "net/test/embedded_test_server/expectation_handler.h"
 #include "net/test/url_request/url_request_failed_job.h"
 #include "services/network/public/cpp/loading_params.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -1952,11 +1954,15 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   EXPECT_EQ(shell()->web_contents()->GetPrimaryMainFrame()->GetSiteInstance(),
             starting_site_instance);
   if (ShouldSkipEarlyCommitPendingForCrashedFrame()) {
-    EXPECT_EQ(GURL("http://a.com"), starting_site_instance->GetSiteURL());
+    EXPECT_EQ(
+        GURL("http://a.com"),
+        starting_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
   } else {
     // Because of the sad tab, this is actually the b.com SiteInstance, which
     // commits immediately after starting the navigation and has a process.
-    EXPECT_EQ(GURL("http://b.com"), starting_site_instance->GetSiteURL());
+    EXPECT_EQ(
+        GURL("http://b.com"),
+        starting_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
   }
   EXPECT_TRUE(starting_site_instance->HasProcess());
 
@@ -2365,7 +2371,8 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
                                             ->web_contents()
                                             ->GetPrimaryMainFrame()
                                             ->GetSiteInstance()
-                                            ->GetSiteURL());
+                                            ->GetSecurityPrincipal()
+                                            .GetDeprecatedSiteURL());
     } else {
       EXPECT_EQ(
           site_instance,
@@ -2393,7 +2400,8 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
                                             ->web_contents()
                                             ->GetPrimaryMainFrame()
                                             ->GetSiteInstance()
-                                            ->GetSiteURL());
+                                            ->GetSecurityPrincipal()
+                                            .GetDeprecatedSiteURL());
       EXPECT_EQ(process_id, shell()
                                 ->web_contents()
                                 ->GetPrimaryMainFrame()
@@ -2451,7 +2459,8 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
                                             ->web_contents()
                                             ->GetPrimaryMainFrame()
                                             ->GetSiteInstance()
-                                            ->GetSiteURL());
+                                            ->GetSecurityPrincipal()
+                                            .GetDeprecatedSiteURL());
     }
   }
 
@@ -2523,7 +2532,8 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest, ErrorPageNetworkError) {
                                             ->web_contents()
                                             ->GetPrimaryMainFrame()
                                             ->GetSiteInstance()
-                                            ->GetSiteURL());
+                                            ->GetSecurityPrincipal()
+                                            .GetDeprecatedSiteURL());
     }
   }
 }
@@ -4381,9 +4391,11 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
     ASSERT_FALSE(NavigateToURL(shell(), url));
     EXPECT_FALSE(observer.last_navigation_succeeded());
     if (SiteIsolationPolicy::IsErrorPageIsolationEnabled(true)) {
-      EXPECT_EQ(
-          GURL(kUnreachableWebDataURL),
-          web_contents->GetPrimaryMainFrame()->GetSiteInstance()->GetSiteURL());
+      EXPECT_EQ(GURL(kUnreachableWebDataURL),
+                web_contents->GetPrimaryMainFrame()
+                    ->GetSiteInstance()
+                    ->GetSecurityPrincipal()
+                    .GetDeprecatedSiteURL());
     }
   }
 
@@ -4400,7 +4412,9 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   }
   RenderFrameHostImpl* rfh =
       static_cast<RenderFrameHostImpl*>(web_contents->GetPrimaryMainFrame());
-  EXPECT_NE(GURL(kUnreachableWebDataURL), rfh->GetSiteInstance()->GetSiteURL());
+  EXPECT_NE(
+      GURL(kUnreachableWebDataURL),
+      rfh->GetSiteInstance()->GetSecurityPrincipal().GetDeprecatedSiteURL());
 
   // Note that the error page's origin was opaque with a.com as the precursor.
   // This becomes the initiator origin for the about:blank navigation, and it
@@ -4425,7 +4439,9 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   // and an unassigned SiteInstance. See https://crbug.com/1426928.
   EXPECT_FALSE(rfh->GetProcess()->IsUnused());
   if (AreAllSitesIsolatedForTesting()) {
-    EXPECT_EQ("http://a.com/", rfh->GetSiteInstance()->GetSiteURL());
+    EXPECT_EQ(
+        "http://a.com/",
+        rfh->GetSiteInstance()->GetSecurityPrincipal().GetDeprecatedSiteURL());
     EXPECT_TRUE(rfh->GetProcess()->GetProcessLock().IsLockedToSite());
     EXPECT_EQ("http://a.com/", rfh->GetProcess()->GetProcessLock().site_url());
   } else {
@@ -5046,8 +5062,8 @@ class NavigationRequestResponseBodyBrowserTest
 };
 
 IN_PROC_BROWSER_TEST_F(NavigationRequestResponseBodyBrowserTest, Received) {
-  net::test_server::ControllableHttpResponse response(embedded_test_server(),
-                                                      "/target.html");
+  net::test_server::ExpectationHandler handler(embedded_test_server());
+  handler.OnRequest("/target.html").RespondWith("text/html", kResponseBody);
   ASSERT_TRUE(embedded_test_server()->Start());
 
   ResponseBodyNavigationThrottle* client_throttle = nullptr;
@@ -5071,10 +5087,6 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestResponseBodyBrowserTest, Received) {
   EXPECT_TRUE(manager.WaitForRequestStart());
   manager.ResumeNavigation();
 
-  // Build the response with no headers and some body text.
-  response.WaitForRequest();
-  response.Send(base::StringPrintf(kResponseTemplate, "", kResponseBody));
-  response.Done();
   ASSERT_TRUE(manager.WaitForResponse());
   ASSERT_NE(nullptr, client_throttle);
   EXPECT_TRUE(client_throttle->was_callback_called());

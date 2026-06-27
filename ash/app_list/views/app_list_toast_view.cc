@@ -22,6 +22,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
@@ -257,7 +258,8 @@ void AppListToastView::SetCloseButton(
 
   close_button_ = AddChildView(std::make_unique<IconButton>(
       std::move(close_button_callback), IconButton::Type::kMediumFloating,
-      &vector_icons::kCloseIcon,
+      &(::features::IsRoundedIconsEnabled() ? vector_icons::kCloseIcon
+                                            : vector_icons::kCloseOldIcon),
       IDS_ASH_LAUNCHER_CLOSE_SORT_TOAST_BUTTON_SPOKEN_TEXT));
   close_button_->SetProperty(views::kMarginsKey, kCloseButtonMargin);
 }
@@ -387,12 +389,12 @@ AppListToastView::ToastPillButton::ToastPillButton(
 
 void AppListToastView::ToastPillButton::OnFocus() {
   PillButton::OnFocus();
-  views::FocusRing::Get(this)->SchedulePaint();
+  views::FocusRing::Get(this)->Refresh();
 }
 
 void AppListToastView::ToastPillButton::OnBlur() {
   PillButton::OnBlur();
-  views::FocusRing::Get(this)->SchedulePaint();
+  views::FocusRing::Get(this)->Refresh();
 }
 
 BEGIN_METADATA(AppListToastView, ToastPillButton)

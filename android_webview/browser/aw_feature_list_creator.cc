@@ -16,6 +16,7 @@
 #include "android_webview/browser/aw_metrics_service_client_delegate.h"
 #include "android_webview/browser/metrics/android_metrics_provider.h"
 #include "android_webview/browser/metrics/aw_metrics_service_client.h"
+#include "android_webview/browser/safe_browsing/aw_url_checker_delegate_impl.h"
 #include "android_webview/browser/supervised_user/aw_supervised_user_url_classifier.h"
 #include "android_webview/browser/tracing/aw_tracing_delegate.h"
 #include "android_webview/browser/variations/aw_entropy_providers.h"
@@ -71,7 +72,11 @@ bool g_signature_verification_enabled = true;
 // source.
 const char* const kNonembeddedLowEntropySourceAllowlist[] = {
     "DefaultPassthroughCommandDecoder",
+    "WebViewFasterGetDefaultUserAgent",
+    "WebViewStartupNonBlockingWebViewConstructor",
+    "WebViewStaticMethodsNotTriggerStartup",
     "WebViewTestNonembeddedLowEntropySource",
+    "WebViewProfileStoreNotTriggerStartup"
 };
 
 // These prefs go in the JsonPrefStore, and will persist across runs. Other
@@ -79,6 +84,9 @@ const char* const kNonembeddedLowEntropySourceAllowlist[] = {
 const char* const kPersistentPrefsAllowlist[] = {
     // Restricted content blocking.
     android_webview::prefs::kShouldBlockRestrictedContent,
+
+    // Safe Browsing user opt-in.
+    android_webview::prefs::kSafeBrowsingUserOptIn,
 
     // Last known value of the app's cache quota.
     android_webview::prefs::kLastKnownAppCacheQuota,
@@ -190,6 +198,7 @@ std::unique_ptr<PrefService> AwFeatureListCreator::CreatePrefService() {
   AwTracingDelegate::RegisterPrefs(pref_registry.get());
   AwBrowserContextStore::RegisterPrefs(pref_registry.get());
   AwSupervisedUserUrlClassifier::RegisterPrefs(pref_registry.get());
+  AwUrlCheckerDelegateImpl::RegisterPrefs(pref_registry.get());
 
   PrefServiceFactory pref_service_factory;
 

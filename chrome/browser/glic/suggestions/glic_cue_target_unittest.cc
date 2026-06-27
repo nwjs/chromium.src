@@ -6,6 +6,7 @@
 
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/public/features.h"
@@ -78,6 +79,8 @@ class GlicCueTargetTest : public testing::Test {
         /*contextual_cueing_service=*/nullptr, actor_keyed_service_.get());
 
     tab_strip_model_delegate_ = std::make_unique<TestTabStripModelDelegate>();
+    tab_strip_model_delegate_->SetBrowserWindowInterface(
+        mock_browser_window_interface_.get());
     tab_strip_model_ = std::make_unique<TabStripModel>(
         tab_strip_model_delegate_.get(), profile_);
   }
@@ -158,6 +161,13 @@ TEST_F(GlicCueTargetTest, IsEligible) {
   EXPECT_CALL(*mock_glic_keyed_service_, IsPanelShowingForBrowser(_))
       .WillOnce(Return(false));
   EXPECT_TRUE(target.IsEligible());
+
+  // Eligible profile, panel isn't showing, but "Show Gemini at the top of the
+  // browser" is explicitly turned off.
+  profile_->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip, false);
+  EXPECT_CALL(*mock_glic_keyed_service_, IsPanelShowingForBrowser(_))
+      .Times(Exactly(0));
+  EXPECT_FALSE(target.IsEligible());
 }
 
 TEST_F(GlicCueTargetTest, OnClick_AutoSubmitEnabled) {
@@ -183,11 +193,10 @@ TEST_F(GlicCueTargetTest, OnClick_AutoSubmitEnabled) {
         EXPECT_EQ(1u, options.prompts.size());
         EXPECT_EQ("test prompt", options.prompts[0]);
         EXPECT_EQ(glic::mojom::InvocationSource::kAutoOpenedByContextualCue,
-                  options.invocation_source);
+                  options.GetInvocationSource());
         EXPECT_TRUE(std::holds_alternative<glic::NewConversation>(
             options.target.conversation));
-        // Two tabs plus the active tab.
-        EXPECT_EQ(3ul, options.tab_sharing.tabs_to_pin.size());
+        EXPECT_EQ(2ul, options.tab_sharing.tabs_to_pin.size());
         EXPECT_EQ(123, options.tab_sharing.tabs_to_pin[0].raw_value());
         EXPECT_EQ(456, options.tab_sharing.tabs_to_pin[1].raw_value());
         EXPECT_EQ(GlicPinTrigger::kContextualCue,
@@ -221,11 +230,10 @@ TEST_F(GlicCueTargetTest, OnClick_AutoSubmitDisabled) {
         EXPECT_EQ(1u, options.prompts.size());
         EXPECT_EQ("test prompt", options.prompts[0]);
         EXPECT_EQ(glic::mojom::InvocationSource::kAutoOpenedByContextualCue,
-                  options.invocation_source);
+                  options.GetInvocationSource());
         EXPECT_TRUE(std::holds_alternative<glic::NewConversation>(
             options.target.conversation));
-        // Two tabs plus the active tab.
-        EXPECT_EQ(3ul, options.tab_sharing.tabs_to_pin.size());
+        EXPECT_EQ(2ul, options.tab_sharing.tabs_to_pin.size());
         EXPECT_EQ(123, options.tab_sharing.tabs_to_pin[0].raw_value());
         EXPECT_EQ(456, options.tab_sharing.tabs_to_pin[1].raw_value());
         EXPECT_EQ(GlicPinTrigger::kContextualCue,
@@ -256,11 +264,10 @@ TEST_F(GlicCueTargetTest, OnEditPrompt) {
             EXPECT_EQ(1u, options.prompts.size());
             EXPECT_EQ("test prompt", options.prompts[0]);
             EXPECT_EQ(glic::mojom::InvocationSource::kAutoOpenedByContextualCue,
-                      options.invocation_source);
+                      options.GetInvocationSource());
             EXPECT_TRUE(std::holds_alternative<glic::NewConversation>(
                 options.target.conversation));
-            // Two tabs plus the active tab.
-            EXPECT_EQ(3ul, options.tab_sharing.tabs_to_pin.size());
+            EXPECT_EQ(2ul, options.tab_sharing.tabs_to_pin.size());
             EXPECT_EQ(123, options.tab_sharing.tabs_to_pin[0].raw_value());
             EXPECT_EQ(456, options.tab_sharing.tabs_to_pin[1].raw_value());
             EXPECT_EQ(GlicPinTrigger::kContextualCue,
@@ -291,79 +298,17 @@ TEST_F(GlicCueTargetTest, CueActionDataFromResponse) {
                        /*optimization_guide_keyed_service=*/nullptr,
                        *mock_browser_window_interface_);
 
-  optimization_guide::proto::ContextualCueingResponse response;
-  auto* surface = response.mutable_gemini_in_chrome_surface();
+  optimization_guide::proto::ContextualCue cue;
+  auto* surface = cue.mutable_gemini_in_chrome_surface();
   surface->set_prompt("response prompt");
 
-  SessionID session_id_a = CreateTab();
-  surface->add_tabs_to_share()->set_tab_id(session_id_a.id());
-  SessionID session_id_b = CreateTab();
-  surface->add_tabs_to_share()->set_tab_id(session_id_b.id());
-
   contextual_cueing::CueActionData data =
-      target.CueActionDataFromResponse(response);
+      target.CueActionDataFromResponse(cue, {});
   ASSERT_TRUE(
       std::holds_alternative<contextual_cueing::GlicCueActionData>(data));
   auto& glic_data = std::get<contextual_cueing::GlicCueActionData>(data);
   EXPECT_EQ("response prompt", glic_data.prompt);
-  EXPECT_EQ(2ul, glic_data.tabs_to_share.size());
-  EXPECT_EQ(GetTabHandle(session_id_a), glic_data.tabs_to_share[0]);
-  EXPECT_EQ(GetTabHandle(session_id_b), glic_data.tabs_to_share[1]);
-#endif
-}
 
-TEST_F(GlicCueTargetTest, CueActionDataFromResponse_InvalidTabs) {
-  GlicCueTarget target(*mock_glic_keyed_service_,
-                       /*optimization_guide_keyed_service=*/nullptr,
-                       *mock_browser_window_interface_);
-
-  optimization_guide::proto::ContextualCueingResponse response;
-  auto* surface = response.mutable_gemini_in_chrome_surface();
-  surface->set_prompt("response prompt");
-
-  // Strange session IDs that don't match any existing tabs.
-  surface->add_tabs_to_share()->set_tab_id(-1);
-  surface->add_tabs_to_share()->set_tab_id(12345);
-
-  contextual_cueing::CueActionData data =
-      target.CueActionDataFromResponse(response);
-  ASSERT_TRUE(
-      std::holds_alternative<contextual_cueing::GlicCueActionData>(data));
-  auto& glic_data = std::get<contextual_cueing::GlicCueActionData>(data);
-  EXPECT_EQ("response prompt", glic_data.prompt);
-  // No valid tabs to share.
-  EXPECT_TRUE(glic_data.tabs_to_share.empty());
-}
-
-TEST_F(GlicCueTargetTest, CueActionDataFromResponse_DefaultTabContextDisabled) {
-#if BUILDFLAG(IS_CHROMEOS)
-  GTEST_SKIP() << "crbug.com/41100311: Disabled on ChromeOS until profile "
-                  "loading is fixed for this test.";
-#else
-  GlicCueTarget target(*mock_glic_keyed_service_,
-                       /*optimization_guide_keyed_service=*/nullptr,
-                       *mock_browser_window_interface_);
-
-  optimization_guide::proto::ContextualCueingResponse response;
-  auto* surface = response.mutable_gemini_in_chrome_surface();
-  surface->set_prompt("response prompt");
-
-  SessionID session_id_a = CreateTab();
-  surface->add_tabs_to_share()->set_tab_id(session_id_a.id());
-  SessionID session_id_b = CreateTab();
-  surface->add_tabs_to_share()->set_tab_id(session_id_b.id());
-
-  // User turns off default tab context sharing.
-  profile_->GetPrefs()->SetBoolean(prefs::kGlicDefaultTabContextEnabled, false);
-
-  contextual_cueing::CueActionData data =
-      target.CueActionDataFromResponse(response);
-  ASSERT_TRUE(
-      std::holds_alternative<contextual_cueing::GlicCueActionData>(data));
-  auto& glic_data = std::get<contextual_cueing::GlicCueActionData>(data);
-  EXPECT_EQ("response prompt", glic_data.prompt);
-  // No tabs shared.
-  EXPECT_EQ(0ul, glic_data.tabs_to_share.size());
 #endif
 }
 

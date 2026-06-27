@@ -12,6 +12,7 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeature.InitInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +57,7 @@ final class ExtensionWindowControllerBridgeImpl implements ExtensionWindowContro
     }
 
     @CalledByNative
-    private static void recordExtensionInternalEventForTesting( // IN-TEST
+    private static void recordExtensionInternalEventForTesting(
             int extensionWindowId, @ExtensionInternalWindowEventForTesting int event) {
         List<@ExtensionInternalWindowEventForTesting Integer> events =
                 sExtensionInternalEventsForTesting.get(extensionWindowId);
@@ -75,13 +76,13 @@ final class ExtensionWindowControllerBridgeImpl implements ExtensionWindowContro
     ExtensionWindowControllerBridgeImpl() {}
 
     @Override
-    public void onAddedToTask(long nativeBrowserWindowPtr) {
+    public void onAddedToTask(InitInfo initInfo) {
         assert mNativeExtensionWindowControllerBridge == 0
                 : "ExtensionWindowControllerBridge is already added to a task.";
 
         mNativeExtensionWindowControllerBridge =
                 ExtensionWindowControllerBridgeImplJni.get()
-                        .create(/* caller= */ this, nativeBrowserWindowPtr);
+                        .create(/* caller= */ this, initInfo.nativeBrowserWindowPtr);
     }
 
     @Override
@@ -90,7 +91,7 @@ final class ExtensionWindowControllerBridgeImpl implements ExtensionWindowContro
     }
 
     @Override
-    public void onTaskBoundsChanged(Rect newBoundsInDp) {
+    public void onTaskBoundsChanged(int displayId, Rect newBoundsInDp, Rect newBoundsInPx) {
         if (mNativeExtensionWindowControllerBridge != 0) {
             ExtensionWindowControllerBridgeImplJni.get()
                     .onTaskBoundsChanged(mNativeExtensionWindowControllerBridge);

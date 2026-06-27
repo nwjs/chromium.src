@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
+#include "chrome/browser/ui/read_anything/read_anything_hats_survey_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_omnibox_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
 #include "chrome/browser/ui/read_anything/read_anything_service.h"
@@ -118,10 +119,23 @@ ReadAnythingController::ReadAnythingController(
   // IsImmersiveReadAnythingEnabled is enabled
   CHECK(features::IsImmersiveReadAnythingEnabled());
 
+  // Point the FindBar to IRM's WebContents, if it's open. We already call
+  // MaybeUpdateFindBarController when IRM opens and closes, but if IRM is open
+  // on a split view, it can stay open even if the tab is not active, so we need
+  // this to update the FindBar when the IRM tab is reactivated.
+  tab_did_activate_subscription_ = tab_->RegisterDidActivate(
+      base::IgnoreArgs<tabs::TabInterface*>(base::BindRepeating(
+          &ReadAnythingController::MaybeUpdateFindBarController,
+          base::Unretained(this))));
 
   if (features::IsReadAnythingOmniboxChipEnabled() &&
       base::FeatureList::IsEnabled(features::kPageActionsMigration)) {
     omnibox_controller_ = std::make_unique<ReadAnythingOmniboxController>(tab_);
+  }
+
+  if (features::IsHatsReadingModeSurveyEnabled()) {
+    hats_survey_ =
+        std::make_unique<ReadAnythingHatsSurveyController>(this, tab_);
   }
 }
 
@@ -186,7 +200,8 @@ void ReadAnythingController::RemoveImmersiveActivationObserver(
 
 void ReadAnythingController::OnEntryShown(
     std::optional<ReadAnythingOpenTrigger> trigger) {
-  observers_.Notify(&Observer::Activate, true, trigger);
+  observers_.Notify(&Observer::Activate, /*active=*/true, trigger,
+                    /*completed_session_duration=*/std::nullopt);
   active_service_ =
       ReadAnythingService::Get(tab_->GetBrowserWindowInterface()->GetProfile());
   // At the moment, services are created for normal, guest, and incognito
@@ -210,27 +225,35 @@ void ReadAnythingController::OnEntryShown(
       user_ed->MaybeShowFeaturePromo(
           feature_engagement::kIPHReadingModeKeyboardShortcutFeature);
     }
+    if (GetPresentationState() == PresentationState::kInImmersiveOverlay) {
+      user_ed->MaybeShowFeaturePromo(
+          feature_engagement::kIPHReadingModePresentationModeFeature);
+    }
   }
 
   MaybeUpdateFindBarController();
 }
 
 void ReadAnythingController::OnEntryHidden() {
-  observers_.Notify(&Observer::Activate, false,
-                    std::optional<ReadAnythingOpenTrigger>());
+  std::optional<base::TimeDelta> completed_session_duration =
+      RecordEntryHiddenMetrics();
+
+  observers_.Notify(&Observer::Activate, /*active=*/false,
+                    /*trigger=*/std::optional<ReadAnythingOpenTrigger>(),
+                    completed_session_duration);
 
   if (active_service_) {
     active_service_->OnReadAnythingHidden();
     active_service_ = nullptr;
   }
-  RecordEntryHiddenMetrics();
 }
 
-void ReadAnythingController::RecordEntryHiddenMetrics() {
+std::optional<base::TimeDelta>
+ReadAnythingController::RecordEntryHiddenMetrics() {
   // If we are transitioning between UI modes (e.g., Side Panel to Immersive),
   // don't record OnEntryHidden metrics.
   if (is_presentation_transitioning_) {
-    return;
+    return std::nullopt;
   }
 
   // Record whether the UI was closed before it was successfully shown.
@@ -239,20 +262,25 @@ void ReadAnythingController::RecordEntryHiddenMetrics() {
                             hidden_before_shown);
 
   if (hidden_before_shown) {
-    return;
+    return std::nullopt;
   }
+
+  // Calculate the duration that Reading Mode was visible in this tab session.
+  base::TimeDelta completed_session_duration =
+      base::TimeTicks::Now() - entry_shown_timestamp_;
 
   // Only record if RM was successfully shown.
   base::UmaHistogramCustomTimes(
       "Accessibility.ReadAnything.ShownDurationMax1Day",
-      base::TimeTicks::Now() - entry_shown_timestamp_, /*min=*/base::Seconds(1),
+      completed_session_duration, /*min=*/base::Seconds(1),
       /*max=*/base::Hours(24), /*buckets=*/100);
 
   // Reset the timestamp to null to avoid polluting data if the next RM show
   // request is closed before it's fully shown.
   entry_shown_timestamp_ = base::TimeTicks();
-}
 
+  return completed_session_duration;
+}
 
 // Returns the SidePanelUI for the active tab if the tab is active and has a
 // browser window interface. Returns nullptr otherwise.

@@ -685,6 +685,48 @@ std::optional<content::ClipboardEndpoint> GetValidURLEndpoint(
   return endpoint;
 }
 
+void PasteFromGeminiIfAllowedByContentAnalysis(
+    content::RenderFrameHost* destination,
+    std::string data,
+    base::OnceCallback<void(bool)> callback) {
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+  if (base::FeatureList::IsEnabled(
+          enterprise_connectors::kGlicBulkDataEntrySupport)) {
+    Profile* profile =
+        Profile::FromBrowserContext(destination->GetBrowserContext());
+    enterprise_connectors::ContentAnalysisDelegate::Data dialog_data;
+    // TODO(crbug.com/473047343): Add support when glic is targeting an element
+    // inside a cross-origin iframe.
+    if (profile &&
+        enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
+            profile, GetSourceURL(destination), &dialog_data,
+            enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY)) {
+      dialog_data.text.push_back(std::move(data));
+
+      enterprise_connectors::ContentAnalysisDelegate::CreateForWebContents(
+          content::WebContents::FromRenderFrameHost(destination),
+          std::move(dialog_data),
+          base::BindOnce(
+              [](base::OnceCallback<void(bool)> cb,
+                 const enterprise_connectors::ContentAnalysisDelegate::Data&,
+                 enterprise_connectors::ContentAnalysisDelegate::Result&
+                     result) {
+                // TODO(crbug.com/473047343): Not exposed currently, but we
+                // would want to return `kWarned` verdicts at some point.
+                bool allowed =
+                    result.text_results.empty() || result.text_results[0];
+                std::move(cb).Run(allowed);
+              },
+              std::move(callback)),
+          enterprise_connectors::DeepScanAccessPoint::ACTOR);
+      return;
+    }
+  }
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+
+  std::move(callback).Run(true);
+}
+
 }  // namespace
 
 void PasteIfAllowedByPolicy(
@@ -720,7 +762,7 @@ void PasteIfAllowedByPolicy(
       pasted_content = clipboard_paste_data.file_paths;
     }
 
-    std::optional<ui::DataTransferEndpoint> destination_endpoint = std::nullopt;
+    std::optional<ui::DataTransferEndpoint> destination_endpoint;
     if (destination.browser_context() &&
         !destination.browser_context()->IsOffTheRecord()) {
       destination_endpoint = destination.data_transfer_endpoint();
@@ -741,6 +783,50 @@ void PasteIfAllowedByPolicy(
                       std::move(clipboard_paste_data), std::move(callback),
                       /*allowed=*/true);
 #endif  // BUILDFLAG(IS_ANDROID)
+}
+
+bool IsPastePolicyCheckRequired(const content::ClipboardEndpoint& source,
+                                const content::ClipboardEndpoint& destination,
+                                const ui::ClipboardMetadata& metadata) {
+#if BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(
+          data_controls::kEnableClipboardDataControlsAndroid)) {
+    return false;
+  }
+#else
+  if (ui::DataTransferPolicyController::HasInstance()) {
+    return true;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
+  if (GetPasteVerdict(source, destination).level() !=
+      data_controls::Rule::Level::kNotSet) {
+    return true;
+  }
+
+  if (source.browser_context() &&
+      metadata.seqno == data_controls::GetLastReplacedClipboardData().seqno) {
+    return true;
+  }
+
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+  Profile* profile = Profile::FromBrowserContext(destination.browser_context());
+  if (profile) {
+    bool is_files =
+        metadata.format_type == ui::ClipboardFormatType::FilenamesType();
+    enterprise_connectors::AnalysisConnector connector =
+        is_files ? enterprise_connectors::AnalysisConnector::FILE_ATTACHED
+                 : enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY;
+    enterprise_connectors::ContentAnalysisDelegate::Data dialog_data;
+    if (enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
+            profile, GetUrlFromEndpoint(destination), &dialog_data,
+            connector)) {
+      return true;
+    }
+  }
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+
+  return false;
 }
 
 void IsClipboardCopyAllowedByPolicy(
@@ -784,6 +870,39 @@ void IsClipboardCopyAllowedByPolicy(
       source, metadata, data, std::move(callback),
       data_controls::DataControlsDialog::Type::kClipboardCopyBlock,
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
+}
+
+bool IsCopyPolicyCheckRequired(const content::ClipboardEndpoint& source,
+                               const ui::ClipboardMetadata& metadata) {
+  if (SkipDataControlOrContentAnalysisChecks(source)) {
+    return false;
+  }
+#if BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(
+          data_controls::kEnableClipboardDataControlsAndroid)) {
+    return false;
+  }
+#else
+  // IsUrlAllowedToCopy checks a deprecated CopyPreventionSettings that isn't
+  // applicable on Clank.
+  std::u16string replacement_data;
+  ClipboardRestrictionService* service =
+      ClipboardRestrictionServiceFactory::GetInstance()->GetForBrowserContext(
+          source.browser_context());
+  if (!service->IsUrlAllowedToCopy(GetUrlFromEndpoint(source),
+                                   metadata.size.value_or(0),
+                                   &replacement_data)) {
+    return true;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+  return data_controls::ChromeRulesServiceFactory::GetInstance()
+                 ->GetForBrowserContext(source.browser_context())
+                 ->GetCopyRestrictedBySourceVerdict(GetUrlFromEndpoint(source))
+                 .level() != data_controls::Rule::Level::kNotSet ||
+         data_controls::ChromeRulesServiceFactory::GetInstance()
+                 ->GetForBrowserContext(source.browser_context())
+                 ->GetCopyToOSClipboardVerdict(GetUrlFromEndpoint(source))
+                 .level() != data_controls::Rule::Level::kNotSet;
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1132,4 +1251,62 @@ void CopyTextToClipboard(content::RenderFrameHost* rfh,
           std::make_unique<ui::DataTransferEndpoint>(std::move(dte))));
 }
 
+void PasteFromGeminiIfAllowedByPolicy(content::RenderFrameHost* destination,
+                                      std::string data,
+                                      base::OnceCallback<void(bool)> callback) {
+  CHECK(destination);
+  if (base::FeatureList::IsEnabled(data_controls::kDataControlsGlic)) {
+    auto* rules_service =
+        data_controls::ChromeRulesServiceFactory::GetInstance()
+            ->GetForBrowserContext(destination->GetBrowserContext());
+    if (rules_service) {
+      auto verdict = rules_service->GetPasteFromGeminiInChromeVerdict(
+          GetSourceURL(destination));
+      auto* factory = GetDialogFactory();
+
+      switch (verdict.level()) {
+        // TODO(crbug.com/515092886): Emit reports for kReport, kWarn, and
+        // kBlock verdicts.
+        case data_controls::Rule::Level::kBlock:
+          if (factory) {
+            factory->ShowDialogIfNeeded(
+                content::WebContents::FromRenderFrameHost(destination),
+                data_controls::DataControlsDialog::Type::kClipboardPasteBlock);
+          }
+          std::move(callback).Run(false);
+          return;
+        case data_controls::Rule::Level::kWarn:
+          if (factory) {
+            factory->ShowDialogIfNeeded(
+                content::WebContents::FromRenderFrameHost(destination),
+                data_controls::DataControlsDialog::Type::kClipboardPasteWarn,
+                base::BindOnce(
+                    [](content::GlobalRenderFrameHostId rfh_id,
+                       std::string content_text,
+                       base::OnceCallback<void(bool)> cb, bool bypassed) {
+                      auto* rfh = content::RenderFrameHost::FromID(rfh_id);
+                      if (bypassed && rfh) {
+                        PasteFromGeminiIfAllowedByContentAnalysis(
+                            rfh, std::move(content_text), std::move(cb));
+                      } else {
+                        std::move(cb).Run(false);
+                      }
+                    },
+                    destination->GetGlobalId(), std::move(data),
+                    std::move(callback)));
+          } else {
+            std::move(callback).Run(false);
+          }
+          return;
+        case data_controls::Rule::Level::kReport:
+        case data_controls::Rule::Level::kAllow:
+        case data_controls::Rule::Level::kNotSet:
+          break;
+      }
+    }
+  }
+
+  PasteFromGeminiIfAllowedByContentAnalysis(destination, std::move(data),
+                                            std::move(callback));
+}
 }  // namespace enterprise_data_protection

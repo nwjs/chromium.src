@@ -5,13 +5,16 @@
 #include "extensions/common/manifest_handlers/mime_types_handler.h"
 
 #include <algorithm>
+#include <array>
 #include <string>
 
 #include "base/memory/scoped_refptr.h"
 #include "base/test/scoped_feature_list.h"
+#include "components/version_info/channel.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
+#include "extensions/common/features/feature_channel.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -53,7 +56,7 @@ TEST_F(MimeTypesHandlerNotAllowedTest, UnableToLoadLegacy) {
       LoadAndExpectSuccess(ManifestData::FromJSON(kManifest));
   ASSERT_TRUE(extension);
 
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  EXPECT_FALSE(MimeTypesHandler::Get(*extension));
 }
 
 TEST_F(MimeTypesHandlerNotAllowedTest, DictFormatWarnsOnDisallowedMimeType) {
@@ -79,8 +82,8 @@ TEST_F(MimeTypesHandlerNotAllowedTest, DictFormatWarnsOnDisallowedMimeType) {
       "mime_types_handler: ignoring unsupported MIME type 'text/plain'.");
   ASSERT_TRUE(extension);
 
-  auto* handler = MimeTypesHandler::GetHandler(extension.get());
-  EXPECT_TRUE(handler);
+  const MimeTypesHandler* handler = MimeTypesHandler::Get(*extension);
+  ASSERT_TRUE(handler);
   EXPECT_FALSE(handler->GetHandlerUrl(kTextPlainMimeType).is_valid());
   EXPECT_TRUE(handler->GetHandlerUrl(kPdfMimeType).is_valid());
   // One warning for the skipped entry.
@@ -101,8 +104,7 @@ TEST_F(MimeTypesHandlerTest, LoadLegacy) {
       LoadAndExpectSuccess(ManifestData::FromJSON(kManifest));
   ASSERT_TRUE(extension);
 
-  const MimeTypesHandler* handler =
-      MimeTypesHandler::GetHandler(extension.get());
+  const MimeTypesHandler* handler = MimeTypesHandler::Get(*extension);
   ASSERT_TRUE(handler);
   EXPECT_THAT(handler->GetSupportedMimeTypes(),
               ElementsAre("application/octet-stream", "text/plain"));
@@ -145,8 +147,7 @@ TEST_F(MimeTypesHandlerTest, DictFormatParsing) {
       LoadAndExpectSuccess(ManifestData::FromJSON(kManifest));
   ASSERT_TRUE(extension);
 
-  const MimeTypesHandler* handler =
-      MimeTypesHandler::GetHandler(extension.get());
+  const MimeTypesHandler* handler = MimeTypesHandler::Get(*extension);
   ASSERT_TRUE(handler);
 
   EXPECT_EQ(extension->GetResourceURL("pdf_viewer.html"),
@@ -159,9 +160,19 @@ TEST_F(MimeTypesHandlerTest, DictFormatParsing) {
   EXPECT_FALSE(handler->CanEmbedMimeType(kTextPlainMimeType));
 }
 
-TEST_F(MimeTypesHandlerTest, DictFormatDisabledFlag) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(extensions_features::kApiMimeHandler);
+TEST_F(MimeTypesHandlerTest, DictFormatFlagDisabledByChannel) {
+  // With the kill-switch flag disabled, the dict-format parser still runs on
+  // dev/canary/trunk (matching the `channel: "dev"` entry in
+  // `_manifest_features.json`); beta/stable fall back to the flag and skip
+  // parsing.
+  static constexpr std::array kCases =
+      std::to_array<std::pair<version_info::Channel, bool>>({
+          {version_info::Channel::UNKNOWN, true},  // Trunk.
+          {version_info::Channel::CANARY, true},
+          {version_info::Channel::DEV, true},
+          {version_info::Channel::BETA, false},
+          {version_info::Channel::STABLE, false},
+      });
 
   static constexpr char kManifest[] = R"({
     "name": "Test Extension",
@@ -174,12 +185,26 @@ TEST_F(MimeTypesHandlerTest, DictFormatDisabledFlag) {
       }
     }
   })";
-  scoped_refptr<Extension> extension =
-      LoadAndExpectSuccess(ManifestData::FromJSON(kManifest));
-  ASSERT_TRUE(extension);
 
-  // Handler should be null because dict format requires the flag.
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  for (const auto& [channel, expect_parsed] : kCases) {
+    SCOPED_TRACE(testing::Message()
+                 << "channel=" << version_info::GetChannelString(channel));
+    ScopedCurrentChannel scoped_channel(channel);
+    base::test::ScopedFeatureList features;
+    features.InitAndDisableFeature(extensions_features::kApiMimeHandler);
+
+    scoped_refptr<Extension> extension =
+        LoadAndExpectSuccess(ManifestData::FromJSON(kManifest));
+    ASSERT_TRUE(extension);
+
+    const MimeTypesHandler* handler = MimeTypesHandler::Get(*extension);
+    if (expect_parsed) {
+      ASSERT_TRUE(handler);
+      EXPECT_THAT(handler->GetSupportedMimeTypes(), ElementsAre(kPdfMimeType));
+    } else {
+      EXPECT_FALSE(handler);
+    }
+  }
 }
 
 TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnEmptyMimeType) {
@@ -201,7 +226,7 @@ TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnEmptyMimeType) {
       "mime_types_handler: ignoring entry with empty MIME type key.");
   ASSERT_TRUE(extension);
 
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  EXPECT_FALSE(MimeTypesHandler::Get(*extension));
 }
 
 TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnAbsoluteHandlerUrl) {
@@ -224,7 +249,7 @@ TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnAbsoluteHandlerUrl) {
                            "'application/pdf': invalid handler_url.");
   ASSERT_TRUE(extension);
 
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  EXPECT_FALSE(MimeTypesHandler::Get(*extension));
 }
 
 TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnJavascriptHandlerUrl) {
@@ -247,7 +272,7 @@ TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnJavascriptHandlerUrl) {
       "handler_url.");
   ASSERT_TRUE(extension);
 
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  EXPECT_FALSE(MimeTypesHandler::Get(*extension));
 }
 
 TEST_F(MimeTypesHandlerTest, DictFormatRejectsNonDictConfig) {
@@ -304,7 +329,7 @@ TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnEmptyHandlerUrl) {
       "handler_url.");
   ASSERT_TRUE(extension);
 
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  EXPECT_FALSE(MimeTypesHandler::Get(*extension));
 }
 
 TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnDataHandlerUrl) {
@@ -327,7 +352,7 @@ TEST_F(MimeTypesHandlerTest, DictFormatWarnsOnDataHandlerUrl) {
       "handler_url.");
   ASSERT_TRUE(extension);
 
-  EXPECT_FALSE(MimeTypesHandler::GetHandler(extension.get()));
+  EXPECT_FALSE(MimeTypesHandler::Get(*extension));
 }
 
 }  // namespace extensions

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include "content/public/browser/page.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"

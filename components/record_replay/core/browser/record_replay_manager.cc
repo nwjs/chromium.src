@@ -24,8 +24,8 @@
 #include "components/record_replay/core/browser/record_replay_driver_factory.h"
 #include "components/record_replay/core/browser/recorder.h"
 #include "components/record_replay/core/browser/recording.pb.h"
-#include "components/record_replay/core/browser/recording_data_manager.h"
 #include "components/record_replay/core/browser/replayer.h"
+#include "components/record_replay/core/browser/task_store.h"
 #include "components/record_replay/core/common/aliases.h"
 #include "components/record_replay/core/common/element_id.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -120,6 +120,7 @@ void RecordReplayManager::OnTextChange(
 void RecordReplayManager::OnFillOrPreviewForm(
     autofill::AutofillManager& manager,
     autofill::FormGlobalId form_id,
+    autofill::FieldGlobalId trigger_field_id,
     autofill::mojom::ActionPersistence action_persistence,
     const base::flat_set<autofill::FieldGlobalId>& filled_field_ids,
     const autofill::FillingPayload& filling_payload) {
@@ -186,14 +187,14 @@ void RecordReplayManager::OnFillOrPreviewForm(
 
 void RecordReplayManager::GetMatchingRecording(
     base::OnceCallback<void(std::optional<Recording>)> cb) {
-  if (recording_for_testing_) {
+  if (!recordings_for_testing_.empty()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(cb), recording_for_testing_));
+        FROM_HERE, base::BindOnce(std::move(cb), recordings_for_testing_[0]));
     return;
   }
 
-  RecordingDataManager* rdm = client_->GetRecordingDataManager();
-  if (!rdm) {
+  TaskStore* store = client_->GetTaskStore();
+  if (!store) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(cb), std::nullopt));
     return;
@@ -226,9 +227,43 @@ void RecordReplayManager::GetMatchingRecording(
                            std::move(cb), std::move(recording)));
       };
 
-  rdm->GetRecordingsByUrl(client_->GetPrimaryMainFrameUrl().spec(),
-                          base::BindOnce(invoke_with_matching_recording,
-                                         GetWeakPtr(), std::move(cb)));
+  store->GetRecordingsByUrl(client_->GetPrimaryMainFrameUrl().spec(),
+                            base::BindOnce(invoke_with_matching_recording,
+                                           GetWeakPtr(), std::move(cb)));
+}
+
+void RecordReplayManager::GetMatchingRecordings(
+    base::OnceCallback<void(std::vector<Recording>)> cb) {
+  if (!recordings_for_testing_.empty()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(cb), recordings_for_testing_));
+    return;
+  }
+
+  TaskStore* store = client_->GetTaskStore();
+  if (!store) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(cb), std::vector<Recording>()));
+    return;
+  }
+
+  // We could implement similar matching logic here to filter recordings based
+  // on whether their first action's element selector matches exactly one
+  // element on the page (as done in `GetMatchingRecording`), but for the UI
+  // we'll just return all recordings matching the URL.
+  store->GetRecordingsByUrl(client_->GetPrimaryMainFrameUrl().spec(),
+                            std::move(cb));
+}
+
+void RecordReplayManager::StartReplaySpecific(Recording recording) {
+  if (replayer_) {
+    return;
+  }
+  ReportToUser("Starting replay");
+  replayer_.emplace(
+      this, std::move(recording),
+      base::BindOnce(&RecordReplayManager::StopReplay, GetWeakPtr()));
+  replayer_->Run();
 }
 
 void RecordReplayManager::StartReplay() {
@@ -241,11 +276,7 @@ void RecordReplayManager::StartReplay() {
         if (!self || !recording) {
           return;
         }
-        self->ReportToUser("Starting replay");
-        self->replayer_.emplace(
-            self.get(), *std::move(recording),
-            base::BindOnce(&RecordReplayManager::StopReplay, self));
-        self->replayer_->Run();
+        self->StartReplaySpecific(*std::move(recording));
       },
       GetWeakPtr()));
 }
@@ -280,8 +311,9 @@ void RecordReplayManager::ReportToUser(std::string_view message) {
   client_->ReportToUser(message);
 }
 
-void RecordReplayManager::SetRecordingForTesting(Recording recording) {
-  recording_for_testing_ = std::move(recording);
+void RecordReplayManager::SetRecordingsForTesting(
+    std::vector<Recording> recordings) {
+  recordings_for_testing_ = std::move(recordings);
 }
 
 }  // namespace record_replay

@@ -5,9 +5,11 @@
 package org.chromium.chrome.browser.omnibox.fusebox;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.view.View;
 
@@ -21,7 +23,9 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.R;
@@ -50,16 +54,25 @@ public class BottomSheetRectProviderUnitTest {
 
     @Test
     public void testUpdateRect_anchorsToBottom() {
-        // The rect should be anchored to the bottom, meaning top == bottom.
+        // The rect should be anchored to the bottom, meaning top == bottom == height.
         Rect r = mProvider.getRect();
         assertEquals("Rect top should equal bottom", r.top, r.bottom);
+        var windowMetrics =
+                WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(mActivity);
+        int expectedHeight = windowMetrics.getBounds().height();
+        assertEquals("Rect top should equal window height", expectedHeight, r.top);
     }
 
     @Test
     public void testOnLayoutChange_updatesRect() {
         mProvider.onLayoutChange(mAnchorView, 0, 0, 100, 100, 0, 0, 0, 0);
+        ShadowLooper.idleMainLooper();
         Rect r = mProvider.getRect();
         assertEquals("Rect top should equal bottom", r.top, r.bottom);
+        var windowMetrics =
+                WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(mActivity);
+        int expectedHeight = windowMetrics.getBounds().height();
+        assertEquals("Rect top should equal window height", expectedHeight, r.top);
     }
 
     @Test
@@ -74,8 +87,28 @@ public class BottomSheetRectProviderUnitTest {
         // The window width is 800dp. Max width is 600dp.
         // Trigger updateRect via layout change.
         mProvider.onLayoutChange(mAnchorView, 0, 0, 800, 1000, 0, 0, 0, 0);
-        Rect r = mProvider.getRect();
+        ShadowLooper.idleMainLooper();
+        assertRectIsCenteredAndConstrained(mProvider.getRect());
+    }
 
+    @Test
+    public void testOnConfigurationChanged_updatesRect() {
+        Rect initialRect = new Rect(mProvider.getRect());
+
+        // Change qualifiers to a wide screen.
+        RuntimeEnvironment.setQualifiers("w1000dp-h800dp");
+
+        // Trigger configuration change.
+        mProvider.onConfigurationChanged(new Configuration());
+
+        assertRectIsCenteredAndConstrained(mProvider.getRect());
+        assertNotEquals(
+                "Rect should be updated to reflect new dimensions",
+                initialRect,
+                mProvider.getRect());
+    }
+
+    private void assertRectIsCenteredAndConstrained(Rect rect) {
         int expectedMaxWidthPx =
                 mActivity
                         .getResources()
@@ -84,10 +117,10 @@ public class BottomSheetRectProviderUnitTest {
                 WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(mActivity);
         var bounds = windowMetrics.getBounds();
 
-        assertEquals("Width should be constrained to max width", expectedMaxWidthPx, r.width());
-        int centerX = bounds.centerX();
+        assertEquals("Width should be constrained to max width", expectedMaxWidthPx, rect.width());
+        int centerX = bounds.width() / 2;
         int halfWidth = expectedMaxWidthPx / 2;
-        assertEquals("Left should be centered", centerX - halfWidth, r.left);
-        assertEquals("Right should be centered", centerX + halfWidth, r.right);
+        assertEquals("Left should be centered", centerX - halfWidth, rect.left);
+        assertEquals("Right should be centered", centerX + halfWidth, rect.right);
     }
 }

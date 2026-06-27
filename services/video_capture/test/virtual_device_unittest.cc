@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
 #include "base/test/mock_callback.h"
@@ -15,6 +16,7 @@
 #include "services/video_capture/public/cpp/mock_video_frame_handler.h"
 #include "services/video_capture/public/mojom/video_frame_handler.mojom.h"
 #include "services/video_capture/shared_memory_virtual_device_mojo_adapter.h"
+#include "services/video_capture/virtual_device_enabled_device_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using testing::_;
@@ -99,6 +101,15 @@ class VirtualDeviceTest : public ::testing::Test {
   std::vector<int> received_buffer_ids_;
   std::unique_ptr<MockProducer> producer_;
 
+  media::mojom::VideoFrameInfoPtr CreateValidVideoFrameInfo() {
+    auto info = media::mojom::VideoFrameInfo::New();
+    info->pixel_format = kTestPixelFormat;
+    info->coded_size = kTestFrameSize;
+    info->visible_rect = gfx::Rect(kTestFrameSize);
+    info->natural_size = kTestFrameSize;
+    return info;
+  }
+
  private:
   base::test::SingleThreadTaskEnvironment task_environment_;
   media::VideoCaptureDeviceInfo device_info_;
@@ -113,7 +124,7 @@ TEST_F(VirtualDeviceTest, OnFrameReadyInBufferWithoutReceiver) {
   // Release one buffer back to the pool, no consumer hold since there is no
   // receiver.
   device_adapter_->OnFrameReadyInBuffer(received_buffer_ids_.at(0),
-                                        media::mojom::VideoFrameInfo::New());
+                                        CreateValidVideoFrameInfo());
 
   // Verify there is a buffer available now, without creating a new
   // buffer.
@@ -146,8 +157,8 @@ TEST_F(VirtualDeviceTest, OnFrameReadyInBufferWithReceiver) {
   device_adapter_->Start(media::VideoCaptureParams(),
                          std::move(handler_remote));
   for (auto buffer_id : received_buffer_ids_) {
-    media::mojom::VideoFrameInfoPtr info = media::mojom::VideoFrameInfo::New();
-    device_adapter_->OnFrameReadyInBuffer(buffer_id, std::move(info));
+    device_adapter_->OnFrameReadyInBuffer(buffer_id,
+                                          CreateValidVideoFrameInfo());
   }
   wait_loop.RunUntilIdle();
   Mock::VerifyAndClearExpectations(&video_frame_handler);
@@ -159,7 +170,7 @@ TEST_F(VirtualDeviceTest, OnFrameReadyInBufferWithReceiver) {
   base::MockCallback<
       mojom::SharedMemoryVirtualDevice::RequestFrameBufferCallback>
       request_frame_buffer_callback;
-  EXPECT_CALL(request_frame_buffer_callback, Run(_))
+  EXPECT_CALL(request_frame_buffer_callback, Run)
       .Times(1)
       .WillOnce([this](int32_t buffer_id) {
         // Verify that the returned |buffer_id| is a known buffer ID.
@@ -174,7 +185,7 @@ TEST_F(VirtualDeviceTest, OnFrameReadyInBufferWithReceiver) {
   base::RunLoop wait_for_stopped_loop;
   {
     testing::InSequence s;
-    EXPECT_CALL(video_frame_handler, DoOnBufferRetired(_))
+    EXPECT_CALL(video_frame_handler, DoOnBufferRetired)
         .Times(SharedMemoryVirtualDeviceMojoAdapter::
                    max_buffer_pool_buffer_count());
     EXPECT_CALL(video_frame_handler, OnStopped())
@@ -182,6 +193,304 @@ TEST_F(VirtualDeviceTest, OnFrameReadyInBufferWithReceiver) {
   }
   device_adapter_->Stop();
   wait_for_stopped_loop.Run();
+}
+
+class MockDeviceFactory : public DeviceFactory {
+ public:
+  MockDeviceFactory() = default;
+  ~MockDeviceFactory() override = default;
+
+  MOCK_METHOD(void,
+              GetDeviceInfos,
+              (GetDeviceInfosCallback callback),
+              (override));
+  MOCK_METHOD(void,
+              CreateDevice,
+              (const std::string& device_id, CreateDeviceCallback callback),
+              (override));
+  MOCK_METHOD(void, StopDevice, (const std::string device_id), (override));
+  MOCK_METHOD(void,
+              AddSharedMemoryVirtualDevice,
+              (const media::VideoCaptureDeviceInfo& device_info,
+               mojo::PendingRemote<mojom::Producer> producer,
+               mojo::PendingReceiver<mojom::SharedMemoryVirtualDevice>
+                   virtual_device_receiver),
+              (override));
+  MOCK_METHOD(void,
+              AddTextureVirtualDevice,
+              (const media::VideoCaptureDeviceInfo& device_info,
+               mojo::PendingReceiver<mojom::TextureVirtualDevice>
+                   virtual_device_receiver),
+              (override));
+  MOCK_METHOD(void,
+              AddGpuMemoryBufferVirtualDevice,
+              (const media::VideoCaptureDeviceInfo& device_info,
+               mojo::PendingReceiver<mojom::GpuMemoryBufferVirtualDevice>
+                   virtual_device_receiver),
+              (override));
+  MOCK_METHOD(void,
+              RegisterVirtualDevicesChangedObserver,
+              (mojo::PendingRemote<mojom::DevicesChangedObserver> observer,
+               bool raise_event_if_virtual_devices_already_present),
+              (override));
+#if BUILDFLAG(IS_WIN)
+  MOCK_METHOD(void, OnGpuInfoUpdate, (const CHROME_LUID& luid), (override));
+#endif
+};
+
+class VirtualDeviceEnabledDeviceFactoryTest : public ::testing::Test {
+ protected:
+  VirtualDeviceEnabledDeviceFactoryTest() {
+    auto mock_factory = std::make_unique<MockDeviceFactory>();
+    mock_factory_ = mock_factory.get();
+    factory_ = std::make_unique<VirtualDeviceEnabledDeviceFactory>(
+        std::move(mock_factory));
+  }
+
+  ~VirtualDeviceEnabledDeviceFactoryTest() override = default;
+
+  base::test::SingleThreadTaskEnvironment task_environment_;
+  std::unique_ptr<VirtualDeviceEnabledDeviceFactory> factory_;
+  raw_ptr<MockDeviceFactory> mock_factory_ = nullptr;
+};
+
+// Tests that when an underlying device creation succeeds, any old virtual
+// device connection with the same device ID is severed.
+TEST_F(VirtualDeviceEnabledDeviceFactoryTest,
+       CreateDeviceSucceedsOldVirtualDeviceConnectionSevered) {
+  const std::string device_id = "/test/device";
+
+  // Register the virtual device first by having GetDeviceInfos return empty
+  EXPECT_CALL(*mock_factory_, GetDeviceInfos)
+      .WillOnce([](DeviceFactory::GetDeviceInfosCallback callback) {
+        std::move(callback).Run(std::vector<media::VideoCaptureDeviceInfo>());
+      });
+
+  media::VideoCaptureDeviceInfo device_info;
+  device_info.descriptor.device_id = device_id;
+  mojo::PendingRemote<mojom::Producer> producer;
+  MockProducer mock_producer(producer.InitWithNewPipeAndPassReceiver());
+  mojo::Remote<mojom::SharedMemoryVirtualDevice> virtual_device;
+
+  factory_->AddSharedMemoryVirtualDevice(
+      device_info, std::move(producer),
+      virtual_device.BindNewPipeAndPassReceiver());
+  virtual_device.FlushForTesting();
+
+  // Call CreateDevice, mock the underlying factory to succeed
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_factory_, CreateDevice(device_id, _))
+      .WillOnce([](const std::string& device_id,
+                   DeviceFactory::CreateDeviceCallback callback) {
+        DeviceFactory::DeviceInfo info{nullptr,
+                                       media::VideoCaptureError::kNone};
+        std::move(callback).Run(std::move(info));
+      });
+
+  base::MockCallback<DeviceFactory::CreateDeviceCallback> create_callback;
+  EXPECT_CALL(create_callback, Run)
+      .WillOnce([&run_loop](DeviceFactory::DeviceInfo info) {
+        EXPECT_EQ(info.result_code, media::VideoCaptureError::kNone);
+        run_loop.Quit();
+      });
+
+  factory_->CreateDevice(device_id, create_callback.Get());
+  run_loop.Run();
+
+  // Verify that the virtual device connection is severed
+  base::RunLoop disconnect_loop;
+  virtual_device.set_disconnect_handler(disconnect_loop.QuitClosure());
+  disconnect_loop.Run();
+
+  EXPECT_FALSE(virtual_device.is_connected());
+}
+
+// Tests that when an underlying device creation fails with
+// kVideoCaptureSystemDeviceIdNotFound, the factory falls back to the registered
+// virtual device and does NOT sever its connection.
+TEST_F(VirtualDeviceEnabledDeviceFactoryTest,
+       CreateDeviceFailsOldVirtualDeviceConnectionNotSevered) {
+  const std::string device_id = "/test/device";
+
+  // Register the virtual device first
+  EXPECT_CALL(*mock_factory_, GetDeviceInfos)
+      .WillOnce([](DeviceFactory::GetDeviceInfosCallback callback) {
+        std::move(callback).Run(std::vector<media::VideoCaptureDeviceInfo>());
+      });
+
+  media::VideoCaptureDeviceInfo device_info;
+  device_info.descriptor.device_id = device_id;
+  mojo::PendingRemote<mojom::Producer> producer;
+  MockProducer mock_producer(producer.InitWithNewPipeAndPassReceiver());
+  mojo::Remote<mojom::SharedMemoryVirtualDevice> virtual_device;
+
+  factory_->AddSharedMemoryVirtualDevice(
+      device_info, std::move(producer),
+      virtual_device.BindNewPipeAndPassReceiver());
+  virtual_device.FlushForTesting();
+
+  // Call CreateDevice, mock the underlying factory to fail with
+  // kVideoCaptureSystemDeviceIdNotFound
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_factory_, CreateDevice(device_id, _))
+      .WillOnce([](const std::string& device_id,
+                   DeviceFactory::CreateDeviceCallback callback) {
+        DeviceFactory::DeviceInfo info{
+            nullptr,
+            media::VideoCaptureError::kVideoCaptureSystemDeviceIdNotFound};
+        std::move(callback).Run(std::move(info));
+      });
+
+  base::MockCallback<DeviceFactory::CreateDeviceCallback> create_callback;
+  EXPECT_CALL(create_callback, Run)
+      .WillOnce([&run_loop](DeviceFactory::DeviceInfo info) {
+        // Falls back to the virtual device, so it should succeed!
+        EXPECT_EQ(info.result_code, media::VideoCaptureError::kNone);
+        EXPECT_NE(info.device, nullptr);
+        run_loop.Quit();
+      });
+
+  factory_->CreateDevice(device_id, create_callback.Get());
+  run_loop.Run();
+
+  // Verify that the virtual device is NOT severed
+  virtual_device.FlushForTesting();
+  EXPECT_TRUE(virtual_device.is_connected());
+}
+
+// Tests that when an underlying device creation fails with
+// kVideoCaptureSystemDeviceIdNotFound, and no virtual device is registered with
+// that ID, the factory returns the original failure.
+TEST_F(VirtualDeviceEnabledDeviceFactoryTest,
+       CreateDeviceFailsNoVirtualDeviceFallback) {
+  const std::string device_id = "/test/device";
+
+  // Call CreateDevice without registering any virtual device
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_factory_, CreateDevice(device_id, _))
+      .WillOnce([](const std::string& device_id,
+                   DeviceFactory::CreateDeviceCallback callback) {
+        DeviceFactory::DeviceInfo info{
+            nullptr,
+            media::VideoCaptureError::kVideoCaptureSystemDeviceIdNotFound};
+        std::move(callback).Run(std::move(info));
+      });
+
+  base::MockCallback<DeviceFactory::CreateDeviceCallback> create_callback;
+  EXPECT_CALL(create_callback, Run)
+      .WillOnce([&run_loop](DeviceFactory::DeviceInfo info) {
+        // Returns the original failure since there is no fallback
+        EXPECT_EQ(
+            info.result_code,
+            media::VideoCaptureError::kVideoCaptureSystemDeviceIdNotFound);
+        EXPECT_EQ(info.device, nullptr);
+        run_loop.Quit();
+      });
+
+  factory_->CreateDevice(device_id, create_callback.Get());
+  run_loop.Run();
+}
+
+// Tests that when an underlying device creation fails with an error other than
+// not found, any old virtual device connection is severed and the factory
+// returns the failure (no fallback).
+TEST_F(VirtualDeviceEnabledDeviceFactoryTest,
+       CreateDeviceFailsWithOtherErrorOldVirtualDeviceSevered) {
+  const std::string device_id = "/test/device";
+
+  // Register the virtual device first
+  EXPECT_CALL(*mock_factory_, GetDeviceInfos)
+      .WillOnce([](DeviceFactory::GetDeviceInfosCallback callback) {
+        std::move(callback).Run(std::vector<media::VideoCaptureDeviceInfo>());
+      });
+
+  media::VideoCaptureDeviceInfo device_info;
+  device_info.descriptor.device_id = device_id;
+  mojo::PendingRemote<mojom::Producer> producer;
+  MockProducer mock_producer(producer.InitWithNewPipeAndPassReceiver());
+  mojo::Remote<mojom::SharedMemoryVirtualDevice> virtual_device;
+
+  factory_->AddSharedMemoryVirtualDevice(
+      device_info, std::move(producer),
+      virtual_device.BindNewPipeAndPassReceiver());
+  virtual_device.FlushForTesting();
+  ASSERT_TRUE(virtual_device.is_connected());
+
+  // Call CreateDevice, mock underlying factory to fail with a different error
+  // (e.g. SecondCreateDenied)
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_factory_, CreateDevice(device_id, _))
+      .WillOnce([](const std::string& device_id,
+                   DeviceFactory::CreateDeviceCallback callback) {
+        DeviceFactory::DeviceInfo info{
+            nullptr, media::VideoCaptureError::
+                         kVideoCaptureDeviceFactorySecondCreateDenied};
+        std::move(callback).Run(std::move(info));
+      });
+
+  base::MockCallback<DeviceFactory::CreateDeviceCallback> create_callback;
+  EXPECT_CALL(create_callback, Run)
+      .WillOnce([&run_loop](DeviceFactory::DeviceInfo info) {
+        // Returns the failure code, no fallback should occur!
+        EXPECT_EQ(info.result_code,
+                  media::VideoCaptureError::
+                      kVideoCaptureDeviceFactorySecondCreateDenied);
+        EXPECT_EQ(info.device, nullptr);
+        run_loop.Quit();
+      });
+
+  factory_->CreateDevice(device_id, create_callback.Get());
+  run_loop.Run();
+
+  // Verify that the virtual device connection is severed
+  base::RunLoop disconnect_loop;
+  virtual_device.set_disconnect_handler(disconnect_loop.QuitClosure());
+  disconnect_loop.Run();
+
+  EXPECT_FALSE(virtual_device.is_connected());
+}
+
+TEST_F(VirtualDeviceEnabledDeviceFactoryTest,
+       SpoofedLabelVirtualDeviceListedAfterRealCamera) {
+  media::VideoCaptureDeviceInfo real_cam;
+  real_cam.descriptor.device_id = "/dev/video0";
+  real_cam.descriptor.set_display_name("HD Pro Webcam C920");
+
+  ON_CALL(*mock_factory_, GetDeviceInfos)
+      .WillByDefault([real_cam](DeviceFactory::GetDeviceInfosCallback cb) {
+        std::move(cb).Run({real_cam});
+      });
+  EXPECT_CALL(*mock_factory_, GetDeviceInfos).Times(testing::AtLeast(1));
+
+  media::VideoCaptureDeviceInfo spoof;
+  spoof.descriptor.device_id = "vd-evil";
+  spoof.descriptor.set_display_name("HD Pro Webcam C920");
+
+  mojo::PendingRemote<mojom::Producer> producer;
+  MockProducer mock_producer(producer.InitWithNewPipeAndPassReceiver());
+  mojo::Remote<mojom::SharedMemoryVirtualDevice> virtual_device;
+
+  factory_->AddSharedMemoryVirtualDevice(
+      spoof, std::move(producer), virtual_device.BindNewPipeAndPassReceiver());
+  virtual_device.FlushForTesting();
+  ASSERT_TRUE(virtual_device.is_connected());
+
+  std::vector<media::VideoCaptureDeviceInfo> result;
+  base::RunLoop loop;
+  factory_->GetDeviceInfos(base::BindOnce(
+      [](std::vector<media::VideoCaptureDeviceInfo>* out, base::OnceClosure q,
+         const std::vector<media::VideoCaptureDeviceInfo>& infos) {
+        *out = infos;
+        std::move(q).Run();
+      },
+      &result, loop.QuitClosure()));
+  loop.Run();
+
+  ASSERT_EQ(2u, result.size());
+  EXPECT_EQ("/dev/video0", result[0].descriptor.device_id);
+  EXPECT_EQ("vd-evil", result[1].descriptor.device_id);
+  EXPECT_EQ(result[0].descriptor.GetNameAndModel(),
+            result[1].descriptor.GetNameAndModel());
 }
 
 }  // namespace video_capture

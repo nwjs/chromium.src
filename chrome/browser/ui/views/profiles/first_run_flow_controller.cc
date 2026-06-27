@@ -15,6 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/version_info/channel.h"
@@ -31,12 +32,16 @@
 #include "chrome/browser/signin/signin_hats_util.h"
 #include "chrome/browser/ui/hats/survey_config.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/profiles/feature_showcase/feature_showcase_eligibility_tracker.h"
+#include "chrome/browser/ui/views/profiles/feature_showcase/feature_showcase_step_eligibility_checker.h"
+#include "chrome/browser/ui/views/profiles/feature_showcase/password_manager_feature_showcase_eligibility_checker.h"
 #include "chrome/browser/ui/views/profiles/profile_management_flow_controller.h"
 #include "chrome/browser/ui/views/profiles/profile_management_flow_controller_impl.h"
 #include "chrome/browser/ui/views/profiles/profile_management_step_controller.h"
 #include "chrome/browser/ui/views/profiles/profile_management_types.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_post_sign_in_adapter.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_web_contents_host.h"
+#include "chrome/browser/ui/webui/feature_showcase/feature_showcase_ui.h"
 #include "chrome/browser/ui/webui/intro/intro_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
 #include "chrome/common/channel_info.h"
@@ -53,6 +58,7 @@
 #include "components/signin/public/identity_manager/tribool.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/core_account_id.h"
+#include "net/base/url_util.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -116,8 +122,27 @@ bool IsPostIdentityStep(ProfileManagementFlowController::Step step) {
       return false;
     case ProfileManagementFlowController::Step::kDefaultBrowser:
     case ProfileManagementFlowController::Step::kSearchEngineChoice:
+    case ProfileManagementFlowController::Step::kFeatureShowcase:
       return true;
   }
+}
+
+bool IsProfileInSearchEngineChoiceRegion(Profile* profile) {
+  return CHECK_DEREF(regional_capabilities::RegionalCapabilitiesServiceFactory::
+                         GetForProfile(profile))
+      .IsInSearchEngineChoiceScreenRegion();
+}
+
+std::optional<std::vector<std::string>> GetForcedStepsFromCommandLine() {
+  const base::CommandLine& command_line =
+      CHECK_DEREF(base::CommandLine::ForCurrentProcess());
+  if (command_line.HasSwitch(switches::kForceFreFeatureShowcaseSteps)) {
+    std::string steps_str = command_line.GetSwitchValueASCII(
+        switches::kForceFreFeatureShowcaseSteps);
+    return base::SplitString(steps_str, ",", base::TRIM_WHITESPACE,
+                             base::SPLIT_WANT_NONEMPTY);
+  }
+  return std::nullopt;
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -407,6 +432,101 @@ class DefaultBrowserStepController : public ProfileManagementStepController {
   base::WeakPtrFactory<DefaultBrowserStepController> weak_ptr_factory_{this};
 };
 
+class FeatureShowcaseStepController : public ProfileManagementStepController {
+ public:
+  explicit FeatureShowcaseStepController(
+      ProfilePickerWebContentsHost* host,
+      Profile* profile,
+      base::OnceClosure step_completed_callback)
+      : ProfileManagementStepController(host),
+        profile_(profile),
+        step_completed_callback_(std::move(step_completed_callback)) {
+    std::vector<std::unique_ptr<FeatureShowcaseStepEligibilityChecker>>
+        checkers;
+
+    // Register checkers in order of priority (highest first).
+    checkers.push_back(
+        std::make_unique<PasswordManagerFeatureShowcaseEligibilityChecker>());
+    tracker_ = std::make_unique<FeatureShowcaseEligibilityTracker>(
+        std::move(checkers));
+  }
+
+  ~FeatureShowcaseStepController() override = default;
+
+  void Show(StepSwitchFinishedCallback step_shown_callback,
+            bool reset_state) override {
+    CHECK(reset_state);
+
+    step_shown_callback_ = std::move(step_shown_callback);
+
+    if (std::optional<std::vector<std::string>> forced_steps =
+            GetForcedStepsFromCommandLine();
+        forced_steps) {
+      OnEligibilityDetermined(*forced_steps);
+      return;
+    }
+
+    tracker_->EvaluateEligibleSteps(
+        *profile_,
+        base::BindOnce(&FeatureShowcaseStepController::OnEligibilityDetermined,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void OnNavigateBackRequested() override {
+    // Navigating back from post-identity steps is usually blocked.
+    NOTREACHED();
+  }
+
+ private:
+  void OnEligibilityDetermined(const std::vector<std::string>& eligible_steps) {
+    if (eligible_steps.empty()) {
+      std::move(step_shown_callback_.value()).Run(/*success=*/false);
+      std::move(step_completed_callback_).Run();
+      return;
+    }
+
+    host()->ShowScreenInPickerContents(
+        BuildFeatureShowcaseURL(eligible_steps),
+        base::BindOnce(&FeatureShowcaseStepController::OnLoadFinished,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  GURL BuildFeatureShowcaseURL(const std::vector<std::string>& steps) {
+    GURL url(chrome::kChromeUIFeatureShowcaseURL);
+    return net::AppendQueryParameter(url, "steps",
+                                     base::JoinString(steps, ","));
+  }
+
+  void OnLoadFinished() {
+    if (!step_shown_callback_->is_null()) {
+      std::move(step_shown_callback_.value()).Run(/*success=*/true);
+    }
+
+    auto* showcase_ui = host()
+                            ->GetPickerContents()
+                            ->GetWebUI()
+                            ->GetController()
+                            ->GetAs<FeatureShowcaseUI>();
+    CHECK(showcase_ui);
+
+    showcase_ui->SetFinishCallback(
+        base::BindOnce(&FeatureShowcaseStepController::OnStepCompleted,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void OnStepCompleted() {
+    CHECK(step_completed_callback_);
+    std::move(step_completed_callback_).Run();
+  }
+
+  raw_ptr<Profile> profile_;
+  base::OnceClosure step_completed_callback_;
+  StepSwitchFinishedCallback step_shown_callback_;
+  std::unique_ptr<FeatureShowcaseEligibilityTracker> tracker_;
+
+  base::WeakPtrFactory<FeatureShowcaseStepController> weak_ptr_factory_{this};
+};
+
 using IdentityStepsCompletedCallback =
     base::OnceCallback<void(PostHostClearedCallback post_host_cleared_callback,
                             bool is_continue_callback)>;
@@ -495,6 +615,14 @@ std::unique_ptr<ProfileManagementStepController> CreateDefaultBrowserStep(
     base::OnceClosure step_completed_callback) {
   return std::make_unique<DefaultBrowserStepController>(
       host, std::move(step_completed_callback));
+}
+
+std::unique_ptr<ProfileManagementStepController> CreateFeatureShowcaseStep(
+    ProfilePickerWebContentsHost* host,
+    Profile* profile,
+    base::OnceClosure step_completed_callback) {
+  return std::make_unique<FeatureShowcaseStepController>(
+      host, profile, std::move(step_completed_callback));
 }
 
 FirstRunFlowController::FirstRunFlowController(
@@ -623,13 +751,8 @@ void FirstRunFlowController::RunFinishFlowCallback() {
 }
 
 std::string FirstRunFlowController::GetHatsSurveyTrigger() const {
-  const bool is_in_search_engine_choice_region =
-      CHECK_DEREF(regional_capabilities::RegionalCapabilitiesServiceFactory::
-                      GetForProfile(profile_))
-          .IsInSearchEngineChoiceScreenRegion();
-
   if (switches::IsFirstRunDesktopRefreshEnabled(
-          is_in_search_engine_choice_region)) {
+          IsProfileInSearchEngineChoiceRegion(profile_))) {
     return kHatsSurveyTriggerIdentityRefreshedFirstRunCompleted;
   }
 
@@ -710,6 +833,19 @@ FirstRunFlowController::RegisterPostIdentitySteps(
                    host(), std::move(default_browser_promo_step_completed)));
   post_identity_steps.emplace(
       ProfileManagementFlowController::Step::kDefaultBrowser);
+
+  if (switches::IsFirstRunDesktopRevampEnabled(
+          IsProfileInSearchEngineChoiceRegion(profile_))) {
+    auto feature_showcase_step_completed =
+        base::BindOnce(&FirstRunFlowController::AdvanceToNextPostIdentityStep,
+                       base::Unretained(this));
+    RegisterStep(
+        Step::kFeatureShowcase,
+        CreateFeatureShowcaseStep(host(), profile_,
+                                  std::move(feature_showcase_step_completed)));
+    post_identity_steps.emplace(
+        ProfileManagementFlowController::Step::kFeatureShowcase);
+  }
 
   RegisterStep(
       Step::kFinishFlow,

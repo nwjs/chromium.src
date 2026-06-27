@@ -46,6 +46,7 @@
 <translation id="1147031633655575115">Conta conectada: <ph name="USER" /></translation>
 <translation id="1149401351239820326">Mês de expiração</translation>
 <translation id="1150989369772528668">Agenda</translation>
+<translation id="1161444134753003495">Fazer login</translation>
 <translation id="1161663161838091892">Sincronize as guias e o histórico para continuar</translation>
 <translation id="1162834932051545794">{count,plural, =1{{count} cartão de crédito}one{{count} cartão de crédito}other{{count} cartões de crédito}}</translation>
 <translation id="1164891049599601209">Inserida em fraudulento</translation>
@@ -69,6 +70,7 @@
 <translation id="1253032109800629289">Ocultar "Receber notificações de monitoramento de preço"</translation>
 <translation id="1254424942107648268">Localizar anterior</translation>
 <translation id="1258491128795710625">O que há de novo</translation>
+<translation id="126093867734601535">Reajusta a altura da página.</translation>
 <translation id="1262724000444746916">Ocultar "Adicionar aos favoritos"</translation>
 <translation id="1263231323834454256">Lista de Leitura</translation>
 <translation id="1263433075299269530">Sua última guia aberta</translation>
@@ -80,7 +82,6 @@
 <translation id="1275718070701477396">Linha selecionada</translation>
 <translation id="1279024913354609713">Não permitir</translation>
 <translation id="1285320974508926690">Nunca traduzir este site</translation>
-<translation id="1287229685519872919">dados do Google Workspace</translation>
 <translation id="1291506870746876680">As permissões de <ph name="BEGIN_BOLD" /><ph name="SITE_NAME" /><ph name="END_BOLD" /> serão redefinidas como desativadas quando você sair desse site.</translation>
 <translation id="1293491796138057740">Suas informações são salvas na Carteira do Google de <ph name="USER_EMAIL" />. Você pode usá-las nos produtos do Google para preencher formulários com mais rapidez.</translation>
 <translation id="1293556467332435079">Arquivos</translation>
@@ -142,7 +143,6 @@
 <translation id="147982357559798527">Alterada</translation>
 <translation id="1486096554574027028">Pesquise senhas</translation>
 <translation id="1491277525950327607">Toque duas vezes para alternar a configuração</translation>
-<translation id="1491965206608166851">Faça login com suas senhas e chaves de acesso salvas em qualquer app</translation>
 <translation id="1492417797159476138">Você já salvou este nome de usuário para este site</translation>
 <translation id="1497590942294823549">Menu → Gerenciador de senhas</translation>
 <translation id="1498283581832036924">Sua conta de <ph name="WEBSITE" /> não será excluída.</translation>
@@ -168,8 +168,8 @@
 <translation id="1547610699249301703">Compartilhe senhas</translation>
 <translation id="1554043146674176775">Desativar o Modo IA</translation>
 <translation id="1554477036522844996">Nova janela</translation>
-<translation id="1554605811306591212">Nossos <ph name="TERMS" />, <ph name="KOREAN_LOCATION_TERMS" /> e <ph name="PRIVACY_NOTICE" /> se aplicam. O Gemini é uma IA e pode cometer erros, inclusive referente a pessoas.</translation>
 <translation id="1558391695376153246">Fechar guias anônimas</translation>
+<translation id="1560153516220021659">Botão da barra de ferramentas secundária fechado</translation>
 <translation id="1565371473877914088">Nova guia anônima</translation>
 <translation id="1567960978791353852">Mostrar Modo de Leitura</translation>
 <translation id="1571780780926010134">Guias anônimas</translation>
@@ -177,13 +177,16 @@
 <translation id="1580783302095112590">Mensagem enviada.</translation>
 <translation id="1582732959743469162">Isso interromperá todo o progresso do download atual.</translation>
 <translation id="1594034544529347967">Início</translation>
+<translation id="1598485494295307681">Ouvindo</translation>
 <translation id="1598751033135758830">Abrir no app…</translation>
+<translation id="1600571977391127696">Alguns conteúdos podem não ser adequados para todos.</translation>
 <translation id="1601560923496285236">Aplicar</translation>
 <translation id="1603718000246404895">{COUNT,plural, =1{1 endereço}one{# endereço}other{# endereços}}</translation>
 <translation id="1605405588277479165">Desativado (não recomendado)</translation>
 <translation id="1605658421715042784">Copiar imagem</translation>
 <translation id="1606899876897213121">Fechar resumo da atividade recente</translation>
 <translation id="1612754831519568745">A Navegação segura está desativada. Ative para se proteger contra sites, extensões e downloads perigosos.</translation>
+<translation id="1617300545081951343">Nossos <ph name="BEGIN_LINK" />Termos<ph name="END_LINK" />, os <ph name="BEGIN_LINK" />Termos de Localização da Coreia<ph name="END_LINK" /> e o <ph name="BEGIN_LINK" />Aviso de privacidade<ph name="END_LINK" /> se aplicam. O Gemini é uma IA e pode cometer erros, inclusive referente a pessoas.</translation>
 <translation id="1620510694547887537">Câmera</translation>
 <translation id="1622717322707146952">Selecione "Adicionar ao Google Agenda" ou "Adicionar ao Calendário Apple".</translation>
 <translation id="1629162218487290695">Confirme que é você…</translation>
@@ -202,6 +205,7 @@
 <translation id="1657011748321897393">O compartilhamento falhou porque não há conexão de rede.</translation>
 <translation id="1668001730617725852">Abrir em um novo grupo de guias</translation>
 <translation id="1670861525135254448">Salvar veículo</translation>
+<translation id="1671568970992212376">Salve suas fotos no Google Fotos para acessar quando quiser.</translation>
 <translation id="1674504678466460478"><ph name="SOURCE_LANGUAGE" /> para <ph name="TARGET_LANGUAGE" /></translation>
 <translation id="1678855624321223424">De acordo com as políticas da sua organização, este arquivo pode conter informações sensíveis</translation>
 <translation id="168389590065701766">Agora você pode abrir o Google Lens na barra de endereço e pesquisar qualquer coisa que vê</translation>
@@ -311,6 +315,7 @@
 <translation id="2012723204723845092">Que bom ver você de novo!</translation>
 <translation id="2015722694326466240">Para acessar as senhas, defina uma senha no dispositivo primeiro.</translation>
 <translation id="201759455285471444">Abrir grupo de guias.</translation>
+<translation id="2031515492007104071">Subir de nível</translation>
 <translation id="2044394949148788042">Abrir a grade de guias</translation>
 <translation id="2044681667265133332">A conta <ph name="USER_EMAIL" /> é gerenciada por <ph name="HOSTED_DOMAIN" />, que pode ver algumas informações. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">novo item</translation>
@@ -327,6 +332,7 @@
 <translation id="2078437078822043850">Role a tela para a direita para navegar no modo de navegação anônima.</translation>
 <translation id="2079545284768500474">Desfazer</translation>
 <translation id="2085876078937250610">Salvar…</translation>
+<translation id="2089180529062519164">Ativar microfone</translation>
 <translation id="2096239473850415494">Falha no download</translation>
 <translation id="2096716221239095980">Excluir todos os dados</translation>
 <translation id="2104436223719117661">Pesquisas em alta</translation>
@@ -336,7 +342,6 @@
 <translation id="2119962645034852864">Alguns serviços não estão disponíveis para sua conta</translation>
 <translation id="2120553909046681540">Sua organização desativou a navegação anônima.</translation>
 <translation id="2122754583996902531">Seu navegador é gerenciado. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
-<translation id="21243612977487926">As conversas da sua organização não são usadas para melhorar nossos modelos. O Gemini pode conter informações imprecisas, inclusive sobre pessoas. Por isso, cheque o conteúdo. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
 <translation id="2139867232736819575">Pesquisar o texto que você copiou</translation>
 <translation id="2147127444698817042">Disponível apenas no iPhone</translation>
 <translation id="2148799636999124959">Faça login em sites e apps com rapidez usando as senhas salvas.</translation>
@@ -358,12 +363,10 @@
 <translation id="2199562093267256223">Essa ação vai excluir o grupo de todos os dispositivos conectados à conta <ph name="USER_EMAIL" />.</translation>
 <translation id="2202084845446535117">Sem contas de e-mail</translation>
 <translation id="2214453882118345682">Compre, traduza e identifique o que você quiser usando a câmera.</translation>
-<translation id="2215819824168709130">Ocultar o card "Monitorar preço"</translation>
 <translation id="2216366330550244277">Acessar a página de um produto</translation>
 <translation id="2219935992754556187">O Chrome protege seus dados sensíveis com o Face ID.</translation>
 <translation id="2220529011494928058">Informar um problema</translation>
 <translation id="2223461067862937305">Criar um QR code</translation>
-<translation id="2225701818156393674">O item foi adicionado à sua lista de produtos monitorados.</translation>
 <translation id="2230173723195178503">Página da Web carregada</translation>
 <translation id="2236949375853147973">Minha atividade</translation>
 <translation id="2237869114829007407">Tenha uma visão geral e insights importantes sobre qualquer página ou tema</translation>
@@ -374,6 +377,7 @@
 <translation id="2251686759395008410">Menu → Histórico</translation>
 <translation id="2252378061043785266">Nunca mostrar este site</translation>
 <translation id="2252749852083403809">Salvando no Google Drive de <ph name="USER_EMAIL" />.</translation>
+<translation id="225614027745146050">Que bom ter você aqui!</translation>
 <translation id="2256933947031277845">Sua organização permite que você faça login apenas com determinadas contas.</translation>
 <translation id="2257567812274161158">A sincronização não está funcionando.</translation>
 <translation id="2258326562203545455">{count,plural, =1{Você pode salvar o favorito na sua Conta do Google {email}.}one{Você pode salvar o favorito na sua Conta do Google {email}.}other{Você pode salvar os favoritos na sua Conta do Google {email}.}}</translation>
@@ -434,7 +438,6 @@
 <translation id="2468444275314013497">Tudo certo com seu navegador</translation>
 <translation id="2473876017985765807">Você já salvou uma senha em <ph name="WEBSITE" /></translation>
 <translation id="247430852844518481">Você pode definir um lembrete para rever esta página mais tarde</translation>
-<translation id="2478246185006364308">Termos do Google</translation>
 <translation id="2479148705183875116">Acessar as configurações</translation>
 <translation id="2482878487686419369">Notificações</translation>
 <translation id="2484459871750294497">Como posso ativar esse recurso?</translation>
@@ -442,9 +445,9 @@
 <translation id="2493269659028026145">Bloquear imediatamente com o <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /></translation>
 <translation id="2496180316473517155">Histórico de navegação</translation>
 <translation id="2496626742194544812">Ir para a primeira guia</translation>
-<translation id="2497852260688568942">A sincronização foi desativada pelo administrador</translation>
 <translation id="2499505845365628575">Você pode conferir todo seu histórico de navegação do <ph name="HISTORY_BUTTON_ACCESSIBILITY_LABEL" />.</translation>
 <translation id="2511117522375201202">Você tem <ph name="NUMBER_OF_PASSWORDS" /> senhas comprometidas que podem colocar sua segurança em risco.</translation>
+<translation id="2512709994717613803">Nível <ph name="LEVEL_NUMBER" /></translation>
 <translation id="2513103768503127042">Seus grupos de guias vão aparecer aqui</translation>
 <translation id="251837347827266434">Sua conta será desconectada, as guias serão fechadas e os dados de navegação serão excluídos</translation>
 <translation id="2520787026086861736">Para desativar, acesse <ph name="BEGIN_LINK" />Preenchimento automático e senhas<ph name="END_LINK" /></translation>
@@ -486,7 +489,7 @@
 <translation id="2658056020748144467">Não foi possível abrir arquivo</translation>
 <translation id="2661809266906115479"><ph name="TITLE" />, <ph name="STATE" />, somente neste dispositivo, <ph name="URL" /></translation>
 <translation id="2664621323652615289">Parar</translation>
-<translation id="2666092431469916601">Parte superior</translation>
+<translation id="2666092431469916601">Parte de cima</translation>
 <translation id="2669454659051515572">Qualquer pessoa que use este dispositivo pode ver os arquivos baixados</translation>
 <translation id="2671423594960767771">Compartilhar grupo</translation>
 <translation id="2673508731173059946">Visitar link copiado</translation>
@@ -538,6 +541,7 @@
 <translation id="2829172210806130158">Pesquisar na tela</translation>
 <translation id="2831109159746537587">Tente circular ou tocar na imagem para pesquisar</translation>
 <translation id="2834399722155632105">3. Toque em "Opções de senha"</translation>
+<translation id="2834418947367581526">Olá, eu sou o Gemini. Vamos entrar no modo Live. Nele, você pode fazer perguntas em voz alta sobre a página em que está navegando. Mas antes, veja estas informações importantes.</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2841013758207633010">Tempo</translation>
 <translation id="284581348330507117">Crie senhas exclusivas</translation>
@@ -555,7 +559,6 @@
 <translation id="2902312830803030883">Mais ações</translation>
 <translation id="2904788871580817212">Redução no preço na sua guia aberta: <ph name="PRODUCT_NAME" /> de <ph name="PREVIOUS_PRICE" /> por <ph name="PRICE" /> em <ph name="DOMAIN" /></translation>
 <translation id="2905479111267140204">Você tem <ph name="NUMBER_OF_PASSWORDS" /> senhas reutilizadas que podem colocar sua segurança em risco.</translation>
-<translation id="29153882450867370">Ocultar "Monitorar preço"</translation>
 <translation id="291754862089661335">Posicione o QR code ou o código de barras neste quadro</translation>
 <translation id="2918688092312652908">Marcar como não lido</translation>
 <translation id="2922210239002704889">Vá para a página inicial ou para o teclado</translation>
@@ -567,6 +570,7 @@
 <translation id="2969979262385602596">Falha durante o login. Tente novamente mais tarde.</translation>
 <translation id="2975761176769946178">É obrigatório informar um URL</translation>
 <translation id="297667759942911166">Colaborar em grupos de guias</translation>
+<translation id="298696743524648170">Para usar o Gemini no Chrome, faça login no navegador com sua Conta do Google</translation>
 <translation id="2987670534697681860">Confirme sua identidade para ter acesso a todas as suas senhas neste dispositivo</translation>
 <translation id="2989523299700148168">Visitados recentemente</translation>
 <translation id="2989805286512600854">Abrir em uma nova guia</translation>
@@ -599,15 +603,16 @@
 <translation id="3106258548858559536">Desativar Modo de leitura</translation>
 <translation id="3106690631878101882">Ocultar opção "Traduzir"</translation>
 <translation id="310900540163454140">Excluir a senha de <ph name="WEBSITE" />?</translation>
+<translation id="3109724472072898302">Recolhido</translation>
 <translation id="3112556859945124369">Marcar...</translation>
 <translation id="3116695032231023709">Salvar documento de identidade</translation>
 <translation id="3119874402040566234">Sua conta será desconectada e os dados de navegação serão excluídos</translation>
 <translation id="3124568093781685165">Compartilhe suas senhas com a família</translation>
 <translation id="3130863904455712965">Histórico e mais</translation>
+<translation id="3130973487775218359">Assista: <ph name="BEGIN_LINK" />5 informações essenciais sobre a IA generativa<ph name="END_LINK" /></translation>
 <translation id="3132345256151444894">Salvar número de reparação</translation>
 <translation id="3132584647087998639">Importar dados</translation>
 <translation id="313283613037595347">Criar nova guia anônima.</translation>
-<translation id="3136739222562075778">Este card mostra reduções no preço de produtos nas suas guias abertas</translation>
 <translation id="3138611310073113613">Descartar seleção</translation>
 <translation id="3140825265190223781">Senhas e chaves de acesso salvas</translation>
 <translation id="3143515551205905069">Cancelar sincronização</translation>
@@ -680,6 +685,7 @@
 <translation id="340669334496430859">Última modificação</translation>
 <translation id="3409785640040772790">Maps</translation>
 <translation id="3416023309465857378">25 outubro de 2023</translation>
+<translation id="3426715535827854458">Não mostrar a opção Ocultar Barra de Ferramentas</translation>
 <translation id="3435738964857648380">Segurança</translation>
 <translation id="3441673211568148613">Mantenha a privacidade da sua navegação</translation>
 <translation id="3443810440409579745">Guia recebida.</translation>
@@ -688,6 +694,7 @@
 <translation id="3447332786336558089">Depois que você sair, as guias serão fechadas e os dados da conta não salvos serão excluídos do dispositivo. Isso pode incluir senhas, histórico e muito mais.</translation>
 <translation id="3449029510150690417">Crie um novo grupo de guias atribuindo um nome e uma cor a ele</translation>
 <translation id="345348365500626747">Endereço encontrado</translation>
+<translation id="3459644598174926977">Converse Live com o Gemini para perguntar sobre uma página, discutir ideias em voz alta e bater papo.</translation>
 <translation id="3464194322481586217">Não foi possível monitorar o preço.</translation>
 <translation id="3469117812148449995">Opções para salvar senha</translation>
 <translation id="3472469028191701821">Abre em uma nova guia</translation>
@@ -724,7 +731,6 @@
 <translation id="3565012355885596568">Não foi possível carregar as imagens</translation>
 <translation id="3565930036634619844">Guia. <ph name="TAB_INDEX" /> de <ph name="NUMBER_OF_TABS" />.</translation>
 <translation id="3567168891086460374">Salvar de outra forma</translation>
-<translation id="3571703298474554279">Uma maneira mais rápida de usar o app</translation>
 <translation id="3572503683475187385">A guia atual é compartilhada com o Gemini quando você inicia uma nova conversa. O conteúdo e o URL das guias que você compartilha com o Gemini são enviados ao Google. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">Na Conta do Google</translation>
 <translation id="3575234738189584619">Pesquisar com o Lens</translation>
@@ -766,6 +772,7 @@
 <translation id="372676576864368480">Preencher automaticamente o número do cartão que termina em <ph name="LAST_DIGITS" /></translation>
 <translation id="3738428049780661523">Criação: <ph name="DATE" /></translation>
 <translation id="3742498336182910186">Rolo da câmera</translation>
+<translation id="3743545564993953213">Este site está tentando abrir o aplicativo "Atalhos".</translation>
 <translation id="3746269120925354434">Informações salvas na Carteira do Google</translation>
 <translation id="3750225824417196283">Nova página de guia anônima</translation>
 <translation id="3751873026576444885">Parar de pesquisar na tela com o Google Lens</translation>
@@ -822,11 +829,11 @@
 <translation id="3931215329146376310">{count,plural, =1{Nova senha para este site}one{Nova senha para este site}other{Novas senhas para este site}}</translation>
 <translation id="3933372629914873850">Você vai fazer login em <ph name="URL" /></translation>
 <translation id="3934905113567851655">Faça um gesto de pinça para redimensionar</translation>
+<translation id="393732545649378031">Conta</translation>
 <translation id="3940195383040445971">Monitorar preço nas guias</translation>
 <translation id="3941941395924123592">{COUNT,plural, =1{Fechar {COUNT} guia}one{Fechar {COUNT} guia}other{Fechar {COUNT} guias}}</translation>
 <translation id="3946483119107054883">Baixar em CSV</translation>
 <translation id="3948600256434252210">Deslize para a direita para entrar no modo de navegação anônima.</translation>
-<translation id="3949712484278252781">Suas conversas com o Gemini e seus <ph name="GOOGLE_WORKSPACE_DATA" /> não vão passar por revisão humana nem ser usados para aprimorar os modelos de IA generativa.</translation>
 <translation id="3950479158728806902">Criar automaticamente uma chave de acesso para fazer login mais rápido</translation>
 <translation id="3950820424414687140">Fazer login</translation>
 <translation id="395377504920307820">Usar sem uma conta</translation>
@@ -855,7 +862,6 @@
 <translation id="4018440314314549819">Preenchimento automático de senhas salvas</translation>
 <translation id="4021447724486050609">Atualize o navegador</translation>
 <translation id="4021931095789478915">Adicionar ${url} à Lista de leitura</translation>
-<translation id="4026496154402824012">Para desativar, acesse <ph name="BEGIN_LINK" />Opções de senha<ph name="END_LINK" /></translation>
 <translation id="4028871427853484857">Salvar na conta…</translation>
 <translation id="4038354071007134711">Nenhum app deste dispositivo pode abrir o arquivo.</translation>
 <translation id="4042870976416480368">Buscar na página</translation>
@@ -934,6 +940,7 @@
 <translation id="4306349443295056740">Assinatura OCSP</translation>
 <translation id="4309403553630140242">Toque duas vezes para ver mais informações</translation>
 <translation id="4310738531374808763">Personalize sua página inicial</translation>
+<translation id="4316794575239200608">Suas conversas com o Gemini e seus <ph name="BEGIN_LINK" />dados do Google Workspace<ph name="END_LINK" /> não vão passar por revisão humana nem ser usados para aprimorar os modelos de IA generativa.</translation>
 <translation id="4320848494125124980">Recentes</translation>
 <translation id="4322394346347055525">Fechar outras guias</translation>
 <translation id="4323122584592971322">OID.</translation>
@@ -959,7 +966,6 @@
 <translation id="441218095371040430">Usar o teclado</translation>
 <translation id="4415276339145661267">Gerenciar sua Conta do Google</translation>
 <translation id="4416582610654027550">Digite um URL válido</translation>
-<translation id="441868831736628555">Aviso de privacidade</translation>
 <translation id="4420409367264901497">Editar favorito</translation>
 <translation id="4425365312778464779">Esta conta é gerenciada</translation>
 <translation id="443008484043213881">Ferramentas</translation>
@@ -983,6 +989,7 @@
 <translation id="4489536976005181779">{count,plural, =1{Página adicionada à Lista de leitura na sua conta {email}}one{Página adicionada à Lista de leitura na sua conta {email}}other{Páginas adicionadas à Lista de leitura na sua conta {email}}}</translation>
 <translation id="4493604894403585654">Você fez login como <ph name="USER_EMAIL" />. Você pode parar a sincronização a qualquer momento nas configurações. O Google pode personalizar a Pesquisa e outros serviços com base no seu histórico.</translation>
 <translation id="4502423230170890588">Remover deste dispositivo</translation>
+<translation id="4508486880075514067">Abrir em tela cheia</translation>
 <translation id="4508750114462689118">Fechar promoção de login</translation>
 <translation id="4509345063551561634">Local:</translation>
 <translation id="4517684186578051919">Informações do dispositivo</translation>
@@ -996,8 +1003,10 @@
 <translation id="4552042254369397518">Copiando…</translation>
 <translation id="4553044860350038560">Mais chaves de acesso</translation>
 <translation id="4564893319561643483">Ocultar "<ph name="TITLE" />"</translation>
+<translation id="456502772933839252">Compartilhando <ph name="PAGE_TITLE" /></translation>
 <translation id="4565377596337484307">Ocultar senha</translation>
 <translation id="4568230126482344545">Ocultar guias recentes</translation>
+<translation id="4571490460651837010">Gerenciar endereços e mais…</translation>
 <translation id="4578835633387306383">Ativar…</translation>
 <translation id="4580621046861724270">Alguns favoritos não foram salvos</translation>
 <translation id="4580716718466706433">Acesse o Gerenciador de senhas</translation>
@@ -1017,6 +1026,7 @@
 <translation id="4631335160486397366"><ph name="COUNT" /> senhas reutilizadas</translation>
 <translation id="4632655012900268062">Personalizar cards</translation>
 <translation id="4634124774493850572">Usar senha</translation>
+<translation id="4634633632339959267">As conversas são analisadas e usadas para aprimorar a IA do Google. <ph name="BEGIN_LINK" />Saiba mais sobre suas opções.<ph name="END_LINK" /> As <ph name="BEGIN_LINK" />informações sobre sua localização<ph name="END_LINK" /> também são armazenadas com sua atividade.</translation>
 <translation id="4636930964841734540">Informações</translation>
 <translation id="4641425577292284174">Confira se as configurações mais seguras estão habilitadas ou se há algo pendente</translation>
 <translation id="4642472735733036929">Monitoramento de preço interrompido</translation>
@@ -1086,6 +1096,7 @@
 <translation id="4840495572919996524">Seus favoritos, histórico, senhas e outras configurações não serão mais sincronizados com sua Conta do Google.</translation>
 <translation id="484280513275854557">Sua conta foi desconectada e os dados de navegação foram excluídos</translation>
 <translation id="484462545196658690">Automática</translation>
+<translation id="4846662396507502151">Navegue mais rápido com a nova barra de ferramentas</translation>
 <translation id="4850886885716139402">Ver</translation>
 <translation id="4854068532375923088">Permitir que o "Gemini" use sua câmera</translation>
 <translation id="4860895144060829044">Ligar</translation>
@@ -1122,6 +1133,7 @@
 <translation id="4941089862236492464">Ocorreu um problema ao compartilhar seu item.</translation>
 <translation id="4944543191714094452">Localizar na página…</translation>
 <translation id="4945756290001680296">Acessar configurações de senha</translation>
+<translation id="4946307855175300628">Respondendo</translation>
 <translation id="4949302115427722371">Gerenciar configurações…</translation>
 <translation id="4958444002117714549">Expandir lista</translation>
 <translation id="496392417432935267">Aberto em outro lugar</translation>
@@ -1135,7 +1147,6 @@
 <translation id="4992255726304765516">Cor do grupo de guias <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">Copiar senha</translation>
 <translation id="5009127379503001909">Continuar navegando</translation>
-<translation id="5012914568031465281">Não foi possível monitorar o preço.</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5016420433031926653">Enviar para <ph name="USER_EMAIL" /></translation>
 <translation id="5017529052065664584">Últimos 15 minutos</translation>
@@ -1215,6 +1226,7 @@
 <translation id="5242899254250321823">Mudar a senha no site</translation>
 <translation id="5248640482715684545">O site está tentando abrir outro aplicativo.</translation>
 <translation id="5250371859659394278">De uma fonte desconhecida</translation>
+<translation id="525510229763628836">Minimizado</translation>
 <translation id="5269913829202614649">Personalizar página inicial</translation>
 <translation id="5271265092610673171">{count,plural, =1{Um campo obrigatório está em branco. Preencha antes de salvar.}one{Um campo obrigatório está em branco. Preencha antes de salvar.}other{Alguns campos obrigatórios estão em branco. Preencha antes de salvar.}}</translation>
 <translation id="5271549068863921519">Salvar senha</translation>
@@ -1326,7 +1338,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="5652623411397330904">Os produtos que você acompanha vão aparecer aqui.</translation>
 <translation id="5656431592348714536">Agenda aprimorada</translation>
 <translation id="5659593005791499971">E-mail</translation>
-<translation id="5665739277590037307">Os <ph name="GOOGLE_TERMS" /> e o <ph name="GEMINI_APPS_PRIVACY" /> se aplicam. O Gemini pode cometer erros. Por isso, é bom checar as respostas.</translation>
 <translation id="5666313630530585305">Faça login em um site.</translation>
 <translation id="5669335982068190158">A conta foi desconectada como parte da redefinição do iPhone. Toque em "Continuar" abaixo para fazer login.</translation>
 <translation id="5669528293118408608">www</translation>
@@ -1405,6 +1416,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="5936065461722368675">Traduzir a página toda</translation>
 <translation id="5937560539988385583">Página traduzida</translation>
 <translation id="5938160824633642847">Seu dispositivo está quase cheio. Libere espaço e tente novamente.</translation>
+<translation id="5941711191222866238">Minimizar</translation>
 <translation id="5944869793365969636">Ler QR code</translation>
 <translation id="5948291296578561264">Isso permite que você salve fotos na sua biblioteca de fotos.</translation>
 <translation id="5948605885471592910">Veja e gerencie tudo o que você tem aberto</translation>
@@ -1423,6 +1435,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="5988097621740394599">Ver reduções no preço nas suas guias.</translation>
 <translation id="5988851877894965432">Abrir URLs no Chrome</translation>
 <translation id="599343768974649785">Texto explícito</translation>
+<translation id="6004988584831654445">Tudo pronto! Receba notificações quando novas tarefas chegarem.</translation>
 <translation id="6006672969046233841">Nova guia</translation>
 <translation id="6011308810877101166">Melhorar as sugestões de pesquisa</translation>
 <translation id="6012140227487808125">Criptografando…</translation>
@@ -1468,6 +1481,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6140948187512243695">Mostrar detalhes</translation>
 <translation id="6144589619057374135">Abrir ${url} na navegação anônima</translation>
 <translation id="6146563240635539929">Vídeos</translation>
+<translation id="6148392728478209113">Você ainda está usando o modo Live? Toque no botão Live para continuar falando com o Gemini</translation>
 <translation id="6151006591088192882">Desbloquear guias anônimas com o <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /></translation>
 <translation id="6152340033632117531">Inativas</translation>
 <translation id="6152406514676263192">Sincronize para receber conteúdo mais relevante com base nos seus interesses.</translation>
@@ -1505,6 +1519,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6241132809279377987">Aproveite mais recursos no seu iPhone com os apps do Google</translation>
 <translation id="6247557882553405851">Gerenciador de Senhas do Google</translation>
 <translation id="6251835855431997163">Preencher <ph name="VALUE" /> automaticamente</translation>
+<translation id="6253686838150111720">Fazer login em <ph name="URL" /></translation>
 <translation id="6254066287920239840">Abrir links no app em vez de abrir no navegador.</translation>
 <translation id="6259928806013786178">Falha no modo de leitura</translation>
 <translation id="6268773951964630964">Pesquisar imagem copiada</translation>
@@ -1524,7 +1539,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6327249202318869726">O Gemini está desativado na sua conta. Entre em contato com seu admin para mais informações.</translation>
 <translation id="6331836477476466332">Um navegador mais seguro e avançado para você</translation>
 <translation id="6337234675334993532">Criptografia</translation>
-<translation id="6337313937331295309">Aviso de privacidade dos apps do Gemini</translation>
 <translation id="633809752005859102">Algo deu errado. Estamos trabalhando para resolver isso.</translation>
 <translation id="6339793034470834130">Para usar o Web Inspector, conecte-se ao Safari no computador usando um cabo e acesse o iPhone no menu de desenvolvimento. Você pode ativar o menu de desenvolvimento na seção "Avançado" das configurações do Safari no computador.</translation>
 <translation id="6340285871011301182">A tradução parcial não está disponível.</translation>
@@ -1541,6 +1555,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6355820183143562453">Ocultar o card "Monitoramento de preços"</translation>
 <translation id="6355820205320395730">Senhas fracas são fáceis de adivinhar. Você precisa criar senhas fortes. <ph name="BEGIN_LINK" />Confira mais dicas de segurança<ph name="END_LINK" />.</translation>
 <translation id="6357455205205567365">Faça login para acessar todos os seus itens, como senhas, favoritos e muito mais.</translation>
+<translation id="6364268785720100355">Faça login para acessar senhas e muito mais em todos os seus dispositivos.</translation>
 <translation id="6368038301482806847">Selecione um mecanismo de pesquisa na lista.</translation>
 <translation id="6368102751067608420">Para excluir todos os dados do Gerenciador de senhas</translation>
 <translation id="6372558618707314581">Acesse a página que quiser</translation>
@@ -1561,6 +1576,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6435236283694032571">Adicionar à Lista de leitura</translation>
 <translation id="6435307030888827407">Continuar sem fazer login</translation>
 <translation id="6436318499800111867">Compartilhado comigo em <ph name="SHARED_WITH_ME_DATE" /></translation>
+<translation id="6442327260099531031"><ph name="BEGIN_LINK" />Respeite a privacidade das outras pessoas<ph name="END_LINK" /> e peça permissão antes de gravar ou incluir alguém em uma conversa Live.</translation>
 <translation id="6442697326824312960">Liberar guia</translation>
 <translation id="6443118737398455446">Data de vencimento inválida</translation>
 <translation id="6444435711855078002">Mais opções</translation>
@@ -1578,6 +1594,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="647867789226964031">Mudar suas senhas</translation>
 <translation id="6480363549849064919">Autenticação do cliente</translation>
 <translation id="6489174933860678546">Abra as guias em modo anônimo para navegar com mais privacidade.</translation>
+<translation id="6489775505977274806">Ocultar "Subir de nível"</translation>
 <translation id="6494931198667773526">Fim</translation>
 <translation id="6503077044568424649">Mais visitados</translation>
 <translation id="6503763061813913607">Notificações da Confirmação de segurança</translation>
@@ -1607,7 +1624,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6571070086367343653">Editar cartão de crédito</translation>
 <translation id="6574092468346088891">Ativar as notificações da Confirmação de segurança</translation>
 <translation id="6579867704846662339">Você pode abrir os URLs recebidos de outros apps no modo de navegação anônima.</translation>
-<translation id="6583087784430677195">Para desativar, abra <ph name="BEGIN_LINK" />Ajustes<ph name="END_LINK" /> e acesse "Preenchimento Automático de Senhas".</translation>
 <translation id="6585618849026997638">Adicione uma página importante aos favoritos para acessá-la com facilidade</translation>
 <translation id="6589001036857939353">Juntar credenciais duplicadas</translation>
 <translation id="659407965921887085">Este card mostra reduções de preço na Web para produtos que você está monitorando</translation>
@@ -1654,6 +1670,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6685259053455152195">Atalhos para mudar configurações rapidamente e usar recursos da barra de endereço.</translation>
 <translation id="6689342293888598653">Cor de fundo branca</translation>
 <translation id="6689685206615181381">Apenas o modo de navegação anônima está disponível</translation>
+<translation id="6705491067826837934">Seus controles ficaram ainda mais acessíveis</translation>
 <translation id="6708501134077648845">Opções de senha</translation>
 <translation id="6709964700841491574">Modo de Bloqueio total</translation>
 <translation id="6710079714193676716">Gerenciado pela sua organização. Talvez alguns recursos estejam indisponíveis. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
@@ -1668,8 +1685,9 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6736243959894955139">Endereço</translation>
 <translation id="6746338529702829275">Analise os dados da conta</translation>
 <translation id="6750456911389438250">{count,plural, =1{{count} item do histórico importado}one{{count} item do histórico importado}other{{count} itens do histórico importados}}</translation>
+<translation id="6751817018972413719">{count,plural, =1{{count} opção de credencial disponível acima do teclado.}one{{count} opção de credencial disponível acima do teclado.}other{{count} opções de credencial disponíveis acima do teclado.}}</translation>
 <translation id="6755200887046212842">Gerenciar contas</translation>
-<translation id="6755733078693946548">Acesse senhas e chaves de acesso em qualquer app</translation>
+<translation id="6757899787818440812">Altura média</translation>
 <translation id="6759709389246683070">Toque e pressione esta guia para definir um lembrete para voltar mais tarde</translation>
 <translation id="6761393919622941301">Áudio</translation>
 <translation id="6770452996697898492">[AGENDADO]</translation>
@@ -1714,6 +1732,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6903282483217634857">Mover para a direita</translation>
 <translation id="6903907808598579934">Ativar a sincronização</translation>
 <translation id="6906448540340261898">Garanta que você sempre possa usar as senhas na sua Conta do Google</translation>
+<translation id="6906978870282539723">Receba ajuda com suas guias e tarefas</translation>
 <translation id="6908734251759299256">Atualize o navegador</translation>
 <translation id="6913136913033237761"><ph name="FOLDER_NAME" />. Somente neste dispositivo.</translation>
 <translation id="6914583639806229067">Pesquisar imagem que você copiou</translation>
@@ -1756,7 +1775,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7063811929043357292">Sua conta é gerenciada pelo seu familiar responsável.
 <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="7067780033517902110">Todos os arquivos</translation>
-<translation id="707086654079606593">Gerenciar endereços…</translation>
 <translation id="7080806333218412752">Envia URLs para a verificação pelo recurso Navegação segura. Também envia uma pequena amostra de páginas, downloads, atividades de extensões e informações do sistema para ajudar a descobrir novas ameaças. Vincula temporariamente esses dados à sua Conta do Google quando ela está conectada para proteger você nos apps do Google.</translation>
 <translation id="7082853213442715471">Quando ativado, bloqueia algumas tecnologias da Web, o que pode causar lentidão no carregamento de sites ou impedir o funcionamento normal.</translation>
 <translation id="7091023926159231962">{count,plural, =1{Não foi possível importar {count} senha}one{Não foi possível importar {count} senha}other{Não foi possível importar {count} senhas}}</translation>
@@ -1784,6 +1802,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7186568385131859684">Controle como o histórico de navegação é usado com seus outros dados nos Serviços do Google</translation>
 <translation id="719133302483559673">Gerencie seus interesses e suas preferências.</translation>
 <translation id="7191382490098297347">Imagem do rolo da câmera</translation>
+<translation id="7203150201908454328">Expandido</translation>
 <translation id="7203496777391039568">A privacidade e segurança dos dados da sua organização ficam garantidas</translation>
 <translation id="720399613139435155">Falha na tradução</translation>
 <translation id="7204922488054642675">Notícias personalizadas</translation>
@@ -1801,15 +1820,15 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7253951228444156601">Verificando senhas…</translation>
 <translation id="7261217796641151584">Compartilhar grupo</translation>
 <translation id="7266578100016339897">Isso ajuda você a se organizar. É possível mudar essa definição a qualquer momento nas configurações.</translation>
+<translation id="7270491814777319521">Sujeito aos <ph name="BEGIN_LINK" />Termos do Google<ph name="END_LINK" /> e ao <ph name="BEGIN_LINK" />Aviso de privacidade dos apps do Gemini<ph name="END_LINK" />. O Gemini é uma IA e pode cometer erros, inclusive referente a pessoas.</translation>
 <translation id="7272437679830969316">Não é possível confirmar sua identidade. Senha não copiada.</translation>
-<translation id="7275307913765547631">Termos de Localização da Coreia</translation>
 <translation id="728025568708172005">Mostrar a região</translation>
 <translation id="7280980607183752256">Não é possível importar este arquivo</translation>
-<translation id="7281202269687163394">Sua privacidade e o Gemini.</translation>
 <translation id="7282197670900591579">Tema limão</translation>
 <translation id="7293429513719260019">Selecionar idioma</translation>
 <translation id="7300448350764260141">Adicione mais uma camada de proteção contra ameaças on-line.</translation>
 <translation id="7311244614769792472">Nenhum resultado encontrado</translation>
+<translation id="7312823817809783355">Suas tarefas</translation>
 <translation id="7313347584264171202">Você verá suas guias anônimas aqui</translation>
 <translation id="7322186060879266048">{count,plural, =1{{count} opção de preenchimento automático disponível acima do teclado.}one{{count} opção de preenchimento automático disponível acima do teclado.}other{{count} opções de preenchimento automático disponíveis acima do teclado.}}</translation>
 <translation id="7328162502911382168">(<ph name="COUNT" />)</translation>
@@ -1817,7 +1836,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7345061034321640811">Importação não permitida</translation>
 <translation id="7347998088283246662">Importe senhas, histórico, favoritos e muito mais</translation>
 <translation id="7352651011704765696">Algo deu errado</translation>
-<translation id="7363497636543208734">Agora é mais fácil navegar pelo app.</translation>
+<translation id="7357999308187750900">Ver tudo</translation>
 <translation id="7364796246159120393">Escolher arquivo</translation>
 <translation id="736564850024123010">Mude a posição da barra de endereço para personalizar sua experiência.</translation>
 <translation id="7366909168761621528">Dados de navegação</translation>
@@ -1860,6 +1879,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7468373585447318060">Acompanhe reduções nos preços de todos os produtos que você monitora.</translation>
 <translation id="746872191028309255">Compre o que está ao seu redor usando a câmera ou a galeria de fotos.</translation>
 <translation id="7471557245617580330">Criar nova guia</translation>
+<translation id="7473555040328423550">Adicionar guia</translation>
 <translation id="7476548258282096076">Este card mostra os sites que você mais visita.</translation>
 <translation id="7484645889979462775">Nunca para este site</translation>
 <translation id="7486006552035434095">Manter os dispositivos sincronizados</translation>
@@ -1877,7 +1897,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7512909159512473473">Digite a senha longa…</translation>
 <translation id="7514365320538308">Baixar</translation>
 <translation id="7514530647142300459">Continue usando as senhas na sua Conta do Google <ph name="EMAIL" /></translation>
-<translation id="7522587739845660862">informações sobre seu local</translation>
 <translation id="7522948500476882302">Ao baixar um arquivo, você pode escolher se ele será excluído automaticamente em 1 mês</translation>
 <translation id="7524055474074101597">Acesse suas senhas e muito mais em apps.</translation>
 <translation id="7525067979554623046">Criar</translation>
@@ -1894,7 +1913,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7582666837709186351">Use a câmera para traduzir textos em fotos ou ao seu redor.</translation>
 <translation id="7582857256643797524">Configuração ativada no dispositivo</translation>
 <translation id="7583004045319035904">Use o <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> para desbloquear suas guias anônimas.</translation>
-<translation id="7588149553568293500">Saiba mais sobre suas opções.</translation>
 <translation id="7596103009408415410">{COUNT,plural, =1{Fechar {COUNT} guia inativa?}one{Fechar {COUNT} guia inativa?}other{Fechar {COUNT} guias inativas?}}</translation>
 <translation id="7598439272585186139">Aumente a segurança</translation>
 <translation id="7600965453749440009">Nunca traduzir do <ph name="LANGUAGE" /></translation>
@@ -2001,6 +2019,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7939856641500914040">Excluir dados de navegação…</translation>
 <translation id="7941578031639087549">{count,plural, =1{Página adicionada à lista de leitura na sua conta ({email})}one{{count} página adicionada à lista de leitura na sua conta ({email})}other{{count} páginas adicionadas à lista de leitura na sua conta ({email})}}</translation>
+<translation id="7948579849190819732">Guia atual</translation>
 <translation id="7952353944614086413">Seus grupos e guias abertos</translation>
 <translation id="7952670906562503188">Você está prestes a excluir {passkey_count} chaves de acesso e a lista de sites e apps em que escolheu nunca salvar informações de login. As contas que você criou em sites e apps não serão excluídas.</translation>
 <translation id="7958575506592576831">Informações de segurança da página</translation>
@@ -2011,7 +2030,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="797588153137233716">Menu → Histórico → Excluir dados de navegação</translation>
 <translation id="7977451675950311423">Avisa se você usa uma senha que foi comprometida em uma violação de dados.</translation>
 <translation id="797824194429476746">As guias vão continuar abertas no dispositivo, mas o grupo será excluído permanentemente.</translation>
-<translation id="797874245254030665">Acesse suas senhas e chaves de acesso em qualquer app</translation>
 <translation id="7982789257301363584">Rede</translation>
 <translation id="798299424881500862">Tema laranja</translation>
 <translation id="7987685713885608670">Para ter mais segurança, criptografe as senhas no dispositivo antes que elas sejam salvas no Gerenciador de Senhas do Google.</translation>
@@ -2020,7 +2038,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="7996239959906074962">Configurar…</translation>
 <translation id="800361585186029508">Abre os URLs fornecidos no Google Chrome.</translation>
 <translation id="8005666035647241369">No Gerenciador de senhas do Google deste dispositivo</translation>
-<translation id="8006265839264939135">Termos</translation>
 <translation id="8010488806779226127">Conheça os recursos que podem ajudar você a fazer mais enquanto navega</translation>
 <translation id="8011489434346330032">Web Inspector</translation>
 <translation id="8014007212279733632">Confirme sua identidade para preencher automaticamente informações sensíveis</translation>
@@ -2076,6 +2093,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8182037667962849780">{count,plural, =1{Para {website_1}}=2{Para {website_1}, {website_2}}=3{Para {website_1}, {website_2} e mais 1}one{Para {website_1}, {website_2} e mais {more_count}}other{Para {website_1}, {website_2} e mais {more_count}}}</translation>
 <translation id="8184895727539791845">Para permitir que o Gemini use sua câmera, ative a opção "Câmera" nas configurações do iOS</translation>
 <translation id="8185076488803799132">Importar</translation>
+<translation id="8187200657863701733">Nível atual do Chrome</translation>
 <translation id="8189615296021678665">Toque em "Salvar" para acessar essa senha com facilidade na próxima vez que fizer login.</translation>
 <translation id="8193953846147532858"><ph name="BEGIN_LINK" />Seus dispositivos<ph name="END_LINK" /> · <ph name="EMAIL" /></translation>
 <translation id="8195191503358432289">Adicionar senha</translation>
@@ -2117,10 +2135,13 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8319282042900445670">Lembrete definido para <ph name="TIME" />, <ph name="DATE" /></translation>
 <translation id="8320212361750431956">Atividade recente</translation>
 <translation id="8325455175867928593">Ocultar "Avaliações com base nos seus interesses"</translation>
+<translation id="8333459276976141586">O Gemini Live vai usar seu microfone. Toque no botão Live para ativar o microfone. Para desativar, toque no botão de parar ou feche o Gemini.</translation>
 <translation id="833647236762414178">Crie, salve e gerencie suas senhas e chaves de acesso para fazer login em sites e apps com facilidade. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" />.</translation>
 <translation id="8343993175958086504">Faça backup e use seus dados em qualquer dispositivo.</translation>
+<translation id="8345328955902001853">{count,plural, =1{Conclua mais 1 tarefa para avançar de nível}one{Conclua mais {count} tarefa para avançar de nível}other{Conclua mais {count} tarefas para avançar de nível}}</translation>
 <translation id="8348530355586151720">Toque no menu de três pontos.</translation>
 <translation id="8349305172487531364">Barra de favoritos</translation>
+<translation id="8360164927489392419">As gravações das suas interações no modo Live e o conteúdo que você compartilha nele são salvos e tratados conforme o <ph name="BEGIN_LINK" />Aviso de privacidade dos apps do Gemini<ph name="END_LINK" />. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="8361189290032177785">{count,plural, =1{{count} favorito importado}one{{count} favorito importado}other{{count} favoritos importados}}</translation>
 <translation id="8363484128299778310">Recuperação temporária em caso de problemas</translation>
 <translation id="8364563001733875155">Para mudar o PIN, primeiro defina uma senha no dispositivo.</translation>
@@ -2129,6 +2150,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8368001212524806591">Monitorar preço</translation>
 <translation id="8368198938968349418">Ativar o preenchimento automático…</translation>
 <translation id="8370406443343902172">Acessar as configurações…</translation>
+<translation id="8370929854657845191">Abrir em tamanho médio</translation>
 <translation id="8372471489238799313">{count,plural, =1{Excluir endereço}one{Excluir endereço}other{Excluir endereços}}</translation>
 <translation id="8378714024927312812">Gerenciado pela sua organização</translation>
 <translation id="8385363453480067273">Pesquise o que você vê usando o Google Lens</translation>
@@ -2168,6 +2190,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8515534223594179607">Exportar dados de navegação</translation>
 <translation id="8522147671363140027">{count,plural, =1{{count} senha e outros itens foram salvos apenas neste dispositivo. Para usá-los em outros dispositivos, salve na sua Conta do Google, {email}.}one{{count} senha e outros itens foram salvos apenas neste dispositivo. Para usá-los em outros dispositivos, salve na sua Conta do Google, {email}.}other{{count} senhas e outros itens foram salvos apenas neste dispositivo. Para usá-los em outros dispositivos, salve na sua Conta do Google, {email}.}}</translation>
 <translation id="8524799873541103884"><ph name="INCOGNITO" /> Guias <ph name="FIRST_VISIBLE_TAB" /> a <ph name="LAST_VISIBLE_TAB" /> de <ph name="NUMBER_OF_OPEN_TABS" /></translation>
+<translation id="8525306231823319788">Tela cheia</translation>
 <translation id="8528009254289981965">Abrir links de outros apps na navegação anônima</translation>
 <translation id="8529767659511976195">Novo</translation>
 <translation id="8531572740963685410">PDFs</translation>
@@ -2190,6 +2213,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8571019948162152515">Excluir "<ph name="FILENAME" />"?</translation>
 <translation id="8571213806525832805">Últimas quatro semanas</translation>
 <translation id="8577056989960190117">Preencher automaticamente o ano de validade <ph name="YEAR" /></translation>
+<translation id="8582026929965253036">Use o Live do Gemini</translation>
 <translation id="8587001564479545614">Crie um PIN de recuperação</translation>
 <translation id="8588404856427128947">Desativada</translation>
 <translation id="8590286732816598906">Grupo de guias, <ph name="GROUP_TITLE" />, menu.</translation>
@@ -2213,6 +2237,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8643403533759285912">Excluir grupo</translation>
 <translation id="8647280737650867362">Não foi possível remover o monitoramento do preço.</translation>
 <translation id="8654802032646794042">Cancelar</translation>
+<translation id="8659875081143553823">Aguarde um instante</translation>
 <translation id="8660600697590740984">Imagem copiada no Lens</translation>
 <translation id="866266761389616183">Ah, não!</translation>
 <translation id="8663764600409216912">Você está usando senhas difíceis de adivinhar</translation>
@@ -2264,6 +2289,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8803526663383843427">Quando ativado</translation>
 <translation id="8803639129939845298">Seguro</translation>
 <translation id="8813277370772331957">Lembrar mais tarde</translation>
+<translation id="8814308045751067027">Para usar o Live, permita que o Chrome acesse o microfone nas configurações</translation>
 <translation id="8814719628147284151">Continuar</translation>
 <translation id="881559332211266856">Atualizar número de reparação</translation>
 <translation id="8817524703470045896">Monitore os preços e receba alertas quando houver redução em algum site</translation>
@@ -2289,7 +2315,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="8879952635974818770">Conteúdo personalizado</translation>
 <translation id="8887595428614802520">Fechar todos os grupos e guias</translation>
 <translation id="8888595487174963247">Remover lembrete</translation>
-<translation id="8891031436559779793">Você vai receber notificações se houver uma redução no preço em algum site.</translation>
 <translation id="8893208530912252670">Vídeos</translation>
 <translation id="8898822736010347272">Envia ao Google URLs de algumas páginas que você visita, informações do sistema limitadas e parte do conteúdo das páginas para ajudar a descobrir novas ameaças e proteger todos os usuários na Web.</translation>
 <translation id="8900845556227858314">App de navegador</translation>
@@ -2340,7 +2365,6 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="9066097352053395362">Ocultar opção "Editar favorito"</translation>
 <translation id="9070824521421603770">Sua conta será desconectada e as guias serão fechadas</translation>
 <translation id="9072837124205571418">Grupos de guias de todos os dispositivos</translation>
-<translation id="9075970015528364598">As conversas são analisadas e usadas para aprimorar a IA do Google. <ph name="LEARN_ABOUT_CHOICES" /> As <ph name="INFO_ABOUT_LOCATION" /> também são armazenadas com sua atividade.</translation>
 <translation id="9081058212938299310">Atualizar senha para <ph name="USERNAME" />?</translation>
 <translation id="9083838294503912307">Para sincronizar e personalizar vários dispositivos, ative a sincronização.</translation>
 <translation id="9084367296493549256">{count,plural, =1{Você tem {count} senha fraca que pode colocar sua segurança em risco. Corrija o problema agora para se proteger.}one{Você tem {count} senha fraca que pode colocar sua segurança em risco. Corrija o problema agora para se proteger.}other{Você tem {count} senhas fracas que podem colocar sua segurança em risco. Corrija o problema agora para se proteger.}}</translation>

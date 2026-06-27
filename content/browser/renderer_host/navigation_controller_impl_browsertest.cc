@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -57,6 +58,7 @@
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -89,6 +91,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/embedded_test_server/expectation_handler.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/url_request/url_request_failed_job.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -2159,7 +2162,9 @@ class LoadCommittedCapturer : public WebContentsObserver {
     // quickly.
     if (rfh->IsPendingDeletion()) {
       DLOG(INFO) << "Skipping pending delete RFH: "
-                 << rfh->GetSiteInstance()->GetSiteURL();
+                 << rfh->GetSiteInstance()
+                        ->GetSecurityPrincipal()
+                        .GetDeprecatedSiteURL();
       return;
     }
 
@@ -14458,7 +14463,8 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_EQ(GURL("http://bar.com"), root->child_at(0)
                                           ->current_frame_host()
                                           ->GetSiteInstance()
-                                          ->GetSiteURL());
+                                          ->GetSecurityPrincipal()
+                                          .GetDeprecatedSiteURL());
   }
 }
 
@@ -17101,8 +17107,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 // result in an error page.
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
                        EmptyBody500CommitsErrorPage) {
-  net::test_server::ControllableHttpResponse response(embedded_test_server(),
-                                                      "/title1.html");
+  net::test_server::ExpectationHandler handler(embedded_test_server());
+  handler.OnRequest("/title1.html")
+      .RespondWith(net::HTTP_INTERNAL_SERVER_ERROR);
   ASSERT_TRUE(embedded_test_server()->Start());
   NavigationControllerImpl& controller =
       static_cast<NavigationControllerImpl&>(contents()->GetController());
@@ -17111,9 +17118,6 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
   GURL url(embedded_test_server()->GetURL("/title1.html"));
   TestNavigationObserver observer(contents());
   shell()->LoadURL(url);
-  response.WaitForRequest();
-  response.Send(net::HTTP_INTERNAL_SERVER_ERROR);
-  response.Done();
   observer.Wait();
 
   // The navigation fails and commits a 500 error page.
@@ -18287,7 +18291,8 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_NE(
       success_site_instance->GetOrCreateProcessForTesting()->GetDeprecatedID(),
       error_site_instance->GetProcess()->GetDeprecatedID());
-  EXPECT_EQ(GURL(kUnreachableWebDataURL), error_site_instance->GetSiteURL());
+  EXPECT_EQ(GURL(kUnreachableWebDataURL),
+            error_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
 
   EXPECT_TRUE(
       error_site_instance->GetProcess()->GetProcessLock().is_error_page());
@@ -18465,7 +18470,8 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   scoped_refptr<SiteInstance> error_site_instance =
       popup_main_frame->GetSiteInstance();
   EXPECT_NE(original_site_instance, error_site_instance);
-  EXPECT_EQ(GURL(kUnreachableWebDataURL), error_site_instance->GetSiteURL());
+  EXPECT_EQ(GURL(kUnreachableWebDataURL),
+            error_site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL());
 
   // The URL displayed in the URL bar is about:blank.
   EXPECT_EQ(GURL("about:blank"), popup_contents->GetVisibleURL());
@@ -18800,8 +18806,12 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 // It replaces invalidly behaving unit test added for http://crbug.com/40395.
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
                        ClientRedirectAfterSameDocumentNavigation) {
-  net::test_server::ControllableHttpResponse response(embedded_test_server(),
-                                                      "/foo.html");
+  net::test_server::ExpectationHandler handler(embedded_test_server());
+  handler.OnRequest("/foo.html").RespondWith("text/html",
+                                             "<html><script>"
+                                             "window.location.replace('#a');"
+                                             "window.location='/title3.html';"
+                                             "</script></html>");
   ASSERT_TRUE(embedded_test_server()->Start());
   NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
       shell()->web_contents()->GetController());
@@ -18818,15 +18828,6 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
   // redirect.
   TestNavigationManager observer(shell()->web_contents(), last_url);
   shell()->LoadURL(main_url);
-  response.WaitForRequest();
-  response.Send(
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: text/html; charset=utf-8\r\n"
-      "\r\n"
-      "<html><script>"
-      "window.location.replace('#a');"
-      "window.location='/title3.html';"
-      "</script></html>");
   ASSERT_TRUE(observer.WaitForNavigationFinished());
 
   EXPECT_EQ(last_url, controller.GetLastCommittedEntry()->GetURL());
@@ -23502,7 +23503,10 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
       shell()->web_contents()->GetPrimaryMainFrame()->GetLastCommittedOrigin();
   EXPECT_EQ(origin_to_commit.value(), committed_origin);
 
-  GURL site_url = contents()->GetSiteInstance()->GetSiteURL();
+  GURL site_url = contents()
+                      ->GetSiteInstance()
+                      ->GetSecurityPrincipal()
+                      .GetDeprecatedSiteURL();
   if (AreStrictSiteInstancesEnabled()) {
     EXPECT_EQ(site_url.spec(),
               "data:" + origin_to_commit->GetNonceForTesting()->ToString());
@@ -24672,6 +24676,81 @@ IN_PROC_BROWSER_TEST_F(ViewSourceNavigation, WithErrorInChain) {
   EXPECT_EQ(view_source_url, shell()->web_contents()->GetLastCommittedURL());
   NavigationEntryImpl* entry = controller.GetLastCommittedEntry();
   EXPECT_TRUE(entry->IsViewSourceMode());
+}
+
+namespace {
+
+// Captures commit_params().internal_scroll_to_text_fragment at
+// ReadyToCommitNavigation time so we can inspect what was sent to the
+// renderer.
+class InternalScrollFragmentCommitObserver : public WebContentsObserver {
+ public:
+  explicit InternalScrollFragmentCommitObserver(WebContents* web_contents)
+      : WebContentsObserver(web_contents) {}
+
+  void ReadyToCommitNavigation(NavigationHandle* navigation_handle) override {
+    if (!navigation_handle->IsInPrimaryMainFrame()) {
+      return;
+    }
+    committed_url_ = navigation_handle->GetURL();
+    fragment_at_commit_ =
+        GetInternalScrollToTextFragmentForNavigation(navigation_handle);
+  }
+
+  const std::optional<std::string>& fragment_at_commit() const {
+    return fragment_at_commit_;
+  }
+  const GURL& committed_url() const { return committed_url_; }
+
+ private:
+  std::optional<std::string> fragment_at_commit_;
+  GURL committed_url_;
+};
+
+}  // namespace
+
+// Regression test demonstrating that internal_scroll_to_text_fragment is
+// cleared by NavigationRequest::OnRequestRedirected() and therefore does NOT
+// survive a cross-origin server redirect.
+IN_PROC_BROWSER_TEST_P(
+    NavigationControllerBrowserTest,
+    InternalScrollToTextFragmentIsClearedOnCrossOriginServerRedirect) {
+  // Victim page on b.com containing "Some text" far below the fold.
+  const GURL victim_url = embedded_test_server()->GetURL(
+      "b.com", "/scrollable_page_with_content.html");
+  // Attacker URL on a.com that 302-redirects to the victim.
+  const GURL attacker_url = embedded_test_server()->GetURL(
+      "a.com", "/server-redirect?" + victim_url.spec());
+  ASSERT_FALSE(url::Origin::Create(attacker_url)
+                   .IsSameOriginWith(url::Origin::Create(victim_url)));
+
+  InternalScrollFragmentCommitObserver commit_observer(contents());
+
+  // Simulate the receiving device opening the shared tab: a browser-initiated
+  // PAGE_TRANSITION_LINK navigation to the attacker URL with an
+  // attacker-chosen internal_scroll_to_text_fragment ("Some%20text" matches
+  // text that exists only on the cross-origin victim page).
+  NavigationController::LoadURLParams params(attacker_url);
+  params.transition_type = ui::PAGE_TRANSITION_LINK;
+  params.internal_scroll_to_text_fragment = "Some%20text";
+
+  TestNavigationObserver nav_observer(contents());
+  contents()->GetController().LoadURLWithParams(params);
+  nav_observer.Wait();
+  ASSERT_TRUE(nav_observer.last_navigation_succeeded());
+
+  // The navigation followed the cross-origin redirect.
+  EXPECT_EQ(victim_url, contents()->GetLastCommittedURL());
+  EXPECT_EQ(victim_url, commit_observer.committed_url());
+
+  // The internal_scroll_to_text_fragment that was set for the *attacker*
+  // origin must NOT be sent to the *victim* renderer.
+  EXPECT_EQ(std::nullopt, commit_observer.fragment_at_commit())
+      << "internal_scroll_to_text_fragment survived a cross-origin server "
+         "redirect and was committed to the victim renderer";
+
+  // Ensure the victim page was NOT scrolled.
+  EXPECT_EQ(0.0, EvalJs(contents(), "window.scrollY").ExtractDouble());
 }
 
 }  // namespace content

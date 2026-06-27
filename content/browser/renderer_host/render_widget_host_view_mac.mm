@@ -51,6 +51,7 @@
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #import "content/browser/renderer_host/text_input_client_mac.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
+#include "content/common/features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_plugin_guest_manager.h"
 #include "content/public/browser/render_widget_host.h"
@@ -108,19 +109,9 @@ namespace {
 BASE_FEATURE(kDelayUpdateWindowsAfterTextInputStateChanged,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-// LINT.IfChange(GetCachedFirstRectResult)
-enum class GetCachedFirstRectResult {
-  kFound = 0,
-  kNoTextInputManager = 1,
-  kNoTextSelection = 2,
-  kNotBoundedBySelection = 3,
-  kNoCompositionBounds = 4,
-  kInvalidCompositionRange = 5,
-  kMaxValue = kInvalidCompositionRange,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/input/enums.xml:GetCachedFirstRectResult)
+// If enabled, throttles resize IPCs on Mac to prevent jank during window
+// resize.
+BASE_FEATURE(kThrottleResizeIpc, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace
 
@@ -171,8 +162,8 @@ void RenderWidgetHostViewMac::SetCurrentDeviceScaleFactor(
   screen_infos_.mutable_current().device_scale_factor = device_scale_factor;
 }
 
-bool RenderWidgetHostViewMac::ShouldWaitRemoteCompositorFrameOnResize() const {
-  return remote_ns_view_.is_bound();
+bool RenderWidgetHostViewMac::ShouldUseDefaultDeadlineOnResize() const {
+  return use_default_deadline_on_resize_ || remote_ns_view_.is_bound();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -453,6 +444,10 @@ void RenderWidgetHostViewMac::InitAsChild(gfx::NativeView parent_view) {
   DCHECK_EQ(widget_type_, WidgetType::kFrame);
 }
 
+ui::Compositor* RenderWidgetHostViewMac::GetCompositor() {
+  return browser_compositor_ ? browser_compositor_->GetCompositor() : nullptr;
+}
+
 void RenderWidgetHostViewMac::InitAsPopup(
     RenderWidgetHostView* parent_host_view,
     const gfx::Rect& pos,
@@ -483,7 +478,7 @@ void RenderWidgetHostViewMac::InitAsPopup(
 
   // This path is used by the time/date picker.
   ns_view_->InitAsPopup(pos, popup_parent_host_view_->ns_view_id_);
-  Show();
+  ShowWithVisibility(PageVisibilityState::kVisible);
 }
 
 RenderWidgetHostViewBase*
@@ -531,10 +526,6 @@ void RenderWidgetHostViewMac::Hide() {
     browser_compositor_->GetDelegatedFrameHost()->WasHidden(
         DelegatedFrameHost::HiddenCause::kOther);
   }
-}
-
-void RenderWidgetHostViewMac::WasUnOccluded() {
-  OnShowWithPageVisibility(PageVisibilityState::kVisible);
 }
 
 void RenderWidgetHostViewMac::NotifyHostAndDelegateOnWasShown(
@@ -990,8 +981,11 @@ void RenderWidgetHostViewMac::UpdateScreenInfo() {
   // and for web platform APIs that expose screen and window info and events.
   // RenderWidgetHostImpl will query BrowserCompositorMac for the dimensions
   // to send to the renderer, so BrowserCompositorMac must be updated first.
-  if (dip_size_changed || any_display_changed)
-    host()->NotifyScreenInfoChanged();
+  if (dip_size_changed || any_display_changed) {
+    host()->NotifyScreenInfoChanged(
+        /*ignore_ack=*/any_display_changed ||
+        !base::FeatureList::IsEnabled(kThrottleResizeIpc));
+  }
 }
 
 viz::ScopedSurfaceIdAllocator
@@ -1099,6 +1093,25 @@ void RenderWidgetHostViewMac::SetWindowFrameInScreen(const gfx::Rect& rect) {
   RenderWidgetHostViewBase::UpdateScreenInfo();
 }
 
+void RenderWidgetHostViewMac::SetForceSpecifiedDeadline(
+    std::optional<uint32_t> deadline_in_frames) {
+  if (browser_compositor_) {
+    if (auto* dfh = browser_compositor_->GetDelegatedFrameHost()) {
+      dfh->SetForceSpecifiedDeadline(deadline_in_frames);
+    }
+  }
+}
+
+std::optional<uint32_t>
+RenderWidgetHostViewMac::GetForceSpecifiedDeadlineForTesting() {
+  if (browser_compositor_) {
+    if (auto* dfh = browser_compositor_->GetDelegatedFrameHost()) {
+      return dfh->GetForceSpecifiedDeadlineForTesting();
+    }
+  }
+  return std::nullopt;
+}
+
 //
 // RenderWidgetHostViewCocoa uses the stored selection text,
 // which implements NSServicesRequests protocol.
@@ -1179,6 +1192,10 @@ uint64_t RenderWidgetHostViewMac::GetNSViewId() const {
   return ns_view_id_;
 }
 
+void RenderWidgetHostViewMac::SetShouldUseDefaultDeadlineOnResize(bool enable) {
+  use_default_deadline_on_resize_ = enable;
+}
+
 bool RenderWidgetHostViewMac::GetLineBreakIndex(
     const std::vector<gfx::Rect>& bounds,
     const gfx::Range& range,
@@ -1256,9 +1273,8 @@ gfx::Rect RenderWidgetHostViewMac::GetFirstRectForCompositionRange(
 }
 
 gfx::Range RenderWidgetHostViewMac::ConvertCharacterRangeToCompositionRange(
-    const gfx::Range& request_range) {
-  const TextInputManager::CompositionRangeInfo* composition_info =
-      GetCompositionRangeInfo();
+    const gfx::Range& request_range,
+    const TextInputManager::CompositionRangeInfo* composition_info) {
   if (!composition_info)
     return gfx::Range::InvalidRange();
 
@@ -1285,18 +1301,13 @@ WebContents* RenderWidgetHostViewMac::GetWebContents() {
   return WebContents::FromRenderViewHost(RenderViewHost::From(host()));
 }
 
-bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
+RenderWidgetHostViewMac::GetCachedFirstRectResult
+RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
     const gfx::Range& requested_range,
     gfx::Rect* rect,
     gfx::Range* actual_range) {
-  auto log_result = [](GetCachedFirstRectResult result) -> bool {
-    base::UmaHistogramEnumeration("TextInputClient.GetCachedFirstRectResult",
-                                  result);
-    return result == GetCachedFirstRectResult::kFound;
-  };
-
   if (!GetTextInputManager()) {
-    return log_result(GetCachedFirstRectResult::kNoTextInputManager);
+    return GetCachedFirstRectResult::kNoTextInputManager;
   }
 
   DCHECK(rect);
@@ -1307,7 +1318,7 @@ bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
 
   const TextInputManager::TextSelection* selection = GetTextSelection();
   if (!selection) {
-    return log_result(GetCachedFirstRectResult::kNoTextSelection);
+    return GetCachedFirstRectResult::kNoTextSelection;
   }
 
   // If requested range is right after caret, we can just return it.
@@ -1326,7 +1337,7 @@ bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
           "ime",
           "RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange",
           "GetTextSelectionBounds", rect->ToString());
-      return log_result(GetCachedFirstRectResult::kFound);
+      return GetCachedFirstRectResult::kFound;
     }
 
     // If no selection bounds, fall back to use selection region.
@@ -1336,37 +1347,38 @@ bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
     TRACE_EVENT1(
         "ime", "RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange",
         "caret_rect", rect->ToString());
-    return log_result(GetCachedFirstRectResult::kFound);
+    return GetCachedFirstRectResult::kFound;
   }
 
   const TextInputManager::CompositionRangeInfo* composition_info =
       GetCompositionRangeInfo();
   if (!composition_info || composition_info->range.is_empty()) {
-    if (!requested_range.IsBoundedBy(selection->range())) {
-      return log_result(GetCachedFirstRectResult::kNotBoundedBySelection);
-    }
-    DCHECK(GetFocusedWidget());
-    if (actual_range)
-      *actual_range = selection->range();
-    *rect = GetTextInputManager()
-                ->GetSelectionRegion(GetFocusedWidget()->GetView())
-                ->first_selection_rect;
-    TRACE_EVENT1(
-        "ime", "RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange",
-        "first_selection_rect", rect->ToString());
-    return log_result(GetCachedFirstRectResult::kFound);
+    // Fall back to the selection range if there's no composition range.
+    return GetFirstRectFromSelection(requested_range, selection, rect,
+                                     actual_range);
   }
 
   // If firstRectForCharacterRange in WebFrame is failed in renderer,
   // ImeCompositionRangeChanged will be sent with empty vector.
   if (!composition_info || composition_info->character_bounds.empty()) {
-    return log_result(GetCachedFirstRectResult::kNoCompositionBounds);
+    if (base::FeatureList::IsEnabled(
+            features::kCachedFirstRectMoreSelectionFallbacks)) {
+      return GetFirstRectFromSelection(requested_range, selection, rect,
+                                       actual_range);
+    }
+    return GetCachedFirstRectResult::kNoCompositionBounds;
   }
 
   const gfx::Range request_range_in_composition =
-      ConvertCharacterRangeToCompositionRange(requested_range);
+      ConvertCharacterRangeToCompositionRange(requested_range,
+                                              composition_info);
   if (request_range_in_composition == gfx::Range::InvalidRange()) {
-    return log_result(GetCachedFirstRectResult::kInvalidCompositionRange);
+    if (base::FeatureList::IsEnabled(
+            features::kCachedFirstRectMoreSelectionFallbacks)) {
+      return GetFirstRectFromSelection(requested_range, selection, rect,
+                                       actual_range);
+    }
+    return GetCachedFirstRectResult::kInvalidCompositionRange;
   }
 
   DCHECK_EQ(composition_info->character_bounds.size(),
@@ -1385,7 +1397,41 @@ bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
         gfx::Range(composition_info->range.start() + ui_actual_range.start(),
                    composition_info->range.start() + ui_actual_range.end());
   }
-  return log_result(GetCachedFirstRectResult::kFound);
+  return GetCachedFirstRectResult::kFound;
+}
+
+RenderWidgetHostViewMac::GetCachedFirstRectResult
+RenderWidgetHostViewMac::GetFirstRectFromSelection(
+    const gfx::Range& requested_range,
+    const TextInputManager::TextSelection* selection,
+    gfx::Rect* rect,
+    gfx::Range* actual_range) {
+  CHECK(selection);
+  // An invalid range will fail the IsBoundedBy() check, but needs to be tested
+  // separately in case the check is skipped.
+  if (!base::FeatureList::IsEnabled(
+          features::kCachedFirstRectAllowInvalidSelection) &&
+      !selection->range().IsValid()) {
+    return GetCachedFirstRectResult::kInvalidSelection;
+  }
+  if (!base::FeatureList::IsEnabled(
+          features::kCachedFirstRectAllowRangeOutsideSelection) &&
+      !requested_range.IsBoundedBy(selection->range())) {
+    return selection->range().IsValid()
+               ? GetCachedFirstRectResult::kNotBoundedBySelection
+               : GetCachedFirstRectResult::kInvalidSelection;
+  }
+  DCHECK(GetFocusedWidget());
+  if (actual_range) {
+    *actual_range = selection->range();
+  }
+  *rect = GetTextInputManager()
+              ->GetSelectionRegion(GetFocusedWidget()->GetView())
+              ->first_selection_rect;
+  TRACE_EVENT1("ime",
+               "RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange",
+               "first_selection_rect", rect->ToString());
+  return GetCachedFirstRectResult::kFound;
 }
 
 void RenderWidgetHostViewMac::FocusedNodeChanged(
@@ -2189,7 +2235,7 @@ bool RenderWidgetHostViewMac::SyncGetCharacterIndexAtPoint(
   if (!widget_host)
     return true;
 
-  *index = TextInputClientMac::GetInstance()->GetCharacterIndexAtPoint(
+  *index = TextInputClientMac::GetInstance()->SyncGetCharacterIndexAtPoint(
       widget_host, gfx::ToFlooredPoint(transformed_point));
   return true;
 }
@@ -2216,8 +2262,12 @@ bool RenderWidgetHostViewMac::SyncGetFirstRectForRange(
     return true;
   }
   *success = true;
-  if (!GetCachedFirstRectForCharacterRange(requested_range, rect,
-                                           actual_range)) {
+
+  GetCachedFirstRectResult cache_result =
+      GetCachedFirstRectForCharacterRange(requested_range, rect, actual_range);
+  base::UmaHistogramEnumeration("TextInputClient.GetCachedFirstRectResult",
+                                cache_result);
+  if (cache_result != GetCachedFirstRectResult::kFound) {
     // Cache the result of GetDeviceScaleFactor() before calling
     // GetFirstRectForRange() in case anything clear the ScreenInfos list while
     // waiting for the result.
@@ -2227,7 +2277,7 @@ bool RenderWidgetHostViewMac::SyncGetFirstRectForRange(
     base::ScopedAllowBlocking allow_wait;
     // TODO(thakis): Pipe |actualRange| through TextInputClientMac machinery.
     gfx::Rect blink_rect =
-        TextInputClientMac::GetInstance()->GetFirstRectForRange(
+        TextInputClientMac::GetInstance()->SyncGetFirstRectForRange(
             GetFocusedWidget(), requested_range);
 
     // With zoom-for-dsf, RenderWidgetHost coordinate system is physical points,

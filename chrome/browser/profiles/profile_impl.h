@@ -10,9 +10,11 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -63,6 +65,15 @@ class ProfileImpl : public Profile {
   ~ProfileImpl() override;
 
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  using CloudPolicyManagerTestFactory = base::RepeatingCallback<std::variant<
+      std::unique_ptr<policy::UserCloudPolicyManager>,
+      std::unique_ptr<policy::ProfileCloudPolicyManager>>(Profile*)>;
+
+  static void SetCloudPolicyManagerFactoryForTesting(
+      CloudPolicyManagerTestFactory factory);
+#endif
 
   // content::BrowserContext implementation:
   std::unique_ptr<content::ZoomLevelDelegate> CreateZoomLevelDelegate(
@@ -143,6 +154,7 @@ class ProfileImpl : public Profile {
   bool WasCreatedByVersionOrLater(const std::string& version) override;
   bool ShouldRestoreOldSessionCookies() override;
   bool ShouldPersistSessionCookies() const override;
+  bool ShouldClearSessionStorageOnStartup() override;
 
 #if BUILDFLAG(IS_CHROMEOS)
   void ChangeAppLocale(const std::string& locale, AppLocaleChangedVia) override;
@@ -191,6 +203,12 @@ class ProfileImpl : public Profile {
 
   // Does final prefs initialization and calls Init().
   void OnLocaleReady(CreateMode create_mode);
+
+  // Sync-to-signin migration is triggered from OnLocaleReady() but needs to be
+  // completed before the rest of the profile initialization process. This
+  // method is called once the migration is completed and resumes the
+  // initialization.
+  void OnSyncToSigninMigrationMaybeCompleted(CreateMode create_mode);
 
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)
   void StopCreateSessionServiceTimer();
@@ -295,6 +313,8 @@ class ProfileImpl : public Profile {
   // components/keyed_service/content/browser_context_keyed_service_factory.*
 
   raw_ptr<Profile::Delegate> delegate_;
+
+  base::WeakPtrFactory<ProfileImpl> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_PROFILES_PROFILE_IMPL_H_

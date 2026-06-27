@@ -95,6 +95,7 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
 #include "components/browsing_data/core/features.h"
@@ -146,7 +147,6 @@
 #include "components/web_cache/browser/web_cache_manager.h"
 #include "components/webrtc_logging/browser/log_cleanup.h"
 #include "components/webrtc_logging/browser/text_log_list.h"
-#include "content/public/browser/background_tracing_manager.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
@@ -166,6 +166,7 @@
 #include "net/http/http_transaction_factory.h"
 #include "net/net_buildflags.h"
 #include "services/network/public/mojom/clear_data_filter.mojom.h"
+#include "services/tracing/public/cpp/background_tracing/background_tracing_manager.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -560,7 +561,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 
     CreateCrashUploadList()->Clear(delete_begin_, delete_end_);
 
-    content::BackgroundTracingManager::GetInstance().DeleteTracesInDateRange(
+    tracing::BackgroundTracingManager::GetInstance().DeleteTracesInDateRange(
         delete_begin_, delete_end_);
 
     FindBarStateFactory::GetForBrowserContext(profile_)->SetLastSearchText(
@@ -702,9 +703,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     }
 
 #if BUILDFLAG(IS_CHROMEOS)
-    if (base::FeatureList::IsEnabled(
-            browsing_data::features::kDbdRevampDesktop) &&
-        ash::SystemProxyManager::Get()) {
+    if (ash::SystemProxyManager::Get()) {
       // Sends a request to the System-proxy daemon to clear the proxy user
       // credentials. System-proxy retrieves proxy username and password from
       // the NetworkService, but not the creation time of the credentials. The
@@ -1037,6 +1036,9 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         strike_database->ClearAllStrikes();
       }
 
+      autofill::prefs::ClearEmailVerificationState(prefs, delete_begin_,
+                                                   delete_end_);
+
       autofill::PersonalDataManager* data_manager =
           autofill::PersonalDataManagerFactory::GetForBrowserContext(profile_);
       data_manager->address_data_manager().RemoveLocalProfilesModifiedBetween(
@@ -1053,9 +1055,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 
   if ((remove_mask & constants::DATA_TYPE_PASSWORDS)
 #if !BUILDFLAG(IS_ANDROID)
-      ||
-      ((remove_mask & constants::DATA_TYPE_FORM_DATA) &&
-       base::FeatureList::IsEnabled(browsing_data::features::kDbdRevampDesktop))
+      || (remove_mask & constants::DATA_TYPE_FORM_DATA)
 #endif  // !BUILDFLAG(IS_ANDROID)
   ) {
     scoped_refptr<payments::WebPaymentsWebDataService>
@@ -1471,8 +1471,14 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
                    std::ranges::any_of(
                        filter_builder->GetOrigins(),
                        [&](const url::Origin& origin) -> bool {
-                         return setting.primary_pattern.Matches(
-                                    origin.GetURL()) ||
+                         // TopLevelStorageAccessPermissionContext creates
+                         // grants using (origin, site) patterns. We explicitly
+                         // use the primary pattern's site here to ensure any
+                         // permission granted to subdomains of an RWS site are
+                         // properly cleared.
+                         return net::SchemefulSite(setting.primary_pattern
+                                                       .ToRepresentativeUrl())
+                                    .IsSameSiteWith(origin) ||
                                 setting.secondary_pattern.Matches(
                                     origin.GetURL());
                        });

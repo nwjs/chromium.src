@@ -140,6 +140,7 @@ URL パターンは、<ph name="CONTROLLED_FRAME_ALLOWED_FOR_URLS_POLICY_NAME" /
 有効な URL パターンについて詳しくは、https://chromeenterprise.google/policies/url-patterns をご覧ください。このポリシーの値に「<ph name="WILDCARD_VALUE" />」は使用できません。</translation>
 <translation id="1082802595100075771">匿名の Google サービスを使用して、ラベル付けがない画像の説明を自動的に取得するかどうかをユーザーが選択できる</translation>
 <translation id="1084697375611053264"><ph name="DESK_API_NAME" /> を使用して <ph name="PRODUCT_OS_NAME" /> のデスクを管理できるサードパーティのウェブ アプリケーションのドメインリストを指定します。URL のパターンは、https://developer.chrome.com/docs/extensions/mv3/manifest/externally_connectable/#reference の「matches」プロパティで定義されている形式で指定する必要があります。</translation>
+<translation id="1086596047220085412">スマートタブ共有設定</translation>
 <translation id="1087057100912843460">アップデートを許可する</translation>
 <translation id="1087187152710800704">すべてのサイトに対してウィンドウの管理に関する権限をデフォルトで自動的に拒否する</translation>
 <translation id="1087437665304381368">このポリシーでは、<ph name="PRODUCT_OS_NAME" /> のデベロッパー モードのみを管理します。Android 開発者向けオプションへのアクセスを禁止するには、<ph name="DEVELOPER_TOOLS_DISABLED_POLICY_NAME" /> ポリシーを設定する必要があります。</translation>
@@ -241,6 +242,29 @@ URL パターンは、<ph name="CONTROLLED_FRAME_ALLOWED_FOR_URLS_POLICY_NAME" /
 <translation id="1160479894929412407">QUIC プロトコルを許可する</translation>
 <translation id="1160939557934457296">セーフ ブラウジングの警告ページからの続行を無効にする</translation>
 <translation id="1161685818042751282">プラットフォームのトラストストアからユーザーが追加した TLS サーバー証明書をインポートしない。</translation>
+<translation id="1162404282416180562">データ漏洩を防止するためのデータ管理ルールのリストを設定します。
+
+      各ルールは以下で構成されます。
+      - ルールをトリガーする条件フィールド。ルールがトリガーされるのは、<ph name="DATA_CONTROLS_SOURCES" />、<ph name="DATA_CONTROLS_DESTINATIONS" />、<ph name="DATA_CONTROLS_AND" />、<ph name="DATA_CONTROLS_OR" />、<ph name="DATA_CONTROLS_NOT" /> フィールドに入力された全フィールドにユーザー アクションが一致する場合のみです。リストのサブフィールドでは、一致するエントリが 1 つあれば（例: 1 つの URL パターンが一致すれば）、ルールがトリガーされる条件が満たされます。
+      - 適用する制限のリスト。制限に応じて、<ph name="DATA_CONTROLS_SOURCES" /> 条件または <ph name="DATA_CONTROLS_DESTINATIONS" /> 条件のみを使用できます。
+
+      ルールでは次の項目を管理できます。
+      - 参照元と参照先の間で共有するクリップボード データ。
+      - ソースタブに基づくスクリーンショットのブロック。
+
+      <ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" /> ポリシーが True に設定されている場合、トリガーされたルールは管理者に報告されます。
+      制限レベルは「BLOCK」、「WARN」、「REPORT」に設定できます。
+      - 制限レベルを「BLOCK」に設定した場合、アクションは許可されません。
+      - 制限レベルを「WARN」に設定した場合、ユーザーに警告が表示されます。ユーザーはアクションを実行するかキャンセルするかを選択できます。
+      - 制限レベルを「REPORT」に設定した場合、ユーザー アクションは中断されませんが、<ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" /> ポリシーが有効であればレポートが送信されます。
+
+      注:
+      - URL パターンは、https://support.google.com/chrome/a?p=url_blocklist_filter_format の形式で指定します。
+      - <ph name="PRODUCT_OS_NAME" /> 固有のデータ漏洩防止ルールについては、<ph name="DATA_LEAK_PREVENTION_RULES_LIST" /> ポリシーもご覧ください。
+
+      このポリシーを未設定のままにした場合、制限は適用されません。
+
+      このポリシーは、<ph name="CHROME_ENTERPRISE_PREMIUM_NAME" /> ライセンスが割り当てられているユーザーにのみ適用されます。</translation>
 <translation id="1163080558183062209">拒否リストのプリンタタイプを無効にする</translation>
 <translation id="1163389598183927209"><ph name="PRIVACY_SANDBOX_NAME" /> に関連する一連のポリシーです。サードパーティ Cookie のサポートを終了する <ph name="PRODUCT_NAME" /> の取り組みについて、詳しくは、<ph name="PRIVACY_SANDBOX_URL" /> をご覧ください。</translation>
 <translation id="1165923723751466821">ゲストモードでブラウザにログインしてプロフィールを使用できるようにする</translation>
@@ -425,13 +449,6 @@ URL パターンは、<ph name="CONTROLLED_FRAME_ALLOWED_FOR_URLS_POLICY_NAME" /
 <translation id="1340053691042184658">ゲスト ブラウジングでのログインを許可しない</translation>
 <translation id="1342918903685430097">デバイスでの使用を許可する <ph name="PRODUCT_OS_NAME" /> の最小バージョンを設定する</translation>
 <translation id="1343128241903870688">デバイスのアプリ情報レポートを無効にする</translation>
-<translation id="1347198119056266798">このポリシーはサポートを終了しました。代わりに <ph name="FORCE_GOOGLE_SAFE_SEARCH_POLICY_NAME" /> と <ph name="FORCE_YOUTUBE_RESTRICT_POLICY_NAME" /> を使用してください。<ph name="FORCE_GOOGLE_SAFE_SEARCH_POLICY_NAME" />、<ph name="FORCE_YOUTUBE_RESTRICT_POLICY_NAME" />、<ph name="FORCE_YOUTUBE_SAFETY_MODE_POLICY_NAME" />（サポート終了）のいずれかのポリシーが設定されている場合、このポリシーは無視されます。
-
-      Google ウェブ検索のクエリ実行時にセーフサーチを自動的に有効にします。ユーザーはこの設定を変更できません。また、YouTube では制限付きモード「中」が自動的に適用されます。
-
-      この設定を有効にした場合、Google 検索のセーフサーチと YouTube の制限付きモード「中」が常に有効になります。
-
-      この設定が無効または未設定の場合、Google 検索のセーフサーチと YouTube の制限付きモードは適用されません。</translation>
 <translation id="134745581157553029">DeviceArcDataSnapshotHours ポリシーを設定した場合、ARC データ スナップショットのメカニズムが有効になります。定義された時間間隔の間、ARC データ スナップショットの更新が自動的に開始されます。時間間隔が開始し、ARC データ スナップショットの更新が要求されたときに、ユーザーが誰もログインしていなければ、ARC データ スナップショットの更新プロセスはユーザー通知なしで開始されます。ユーザー セッションがアクティブな場合は UI 通知が表示されます。ユーザーが承認した場合は、デバイスが再起動し、ARC データ スナップショットの更新プロセスが開始されます。注: ARC データ スナップショットの更新プロセス中は、デバイスを使用できなくなります。</translation>
 <translation id="1348603614848418219"><ph name="MS_AD_NAME" /> 管理対象デバイスのクラウド管理への移行を無効にする。</translation>
 <translation id="1352799151662469739">AC 電源での使用中、ユーザー入力が行われなくなってから画面をロックするまでの時間（ミリ秒）</translation>
@@ -665,6 +682,15 @@ PromptInTab に設定した場合は、ユーザーの認証が期限切れに�
 <translation id="1509692106376861764">このポリシーは <ph name="PRODUCT_NAME" /> バージョン 29 で廃止されました。</translation>
 <translation id="1509839615768187049">組み込みの DNS クライアントを常に使用する</translation>
 <translation id="1514888685242892912"><ph name="PRODUCT_NAME" /> を有効にする</translation>
+<translation id="1514959848081381646">このポリシーでは、アドレスバーと新しいタブページの検索ボックスに Google AI モードを統合するかどうかを制御します。
+
+この機能にアクセスするには、Google をユーザーのデフォルトの検索エンジンに設定する必要があります。
+
+0 = ユーザーはこの機能を使用できます。
+
+1 = ユーザーはこの機能を使用できません。
+
+このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。</translation>
 <translation id="1515230621229117540">フローティング ユーザー補助機能メニューを有効にする</translation>
 <translation id="1515824657887788963">ページ終了中の同期 XHR リクエストの送信をページに許可する。</translation>
 <translation id="1516486219683984217">システム通知の使用を許可しない</translation>
@@ -902,6 +928,7 @@ Virtual Tasks の場合は <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY
 
 ポリシーを未設定のままにした場合、<ph name="PRODUCT_OS_NAME" /> は内部ロジックに沿ってデフォルト ハンドラを選択します。</translation>
 <translation id="1651810147727432656">ウィンドウの管理に関する権限を拒否するサイトを指定する</translation>
+<translation id="1652357791185933887">分離モードを無効にする</translation>
 <translation id="1654087023995670109">ブラウザのゲストモードを強制的に適用する</translation>
 <translation id="1655229863189977773">ディスク キャッシュ サイズをバイト単位で設定する</translation>
 <translation id="1655518801232583832">システムの DNS 解決をネットワーク サービス外で実行できるようにする</translation>
@@ -1011,6 +1038,7 @@ Virtual Tasks の場合は <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY
       <ph name="REMOTE_ACCESS_HOST_CLIENT_DOMAIN_LIST_POLICY_NAME" /> も参照してください。
 
       注: この設定は <ph name="REMOTE_ACCESS_HOST_DOMAIN_POLICY_NAME" /> より優先されます（指定されている場合）。</translation>
+<translation id="1723571018091915166">組み込みの <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> とのスマートタブ共有を許可しない。</translation>
 <translation id="172374442286684480">ローカル データの設定をすべてのサイトに許可する</translation>
 <translation id="1729169799290004131">このポリシーでは、画面の明るさの割合（%）を指定できます。このとき、明るさの自動調整機能は無効になります。初期画面の明るさはポリシーの値に調整されますが、ユーザーはこの設定を変更できます。
 
@@ -1195,6 +1223,13 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 <translation id="1858775210076906272">事前に指定された Kerberos 設定</translation>
 <translation id="1861206724856734193">データ漏洩防止ルールのリストを設定します。</translation>
 <translation id="1862267110714201519">ゴースト ウィンドウ機能を無効にする</translation>
+<translation id="1862749749551522146">ソケット プールサイズのランダム化は、攻撃者が固定された容量制限を悪用して、サイト間の情報を推測するのを防ぐセキュリティ メカニズムです。プールの容量が通常 128 ソケットの場合、このメカニズムにより、プールの容量が 128～256 の間でランダムに制限されます。
+これにより、プロキシへの接続数が最大 2 倍になりますが、実際には 1.2 倍程度になることが想定されます。
+
+この機能は、<ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" /> と <ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" /> の設定に影響します。
+これらのポリシーによって上限が定義されるのではなく、それらの値の 2 倍が上限として適用されます（ただし、実際には 1.2 倍程度になることが想定されます）。
+
+この機能はデフォルトですべてのプールで有効になっていますが、このポリシーを使用すると、プロキシプールに限定してこの機能を無効にできます。</translation>
 <translation id="1865417998205858223">キーの権限</translation>
 <translation id="1865867000796030567">このポリシーを有効に設定した場合、遅延なしで自動開始されるキオスクアプリの <ph name="REQUIRED_PLATFORM_VERSION" /> マニフェスト キーの値が、自動更新対象バージョンの接頭辞として使用されます。
 
@@ -1342,7 +1377,6 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 <translation id="1963986268950915756">ユーザーがブラウザからウェブアプリをインストールできるようにする</translation>
 <translation id="1964191545419036999">ギャラリー（バージョン 117 以降でサポート）</translation>
 <translation id="1964634611280150550">シークレット モードを無効にする</translation>
-<translation id="1964802606569741174">このポリシーは Android YouTube アプリには適用されません。YouTube でセーフモードを有効にする場合は、Android YouTube アプリのインストールを禁止する必要があります。</translation>
 <translation id="1964985353230379667">手動で作成された新しいチケットの <ph name="KRB5_CONFIG" /> 推奨構成を指定します。
 
       「KerberosUseCustomPrefilledConfig」ポリシーが有効になっている場合は、ポリシーの値が推奨設定として適用され、Kerberos 認証ダイアログの [詳細設定] セクションに表示されます。このポリシーを空の文字列に設定するか未設定のままにした場合、<ph name="PRODUCT_OS_NAME" /> 推奨設定は削除されます。
@@ -1685,7 +1719,6 @@ accounts.google.com など一部の URL は認証に必要です。オンライ�
 
       セーフ ブラウジングについて詳しくは、https://support.google.com/chrome?p=safe_browsing_preferences をご覧ください。</translation>
 <translation id="2177696016354404697">プライバシー画面を常に無効にする</translation>
-<translation id="2178899310296064282">YouTube で制限付きモード「中」以上を強制的に適用する</translation>
 <translation id="2180260434916939385">AI 履歴検索と AI モデルの改善を許可する。</translation>
 <translation id="2180795125410219364">Home / End の設定は無効</translation>
 <translation id="2180958780733364832">ヘッドレス モードの使用を管理する</translation>
@@ -1893,6 +1926,18 @@ Android アプリの場合はパッケージ名（「com.google.android.gm」な
 <translation id="229322770310505679">ポリシーの最小単位グループの概念を有効にする</translation>
 <translation id="22941467117331786">このポリシーを True に設定した場合、アクティブなセッション中に画面がロックされていなければ、システムトレイに赤い大きなログアウト ボタンが表示されます。このポリシーを False に設定するか未設定のままにした場合、ボタンは表示されません。</translation>
 <translation id="2294382669900758280">Android アプリで再生中の動画は、このポリシーを <ph name="TRUE" /> に設定した場合でも考慮されません。</translation>
+<translation id="2296529215567227994">シークレット モードを分離モードで置き換えるかどうかを指定します。
+
+分離モードは、シークレット モードの代わりとなる、エンタープライズ版限定の一時的な閲覧モードです。
+シークレット モードとは異なり、分離モードでは DLP に関連するエンタープライズ ポリシーと自動インストールされた拡張機能がサポートされます。
+
+シークレット モードに関連するポリシーは、分離モードには適用されません。
+
+「1 - 有効」に設定した場合、分離モードが有効になり、シークレット モードと置き換えられます。
+
+「0 - 無効」に設定するか未設定のままにした場合、分離モードは無効になり、標準のシークレット モードの動作が使用されます。
+
+このポリシーを適用するには、<ph name="CHROME_ENTERPRISE_PREMIUM_NAME" /> ライセンスが必要です。</translation>
 <translation id="2299220924812062390">有効なプラグインのリストを指定する</translation>
 <translation id="2299815818824242485">保護強化プロキシ チェックを許可しない</translation>
 <translation id="2303795211377219696">クレジット カードの自動入力を有効にする</translation>
@@ -2017,6 +2062,7 @@ Android アプリの場合はパッケージ名（「com.google.android.gm」な
 
 このポリシーを未設定のままにした場合、初期状態ではプライバシー スクリーンが無効になりますが、ユーザーは設定を変更できます。</translation>
 <translation id="2413899611035194909">ログイン画面のシステムトレイ メニューにユーザー補助オプションを表示する</translation>
+<translation id="2414712434655365347">HTTP ヘッダーを挿入する URL パターンを指定する</translation>
 <translation id="2415715982424988916">使い方・ヒント（バージョン 91 以降でサポート）</translation>
 <translation id="2420958105721932612">アプリのインストール方法を指定します。AVAILABLE: アプリは自動的にはインストールされませんが、ユーザーがインストールすることはできます。このポリシーが指定されていない場合は、デフォルトでこの設定が使用されます。FORCE_INSTALLED: アプリは自動的にインストールされ、ユーザーがアンインストールすることはできません。BLOCKED: アプリはブロックされ、インストールできません。以前のポリシーによってアプリがインストール済みの場合はアンインストールされます。</translation>
 <translation id="2421400544595297401">Android アプリの使用を外部のユーザーに許可しない</translation>
@@ -2240,6 +2286,24 @@ URL パターンは、<ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_ALLOWED_FO
 <translation id="252742292004421898">Direct Sockets API を許可するサイトを指定する</translation>
 <translation id="2528762900096510743">自動ログアウト サービスを有効にする</translation>
 <translation id="2529880111512635313">自動インストールするアプリと拡張機能のリストの設定</translation>
+<translation id="2530090617700835618">このポリシーでは、WebSocket リクエストのプロキシ サーバーごとの最大同時接続数を指定できます。
+
+WebSocket 以外のリクエストの上限を変更するには、<ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" /> をご確認ください。
+
+このポリシーを未設定のままにした場合、デフォルト値の 128 が使用されます。
+
+ウェブアプリの中には、GET リクエストを開いたまま接続を多数保持するものがあります。そのため、128 未満の値を設定した場合、もし多数のウェブアプリでこのような接続が開いたままになると、ブラウザのネットワーク接続が停止してしまう可能性があります。
+プロキシ サーバーによっては 1 クライアントに対して多数の同時接続を処理できない場合があります。この問題を解決するには、このポリシーを小さい値に設定します。
+
+値は 6 以上にする必要があります。
+この制限を下回る値を設定すると、6 が使用されます。
+なお、デフォルト値（128）より小さい値を設定する場合は、ご自身の責任において行ってください。
+
+値は 256 以下にする必要があります。
+この制限を超える値を設定すると、256 が使用されます。
+なお、デフォルト値（128）より大きい値を設定する場合は、ご自身の責任において行ってください。
+
+適用される上限は <ph name="ALLOW_SOCKET_POOL_SIZE_RANDOMIZATION_FOR_PROXIES_POLICY_NAME" /> の影響を受けることにご注意ください。</translation>
 <translation id="253135976343875019">警告を表示するまでのアイドル待機時間（AC 電源での実行時）</translation>
 <translation id="2532480434098051405">インライン画像と AI モデルの改善を許可する。</translation>
 <translation id="2535370400681639351">このポリシーを有効に設定した場合、gnubby 認証リクエストはリモートホスト接続でプロキシ送信されます。
@@ -2709,6 +2773,7 @@ URL パターンは、<ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_ALLOWED_FO
 <translation id="2853757230661166968">デフォルトのシステム ショートカットの取得とオーバーライドをアプリケーションに許可する。</translation>
 <translation id="285480231336205327">ハイ コントラスト モードを有効にする</translation>
 <translation id="285627849510728211">詳細なバッテリー充電モードの曜日の設定を行う</translation>
+<translation id="2856348870384508185">Chrome の提案を無効にする</translation>
 <translation id="2856932965866813330">他のユーザーとのユーザー認証情報の共有を有効にする</translation>
 <translation id="28600673996840076">ユーザーが Google のプロフィール画像やローカルの画像を使用してアバター画像をカスタマイズできるようにする。</translation>
 <translation id="2864207379891420023">拡張機能インストールの許可リストを設定する</translation>
@@ -2717,6 +2782,13 @@ URL パターンは、<ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_ALLOWED_FO
 <translation id="2866726566162790531">すべての HTTP 認証を許可するオリジンのリスト</translation>
 <translation id="2868756546751652023">インスタント テザリングの使用をユーザーに許可する</translation>
 <translation id="286898786908566256">Chrome から Android デバイスへの電話番号の送信をユーザーに許可する</translation>
+<translation id="287087426320717057">このポリシーでは、ユーザーにすべての種類のファームウェアの更新を許可するかどうかを設定します。
+
+      このポリシーを有効に設定するか未設定のままにした場合、デバイス所有者などのユーザーにファームウェアの更新を許可します。
+
+      このポリシーを無効に設定した場合、すべてのユーザーにファームウェアの更新を許可しません。
+
+      このポリシーは、外部周辺機器のファームウェアの更新と、<ph name="PRODUCT_OS_FLEX_NAME" /> デバイスの内部コンポーネントのファームウェアの更新に適用されます。<ph name="PRODUCT_OS_NAME" /> デバイスの内部コンポーネントのファームウェアの更新には適用されません。</translation>
 <translation id="2872098849906555324">Google ドライブの同期を無効にする</translation>
 <translation id="2872189563975139803">企業プロファイル分離設定</translation>
 <translation id="2872961005593481000">終了</translation>
@@ -2807,6 +2879,7 @@ URL パターンは、<ph name="DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS_ALLOWED_FO
 
 PIN とパスワードの複雑さの各レベルについて、詳しくはヘルプセンターの記事をご確認ください。</translation>
 <translation id="2926813071464307947">レンダラアプリ コンテナのサンドボックスを無効にする</translation>
+<translation id="2930792103747180259">無効: Service Worker からのバックグラウンド フェッチを制限なしで許可する。</translation>
 <translation id="2931888116345994552">このポリシーを未設定のままか有効に設定した場合、<ph name="PRODUCT_NAME" /> のすべてのコンポーネントでコンポーネントの更新が有効になります。
 
       このポリシーを無効に設定した場合、コンポーネントの更新は無効になります。ただし、一部のコンポーネント（実行可能コードを含まず、ブラウザのセキュリティ上重要なコンポーネント）はこのポリシーの適用外で、これらのコンポーネントの更新は無効にはなりません。
@@ -2907,6 +2980,7 @@ false に設定した場合、教師はこの機能にアクセスできませ�
 <translation id="2976033779241323433">デフォルトのシステム ヒューリスティックに基づいてタップ仮想キーボードを有効にする</translation>
 <translation id="2976429807269247880">Cookie に関する以前の <ph name="ATTRIBUTE_SAMESITE_NAME" /> 動作の設定</translation>
 <translation id="2979696534869541158">古い実装を強制的に使用する</translation>
+<translation id="2984696342503554732">有効: Service Worker からのバックグラウンド フェッチを制限する。</translation>
 <translation id="2985927503455169394">アシスタントのオンボーディング エクスペリエンスでデフォルトのモードを使用する</translation>
 <translation id="2987155890997901449">ARC を有効にする</translation>
 <translation id="2987227569419001736">Web Bluetooth API の使用を管理する</translation>
@@ -3813,6 +3887,21 @@ SwiftShader は、ヘッドレス システムや仮想マシンなど、GPU ア
 このポリシーを無効に設定するか未設定のままにした場合、ハードウェアの GPU アクセラレーションを使用できないときに、WebGL コンテキストを作成できない可能性があります。この場合、WebGL コンテキストの作成エラーを適切に処理しないと、ウェブページが正しく動作しないことがあります。
 
 これは一時的なポリシーであり、将来的に削除される予定です。</translation>
+<translation id="3607939601300521364"><ph name="GEMINI_SPARK_PRODUCT_NAME" /> エージェントが <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用できるようにするかどうかを制御します。
+
+0 = <ph name="GEMINI_SPARK_PRODUCT_NAME" /> が <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用することを許可します
+
+1 = <ph name="GEMINI_SPARK_PRODUCT_NAME" /> が <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用することを許可しません
+
+警告: <ph name="GEMINI_SPARK_PRODUCT_NAME" /> が <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用することを許可すると、<ph name="GEMINI_SPARK_PRODUCT_NAME" /> エージェントはアクティブなブラウザ セッションを使用して、<ph name="PRODUCT_NAME" /> クライアントで自律的なマルチステップのアクションを実行できるようになります。これには、認証情報の漏洩リスク、ローカル ネットワークへの侵入、コンテキストアウェア シグナルの損失など、重大なセキュリティ リスクが伴います。既存の管理設定およびセキュリティの制御が適用されない可能性があります。
+
+管理者は、この機能を有効にする前に、組織のネットワーク脅威モデル、コンプライアンスとプライバシーに関するガイドラインを慎重に検討することが推奨されます。
+
+<ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> アプリまたは <ph name="PRODUCT_NAME" /> 自動ブラウジング ポリシーが無効になっている場合、このポリシーは無視されます。たとえば、<ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> アプリは <ph name="GEMINI_SETTINGS_POLICY_NAME" /> ポリシーで無効にできます。<ph name="PRODUCT_NAME" /> での <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> について詳しくは、https://support.google.com/chrome/a?p=gemini_in_chrome をご覧ください。
+
+国や言語によっては <ph name="PRODUCT_NAME" /> の自動ブラウジングと <ph name="GEMINI_SPARK_PRODUCT_NAME" /> を利用できない場合があります。このポリシーを 0（有効）に設定しても、機能が有効になるかどうかは、国や言語での提供状況に準じて決まります。リリースについて詳しくは、Enterprise リリースノート（https://chromeenterprise.google/resources/release-notes/）をご確認ください。
+
+このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。</translation>
 <translation id="3608206578291537084">暗号化されたレポート パイプラインを有効にする</translation>
 <translation id="3608281460204780443"><ph name="PRODUCT_OS_NAME" /> ランチャーや新しいタブページに Chrome ウェブストア アイコンを表示する</translation>
 <translation id="3612482251405108708">ロック画面でオンライン再認証を自動的に開始する</translation>
@@ -3846,14 +3935,6 @@ SwiftShader は、ヘッドレス システムや仮想マシンなど、GPU ア
 <translation id="3647212518036289905">このポリシーでは、HTTP 認証で使用する GSSAPI ライブラリを指定できます。ポリシーには、ライブラリ名またはフルパスのいずれかを指定します。
 
       このポリシーを未設定のままにした場合、<ph name="PRODUCT_NAME" /> ではデフォルトのライブラリ名が使用されます。</translation>
-<translation id="3647756189889410780">https://github.com/WICG/service-worker-auto-preload
-ServiceWorkerAutoPreload 機能では、ServiceWorker ブートストラップ プロセスの開始と同時にメインリソースのネットワーク リクエストをディスパッチします。
-
-このポリシーを有効に設定するか未設定のままにした場合、<ph name="PRODUCT_NAME" /> で ServiceWorkerAutoPreload が有効になります。ナビゲーション リクエストは、特定の状況（ServiceWorker が実行されていない場合など）で ServiceWorker の起動時に自動的にディスパッチされます。
-
-この設定を無効に設定した場合、<ph name="PRODUCT_NAME" /> で ServiceWorkerAutoPreload は有効になりません。ナビゲーション リクエストは、必ず ServiceWorker の起動後にディスパッチされます。
-
-このポリシーは機能を制御するための一時的な措置で、M144 で削除される予定です。</translation>
 <translation id="3650122925429054129">ログイン画面でカーソルによるハイライト表示を無効にする</translation>
 <translation id="365093517647222762">関連付けられたユーザーのデバイスから、<ph name="REPORT_WEBSITE_TELEMETRY_ALLOWLIST_POLICY_NAME" /> ポリシーで指定した許可リストの URL について、ウェブサイトのテレメトリー データをレポートします。
 
@@ -4193,6 +4274,15 @@ Protected Audience API のサポート終了により、このポリシーは <p
       リストの各エントリには辞書を指定し、[extension-id] フィールドに拡張機能 ID、[update-url] フィールドに更新 URL を指定する必要があります。</translation>
 <translation id="3869180930654347954">対象となるすべてのユーザーに対して First-Party Sets を無効にする</translation>
 <translation id="3869566220234507038">常に <ph name="LACROS_ROOTFS_NAME" /> <ph name="LACROS_NAME" /> ブラウザを読み込む</translation>
+<translation id="3869959969423392506">このポリシーでは、デフォルトで、独立したウェブアプリ（IWA）がサブアプリを追加できるようにするかどうかを制御します。
+
+このポリシーを 1 に設定した場合、IWA のオリジンによるサブアプリの追加が許可され、ユーザーによる操作または確認は求められません。
+
+このポリシーを 2 に設定した場合、IWA のオリジンによるサブアプリの追加がブロックされます。
+
+このポリシーを 3 に設定するか未設定のままにした場合、独立したウェブアプリのオリジンによるサブアプリの追加は、ユーザーが確認した場合に許可されます。
+
+<ph name="SUB_APPS__WITHOUT_PROMPTS_ALLOWED_FOR_ORIGINS_POLICY_NAME" /> ポリシーと <ph name="SUB_APPS_WITHOUT_PROMPTS_BLOCKED_FOR_POLICY_NAME" /> ポリシーを使用して、特定の独立したウェブアプリについて、このポリシーをオーバーライドできます。</translation>
 <translation id="3870035799352372700">操作中に Google アシスタントが画面のコンテキストにアクセスできないようにする</translation>
 <translation id="3870059789954671543">ログイン画面で「キーボード フォーカスによるハイライト表示」ユーザー補助機能を有効にします。
 
@@ -4305,24 +4395,15 @@ Protected Audience API のサポート終了により、このポリシーは <p
           このポリシーを設定しない場合、ログイン画面において固定キーは初期設定で無効になりますが、ユーザーはいつでも設定を有効にできます。</translation>
 <translation id="3927291637826333102">指定オリジンによるデスクトップ、ウィンドウ、タブのキャプチャを許可する</translation>
 <translation id="3928726028264020458">デバイスの VPD 情報レポートを有効にする</translation>
-<translation id="393516164454995927">このポリシーでは、WebSocket リクエストのプロキシ サーバーごとの最大同時接続数を指定できます。
-
-WebSocket 以外のリクエストの上限を変更するには、<ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" /> をご確認ください。
-
-このポリシーを未設定のままにした場合、デフォルト値の 128 が使用されます。
-
-ウェブアプリの中には、GET リクエストを開いたまま接続を多数保持するものがあります。そのため、128 未満の値を設定した場合、もし多数のウェブアプリでこのような接続が開いたままになると、ブラウザのネットワーク接続が停止してしまう可能性があります。
-プロキシ サーバーによっては 1 クライアントに対して多数の同時接続を処理できない場合があります。この問題を解決するには、このポリシーを小さい値に設定します。
-
-値は 6 以上にする必要があります。
-この制限を下回る値を設定すると、6 が使用されます。
-なお、デフォルト値（128）より小さい値を設定する場合は、ご自身の責任において行ってください。
-
-値は 256 以下にする必要があります。
-この制限を超える値を設定すると、256 が使用されます。
-なお、デフォルト値（128）より大きい値を設定する場合は、ご自身の責任において行ってください。</translation>
 <translation id="3935592079035695061">午前 0 時からのミリ秒数。</translation>
 <translation id="3937800910397007337">すべてのタブでフォアグラウンドの優先度を適用する</translation>
+<translation id="3938885528378923718"><ph name="PRODUCT_NAME" /> で基本的な生成 AI モデルをダウンロードしローカルの推論に使用する方法を設定します。
+
+このポリシーを「許可」（0）に設定するか未設定のままにした場合、モデルは自動的にダウンロードされ推論に使用されます。
+
+このポリシーを無効（1）に設定した場合、モデルはダウンロードされず、既存のモデル（すでにダウンロードされている場合）は削除されます。
+
+パソコンのプラットフォームでは、<ph name="COMPONENT_UPDATES_ENABLED_POLICY_NAME" /> を false に設定して、モデルのダウンロードを無効にすることもできます。</translation>
 <translation id="3941289958028934630">ログイン画面で音声フィードバックを無効にする</translation>
 <translation id="3943930334592166130">このポリシーで、複数の証明書が <ph name="AUTO_SELECT_CERTIFICATE_FOR_URLS_POLICY_NAME" /> と一致した場合にクライアント証明書を選択するよう求めるメッセージをユーザーに表示するかどうかを管理します。
       このポリシーを有効に設定した場合は、自動選択ポリシーが複数の証明書と一致した場合に常にクライアント証明書を選択するよう求めるメッセージがユーザーに表示されます。
@@ -4482,6 +4563,7 @@ WebSocket 以外のリクエストの上限を変更するには、<ph name="MAX
       有効な <ph name="URL_LABEL" /> パターンについて詳しくは、https://chromeenterprise.google/policies/url-patterns/ をご覧ください。任意の URL に一致するパターン「*」は、このポリシーではサポートされません。</translation>
 <translation id="4070039109671307724">その他</translation>
 <translation id="4071922398488395340">フローティング SSO 機能にセッション Cookie を含める</translation>
+<translation id="4072065629757524">独立したウェブアプリのオリジンによるサブアプリの追加をブロックする</translation>
 <translation id="4072225853834793549">ログイン画面でユーザー補助のショートカットを無効にする</translation>
 <translation id="4074922053013383215">適度にメモリを節約する。</translation>
 <translation id="4075675819066819571">シェルフを画面の左側に配置する</translation>
@@ -4555,6 +4637,11 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 <translation id="4120401094617902941">ランタイム カウンタのサンプリングおよび収集の間隔です。指定できる最小値は 1 日です。
 
 設定しない場合は、デフォルトの 1 日が適用されます。</translation>
+<translation id="4121173511469084157">デフォルトでは、独立したウェブアプリ（IWA）は、ユーザーがプロンプトを確認した場合にサブアプリを追加できます。
+
+このポリシーでは、ユーザーにプロンプトを表示せずにサブアプリを追加できる IWA のオリジンを指定します。
+
+このポリシーは <ph name="DEFAULT_SUB_APPS_WITHOUT_PROMPTS_SETTING_POLICY_NAME" /> の動作をオーバーライドし、<ph name="SUB_APPS_WITHOUT_PROMPTS_BLOCKED_FOR_ORIGINS_POLICY_NAME" /> によってオーバーライドされます。</translation>
 <translation id="4121350739760194865">アプリのプロモーションが新しいタブ ページに表示されないようにする</translation>
 <translation id="4122432898152851612"><ph name="PRODUCT_OS_NAME" /> のファイル同期機能に関連する UI をユーザーに一切表示しない。</translation>
 <translation id="4122473079291425973">コンテンツが利用可能な場合は新しいタブページにカードを表示し、ユーザーはこの設定を変更できる</translation>
@@ -4620,15 +4707,6 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 
           このポリシーを設定しない場合、音声フィードバックは初期設定ではログイン画面で無効ですが、ユーザーはいつでも有効にできます。</translation>
 <translation id="4173974507809462880">ログイン時にタッチパッドのスクロール方向の画面を表示する</translation>
-<translation id="4175770453187201981">このポリシーでは、アドレスバーと新しいタブページの検索ボックスに Google AI モードを統合するかどうかを制御します。
-
-この機能にアクセスするには、Google をユーザーのデフォルトの検索エンジンに設定する必要があります。
-
-0 / 未設定 = ユーザーはこの機能を使用できます。
-
-1 = ユーザーはこの機能を使用できません。
-
-このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。</translation>
 <translation id="417956245902013347">ログイン画面で「テキストカーソルによるハイライト表示」ユーザー補助機能を有効にします。
 
           このポリシーを true に設定した場合、テキストカーソルによるハイライト表示はログイン画面で常に有効になります。
@@ -4853,6 +4931,7 @@ URL パターンは、<ph name="DIRECT_SOCKETS_ALLOWED_FOR_URLS_POLICY_NAME" /> 
 
 注: このポリシーの導入に伴い、<ph name="ARC_GLS_POLICY_NAME" /> ポリシーのサポートは終了しました。
 このポリシーを設定した場合、<ph name="DEFAULT_GEO_SETTING_POLICY_NAME" /> は <ph name="ANDROID_NAME" /> の <ph name="PRODUCT_OS_NAME" /> の位置情報設定に影響しなくなります。</translation>
+<translation id="4340826578810728651"><ph name="GEMINI_SPARK_PRODUCT_NAME" /> が <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用することを許可する</translation>
 <translation id="4341199399451274159"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> がオンの場合に、<ph name="DEFAULT_SEARCH_PROVIDER_ENCODINGS_POLICY_NAME" /> では、検索プロバイダによってサポートされる文字エンコードを指定できます。エンコードは、UTF-8、GB2312、ISO-8859-1 などのコードページ名であり、指定された順序で適用されます。
 
       <ph name="DEFAULT_SEARCH_PROVIDER_ENCODINGS_POLICY_NAME" /> を未設定のままにした場合、UTF-8 が使用されます。</translation>
@@ -5100,7 +5179,6 @@ WebSQL は M112 で削除されました。</translation>
 <translation id="4510923771103268849">Crostini コンテナへのルートアクセスをユーザーに許可する</translation>
 <translation id="4511848671760711978">教師に生徒の画面のリモート表示を許可しない。</translation>
 <translation id="4512407512989846472">指定された URL 上のクリップボードへのコピーをブロックすることを許可します</translation>
-<translation id="4513691822411041977">Google 検索または YouTube の制限付きモードでセーフサーチを強制的に適用しない</translation>
 <translation id="4515404363392014383">信頼できる提供元に対してセーフ ブラウジングを有効にする</translation>
 <translation id="4517327050150780380">文書読解サポート機能の設定</translation>
 <translation id="4518251772179446575">サイトがユーザーの物理的な現在地を追跡しようとしたときに毎回確認する</translation>
@@ -5135,6 +5213,22 @@ WebSQL は M112 で削除されました。</translation>
 
 <ph name="IP_PROTECTION_NAME" /> は M139 以降にリリースされます。</translation>
 <translation id="4525328580251166229">Bruschetta サブシステムに関連するポリシーを制御します。</translation>
+<translation id="452801090660038046">このポリシーでは、WebSocket 以外のリクエストのプロキシ サーバーごとの最大同時接続数を指定できます。WebSocket リクエストの上限を変更するには、<ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" /> をご確認ください。
+
+このポリシーを未設定のままにした場合、デフォルト値の 128 が使用されます。
+
+ウェブアプリの中には、GET リクエストを開いたまま接続を多数保持するものがあります。そのため、128 未満の値を設定した場合、もし多数のウェブアプリでこのような接続が開いたままになると、ブラウザのネットワーク接続が停止してしまう可能性があります。
+プロキシ サーバーによっては 1 クライアントに対して多数の同時接続を処理できない場合があります。この問題を解決するには、このポリシーを小さい値に設定します。
+
+値は 6 以上にする必要があります。
+この制限を下回る値を設定すると、6 が使用されます。
+なお、デフォルト値（128）より小さい値を設定する場合は、ご自身の責任において行ってください。
+
+値は 256 以下にする必要があります（<ph name="PRODUCT_NAME" /> 147 以前では 99 以下）。
+この制限を超える値を設定すると、256（<ph name="PRODUCT_NAME" /> 147 以前では 99）が使用されます。
+なお、デフォルト値（128）より大きい値を設定する場合は、ご自身の責任において行ってください。
+
+適用される上限は <ph name="ALLOW_SOCKET_POOL_SIZE_RANDOMIZATION_FOR_PROXIES_POLICY_NAME" /> の影響を受けることにご注意ください。</translation>
 <translation id="4528981768990874684"><ph name="IP_PROTECTION_NAME" /> 機能を無効にする。</translation>
 <translation id="453031441196755904">このポリシーはサポートを終了しました。</translation>
 <translation id="4531706050939927436">Android アプリを強制的にインストールするには、Google 管理コンソールで Google Play からのインストールを指定します。Android アプリでこのポリシーは使用されません。</translation>
@@ -5231,6 +5325,7 @@ URL パターンは、<ph name="CONTROLLED_FRAME_BLOCKED_FOR_URLS_POLICY_NAME" /
           問題はありません。
           </translation>
 <translation id="4578265298946081589">ユーザーのログアウト時に再起動しません。</translation>
+<translation id="4579171808398039136">ユーザーにプロンプトを表示せずに、独立したウェブアプリによる Sub Apps Add API の使用をブロックする</translation>
 <translation id="4581507927311097234">ユーザー入力が行われなくなってから画面をオフにするまでの時間（ミリ秒）</translation>
 <translation id="4582027661281685066">URL パターンのリストを指定します。このリストのパターンと一致するオリジンのウェブサイトから送信されたリクエストは、<ph name="PRIVATE_NETWORK_ACCESS" />　のチェック対象外となります。
 
@@ -5542,23 +5637,6 @@ JavaScript の最適化ポリシーの例外は、サイトの詳細レベル（
       有効に設定した場合、Gemini の紹介画面が表示されます。
 
       未設定の場合、Gemini の紹介画面は企業の管理対象ユーザーに対してはスキップされ、管理対象外ユーザーには表示されます。</translation>
-<translation id="4781685421378746692">このポリシーでは、<ph name="PRODUCT_NAME" /> のサイドパネルやタブでページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> や <ph name="GOOGLE_LENS_PRODUCT_NAME" /> と共有できるようにするかどうかを制御します。
-
-なお、このポリシーはウェブ上の <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> には影響しません。このポリシーは、ユーザーが <ph name="PRODUCT_NAME" /> の使用時に情報を共有するかどうかのみを制御します。
-
-0 / 未設定 = ユーザーはページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> と共有できます。
-
-1 = ユーザーはページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> と共有できません。コンテキストを共有するためのエントリ ポイントとサイドパネルは無効になるか、非表示になります。
-
-<ph name="GOOGLE_SEARCH_PRODUCT_NAME" /> がユーザーのデフォルトの検索エンジンでない場合、この機能は無効になっているため、このポリシーは無視されます。
-
-このポリシーは、<ph name="AI_MODE_SETTINGS_POLICY_NAME" /> ポリシーとは関係なく動作します。<ph name="AI_MODE_SETTINGS_POLICY_NAME" /> ポリシーはアドレスバーまたは新しいタブページの検索ボックスのエントリ ポイントのみを制御し、このポリシーはサイドパネルやタブでのコンテキストの共有を制御します。
-
-また、このポリシーは、<ph name="GEMINI_SETTINGS_POLICY_NAME" /> を使用して無効にできる組み込みの <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> にも影響しません。
-
-このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。
-
-生成 AI 機能のデータ処理について詳しくは、https://support.google.com/chrome/a?p=generative_ai_settings をご覧ください。</translation>
 <translation id="4783415902268741066">ブラウザのサイドパネルにデフォルトの検索エンジンの最新の検索結果ページを表示することを許可します</translation>
 <translation id="4786784434769279324">パソコンがアイドル状態になったときに行う動作</translation>
 <translation id="4787763197941188108">デフォルトの印刷ページサイズをオーバーライドします。
@@ -5569,6 +5647,13 @@ JavaScript の最適化ポリシーの例外は、サイトの詳細レベル（
 <translation id="4789450349513792856">これらのサイトでポップアップをブロックする</translation>
 <translation id="4790391579868456557">検索に必須の Cookie と必須でない Cookie を使用する。</translation>
 <translation id="4790588245699320140">Google アシスタントに画面のコンテキストへのアクセスを許可する</translation>
+<translation id="4797001637482545491">Chrome が関連する場面で AI 機能を提案することを許可します。
+
+0 / 未設定 = ユーザーに対して Chrome の提案を有効にします。
+
+1 = ユーザーに対して Chrome の提案を無効にします。
+
+詳しくは、ヘルプセンター記事（https://support.google.com/chrome/a?p=chrome_suggestions）をご覧ください。</translation>
 <translation id="4799820756794591883">TLS 1.3 早期データは、TLS 1.3 の拡張機能で、TLS handshake と同時に HTTP リクエストを送信します。
 
       このポリシーを設定しない場合、<ph name="PRODUCT_NAME" /> ではデフォルトのロールアウト プロセスに沿って TLS 1.3 早期データが有効になります。
@@ -5683,6 +5768,7 @@ JavaScript の最適化ポリシーの例外は、サイトの詳細レベル（
 URL パターンは、<ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" /> と競合しないようにする必要があります。URL が両方のポリシーの URL パターンと一致する場合、どちらのポリシーも優先されません。
 
 有効な URL パターンについて詳しくは、https://chromeenterprise.google/policies/url-patterns をご覧ください。このポリシーの値に「<ph name="WILDCARD_VALUE" />」は使用できません。</translation>
+<translation id="4883562563790831457">シークレット モードを分離モードで置き換える</translation>
 <translation id="4885338965457068455"><ph name="PRODUCT_NAME" /> PDF ビューアから Google ドライブに PDF ファイルを保存できる Google アカウントかどうかを判別する正規表現を指定します。
 
       ユーザーがこのパターンと一致しないアカウントを使用して Google ドライブに PDF ファイルをアップロードしようとした場合、エラーが表示されます。
@@ -5711,6 +5797,7 @@ URL パターンは、<ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" /> 
       - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、ブラウザの機能が制限されます。
 
       - このポリシーが <ph name="SKIP_TOS_DIALOG" /> の場合、管理者はそのことをデバイスのエンドユーザーに知らせる必要があります。</translation>
+<translation id="4896469165628792802"><ph name="GEMINI_SPARK_PRODUCT_NAME" /> が <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用することを許可する。</translation>
 <translation id="489760181463331251">このポリシーでは、メモリセーバーの節約設定を変更します。
 
 このポリシーは、設定または <ph name="HIGH_EFFICIENCY_MODE_ENABLED_POLICY_NAME" /> ポリシーでメモリセーバーが有効になっている場合のみ有効で、ヒューリスティックを使ったタブを破棄するタイミングの決定に影響します。たとえば、非アクティブなタブを破棄するのではなく有効期間を短くすると、メモリを節約できますが、タブが頻繁に再読み込みされるため、ユーザー エクスペリエンスの低下やネットワーク トラフィックの増加につながる可能性があります。
@@ -6159,13 +6246,6 @@ Attribution Reporting API のサポート終了により、このポリシーは
 <translation id="5182483318861266793">シェルフを画面の右側に配置する</translation>
 <translation id="51859390023061147">完全復元機能を無効にする</translation>
 <translation id="5189360528842591274">接続を許可する Bluetooth サービスのリストを指定する</translation>
-<translation id="5190426551516379357">このポリシーでは、YouTube で制限付きモードの下限を強制適用して、ユーザーがこれより緩い制限付きモードを選択できないようにします。このポリシーには次の値を設定できます。
-
-      * 強: YouTube で制限付きモード「強」が常に有効になります。
-
-      * 中: ユーザーは YouTube で制限付きモード「中」または「強」のみ選択できます。制限付きモードをオフにすることはできません。
-
-      * オフまたは未設定: Chrome によって YouTube の制限付きモードは適用されません。ただし、YouTube ポリシーなどの外部ポリシーによって制限付きモードが適用される可能性があります。</translation>
 <translation id="5191007233343702012">標準のタブの優先度を使用する</translation>
 <translation id="5191476996923842491">setTimeout() 関数のタイムアウト処理にデフォルトの動作を使用する。</translation>
 <translation id="519247340330463721">セーフ ブラウジングに関するポリシーを設定します。</translation>
@@ -6470,6 +6550,7 @@ Attribution Reporting API のサポート終了により、このポリシーは
 値を true に設定するか未設定のままにした場合、選択した教師は音声を文字に変換して生徒に送信できます。
 
 false に設定した場合、教師はこの機能にアクセスできません。</translation>
+<translation id="5377484655498931153"><ph name="GEMINI_SPARK_PRODUCT_NAME" /> が <ph name="PRODUCT_NAME" /> に接続して自動ブラウジングを使用することを許可しない。</translation>
 <translation id="5377606826822211923">信頼できない提供元の Android アプリの使用をユーザー単位で管理する</translation>
 <translation id="537786648513450280">信頼できない提供元の Android アプリの使用をデバイス単位で管理する</translation>
 <translation id="5378885577701865339">クリップボードの共有機能を無効にする</translation>
@@ -6610,15 +6691,6 @@ false に設定した場合、教師はこの機能にアクセスできませ�
 <translation id="5481873128882951841">Krisp ノイズ キャンセリングをオフにする</translation>
 <translation id="5483012943408894695">保護されていない発行元に関する制限の適用対象外となる発行元またはホスト名パターン</translation>
 <translation id="5483065054530244863">ローカルの信頼済みアンカーが発行した SHA-1 署名証明書を許可する</translation>
-<translation id="5485491014653571963">この設定では、Gemini アプリの統合を許可します。
-
-0 / 未設定 = ユーザーは Gemini の統合を使用できます。
-
-1 = ユーザーは Gemini の統合を使用できません。
-
-このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。
-
-詳しくは、ヘルプセンター記事（https://support.google.com/chrome/a?p=gemini_in_chrome）をご覧ください。</translation>
 <translation id="5486917900445838803">このポリシーを有効に設定するか未設定のままにした場合、グラフィック アクセラレーションがオンになります（可能な場合）。
 
       このポリシーを無効に設定した場合、グラフィック アクセラレーションはオフになります。</translation>
@@ -6866,29 +6938,6 @@ https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_clien
 <translation id="5622924058222112599">デフォルトの CECPQ2 導入プロセスを有効にする</translation>
 <translation id="5623304306796942802">複数の証明書が一致した場合にメッセージを表示する</translation>
 <translation id="5624310713789233422">ツールバーでの企業プロフィール バッジの公開設定を管理する</translation>
-<translation id="5624334866248253262">データ漏洩を防止するためのデータ管理ルールのリストを設定します。
-
-      各ルールは以下で構成されます。
-      - ルールをトリガーする条件フィールド。ルールがトリガーされるのは、<ph name="DATA_CONTROLS_SOURCES" />、<ph name="DATA_CONTROLS_DESTINATIONS" />、<ph name="DATA_CONTROLS_AND" />、<ph name="DATA_CONTROLS_OR" />、<ph name="DATA_CONTROLS_NOT" /> フィールドに入力された全フィールドにユーザー アクションが一致する場合のみです。リストのサブフィールドでは、一致するエントリが 1 つあれば（例: 1 つの URL パターンが一致すれば）、ルールがトリガーされる条件が満たされます。
-      - 適用する制限のリスト。制限に応じて、<ph name="DATA_CONTROLS_SOURCES" /> 条件または <ph name="DATA_CONTROLS_DESTINATIONS" /> 条件のみを使用できます。
-
-      ルールでは次の項目を管理できます。
-      - 参照元と参照先の間で共有するクリップボード データ。
-      - ソースタブに基づくスクリーンショットのブロック。
-
-      <ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" /> ポリシーが True に設定されている場合、トリガーされたルールは管理者に報告されます。
-      制限レベルは「BLOCK」、「WARN」、「REPORT」に設定できます。
-      - 制限レベルを「BLOCK」に設定した場合、アクションは許可されません。
-      - 制限レベルを「WARN」に設定した場合、ユーザーに警告が表示されます。ユーザーはアクションを実行するかキャンセルするかを選択できます。
-      - 制限レベルを「REPORT」に設定した場合、ユーザー アクションは中断されませんが、<ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" /> ポリシーが有効であればレポートが送信されます。
-
-      注:
-      - URL パターンは、https://support.google.com/chrome/a?p=url_blocklist_filter_format の形式で指定します。
-      - <ph name="PRODUCT_OS_NAME" /> 固有のデータ漏洩防止ルールについては、<ph name="DATA_LEAK_PREVENTION_RULES_LIST" /> ポリシーもご覧ください。
-
-      このポリシーを未設定のままにした場合、制限は適用されません。
-
-      このポリシーは、Chrome Enterprise Premium ライセンスが割り当てられているユーザーのみが使用できます。</translation>
 <translation id="5625771176514429288">指定プラットフォームで Chrome アプリを実行できる。</translation>
 <translation id="5627270992026554674">教師に Google Classroom のクラス名簿の使用を許可しない。</translation>
 <translation id="5630352020869108293">最後のセッションを復元する</translation>
@@ -7481,20 +7530,6 @@ IP アドレス空間のオーバーライドには次の 2 つの形式があ�
 値を true に設定するか未設定のままにした場合、教師は Google Classroom のクラス名簿を使用できます。
 
 false に設定した場合、教師はこの機能にアクセスできません。</translation>
-<translation id="6061604539167728530">このポリシーでは、WebSocket 以外のリクエストのプロキシ サーバーごとの最大同時接続数を指定できます。WebSocket リクエストの上限を変更するには、<ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" /> をご確認ください。
-
-このポリシーを未設定のままにした場合、デフォルト値の 128 が使用されます。
-
-ウェブアプリの中には、GET リクエストを開いたまま接続を多数保持するものがあります。そのため、128 未満の値を設定した場合、もし多数のウェブアプリでこのような接続が開いたままになると、ブラウザのネットワーク接続が停止してしまう可能性があります。
-プロキシ サーバーによっては 1 クライアントに対して多数の同時接続を処理できない場合があります。この問題を解決するには、このポリシーを小さい値に設定します。
-
-値は 6 以上にする必要があります。
-この制限を下回る値を設定すると、6 が使用されます。
-なお、デフォルト値（128）より小さい値を設定する場合は、ご自身の責任において行ってください。
-
-値は 256 以下にする必要があります（<ph name="PRODUCT_NAME" /> 147 以前では 99 以下）。
-この制限を超える値を設定すると、256（<ph name="PRODUCT_NAME" /> 147 以前では 99）が使用されます。
-なお、デフォルト値（128）より大きい値を設定する場合は、ご自身の責任において行ってください。</translation>
 <translation id="6066761914755798079"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> がオンの場合に、<ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POLICY_NAME" /> では、検索候補を表示する検索エンジンの URL を指定できます。この URL には <ph name="SEARCH_TERM_MARKER" /> という文字列を含めます。この文字列は、クエリの送信時にユーザーが指定した検索キーワードに置き換えられます。
 
       Google の検索 URL は次のように指定できます。<ph name="GOOGLE_SUGGEST_SEARCH_URL" /></translation>
@@ -7732,6 +7767,26 @@ false に設定した場合、教師はこの機能にアクセスできませ�
 <translation id="624219423122512710">アイドル時のブラウザの動作</translation>
 <translation id="6244061205361004687">ユーザーによる手動での VPN の接続解除や変更を許可する</translation>
 <translation id="6244210204546589761">起動時に開く URL</translation>
+<translation id="6244263962918757383">ChromeSuggestions の設定</translation>
+<translation id="6245828368576563662">このポリシーでは、特定の URL パターンに一致するウェブ リクエストにカスタム HTTP ヘッダーを挿入するルールのリストを定義できます。このポリシーで設定したヘッダーは、リクエストに最初に存在していたヘッダーや、ユーザーまたは拡張機能によって試行された変更より優先されます。
+
+このポリシーの一般的なユースケースは、カスタム ヘッダー（例: <ph name="EXAMPLE_HEADER_NAME" />）を挿入してテナントのアクセス制御を適用することです。
+
+このポリシーでは、ルールのリストを指定できます。各ルールの構成要素:
+
+* <ph name="PATTERNS_KEY" />: 対象とする URL パターンのリスト。URL パターンの指定方法（https://support.google.com/chrome/a?p=url_blocklist_filter_format）をご確認ください。
+
+* <ph name="HEADERS_KEY" />: 挿入するヘッダーのオブジェクトのリスト。各オブジェクトの構成要素は次のとおりです。
+
+  * <ph name="HEADER_NAME_KEY" />: 挿入するヘッダーの名前。
+
+  * <ph name="HEADER_VALUE_KEY" />: 挿入するヘッダーの値。
+
+リクエストに複数のルールが一致する場合、一致したすべてのルールのヘッダーが適用されます。同じ名前のヘッダーが複数ある場合は、URL パターンの指定が最も詳細なヘッダーが適用されます。パターンの詳細度が同じ場合は、リストで最後のほうに指定されたパターンが適用されます。
+
+ヘッダー名は RFC 2616（https://www.rfc-editor.org/rfc/rfc2616）に準拠している必要があります。ヘッダー値に NUL、CR、LF 記号を含めることはできません。個々のヘッダーのサイズは 8 KB 未満である必要があります。無効なヘッダーと URL パターンは無視されます。
+
+このポリシーで指定できる URL パターンは、すべてのルールを合わせて最大 500 件です。各ルールには最大 20 個のヘッダーを含めることができます。これらの上限を超えるパターンとヘッダーは無視されます。</translation>
 <translation id="624595269193747921">照合するプリンタの検索の対象を特定のプリンタに限定するかどうかを指定します。</translation>
 <translation id="6246290059248303618">ローカル ネットワーク上の他のデバイスによって開始された <ph name="PRODUCT_NAME" /> セッションのメディア コントロールを表示する</translation>
 <translation id="6247316685259031374">このポリシーでは、音声処理のサンドボックス化を管理します。
@@ -7982,17 +8037,46 @@ Origin-Agent-Cluster HTTP ヘッダーは、オリジンキー エージェン�
 <translation id="6378076389057087301">音声操作を電源管理に関連付けるかどうかを指定する</translation>
 <translation id="6378393933102834628">このポリシーを True に設定した場合、アプリのショートカットが表示されます。このポリシーを False に設定した場合、このショートカットは表示されません。このポリシーを設定した場合、ユーザーは設定を変更できません。設定しない場合、アプリのショートカットの表示と非表示は、ユーザーがブックマーク バーのコンテキスト メニューから指定します。</translation>
 <translation id="638003144128412430">デバイスのタイムゾーン情報レポートを無効にする</translation>
+<translation id="638217866669468708">このポリシーでは、<ph name="PRODUCT_NAME" /> のサイドパネルやタブでページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> や <ph name="GOOGLE_LENS_PRODUCT_NAME" /> と共有できるようにするかどうかを制御します。
+
+なお、このポリシーはウェブ上の <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> には影響しません。このポリシーは、ユーザーが <ph name="PRODUCT_NAME" /> の使用時に情報を共有するかどうかのみを制御します。
+
+0 = ユーザーはページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> と共有できます。
+
+1 = ユーザーはページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> と共有できません。コンテキストを共有するためのエントリ ポイントとサイドパネルは無効になるか、非表示になります。
+
+<ph name="GOOGLE_SEARCH_PRODUCT_NAME" /> がユーザーのデフォルトの検索エンジンでない場合、この機能は無効になっているため、このポリシーは無視されます。
+
+このポリシーは、<ph name="AI_MODE_SETTINGS_POLICY_NAME" /> ポリシーとは関係なく動作します。<ph name="AI_MODE_SETTINGS_POLICY_NAME" /> ポリシーはアドレスバーまたは新しいタブページの検索ボックスのエントリ ポイントのみを制御し、このポリシーはサイドパネルやタブでのコンテキストの共有を制御します。
+
+また、このポリシーは、<ph name="GEMINI_SETTINGS_POLICY_NAME" /> を使用して無効にできる組み込みの <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> にも影響しません。
+
+このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。
+
+生成 AI 機能のデータ処理について詳しくは、https://support.google.com/chrome/a?p=generative_ai_settings をご覧ください。</translation>
 <translation id="6382209369210116232">非公開の拡張機能を無効にする</translation>
-<translation id="6382287177674997281">このポリシーでは、ユーザーにすべての種類のファームウェアの更新を許可するかどうかを設定します。
-
-      このポリシーを有効に設定した場合、デバイス所有者などのユーザーにファームウェアの更新を許可します。
-
-      このポリシーを無効に設定するか未設定のままにした場合は、すべてのユーザーがファームウェアを更新できます。
-
-      このポリシーは、外部周辺機器のファームウェアの更新と、<ph name="PRODUCT_OS_FLEX_NAME" /> デバイスの内部コンポーネントのファームウェアの更新に適用されます。<ph name="PRODUCT_OS_NAME" /> デバイスの内部コンポーネントのファームウェアの更新には適用されません。</translation>
 <translation id="6383774771168138899"><ph name="MICROSOFT_ONE_DRIVE_NAME" /> と <ph name="MICROSOFT_365_NAME" /> の<ph name="CLOUD_UPLOAD_NAME" /> フローを設定する</translation>
 <translation id="6384542789059421431">ブラウザのサイドパネルにおけるデフォルトの検索エンジンの検索結果ページの表示を有効にします。</translation>
 <translation id="6389240462871677239">独立したウェブアプリのオリジンに Controlled Frame の使用を許可する</translation>
+<translation id="6393598243777822017">このポリシーでは、<ph name="PRODUCT_NAME" /> のサイドパネルやタブでの <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> のスマートタブ共有機能を制御します。
+
+なお、このポリシーはウェブ上の <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> には影響しません。このポリシーは、ユーザーが <ph name="PRODUCT_NAME" /> の使用時に情報を共有するかどうかのみを制御します。
+
+0 = ユーザーはページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> と共有できます。
+
+1 = ユーザーはページやファイルのコンテンツを <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> と共有できません。コンテキストを共有するためのエントリ ポイントとサイドパネルは無効になるか、非表示になります。
+
+<ph name="GOOGLE_SEARCH_PRODUCT_NAME" /> がユーザーのデフォルトの検索エンジンでない場合、この機能は無効になっているため、このポリシーは無視されます。
+
+このポリシーは、<ph name="AI_MODE_SETTINGS_POLICY_NAME" /> ポリシーとは関係なく動作します。<ph name="AI_MODE_SETTINGS_POLICY_NAME" /> ポリシーはアドレスバーまたは新しいタブページの検索ボックスのエントリ ポイントのみを制御し、このポリシーはサイドパネルやタブでのコンテキストの共有を制御します。
+
+また、このポリシーは、<ph name="GEMINI_SETTINGS_POLICY_NAME" /> を使用して無効にできる組み込みの <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> にも影響しません。
+
+<ph name="SEARCH_CONTENT_SHARING_SETTINGS_POLICY_NAME" /> が無効になっている場合、このポリシーは無視されます。
+
+このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。
+
+生成 AI 機能のデータ処理について詳しくは、https://support.google.com/chrome/a?p=generative_ai_settings をご覧ください。</translation>
 <translation id="6394350458541421998">このポリシーは <ph name="PRODUCT_OS_NAME" /> バージョン 29 で廃止されました。PresentationScreenDimDelayScale ポリシーを代わりに使用してください。</translation>
 <translation id="6397588391180665797">登録済みデバイスのユーザーのネットワーク設定を報告します。
 
@@ -8132,13 +8216,6 @@ False に設定すると、P2P は使用されません。
 <translation id="6483115462650732746">キオスクモードでユーザー補助のフローティング メニューを表示する</translation>
 <translation id="6491139795995924304">デバイスで Bluetooth を許可する</translation>
 <translation id="6491305972928809525">キオスクモードでユーザー補助のフローティング メニューを表示しない</translation>
-<translation id="6491872498385040936">このポリシーはサポートを終了しました。このポリシーより優先され、より詳細な設定を行える <ph name="FORCE_YOUTUBE_RESTRICT_POLICY_NAME" /> の使用をご検討ください。
-
-      YouTube で制限付きモード「中」を自動的に適用します。ユーザーはこの設定を変更できません。
-
-      この設定が有効な場合、YouTube では「中」以上の制限付きモードが常に適用されます。
-
-      この設定が無効または未設定の場合、<ph name="PRODUCT_NAME" /> によって YouTube の制限付きモードは適用されません。ただし、YouTube ポリシーなどの外部ポリシーによって適用される可能性があります。</translation>
 <translation id="6492177700737407141">高度な保護機能プログラムに登録済みのユーザーも標準の消費者向け保護機能のみ使用できるようにする</translation>
 <translation id="6492737559291967859">このポリシーでは、<ph name="PRODUCT_NAME" /> で使用する言語 / 地域を指定します。
 
@@ -8618,6 +8695,7 @@ False に設定すると、P2P は使用されません。
 このポリシーを有効に設定するか未設定のままにした場合、ユーザーはコンテキスト メニューから <ph name="GOOGLE_PHOTOS_PRODUCT_NAME" /> に画像を保存できます。このポリシーを無効に設定した場合、このオプションはコンテキスト メニューに表示されません。
 このポリシーは、ユーザーがコンテキスト メニュー以外の方法で <ph name="GOOGLE_PHOTOS_PRODUCT_NAME" /> に画像を保存する妨げにはなりません。</translation>
 <translation id="6823711520976094072">1 MB 未満に設定するか未設定のままにした場合、<ph name="PRODUCT_OS_NAME" /> では、デフォルトで 256 MB のキャッシュ サイズを使用して、1 台のデバイスで複数のユーザーがインストールするアプリと拡張機能をキャッシュに保存します。これにより、ユーザーごとに繰り返しダウンロードする必要がなくなります。</translation>
+<translation id="6828918560681256273">Service Worker から呼び出されたときにバックグラウンド フェッチ API を制限する</translation>
 <translation id="6829632070341067746">このポリシーでは、PPAPI プラグインでの Graphics3D API の最新のリファクタリングを管理します。
 
 この移行は内部実装の詳細にのみ影響し、動作は変更されません。このポリシーは、PPAPI アプリケーションが想定どおりに動作しない場合にも使用できます。
@@ -8685,7 +8763,6 @@ False に設定すると、P2P は使用されません。
 <translation id="6857240169209507953">デバイスでの <ph name="BOREALIS_NAME" /> の実行をブロックする</translation>
 <translation id="6857372417233723544">このポリシーを設定した場合、<ph name="PRODUCT_OS_NAME" /> でヒンディー語（字母）レイアウトが有効になります。
 false に設定するか未設定のままにした場合、このレイアウトは使用できません。有効にするには再起動が必要です。</translation>
-<translation id="685769593149966548">YouTube で制限付きモード「強」を強制する</translation>
 <translation id="686079137349561371">Microsoft Windows 7 以降</translation>
 <translation id="6863927303509860338">新しいタブページでショートカットを設定する</translation>
 <translation id="6866755486434471318"><ph name="PEPPER_NAME" /> が共有画像を動画のデコードに使用することを許可する。</translation>
@@ -8990,12 +9067,6 @@ JavaScript の最適化ポリシーの例外は、サイトの詳細レベル（
       このポリシーを設定しない場合、シェルフはデフォルトで画面の下部に配置されますが、ユーザーはシェルフの位置を変更できます。</translation>
 <translation id="7039815268521168329">初期設定時に Google アシスタントの Voice Match 設定フローを表示する</translation>
 <translation id="7040229947030068419">サンプル値:</translation>
-<translation id="7044626519138840387">リモートホストのブラウジング セッションから送信された WebAuthn API リクエストを実行できるリモート デスクトップ クライアント アプリのオリジンのリストです。
-
-このポリシーで指定したオリジンは、通常は要求できないリライング パーティ ID（RP ID）の WebAuthn リクエストを送信できます。
-
-有効な HTTPS オリジンのみが許可されます。ワイルドカードはサポートされていません。
-無効なエントリは無視されます。</translation>
 <translation id="7044883996351280650">Android のバックアップと復元サービスを制御する</translation>
 <translation id="7045221780834308118">このポリシーを有効に設定した場合、サードパーティのウェブ アプリケーションが Desk API を使用して <ph name="PRODUCT_OS_NAME" /> デスクを制御できるようになります。このポリシーを未設定のままにするか無効に設定した場合、<ph name="DESK_API_NAME" /> は使用できません。このポリシーは登録済みのデバイスでのみ有効になります。</translation>
 <translation id="7046113122884041950">Smart Lock を許可しない</translation>
@@ -9011,6 +9082,13 @@ JavaScript の最適化ポリシーの例外は、サイトの詳細レベル（
 <translation id="7055022222176591388">古い <ph name="FLASH_PLUGIN_NAME" /> を許可しない</translation>
 <translation id="7056040036973126753">Chrome のユーザーに関する指標（UMA）のポリシーに基づき、必要に応じて Google にドメインの信頼性データを送信する</translation>
 <translation id="7062803946218028349">スマートフォン ハブの有効化を許可する</translation>
+<translation id="7063646777978847358">このポリシーでは、Service Worker からのバックグラウンド フェッチ リクエストを制限するかどうかを管理します。バックグラウンドでファイルをダウンロードする機能が影響を受ける場合は、このポリシーが関連している可能性があります。
+
+このポリシーを有効に設定するか未設定のままにした場合、制限が有効になり、Service Worker コンテキストからのバックグラウンド フェッチ リクエストがブロックされる可能性があります。
+
+このポリシーを無効に設定した場合、制限は回避され、すべての Service Worker からのバックグラウンド フェッチ リクエストが許可されます。
+
+このエンタープライズ ポリシーは一時的なものであり、M152 以降で削除される予定です。</translation>
 <translation id="7066292150801784098">リモート ユーザーがリモート アシスタンス セッションで権限昇格ウィンドウとやり取りできないようにする</translation>
 <translation id="706669471845501145">サイトに対してデスクトップ通知の表示を許可する</translation>
 <translation id="7067419518071223152">このポリシーでは、ファイル形式へのアクセスが許可されているウェブアプリの URL パターンリストを指定できます。
@@ -9343,7 +9421,6 @@ EphemeralNetworkPolicies 機能がデフォルトで有効になると、この�
 <translation id="7238335422094660594"><ph name="UIA_NAME" /> プロバイダを有効にする。</translation>
 <translation id="7241007908714447207">独立したウェブアプリのオリジンにスマートカード リーダーへの接続のリクエストを許可する。</translation>
 <translation id="7241016798422122577">ログイン画面でフェイスナビを有効にする</translation>
-<translation id="7242191282517459095">YouTube（バージョン 135 以降でサポート）</translation>
 <translation id="7244600351241637530">この設定を有効にした場合、スマートフォン ハブをすでにオプトインしているユーザーは、スマートフォンで最近撮影した写真と動画を ChromeOS 上で表示およびダウンロードできます。この設定を無効にした場合、ユーザーはこの機能を使用できません。<ph name="PHONE_HUB_ALLOWED_POLICY_NAME" /> ポリシーを無効にした場合も、ユーザーはこの機能を使用できません。このポリシーを未設定のままにした場合、デフォルトでは、企業の管理対象ユーザーと管理対象外ユーザーのいずれもこの機能を使用できます。</translation>
 <translation id="7246767840750730334">スマートフォン ハブの通知を有効にできるようにします。</translation>
 <translation id="7249828445670652637">ARC アプリで <ph name="PRODUCT_OS_NAME" /> の CA 証明書を使用できるようにする</translation>
@@ -9514,6 +9591,7 @@ URL パターンは、<ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" /> �
 <translation id="7372831798009983116">「自動クリック」のユーザー補助機能を有効にする</translation>
 <translation id="7373200034079131670">Android または VM が起動している場合、ユーザーのログアウト時に再起動する。</translation>
 <translation id="7374784840090523241">パスキーの作成にデフォルトで <ph name="PRODUCT_NAME" /> プロフィールなど他の場所を使用します。</translation>
+<translation id="73755679940750599">ユーザーにプロンプトを表示せずに、独立したウェブアプリのオリジンによるサブアプリの追加を許可する</translation>
 <translation id="7375785904116479354">このポリシーを有効に設定した場合、初回実行時に以前の既定のブラウザから既定の検索エンジンが読み込まれます。このポリシーを無効に設定するか未設定のままにした場合、初回実行時に既定の検索エンジンは読み込まれません。
 
       ユーザーはインポート ダイアログを表示できます。このとき、既定の検索エンジンのチェックボックスは、このポリシーの値に合わせてオンまたはオフになります。</translation>
@@ -10303,6 +10381,7 @@ Topics API のサポート終了により、このポリシーは <ph name="PROD
 
 <ph name="ENABLE_MEDIA_ROUTER_POLICY_NAME" /> ポリシーが無効に設定されている場合は、このポリシーの値は適用されず、ツールバー アイコンは表示されません。</translation>
 <translation id="7933141401888114454">監視対象ユーザーを作成できるようにする</translation>
+<translation id="793360449603660370">組み込みの <ph name="GOOGLE_AI_MODE_PRODUCT_NAME" /> とのスマートタブ共有を許可する。</translation>
 <translation id="793473937901685727">ARC アプリで証明書を使用できるかどうかを設定します</translation>
 <translation id="7936302526928951356">ユーザー エージェント文字列のメジャー バージョンを固定しない。</translation>
 <translation id="7936632434238618620">このポリシーでは、Chrome でクライアント証明書を自動的に選択できるサイトを指定する URL パターンのリストを作成できます。値は文字列変換した JSON 辞書の配列で、それぞれ <ph name="AUTO_SELECT_CERTIFICATE_FOR_URLS_EXAMPLE" /> の形式で指定します。<ph name="URL_PATTERN_PLACEHOLDER" /> は、コンテンツを設定するパターンです。<ph name="FILTER_PLACEHOLDER" /> は、ブラウザで自動的に選択されるクライアント証明書の発行元を限定するフィルタです。なお、フィルタの設定にかかわらず、サーバーの証明書リクエストに一致する証明書のみが選択されます。Android と iOS の場合、選択できるのは Chrome でプロビジョニングしたクライアント証明書のみです。オペレーティング システム レベルでインストールされた証明書にはアクセスできません。
@@ -10330,11 +10409,13 @@ Topics API のサポート終了により、このポリシーは <ph name="PROD
 <translation id="7941975817681987555">ネットワーク接続でネットワーク動作を予測しない</translation>
 <translation id="794447754389837404">Direct Sockets API でプライベート ネットワーク アクセスをブロックするサイトを指定する</translation>
 <translation id="7945445169067895719">デバイスが一時停止されるかディスプレイが閉じられたときのロックを有効にする</translation>
+<translation id="7945744599423774764">プロキシのソケットプール サイズのランダム化を許可する</translation>
 <translation id="7946350455013548764">このポリシーを 3 に設定した場合、ウェブサイトは、HID デバイスへのアクセスを要求できます。このポリシーを 2 に設定した場合、HID デバイスへのアクセスは許可されません。
 
       このポリシーを未設定のままにした場合、ウェブサイトによるアクセス要求は許可されますが、ユーザーはこの設定を変更できます。
 
       特定の <ph name="URL_LABEL" /> パターンに対しては、<ph name="WEB_HID_ASK_FOR_URLS_POLICY_NAME" /> ポリシーと <ph name="WEB_HID_BLOCKED_FOR_URLS_POLICY_NAME" /> ポリシーを使ってこのポリシーをオーバーライドできます</translation>
+<translation id="794786228154185413">ユーザーにプロンプトを表示せずに、独立したウェブアプリによる Sub Apps Add API の使用を許可する</translation>
 <translation id="7950451717181391167">このポリシーでは、ユーザーが生徒や教師として <ph name="CLASS_TOOLS_NAME" /> を使用してコンテンツや文字起こしを送受信できるかどうか、またはユーザーに対してクラス管理ツールを無効にするかどうかを指定します。</translation>
 <translation id="7952007677054834789"><ph name="PRODUCT_NAME" /> の起動時に読み込むページ、デフォルトのホームページ、デフォルトの新しいタブページを設定し、ユーザーがこの設定を変更できないようにします。
 
@@ -10390,6 +10471,11 @@ Topics API のサポート終了により、このポリシーは <ph name="PROD
           このポリシーは Chrome 110 で削除されました。
                                         </translation>
 <translation id="7976157349247117979"><ph name="PRODUCT_NAME" /> のレシーバー名</translation>
+<translation id="7981824720804106055">デフォルトでは、独立したウェブアプリ（IWA）は、ユーザーがプロンプトを確認した場合にサブアプリを追加できます。
+
+このポリシーでは、ユーザーにプロンプトを表示せずにサブアプリの追加をブロックする IWA のオリジンを指定します。
+
+このポリシーは、<ph name="DEFAULT_SUB_APPS_WITHOUT_PROMPTS_SETTING_POLICY_NAME" /> と <ph name="SUB_APPS_WITHOUT_PROMPTS_ALLOWED_FOR_ORIGINS_POLICY_NAME" /> の動作をオーバーライドします。</translation>
 <translation id="7985242821674907985"><ph name="PRODUCT_NAME" /></translation>
 <translation id="7985781946183471651"><ph name="PRODUCT_OS_NAME" /> の Glanceables</translation>
 <translation id="7986473886676689183">Android のレポート機能を有効にする</translation>
@@ -10550,7 +10636,6 @@ Topics API のサポート終了により、このポリシーは <ph name="PROD
 
 <ph name="SCREENSAVER_LOCK_SCREEN_ENABLED_POLICY_NAME" /> ポリシーが false に設定されている場合、このポリシーは無視されます。</translation>
 <translation id="8113731369695819720">ログイン画面でモノラル音声を無効にする</translation>
-<translation id="8114382167597081590">YouTube で制限モードを強制適用しない</translation>
 <translation id="8117662664312039036">デバイスでの PluginVm の使用を許可しない</translation>
 <translation id="8117921351531866504">保存されているお支払い方法の確認をウェブサイトに許可するかどうかを設定します。
 
@@ -10653,6 +10738,15 @@ false に設定した場合、管理対象のネットワークに接続され�
 
 有効な URL パターンについて詳しくは、https://support.google.com/chrome/a?p=url_blocklist_filter_format をご覧ください。</translation>
 <translation id="8186911565834244165">ユーザーからのフィードバックを許可する</translation>
+<translation id="8190271041226151932">この設定では、Gemini アプリの統合を許可します。
+
+0 = ユーザーは Gemini の統合を使用できます。
+
+1 = ユーザーは Gemini の統合を使用できません。
+
+このポリシーを未設定のままにした場合、動作は <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" /> ポリシーによって決まります。
+
+詳しくは、ヘルプセンター記事（https://support.google.com/chrome/a?p=gemini_in_chrome）をご覧ください。</translation>
 <translation id="8195133650230097559">電源管理の wake lock のリクエストを無視する</translation>
 <translation id="8196558469954193908">クライアント証明書が使用されているときに HTTP/2 接続の統合を許可するよう指定します。接続を統合するには、新しい接続候補のホスト名と既存の接続のホスト名が、このポリシーに記述されているパターンの 1 つ以上に一致する必要があります。このポリシーでは、<ph name="URL_BLOCKLIST_POLICY_NAME" /> フィルタの形式を使ってホストのリストを指定します。たとえば、「example.com」と指定すると「example.com」とすべてのサブドメイン（「sub.example.com」など）が一致することになりますが、「.example.net」と指定すると「example.net」のみが一致することになります。
 
@@ -10892,6 +10986,7 @@ false に設定した場合、管理対象のネットワークに接続され�
 <translation id="8337114537412769126"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> がオンの場合に、<ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POST_PARAMS_POLICY_NAME" /> では、POST を使ったキーワード候補の検索に使用するパラメータを指定できます。名前と値のペアをカンマで区切って指定します。テンプレート パラメータ（<ph name="SEARCH_TERM_MARKER" /> など）の値は、実際の検索キーワードのデータに置き換えられます。
 
       <ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POST_PARAMS_POLICY_NAME" /> を未設定のままにした場合、キーワードの候補による検索リクエストは GET メソッドを使用して送信されます。</translation>
+<translation id="8337200442224446773">プロキシのソケットプールのランダム化を許可しない</translation>
 <translation id="8337961007759352651">ワーカー（Web Worker、Service Worker など）のスクリプトで JavaScript MIME タイプ（<ph name="MIMETYPE_TEXT_JAVASCRIPT" /> など）を必須にする。従来の MIME タイプ（<ph name="MIMETYPE_TEXT_ASCII" /> など）のワーカー スクリプトは拒否する。</translation>
 <translation id="8339089771335211509">WebRTC は公開インターネットに接続されているインターフェースのみを使用し、接続にプライベート IP アドレスを使用できない。</translation>
 <translation id="8339420913453596618">2 段階認証プロセスを無効にする</translation>
@@ -10916,6 +11011,7 @@ false に設定した場合、管理対象のネットワークに接続され�
 このポリシーを未設定のままにすると、デフォルトの動作は <ph name="RUNTIME_ENABLED_VALUE_NAME" /> になります。
 
 注: このポリシーは、webkit の接頭辞付きの全画面 API からの移行をサポートするための一時的なソリューションです。M131 は、このポリシーが存在する最後のリリースです。</translation>
+<translation id="8355021858374793722">Sub Apps Add API の使用を制御する</translation>
 <translation id="8356953698979920095">このポリシーに値を設定した場合、ユーザーのログイン中、デフォルトでデバイスのキーボード バックライトの色が設定した色になります。</translation>
 <translation id="8357681633047935212">ユーザー セッションの長さを制限する</translation>
 <translation id="8357989008292691856">ログイン ユーザーの許可リスト</translation>
@@ -11028,6 +11124,7 @@ false に設定した場合、管理対象のネットワークに接続され�
 
       このポリシーを設定した場合は、制限を超えないように、古いスナップショットが必要に応じて削除されます。このポリシーを 0 に設定した場合、スナップショットは作成されません。</translation>
 <translation id="8446679541472571487">ログイン時に AI の紹介画面を表示する</translation>
+<translation id="8451205236854734195">Chrome の提案を許可する</translation>
 <translation id="8451988835943702790">新しいタブ ページをホームページとして使用する</translation>
 <translation id="8452787853105404870">ChromeOS Flex の改善に役立てるため、Google にハードウェア データを送信する</translation>
 <translation id="8453218444172088993">ユーザーが <ph name="PRIVACY_SANDBOX_NAME" /> の広告トピック設定を変更できないようにする。</translation>
@@ -11047,7 +11144,6 @@ false に設定した場合、管理対象のネットワークに接続され�
 <translation id="846994437739309080">有効（または未設定のまま）にすると、プラットフォームのトラストストアからユーザーが追加した TLS 証明書が、TLS サーバー認証のパス構築に使用されます。
 
 無効にすると、プラットフォームのトラストストアからユーザーが追加した TLS 証明書は、TLS サーバー認証のパス構築に使用されません。</translation>
-<translation id="8470317291588703478">YouTube の制限付きモードを強制的に適用しない</translation>
 <translation id="8471117881949952479">このポリシーは非推奨になっており、いずれ DataControlsRules に置き換えられる予定です。
 
 このポリシーでは、特定の URL 上のクリップボードへのデータのコピーをブロックします。
@@ -11167,7 +11263,6 @@ false に設定した場合、管理対象のネットワークに接続され�
 
       警告: ユーザーがソフトウェア アップデートや重要なセキュリティ修正を取得できなくなる可能性があるため、バージョンの制限を設定することは推奨されません。特定のバージョンに更新を制限すると、ユーザーが危険にさらされる恐れがあります。</translation>
 <translation id="8519617069657262768">Google ドライブの同期を有効にする</translation>
-<translation id="8520064498689833152">Google 検索と YouTube の制限付きモードで「中」以上のセーフサーチを強制的に適用する</translation>
 <translation id="8520950040439618600">リモート アクセスホストに PIN 認証方式とペア設定認証方式を許可する</translation>
 <translation id="8524334245528364388">プリント サーバーのリストを記載した JSON ファイルの URL です。</translation>
 <translation id="8525282442896658040">iOS で暫定的な通知許可を使用することをアプリに許可する</translation>
@@ -11313,6 +11408,7 @@ false に設定した場合、管理対象のネットワークに接続され�
 <ph name="PRODUCT_NAME" /> の場合、このポリシーは <ph name="CLOUD_MANAGEMENT_ENROLLMENT_TOKEN" /> で登録されたマシンでのみ有効です。
 <ph name="PRODUCT_OS_NAME" /> の場合、このポリシーは常に有効です。</translation>
 <translation id="8619748440665904084">初回実行時の自動入力フォームのデータのインポートを無効にする</translation>
+<translation id="8621146428060651659">プロキシのソケットプールのランダム化を許可する</translation>
 <translation id="862621549134406761">RSA 鍵用途の確認を有効にする</translation>
 <translation id="8626826495474944836">すべてのサイトに対してサイト分離を必須にする</translation>
 <translation id="8630797597241896082">生成 AI ビデオ通話背景と AI モデルの改善を許可する</translation>
@@ -11399,7 +11495,6 @@ JavaScript の最適化を無効にした場合（このポリシーの値を 2 
 <translation id="8676959842615154675">このポリシーを有効に設定した場合、リモート アクセス ホストは、そのホストが関連付けられているローカル ユーザーの名前と、ホストの所有者として登録されている Google アカウントの名前（たとえば、ホストの所有者が「johndoe@example.com」の場合は「johndoe」）を比較します。ホストの所有者の名前と、ホストが関連付けられているローカル ユーザーの名前が異なる場合、このホストは起動しません。所有者の Google アカウントが必ず特定のドメインと関連付けられるようにするには、このポリシーを <ph name="REMOTE_ACCESS_HOST_DOMAIN_POLICY_NAME" /> と一緒に使用してください。
 
       このポリシーを無効に設定するか未設定のままにした場合、リモート アクセス ホストは任意のローカル ユーザーと関連付けられます。</translation>
-<translation id="867708016260789630">YouTube の「中」以上の制限付きモードを強制的に適用する</translation>
 <translation id="8677853537025397834">WebHID API を許可するサイトを指定します</translation>
 <translation id="8684000025871334499"><ph name="PRODUCT_OS_NAME" /> での Bruschetta VM のインストールとランタイムのポリシーを設定します。この設定により、ユーザーはサードパーティの VM をインストールできるようになります。この機能はデフォルトでは無効になっています。
 
@@ -11464,7 +11559,6 @@ JavaScript の最適化を無効にした場合（このポリシーの値を 2 
       「http://acme.com/ABC」は [IESiteListMode] モードの場合のみ一致します。</translation>
 <translation id="8728854710675158426">TLS ハンドシェイクで安全でないハッシュを有効にする</translation>
 <translation id="8734543507835977857">セッション開始時に電力管理の遅延とセッションの時間制限のカウントを開始する</translation>
-<translation id="8736538322216687231">YouTube で一定レベル以上の制限付きモードを強制する</translation>
 <translation id="873800217865395140">ウェブサイトのテレメトリーの収集間隔（ミリ秒単位）。</translation>
 <translation id="8742596277791362306">このポリシーでは、関連ウェブサイト セット機能の有効化を管理できます。
 
@@ -11490,6 +11584,14 @@ JavaScript の最適化を無効にした場合（このポリシーの値を 2 
 <translation id="8757552286070680084">Wilco DTC の設定</translation>
 <translation id="8758831693895931466">クラウド管理への登録を必須にする</translation>
 <translation id="8759829385824155666">許可されている Kerberos 暗号化タイプ</translation>
+<translation id="8762128467207353085">リモートホストのブラウジング セッションから送信された WebAuthn API リクエストを実行できるリモート デスクトップ クライアント アプリのオリジンのリストです。
+
+このポリシーで指定したオリジンは、通常は要求できないリライング パーティ ID（RP ID）の WebAuthn リクエストを送信できます。
+
+有効な HTTPS オリジンのみが許可されます。ワイルドカードはサポートされていません。
+無効なエントリは無視されます。
+
+このポリシーは関連付けられたユーザーにのみ適用されます。</translation>
 <translation id="8765401957266318536"><ph name="PRODUCT_OS_NAME" /> でレンズとギャラリー アプリの統合を有効にする</translation>
 <translation id="8766308369516978190">このポリシーを有効に設定した場合、ユーザーはウェブで <ph name="ASSISTANT_PRODUCT_NAME" /> を使用できます（購入手続きやパスワード変更を迅速に行うためなど）。<ph name="ASSISTANT_PRODUCT_NAME" /> を使用するには、加えてユーザーによる同意が必要です。このポリシーが有効に設定されている場合でも、<ph name="ASSISTANT_PRODUCT_NAME" /> が実行されるのはユーザーが同意した場合のみです。
 
@@ -11614,7 +11716,6 @@ M119 よりデフォルトで無効になります）。
 このポリシーを有効に設定するか未設定のままにした場合、保護強化プロキシ チェックが許可されます。
 
 このポリシーを無効に設定した場合、保護強化プロキシ チェックは許可されません。URL の部分ハッシュが Google に直接アップロードされる頻度は大幅に低くなるため、保護の強度が低下します。</translation>
-<translation id="8858642179038618439">YouTube のセーフモードを強制的に有効にする</translation>
 <translation id="8860342862142842017">リストで指定された subjectPublicKeyInfo ハッシュに対して Certificate Transparency（証明書の透明性）の適用を無効にする</translation>
 <translation id="8860894781631833477"><ph name="PRODUCT_OS_NAME" /> のリリース チャンネルの設定をユーザーに許可する</translation>
 <translation id="8862086508140571198">このポリシーでは、DLC（ダウンロード可能なコンテンツ）のリストをできるだけ早くダウンロードするよう設定できます。ダウンロードした DLC は、デバイス上のすべてのユーザーが利用できます。
@@ -12126,10 +12227,12 @@ M119 よりデフォルトで無効になります）。
 <translation id="9206364386317031168">ローカル デバイスへのネットワーク リクエストを許可するサイトを指定する</translation>
 <translation id="9206472508136116830">NetBIOS 共有の検出を許可しない</translation>
 <translation id="9207596996305971030">ログイン / ログアウト イベントを報告しない</translation>
+<translation id="9208328979373108724">ユーザーがプロンプトを確認した場合に、独立したウェブアプリのオリジンによるサブアプリの追加を許可する</translation>
 <translation id="9210647066889383361">Smart Lock を使用したデバイスへのログインをユーザーに許可する</translation>
 <translation id="9212598607138782107">Okta® クラウド ID プロバイダ</translation>
 <translation id="9213751049772256263">すべてのバリエーションを無効にします</translation>
 <translation id="9217154963008402249">監視ネットワーク パケットの送信間隔</translation>
+<translation id="921762538903956073">分離モードを有効にする</translation>
 <translation id="9220314833408124365">デフォルトのリファラー ポリシー「no-referrer-when-downgrade」を使用する</translation>
 <translation id="922160134042190462">サードパーティの <ph name="PRODUCT_OS_NAME" /> 制御機能に対して <ph name="DESK_API_NAME" /> を有効にしない</translation>
 <translation id="9221827710437832530">ログイン画面で位置情報へのアクセスを許可する。</translation>

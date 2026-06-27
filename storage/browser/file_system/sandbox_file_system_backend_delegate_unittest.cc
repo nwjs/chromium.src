@@ -12,7 +12,6 @@
 #include "base/functional/bind.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/task_environment.h"
-#include "storage/browser/file_system/file_observers.h"
 #include "storage/browser/file_system/file_system_url.h"
 #include "storage/browser/test/mock_quota_manager_proxy.h"
 #include "storage/browser/test/test_file_system_options.h"
@@ -30,15 +29,51 @@ class MockFileChangeObserver : public FileChangeObserver {
   MockFileChangeObserver() = default;
   ~MockFileChangeObserver() override = default;
 
-  void OnCreateFile(const FileSystemURL& url) override {}
+  void AddRef() const override {}
+  void Release() const override {}
+
+  void Disable() override { is_disabled_ = true; }
+
+  void OnCreateFile(const FileSystemURL& url) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
   void OnCreateFileFrom(const FileSystemURL& url,
-                        const FileSystemURL& src) override {}
+                        const FileSystemURL& src) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
   void OnMoveFileFrom(const FileSystemURL& url,
-                      const FileSystemURL& src) override {}
-  void OnRemoveFile(const FileSystemURL& url) override {}
-  void OnModifyFile(const FileSystemURL& url) override {}
-  void OnCreateDirectory(const FileSystemURL& url) override {}
-  void OnRemoveDirectory(const FileSystemURL& url) override {}
+                      const FileSystemURL& src) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
+  void OnRemoveFile(const FileSystemURL& url) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
+  void OnModifyFile(const FileSystemURL& url) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
+  void OnCreateDirectory(const FileSystemURL& url) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
+  void OnRemoveDirectory(const FileSystemURL& url) override {
+    if (is_disabled_) {
+      return;
+    }
+  }
+
+ private:
+  bool is_disabled_ = false;
 };
 
 FileSystemURL CreateFileSystemURL(const char* path) {
@@ -51,6 +86,8 @@ FileSystemURL CreateFileSystemURL(const char* path) {
 
 class SandboxFileSystemBackendDelegateTest : public testing::Test {
  protected:
+  std::unique_ptr<SandboxFileSystemBackendDelegate> delegate_;
+
   void SetUp() override {
     ASSERT_TRUE(data_dir_.CreateUniqueTempDir());
     quota_manager_proxy_ = base::MakeRefCounted<MockQuotaManagerProxy>(
@@ -85,9 +122,6 @@ class SandboxFileSystemBackendDelegateTest : public testing::Test {
   MockQuotaManagerProxy* quota_manager_proxy() const {
     return quota_manager_proxy_.get();
   }
-
- protected:
-  std::unique_ptr<SandboxFileSystemBackendDelegate> delegate_;
 
  private:
   void OpenFileSystemCallback(const GURL& root_url,
@@ -162,25 +196,6 @@ TEST_F(SandboxFileSystemBackendDelegateTest, OpenFileSystemAccessesStorage) {
   EXPECT_EQ(last_error(), base::File::FILE_OK);
   EXPECT_EQ(quota_manager_proxy()->notify_bucket_accessed_count(), 1);
   EXPECT_EQ(quota_manager_proxy()->last_notified_storage_key(), storage_key);
-}
-
-TEST_F(SandboxFileSystemBackendDelegateTest, ObserverRegistration) {
-  MockFileChangeObserver observer;
-  delegate_->AddFileChangeObserver(kFileSystemTypeTemporary, &observer,
-                                   nullptr);
-  const ChangeObserverList* observers =
-      delegate_->GetChangeObservers(kFileSystemTypeTemporary);
-  ASSERT_TRUE(observers);
-  EXPECT_FALSE(observers->empty());
-
-  delegate_->RemoveFileChangeObserver(kFileSystemTypeTemporary, &observer);
-  observers = delegate_->GetChangeObservers(kFileSystemTypeTemporary);
-  ASSERT_TRUE(observers);
-  EXPECT_TRUE(observers->empty());
-
-  // Test that it returns nullptr for a type that was never added.
-  observers = delegate_->GetChangeObservers(kFileSystemTypePersistent);
-  EXPECT_FALSE(observers);
 }
 
 }  // namespace storage

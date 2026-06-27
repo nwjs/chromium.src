@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -208,7 +209,7 @@ class PasswordsPrivateDelegateImpl
       password_manager::PasswordStoreInterface* store,
       const password_manager::PasswordStoreChangeList& changes) override;
   void OnLoginsRetained(password_manager::PasswordStoreInterface* store,
-                        const std::vector<password_manager::PasswordForm>&
+                        const std::vector<password_manager::StoredCredential>&
                             retained_passwords) override;
   void OnErrorStateChanged(password_manager::PasswordStoreInterface* store,
                            password_manager::ActionableError error) override;
@@ -299,6 +300,8 @@ class PasswordsPrivateDelegateImpl
 
   // Used to control the export and import flows.
   std::unique_ptr<PasswordManagerPorterInterface> password_manager_porter_;
+
+  base::FilePath last_exported_path_;
 
   PasswordAccessAuthTimeoutHandler auth_timeout_handler_;
 

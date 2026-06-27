@@ -9,6 +9,8 @@
 #include "base/command_line.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search/search.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
@@ -42,8 +44,9 @@ bool HandleAndroidNativePageURL(GURL* url,
 
   if (url->SchemeIs(content::kChromeUIScheme)) {
     if (url->GetHost() == chrome::kChromeUINewTabHost) {
-      if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kUseWebUiNtp)) {
+      if (search::IsWebUiNtpEnabled() &&
+          search::DefaultSearchProviderIsGoogle(
+              Profile::FromBrowserContext(browser_context))) {
         *url = GURL(chrome::kChromeUINewTabPageURL);
       } else {
         *url = GURL(chrome::kChromeUINativeNewTabURL);

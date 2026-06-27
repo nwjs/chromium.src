@@ -153,7 +153,25 @@ class CC_ANIMATION_EXPORT Animation : public base::RefCounted<Animation>,
 
   void set_is_replacement() { is_replacement_ = true; }
 
+  void SetStartTime(base::TimeTicks start_time);
   std::optional<base::TimeTicks> GetStartTime() const;
+
+  void SetHoldTime(std::optional<base::TimeDelta> hold_time);
+
+  base::TimeDelta CalculateCurrentTime(base::TimeTicks monotonic_time) const;
+
+  void SetRunState(KeyframeModel::RunState run_state);
+  KeyframeModel::RunState GetRunState() const;
+
+  bool IsPaused() const;
+  bool IsFinished() const;
+
+  // Controls whether to force the animation to start from the beginning.
+  // With kDisabled, Play only rewinds if the animation has already finished.
+  // With kEnabled, Play rewinds unconditionally.
+  enum class ForcePlayRewind { kDisabled, kEnabled };
+  void Play(base::TimeTicks monotonic_time,
+            ForcePlayRewind force_rewind = ForcePlayRewind::kDisabled);
 
   virtual bool IsWorkletAnimation() const;
 

@@ -22,6 +22,7 @@
 #include "net/base/load_timing_info.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_anonymization_key.h"
+#include "net/base/network_handle.h"
 #include "net/base/network_isolation_key.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
@@ -165,7 +166,7 @@ class SSLConnectJobTest : public WithTaskEnvironment,
       SecureDnsPolicy secure_dns_policy) const {
     return base::MakeRefCounted<TransportSocketParams>(
         kHostHttps, NetworkAnonymizationKey(), secure_dns_policy,
-        OnHostResolutionCallback(),
+        handles::kInvalidNetworkHandle, OnHostResolutionCallback(),
         /*supported_alpns=*/base::flat_set<std::string>({"h2", "http/1.1"}));
   }
 
@@ -173,7 +174,8 @@ class SSLConnectJobTest : public WithTaskEnvironment,
       SecureDnsPolicy secure_dns_policy) const {
     return base::MakeRefCounted<TransportSocketParams>(
         kHttpProxyServer.host_port_pair(), NetworkAnonymizationKey(),
-        secure_dns_policy, OnHostResolutionCallback(),
+        secure_dns_policy, handles::kInvalidNetworkHandle,
+        OnHostResolutionCallback(),
         /*supported_alpns=*/base::flat_set<std::string>({}));
   }
 
@@ -193,7 +195,8 @@ class SSLConnectJobTest : public WithTaskEnvironment,
         kHostHttp, kHttpProxyChain,
         /*proxy_server_index=*/0,
         /*tunnel=*/true, TRAFFIC_ANNOTATION_FOR_TESTS,
-        NetworkAnonymizationKey(), secure_dns_policy);
+        NetworkAnonymizationKey(), secure_dns_policy,
+        handles::kInvalidNetworkHandle);
   }
 
   std::unique_ptr<ConnectJob> CreateConnectJob(
@@ -2204,6 +2207,98 @@ TEST_P(SSLConnectJobTest, LegacyCryptoThenECHRecovery) {
 
   histogram_tester.ExpectUniqueSample("Net.SSL.ECHResult",
                                       2 /* kSuccessRetry */, 1);
+}
+
+TEST_P(SSLConnectJobTest, ServerPaddingNotRequested) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAddTLSServerHandshakePadding);
+
+  StaticSocketDataProvider data;
+  socket_factory_.AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  socket_factory_.AddSSLSocketDataProvider(&ssl);
+
+  base::HistogramTester histogram_tester;
+  TestConnectJobDelegate test_delegate;
+  std::unique_ptr<ConnectJob> ssl_connect_job =
+      CreateConnectJob(&test_delegate);
+
+  test_delegate.StartJobExpectingResult(ssl_connect_job.get(), OK,
+                                        /*expect_sync_result=*/false);
+  histogram_tester.ExpectTotalCount("Net.SSL_Connection_Latency_ServerPadding",
+                                    0);
+}
+
+TEST_P(SSLConnectJobTest, ServerPaddingRequest) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAddTLSServerHandshakePadding,
+      {{"AddTLSServerHandshakePaddingBytes", "128"}});
+
+  StaticSocketDataProvider data;
+  socket_factory_.AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  ssl.expected_server_padding_to_request = 128;
+  ssl.ssl_info.server_padding_received = true;
+  socket_factory_.AddSSLSocketDataProvider(&ssl);
+
+  base::HistogramTester histogram_tester;
+  TestConnectJobDelegate test_delegate;
+  std::unique_ptr<ConnectJob> ssl_connect_job =
+      CreateConnectJob(&test_delegate);
+
+  test_delegate.StartJobExpectingResult(ssl_connect_job.get(), OK,
+                                        /*expect_sync_result=*/false);
+  histogram_tester.ExpectTotalCount("Net.SSL_Connection_Latency_ServerPadding",
+                                    1);
+}
+
+TEST_P(SSLConnectJobTest, ServerPaddingRequestZeroPadding) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAddTLSServerHandshakePadding,
+      {{"AddTLSServerHandshakePaddingBytes", "0"}});
+
+  StaticSocketDataProvider data;
+  socket_factory_.AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  ssl.expected_server_padding_to_request = 0;
+  ssl.ssl_info.server_padding_received = true;
+  socket_factory_.AddSSLSocketDataProvider(&ssl);
+
+  base::HistogramTester histogram_tester;
+  TestConnectJobDelegate test_delegate;
+  std::unique_ptr<ConnectJob> ssl_connect_job =
+      CreateConnectJob(&test_delegate);
+
+  test_delegate.StartJobExpectingResult(ssl_connect_job.get(), OK,
+                                        /*expect_sync_result=*/false);
+  histogram_tester.ExpectTotalCount("Net.SSL_Connection_Latency_ServerPadding",
+                                    1);
+}
+
+TEST_P(SSLConnectJobTest, ServerPaddingRequestButNotReceived) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAddTLSServerHandshakePadding,
+      {{"AddTLSServerHandshakePaddingBytes", "0"}});
+
+  StaticSocketDataProvider data;
+  socket_factory_.AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  ssl.expected_server_padding_to_request = 0;
+  ssl.ssl_info.server_padding_received = false;
+  socket_factory_.AddSSLSocketDataProvider(&ssl);
+
+  base::HistogramTester histogram_tester;
+  TestConnectJobDelegate test_delegate;
+  std::unique_ptr<ConnectJob> ssl_connect_job =
+      CreateConnectJob(&test_delegate);
+
+  test_delegate.StartJobExpectingResult(ssl_connect_job.get(), OK,
+                                        /*expect_sync_result=*/false);
+  histogram_tester.ExpectTotalCount("Net.SSL_Connection_Latency_ServerPadding",
+                                    0);
 }
 
 }  // namespace

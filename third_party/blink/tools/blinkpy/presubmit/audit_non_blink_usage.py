@@ -126,7 +126,6 @@ _CONFIG = [
             'base::MemoryPressureListener',
             'base::MemoryPressureListenerTag',
             'base::MessagePump',
-            'base::MetricsSubSampler',
             'base::MiB',
             'base::MiBS',
             'base::MiBU',
@@ -160,6 +159,7 @@ _CONFIG = [
             'base::ScopedClosureRunner',
             'base::ScopedFD',
             'base::Seconds',
+            'base::ShouldRecordSubsampledMetric',
             'base::sequence_manager::TaskTimeObserver',
             'base::sequence_manager::SequenceManager',
             'base::SequencedTaskRunner',
@@ -169,6 +169,7 @@ _CONFIG = [
             'base::Span(OrSize|Reader|Writer)',
             'base::subtle::reinterpret_span',
             'base::StringPiece',
+            'base::StringPrintf',
             'base::StrongAlias',
             'base::SubstringSetMatcher',
             'base::SysInfo',
@@ -579,6 +580,7 @@ _CONFIG = [
 
             # cc painting and raster types.
             'cc::AuxImage',
+            'cc::BeginMainFrameReason',
             'cc::CategorizedWorkerPool',
             'cc::ColorFilter',
             'cc::DrawImage',
@@ -762,7 +764,6 @@ _CONFIG = [
             "gfx::TransformOperations",
 
             # UMA Enums
-            'cc::PaintHoldingCommitTrigger',
             'cc::PaintHoldingReason',
 
             # Scrolling
@@ -1540,6 +1541,15 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/public/common/loader/',
+            'third_party/blink/common/loader/',
+        ],
+        'allowed': [
+            'network::HttpRequestHeadersUpdateParams',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/public/platform/platform.h',
         ],
         'allowed': [
@@ -2168,6 +2178,14 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/modules/background_fetch/background_fetch_manager.cc',
+        ],
+        'allowed': [
+            'base::CommandLine',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/modules/webgpu/',
         ],
         'allowed': [
@@ -2563,6 +2581,26 @@ _CONFIG = [
         ],
         'allowed': [
             'gfx::ImageSkia',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/core/frame/local_frame.h',
+        ],
+        'allowed': [
+            'base::OnceClosureList',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/web/web_local_frame.h',
+            'third_party/blink/renderer/core/frame/local_frame.cc',
+            'third_party/blink/renderer/core/frame/local_frame.h',
+            'third_party/blink/renderer/core/frame/web_local_frame_impl.cc',
+            'third_party/blink/renderer/core/frame/web_local_frame_impl.h',
+        ],
+        'allowed': [
+            'base::CallbackListSubscription',
         ],
     },
     {
@@ -3104,6 +3142,17 @@ _CONFIG = [
             'third_party/blink/public/platform/web_surface_layer_bridge.h',
         ],
         'allowed': ['viz::FrameSinkId'],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/web/web_widget.h',
+        ],
+        'allowed': [
+            'cc::LayerTreeSettings',
+            'display::ScreenInfos',
+            'viz::mojom::CompositorFrameSink.*',
+            'viz::mojom::CompositorFrameSinkClient.*',
+        ],
     },
 ]
 

@@ -14,7 +14,6 @@ import android.app.Activity;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.util.Size;
-import android.view.InputDevice;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -55,14 +54,14 @@ import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceWelcomeMessageProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridItemLongPressOrchestrator.OnLongPressTabItemEventListener;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridItemTouchHelperCallback.OnDropOnArchivalMessageCardEventListener;
-import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.GridCardOnClickListenerProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.SelectionDelegateProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabGridDialogHandler;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListConfigDelegate;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListItemOnClickListenerProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
@@ -152,7 +151,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     private final boolean mAllowDragAndDrop;
     private final boolean mAllowDetachingTabsToCreateNewWindows;
     private final @Nullable TabSwitcherDragHandler mTabSwitcherDragHandler;
-    private final NullableObservableSupplier<TabGroupModelFilter> mTabGroupModelFilterSupplier;
+    private final NullableObservableSupplier<TabModel> mTabModelSupplier;
     private final ObserverList<DragObserver> mDragObserverList = new ObserverList<>();
     private final TabListHighlighter mTabListHighlighter;
     private final TabListMergeAnimationManager mTabListMergeAnimationManager;
@@ -178,13 +177,13 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
      * @param browserControlsStateProvider The {@link BrowserControlsStateProvider} for top
      *     controls.
      * @param modalDialogManager Used for managing the modal dialogs.
-     * @param tabGroupModelFilterSupplier The supplier for the current tab model filter.
+     * @param tabModelSupplier The supplier for the current tab model.
      * @param thumbnailProvider Provider to provide screenshot related details.
      * @param actionOnRelatedTabs Whether tab-related actions should be operated on all related
      *     tabs.
      * @param dataSharingTabManager The service used to initiate data sharing.
-     * @param gridCardOnClickListenerProvider Provides the onClickListener for opening dialog when
-     *     click on a grid card.
+     * @param tabListItemOnClickListenerProvider Provides click listeners for regular tabs and tab
+     *     group cards.
      * @param dialogHandler A handler to handle requests about updating TabGridDialog.
      * @param initialTabActionState The initial {@link TabActionState} to use for the shown tabs.
      *     Must always be CLOSABLE for TabListMode.STRIP.
@@ -194,9 +193,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
      *     PriceWelcomeMessage.
      * @param parentView {@link ViewGroup} The root view of the UI.
      * @param attachToParent Whether the UI should attach to root view.
-     * @param componentName A unique string uses to identify different components for UMA recording.
-     *     Recommended to use the class name or make sure the string is unique through actions.xml
-     *     file.
+     * @param componentId The {@link TabComponentId} identifying the parent UI container hosting
+     *     this tab list.
      * @param onModelTokenChange Callback to invoke whenever a model changes. Only currently
      *     respected in TabListMode.STRIP mode.
      * @param emptyViewParent {@link ViewGroup} The root view of the empty state view.
@@ -212,11 +210,11 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             Activity activity,
             BrowserControlsStateProvider browserControlsStateProvider,
             ModalDialogManager modalDialogManager,
-            NullableObservableSupplier<TabGroupModelFilter> tabGroupModelFilterSupplier,
+            NullableObservableSupplier<TabModel> tabModelSupplier,
             @Nullable ThumbnailProvider thumbnailProvider,
             boolean actionOnRelatedTabs,
             @Nullable DataSharingTabManager dataSharingTabManager,
-            @Nullable GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
+            @Nullable TabListItemOnClickListenerProvider tabListItemOnClickListenerProvider,
             @Nullable TabGridDialogHandler dialogHandler,
             @TabActionState int initialTabActionState,
             @Nullable SelectionDelegateProvider<TabListEditorItemSelectionId>
@@ -225,7 +223,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                     priceWelcomeMessageControllerSupplier,
             ViewGroup parentView,
             boolean attachToParent,
-            String componentName,
+            @TabComponentId int componentId,
             @Nullable Callback<Object> onModelTokenChange,
             @Nullable ViewGroup emptyViewParent,
             @DrawableRes int emptyImageResId,
@@ -260,7 +258,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                 };
         mAllowDragAndDrop = allowDragAndDrop;
         mTabSwitcherDragHandler = tabSwitcherDragHandler;
-        mTabGroupModelFilterSupplier = tabGroupModelFilterSupplier;
+        mTabModelSupplier = tabModelSupplier;
         mAllowDetachingTabsToCreateNewWindows =
                 MultiWindowUtils.isMultiInstanceApi31Enabled()
                         && ChromeFeatureList.isEnabled(
@@ -346,21 +344,34 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                     }
                 };
 
+        TabListConfigDelegate tabListConfigDelegate =
+                new TabListConfigDelegate() {
+                    @Override
+                    public boolean supportsNestedTabGroups() {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean shouldActOnRelatedTabs() {
+                        return actionOnRelatedTabs;
+                    }
+                };
+
         mMediator =
                 new TabListMediator(
                         activity,
                         mModelList,
                         mMode,
                         modalDialogManager,
-                        tabGroupModelFilterSupplier,
+                        tabModelSupplier,
                         thumbnailProvider,
                         mTabListFaviconProvider,
-                        actionOnRelatedTabs,
                         selectionDelegateProvider,
-                        gridCardOnClickListenerProvider,
+                        tabListItemOnClickListenerProvider,
+                        tabListConfigDelegate,
                         dialogHandler,
                         priceWelcomeMessageControllerSupplier,
-                        componentName,
+                        componentId,
                         initialTabActionState,
                         dataSharingTabManager,
                         onTabGroupCreation,
@@ -658,23 +669,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                 // Detects if inputs are coming from a mouse or not. This is used to modify
                 // behaviors of the TabGridItemTouchHelperCallback.
                 mOnBeforeItemTouchHelperItemTouchListener =
-                        new OnItemTouchListener() {
-                            @Override
-                            public boolean onInterceptTouchEvent(
-                                    RecyclerView recyclerView, MotionEvent event) {
-                                callback.setIsMouseInputSource(
-                                        event.getSource() == InputDevice.SOURCE_MOUSE);
-                                return false;
-                            }
-
-                            @Override
-                            public void onTouchEvent(
-                                    RecyclerView recyclerView, MotionEvent event) {}
-
-                            @Override
-                            public void onRequestDisallowInterceptTouchEvent(
-                                    boolean disallowIntercept) {}
-                        };
+                        TabListItemTouchHelperCallback.createBeforeOnItemTouchListener(callback);
 
                 // Creates an instance of the ItemTouchHelper using TabGridItemTouchHelperCallback
                 // and attach a downstream mOnAfterItemTouchHelperItemTouchListener that watches for
@@ -687,45 +682,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                 // See similar comments in TabGridItemTouchHelperCallback for more details.
                 mItemTouchHelper = new ItemTouchHelper2(callback, longPressHandler);
                 mOnAfterItemTouchHelperItemTouchListener =
-                        new OnItemTouchListener() {
-                            @Override
-                            public boolean onInterceptTouchEvent(
-                                    RecyclerView recyclerView, MotionEvent event) {
-                                // There can be an edge case when adding the block action logic
-                                // where minimal movement not picked up by the mItemTouchHelper
-                                // can result in attempting to block an action that did have a
-                                // DRAG event.
-                                // Actually, blocking the next event in this can result in an
-                                // unexpected event being consumed leading to an unexpected
-                                // sequence of MotionEvents.
-                                // This bad sequence can then result in invalid UI & click state for
-                                // downstream touch handlers. This additional check ensures that for
-                                // a given action, if a block is requested it must be the UP
-                                // motion that ends the input.
-                                if (callback.shouldBlockAction()
-                                        && (event.getActionMasked() == MotionEvent.ACTION_UP
-                                                || event.getActionMasked()
-                                                        == MotionEvent.ACTION_POINTER_UP)) {
-                                    return true;
-                                }
-                                return false;
-                            }
-
-                            @Override
-                            public void onTouchEvent(
-                                    RecyclerView recyclerView, MotionEvent event) {}
-
-                            @Override
-                            public void onRequestDisallowInterceptTouchEvent(
-                                    boolean disallowIntercept) {
-                                // If a child component does not allow this recyclerView and any
-                                // parent components to intercept touch events, shouldBlockAction
-                                // should be called anyways to reset the tracking boolean.
-                                // Otherwise, the original intercept method will do the check.
-                                if (!disallowIntercept) return;
-                                callback.shouldBlockAction();
-                            }
-                        };
+                        TabListItemTouchHelperCallback.createAfterOnItemTouchListener(callback);
             }
             mRecyclerView.addOnItemTouchListener(mOnBeforeItemTouchHelperItemTouchListener);
             mItemTouchHelper.attachToRecyclerView(mRecyclerView);
@@ -1169,9 +1126,9 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                 if (selectedIndex != -1) {
                     PropertyModel model = mModelList.get(selectedIndex).model;
                     int tabId = model.get(TabProperties.TAB_ID);
-                    TabGroupModelFilter filter = mTabGroupModelFilterSupplier.get();
-                    assumeNonNull(filter);
-                    Tab tab = filter.getTabModel().getTabById(tabId);
+                    TabModel tabModel = mTabModelSupplier.get();
+                    assumeNonNull(tabModel);
+                    Tab tab = tabModel.getTabById(tabId);
                     assumeNonNull(tab);
                     Token groupToken = tab.getTabGroupId();
 

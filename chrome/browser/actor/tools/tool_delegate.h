@@ -29,6 +29,7 @@ class ActorLoginService;
 
 namespace autofill {
 class ActorFormFillingService;
+class ActorOneTimeTokenFillingService;
 }  // namespace autofill
 
 namespace favicon {
@@ -62,6 +63,10 @@ class ToolDelegate {
 
   // Returns the form filling service associated with the task.
   virtual autofill::ActorFormFillingService& GetActorFormFillingService() = 0;
+
+  // Returns the OTP filling service associated with the task.
+  virtual autofill::ActorOneTimeTokenFillingService&
+  GetActorOneTimeTokenFillingService() = 0;
 
   // Returns the favicon service for the profile associated with the task.
   virtual favicon::FaviconService* GetFaviconService() = 0;
@@ -133,6 +138,7 @@ class ToolDelegate {
   // During tool execution, the tool becomes blocked on the user's attention.
   // The task still has control of the tab.
   virtual void InterruptFromTool() = 0;
+  virtual void InterruptFromTool(bool retain_user_control) = 0;
   virtual void UninterruptFromTool() = 0;
 
   // Enqueues an action to be performed as a followup to the current action.

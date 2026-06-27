@@ -67,6 +67,7 @@ class DeviceImpl : public mojom::UsbDevice, public device::UsbDevice::Observer {
       mojom::UsbTransferDirection direction,
       mojom::UsbControlTransferType type,
       mojom::UsbControlTransferRecipient recipient,
+      uint8_t request,
       uint16_t index);
 
   // Handles completion of an open request.
@@ -122,6 +123,9 @@ class DeviceImpl : public mojom::UsbDevice, public device::UsbDevice::Observer {
   void OnDeviceRemoved(scoped_refptr<device::UsbDevice> device) override;
 
   void OnInterfaceClaimed(ClaimInterfaceCallback callback, bool success);
+  void OnSetConfigurationComplete(SetConfigurationCallback callback,
+                                  bool success);
+  void OnResetComplete(ResetCallback callback, bool success);
   void OnClientConnectionError();
 
   // Reject and report bad mojo messaage if `length` exceeds limit.

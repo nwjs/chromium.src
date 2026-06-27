@@ -16,7 +16,6 @@
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -27,6 +26,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_bnpl_footnote_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_loading_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_personal_context_notice_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
@@ -44,6 +44,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 #include "components/autofill/core/common/aliases.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/strings/grit/components_strings.h"
@@ -1545,7 +1546,45 @@ TEST_F(PopupViewViewsTestKeyboard, UnfocusFootnoteLinkOnSuggestionSelection) {
   EXPECT_FALSE(bnpl_footnote->IsSettingsLinkFocused());
 }
 
-// Verify that pressing the tab key while the "Manage addresses..." entry is
+// Tests that accepting a suggestion with the TAB key is blocked for 500 ms
+// (AutofillSuggestionController::kIgnoreEarlyClicksOnSuggestionsDuration)
+// (crbug.com/501770542).
+TEST_F(PopupViewViewsTest, TabAcceptsSuggestionOnlyWhenRowVisibleLongEnough) {
+  MockFunction<void(std::string_view)> check;
+  {
+    InSequence s;
+    EXPECT_CALL(check, Call("No time passed."));
+    EXPECT_CALL(controller(),
+                AcceptSuggestion(
+                    0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard))
+        .Times(0);
+    EXPECT_CALL(check, Call("Insufficient time passed."));
+    EXPECT_CALL(controller(),
+                AcceptSuggestion(
+                    0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard))
+        .Times(0);
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAutofillPopupDontAcceptNonVisibleEnoughSuggestion);
+  ON_CALL(controller(), IsViewVisibilityAcceptingThresholdEnabled())
+      .WillByDefault(Return(true));
+
+  CreateAndShowView({SuggestionType::kAddressEntry});
+  view().SetSelectedCell(CellIndex{0u, CellType::kContent},
+                         PopupCellSelectionSource::kNonUserInput);
+  ASSERT_EQ(view().GetSelectedCell(),
+            std::make_optional<CellIndex>(0u, CellType::kContent));
+
+  check.Call("No time passed.");
+  SimulateKeyPress(ui::VKEY_TAB);
+  task_environment()->FastForwardBy(base::Milliseconds(499));
+  check.Call("Insufficient time passed.");
+  SimulateKeyPress(ui::VKEY_TAB);
+}
+
+// Verifies that pressing the tab key while the "Manage addresses..." entry is
 // selected does not trigger "accepting" the entry (which would mean opening
 // a tab with the autofill settings).
 TEST_F(PopupViewViewsTest, NoAutofillOptionsTriggeredOnTabPressed) {
@@ -2626,7 +2665,7 @@ TEST_F(PopupViewViewsTest, SearchBar_PressedKeysPassedToController) {
 
   EXPECT_CALL(controller(),
               HandleKeyPressEvent(Field(&input::NativeWebKeyboardEvent::dom_key,
-                                        ui::DomKey::Key::ARROW_DOWN)));
+                                        ui::DomKey::ARROW_DOWN)));
 
   generator().PressAndReleaseKey(ui::VKEY_DOWN);
 }
@@ -2859,7 +2898,7 @@ TEST_F(PopupViewViewsTest, SearchBar_RemainVisibleEvenWithNoSuggestions) {
   CreateAndShowView(/*ids=*/{}, CreateParamsForTestWidget(),
                     AutofillPopupView::SearchBarConfig{
                         .placeholder = u"Recall from memory",
-                        .no_results_message = u"No results found"});
+                        .no_results_message = u""});
 
   // The popup should not be hidden due to no suggestions.
   EXPECT_CALL(controller(), Hide(SuggestionHidingReason::kNoSuggestions))
@@ -2883,14 +2922,14 @@ TEST_F(PopupViewViewsTest, AtMemory_KeyboardNavigation) {
                     CreateParamsForTestWidget(),
                     AutofillPopupView::SearchBarConfig{
                         .placeholder = u"Recall from memory",
-                        .no_results_message = u"No results found"});
+                        .no_results_message = u""});
 
   // The width should be kAtMemoryPopupWidth.
   EXPECT_EQ(view().GetPreferredSize().width(),
             PopupViewViews::kAtMemoryPopupWidth);
 
   // Allow Hide(kSearchBarFocusLost) which happens during teardown.
-  testing::Mock::VerifyAndClearExpectations(&controller());
+  Mock::VerifyAndClearExpectations(&controller());
   EXPECT_CALL(controller(), Hide(SuggestionHidingReason::kSearchBarFocusLost))
       .Times(testing::AnyNumber());
 

@@ -202,10 +202,6 @@ class TestForYouSurface : public TestSurfaceBase {
  public:
   explicit TestForYouSurface(FeedStream* stream = nullptr);
 };
-class TestWebFeedSurface : public TestSurfaceBase {
- public:
-  explicit TestWebFeedSurface(FeedStream* stream = nullptr);
-};
 
 class TestImageFetcher : public ImageFetcher {
  public:
@@ -218,15 +214,6 @@ class TestImageFetcher : public ImageFetcher {
 
  private:
   ImageFetchId::Generator id_generator_;
-};
-
-class TestUnreadContentObserver : public UnreadContentObserver {
- public:
-  TestUnreadContentObserver();
-  ~TestUnreadContentObserver() override;
-  void HasUnreadContentChanged(bool has_unread_content) override;
-
-  std::vector<bool> calls;
 };
 
 class TestFeedNetwork : public FeedNetwork {
@@ -281,39 +268,6 @@ class TestFeedNetwork : public FeedNetwork {
     InjectApiRawResponse<API>(std::move(response));
   }
 
-  void InjectResponse(
-      const feedwire::webfeed::FollowWebFeedResponse& response) {
-    InjectApiResponse<FollowWebFeedDiscoverApi>(response);
-  }
-  void InjectFollowResponse(const FeedNetwork::RawResponse& response) {
-    InjectApiRawResponse<FollowWebFeedDiscoverApi>(response);
-  }
-  void InjectResponse(
-      const feedwire::webfeed::UnfollowWebFeedResponse& response) {
-    InjectApiResponse<UnfollowWebFeedDiscoverApi>(response);
-  }
-  void InjectUnfollowResponse(const FeedNetwork::RawResponse& response) {
-    InjectApiRawResponse<UnfollowWebFeedDiscoverApi>(response);
-  }
-  void InjectResponse(
-      feedwire::webfeed::ListRecommendedWebFeedsResponse response) {
-    InjectApiResponse<ListRecommendedWebFeedDiscoverApi>(std::move(response));
-  }
-  void InjectResponse(feedwire::webfeed::ListWebFeedsResponse response) {
-    InjectApiResponse<ListWebFeedsDiscoverApi>(std::move(response));
-  }
-
-  void InjectListWebFeedsResponse(
-      std::vector<feedwire::webfeed::WebFeed> web_feeds) {
-    feedwire::webfeed::ListWebFeedsResponse response;
-    for (const auto& feed : web_feeds) {
-      *response.add_web_feeds() = feed;
-    }
-    InjectResponse(response);
-  }
-  void InjectListWebFeedsResponse(const FeedNetwork::RawResponse& response) {
-    InjectApiRawResponse<ListWebFeedsDiscoverApi>(response);
-  }
   void InjectRawResponse(const FeedNetwork::RawResponse& response) {
     injected_raw_response_ = response;
   }
@@ -351,21 +305,6 @@ class TestFeedNetwork : public FeedNetwork {
   }
 
   int GetActionRequestCount() const;
-  int GetFollowRequestCount() const {
-    return GetApiRequestCount<FollowWebFeedDiscoverApi>();
-  }
-  int GetUnfollowRequestCount() const {
-    return GetApiRequestCount<UnfollowWebFeedDiscoverApi>();
-  }
-  int GetListRecommendedWebFeedsRequestCount() const {
-    return GetApiRequestCount<ListRecommendedWebFeedDiscoverApi>();
-  }
-  int GetListFollowedWebFeedsRequestCount() const {
-    return GetApiRequestCount<ListWebFeedsDiscoverApi>();
-  }
-  int GetWebFeedListContentsCount() const {
-    return GetApiRequestCount<WebFeedListContentsDiscoverApi>();
-  }
 
   std::vector<NetworkRequestType> sent_request_types() const {
     return sent_request_types_;
@@ -433,15 +372,15 @@ class FakeRefreshTaskScheduler : public RefreshTaskScheduler {
   FakeRefreshTaskScheduler();
   ~FakeRefreshTaskScheduler() override;
   // RefreshTaskScheduler implementation.
-  void EnsureScheduled(RefreshTaskId id, base::TimeDelta run_time) override;
-  void Cancel(RefreshTaskId id) override;
-  void RefreshTaskComplete(RefreshTaskId id) override;
+  void EnsureScheduled(base::TimeDelta run_time) override;
+  void Cancel() override;
+  void RefreshTaskComplete() override;
 
   void Clear();
 
-  std::map<RefreshTaskId, base::TimeDelta> scheduled_run_times;
-  std::set<RefreshTaskId> canceled_tasks;
-  std::set<RefreshTaskId> completed_tasks;
+  std::optional<base::TimeDelta> scheduled_run_time;
+  bool canceled = false;
+  bool completed = false;
 
  private:
   std::stringstream activity_log_;
@@ -488,7 +427,6 @@ class TestMetricsReporter : public MetricsReporter {
   std::optional<LoadStreamStatus> background_refresh_status;
   std::optional<UploadActionsStatus> upload_action_status;
 
-  StreamMetrics web_feed;
   StreamMetrics for_you;
 };
 
@@ -593,7 +531,6 @@ class FeedStreamTestForAllStreamTypes
                           stream) {}
   };
   void SetUp() override;
-  RefreshTaskId GetRefreshTaskId() const;
 };
 
 class FeedNetworkEndpointTest

@@ -129,6 +129,7 @@
 #include "pdf/pdf_ink_metrics_handler.h"
 #include "pdf/pdf_ink_module.h"
 #include "pdf/pdf_ink_module_client.h"
+#include "pdf/pdf_ink_text.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #endif
 
@@ -321,6 +322,8 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
     plugin_->engine_->DiscardStroke(page_index, id);
   }
 
+  void DiscardText(InkTextId id) override { plugin_->engine_->DiscardText(id); }
+
   void DrawText(int page_index,
                 InkTextId id,
                 base::span<const InkTextInfo> text_info,
@@ -386,6 +389,12 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
 
   bool IsSelectableTextOrLinkArea(const gfx::PointF& point) override {
     return plugin_->engine_->IsSelectableTextOrLinkArea(point);
+  }
+
+  DocumentInkTextBoxesMap LoadTextAnnotationsFromPdf(
+      GenerateTextIdCallback generate_text_id_callback) override {
+    return plugin_->engine_->LoadTextAnnotationsFromPdf(
+        std::move(generate_text_id_callback));
   }
 
   DocumentV2InkPathShapesMap LoadV2InkPathsFromPdf() override {
@@ -469,6 +478,10 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
                           InkStrokeId id,
                           bool active) override {
     plugin_->engine_->UpdateStrokeActive(page_index, id, active);
+  }
+
+  void UpdateTextActiveAndInvalidate(InkTextId id, bool active) override {
+    plugin_->engine_->UpdateTextActiveAndInvalidate(id, active);
   }
 
   int VisiblePageIndexFromPoint(const gfx::PointF& point) override {

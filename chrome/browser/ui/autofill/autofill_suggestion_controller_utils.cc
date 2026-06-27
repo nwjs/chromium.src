@@ -8,6 +8,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/notreached.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
@@ -41,8 +42,14 @@ bool IsAcceptableSuggestionType(SuggestionType id) {
   return !kUnacceptableItemIds.contains(id);
 }
 
-bool IsFooterSuggestionType(SuggestionType type) {
+SuggestionSection GetSuggestionSection(SuggestionType type) {
   switch (type) {
+    // Structural items.
+    case SuggestionType::kSeparator:
+    case SuggestionType::kTitle:
+      return SuggestionSection::kStructure;
+
+    // Footer items.
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kFreeformFooter:
@@ -60,7 +67,10 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kAutocompleteAtMemoryButton:
-      return true;
+    case SuggestionType::kPersonalContextNotice:
+      return SuggestionSection::kFooter;
+
+    // Body items.
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
@@ -89,8 +99,6 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kTroubleSigningInEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kSaveAndFillCreditCardEntry:
-    case SuggestionType::kSeparator:
-    case SuggestionType::kTitle:
     case SuggestionType::kVirtualCreditCardEntry:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kWebauthnCredential:
@@ -101,17 +109,21 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kLoadingThrobber:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kOpenGemini:
-      return false;
+    case SuggestionType::kAtMemoryNoConnection:
+    case SuggestionType::kAtMemorySearchAffordance:
+      return SuggestionSection::kBody;
+
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
-      // The hybrid item is reintroduced as a footer.
-#if !BUILDFLAG(IS_ANDROID)
-      return base::FeatureList::IsEnabled(
-          password_manager::features::
-              kAutofillReintroduceHybridPasskeyDropdownItem);
+#if BUILDFLAG(IS_ANDROID)
+      return SuggestionSection::kBody;
 #else
-      return false;
-#endif  // !BUILDFLAG(IS_ANDROID)
+      return SuggestionSection::kFooter;
+#endif
   }
+}
+
+bool IsFooterSuggestionType(SuggestionType type) {
+  return GetSuggestionSection(type) == SuggestionSection::kFooter;
 }
 
 bool IsFooterItem(const std::vector<Suggestion>& suggestions,
@@ -120,17 +132,25 @@ bool IsFooterItem(const std::vector<Suggestion>& suggestions,
     return false;
   }
 
-  // Separators are a special case: They belong into the footer iff the next
-  // item exists and is a footer item.
+  // Structural elements (separators, titles) belong to the footer section
+  // iff the next item exists and belongs to the footer section.
   SuggestionType type = suggestions[line_number].type;
-  return type == SuggestionType::kSeparator
+  return GetSuggestionSection(type) == SuggestionSection::kStructure
              ? IsFooterItem(suggestions, line_number + 1)
              : IsFooterSuggestionType(type);
 }
 
 bool IsStandaloneSuggestionType(SuggestionType type) {
-  return !IsFooterSuggestionType(type) ||
-         (type == SuggestionType::kScanCreditCard);
+  switch (GetSuggestionSection(type)) {
+    case SuggestionSection::kBody:
+      return true;
+    case SuggestionSection::kFooter:
+      return type == SuggestionType::kScanCreditCard ||
+             type == SuggestionType::kWebauthnSignInWithAnotherDevice;
+    case SuggestionSection::kStructure:
+      return false;
+  }
+  NOTREACHED();
 }
 
 content::RenderFrameHost* GetRenderFrameHost(

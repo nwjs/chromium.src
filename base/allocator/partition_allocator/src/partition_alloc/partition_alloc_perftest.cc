@@ -102,21 +102,22 @@ class PartitionAllocator : public Allocator {
   ~PartitionAllocator() override { alloc_.DestructForTesting(); }
 
   void* Alloc(size_t size) override {
-    return alloc_.AllocInline<AllocFlags::kNoHooks>(size);
+    return alloc_.Alloc<AllocFlags::kNoHooks>(size);
   }
   void Free(void* data) override {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeInlineInUnknownRoot<
-        partition_alloc::FreeFlags::kNoHooks>(data);
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks>(
+        data);
   }
   void FreeWithSize(void* data, size_t size) override {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeWithSizeInlineInUnknownRoot<
-        partition_alloc::FreeFlags::kNoHooks>(data, size);
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks |
+                                     partition_alloc::FreeFlags::kWithSizeHint>(
+        data, {.size = size});
   }
 
  private:
@@ -127,7 +128,7 @@ class PartitionAllocatorWithThreadCache : public Allocator {
  public:
   explicit PartitionAllocatorWithThreadCache(bool use_denser_bucket_dist)
       : scope_(allocator_.root()) {
-    ThreadCacheRegistry::Instance().PurgeAll();
+    partition_alloc::ThreadCache::PurgeAllThread();
     if (use_denser_bucket_dist) {
       allocator_.root()->SwitchToDenserBucketDistribution();
     } else {
@@ -137,21 +138,22 @@ class PartitionAllocatorWithThreadCache : public Allocator {
   ~PartitionAllocatorWithThreadCache() override = default;
 
   void* Alloc(size_t size) override {
-    return allocator_.root()->AllocInline<AllocFlags::kNoHooks>(size);
+    return allocator_.root()->Alloc<AllocFlags::kNoHooks>(size);
   }
   void Free(void* data) override {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeInlineInUnknownRoot<
-        partition_alloc::FreeFlags::kNoHooks>(data);
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks>(
+        data);
   }
   void FreeWithSize(void* data, size_t size) override {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeWithSizeInlineInUnknownRoot<
-        partition_alloc::FreeFlags::kNoHooks>(data, size);
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks |
+                                     FreeFlags::kWithSizeHint>(data,
+                                                               {.size = size});
   }
 
  private:
@@ -183,21 +185,22 @@ class PartitionAllocatorWithAllocationStackTraceRecorder : public Allocator {
     }
   }
 
-  void* Alloc(size_t size) override { return alloc_.AllocInline(size); }
+  void* Alloc(size_t size) override { return alloc_.Alloc(size); }
 
   void Free(void* data) override {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeInlineInUnknownRoot<
-        partition_alloc::FreeFlags::kNoHooks>(data);
+    PartitionRoot::FreeInUnknownRoot<partition_alloc::FreeFlags::kNoHooks>(
+        data);
   }
   void FreeWithSize(void* data, size_t size) override {
     // Even though it's easy to invoke the fast path with
     // alloc_.Free<kNoHooks>(), we chose to use the slower path, because it's
     // more common with PA-E.
-    PartitionRoot::FreeWithSizeInlineInUnknownRoot<
-        partition_alloc::FreeFlags::kNoHooks>(data, size);
+    PartitionRoot::FreeInUnknownRoot<FreeFlags::kNoHooks |
+                                     FreeFlags::kWithSizeHint>(data,
+                                                               {.size = size});
   }
 
  private:

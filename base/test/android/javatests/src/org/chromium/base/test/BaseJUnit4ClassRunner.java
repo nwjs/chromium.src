@@ -41,16 +41,19 @@ import org.chromium.base.test.util.BaseRestrictions;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIfSkipCheck;
-import org.chromium.base.test.util.MockitoResetter;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.RestrictionSkipCheck;
 import org.chromium.base.test.util.SkipCheck;
 import org.chromium.base.test.util.TestAnimations;
+import org.chromium.base.test.util.TestLocale;
+import org.chromium.build.annotations.Nullable;
 
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.ServiceLoader;
 
 /**
@@ -134,6 +137,14 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
      * to the ClassRunner.
      */
     public interface ClassCleanupHook {
+        /**
+         * Called after the test method and all its @After methods have executed.
+         *
+         * @param method The test method that was executed.
+         * @param test The test instance.
+         */
+        default void onAfterTest(FrameworkMethod method, Object test) {}
+
         /**
          * @param clazz The class that was just run.
          */
@@ -523,18 +534,77 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
         SharedPreferencesTestUtil.deleteOnDiskSharedPreferences(getApplication());
 
         JniTestInstancesSnapshot.clearAllForTesting();
-        CommandLineFlags.reset(testClass.getAnnotations(), null);
+        // Test cases are batched based on the set of features they enable in their annotations,
+        // so all test cases in the same run have the same set of features enabled,
+        // so we can set the method-level command-line flags here in onBeforeTestClass().
+        Annotation[] testMethodAnnotations = getTestMethodAnnotations();
+        CommandLineFlags.reset(testClass.getAnnotations(), testMethodAnnotations);
         TestAnimations.reset(testClass, null);
+
+        // Allows tests to set the locale before the feature list is initialized.
+        applyTestLocale();
+        // Allows tests to set the command-line before the feature list is initialized.
+        // The main side-effect being triggered is feature lists.
+        if (ContextUtils.sDoFeatureListInitHookForTesting != null) {
+            ThreadUtils.runOnUiThreadBlocking(ContextUtils.sDoFeatureListInitHookForTesting);
+            ContextUtils.sDoFeatureListInitHookForTesting = null;
+        }
 
         Context targetContext = InstrumentationRegistry.getTargetContext();
         for (ClassHook hook : getPreClassHooks()) {
             hook.run(targetContext, testClass);
         }
+    }
 
-        // Allows test classes to set the command-line before feature list is initialized.
-        if (ContextUtils.sDoFeatureListInitHookForTesting != null) {
-            ThreadUtils.runOnUiThreadBlocking(ContextUtils.sDoFeatureListInitHookForTesting);
-            ContextUtils.sDoFeatureListInitHookForTesting = null;
+    // Return the annotations of the test method with a specified name.
+    private Annotation @Nullable [] getTestMethodAnnotations() {
+        String testMethodName = InstrumentationRegistry.getArguments().getString("testMethodName");
+        String extractedName = extractTestMethodName(testMethodName);
+        if (extractedName == null) {
+            return null;
+        }
+        for (FrameworkMethod method : getTestClass().getAnnotatedMethods()) {
+            if (method.getName().equals(extractedName)) {
+                return method.getAnnotations();
+            }
+        }
+        return null;
+    }
+
+    // Extract the actual test method name. For example, return "testShowBottomSheet" when given
+    // "org.chromium.chrome.browser.keyboard_accessory.all_passwords_bottom_sheet.
+    // AllPasswordsBottomSheetRenderTest#testShowBottomSheet__NightMode".
+    private static @Nullable String extractTestMethodName(@Nullable String testMethodName) {
+        if (testMethodName == null) {
+            Log.e(TAG, "Expected testMethodName to be passed");
+            return null;
+        }
+        int index = testMethodName.indexOf('#');
+        if (index == -1) {
+            Log.e(TAG, "Encountered a test method name without #");
+            return null;
+        }
+        String sanitized = testMethodName.substring(index + 1);
+        index = sanitized.indexOf("__");
+        if (index != -1) {
+            sanitized = sanitized.substring(0, index);
+        }
+        index = sanitized.indexOf('[');
+        if (index != -1) {
+            sanitized = sanitized.substring(0, index);
+        }
+        return sanitized;
+    }
+
+    // Allows test classes to set the locale before the feature list is initialized.
+    private void applyTestLocale() {
+        Class<?> testClass = getTestClass().getJavaClass();
+        TestLocale localeAnnotation = testClass.getAnnotation(TestLocale.class);
+        if (localeAnnotation != null) {
+            Locale prevLocale = Locale.getDefault();
+            String localeLanguageTag = localeAnnotation.value();
+            Locale.setDefault(Locale.forLanguageTag(localeLanguageTag));
+            ResettersForTesting.register(() -> Locale.setDefault(prevLocale));
         }
     }
 
@@ -567,6 +637,7 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
             // assertions, and to match the semantics of Robolectric's runners.
             BaseChromiumAndroidJUnitRunner.sInstance.runOnMainSync(
                     ResettersForTesting::afterHooksDidExecute);
+            JniTestInstancesSnapshot.restoreSnapshotForTesting(mJniZeroSnapshot);
             clearJobSchedulerJobs();
         } finally {
             Bundle b = new Bundle();
@@ -586,11 +657,24 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
         // assertions, and to match the semantics of Robolectric's runners.
         BaseChromiumAndroidJUnitRunner.sInstance.runOnMainSync(
                 ResettersForTesting::afterClassHooksDidExecute);
-        MockitoResetter.clearOngoingStubbing();
         boolean finishSuccess = ActivityFinisher.finishAll();
         JniTestInstancesSnapshot.clearAllForTesting();
+
+        Throwable hookException = null;
         for (ClassCleanupHook hook : getClassCleanupHooks()) {
-            hook.onAfterTestClass(getTestClass().getJavaClass());
+            try {
+                hook.onAfterTestClass(getTestClass().getJavaClass());
+            } catch (Throwable t) {
+                if (hookException == null) {
+                    hookException = t;
+                } else {
+                    hookException.addSuppressed(t);
+                }
+                Log.e(TAG, "Exception in onAfterTestClass for hook " + hook, t);
+            }
+        }
+        if (hookException != null) {
+            throw new RuntimeException(hookException);
         }
         if (afterClassPassed && finishSuccess) {
             LifetimeAssert.assertAllInstancesDestroyedForTesting();
@@ -618,6 +702,55 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
     @Override
     protected Statement withAfters(FrameworkMethod method, Object test, Statement base) {
         // Afters are called before @Rule tearDown, so a good time for a screenshot.
-        return super.withAfters(method, test, new ScreenshotOnFailureStatement(base));
+        Statement afters = super.withAfters(method, test, new ScreenshotOnFailureStatement(base));
+        return new HookAftersStatement(method, test, afters);
+    }
+
+    private static class HookAftersStatement extends Statement {
+        private final FrameworkMethod mMethod;
+        private final Object mTest;
+        private final Statement mBase;
+
+        public HookAftersStatement(FrameworkMethod method, Object test, Statement base) {
+            mBase = base;
+            mMethod = method;
+            mTest = test;
+        }
+
+        @Override
+        public void evaluate() throws Throwable {
+            Throwable testException = null;
+            try {
+                mBase.evaluate();
+            } catch (Throwable t) {
+                testException = t;
+            }
+
+            Throwable hookException = null;
+            for (ClassCleanupHook hook : getClassCleanupHooks()) {
+                try {
+                    hook.onAfterTest(mMethod, mTest);
+                } catch (Throwable t) {
+                    if (hookException == null) {
+                        hookException = t;
+                    } else {
+                        hookException.addSuppressed(t);
+                    }
+                    Log.e(TAG, "Exception in onAfterTest for hook " + hook, t);
+                }
+            }
+
+            if (hookException != null) {
+                if (testException != null) {
+                    testException.addSuppressed(hookException);
+                } else {
+                    throw hookException;
+                }
+            }
+
+            if (testException != null) {
+                throw testException;
+            }
+        }
     }
 }

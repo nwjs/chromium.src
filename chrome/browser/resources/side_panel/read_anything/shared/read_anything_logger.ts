@@ -4,7 +4,7 @@
 
 import {hasEspeakIdentifier, hasNaturalIdentifier} from '../read_aloud/voice_language_conversions.js';
 
-import {MetricsBrowserProxyImpl, ReadAnythingSpeechError, ReadAnythingVoiceType} from './metrics_browser_proxy.js';
+import {MetricsBrowserProxyImpl, ReadAnythingSpeechError, ReadAnythingVoiceType, UmaName} from './metrics_browser_proxy.js';
 import type {MetricsBrowserProxy, ReadAloudSettingsChange, ReadAnythingSettingsChange} from './metrics_browser_proxy.js';
 
 export enum TimeFrom {
@@ -18,6 +18,7 @@ export enum SpeechControls {
   NEXT = 'NextButton',
   PREVIOUS = 'PreviousButton',
   PLAY_FROM_SELECTION = 'PlayFromSelection',
+  PLAY_FROM_LINE_FOCUS = 'PlayFromLineFocus',
 }
 
 export enum LinkStatus {
@@ -208,6 +209,77 @@ export class ReadAnythingLogger {
     const umaName =
         `Accessibility.ReadAnything.Readability.PageLinks${status}Count`;
     this.metrics.recordCount(umaName, count);
+  }
+
+  logDistilledPageStructure(wordCountContainer: Element) {
+    if (this.isHidden_) {
+      return;
+    }
+
+    // Log the number of paragraphs.
+    const paragraphs = wordCountContainer.querySelectorAll('p');
+    this.metrics.recordCount(UmaName.NUMBER_PARAGRAPHS, paragraphs.length);
+
+    const headerCounts = ReadAnythingLogger.getHeaderCounts(wordCountContainer);
+
+    // The total number of distilled headers.
+    const totalHeaderCount =
+        headerCounts.reduce((sum, item) => sum + item.count, 0);
+    this.metrics.recordCount(UmaName.TOTAL_HEADER_COUNT, totalHeaderCount);
+
+    // The number of unique header tags present.
+    const uniqueHeaderTags = headerCounts.filter(item => item.count > 0).length;
+    this.metrics.recordCount(UmaName.UNIQUE_HEADER_TAGS, uniqueHeaderTags);
+
+    this.logTopTwoHeaderMetrics_(headerCounts);
+  }
+
+  // The "top two" headers in a hierarchy represent the first two non-zero
+  // header tags present in the hierarchy. e.g. if there are 5 h1 tags,
+  // 4 h2 tags, and 20 h3 tags, the top two header count would be h1 + h2 = 9.
+  // There's an exception for h1 tags. Since the h1 tag is often used for
+  // the title, it is excluded from being counted as one of the top two headers
+  // if there is exactly one h1 tag present, as that means it's likely being
+  // used as a title. headerCounts is assumed to be already sorted in order of hierarchy
+  // based on how it was originally created from getHeaderCounts.
+  private logTopTwoHeaderMetrics_(
+      headerCounts: Array<{tag: string, count: number}>) {
+    let hierarchy = [...headerCounts];
+    const h1Count = headerCounts.find(item => item.tag === 'h1')?.count ?? 0;
+    if (h1Count === 1) {
+      hierarchy = hierarchy.filter(item => item.tag !== 'h1');
+    }
+    const presentHeaders = hierarchy.filter(item => item.count > 0);
+
+    let topTwoHeadersCount = 0;
+    if (presentHeaders.length > 0) {
+      topTwoHeadersCount += presentHeaders[0]!.count;
+    }
+    if (presentHeaders.length > 1) {
+      topTwoHeadersCount += presentHeaders[1]!.count;
+    }
+    this.metrics.recordCount(UmaName.TOP_TWO_HEADERS_COUNT, topTwoHeadersCount);
+
+    let topTwoHeadersHaveMinimumTwoItems = false;
+    if (presentHeaders.length >= 2) {
+      topTwoHeadersHaveMinimumTwoItems =
+          presentHeaders[0]!.count >= 2 && presentHeaders[1]!.count >= 2;
+    }
+    this.metrics.recordBoolean(
+        UmaName.TOP_TWO_HEADERS_HAVE_MINIMUM_TWO_ITEMS,
+        topTwoHeadersHaveMinimumTwoItems);
+  }
+
+  static getHeaderCounts(wordCountContainer: Element):
+      Array<{tag: string, count: number}> {
+    return [
+      {tag: 'h1', count: wordCountContainer.querySelectorAll('h1').length},
+      {tag: 'h2', count: wordCountContainer.querySelectorAll('h2').length},
+      {tag: 'h3', count: wordCountContainer.querySelectorAll('h3').length},
+      {tag: 'h4', count: wordCountContainer.querySelectorAll('h4').length},
+      {tag: 'h5', count: wordCountContainer.querySelectorAll('h5').length},
+      {tag: 'h6', count: wordCountContainer.querySelectorAll('h6').length},
+    ];
   }
 
   static getInstance(): ReadAnythingLogger {

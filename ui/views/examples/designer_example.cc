@@ -19,6 +19,7 @@
 #include "ui/base/metadata/metadata_types.h"
 #include "ui/base/models/simple_combobox_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/events/event.h"
 #include "ui/events/event_targeter.h"
@@ -239,8 +240,11 @@ class ClassRegistrationImageButton : public ClassRegistration<ImageButton> {
   ~ClassRegistrationImageButton() override = default;
   std::unique_ptr<View> CreateView() override {
     return Builder<ImageButton>()
-        .SetImageModel(Button::ButtonState::STATE_NORMAL,
-                       ui::ImageModel::FromVectorIcon(kPinIcon, ui::kColorIcon))
+        .SetImageModel(
+            Button::ButtonState::STATE_NORMAL,
+            ui::ImageModel::FromVectorIcon(
+                features::IsRoundedIconsEnabled() ? kKeepIcon : kPinOldIcon,
+                ui::kColorIcon))
         .SetAccessibleName(
             l10n_util::GetStringUTF16(IDS_DESIGNER_IMAGEBUTTON_NAME))
         .Build();
@@ -783,7 +787,9 @@ bool DesignerExample::GrabHandles::IsGrabHandle(View* view) {
 DesignerExample::DesignerExample() : ExampleBase("Designer") {}
 
 DesignerExample::~DesignerExample() {
-  inspector_->SetModel(nullptr);
+  if (tracker_.view()) {
+    inspector_->SetModel(nullptr);
+  }
 }
 
 void DesignerExample::CreateExampleView(View* container) {

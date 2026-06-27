@@ -18,6 +18,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/passage_embeddings/core/passage_embeddings_types.h"
+#include "components/permissions/permission_request_data.h"
 #include "components/permissions/permission_request_enums.h"
 #include "components/permissions/prediction_service/permission_ui_selector.h"
 #include "components/permissions/request_type.h"
@@ -52,7 +53,7 @@ enum class ActivityIndicatorState {
 // Used for UMA to record the types of permission prompts shown.
 // When updating, you also need to update:
 //   1) The PermissionRequestType enum in
-//      tools/metrics/histograms/metadata/permissions/enums.xml.
+//      tools/metrics/histograms/enums.xml.
 //   2) The PermissionRequestTypes suffix list in
 //      tools/metrics/histograms/metadata/permissions/histograms.xml.
 //   3) GetPermissionRequestString function in
@@ -106,10 +107,13 @@ enum class RequestTypeForUma {
   MULTIPLE_KEYBOARD_AND_POINTER_LOCK = 39,
   PERMISSION_HAND_TRACKING = 40,
   PERMISSION_WEB_APP_INSTALLATION = 41,
-  PERMISSION_LOCAL_NETWORK_ACCESS = 42,
+  // PERMISSION_LOCAL_NETWORK_ACCESS = 42,
   PERMISSION_LOCAL_NETWORK = 43,
   PERMISSION_LOOPBACK_NETWORK = 44,
   PERMISSION_SENSORS = 45,
+  PERMISSION_GEOLOCATION_APPROXIMATE_OR_PRECISE = 46,
+  PERMISSION_GEOLOCATION_APPROXIMATE = 47,
+  PERMISSION_GEOLOCATION_UPGRADE = 48,
   // NUM must be the last value in the enum.
   NUM,
 };
@@ -288,7 +292,7 @@ enum class PermissionPromptDisposition {
 
   // Only used on Android. The prompt is suppressed, and the user is notified
   // via an icon on the left-hand side of the location bar.
-  LOCATION_BAR_LEFT_CLAPPER_QUIET_ICON = 16,
+  LOCATION_BAR_LEFT_QUIET_ICON = 16,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/permissions/histograms.xml:PromptDisposition)
 
@@ -644,7 +648,8 @@ class PermissionUmaUtil {
                                       bool clicked);
 
   static void RecordDismissalType(
-      const std::vector<ContentSettingsType>& content_settings_types,
+      const std::vector<base::WeakPtr<permissions::PermissionRequest>>&
+          requests,
       PermissionPromptDisposition ui_disposition,
       DismissalType dismissalType);
 
@@ -772,7 +777,7 @@ class PermissionUmaUtil {
 
   static void RecordPermissionPredictionSource(
       PermissionPredictionSource prediction_source,
-      RequestType request_type);
+      const PermissionRequest& request);
 
   static void RecordPermissionPredictionServiceHoldback(
       RequestType request_type,
@@ -798,8 +803,8 @@ class PermissionUmaUtil {
 
   static void RecordPageInfoPermissionChange(
       ContentSettingsType type,
-      ContentSetting setting_before,
-      ContentSetting setting_after,
+      PermissionSetting setting_before,
+      PermissionSetting setting_after,
       bool is_subscribed_to_permission_change_event);
 
   static std::string GetPermissionActionString(
@@ -1039,6 +1044,7 @@ class PermissionUmaUtil {
       std::optional<bool> prediction_decision_held_back,
       const PromptOptions& prompt_options,
       std::optional<GeolocationAccuracy> initial_geolocation_accuracy_selection,
+      std::optional<GeolocationPromptType> geolocation_prompt_type,
       std::optional<ukm::SourceId> source_id);
 
   // Records |count| total prior actions for a prompt of type |permission|

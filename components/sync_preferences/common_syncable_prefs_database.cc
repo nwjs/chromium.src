@@ -28,6 +28,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/sharing_message/pref_names.h"
+#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
 #include "components/sync_preferences/cross_device_pref_tracker/prefs/cross_device_pref_names.h"
@@ -163,6 +164,11 @@ enum {
   kDriveDisclaimerAccepted = 113,
   kAutofillAiShoppingEntitiesEnabled = 114,
   kPrefTranslateRecentTargets = 115,
+  kBookmarkBarVisibilityState = 116,
+  kSyncableAccountScopedPrefForTesting = 117,  // For tests.
+  // New entries should be added above this line.
+  kSubscriptionEligibilityAiSubscriptionTier =
+      100338,  // (different ID as it's a move from //chrome)
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -236,6 +242,9 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {bookmarks::prefs::kShowManagedBookmarksInBookmarkBar,
          {syncable_prefs_ids::kShowManagedBookmarksInBookmarkBar,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {bookmarks::prefs::kBookmarkBarVisibilityState,
+         {syncable_prefs_ids::kBookmarkBarVisibilityState, syncer::PREFERENCES,
+          PrefSensitivity::kNone, MergeBehavior::kNone}},
         {browsing_data::prefs::kLastClearBrowsingDataTime,
          {syncable_prefs_ids::kLastClearBrowsingDataTime, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
@@ -383,6 +392,10 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {kSyncablePrefForTesting,
          {syncable_prefs_ids::kSyncablePrefForTesting, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {kSyncableAccountScopedPrefForTesting,
+         {syncable_prefs_ids::kSyncableAccountScopedPrefForTesting,
+          syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone,
+          WriteBehavior::kWriteToAccountOnly}},
         {kSyncableMergeableDictPrefForTesting,
          {syncable_prefs_ids::kSyncableMergeableDictPrefForTesting,
           syncer::PREFERENCES, PrefSensitivity::kNone,
@@ -471,6 +484,12 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {contextual_search::kDriveDisclaimerAccepted,
          {syncable_prefs_ids::kDriveDisclaimerAccepted, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {subscription_eligibility::prefs::kAiSubscriptionTier,
+         {syncable_prefs_ids::kSubscriptionEligibilityAiSubscriptionTier,
+          syncer::PRIORITY_PREFERENCES,
+          sync_preferences::PrefSensitivity::
+              kExemptFromUserControlWhileSignedIn,
+          sync_preferences::MergeBehavior::kNone}},
     });
 
 }  // namespace

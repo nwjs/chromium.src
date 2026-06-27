@@ -130,7 +130,7 @@ targets.bundle(
     per_test_modifications = {
         "chrome_public_test_apk_tablet": targets.mixin(
             swarming = targets.swarming(
-                shards = 2,
+                shards = 3,
             ),
         ),
     },
@@ -643,6 +643,23 @@ targets.bundle(
             args = [
                 "--platform=android",
             ],
+        ),
+    },
+)
+
+targets.bundle(
+    name = "android_leakcanary_tests",
+    targets = [
+        "chrome_public_test_apk",
+    ],
+    per_test_modifications = {
+        "chrome_public_test_apk": targets.mixin(
+            args = [
+                "--enable-leak-checks",
+            ],
+            swarming = targets.swarming(
+                shards = 75,
+            ),
         ),
     },
 )
@@ -2276,24 +2293,13 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "chromium_web_tests_graphite_isolated_scripts",
+    name = "chromium_web_tests_surface_embed_isolated_scripts",
     targets = [
-        "graphite_enabled_blink_web_tests",
-        "graphite_enabled_blink_wpt_tests",
-        "graphite_enabled_headless_shell_wpt_tests",
+        "surface_embed_chrome_wpt_tests",
     ],
     per_test_modifications = {
-        "graphite_enabled_blink_web_tests": targets.mixin(
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-        "graphite_enabled_blink_wpt_tests": targets.mixin(
-            swarming = targets.swarming(
-                shards = 1,
-            ),
-        ),
-        "graphite_enabled_headless_shell_wpt_tests": targets.mixin(
+        "surface_embed_chrome_wpt_tests": targets.mixin(
+            ci_only = True,
             swarming = targets.swarming(
                 shards = 7,
             ),
@@ -4149,28 +4155,7 @@ targets.bundle(
     targets = [
         "gpu_angle_unit_gtests",
         "gpu_common_gtests_passthrough",
-        "gpu_desktop_specific_gtests",
     ],
-)
-
-targets.bundle(
-    name = "gpu_desktop_specific_gtests",
-    targets = [
-        "tab_capture_end2end_tests",
-    ],
-    per_test_modifications = {
-        "tab_capture_end2end_tests": targets.mixin(
-            args = [
-                "--enable-gpu",
-                "--test-launcher-bot-mode",
-                "--test-launcher-jobs=1",
-                "--gtest_filter=TabCaptureApiPixelTest.EndToEnd*",
-            ],
-            linux_args = [
-                "--no-xvfb",
-            ],
-        ),
-    },
 )
 
 targets.bundle(
@@ -4283,7 +4268,6 @@ targets.bundle(
     targets = [
         "gpu_angle_unit_gtests",
         "gpu_common_gtests_passthrough",
-        "gpu_desktop_specific_gtests",
         "mappable_buffer_tests_suite",
         "gpu_vulkan_gtests",
     ],
@@ -4338,7 +4322,6 @@ targets.bundle(
     targets = [
         "gpu_angle_unit_gtests",
         "gpu_common_gtests_passthrough",
-        "gpu_desktop_specific_gtests",
         "gpu_fyi_and_optional_non_linux_gtests",
         "gpu_fyi_mac_specific_gtests",
     ],
@@ -4450,7 +4433,6 @@ targets.bundle(
         "gpu_common_gtests_passthrough",
         "gpu_default_and_optional_win_media_foundation_specific_gtests",
         "gpu_default_and_optional_win_specific_gtests",
-        "gpu_desktop_specific_gtests",
         "gpu_fyi_and_optional_non_linux_gtests",
         "gpu_fyi_and_optional_win_specific_gtests",
     ],
@@ -4791,7 +4773,6 @@ targets.bundle(
         "gpu_angle_unit_gtests",
         "gpu_common_gtests_passthrough",
         "gpu_default_and_optional_win_specific_gtests",
-        "gpu_desktop_specific_gtests",
     ],
 )
 
@@ -5155,6 +5136,7 @@ targets.bundle(
         "blink_fuzzer_unittests",
         "blink_heap_unittests",
         "blink_platform_unittests",
+        "blink_unittests",
         "boringssl_crypto_tests",
         "boringssl_ssl_tests",
         "capture_unittests",
@@ -5212,6 +5194,12 @@ targets.bundle(
             args = [
                 "--test-launcher-bot-mode",
                 "--test-launcher-filter-file=testing/buildbot/filters/ios.blink_platform_unittests.filter",
+            ],
+        ),
+        "blink_unittests": targets.mixin(
+            args = [
+                "--test-launcher-bot-mode",
+                "--test-launcher-filter-file=testing/buildbot/filters/ios.blink_unittests.filter",
             ],
         ),
         "cc_unittests": targets.mixin(
@@ -5277,6 +5265,12 @@ targets.bundle(
                 "--test-launcher-filter-file=testing/buildbot/filters/ios.media_unittests.filter",
             ],
         ),
+        "midi_unittests": targets.mixin(
+            args = [
+                "--test-launcher-bot-mode",
+                "--test-launcher-filter-file=testing/buildbot/filters/ios.use_blink.midi_unittests.filter",
+            ],
+        ),
         "mojo_unittests": targets.mixin(
             args = [
                 "--test-launcher-bot-mode",
@@ -5286,11 +5280,6 @@ targets.bundle(
         "services_unittests": targets.mixin(
             args = [
                 "--test-launcher-filter-file=testing/buildbot/filters/ios.services_unittests.filter",
-            ],
-        ),
-        "ui_base_unittests": targets.mixin(
-            args = [
-                "--test-launcher-filter-file=testing/buildbot/filters/ios.ui_base_unittests.filter",
             ],
         ),
         "viz_unittests": targets.mixin(
@@ -5953,7 +5942,6 @@ targets.bundle(
     targets = [
         "absl_hardening_tests",
         "accessibility_unittests",
-        "app_shell_unittests",
         "base_unittests",
         "blink_heap_unittests",
         "blink_platform_unittests",
@@ -6184,7 +6172,6 @@ targets.bundle(
     name = "non_android_chromium_gtests_no_nacl",
     targets = [
         "accessibility_unittests",
-        "app_shell_unittests",
         "blink_fuzzer_unittests",
         "browser_tests",
         "chrome_app_unittests",
@@ -6335,6 +6322,11 @@ targets.bundle(
         "pixel_browser_tests": targets.mixin(
             swarming = targets.swarming(
                 shards = 3,
+            ),
+        ),
+        "pixel_interactive_ui_tests": targets.mixin(
+            swarming = targets.swarming(
+                shards = 2,
             ),
         ),
     },
@@ -6694,6 +6686,36 @@ targets.bundle(
 )
 
 targets.bundle(
+    name = "trees_in_viz_disabled_tests_android",
+    targets = [
+        "cc_unittests",
+        "viz_unittests",
+        "content_browsertests",
+        "android_browsertests",
+    ],
+    mixins = [
+        targets.mixin(
+            args = ["--disable-features=TreesInViz"],
+        ),
+    ],
+)
+
+targets.bundle(
+    name = "trees_in_viz_disabled_tests_chromeos",
+    targets = [
+        "cc_unittests",
+        "viz_unittests",
+        "content_browsertests",
+        "browser_tests",
+    ],
+    mixins = [
+        targets.mixin(
+            args = ["--disable-features=TreesInViz"],
+        ),
+    ],
+)
+
+targets.bundle(
     name = "trees_in_viz_enabled_tests",
     targets = [
         "cc_unittests",
@@ -6719,36 +6741,6 @@ targets.bundle(
             args = ["--enable-features=TreesInViz"],
         ),
     },
-)
-
-targets.bundle(
-    name = "trees_in_viz_enabled_tests_android",
-    targets = [
-        "cc_unittests",
-        "viz_unittests",
-        "content_browsertests",
-        "android_browsertests",
-    ],
-    mixins = [
-        targets.mixin(
-            args = ["--enable-features=TreesInViz"],
-        ),
-    ],
-)
-
-targets.bundle(
-    name = "trees_in_viz_enabled_tests_chromeos",
-    targets = [
-        "cc_unittests",
-        "viz_unittests",
-        "content_browsertests",
-        "browser_tests",
-    ],
-    mixins = [
-        targets.mixin(
-            args = ["--enable-features=TreesInViz"],
-        ),
-    ],
 )
 
 targets.bundle(
@@ -6804,6 +6796,7 @@ targets.bundle(
     name = "updater_gtests_linux",
     targets = [
         "updater_tests",
+        "updater_fuzztests",
         # 'updater_tests_system' is not yet supported on Linux.
     ],
     per_test_modifications = {
@@ -6818,6 +6811,7 @@ targets.bundle(
     targets = [
         "updater_tests",
         "updater_tests_system",
+        "updater_fuzztests",
     ],
     per_test_modifications = {
         "updater_tests": [
@@ -6834,6 +6828,7 @@ targets.bundle(
     targets = [
         "updater_tests",
         "updater_tests_system",
+        "updater_fuzztests",
     ],
     per_test_modifications = {
         "updater_tests": [

@@ -4,6 +4,9 @@
 
 import './readonly_omnibox.js';
 import './location_icon.js';
+import './content_settings_icons.js';
+import './permission_dashboard.js';
+import './selected_keyword.js';
 
 import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
@@ -11,7 +14,7 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './location_bar.css.js';
 import {getHtml} from './location_bar.html.js';
-import {type ReadonlyOmniboxElement} from './readonly_omnibox.js';
+import type {ReadonlyOmniboxElement} from './readonly_omnibox.js';
 import type {LocationBarState} from './toolbar_ui_api_data_model.mojom-webui.js';
 
 export interface LocationBarElement {
@@ -41,6 +44,8 @@ export class LocationBarElement extends CrLitElement {
 
   accessor locationBarState: LocationBarState = {
     omniboxViewState: {
+      browserVersion: 0,
+      uiVersion: 0,
       textPieces: [],
       inlineAutocompletion: '',
       selection: null,
@@ -50,12 +55,16 @@ export class LocationBarElement extends CrLitElement {
       userInputInProgress: false,
       popupOpen: false,
     },
-    contentSettingImageStates: [],
+    selectedKeyword: null,
     lhsChipsState: {
       securityChip: {
-        icon: 0,
+        icon: {handleId: 0n},
         securityLevel: 0,
         text: '',
+        accessibilityState: {
+          label: '',
+          description: '',
+        },
         isClickable: false,
         isTextDangerous: false,
         isVisible: true,
@@ -63,6 +72,7 @@ export class LocationBarElement extends CrLitElement {
       activityIndicators: [],
       permissionDashboard: null,
     },
+    contentSettingImageStates: [],
   };
 
   private trackedElementManager_: TrackedElementManager;

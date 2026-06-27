@@ -401,9 +401,9 @@ bool WebURLRequest::IsRevalidating() const {
   return resource_request_->IsRevalidating();
 }
 
-const std::optional<base::UnguessableToken>& WebURLRequest::GetDevToolsToken()
-    const {
-  return resource_request_->GetDevToolsToken();
+const std::optional<base::UnguessableToken>&
+WebURLRequest::GetDevToolsThrottlingToken() const {
+  return resource_request_->GetDevToolsThrottlingToken();
 }
 
 const WebString WebURLRequest::GetRequestedWithHeader() const {
@@ -412,10 +412,6 @@ const WebString WebURLRequest::GetRequestedWithHeader() const {
 
 void WebURLRequest::SetRequestedWithHeader(const WebString& value) {
   resource_request_->SetRequestedWithHeader(value);
-}
-
-const WebString WebURLRequest::GetPurposeHeader() const {
-  return resource_request_->GetPurposeHeader();
 }
 
 const base::UnguessableToken& WebURLRequest::GetFetchWindowId() const {

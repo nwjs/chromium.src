@@ -6,7 +6,9 @@
 #define SERVICES_PREFERENCES_TRACKED_PREF_HASH_STORE_IMPL_H_
 
 #include "base/compiler_specific.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/values.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "services/preferences/tracked/pref_hash_calculator.h"
 #include "services/preferences/tracked/pref_hash_store.h"
 
@@ -26,13 +28,16 @@ class PrefHashStoreImpl : public PrefHashStore {
 
   using PrefHashStore::BeginTransaction;
 
-  // Constructs a PrefHashStoreImpl that calculates hashes using
-  // |seed| and |legacy_device_id| and stores them in |contents|.
+  // Constructs a PrefHashStoreImpl that calculates hashes using `seed`.
   //
-  // The same |seed| and |legacy_device_id| must be used to load and validate
-  // previously stored hashes in |contents|.
+  // The same `seed` must be used to load and validate previously stored hashes.
+  //
+  // `use_super_mac` controls whether a Super MAC is calculated and verified.
+  // `use_super_encrypted_hash` controls whether a Super Encrypted Hash is
+  // verified on startup.
   PrefHashStoreImpl(const std::string& seed,
-                    bool use_super_mac);
+                    bool use_super_mac,
+                    bool use_super_encrypted_hash);
 
   PrefHashStoreImpl(const PrefHashStoreImpl&) = delete;
   PrefHashStoreImpl& operator=(const PrefHashStoreImpl&) = delete;
@@ -46,7 +51,7 @@ class PrefHashStoreImpl : public PrefHashStore {
   // PrefHashStore implementation.
   std::unique_ptr<PrefHashStoreTransaction> BeginTransaction(
       HashStoreContents* storage,
-      const os_crypt_async::Encryptor* encryptor) override;
+      scoped_refptr<const os_crypt_async::Encryptor> encryptor) override;
 
   std::string ComputeMac(const std::string& path,
                          const base::Value* new_value) override;
@@ -70,14 +75,19 @@ class PrefHashStoreImpl : public PrefHashStore {
       const os_crypt_async::Encryptor* encryptor) override;
 
  private:
+  friend class PrefHashStoreImplTest;
   friend class PrefHashStoreImplEncryptedTest;
   class PrefHashStoreTransactionImpl;
 
   std::string ComputeMac(const std::string& path,
                          const base::DictValue* new_dict);
 
+  static void FilterEncryptedHashesRecursive(const base::DictValue& src,
+                                             base::DictValue& dest);
+
   const PrefHashCalculator pref_hash_calculator_;
   bool use_super_mac_;
+  bool use_super_encrypted_hash_;
 };
 
 #endif  // SERVICES_PREFERENCES_TRACKED_PREF_HASH_STORE_IMPL_H_

@@ -4,6 +4,8 @@
 
 module actor.mojom;
 
+import "mojo/public/mojom/base/time.mojom";
+
 // LINT.IfChange(ActionResultCode)
 
 // Result codes for outcomes of an action.
@@ -154,6 +156,9 @@ enum ActionResultCode {
   // inspections for sensitive data.
   kActionBlockedByEnterpriseContentScan = 49,
 
+  // The user manually navigated away, interrupting Glic task actuation.
+  kUserNavigatedAway = 50,
+
   // Please see the comment above about adding new values.
 
   ///////////////////////////////////////////////////////////////////////
@@ -176,6 +181,15 @@ enum ActionResultCode {
 
   // The click event was suppressed.
   kClickSuppressed = 200,
+
+  // The click event has a missing target.
+  kClickMissingTarget = 201,
+
+  // The click event has a missing type.
+  kClickMissingType = 202,
+
+  // The click event has an invalid count.
+  kClickInvalidCount = 203,
 
   // Please see the comment above about adding new values.
 
@@ -454,3 +468,52 @@ enum ActionResultCode {
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:ActionResultCode)
+
+// The task ID associated with the tool invocation.
+struct TaskId {
+  int32 id;
+};
+
+// The type of the journal entry.
+enum JournalEntryType {
+  kBegin,
+  kEnd,
+  kInstant,
+};
+
+// Details of a journal entry.
+struct JournalDetails {
+  string key;
+  string value;
+};
+
+// Represents a journal entry. This should only be used for logging and
+// debugging. It should not be used to make logic decisions since a
+// compromised renderer could lie about events (such as mismatched
+// or missing begin and end events).
+struct JournalEntry {
+  // What type of entry this is.
+  JournalEntryType type;
+
+  // The task ID associated with this entry.
+  TaskId task_id;
+
+  // The time the event occurred at.
+  mojo_base.mojom.Time timestamp;
+
+  // The event name.
+  string event;
+
+  // Track UUID.
+  uint64 track_uuid;
+
+  // Specific details of the event logged.
+  array<JournalDetails> details;
+};
+
+// Use to listen for new journal entries. Lives in the browser process and
+// is used to receive entries from renderer processes.
+interface JournalClient {
+  // New log messages are sent in batches to limit the frequency of calls.
+  AddEntriesToJournal(array<JournalEntry> entries);
+};

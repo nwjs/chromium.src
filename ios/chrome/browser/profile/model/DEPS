@@ -19,6 +19,7 @@ specific_include_rules = {
     "+ios/chrome/browser/app_store_bundle/model",
     "+ios/chrome/browser/autocomplete/model",
     "+ios/chrome/browser/autofill/model",
+    "+ios/chrome/browser/backend_promo/model",
     "+ios/chrome/browser/bookmarks/model",
     "+ios/chrome/browser/bring_android_tabs/model",
     "+ios/chrome/browser/browsing_data/model",
@@ -61,6 +62,7 @@ specific_include_rules = {
     "+ios/chrome/browser/intelligence/persist_tab_context/model",
     "+ios/chrome/browser/invalidation/model",
     "+ios/chrome/browser/language/model",
+    "+ios/chrome/browser/level_up/model",
     "+ios/chrome/browser/mailto_handler/model",
     "+ios/chrome/browser/metrics/model",
     "+ios/chrome/browser/mini_map/model",
@@ -72,7 +74,6 @@ specific_include_rules = {
     "+ios/chrome/browser/page_info/model",
     "+ios/chrome/browser/passwords/model",
     "+ios/chrome/browser/photos/model",
-    "+ios/chrome/browser/plus_addresses/model",
     "+ios/chrome/browser/policy_url_blocking/model",
     "+ios/chrome/browser/power_bookmarks/model",
     "+ios/chrome/browser/prerender/model",
@@ -91,6 +92,7 @@ specific_include_rules = {
     "+ios/chrome/browser/share_extension/model",
     "+ios/chrome/browser/share_kit/model",
     "+ios/chrome/browser/sharing_message/model",
+    "+ios/chrome/browser/subscription_eligibility/model",
     "+ios/chrome/browser/sync/model",
     "+ios/chrome/browser/sync/model/prefs",
     "+ios/chrome/browser/tab_switcher/model",
@@ -115,8 +117,5 @@ specific_include_rules = {
   ],
   'test_with_profile.mm': [
     "+ios/chrome/browser/optimization_guide/model",
-  ],
-  'profile_deleter_ios_unittest.mm': [
-    "+components/unexportable_keys/scoped_mock_unexportable_key_provider.h",
   ]
 }

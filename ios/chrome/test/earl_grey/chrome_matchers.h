@@ -134,6 +134,9 @@ id<GREYMatcher> IconViewForCellWithLabelId(int message_id, NSString* icon_type);
 // Returns a matcher for the primary toolbar.
 id<GREYMatcher> PrimaryToolbar();
 
+// Returns a matcher for the secondary toolbar.
+id<GREYMatcher> SecondaryToolbar();
+
 // Returns a matcher for a cancel button.
 id<GREYMatcher> CancelButton();
 
@@ -217,6 +220,9 @@ id<GREYMatcher> LocationViewEmpty();
 // Returns a matcher for Tools menu button.
 id<GREYMatcher> ToolsMenuButton();
 
+// Returns a matcher for the Tools menu button on the NTP.
+id<GREYMatcher> ToolsMenuNTPButton();
+
 // Returns a matcher for the New Tab button, which can be long-pressed for a
 // menu.
 id<GREYMatcher> NewTabButton();
@@ -231,10 +237,16 @@ id<GREYMatcher> ContextMenuButtonContainingText(NSString* text);
 // toolbar).
 id<GREYMatcher> TabShareButton();
 
+// Returns a matcher for the Share button in the overflow menu.
+id<GREYMatcher> OverflowMenuShareButton();
+
 // Returns a matcher for show tabs button.
 // DO NOT use this matcher to open the tab grid. Instead use one of the helpers:
 // `[ChromeEarlGrey  showTabSwitcher]` or `[ChromeEarlGreyUI openTabGrid]`.
 id<GREYMatcher> ShowTabsButton();
+
+// Returns a matcher for the Show Tabs button with a specific count.
+id<GREYMatcher> ShowTabsButtonWithCount(NSString* count);
 
 // Returns a matcher for the blue dot on the show tabs button.
 id<GREYMatcher> BlueDotOnShowTabsButton();

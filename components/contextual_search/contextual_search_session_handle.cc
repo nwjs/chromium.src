@@ -16,6 +16,7 @@
 #include "components/lens/contextual_input.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
+#include "components/omnibox/common/composebox_features.h"
 #include "components/prefs/pref_service.h"
 #include "contextual_search_context_controller.h"
 #include "contextual_search_types.h"
@@ -234,7 +235,7 @@ void ContextualSearchSessionHandle::StartTabContextUploadFlow(
 
 void ContextualSearchSessionHandle::StartUrlContextUploadFlow(
     const base::UnguessableToken& file_token,
-    const GURL& url) {
+    const std::string& url) {
   // Exit early if the file token is not in the list of uploaded context
   // tokens, i.e. it was deleted before the upload flow could start.
   auto it = std::find(uploaded_context_tokens_.begin(),
@@ -246,7 +247,7 @@ void ContextualSearchSessionHandle::StartUrlContextUploadFlow(
   if (auto* context_controller = GetController()) {
     auto contextual_input_data = std::make_unique<lens::ContextualInputData>();
     contextual_input_data->primary_content_type = lens::MimeType::kUnknown;
-    contextual_input_data->page_url = url;
+    contextual_input_data->parsed_url = url;
     context_controller->StartFileUploadFlow(
         file_token, std::move(contextual_input_data), std::nullopt);
   }
@@ -254,9 +255,7 @@ void ContextualSearchSessionHandle::StartUrlContextUploadFlow(
 
 void ContextualSearchSessionHandle::StartDriveContextUploadFlow(
     const base::UnguessableToken& file_token,
-    const std::string& drive_id,
-    std::optional<std::string> resource_key,
-    const std::string& mime_type_string) {
+    const DriveUploadParams& params) {
   // Exit early if the file token is not in the list of uploaded context
   // tokens, i.e. it was deleted before the upload flow could start.
   auto it = std::find(uploaded_context_tokens_.begin(),
@@ -267,9 +266,11 @@ void ContextualSearchSessionHandle::StartDriveContextUploadFlow(
 
   if (auto* context_controller = GetController()) {
     auto contextual_input_data = std::make_unique<lens::ContextualInputData>();
-    contextual_input_data->drive_id = drive_id;
-    contextual_input_data->resource_key = resource_key;
-    contextual_input_data->mime_type_string = mime_type_string;
+    contextual_input_data->drive_id = params.drive_id;
+    contextual_input_data->resource_key = params.resource_key;
+    contextual_input_data->mime_type_string = params.mime_type;
+    contextual_input_data->file_name = params.file_name;
+    contextual_input_data->page_title = params.file_name;
     contextual_input_data->primary_content_type = lens::MimeType::kUnknown;
     context_controller->StartFileUploadFlow(
         file_token, std::move(contextual_input_data), std::nullopt);
@@ -350,8 +351,14 @@ bool ContextualSearchSessionHandle::DeleteFile(
   return false;
 }
 
-void ContextualSearchSessionHandle::ClearFiles() {
-  uploaded_context_tokens_.clear();
+void ContextualSearchSessionHandle::ClearFiles(bool query_submitted) {
+  if (query_submitted &&
+      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    std::erase_if(uploaded_context_tokens_,
+                  [this](const auto& token) { return !IsTabToken(token); });
+  } else {
+    uploaded_context_tokens_.clear();
+  }
 }
 
 void ContextualSearchSessionHandle::CreateSearchUrl(
@@ -378,11 +385,12 @@ void ContextualSearchSessionHandle::CreateSearchUrl(
 
   // If the request info has no file tokens, move the uploaded tokens to the
   // request. Otherwise, keep the file tokens as is and remove them from the
-  // uploaded context tokens manually.
+  // uploaded context tokens manually. Treat tabs the same way.
   if (search_url_request_info->file_tokens.empty()) {
     search_url_request_info->file_tokens =
         std::exchange(uploaded_context_tokens_, {});
   } else {
+    // For lens queries, handle subset of files chosen:
     for (const auto& token : search_url_request_info->file_tokens) {
       std::erase(uploaded_context_tokens_, token);
     }
@@ -417,8 +425,14 @@ ContextualSearchSessionHandle::CreateClientToAimRequest(
   // the tokens with those already in the ClientToAimRequestInfo.
   base::flat_set<base::UnguessableToken> file_tokens_set(
       std::move(create_client_to_aim_request_info->file_tokens));
-  auto uploaded_tokens = std::exchange(uploaded_context_tokens_, {});
-  file_tokens_set.insert(uploaded_tokens.begin(), uploaded_tokens.end());
+  // Deduplicate file tokens by adding tokens to set that is sent in
+  // this current request/query submission.
+  file_tokens_set.insert(uploaded_context_tokens_.begin(),
+                         uploaded_context_tokens_.end());
+  // Keep tabs but clear the files. `uploaded_context_tokens_` modified by
+  // `ClearFiles` will represent the attached context for the future composebox
+  // state after this query submission.
+  ClearFiles(/*query_submitted=*/true);
   create_client_to_aim_request_info->file_tokens =
       std::move(file_tokens_set).extract();
 
@@ -485,6 +499,17 @@ bool ContextualSearchSessionHandle::IsTabInContext(SessionID session_id) const {
   return false;
 }
 
+bool ContextualSearchSessionHandle::IsTabToken(
+    const base::UnguessableToken& token) const {
+  auto* controller = GetController();
+  if (!controller) {
+    return false;
+  }
+  const auto* file_info = controller->GetFileInfo(token);
+  return file_info &&
+         (file_info->tab_url.has_value() || file_info->tab_title.has_value() ||
+          file_info->tab_session_id.has_value());
+}
 
 void ContextualSearchSessionHandle::NotifyQuerySubmittedSessionState(
     const std::vector<FileInfo>& file_infos,

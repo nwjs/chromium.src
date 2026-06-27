@@ -55,6 +55,10 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_AddToHomescreenTextBubble"
       summary="(obsolete) educating users about adding website shortcuts to
                their home screen (using a text bubble)"/>
+  <variant name="IPH_AndroidBottomBarGlic"
+      summary="Describes the GLIC button added in the bottom bar."/>
+  <variant name="IPH_AndroidBottomBarNewTab"
+      summary="Describes the new tab button moved down in the bottom bar."/>
   <variant name="IPH_AndroidTabDeclutter"
       summary="Shows how to access tabs which have been archived."/>
   <variant name="IPH_AppRatingPrompt" summary="App Rating Prompt action"/>
@@ -110,6 +114,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_AutofillHomeWorkProfileSuggestion"
       summary="message shown along with the home and work profile suggestion
                option in the Autofill dropdown"/>
+  <variant name="IPH_AutofillOmniboxPaymentChip"
+      summary="the Autofill payment omnibox page action chip"/>
   <variant name="IPH_AutofillVirtualCardCVCSuggestion"
       summary="message shown to users that have saved a virtual card on an
                online merchant website to educate users on how to fill in
@@ -126,8 +132,6 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_BadgedReadingList" summary="badged reading list"/>
   <variant name="IPH_BatterySaverMode" summary="battery saver mode"/>
   <variant name="IPH_Bookmark" summary="bookmark"/>
-  <variant name="IPH_BookmarksBar"
-      summary="educating users about the bookmarks bar setting in Appearance"/>
   <variant name="IPH_BottomToolbarTip" summary="bottom toolbar"/>
   <variant name="IPH_CCTHistory" summary="CCT history action"/>
   <variant name="IPH_CCTMinimized" summary="CCT minimize action"/>
@@ -335,6 +339,9 @@ chromium-metrics-reviews@google.com.
       summary="Showing the static Feed Swipe IPH on iOS."/>
   <variant name="IPH_iOSGeminiContextualCueChip"
       summary="Gemini contextual cue chip on the omnibox"/>
+  <variant name="IPH_iOSGeminiExternalAppStoreEvent"
+      summary="shows Gemini IPH bubble after Gemini FRE is invoked from an
+               external App Store event and dismissed"/>
   <variant name="IPH_iOSGeminiFullscreenPromoFeature"
       summary="showing the fullscreen Gemini promo on iOS"/>
   <variant name="IPH_iOSGeminiImageRemix"
@@ -457,7 +464,7 @@ chromium-metrics-reviews@google.com.
                browse in incognito"/>
   <variant name="IPH_iOSTabGroupsDesktop"
       summary="showing the tab groups promo on desktop"/>
-  <variant name="IPH_iOSWelcomeBackFeature"
+  <variant name="IPH_iOSWelcomeBack"
       summary="shows returning users features they may be interested in"/>
   <variant name="IPH_KeyboardAccessoryAddressFilling"
       summary="address autofill suggestions"/>
@@ -474,7 +481,6 @@ chromium-metrics-reviews@google.com.
       summary="Lens Overlay translate button"/>
   <variant name="IPH_LiveCaption" summary="Live Caption"/>
   <variant name="IPH_LongPressToolbarTip" summary="LongPress toolbar"/>
-  <variant name="IPH_MerchantTrust" summary="Merchant Trust"/>
   <variant name="IPH_MicToolbar" summary="the mic button in the toolbar"/>
   <variant name="IPH_MostVisitedTilesCustomizationPin"
       summary="informing user of context menu to pin a shortcut on MVT"/>
@@ -579,6 +585,8 @@ chromium-metrics-reviews@google.com.
       summary="promotes the keyboard shortcut for reading mode"/>
   <variant name="IPH_ReadingModePageActionLabel"
       summary="promotes the new omnibox entrypoint for reading mode"/>
+  <variant name="IPH_ReadingModePresentationMode"
+      summary="promotes the view switching feature in Reading Mode"/>
   <variant name="IPH_ReadingModeSidePanel"
       summary="promotes use of reading mode in the side panel"/>
   <variant name="IPH_ReadLaterAppMenuBookmarks" summary="read later app menu"/>
@@ -650,6 +658,12 @@ chromium-metrics-reviews@google.com.
                sync-to-signin migration."/>
   <variant name="IPH_SiteControls"
       summary="educating users that site controls have moved to the app menu"/>
+  <variant name="IPH_SmartTabSharingDefaultOnFeature"
+      summary="Smart Tab Sharing Default On custom UI feature"/>
+  <variant name="IPH_SmartTabSharingFeature"
+      summary="Smart Tab Sharing feature"/>
+  <variant name="IPH_SmartTabSharingTryItFeature"
+      summary="Smart Tab Sharing Try It custom UI feature"/>
   <variant name="IPH_SupervisedUserProfileSignin"
       summary="informing supervised users about parental controls"/>
   <variant name="IPH_TabAudioMuting" summary="muting tab audio"/>
@@ -722,14 +736,6 @@ chromium-metrics-reviews@google.com.
       summary="Video tutorial card on NTP about voice search in chrome"/>
   <variant name="IPH_VideoTutorial_TryNow"
       summary="Video tutorial Try Now feature"/>
-  <variant name="IPH_WebFeedAwareness"
-      summary="proactive announcement of web feed on NTP/start surface"/>
-  <variant name="IPH_WebFeedFollow"
-      summary="proactive Web Feed follow recommendations"/>
-  <variant name="IPH_WebFeedPostFollowDialog"
-      summary="Web Feed successful follow operations"/>
-  <variant name="IPH_WebFeedPostFollowDialogWithUIUpdate"
-      summary="Web Feed successful follow operations with UI update"/>
   <variant name="IPH_WebUiHelpBubbleTest"
       summary="testing the WebUI help bubble"/>
   <variant name="IPH_WhatsNewUpdated"
@@ -805,7 +811,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.Gestural.DismissalReason.iOS"
-    enum="InProductHelpDismissalReason" expires_after="2026-08-30">
+    enum="InProductHelpDismissalReason" expires_after="2026-11-01">
   <owner>ginnyhuang@chromium.org</owner>
   <owner>adamta@google.com</owner>
   <summary>

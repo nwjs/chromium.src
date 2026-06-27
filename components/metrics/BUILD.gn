@@ -55,14 +55,17 @@ if (!is_cronet_build && is_android) {
   java_cpp_strings("java_switches_srcjar") {
     # External code should depend on ":metrics_java" instead.
     visibility = [ ":*" ]
-    sources = [ "//components/metrics/metrics_switches.cc" ]
+    sources = [ "metrics_switches.h" ]
     class_name = "org.chromium.components.metrics.MetricsSwitches"
   }
 
   java_cpp_enum("java_enum_srcjar") {
     # External code should depend on ":metrics_java" instead.
     visibility = [ ":*" ]
-    sources = [ "stability_metrics_helper.h" ]
+    sources = [
+      "metrics_reporting_level.h",
+      "stability_metrics_helper.h",
+    ]
   }
 
   android_library("metrics_java") {
@@ -112,9 +115,10 @@ source_set("metrics_pref_names") {
 
 if (!is_cronet_build || is_ios) {
   # These files contain singletons. If they were be part of a static library
-  # linked into multiple components (such as //content and //chrome), each component would get
-  # their own copy of these singletons, causing issues. For that reason make sure they are part of
-  # a component that can be linked to by multiple other components.
+  # linked into multiple components (such as //content and //chrome), each
+  # component would get their own copy of these singletons, causing issues. For
+  # that reason make sure they are part of a component that can be linked to by
+  # multiple other components.
   component("metrics_component") {
     sources = [
       "android_metrics_helper.cc",
@@ -315,11 +319,14 @@ if (!is_cronet_build || is_ios) {
       sources += [
         "android_metrics_provider.cc",
         "android_metrics_provider.h",
+        "android_unconditional_persistent_histograms_field_trial.cc",
+        "android_unconditional_persistent_histograms_field_trial.h",
         "gms_metrics_provider.cc",
         "gms_metrics_provider.h",
       ]
       public += [
         "android_metrics_provider.h",
+        "android_unconditional_persistent_histograms_field_trial.h",
         "gms_metrics_provider.h",
       ]
       deps += [ ":jni_headers" ]
@@ -555,8 +562,8 @@ if (!is_cronet_build) {
       "//third_party/metrics_proto",
     ]
 
-    # This target must not depend on :metrics because that code is intended solely
-    # for use in the browser process.
+    # This target must not depend on :metrics because that code is intended
+    # solely for use in the browser process.
     assert_no_deps = [ ":metrics" ]
   }
 

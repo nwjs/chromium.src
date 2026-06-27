@@ -96,6 +96,15 @@ class PageContext;
 // Whether to show the Gemini image remix in-product help in the Floaty.
 @property(nonatomic, assign) BOOL imageRemixIPHShouldShow;
 
+// Whether to show the Gemini Live onboarding in-product help.
+@property(nonatomic, assign) BOOL shouldShowGeminiLiveIPH;
+
+// Whether to show the Gemini Live "new" badge.
+@property(nonatomic, assign) BOOL shouldShowGeminiLiveNewBadge;
+
+// The text to display for the Gemini Live in-product help.
+@property(nonatomic, copy) NSString* geminiLiveIPHText;
+
 // The initial bottom offset of the floaty.
 @property(nonatomic, assign) CGFloat initialBottomOffset;
 
@@ -106,11 +115,8 @@ class PageContext;
 // The entry point where the floaty was triggered from.
 @property(nonatomic, assign) gemini::EntryPoint entryPoint;
 
-// TODO(crbug.com/481733906): Remove once ios_internal has migrated to
-// GeminiStartupConfiguration.
-// Whether image remix is enabled. This is not equivalent to a feature flag
-// because it has additional eligibility checks.
-@property(nonatomic, assign) BOOL imageRemixEnabled;
+// Whether the account requires capability-based restriction.
+@property(nonatomic, assign) BOOL needsAccountCapabilityRestriction;
 
 @end
 

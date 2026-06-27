@@ -7,6 +7,7 @@
  * the renderer by shimming the `navigator.credentials` API.
  */
 
+import {getOrCreateRemoteFrameToken} from '//components/autofill/ios/form_util/resources/fill_util.js';
 import {CrWebApi, gCrWeb} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {generateRandomId, sendWebKitMessage} from '//ios/web/public/js_messaging/resources/utils.js';
 
@@ -78,6 +79,11 @@ function shouldHandlePasskeyRequests(isConditional: boolean): boolean {
                          shouldHandleModalPasskeyRequests();
 }
 
+// Returns whether the PublicKeyCredential interface is defined.
+function isPublicKeyCredentialDefined(): boolean {
+  return typeof PublicKeyCredential !== 'undefined';
+}
+
 // Helper to generate the standard abort error.
 function getAbortError(): DOMException {
   return new DOMException('The request has been aborted.', 'AbortError');
@@ -123,31 +129,37 @@ class PublicKeyCredentialOverrider {
   private originalIsUVPAA: (() => Promise<boolean>)|undefined;
 
   constructor() {
+    // PublicKeyCredential can be undefined.
+    if (!isPublicKeyCredentialDefined()) {
+      return;
+    }
+
     // Backup methods which may get overridden.
-    // TODO(crbug.com/483522384): PublicKeyCredential is sometimes undefined,
-    // ensure this workaround is sufficient.
-    if (typeof PublicKeyCredential !== 'undefined') {
-      if (PublicKeyCredential.isConditionalMediationAvailable) {
-        this.originalIsConditionalMediationAvailable =
-            PublicKeyCredential.isConditionalMediationAvailable.bind(
-                PublicKeyCredential);
-      }
+    if (PublicKeyCredential.isConditionalMediationAvailable) {
+      this.originalIsConditionalMediationAvailable =
+          PublicKeyCredential.isConditionalMediationAvailable.bind(
+              PublicKeyCredential);
+    }
 
-      if (PublicKeyCredential.getClientCapabilities) {
-        this.originalGetClientCapabilities =
-            PublicKeyCredential.getClientCapabilities.bind(PublicKeyCredential);
-      }
+    if (PublicKeyCredential.getClientCapabilities) {
+      this.originalGetClientCapabilities =
+          PublicKeyCredential.getClientCapabilities.bind(PublicKeyCredential);
+    }
 
-      if (PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-        this.originalIsUVPAA =
-            PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable
-                .bind(PublicKeyCredential);
-      }
+    if (PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+      this.originalIsUVPAA =
+          PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable
+              .bind(PublicKeyCredential);
     }
   }
 
   // Overrides PublicKeyCredential methods to expose the browser's capabilities.
   override(): void {
+    // PublicKeyCredential can be undefined.
+    if (!isPublicKeyCredentialDefined()) {
+      return;
+    }
+
     // Only override PublicKeyCredential's behaviour when the browser is
     // handling passkey requests.
     if (shouldHandleConditionalPasskeyRequests() ||
@@ -709,19 +721,18 @@ function createAuthenticatorAttestationResponse(
 type ResolveFunction<T> = (value: T|PromiseLike<T>) => void;
 type RejectFunction = (reason?: any) => void;
 
+// Default timeout for deferred public key credential promises.
+const DEFAULT_TIMEOUT_MS = 300000;
+
 // Class containing a promise and access to its resolve and reject method for
 // later use.
 class DeferredPublicKeyCredentialPromise {
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
   public promise: Promise<PublicKeyCredential>;
   // Resolve function of the deferred promise.
-  // TODO(crbug.com/493884900): Fix members asserted as non-null.
-  /* eslint-disable-next-line no-restricted-syntax */
-  private resolve!: ResolveFunction<PublicKeyCredential>;
+  private resolve: ResolveFunction<PublicKeyCredential> = () => {};
   // Reject function of the deferred promise.
-  // TODO(crbug.com/493884900): Fix members asserted as non-null.
-  /* eslint-disable-next-line no-restricted-syntax */
-  private reject!: RejectFunction;
+  private reject: RejectFunction = () => {};
   // Unique ID for this deferred promise.
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
   public readonly id: string;
@@ -729,7 +740,7 @@ class DeferredPublicKeyCredentialPromise {
   private static ongoingPromises:
       Map<string, DeferredPublicKeyCredentialPromise> = new Map();
 
-  constructor(timeoutMs?: number) {
+  constructor(timeoutMs: number = DEFAULT_TIMEOUT_MS) {
     this.promise = Promise.race([
       new Promise<PublicKeyCredential>((resolve, reject) => {
         this.resolve = (value) => {
@@ -782,9 +793,11 @@ function createPassthroughRegistrationRequest(
       // https://w3c.github.io/webauthn/#sctn-authenticator-data.
       const aaguid = new Uint8Array(
           response.getAuthenticatorData().slice(37).slice(0, 16));
+      const rpId = options!.publicKey!.rp.id ?? document.location.host;
       sendWebKitMessage(HANDLER_NAME, {
         'event': 'logCreateResolved',
         'isGpm': isGpmAaguid(aaguid),
+        'rpId': rpId,
       });
     }
     return credential;
@@ -863,6 +876,7 @@ function createAssertionRequest(
   sendWebKitMessage(HANDLER_NAME, {
     'event': 'handleGetRequest',
     'frameId': gCrWeb.getFrameId(),
+    'remoteFrameId': getOrCreateRemoteFrameToken(),
     'requestId': deferredPromise.id,
     'request': extractRequestInformation(publicKeyOptions, isConditional),
     'rpEntity': extractRelyingPartyEntity(publicKeyOptions),
@@ -939,7 +953,10 @@ const credentialsContainer: CredentialsContainer = {
 // Override the existing value of `navigator.credentials` with our own. The use
 // of Object.defineProperty (versus just doing `navigator.credentials = ...`) is
 // a workaround for the fact that `navigator.credentials` is readonly.
-Object.defineProperty(navigator, 'credentials', {value: credentialsContainer});
+if (window.isSecureContext) {
+  Object.defineProperty(
+      navigator, 'credentials', {value: credentialsContainer});
+}
 
 // Function called from C++ to yield the passkey request back to the OS.
 function deferToRenderer(requestId: string, requestType: number): void {
@@ -986,7 +1003,9 @@ function deferToRenderer(requestId: string, requestType: number): void {
 
 // Function called from C++ to reject a passkey request.
 function rejectPasskeyRequest(requestId: string): void {
-  DeferredPublicKeyCredentialPromise.reject(requestId);
+  const reason =
+      new DOMException('The operation is not allowed.', 'NotAllowedError');
+  DeferredPublicKeyCredentialPromise.reject(requestId, reason);
 }
 
 
@@ -1033,18 +1052,16 @@ function resolveAttestationRequest(
   resolveCredentialPromise(requestId, id64, response, extensions);
 }
 
-const passkey = new CrWebApi('passkey');
+if (window.isSecureContext) {
+  const passkey = new CrWebApi('passkey');
 
-passkey.addFunction('deferToRenderer', deferToRenderer);
-passkey.addFunction('rejectPasskeyRequest', rejectPasskeyRequest);
-passkey.addFunction('resolveAssertionRequest', resolveAssertionRequest);
-passkey.addFunction('resolveAttestationRequest', resolveAttestationRequest);
+  passkey.addFunction('deferToRenderer', deferToRenderer);
+  passkey.addFunction('rejectPasskeyRequest', rejectPasskeyRequest);
+  passkey.addFunction('resolveAssertionRequest', resolveAssertionRequest);
+  passkey.addFunction('resolveAttestationRequest', resolveAttestationRequest);
 
-gCrWeb.registerApi(passkey);
+  gCrWeb.registerApi(passkey);
 
-// Override PublicKeyCredential's behaviour to expose browser capabilities.
-// TODO(crbug.com/483522384): PublicKeyCredential is sometimes undefined, ensure
-// this workaround is sufficient.
-if (typeof PublicKeyCredential !== 'undefined') {
+  // Override PublicKeyCredential's behaviour to expose browser capabilities.
   publicKeyCredentialOverrider.override();
 }

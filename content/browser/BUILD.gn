@@ -62,7 +62,10 @@ rust_static_library("child_process_security_policy_impl") {
   sources = [ "child_process_security_policy_impl.rs" ]
   cxx_bindings = [ "child_process_security_policy_impl.rs" ]
   visibility = [ ":browser" ]
-  deps = [ "//third_party/rust/cxx/v1:lib" ]
+  deps = [
+    "//third_party/rust/cxx/v1:lib",
+    "//url:url_rust",
+  ]
 }
 
 if (is_ios) {
@@ -440,6 +443,8 @@ source_set("browser") {
     "$target_gen_dir/devtools/protocol/tethering.h",
     "$target_gen_dir/devtools/protocol/tracing.cc",
     "$target_gen_dir/devtools/protocol/tracing.h",
+    "$target_gen_dir/devtools/protocol/web_mcp.cc",
+    "$target_gen_dir/devtools/protocol/web_mcp.h",
     "about_url_loader_factory.cc",
     "about_url_loader_factory.h",
     "accessibility/accessibility_tree_formatter_blink.cc",
@@ -834,6 +839,8 @@ source_set("browser") {
     "closewatcher/close_listener_host.h",
     "closewatcher/close_listener_manager.cc",
     "closewatcher/close_listener_manager.h",
+    "code_cache/dedicated_task_runner_for_resource.cc",
+    "code_cache/dedicated_task_runner_for_resource.h",
     "code_cache/generated_code_cache.cc",
     "code_cache/generated_code_cache.h",
     "code_cache/generated_code_cache_context.cc",
@@ -987,6 +994,8 @@ source_set("browser") {
     "devtools/protocol/tethering_handler.h",
     "devtools/protocol/tracing_handler.cc",
     "devtools/protocol/tracing_handler.h",
+    "devtools/protocol/webmcp_handler.cc",
+    "devtools/protocol/webmcp_handler.h",
     "devtools/render_frame_devtools_agent_host.cc",
     "devtools/render_frame_devtools_agent_host.h",
     "devtools/request_body_collector.cc",
@@ -1050,6 +1059,8 @@ source_set("browser") {
     "download/save_package_serialization_handler.h",
     "download/save_types.cc",
     "download/save_types.h",
+    "embedder_isolation_info.cc",
+    "embedder_isolation_info.h",
     "eye_dropper_chooser_impl.cc",
     "eye_dropper_chooser_impl.h",
     "feature_observer.cc",
@@ -1392,6 +1403,8 @@ source_set("browser") {
     "media/capture/desktop_capture_device_uma_types.h",
     "media/capture/desktop_streams_registry_impl.cc",
     "media/capture/desktop_streams_registry_impl.h",
+    "network/declarative_performance_observer.cc",
+    "network/declarative_performance_observer.h",
     "permissions/permission_descriptor_util.cc",
     "web_contents_based_canceller.cc",
     "web_contents_based_canceller.h",
@@ -1619,6 +1632,8 @@ source_set("browser") {
     "preloading/preconnector.h",
     "preloading/prefetch/assert_prefetch_container_observer.cc",
     "preloading/prefetch/assert_prefetch_container_observer.h",
+    "preloading/prefetch/cancel_unrelated_prefetch_url_loader_throttle.cc",
+    "preloading/prefetch/cancel_unrelated_prefetch_url_loader_throttle.h",
     "preloading/prefetch/contamination_delay_navigation_throttle.cc",
     "preloading/prefetch/contamination_delay_navigation_throttle.h",
     "preloading/prefetch/no_vary_search_helper.cc",
@@ -1699,6 +1714,8 @@ source_set("browser") {
     "preloading/prefetch/prefetch_url_loader_interceptor.h",
     "preloading/prefetcher.cc",
     "preloading/prefetcher.h",
+    "preloading/preload_activation_report_manager.cc",
+    "preloading/preload_activation_report_manager.h",
     "preloading/preload_pipeline_info_impl.cc",
     "preloading/preload_pipeline_info_impl.h",
     "preloading/preload_serving_metrics.cc",
@@ -2356,11 +2373,8 @@ source_set("browser") {
     "tracing/background_tracing_agent_client_impl.h",
     "tracing/background_tracing_manager_impl.cc",
     "tracing/background_tracing_manager_impl.h",
-    "tracing/file_tracing_provider_impl.cc",
-    "tracing/file_tracing_provider_impl.h",
     "tracing/memory_instrumentation_util.cc",
     "tracing/memory_instrumentation_util.h",
-    "tracing/trace_upload_list.h",
     "tracing/traces_internals/traces_internals_handler.cc",
     "tracing/traces_internals/traces_internals_handler.h",
     "tracing/tracing_controller_impl.cc",
@@ -2385,6 +2399,10 @@ source_set("browser") {
     "web_contents/aura/gesture_nav_simple.h",
     "web_contents/aura/types.cc",
     "web_contents/aura/types.h",
+    "web_contents/drag_source_document_tracker.cc",
+    "web_contents/drag_source_document_tracker.h",
+    "web_contents/drag_source_map.cc",
+    "web_contents/drag_source_map.h",
     "web_contents/file_chooser_impl.cc",
     "web_contents/file_chooser_impl.h",
     "web_contents/java_script_dialog_commit_deferring_condition.cc",
@@ -2461,6 +2479,8 @@ source_set("browser") {
     "webid/delegation/email_verifier_impl.h",
     "webid/delegation/email_verifier_network_request_manager.cc",
     "webid/delegation/email_verifier_network_request_manager.h",
+    "webid/delegation/evt_verifier.cc",
+    "webid/delegation/evt_verifier.h",
     "webid/delegation/federated_sd_jwt_handler.cc",
     "webid/delegation/federated_sd_jwt_handler.h",
     "webid/delegation/jwt_signer.cc",
@@ -3084,21 +3104,25 @@ source_set("browser") {
         "media/capture/mouse_cursor_overlay_controller_aura.cc",
       ]
     }
+    if (is_mac || is_win) {
+      sources += [
+        "media/capture/pip_screen_capture_coordinator_impl.cc",
+        "media/capture/pip_screen_capture_coordinator_impl.h",
+        "media/capture/pip_screen_capture_coordinator_proxy_impl.cc",
+        "media/capture/pip_screen_capture_coordinator_proxy_impl.h",
+      ]
+    }
     if (is_mac) {
       sources += [
-        "media/capture/capture_util_mac.h",
-        "media/capture/capture_util_mac.mm",
         "media/capture/desktop_capture_device_mac.cc",
         "media/capture/desktop_capture_device_mac.h",
+        "media/capture/desktop_capture_util_mac.h",
+        "media/capture/desktop_capture_util_mac.mm",
         "media/capture/io_surface_capture_device_base_mac.cc",
         "media/capture/io_surface_capture_device_base_mac.h",
         "media/capture/mouse_cursor_overlay_controller_mac.mm",
         "media/capture/native_screen_capture_picker_mac.h",
         "media/capture/native_screen_capture_picker_mac.mm",
-        "media/capture/pip_screen_capture_coordinator_impl.cc",
-        "media/capture/pip_screen_capture_coordinator_impl.h",
-        "media/capture/pip_screen_capture_coordinator_proxy_impl.cc",
-        "media/capture/pip_screen_capture_coordinator_proxy_impl.h",
         "media/capture/screen_capture_kit_device_mac.h",
         "media/capture/screen_capture_kit_device_mac.mm",
         "media/capture/screen_capture_kit_fullscreen_module.h",
@@ -3151,6 +3175,8 @@ source_set("browser") {
       "installedapp/native_win_app_fetcher.h",
       "installedapp/native_win_app_fetcher_impl.cc",
       "installedapp/native_win_app_fetcher_impl.h",
+      "media/content_protection_window.cc",
+      "media/content_protection_window.h",
       "media/dcomp_surface_registry_broker.cc",
       "media/dcomp_surface_registry_broker.h",
       "media/key_system_support_win.cc",
@@ -3181,6 +3207,8 @@ source_set("browser") {
       "speech/tts_win.cc",
       "speech/tts_win_utils.cc",
       "speech/tts_win_utils.h",
+      "webnn/webnn_compiler_launcher.cc",
+      "webnn/webnn_compiler_launcher.h",
     ]
     deps += [
       "//components/app_launch_prefetch",

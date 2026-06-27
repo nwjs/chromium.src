@@ -641,36 +641,10 @@ public class AccessibilityNodeInfoBuilder {
                 node.getExtras().remove(EXTRAS_KEY_OFFSCREEN);
             }
 
-            updateNodeVisibilityForOcclusion(node);
-        }
-    }
-
-    /**
-     * Updates the visibility of an accessibility node based on whether it is occluded by other
-     * rects. If it is, it should be invisible to accessibility.
-     *
-     * @param info The {@link AccessibilityNodeInfoCompat} for the web content node.
-     */
-    private void updateNodeVisibilityForOcclusion(AccessibilityNodeInfoCompat info) {
-        if (!AccessibilityFeaturesMap.isEnabled(
-                AccessibilityFeatures.ACCESSIBILITY_HANDLE_OCCLUDING_VIEWS)) {
-            return;
-        }
-
-        if (!info.isVisibleToUser()) return;
-
-        Rect webNodeBounds = new Rect();
-        info.getBoundsInScreen(webNodeBounds);
-        if (webNodeBounds.isEmpty()) return;
-
-        SparseArray<Rect> occludingRects = mDelegate.getOccludingRects();
-        for (int i = 0; i < occludingRects.size(); i++) {
-            Rect occludingRect = occludingRects.valueAt(i);
-            Rect intersection = new Rect(webNodeBounds);
-            if (intersection.intersect(occludingRect)) {
-                info.setVisibleToUser(false);
-                // No need to check other occluding rects if the node is already invisible.
-                return;
+            if (AccessibilityFeaturesMap.isEnabled(
+                    AccessibilityFeatures.ACCESSIBILITY_HANDLE_OCCLUDING_VIEWS)) {
+                AccessibilityNodeInfoUtils.updateNodeForOcclusion(
+                        node, mDelegate.getOccludingRects());
             }
         }
     }
@@ -972,7 +946,7 @@ public class AccessibilityNodeInfoBuilder {
 
     public static void convertWebRectToAndroidCoordinates(
             Rect rect,
-            Bundle extras,
+            @Nullable Bundle extras,
             AccessibilityDelegate.AccessibilityCoordinates accessibilityCoordinates,
             View view,
             boolean isScreenCoordinates) {
@@ -1008,13 +982,16 @@ public class AccessibilityNodeInfoBuilder {
         int clippedLeft = viewLocation[0];
         int clippedRight = clippedLeft + ac.getLastFrameViewportWidthPixInt();
 
-        // Always provide the unclipped bounds in the Bundle for any interested downstream client.
-        extras.putInt(EXTRAS_KEY_UNCLIPPED_TOP, rect.top);
-        extras.putInt(EXTRAS_KEY_UNCLIPPED_BOTTOM, rect.bottom);
-        extras.putInt(EXTRAS_KEY_UNCLIPPED_LEFT, rect.left);
-        extras.putInt(EXTRAS_KEY_UNCLIPPED_RIGHT, rect.right);
-        extras.putInt(EXTRAS_KEY_UNCLIPPED_WIDTH, rect.width());
-        extras.putInt(EXTRAS_KEY_UNCLIPPED_HEIGHT, rect.height());
+        if (extras != null) {
+            // Always provide the unclipped bounds in the Bundle for any interested downstream
+            // client.
+            extras.putInt(EXTRAS_KEY_UNCLIPPED_TOP, rect.top);
+            extras.putInt(EXTRAS_KEY_UNCLIPPED_BOTTOM, rect.bottom);
+            extras.putInt(EXTRAS_KEY_UNCLIPPED_LEFT, rect.left);
+            extras.putInt(EXTRAS_KEY_UNCLIPPED_RIGHT, rect.right);
+            extras.putInt(EXTRAS_KEY_UNCLIPPED_WIDTH, rect.width());
+            extras.putInt(EXTRAS_KEY_UNCLIPPED_HEIGHT, rect.height());
+        }
 
         if (rect.top < clippedTop) {
             rect.top = clippedTop;

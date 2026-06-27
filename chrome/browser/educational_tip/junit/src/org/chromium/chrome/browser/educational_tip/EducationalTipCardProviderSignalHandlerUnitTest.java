@@ -318,14 +318,22 @@ public class EducationalTipCardProviderSignalHandlerUnitTest {
                         ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_TYPE,
                         NtpCustomizationUtils.NtpBackgroundType.CHROME_COLOR);
 
+        // Case 1: Bottom sheet is ENABLED, and has been shown.
+        ChromeFeatureList.sNewTabPageCustomizationV2ShowTipBottomSheet.setForTesting(true);
+        NtpCustomizationUtils.setThemeTipBottomSheetShownTimestampToSharedPreference(100L);
+
         InputContext inputContext =
                 EducationalTipCardProviderSignalHandler.createInputContext(
                         ModuleType.NTP_THEME_PROMO, mActionDelegate, mProfile, mTracker);
-        assertEquals(3, inputContext.getSizeForTesting());
+        assertEquals(4, inputContext.getSizeForTesting());
 
         assertTrue(inputContext.getEntryValue("support_customized_ntp_theme").booleanValue);
         assertTrue(inputContext.getEntryValue("has_customized_ntp_background").booleanValue);
+        assertTrue(
+                inputContext.getEntryValue("has_theme_tip_bottom_sheet_been_shown").booleanValue);
 
+        // Case 2: Bottom sheet is ENABLED, but hasn't been shown yet.
+        NtpCustomizationUtils.resetSharedPreferenceForTesting();
         when(mActionDelegate.supportCustomizedNtpTheme()).thenReturn(false);
         ChromeSharedPreferences.getInstance()
                 .writeInt(
@@ -338,5 +346,16 @@ public class EducationalTipCardProviderSignalHandlerUnitTest {
 
         assertFalse(inputContext.getEntryValue("support_customized_ntp_theme").booleanValue);
         assertFalse(inputContext.getEntryValue("has_customized_ntp_background").booleanValue);
+        assertFalse(
+                inputContext.getEntryValue("has_theme_tip_bottom_sheet_been_shown").booleanValue);
+
+        // Case 3: Bottom sheet is DISABLED, and hasn't been shown.
+        // (It should still evaluate to true for has_theme_tip_bottom_sheet_been_shown).
+        ChromeFeatureList.sNewTabPageCustomizationV2ShowTipBottomSheet.setForTesting(false);
+        inputContext =
+                EducationalTipCardProviderSignalHandler.createInputContext(
+                        ModuleType.NTP_THEME_PROMO, mActionDelegate, mProfile, mTracker);
+        assertTrue(
+                inputContext.getEntryValue("has_theme_tip_bottom_sheet_been_shown").booleanValue);
     }
 }

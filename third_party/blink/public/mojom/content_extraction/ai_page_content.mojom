@@ -63,6 +63,14 @@ enum AIPageContentAnnotatedRole {
   kPaidContent,
 };
 
+enum AIPageContentCssPosition {
+  kStatic,
+  kRelative,
+  kAbsolute,
+  kFixed,
+  kSticky,
+};
+
 struct AIPageContentGeometry {
   // All rectangles in this struct are expressed in visual-viewport coordinates
   // in the local root's BlinkSpace (device pixels). These are not DIPs/CSS
@@ -103,6 +111,9 @@ struct AIPageContentGeometry {
   // An empty array indicates that the node is not fragmented or is entirely
   // offscreen. Relative to viewport origin.
   array<gfx.mojom.Rect> fragment_visible_bounding_boxes;
+
+  // The computed CSS position property.
+  AIPageContentCssPosition css_position;
 };
 
 // Represents a selection in the page. This is a frame-level concept.
@@ -408,6 +419,10 @@ struct AIPageContentFrameData {
   // The opened popup window that is visible on this page, if one exists. Has
   // its own AIPageContentNode tree.
   AIPageContentPopup? popup;
+
+  // Positive used line height in CSS px. This gives callers a scale-stable
+  // minimum text-row size for frame-owned geometry rules such as popups.
+  uint32 default_line_height_px;
 };
 
 // Provides metadata for local redacted frames.

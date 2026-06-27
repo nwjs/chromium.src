@@ -170,9 +170,6 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   TestCreditCardRiskBasedAuthenticator* GetRiskBasedAuthenticator() override;
   bool IsRiskBasedAuthEffectivelyAvailable() const override;
   bool IsMandatoryReauthEnabled() override;
-#if BUILDFLAG(IS_IOS)
-  bool IsUsingCustomCardIconEnabled() const override;
-#endif  // BUILDFLAG(IS_IOS)
   void ShowMandatoryReauthOptInPrompt(
       base::OnceClosure accept_mandatory_reauth_callback,
       base::OnceClosure cancel_mandatory_reauth_callback,
@@ -241,6 +238,8 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   BnplUiDelegate* GetBnplUiDelegate() override;
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   OmniboxAutofillDelegate* GetOmniboxAutofillDelegate() override;
+  void ShowOmniboxAutofillChip() override;
+  void HideOmniboxAutofillChip() override;
 #endif
 
   // Begin TestPaymentsAutofillClient-specific section.
@@ -354,6 +353,12 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
     bnpl_ui_delegate_ = std::move(bnpl_ui_delegate);
   }
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  bool omnibox_autofill_chip_shown() { return omnibox_autofill_chip_shown_; }
+
+  bool omnibox_autofill_chip_hidden() { return omnibox_autofill_chip_hidden_; }
+#endif
+
  private:
   const raw_ref<AutofillClient> client_;
 
@@ -453,6 +458,10 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   // The OmniboxAutofillDelegate used to handle the logic flow and user
   // interactions when the user triggers Autofill from the Omnibox.
   std::unique_ptr<OmniboxAutofillDelegate> omnibox_autofill_delegate_;
+
+  bool omnibox_autofill_chip_shown_ = false;
+
+  bool omnibox_autofill_chip_hidden_ = false;
 #endif
 };
 

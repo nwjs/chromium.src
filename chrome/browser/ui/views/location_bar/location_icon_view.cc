@@ -14,17 +14,18 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_util.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_state_helper.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
-#include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/browser_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/omnibox/browser/location_bar_model.h"
+#include "components/omnibox/browser/vector_icons.h"
 #include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
@@ -124,7 +125,11 @@ bool LocationIconView::ShouldShowLabelAfterAnimation() const {
 }
 
 bool LocationIconView::ShowBubble(const ui::Event& event) {
-  return delegate_->ShowPageInfoDialog();
+  const bool success = delegate_->ShowPageInfoDialog();
+  if (success) {
+    MaybeAnimateIcon(true);
+  }
+  return success;
 }
 
 bool LocationIconView::IsBubbleShowing() const {
@@ -195,7 +200,38 @@ int LocationIconView::GetMinimumLabelTextWidth() const {
 
 bool LocationIconView::GetShowText() const {
   return location_bar::ShouldShowSecurityChipText(
-      delegate_->GetLocationBarModel(), delegate_->IsEditingOrEmpty());
+      delegate_->GetLocationBarModel(), delegate_->GetWebContents(),
+      delegate_->IsEditingOrEmpty());
+}
+
+void LocationIconView::MaybeAnimateIcon(bool open) {
+  if (features::IsToolbarGlowUpEnabled()) {
+    ui::ImageModel icon = delegate_->GetLocationIcon(
+        base::DoNothingAs<void(const gfx::Image&)>());
+
+    const bool is_page_info_icon =
+        icon.IsVectorIcon() &&
+        icon.GetVectorIcon().vector_icon() ==
+            (features::IsRoundedIconsEnabled()
+                 ? &omnibox::kPageInfoIcon
+                 : &omnibox::kSecurePageInfoChromeRefreshOldIcon);
+
+    if (!is_page_info_icon) {
+      return;
+    }
+
+    views::SingleAnimatedImageContainer::AnimationConfig config{
+        .direction =
+            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+        .end_behavior = open ? views::SingleAnimatedImageContainer::
+                                   AnimationEndBehavior::kPause
+                             : views::SingleAnimatedImageContainer::
+                                   AnimationEndBehavior::kReset};
+    animated_image_container().PlayAnimation(
+        {open ? IDR_PAGE_INFO_OPEN_LOTTIE : IDR_PAGE_INFO_CLOSE_LOTTIE,
+         GetForegroundColor()},
+        config);
+  }
 }
 
 const views::InkDrop* LocationIconView::get_ink_drop_for_testing() {
@@ -262,33 +298,29 @@ void LocationIconView::UpdateIcon() {
     return;
   }
 
+  // UpdateIcon() calls are for icon updates not related to the page info
+  // animation, so we stop the page info animation if it is playing.
+  animated_image_container().ResetAnimation();
+
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  bool is_super_g = location_bar::IsGradientGoogleSuperGIcon(icon);
-  bool is_monochrome_g = false;
+  const bool is_super_g =
+      location_bar::MaybeGetGradientGoogleSuperGIcon(icon).has_value();
+  const bool is_monochrome_g =
+      icon.IsVectorIcon() && icon.GetVectorIcon().vector_icon() &&
+      icon.GetVectorIcon().vector_icon()->name ==
+          vector_icons::kGoogleGLogoMonochromeIcon.name;
 
-  if (icon.IsVectorIcon() && icon.GetVectorIcon().vector_icon()) {
-    const char* icon_name = icon.GetVectorIcon().vector_icon()->name;
-    // TODO(crbug.com/507061157): Remove `kGoogleSuperGIcon` conditional once
-    //   `location_bar::GetSecurityChipIconEnum` and
-    //   `location_bar::IsSecurityChipInteractive` support non-vector icons.
-    if (icon_name == vector_icons::kGoogleSuperGIcon.name) {
-      is_super_g = true;
-    } else if (icon_name == vector_icons::kGoogleGLogoMonochromeIcon.name) {
-      is_monochrome_g = true;
-    }
-  }
-
-  // Remove the inkdrop around the Google G logos since we cannot interact with
-  // them.
   if (is_super_g || is_monochrome_g) {
+    // Remove the inkdrop around the Google G logos since we cannot interact
+    // with them.
     views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
+
+    // Handle custom theme backgrounds specifically for the Super G icon.
+    if (is_super_g && GetWidget() && GetWidget()->GetCustomTheme()) {
+      SetBackgroundColor(SK_ColorWHITE);
+    }
   } else {
     views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::ON);
-  }
-
-  // Handle custom theme backgrounds specifically for the Super G icon.
-  if (is_super_g && GetWidget() && GetWidget()->GetCustomTheme()) {
-    SetBackgroundColor(SK_ColorWHITE);
   }
 #endif
 

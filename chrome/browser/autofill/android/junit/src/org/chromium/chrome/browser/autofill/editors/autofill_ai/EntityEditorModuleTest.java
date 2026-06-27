@@ -82,6 +82,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.components.autofill.DropdownKeyValue;
 import org.chromium.components.autofill.FieldType;
+import org.chromium.components.autofill.VerificationStatus;
 import org.chromium.components.autofill.autofill_ai.AttributeInstance;
 import org.chromium.components.autofill.autofill_ai.AttributeInstance.DateValue;
 import org.chromium.components.autofill.autofill_ai.AttributeInstance.StringValue;
@@ -93,7 +94,7 @@ import org.chromium.components.autofill.autofill_ai.EntityType;
 import org.chromium.components.autofill.autofill_ai.EntityTypeName;
 import org.chromium.components.autofill.autofill_ai.RecordType;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
-import org.chromium.components.signin.base.CoreAccountInfo;
+import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.google_apis.gaia.GaiaId;
 import org.chromium.ui.base.TestActivity;
@@ -150,6 +151,7 @@ public class EntityEditorModuleTest {
                     /* isMaskedStorageSupported= */ true,
                     /* typeNameAsString= */ "Passport",
                     /* typeNameAsMetricsString= */ "Passport",
+                    /* typeNameSectionTitleString= */ "Passports",
                     /* addEntityTypeString= */ "Add passport",
                     /* editEntityTypeString= */ "Edit passport",
                     /* deleteEntityTypeString= */ "Delete passport",
@@ -213,6 +215,7 @@ public class EntityEditorModuleTest {
                     /* isMaskedStorageSupported= */ true,
                     /* typeNameAsString= */ "Vehicle",
                     /* typeNameAsMetricsString= */ "Vehicle",
+                    /* typeNameSectionTitleString= */ "Vehicles",
                     /* addEntityTypeString= */ "Add vehicle",
                     /* editEntityTypeString= */ "Edit vehicle",
                     /* deleteEntityTypeString= */ "Delete vehicle",
@@ -228,60 +231,57 @@ public class EntityEditorModuleTest {
 
     private static final EntityInstance LOCAL_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
-                    .setGUID("guid")
+                    .setGuid("guid")
                     .setRecordType(RecordType.LOCAL)
-                    .setModifiedDate(LocalDate.of(2026, 2, 15))
-                    .setUseCount(0)
                     .addAttribute(
                             new AttributeInstance(
-                                    PASSPORT_NUMBER_ATTRIBUTE_TYPE, /* value= */ "AA123456"))
+                                    PASSPORT_NUMBER_ATTRIBUTE_TYPE,
+                                    /* value= */ "AA123456",
+                                    VerificationStatus.NO_STATUS))
                     .addAttribute(
                             new AttributeInstance(
                                     PASSPORT_ISSUE_DATE_TYPE,
-                                    /* date= */ LocalDate.of(2026, 2, 15)))
+                                    /* date= */ LocalDate.of(2026, 2, 15),
+                                    VerificationStatus.NO_STATUS))
                     .build();
 
     private static final EntityInstance NEW_LOCAL_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
-                    .setGUID("")
+                    .setGuid("")
                     .setRecordType(RecordType.LOCAL)
-                    .setModifiedDate(LocalDate.of(2026, 2, 15))
-                    .setUseCount(0)
                     .build();
 
     private static final EntityInstance NEW_WALLET_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
-                    .setGUID("")
+                    .setGuid("")
                     .setRecordType(RecordType.SERVER_WALLET)
-                    .setModifiedDate(LocalDate.of(2026, 2, 15))
-                    .setUseCount(0)
                     .build();
 
     private static final EntityInstance WALLET_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
-                    .setGUID("guid")
+                    .setGuid("guid")
                     .setRecordType(RecordType.SERVER_WALLET)
-                    .setModifiedDate(LocalDate.of(2026, 2, 15))
-                    .setUseCount(0)
                     .addAttribute(
                             new AttributeInstance(
-                                    PASSPORT_NAME_ATTRIBUTE_TYPE, /* value= */ "John Doe"))
+                                    PASSPORT_NAME_ATTRIBUTE_TYPE,
+                                    /* value= */ "John Doe",
+                                    VerificationStatus.NO_STATUS))
                     .addAttribute(
                             new AttributeInstance(
-                                    PASSPORT_COUNTRY_ATTRIBUTE_TYPE, /* value= */ "Germany"))
+                                    PASSPORT_COUNTRY_ATTRIBUTE_TYPE,
+                                    /* value= */ "Germany",
+                                    VerificationStatus.NO_STATUS))
                     .build();
 
     private static final EntityInstance PRIVATE_WALLET_PASSPORT =
             new EntityInstance.Builder(PASSPORT_TYPE)
-                    .setGUID("guid")
+                    .setGuid("guid")
                     .setRecordType(RecordType.SERVER_WALLET)
                     .setIsMaskedServerEntity(true)
-                    .setModifiedDate(LocalDate.of(2026, 2, 15))
-                    .setUseCount(0)
                     .build();
 
-    private final CoreAccountInfo mAccountInfo =
-            CoreAccountInfo.createFromEmailAndGaiaId(USER_EMAIL, new GaiaId("gaia_id"));
+    private final AccountInfo mAccountInfo =
+            new AccountInfo.Builder(USER_EMAIL, new GaiaId("gaia_id")).build();
 
     // Note: can't initialize this list statically because of how Robolectric
     // initializes Android library dependencies.
@@ -491,10 +491,8 @@ public class EntityEditorModuleTest {
     public void testDeleteNewEntity() {
         EntityInstance newPassport =
                 new EntityInstance.Builder(PASSPORT_TYPE)
-                        .setGUID("")
+                        .setGuid("")
                         .setRecordType(RecordType.LOCAL)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .build();
         showEditorDialog(newPassport);
 
@@ -577,16 +575,18 @@ public class EntityEditorModuleTest {
     public void testCommitChanges() {
         EntityInstance entity =
                 new EntityInstance.Builder(PASSPORT_TYPE)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE, /* value= */ "Cuba"))
+                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE,
+                                        /* value= */ "Cuba",
+                                        VerificationStatus.NO_STATUS))
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE, /* value= */ "AA123456"))
+                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE,
+                                        /* value= */ "AA123456",
+                                        VerificationStatus.NO_STATUS))
                         .build();
         showEditorDialog(entity);
 
@@ -611,12 +611,15 @@ public class EntityEditorModuleTest {
         AttributeInstance passportName =
                 updatedEntityInstance.getAttribute(PASSPORT_NAME_ATTRIBUTE_TYPE);
         assertEquals(new StringValue("John Doe"), passportName.getAttributeValue());
+        assertEquals(VerificationStatus.USER_VERIFIED, passportName.getVerificationStatus());
         AttributeInstance passportCountry =
                 updatedEntityInstance.getAttribute(PASSPORT_COUNTRY_ATTRIBUTE_TYPE);
         assertEquals(new StringValue("Germany"), passportCountry.getAttributeValue());
+        assertEquals(VerificationStatus.USER_VERIFIED, passportCountry.getVerificationStatus());
         AttributeInstance passportNumber =
                 updatedEntityInstance.getAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE);
         assertEquals(new StringValue("AA123456"), passportNumber.getAttributeValue());
+        assertEquals(VerificationStatus.USER_VERIFIED, passportNumber.getVerificationStatus());
     }
 
     @Test
@@ -624,16 +627,18 @@ public class EntityEditorModuleTest {
     public void testCommitChangesWithInvalidDate() {
         EntityInstance entity =
                 new EntityInstance.Builder(PASSPORT_TYPE)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE, /* value= */ "Cuba"))
+                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE,
+                                        /* value= */ "Cuba",
+                                        VerificationStatus.NO_STATUS))
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE, /* value= */ "AA123456"))
+                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE,
+                                        /* value= */ "AA123456",
+                                        VerificationStatus.NO_STATUS))
                         .build();
         showEditorDialog(entity);
 
@@ -675,6 +680,7 @@ public class EntityEditorModuleTest {
         assertEquals(
                 LocalDate.of(2026, 6, 20),
                 ((DateValue) passportIssueDate.getAttributeValue()).getDate());
+        assertEquals(VerificationStatus.USER_VERIFIED, passportIssueDate.getVerificationStatus());
         // The source notice error message must be hidden after successful validation.
         assertTrue(TextUtils.isEmpty(issueDateItem.model.get(ERROR_MESSAGE)));
         assertFalse(sourceNoticeItem.model.get(NOTICE_VISIBLE));
@@ -685,16 +691,18 @@ public class EntityEditorModuleTest {
     public void testCommitChangesWithWhitespaces() {
         EntityInstance entity =
                 new EntityInstance.Builder(PASSPORT_TYPE)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE, /* value= */ "Cuba"))
+                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE,
+                                        /* value= */ "Cuba",
+                                        VerificationStatus.NO_STATUS))
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE, /* value= */ "AA123456"))
+                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE,
+                                        /* value= */ "AA123456",
+                                        VerificationStatus.NO_STATUS))
                         .build();
         showEditorDialog(entity);
 
@@ -740,11 +748,10 @@ public class EntityEditorModuleTest {
         EntityInstance updatedEntityInstance = mEntityInstanceCaptor.getValue();
         // The name attribute should not be added to the entity because it wasn't set before.
         assertFalse(updatedEntityInstance.hasAttribute(PASSPORT_NAME_ATTRIBUTE_TYPE));
-        assertEquals(
-                new StringValue("BB123456"),
-                updatedEntityInstance
-                        .getAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE)
-                        .getAttributeValue());
+        AttributeInstance passportNumber =
+                updatedEntityInstance.getAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE);
+        assertEquals(new StringValue("BB123456"), passportNumber.getAttributeValue());
+        assertEquals(VerificationStatus.USER_VERIFIED, passportNumber.getVerificationStatus());
         // All error messages must be hidden after validation.
         assertTrue(TextUtils.isEmpty(passportNumberItem.model.get(ERROR_MESSAGE)));
         assertTrue(TextUtils.isEmpty(issueDateItem.model.get(ERROR_MESSAGE)));
@@ -764,6 +771,7 @@ public class EntityEditorModuleTest {
                         /* isMaskedStorageSupported= */ true,
                         /* typeNameAsString= */ "Passport",
                         /* typeNameAsMetricsString= */ "Passport",
+                        /* typeNameSectionTitleString= */ "Passports",
                         /* addEntityTypeString= */ "Add passport",
                         /* editEntityTypeString= */ "Edit passport",
                         /* deleteEntityTypeString= */ "Delete passport",
@@ -777,16 +785,18 @@ public class EntityEditorModuleTest {
                                 PASSPORT_ISSUE_DATE_TYPE, PASSPORT_EXPIRATION_DATE_TYPE));
         EntityInstance entity =
                 new EntityInstance.Builder(passportType)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE, /* value= */ "Cuba"))
+                                        PASSPORT_COUNTRY_ATTRIBUTE_TYPE,
+                                        /* value= */ "Cuba",
+                                        VerificationStatus.NO_STATUS))
                         .addAttribute(
                                 new AttributeInstance(
-                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE, /* value= */ "AA123456"))
+                                        PASSPORT_NUMBER_ATTRIBUTE_TYPE,
+                                        /* value= */ "AA123456",
+                                        VerificationStatus.NO_STATUS))
                         .build();
         showEditorDialog(entity);
 
@@ -825,9 +835,14 @@ public class EntityEditorModuleTest {
         EntityInstance updatedEntityInstance = mEntityInstanceCaptor.getValue();
         // The name attribute should not be added to the entity because it wasn't set before.
         assertTrue(updatedEntityInstance.hasAttribute(PASSPORT_ISSUE_DATE_TYPE));
+        AttributeInstance passportIssueDateAttribute =
+                updatedEntityInstance.getAttribute(PASSPORT_ISSUE_DATE_TYPE);
         assertEquals(
                 new DateValue(LocalDate.of(2026, 2, 15).toString()),
-                updatedEntityInstance.getAttribute(PASSPORT_ISSUE_DATE_TYPE).getAttributeValue());
+                passportIssueDateAttribute.getAttributeValue());
+        assertEquals(
+                VerificationStatus.USER_VERIFIED,
+                passportIssueDateAttribute.getVerificationStatus());
     }
 
     @Test
@@ -835,11 +850,9 @@ public class EntityEditorModuleTest {
     public void testCommitChangesWithTwoRequiredFields() {
         EntityInstance localVehicle =
                 new EntityInstance.Builder(sVehicleType)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
                         .setIsMaskedServerEntity(false)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .build();
         showEditorDialog(localVehicle);
 
@@ -882,9 +895,10 @@ public class EntityEditorModuleTest {
         EntityInstance updatedEntityInstance = mEntityInstanceCaptor.getValue();
         // The name attribute should not be added to the entity because it wasn't set before.
         assertTrue(updatedEntityInstance.hasAttribute(sVehicleLicensePlateType));
-        assertEquals(
-                new StringValue("AA123456BB"),
-                updatedEntityInstance.getAttribute(sVehicleLicensePlateType).getAttributeValue());
+        AttributeInstance licensePlate =
+                updatedEntityInstance.getAttribute(sVehicleLicensePlateType);
+        assertEquals(new StringValue("AA123456BB"), licensePlate.getAttributeValue());
+        assertEquals(VerificationStatus.USER_VERIFIED, licensePlate.getVerificationStatus());
         // Error messages must be hidden after successful validation.
         assertTrue(TextUtils.isEmpty(vehicleLicensePlate.model.get(ERROR_MESSAGE)));
         assertTrue(TextUtils.isEmpty(vehicleIdentificationNumber.model.get(ERROR_MESSAGE)));
@@ -904,6 +918,7 @@ public class EntityEditorModuleTest {
                         /* isMaskedStorageSupported= */ true,
                         /* typeNameAsString= */ "Passport",
                         /* typeNameAsMetricsString= */ "Passport",
+                        /* typeNameSectionTitleString= */ "Passports",
                         /* addEntityTypeString= */ "Add passport",
                         /* editEntityTypeString= */ "Edit passport",
                         /* deleteEntityTypeString= */ "Delete passport",
@@ -919,11 +934,9 @@ public class EntityEditorModuleTest {
                                 PASSPORT_ISSUE_DATE_TYPE));
         EntityInstance passportEntity =
                 new EntityInstance.Builder(passportTypeWithThreeRequiredFields)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
                         .setIsMaskedServerEntity(false)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .build();
         showEditorDialog(passportEntity);
 
@@ -961,11 +974,10 @@ public class EntityEditorModuleTest {
 
         EntityInstance updatedEntityInstance = mEntityInstanceCaptor.getValue();
         assertTrue(updatedEntityInstance.hasAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE));
-        assertEquals(
-                new StringValue("AA123456BB"),
-                updatedEntityInstance
-                        .getAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE)
-                        .getAttributeValue());
+        AttributeInstance passportNumber =
+                updatedEntityInstance.getAttribute(PASSPORT_NUMBER_ATTRIBUTE_TYPE);
+        assertEquals(new StringValue("AA123456BB"), passportNumber.getAttributeValue());
+        assertEquals(VerificationStatus.USER_VERIFIED, passportNumber.getVerificationStatus());
     }
 
     @Test
@@ -981,6 +993,7 @@ public class EntityEditorModuleTest {
                         /* isMaskedStorageSupported= */ true,
                         /* typeNameAsString= */ "Passport",
                         /* typeNameAsMetricsString= */ "Passport",
+                        /* typeNameSectionTitleString= */ "Passports",
                         /* addEntityTypeString= */ "Add passport",
                         /* editEntityTypeString= */ "Edit passport",
                         /* deleteEntityTypeString= */ "Delete passport",
@@ -993,11 +1006,9 @@ public class EntityEditorModuleTest {
                         /* requiredAttributes= */ Collections.emptyList());
         EntityInstance passportEntity =
                 new EntityInstance.Builder(passportTypeWithNoRequiredFields)
-                        .setGUID("guid")
+                        .setGuid("guid")
                         .setRecordType(RecordType.LOCAL)
                         .setIsMaskedServerEntity(false)
-                        .setModifiedDate(LocalDate.of(2026, 2, 15))
-                        .setUseCount(0)
                         .build();
         showEditorDialog(passportEntity);
 

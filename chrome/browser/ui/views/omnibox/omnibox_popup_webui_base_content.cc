@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/profiles/profile.h"
@@ -29,13 +30,17 @@
 #include "components/input/native_web_keyboard_event.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/permissions/permission_request_manager.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/widget/widget.h"
 
 OmniboxPopupWebUIBaseContent::OmniboxPopupWebUIBaseContent(
@@ -47,7 +52,8 @@ OmniboxPopupWebUIBaseContent::OmniboxPopupWebUIBaseContent(
       popup_presenter_(presenter),
       location_bar_(location_bar),
       controller_(controller),
-      top_rounded_corners_(top_rounded_corners) {
+      top_rounded_corners_(top_rounded_corners),
+      last_location_bar_width_(location_bar->BoundsInScreen().width()) {
   location_bar_->AddLocationBarObserver(this);
 }
 
@@ -57,25 +63,68 @@ OmniboxPopupWebUIBaseContent::~OmniboxPopupWebUIBaseContent() {
 
 void OmniboxPopupWebUIBaseContent::AddedToWidget() {
   views::WebView::AddedToWidget();
+  holder()->SetCornerRadii(GetRoundedCornerRadii());
+}
+
+gfx::RoundedCornersF OmniboxPopupWebUIBaseContent::GetRoundedCornerRadii()
+    const {
   const float corner_radius =
       views::LayoutProvider::Get()->GetCornerRadiusMetric(
           views::ShapeContextTokens::kOmniboxExpandedRadius);
-  gfx::RoundedCornersF rounded_corner_radii = gfx::RoundedCornersF(
-      top_rounded_corners_ ? corner_radius : 0,
-      top_rounded_corners_ ? corner_radius : 0, corner_radius, corner_radius);
-  holder()->SetCornerRadii(rounded_corner_radii);
+  return gfx::RoundedCornersF(top_rounded_corners_ ? corner_radius : 0,
+                              top_rounded_corners_ ? corner_radius : 0,
+                              corner_radius, corner_radius);
 }
 
 void OmniboxPopupWebUIBaseContent::OnLocationBarBoundsChanged() {
-  const int width =
-      location_bar_->BoundsInScreen().width() +
+  // Track if the location bar width actually changed. This indicates a browser
+  // window resize. In that case, bypass the height debouncer to prevent
+  // flickering due to being 'behind' during actual resizes with rapid changes.
+  const int location_bar_width = location_bar_->BoundsInScreen().width();
+  is_window_resizing_ = (location_bar_width != last_location_bar_width_);
+  last_location_bar_width_ = location_bar_width;
+
+  int width =
+      location_bar_width +
       RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets().width();
+
+  if (popup_presenter_) {
+    width = std::max(width, popup_presenter_->get_minimum_size().width());
+  }
+
+  // Update the auto-resize limits for WebUI so that the WebUI updates
+  // immediately. If deferred, WebUI content relying on '100%' would render
+  // using the outdated width. This causes the WebUI to be smaller or bigger
+  // than intended.
   gfx::Size min_size(width, 1);
   gfx::Size max_size(width, INT_MAX);
-  if (auto* render_widget_host_view =
-          GetWrappedWebContents()->GetRenderWidgetHostView()) {
-    render_widget_host_view->EnableAutoResize(min_size, max_size);
+  if (auto* web_contents = GetWrappedWebContents()) {
+    if (auto* render_widget_host_view =
+            web_contents->GetRenderWidgetHostView()) {
+      render_widget_host_view->EnableAutoResize(min_size, max_size);
+    }
   }
+
+  // Defer synchronizing the View popup widget (the actual visible popup)
+  // bounds until after the location bar finishes its layout pass. This way,
+  // the location bar does not overwrite the width and the minimum width is
+  // respected.
+
+  if (has_pending_synchronize_) {
+    return;
+  }
+  has_pending_synchronize_ = true;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<OmniboxPopupWebUIBaseContent> self) {
+                       if (self) {
+                         self->has_pending_synchronize_ = false;
+                         if (self->popup_presenter_) {
+                           self->popup_presenter_->SynchronizePopupBounds();
+                         }
+                       }
+                     },
+                     weak_factory_.GetWeakPtr()));
 }
 
 void OmniboxPopupWebUIBaseContent::CloseUI() {
@@ -90,6 +139,11 @@ void OmniboxPopupWebUIBaseContent::CloseUI() {
   // Update the popup state manager that the popup is closing.
   // LocationBarView is subscribed to state changes and will close the widget.
   controller()->popup_state_manager()->SetPopupState(OmniboxPopupState::kNone);
+}
+
+void OmniboxPopupWebUIBaseContent::OnActiveTabChanged(
+    content::WebContents* new_contents) {
+  CloseUI();
 }
 
 void OmniboxPopupWebUIBaseContent::ShowUI() {
@@ -133,7 +187,16 @@ void OmniboxPopupWebUIBaseContent::ResizeDueToAutoResize(
     content::WebContents* source,
     const gfx::Size& new_size) {
   WebView::ResizeDueToAutoResize(source, new_size);
-  if (popup_presenter_->ShouldDeferUntilVisualStateReady().has_value()) {
+
+  // If the resize was triggered by a browser window resize, bypass the
+  // height debouncer to resize immediately and keep height/width updates in
+  // sync. This prevents flickering during rapid continuous window resizes.
+  const bool is_resizing = is_window_resizing_;
+  is_window_resizing_ = false;
+
+  if (popup_presenter_->ShouldDeferUntilVisualStateReady().has_value() ||
+      is_resizing) {
+    debounce_resize_timer_.Stop();
     popup_presenter_->OnContentHeightChanged(new_size.height());
   } else {
     // Debounce the resize event by 2 frame's time (assuming 60 Hz) to avoid
@@ -239,11 +302,24 @@ void OmniboxPopupWebUIBaseContent::Detach() {
 }
 
 content::WebContents* OmniboxPopupWebUIBaseContent::GetWrappedWebContents() {
-  return contents_wrapper_->web_contents();
+  return contents_wrapper_ ? contents_wrapper_->web_contents() : nullptr;
 }
 
 void OmniboxPopupWebUIBaseContent::OnMenuClosed() {
   std::move(context_menu_).reset();
+  OnContextMenuClosed();
+  // Synthesize a mouse leave event from the context menu to trigger
+  // re-rendering of the web ui pop up state. This is to ensure entrypoint
+  // button to the context menu does not get stuck in the :hover state.
+  if (auto* web_contents = GetWebContents()) {
+    if (auto* rwh =
+            web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost()) {
+      blink::WebMouseEvent mouse_event(blink::WebInputEvent::Type::kMouseLeave,
+                                       blink::WebInputEvent::kNoModifiers,
+                                       base::TimeTicks::Now());
+      rwh->ForwardMouseEvent(mouse_event);
+    }
+  }
 }
 
 void OmniboxPopupWebUIBaseContent::PrimaryMainFrameRenderProcessGone(

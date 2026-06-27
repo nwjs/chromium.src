@@ -41,9 +41,10 @@ import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserv
 import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig.DisplayStyle;
+import org.chromium.components.browser_ui.widget.displaystyle.ViewResizerUtil;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate.SelectionObserver;
-import org.chromium.ui.display.DisplayUtil;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.widget.LoadingView;
 
@@ -67,7 +68,7 @@ import java.util.function.Function;
 @NullMarked
 public class SelectableListLayout<E> extends FrameLayout
         implements DisplayStyleObserver, SelectionObserver<E>, BackPressHandler {
-    private static final int WIDE_DISPLAY_MIN_PADDING_DP = 16;
+    private static final int WIDE_WINDOW_MIN_PADDING_DP = 16;
 
     private RecyclerView.Adapter mAdapter;
     private ViewStub mToolbarStub;
@@ -161,11 +162,17 @@ public class SelectableListLayout<E> extends FrameLayout
         if (mUiConfig != null) mUiConfig.updateDisplayStyle();
     }
 
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (mUiConfig != null) mUiConfig.updateDisplayStyle();
+    }
+
     /**
      * Creates a RecyclerView for the given adapter.
      *
      * @param adapter The adapter that provides a binding from an app-specific data set to views
-     *                that are displayed within the RecyclerView.
+     *     that are displayed within the RecyclerView.
      * @return The RecyclerView itself.
      */
     public RecyclerView initializeRecyclerView(RecyclerView.Adapter adapter) {
@@ -501,28 +508,19 @@ public class SelectableListLayout<E> extends FrameLayout
 
     /**
      * @param displayStyle The current display style..
+     * @param view The {@link View} whose measured width will be used if layout depends on the
+     *     container width.
      * @param resources The {@link Resources} used to retrieve configuration and display metrics.
      * @return The lateral padding to use for the current display style.
      */
     public static int getPaddingForDisplayStyle(
             DisplayStyle displayStyle, View view, Resources resources) {
-        int padding = 0;
-        if (displayStyle.horizontal == HorizontalDisplayStyle.WIDE) {
-            float dpToPx = resources.getDisplayMetrics().density;
-            int screenWidthDp = 0;
-            if (DisplayUtil.isUiScaled() && view != null) {
-                screenWidthDp = (int) (view.getMeasuredWidth() / dpToPx);
-            } else {
-                screenWidthDp = resources.getConfiguration().screenWidthDp;
-            }
+        if (displayStyle.horizontal != HorizontalDisplayStyle.WIDE) return 0;
 
-            padding =
-                    (int)
-                            (((screenWidthDp - UiConfig.WIDE_DISPLAY_STYLE_MIN_WIDTH_DP) / 2.f)
-                                    * dpToPx);
-            padding = (int) Math.max(WIDE_DISPLAY_MIN_PADDING_DP * dpToPx, padding);
-        }
-        return padding;
+        int wideWindowMinPaddingPx =
+                ViewUtils.dpToPx(resources.getDisplayMetrics(), WIDE_WINDOW_MIN_PADDING_DP);
+        return ViewResizerUtil.computePaddingForWideDisplay(
+                resources, view, wideWindowMinPaddingPx);
     }
 
     private void setToolbarShadowVisibility() {

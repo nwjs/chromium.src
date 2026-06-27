@@ -12,6 +12,8 @@
 #include "base/path_service.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "chrome/browser/background/extensions/background_mode_manager.h"
@@ -33,6 +35,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/startup/features.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/buildflags.h"
@@ -159,7 +162,7 @@ class BetterSessionRestoreTest : public InProcessBrowserTest {
     helper.SetForceBrowserNotAliveWithNoWindows(true);
 #if BUILDFLAG(ENABLE_BACKGROUND_MODE)
     g_browser_process->set_background_mode_manager_for_test(
-        std::unique_ptr<BackgroundModeManager>(new FakeBackgroundModeManager));
+        std::make_unique<FakeBackgroundModeManager>());
 #endif  //  BUILDFLAG(ENABLE_BACKGROUND_MODE)
   }
 
@@ -380,12 +383,65 @@ IN_PROC_BROWSER_TEST_F(ContinueWhereILeftOffTest, SessionCookies) {
   CheckReloadedPageRestored();
 }
 
-IN_PROC_BROWSER_TEST_F(ContinueWhereILeftOffTest, PRE_SessionStorage) {
+class ContinueWhereILeftOffSessionStorageTest
+    : public testing::WithParamInterface<
+          /*is_clear_disk_state_enabled=*/bool>,
+      public ContinueWhereILeftOffTest {
+ public:
+  ContinueWhereILeftOffSessionStorageTest() {
+    feature_list_.InitWithFeatureState(
+        features::kClearSessionStorageDiskStateOnStartup, GetParam());
+  }
+  ~ContinueWhereILeftOffSessionStorageTest() override = default;
+
+  bool IsClearDiskStateEnabled() const { return GetParam(); }
+
+ protected:
+  base::HistogramTester histogram_tester_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /*no prefix*/,
+    ContinueWhereILeftOffSessionStorageTest,
+    testing::Bool(),
+    /*name_generator=*/
+    [](const testing::TestParamInfo<
+        ContinueWhereILeftOffSessionStorageTest::ParamType>& info) {
+      return info.param ? "ClearDiskStateEnabled" : "ClearDiskStateDisabled";
+    });
+
+IN_PROC_BROWSER_TEST_P(ContinueWhereILeftOffSessionStorageTest,
+                       PRE_SessionStorage) {
   StoreDataWithPage("session_storage.html");
 }
 
-IN_PROC_BROWSER_TEST_F(ContinueWhereILeftOffTest, SessionStorage) {
+IN_PROC_BROWSER_TEST_P(ContinueWhereILeftOffSessionStorageTest,
+                       SessionStorage) {
+  // Setting SessionStartupPref::LAST should preserve session storage data
+  // regardless of feature state.
   CheckReloadedPageRestored();
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // ChromeOS also loads a signin OTR Profile (always false) and its parent
+  // non-OTR Profile (true when the feature is enabled. False otherwise).
+  if (IsClearDiskStateEnabled()) {
+    histogram_tester_.ExpectBucketCount(
+        "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", false,
+        2);
+    histogram_tester_.ExpectBucketCount(
+        "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", true, 1);
+  } else {
+    histogram_tester_.ExpectUniqueSample(
+        "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", false,
+        3);
+  }
+#else
+  histogram_tester_.ExpectUniqueSample(
+      "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", false, 1);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 IN_PROC_BROWSER_TEST_F(ContinueWhereILeftOffTest,
@@ -610,13 +666,47 @@ IN_PROC_BROWSER_TEST_F(RestartTest, SessionCookies) {
   CheckReloadedPageRestored();
 }
 
-IN_PROC_BROWSER_TEST_F(RestartTest, PRE_SessionStorage) {
+class RestartSessionStorageTest : public testing::WithParamInterface<
+                                      /*is_clear_disk_state_enabled=*/bool>,
+                                  public RestartTest {
+ public:
+  RestartSessionStorageTest() {
+    feature_list_.InitWithFeatureState(
+        features::kClearSessionStorageDiskStateOnStartup, GetParam());
+  }
+  ~RestartSessionStorageTest() override = default;
+
+  bool IsClearDiskStateEnabled() const { return GetParam(); }
+
+ protected:
+  base::HistogramTester histogram_tester_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /*no prefix*/,
+    RestartSessionStorageTest,
+    testing::Bool(),
+    /*name_generator=*/
+    [](const testing::TestParamInfo<RestartSessionStorageTest::ParamType>&
+           info) {
+      return info.param ? "ClearDiskStateEnabled" : "ClearDiskStateDisabled";
+    });
+
+IN_PROC_BROWSER_TEST_P(RestartSessionStorageTest, PRE_SessionStorage) {
   StoreDataWithPage("session_storage.html");
   Restart();
 }
 
-IN_PROC_BROWSER_TEST_F(RestartTest, SessionStorage) {
+IN_PROC_BROWSER_TEST_P(RestartSessionStorageTest, SessionStorage) {
+  // Restart should preserve session storage data. So, the disk state should not
+  // be cleared regardless of feature state.
   CheckReloadedPageRestored();
+
+  histogram_tester_.ExpectUniqueSample(
+      "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", false, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(RestartTest, PRE_LocalStorageClearedOnExit) {
@@ -651,12 +741,21 @@ IN_PROC_BROWSER_TEST_F(RestartTest, Post) {
   CheckFormRestored(true, false);
 }
 
-IN_PROC_BROWSER_TEST_F(RestartTest, PRE_PostWithPassword) {
+// TODO(crbug.com/509692227): Re-enable this test on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_Restart_PostWithPassword DISABLED_PostWithPassword
+#define MAYBE_Restart_PRE_PostWithPassword DISABLED_PRE_PostWithPassword
+#else
+#define MAYBE_Restart_PostWithPassword PostWithPassword
+#define MAYBE_Restart_PRE_PostWithPassword PRE_PostWithPassword
+#endif
+
+IN_PROC_BROWSER_TEST_F(RestartTest, MAYBE_Restart_PRE_PostWithPassword) {
   PostFormWithPage("post_with_password.html", true);
   Restart();
 }
 
-IN_PROC_BROWSER_TEST_F(RestartTest, PostWithPassword) {
+IN_PROC_BROWSER_TEST_F(RestartTest, MAYBE_Restart_PostWithPassword) {
   // The form data contained passwords, so it's removed completely.
   CheckFormRestored(false, false);
 }
@@ -691,15 +790,66 @@ IN_PROC_BROWSER_TEST_F(NoSessionRestoreTest, SessionCookies) {
   StoreDataWithPage("session_cookies.html");
 }
 
-IN_PROC_BROWSER_TEST_F(NoSessionRestoreTest, PRE_SessionStorage) {
+class NoSessionRestoreSessionStorageTest
+    : public testing::WithParamInterface<
+          /*is_clear_disk_state_enabled=*/bool>,
+      public NoSessionRestoreTest {
+ public:
+  NoSessionRestoreSessionStorageTest() {
+    feature_list_.InitWithFeatureState(
+        features::kClearSessionStorageDiskStateOnStartup, GetParam());
+  }
+  ~NoSessionRestoreSessionStorageTest() override = default;
+
+  bool IsClearDiskStateEnabled() const { return GetParam(); }
+
+ protected:
+  base::HistogramTester histogram_tester_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /*no prefix*/,
+    NoSessionRestoreSessionStorageTest,
+    testing::Bool(),
+    /*name_generator=*/
+    [](const testing::TestParamInfo<
+        NoSessionRestoreSessionStorageTest::ParamType>& info) {
+      return info.param ? "ClearDiskStateEnabled" : "ClearDiskStateDisabled";
+    });
+
+IN_PROC_BROWSER_TEST_P(NoSessionRestoreSessionStorageTest, PRE_SessionStorage) {
   StoreDataWithPage("session_storage.html");
 }
 
-IN_PROC_BROWSER_TEST_F(NoSessionRestoreTest, SessionStorage) {
+IN_PROC_BROWSER_TEST_P(NoSessionRestoreSessionStorageTest, SessionStorage) {
+  // Session storage data should be cleared regardless of feature state.
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_EQ(std::string(url::kAboutBlankURL), web_contents->GetURL().spec());
   StoreDataWithPage("session_storage.html");
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // ChromeOS also loads a signin OTR Profile (always false) and its parent
+  // non-OTR Profile (true when the feature is enabled. False otherwise).
+  if (IsClearDiskStateEnabled()) {
+    histogram_tester_.ExpectBucketCount(
+        "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", true, 2);
+    histogram_tester_.ExpectBucketCount(
+        "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", false,
+        1);
+  } else {
+    histogram_tester_.ExpectUniqueSample(
+        "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit", false,
+        3);
+  }
+#else
+  histogram_tester_.ExpectUniqueSample(
+      "Storage.SessionStorage.ClearDiskStateAtStoragePartitionInit",
+      IsClearDiskStateEnabled(), 1);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 IN_PROC_BROWSER_TEST_F(NoSessionRestoreTest,

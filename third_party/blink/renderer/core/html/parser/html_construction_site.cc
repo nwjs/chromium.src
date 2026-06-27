@@ -597,6 +597,10 @@ void HTMLConstructionSite::MergeAttributesFromTokenIntoElement(
       element->setAttribute(token_attribute.GetName(), token_attribute.Value());
   }
 
+  if (sanitizer_) {
+    sanitizer_->Sanitize(element);
+  }
+
   element->HideNonce();
 }
 
@@ -613,6 +617,21 @@ void HTMLConstructionSite::InsertHTMLHtmlStartTagInBody(
 void HTMLConstructionSite::InsertHTMLBodyStartTagInBody(
     AtomicHTMLToken* token) {
   MergeAttributesFromTokenIntoElement(token, open_elements_.BodyElement());
+  // The customelementregistry attribute detection in CreateElement does not
+  // apply here because this path does not call CreateElement. This method is
+  // called when a <body> start tag is encountered while a body element already
+  // exists on the open elements stack (e.g., an implicit body was created by
+  // DefaultForAfterHead). In that case, the parser only merges attributes onto
+  // the existing body element rather than creating a new one, so we must
+  // handle the customelementregistry attribute explicitly.
+  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+      token->GetAttributeItem(html_names::kCustomelementregistryAttr)) {
+    Element* body = open_elements_.BodyElement();
+    body->SetCustomElementRegistry(nullptr);
+    if (document_) {
+      document_->SetScopedCustomElementRegistryUsed();
+    }
+  }
 }
 
 void HTMLConstructionSite::SetDefaultCompatibilityMode() {
@@ -853,7 +872,12 @@ void HTMLConstructionSite::AdjustInsertionLocation(
       task.parent = parent_item->GetNode();
     }
 
-    CHECK(!task.next_child || task.next_child->parentNode() == task.parent);
+    // This can happen if the reference node moved right before closing the
+    // stream, and the stream close has some side effects (e.g. <head>
+    // processing). In this case, ignore the reference node and append.
+    if (task.next_child && task.next_child->parentNode() != task.parent) {
+      task.next_child = nullptr;
+    }
   }
 
   if (task.parent != open_elements_.RootNode() || !root_insertion_point_) {
@@ -1089,7 +1113,10 @@ void HTMLConstructionSite::InsertScriptElement(AtomicHTMLToken* token) {
                          parser_content_policy_ !=
                              kAllowScriptingContentAndMarkAsParserInserted);
   HTMLScriptElement* element = nullptr;
-  if (const auto* is_attribute = token->GetAttributeItem(html_names::kIsAttr)) {
+  const auto* is_attribute = token->GetAttributeItem(html_names::kIsAttr);
+  bool sanitizer_allows_is_attribute =
+      !sanitizer_ || sanitizer_->AllowIsAttribute(html_names::kScriptTag);
+  if (is_attribute && sanitizer_allows_is_attribute) {
     element = To<HTMLScriptElement>(OwnerDocumentForCurrentNode().CreateElement(
         html_names::kScriptTag, flags, is_attribute->Value(),
         CustomElementRegistry::DefaultRegistry(OwnerDocumentForCurrentNode())));
@@ -1265,7 +1292,13 @@ Element* HTMLConstructionSite::CreateElement(
            : QualifiedName(g_null_atom, token->GetName(), namespace_uri));
   // "5. Let is be the value of the "is" attribute in the given token ..." etc.
   const Attribute* is_attribute = token->GetAttributeItem(html_names::kIsAttr);
-  const AtomicString& is = is_attribute ? is_attribute->Value() : g_null_atom;
+  // If sanitizer_ is set and if santizer_ would not allow the "is" attribute,
+  // then we will just pretend to not have seen it.
+  bool sanitizer_allows_is_attribute =
+      !sanitizer_ || sanitizer_->AllowIsAttribute(tag_name);
+  const AtomicString& is = (is_attribute && sanitizer_allows_is_attribute)
+                               ? is_attribute->Value()
+                               : g_null_atom;
   // "6. Let registry be the result of looking up a custom element registry
   // given intended parent."
   CustomElementRegistry* registry = custom_element_registry_;

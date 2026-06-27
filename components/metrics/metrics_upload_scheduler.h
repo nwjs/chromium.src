@@ -26,7 +26,7 @@ class MetricsUploadScheduler : public MetricsScheduler {
   ~MetricsUploadScheduler() override;
 
   // Callback from MetricsService when a triggered upload finishes.
-  void UploadFinished(bool server_is_healthy);
+  void UploadFinished(bool backoff);
 
   // Callback from MetricsService when an upload is cancelled.
   // Also stops the scheduler.
@@ -36,8 +36,7 @@ class MetricsUploadScheduler : public MetricsScheduler {
   // GetUnsentLogsInterval() below). This is useful for resetting the scheduler
   // when it is using backoff logic (see GetInitialBackoffInterval() below).
   // This should only be called while the scheduler is running, but not while
-  // a callback is pending. This is currently only used for the feature
-  // kResetMetricsUploadBackoffOnForeground.
+  // a callback is pending.
   void RestartWithUnsentLogsInterval();
 
   // Callback from MetricsService when an upload is cancelled because it would

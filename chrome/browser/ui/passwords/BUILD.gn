@@ -81,6 +81,7 @@ source_set("impl") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
+    "//chrome/browser/ui:simple_message_box_headers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/navigator",
     "//chrome/common",
@@ -374,7 +375,8 @@ if (!is_android) {
       "//url",
 
       # TODO(crbug.com/437811373): Remove this dependency when
-      # c/b/ui/passwords/password_change_ui_controller.h gets built from `//c/b/ui/passwords:passwords`.
+      # c/b/ui/passwords/password_change_ui_controller.h gets built from
+      # `//c/b/ui/passwords:passwords`.
       ":impl",
     ]
   }

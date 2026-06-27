@@ -13,11 +13,13 @@
 #include "base/time/time.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/browser/test_utils.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "components/password_manager/core/browser/hash_password_manager.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_reuse_detector.h"
 #include "components/password_manager/core/browser/password_reuse_detector_impl.h"
 #include "components/password_manager/core/browser/password_reuse_manager_signin_notifier.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/password_manager/core/browser/stub_credentials_filter.h"
@@ -40,6 +42,10 @@ using ::testing::Return;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedElementsAreArray;
 
+MATCHER_P(EqStoredCredentialRef, expected_cred, "") {
+  return arg == expected_cred.get();
+}
+
 PasswordForm CreateForm(
     std::string_view signon_realm,
     std::u16string_view username,
@@ -60,8 +66,24 @@ PasswordForm CreateForm(
   return form;
 }
 
+StoredCredential CreateStoredCredential(
+    std::string_view signon_realm,
+    std::u16string_view username,
+    std::u16string_view password,
+    PasswordForm::Store store = PasswordForm::Store::kProfileStore) {
+  StoredCredential cred;
+  cred.signon_realm = std::string(signon_realm);
+  cred.url = GURL(signon_realm);
+  cred.username_value = std::u16string(username);
+  cred.password_value = std::u16string(password);
+  cred.date_last_used = base::Time::FromSecondsSinceUnixEpoch(1546300800);
+  cred.date_created = base::Time::FromSecondsSinceUnixEpoch(1546300800);
+  cred.in_store = store;
+  return cred;
+}
+
 std::optional<PasswordHashData> GetPasswordFromPref(
-    os_crypt_async::Encryptor encryptor,
+    scoped_refptr<os_crypt_async::Encryptor> encryptor,
     const std::string& username,
     bool is_gaia_password,
     TestingPrefServiceSimple& prefs) {
@@ -127,7 +149,7 @@ class MockPasswordReuseDetector : public PasswordReuseDetector {
               (override));
   MOCK_METHOD(void,
               OnLoginsRetained,
-              (PasswordForm::Store, const std::vector<PasswordForm>&),
+              (PasswordForm::Store, const std::vector<StoredCredential>&),
               (override));
   MOCK_METHOD(void, ClearCachedAccountStorePasswords, (), (override));
   MOCK_METHOD(void,
@@ -172,10 +194,10 @@ class PasswordReuseManagerImplTest : public testing::Test {
         prefs::kLocalPasswordHashDataList, PrefRegistry::NO_REGISTRATION_FLAGS);
     profile_store_ =
         base::MakeRefCounted<TestPasswordStore>(IsAccountStore(false));
-    profile_store_->Init(/*affiliated_match_helper=*/nullptr);
+    profile_store_->Init();
     account_store_ =
         base::MakeRefCounted<TestPasswordStore>(IsAccountStore(true));
-    account_store_->Init(/*affiliated_match_helper=*/nullptr);
+    account_store_->Init();
   }
 
   void Initialize(bool should_mock_password_reuse_detector = false) {
@@ -232,15 +254,13 @@ class PasswordReuseManagerImplTest : public testing::Test {
     return password_reuse_detector_;
   }
 
-  os_crypt_async::Encryptor CreateTestEncryptor() const {
-    // os_crypt_async::Encryptor doesn't have a public constructor, so use an
-    // optional to hold the null value until GetInstance() finishes.
-    std::optional<os_crypt_async::Encryptor> encryptor;
+  scoped_refptr<os_crypt_async::Encryptor> CreateTestEncryptor() const {
+    scoped_refptr<os_crypt_async::Encryptor> encryptor;
     os_crypt_async_->GetInstance(base::BindLambdaForTesting(
-        [&](os_crypt_async::Encryptor new_encryptor) {
+        [&](scoped_refptr<os_crypt_async::Encryptor> new_encryptor) {
           encryptor = std::move(new_encryptor);
         }));
-    return std::move(*encryptor);
+    return encryptor;
   }
 
   std::optional<PasswordHashData> ConvertToPasswordHashData(
@@ -265,12 +285,14 @@ class PasswordReuseManagerImplTest : public testing::Test {
 
 TEST_F(PasswordReuseManagerImplTest, CheckPasswordReuse) {
   Initialize();
-  std::vector<PasswordForm> forms = {
-      CreateForm("https://www.google.com", u"username1", u"password"),
-      CreateForm("https://facebook.com", u"username2", u"topsecret")};
+  std::vector<StoredCredential> forms;
+  forms.push_back(CreateStoredCredential("https://www.google.com", u"username1",
+                                         u"password"));
+  forms.push_back(CreateStoredCredential("https://facebook.com", u"username2",
+                                         u"topsecret"));
 
   for (const auto& form : forms) {
-    profile_store()->AddLogin(form);
+    profile_store()->AddLogin(CloneStoredCredential(form));
   }
 
   struct {
@@ -545,17 +567,19 @@ TEST_F(PasswordReuseManagerImplTest,
 TEST_F(PasswordReuseManagerImplTest,
        CheckReuseCalledOnPasteReuseExistsInBothStores) {
   Initialize();
-  std::vector<PasswordForm> profile_forms = {
-      CreateForm("https://www.google.com", u"username1", u"password"),
-      CreateForm("https://www.google.com", u"username2", u"secretword")};
-  PasswordForm account_form =
-      CreateForm("https://www.facebook.com", u"username3", u"password",
-                 PasswordForm::Store::kAccountStore);
+  std::vector<StoredCredential> profile_forms;
+  profile_forms.push_back(CreateStoredCredential("https://www.google.com",
+                                                 u"username1", u"password"));
+  profile_forms.push_back(CreateStoredCredential("https://www.google.com",
+                                                 u"username2", u"secretword"));
+  StoredCredential account_form =
+      CreateStoredCredential("https://www.facebook.com", u"username3",
+                             u"password", PasswordForm::Store::kAccountStore);
 
   for (const auto& form : profile_forms) {
-    profile_store()->AddLogin(form);
+    profile_store()->AddLogin(CloneStoredCredential(form));
   }
-  account_store()->AddLogin(account_form);
+  account_store()->AddLogin(CloneStoredCredential(account_form));
 
   RunUntilIdle();
 
@@ -574,14 +598,16 @@ TEST_F(PasswordReuseManagerImplTest,
 
 TEST_F(PasswordReuseManagerImplTest, NoReuseFoundAfterClearingAccountStorage) {
   Initialize();
-  std::vector<PasswordForm> account_forms = {
-      CreateForm("https://www.google.com", u"username1", u"password",
-                 PasswordForm::Store::kAccountStore),
-      CreateForm("https://www.google.com", u"username2", u"secretword",
-                 PasswordForm::Store::kAccountStore)};
+  std::vector<StoredCredential> account_forms;
+  account_forms.push_back(
+      CreateStoredCredential("https://www.google.com", u"username1",
+                             u"password", PasswordForm::Store::kAccountStore));
+  account_forms.push_back(CreateStoredCredential(
+      "https://www.google.com", u"username2", u"secretword",
+      PasswordForm::Store::kAccountStore));
 
   for (const auto& form : account_forms) {
-    account_store()->AddLogin(form);
+    account_store()->AddLogin(CloneStoredCredential(form));
   }
 
   RunUntilIdle();
@@ -604,7 +630,8 @@ TEST_F(PasswordReuseManagerImplTest, MaybeSavePasswordHashNoHashSaved) {
       CreateForm("http://yahoo.com", u"user@yahoo.com", u"password",
                  PasswordForm::Store::kAccountStore);
   MockPasswordManagerClient client;
-  reuse_manager()->MaybeSavePasswordHash(&submitted_form, &client);
+  reuse_manager()->MaybeSavePasswordHash(&submitted_form, &client,
+                                         std::nullopt);
 
   RunUntilIdle();
   EXPECT_EQ(0u, prefs().GetList(prefs::kPasswordHashDataList).size());
@@ -618,7 +645,8 @@ TEST_F(PasswordReuseManagerImplTest, MaybeSavePasswordHashGaiaHashSaved) {
   MockPasswordManagerClient client;
   ON_CALL(*client.GetStoreResultFilter(), ShouldSaveGaiaPasswordHash(_))
       .WillByDefault(Return(true));
-  reuse_manager()->MaybeSavePasswordHash(&submitted_form, &client);
+  reuse_manager()->MaybeSavePasswordHash(&submitted_form, &client,
+                                         std::nullopt);
 
   RunUntilIdle();
   // Check that right pref has been saved.
@@ -637,7 +665,8 @@ TEST_F(PasswordReuseManagerImplTest, MaybeSavePasswordHashEnterpriseHashSaved) {
   MockPasswordManagerClient client;
   ON_CALL(*client.GetStoreResultFilter(), ShouldSaveEnterprisePasswordHash(_))
       .WillByDefault(Return(true));
-  reuse_manager()->MaybeSavePasswordHash(&submitted_form, &client);
+  reuse_manager()->MaybeSavePasswordHash(&submitted_form, &client,
+                                         std::nullopt);
 
   RunUntilIdle();
   // Check that right pref has been saved.
@@ -646,6 +675,30 @@ TEST_F(PasswordReuseManagerImplTest, MaybeSavePasswordHashEnterpriseHashSaved) {
           local_prefs().GetList(prefs::kLocalPasswordHashDataList)[0])
           .value();
   EXPECT_FALSE(password_hash_data.is_gaia_password);
+}
+
+TEST_F(PasswordReuseManagerImplTest,
+       MaybeSavePasswordHashGaiaHashSavedWithExplicitEvent) {
+  Initialize();
+  PasswordForm submitted_form =
+      CreateForm("http://google.com", u"user@gmail.com", u"password",
+                 PasswordForm::Store::kAccountStore);
+  MockPasswordManagerClient client;
+  ON_CALL(*client.GetStoreResultFilter(), ShouldSaveGaiaPasswordHash(_))
+      .WillByDefault(Return(true));
+
+  base::HistogramTester histogram_tester;
+  reuse_manager()->MaybeSavePasswordHash(
+      &submitted_form, &client,
+      metrics_util::GaiaPasswordHashChange::SAVED_ON_CHROME_SIGNIN);
+
+  RunUntilIdle();
+
+  // Since IsSyncAccountEmail is false by default in StubCredentialsFilter, it
+  // logs to NonSyncPasswordHashChange.
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.NonSyncPasswordHashChange",
+      metrics_util::GaiaPasswordHashChange::SAVED_ON_CHROME_SIGNIN, 1);
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -715,24 +768,30 @@ TEST_F(PasswordReuseManagerImplTest, NoPasswordSavedFromDifferentUsernames) {
 TEST_F(PasswordReuseManagerImplTest, OnLoginsRetainedCalledWithCorrectParams) {
   Initialize(/*should_mock_password_reuse_detector=*/true);
 
-  PasswordForm submitted_form_profile =
-      CreateForm("http://yahoo.com", u"user@yahoo.com", u"password",
-                 PasswordForm::Store::kProfileStore);
-  EXPECT_CALL(*password_reuse_detector(),
-              OnLoginsRetained(PasswordForm::Store::kProfileStore,
-                               testing::UnorderedElementsAreArray(
-                                   {submitted_form_profile})));
-  profile_store()->TriggerOnLoginsRetainedForAndroid({submitted_form_profile});
+  const StoredCredential submitted_form_profile =
+      CreateStoredCredential("http://yahoo.com", u"user@yahoo.com", u"password",
+                             PasswordForm::Store::kProfileStore);
+  EXPECT_CALL(
+      *password_reuse_detector(),
+      OnLoginsRetained(PasswordForm::Store::kProfileStore,
+                       testing::UnorderedElementsAre(EqStoredCredentialRef(
+                           std::cref(submitted_form_profile)))));
+  std::vector<StoredCredential> profile_creds;
+  profile_creds.push_back(CloneStoredCredential(submitted_form_profile));
+  profile_store()->TriggerOnLoginsRetainedForAndroid(std::move(profile_creds));
   RunUntilIdle();
 
-  PasswordForm submitted_form_account =
-      CreateForm("http://google.com", u"user@google.com", u"password",
-                 PasswordForm::Store::kAccountStore);
-  EXPECT_CALL(*password_reuse_detector(),
-              OnLoginsRetained(PasswordForm::Store::kAccountStore,
-                               testing::UnorderedElementsAreArray(
-                                   {submitted_form_account})));
-  account_store()->TriggerOnLoginsRetainedForAndroid({submitted_form_account});
+  const StoredCredential submitted_form_account =
+      CreateStoredCredential("http://google.com", u"user@google.com",
+                             u"password", PasswordForm::Store::kAccountStore);
+  EXPECT_CALL(
+      *password_reuse_detector(),
+      OnLoginsRetained(PasswordForm::Store::kAccountStore,
+                       testing::UnorderedElementsAre(EqStoredCredentialRef(
+                           std::cref(submitted_form_account)))));
+  std::vector<StoredCredential> account_creds;
+  account_creds.push_back(CloneStoredCredential(submitted_form_account));
+  account_store()->TriggerOnLoginsRetainedForAndroid(std::move(account_creds));
   RunUntilIdle();
 }
 #endif

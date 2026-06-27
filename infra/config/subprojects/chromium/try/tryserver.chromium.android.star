@@ -35,7 +35,7 @@ try_.defaults.set(
     siso_output_local_strategy = "greedy",
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
-    siso_remote_linking = True,
+    siso_remote_linking = False,
 )
 
 targets.builder_defaults.set(
@@ -388,6 +388,22 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-16-x64-leakcanary-fyi-rel",
+    description_html = "FYI try builder mirroring android-16-x64-leakcanary-fyi-rel CI builder.",
+    mirrors = [
+        "ci/android-16-x64-leakcanary-fyi-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-16-x64-leakcanary-fyi-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-17-x64-fyi-rel",
     mirrors = [
         "ci/android-17-x64-fyi-rel",
@@ -399,6 +415,9 @@ try_.builder(
         ],
     ),
     contact_team_email = "clank-engprod@google.com",
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 100,
+    },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -588,6 +607,18 @@ try_.builder(
         ],
     ),
     contact_team_email = "clank-engprod@google.com",
+    properties = {
+        # The format of these properties is defined at archive/properties.proto
+        "$build/archive": {
+            "source_side_spec_path": [
+                "src",
+                "infra",
+                "archive_config",
+                "android-archive-rel.json",
+            ],
+            "verify_paths_only": True,
+        },
+    },
 )
 
 try_.builder(
@@ -1408,11 +1439,11 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-x64-treesinviz-enabled-rel",
+    name = "android-x64-treesinviz-disabled-rel",
     mirrors = [
-        "ci/android-x64-treesinviz-enabled-rel",
+        "ci/android-x64-treesinviz-disabled-rel",
     ],
-    gn_args = "ci/android-x64-treesinviz-enabled-rel",
+    gn_args = "ci/android-x64-treesinviz-disabled-rel",
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
@@ -1550,14 +1581,14 @@ try_.builder(
     name = "android-code-coverage",
     mirrors = ["ci/android-code-coverage"],
     gn_args = "ci/android-code-coverage",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )
 
 try_.builder(
     name = "android-code-coverage-native",
     mirrors = ["ci/android-code-coverage-native"],
     gn_args = "ci/android-code-coverage-native",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )
 
 try_.builder(
@@ -1565,5 +1596,5 @@ try_.builder(
     mirrors = ["ci/android-x86-code-coverage"],
     gn_args = "ci/android-x86-code-coverage",
     contact_team_email = "clank-engprod@google.com",
-    execution_timeout = 20 * time.hour,
+    execution_timeout = 10 * time.hour,
 )

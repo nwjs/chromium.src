@@ -15,6 +15,7 @@
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "base/uuid.h"
+#include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_auto_suggestion_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler_interface.h"
@@ -41,12 +42,15 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/backoff_entry.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/resource/resource_scale_factor.h"
 #include "ui/webui/mojo_web_ui_controller.h"
+#include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
 #include "content/public/browser/host_zoom_map.h"
-#include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
+#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"  // nogncheck
 #endif
 
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -84,14 +88,17 @@ class ContextualTasksUI
       public guest_view::SlimWebViewPageHandlerFactory,
 #endif
       public contextual_tasks::mojom::PageHandlerFactory,
-#if !BUILDFLAG(IS_ANDROID)
       public composebox::mojom::PageHandlerFactory,
+#if !BUILDFLAG(IS_ANDROID)
+      public help_bubble::mojom::HelpBubbleHandlerFactory,
 #endif
       public contextual_tasks_internals::mojom::
           ContextualTasksInternalsPageHandlerFactory,
       public signin::IdentityManager::Observer,
       public contextual_tasks::ContextualTasksService::Observer {
  public:
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSmartTabSharingMenuItemElementId);
+
   friend class ContextualTasksUIBrowserTest;
 
   // A WebContentsObserver used to observe navigations or URL changes in the
@@ -129,7 +136,6 @@ class ContextualTasksUI
   using SlimWebViewPageHandlerFactory::BindInterface;
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
   // composebox::mojom::PageHandlerFactory:
   void CreatePageHandler(
       mojo::PendingRemote<composebox::mojom::Page> pending_page,
@@ -144,6 +150,13 @@ class ContextualTasksUI
   // pending receiver that will be internally bound.
   void BindInterface(
       mojo::PendingReceiver<composebox::mojom::PageHandlerFactory> receiver);
+
+#if !BUILDFLAG(IS_ANDROID)
+  // help_bubble::mojom::HelpBubbleHandlerFactory:
+  void CreateHelpBubbleHandler(
+      mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
+      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler)
+      override;
 #endif
 
   // contextual_tasks::mojom::PageHandlerFactory:
@@ -159,9 +172,8 @@ class ContextualTasksUI
   void SetThreadId(std::optional<std::string> id) override;
   const std::optional<std::string>& GetThreadTitle() override;
   void SetThreadTitle(std::optional<std::string> title) override;
-  void SetAimUrl(const GURL& url) override;
   void SetIsAiPage(bool is_ai_page) override;
-  void UpdateModelModeFromUrl(const GURL& url) override;
+  void UpdateStateFromUrl(const GURL& url) override;
   bool IsShownInTab() override;
   BrowserWindowInterface* GetBrowser() override;
   content::WebContents* GetWebUIWebContents() override;
@@ -202,6 +214,7 @@ class ContextualTasksUI
 
   std::unique_ptr<contextual_search::InputStateModel> TakeInputStateModel()
       override;
+  std::vector<int32_t> GetRestoredTabIds() override;
   void SetComposeboxHandler(
       contextual_tasks::ContextualTasksComposeboxHandlerInterface* handler)
       override;
@@ -221,6 +234,9 @@ class ContextualTasksUI
       const GURL& url,
       contextual_tasks::ContextualTasksUiService* ui_service);
 
+  void OnRestoredTabsFetched(
+      std::vector<searchbox::mojom::TabInfoPtr> tabs) override;
+
   // Returns true if two URLs are equal. Unlike GURL::operator==, this method
   // ignores the order of query parameters.
   static bool AreUrlsEqual(const GURL& a, const GURL& b);
@@ -233,6 +249,12 @@ class ContextualTasksUI
   void BindInterface(
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandlerFactory>
           pending_receiver);
+
+#if !BUILDFLAG(IS_ANDROID)
+  void BindInterface(
+      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+          pending_receiver);
+#endif
 
   // Instantiates the implementor of the contextual_tasks::mojom::
   // ContextualTasksInternalsPageHandlerFactory mojo interface passing the
@@ -259,11 +281,9 @@ class ContextualTasksUI
   void OnRefreshTokenUpdatedForAccount(
       const CoreAccountInfo& account_info) override;
 
-#if !BUILDFLAG(IS_ANDROID)
   void SetComposeboxHandlerForTesting(  // IN-TEST
       std::unique_ptr<
           contextual_tasks::ContextualTasksComposeboxHandlerInterface> handler);
-#endif
 
   // Shows an OAuth error dialog.
   void ShowOauthErrorDialog();
@@ -320,9 +340,9 @@ class ContextualTasksUI
                                        const GURL& url);
 
   // Update the task's details in the WebUI.
-  void PushTaskDetailsToPage();
-
-  bool CanExpandToFullTab();
+  void PushTaskDetailsToPage(std::optional<base::Uuid> id,
+                             const GURL& url,
+                             bool replace_navigation_entry) override;
 
   contextual_tasks::ContextualTasksPanelController* GetPanelController();
 
@@ -348,8 +368,6 @@ class ContextualTasksUI
   raw_ptr<contextual_tasks::ContextualTasksComposeboxHandlerInterface>
       composebox_handler_ = nullptr;
 
-#if !BUILDFLAG(IS_ANDROID)
-  // Desktop only. The composebox handler.
   std::unique_ptr<contextual_tasks::ContextualTasksComposeboxHandlerInterface>
       owned_composebox_handler_;
 
@@ -357,6 +375,12 @@ class ContextualTasksUI
       composebox_page_handler_factory_receiver_{this};
 
   mojo::Remote<composebox::mojom::Page> page_remote_;
+
+#if !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<user_education::HelpBubbleHandler> help_bubble_handler_;
+
+  mojo::Receiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+      help_bubble_factory_receiver_{this};
 #endif
 
   std::unique_ptr<InnerFrameCreationObvserver>
@@ -403,6 +427,7 @@ class ContextualTasksUI
   WebUIState previous_web_ui_state_ = WebUIState::kUnknown;
   bool was_ai_page_ = false;
   bool is_lens_overlay_showing_ = false;
+  bool is_contextual_tasks_eligible_on_init_ = false;
 
   // Scoped observation for contextual_tasks_service_.
   base::ScopedObservation<contextual_tasks::ContextualTasksService,
@@ -427,7 +452,6 @@ class ContextualTasksUI
 
   // Observer for zoom changes for all hosts.
   base::CallbackListSubscription host_zoom_map_subscription_;
-
 #endif
 
   WEB_UI_CONTROLLER_TYPE_DECL();

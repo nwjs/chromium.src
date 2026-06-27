@@ -14,6 +14,8 @@
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/pagination_state.h"
+#include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/background_bleed_avoidance.h"
 #include "third_party/blink/renderer/core/layout/block_break_token.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
@@ -50,6 +52,7 @@
 #include "third_party/blink/renderer/core/paint/paint_auto_dark_mode.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/paint/paint_layer_painter.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/paint_phase.h"
 #include "third_party/blink/renderer/core/paint/scoped_paint_state.h"
@@ -75,6 +78,21 @@
 namespace blink {
 
 namespace {
+
+// If |child_fragment| is a replaced normal-flow stacking context that should
+// be painted inline, paint it via its PaintLayer now.
+void MaybePaintReplacedNormalFlowInline(const PhysicalFragment& child_fragment,
+                                        const PaintInfo& paint_info) {
+  auto* layout_object = child_fragment.GetLayoutObject();
+  if (!layout_object || !layout_object->HasLayer()) {
+    return;
+  }
+  auto* layer = To<LayoutBoxModelObject>(layout_object)->Layer();
+  if (layer->ShouldPaintReplacedNormalFlowInline()) {
+    PaintLayerPainter(*layer).PaintLayerForReplacedNormalFlowStackingContext(
+        paint_info);
+  }
+}
 
 inline bool HasSelection(const LayoutObject* layout_object) {
   return layout_object->GetSelectionState() != SelectionState::kNone;
@@ -318,6 +336,33 @@ bool HitTestAllPhasesInFragment(const PhysicalBoxFragment& fragment,
       .HitTestAllPhases(*result, hit_test_location, accumulated_offset);
 }
 
+bool HitTestReplacedNormalFlowInline(const PhysicalBoxFragment& child_fragment,
+                                     HitTestResult& result,
+                                     const HitTestLocation& hit_test_location,
+                                     PhysicalOffset accumulated_offset,
+                                     HitTestPhase phase) {
+  if (phase != HitTestPhase::kForeground) {
+    return false;
+  }
+
+  auto* layout_object = child_fragment.GetLayoutObject();
+  if (!layout_object || !layout_object->HasLayer()) {
+    return false;
+  }
+
+  auto* layer = To<LayoutBoxModelObject>(layout_object)->Layer();
+  if (!layer->ShouldPaintReplacedNormalFlowInline()) {
+    return false;
+  }
+
+  if (!child_fragment.MayIntersect(result, hit_test_location,
+                                   accumulated_offset)) {
+    return false;
+  }
+
+  return layer->HitTestReplacedNormalFlowInline(result, hit_test_location);
+}
+
 bool NodeAtPointInFragment(const PhysicalBoxFragment& fragment,
                            const HitTestLocation& hit_test_location,
                            PhysicalOffset accumulated_offset,
@@ -347,9 +392,28 @@ unsigned FragmentainerUniqueIdentifier(const PhysicalBoxFragment& fragment) {
   return 0;
 }
 
+const LayoutBlock* GetLayoutCaretBlockFromInnerEditor(
+    const LayoutObject* layout_object) {
+  if (!layout_object->IsTextControlInnerEditor()) {
+    return nullptr;
+  }
+  const LayoutBlock* caret_block =
+      layout_object->GetFrame()->Selection().GetCaretLayoutBlock();
+  if (!caret_block || caret_block == layout_object ||
+      caret_block->Parent() != layout_object) {
+    return nullptr;
+  }
+  return caret_block;
+}
+
 bool ShouldPaintCursorCaret(const PhysicalBoxFragment& fragment) {
-  return fragment.GetLayoutObject()->GetFrame()->Selection().ShouldPaintCaret(
-      fragment);
+  const auto* layout_object = fragment.GetLayoutObject();
+  // Defer caret painting until InnerEditor is painted.
+  // See:
+  // https://docs.google.com/document/d/1Op8-rI8Le4LHBfIYgXpGxvjPdj6CMxmmx_lvF1_kV4w
+  return (RuntimeEnabledFeatures::PaintCaretAfterInnerEditorPaintEnabled() &&
+          GetLayoutCaretBlockFromInnerEditor(layout_object)) ||
+         layout_object->GetFrame()->Selection().ShouldPaintCaret(fragment);
 }
 
 bool ShouldPaintDragCaret(const PhysicalBoxFragment& fragment) {
@@ -360,8 +424,18 @@ bool ShouldPaintDragCaret(const PhysicalBoxFragment& fragment) {
       .ShouldPaintCaret(fragment);
 }
 
+bool IsAnonymousLayoutInInnerEditor(const LayoutObject* layout_object) {
+  return layout_object->IsAnonymous() && layout_object->Parent() &&
+         layout_object->Parent()->IsTextControlInnerEditor();
+}
+
 bool ShouldPaintCarets(const PhysicalBoxFragment& fragment) {
-  return ShouldPaintCursorCaret(fragment) || ShouldPaintDragCaret(fragment);
+  // Defer caret painting until InnerEditor is painted.
+  // See:
+  // https://docs.google.com/document/d/1Op8-rI8Le4LHBfIYgXpGxvjPdj6CMxmmx_lvF1_kV4w
+  return !(RuntimeEnabledFeatures::PaintCaretAfterInnerEditorPaintEnabled() &&
+           IsAnonymousLayoutInInnerEditor(fragment.GetLayoutObject())) &&
+         (ShouldPaintCursorCaret(fragment) || ShouldPaintDragCaret(fragment));
 }
 
 PaintInfo FloatPaintInfo(const PaintInfo& paint_info) {
@@ -512,11 +586,13 @@ void BoxFragmentPainter::PaintAdHighlightIfNeeded(
 }
 
 PhysicalRect BoxFragmentPainter::InkOverflowIncludingFilters() const {
-  if (box_item_)
-    return box_item_->SelfInkOverflowRect();
+  if (box_item_) {
+    return To<LayoutBoxModelObject>(GetPhysicalFragment().GetLayoutObject())
+        ->ApplyFiltersToRect(box_item_->SelfInkOverflowRect());
+  }
   const auto& fragment = GetPhysicalFragment();
   DCHECK(!fragment.IsInlineBox());
-  return To<LayoutBox>(fragment.GetLayoutObject())
+  return To<LayoutBoxModelObject>(fragment.GetLayoutObject())
       ->VisualOverflowRectIncludingFilters();
 }
 
@@ -899,8 +975,17 @@ void BoxFragmentPainter::PaintCaretsIfNeeded(
   }
 
   LocalFrame* frame = box_fragment_.GetLayoutObject()->GetFrame();
-  if (ShouldPaintCursorCaret(box_fragment_))
-    frame->Selection().PaintCaret(paint_info.context, paint_offset);
+  if (ShouldPaintCursorCaret(box_fragment_)) {
+    PhysicalOffset block_offset;
+    if (const auto* caret_block = GetLayoutCaretBlockFromInnerEditor(
+            box_fragment_.GetLayoutObject())) {
+      block_offset = caret_block->LocalToAncestorPoint(
+          PhysicalOffset(),
+          To<LayoutBoxModelObject>(box_fragment_.GetLayoutObject()));
+    }
+    frame->Selection().PaintCaret(paint_info.context,
+                                  paint_offset + block_offset);
+  }
 
   if (ShouldPaintDragCaret(box_fragment_)) {
     frame->GetPage()->GetDragCaret().PaintDragCaret(frame, paint_info.context,
@@ -1068,8 +1153,28 @@ void BoxFragmentPainter::PaintBlockChildren(const PaintInfo& paint_info,
   for (const PhysicalFragmentLink& child : box_fragment_.Children()) {
     const PhysicalFragment& child_fragment = *child;
     DCHECK(child_fragment.IsBox());
-    if (child_fragment.HasSelfPaintingLayer() || child_fragment.IsFloating())
+    if (child_fragment.HasSelfPaintingLayer()) {
+      if (paint_info.phase != PaintPhase::kTextClip) {
+        // Replaced normal flow stacking contexts (like <video>) need to be
+        // painted inline to maintain correct paint order with siblings.
+        // They will be skipped in PaintLayerPainter::PaintChildren.
+        MaybePaintReplacedNormalFlowInline(child_fragment, paint_info);
+      } else if (!child_fragment.IsFloating()) {
+        // Self-painting-layer descendants are skipped by the layer-tree walk
+        // during kTextClip, so visit them here to get their glyphs into the
+        // mask. The mask is pure text geometry, so don't apply the
+        // descendant's opacity (or other compositing effects): that's not part
+        // of the "geometry of the text" and would wrongly dim the ancestor's
+        // revealed background.
+        BoxFragmentPainter(To<PhysicalBoxFragment>(child_fragment))
+            .PaintObject(paint_info_for_descendants,
+                         paint_offset + child.offset);
+      }
       continue;
+    }
+    if (child_fragment.IsFloating()) {
+      continue;
+    }
     PaintBlockChild(child, paint_info, paint_info_for_descendants,
                     paint_offset);
   }
@@ -1482,13 +1587,13 @@ void BoxFragmentPainter::PaintGapDecorations(
   // This boils down to only creating one when we are in overflow: hidden, which
   // is when GapDecorations need it but background doesn't
   if (layout_box.IsScrollContainer() && !contents_paint_state) {
-    // For the case where we are painting the decorations in the contents
-    // space, we need to include the entire overflow rect.
-    paint_rect = layout_box.ScrollableOverflowRect();
-
     contents_paint_state_for_hidden.emplace(
         paint_info, paint_offset, layout_box, box_fragment_.GetFragmentData());
-    paint_rect.Move(contents_paint_state_for_hidden->PaintOffset());
+
+    // For the case where we are painting the decorations in the contents
+    // space, we need to use the overflow rect size for the scrollable extent.
+    paint_rect.size = layout_box.ScrollableOverflowRect().size;
+    paint_rect.offset = contents_paint_state_for_hidden->PaintOffset();
 
     visual_rect = layout_box.GetScrollableArea()->ScrollingBackgroundVisualRect(
         paint_offset);
@@ -2081,8 +2186,21 @@ void BoxFragmentPainter::PaintBoxItem(const FragmentItem& item,
   DCHECK_EQ(&item, cursor.Current().Item());
   DCHECK_EQ(item.PostLayoutBoxFragment(), &child_fragment);
   DCHECK(!child_fragment.IsHiddenForPaint());
-  if (child_fragment.HasSelfPaintingLayer() || child_fragment.IsFloating())
+  if (child_fragment.HasSelfPaintingLayer()) {
+    if (paint_info.phase != PaintPhase::kTextClip) {
+      // Replaced normal flow stacking contexts (like <video>) need to be
+      // painted inline to maintain correct paint order with siblings.
+      // They will be skipped in PaintLayerPainter::PaintChildren.
+      MaybePaintReplacedNormalFlowInline(child_fragment, paint_info);
+      return;
+    }
+    // During kTextClip we fall through into self-painting-layer inline boxes
+    // (e.g. <span style="position:relative">) so their glyphs contribute to the
+    // text mask; the layer-tree walk has no kTextClip pass.
+  }
+  if (child_fragment.IsFloating()) {
     return;
+  }
 
   // Skip if this child does not intersect with CullRect.
   if (!paint_info.IntersectsCullRect(
@@ -2359,11 +2477,15 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
     const Path outer_path = ComputeBorderShapeOuterPath(
         style, rect, box_fragment_.GetLayoutObject());
     if (!hit_test.location.Intersects(outer_path)) {
-      return false;
+      if (!hit_test.result->GetHitTestRequest().IsHitTestVisualOverflow()) {
+        return false;
+      }
     }
   } else if (style.HasBorderRadius() &&
              HitTestClippedOutByBorder(hit_test.location, physical_offset)) {
-    return false;
+    if (!hit_test.result->GetHitTestRequest().IsHitTestVisualOverflow()) {
+      return false;
+    }
   }
 
   bool pointer_events_bounding_box = false;
@@ -2377,7 +2499,9 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
     } else if (fragment.IsSvgText()) {
       pointer_events_bounding_box =
           fragment.Style().UsedPointerEvents() == EPointerEvents::kBoundingBox;
-      hit_test_self = pointer_events_bounding_box;
+      hit_test_self =
+          pointer_events_bounding_box ||
+          hit_test.result->GetHitTestRequest().IsHitTestVisualOverflow();
     }
   }
 
@@ -2402,15 +2526,9 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
     PhysicalRect bounds_rect(physical_offset, size);
     if (hit_test.result->GetHitTestRequest().IsHitTestVisualOverflow())
         [[unlikely]] {
-      // We'll include overflow from children here (in addition to self-overflow
-      // caused by filters), because we want to record a match if we hit the
-      // overflow of a child below the stop node. This matches legacy behavior
-      // in LayoutBox::NodeAtPoint(); see call to
-      // VisualOverflowRectIncludingFilters().
       bounds_rect = InkOverflowIncludingFilters();
       bounds_rect.Move(physical_offset);
-    }
-    if (pointer_events_bounding_box) [[unlikely]] {
+    } else if (pointer_events_bounding_box) [[unlikely]] {
       bounds_rect = PhysicalRect::EnclosingRect(
           GetPhysicalFragment().GetLayoutObject()->ObjectBoundingBox());
     }
@@ -2737,10 +2855,18 @@ bool BoxFragmentPainter::HitTestBlockChildren(
     if (block_child.IsLayoutObjectDestroyedOrMoved()) [[unlikely]] {
       continue;
     }
-    if (block_child.HasSelfPaintingLayer() || block_child.IsFloating())
-      continue;
-
     const PhysicalOffset child_offset = accumulated_offset + child.offset;
+
+    if (block_child.HasSelfPaintingLayer()) {
+      if (HitTestReplacedNormalFlowInline(
+              block_child, result, hit_test_location, child_offset, phase)) {
+        return true;
+      }
+      continue;
+    }
+    if (block_child.IsFloating()) {
+      continue;
+    }
 
     if (block_child.IsPaintedAtomically()) {
       if (phase != HitTestPhase::kForeground)
@@ -2824,6 +2950,15 @@ bool BoxFragmentPainter::HitTestItemsChildren(
     }
 
     if (item->HasSelfPaintingLayer()) {
+      if (const PhysicalBoxFragment* child_fragment = item->BoxFragment()) {
+        const PhysicalOffset child_offset =
+            hit_test.inline_root_offset + item->OffsetInContainerFragment();
+        if (HitTestReplacedNormalFlowInline(*child_fragment, *hit_test.result,
+                                            hit_test.location, child_offset,
+                                            hit_test.phase)) {
+          return true;
+        }
+      }
       cursor.MoveToPreviousSibling();
       continue;
     }

@@ -85,8 +85,8 @@ class VIZ_COMMON_EXPORT BeginFrameObserver {
 // Users of this class should;
 //  - Implement the OnBeginFrameDerivedImpl function.
 //  - Recommended (but not required) to call
-//    BeginFrameObserverBase::OnValueInto in their overridden OnValueInto
-//    function.
+//    BeginFrameObserverBase::AsProtozeroInto in their overridden
+//    AsProtozeroInto function.
 class VIZ_COMMON_EXPORT BeginFrameObserverBase : public BeginFrameObserver {
  public:
   BeginFrameObserverBase();
@@ -237,13 +237,20 @@ class VIZ_COMMON_EXPORT BeginFrameSource {
   virtual void SetVSyncDisplayID(int64_t display_id, bool force_update) {}
 
 #if BUILDFLAG(IS_MAC)
-  // Connect to a new DisplayLinkMac, the VSync source, if needed.
-  // The browser initiates this call whenever a display is either added or
-  // removed.
-  virtual void UpdateVSyncDisplay() {}
+  // Notifies the source that it may need to reconnect to a VSync source (e.g.,
+  // DisplayLinkMac) for the specified display. This is typically triggered by
+  // display configuration changes in the browser process.
+  // |is_browser_vsync_supported| indicates whether the browser-side
+  // CADisplayLink is valid.
+  virtual void UpdateVSyncDisplay(int64_t display_id,
+                                  bool is_browser_vsync_supported) {}
 
-  // Notifies the display that the refresh rate has changed on the same display.
+  // Notifies the source that the refresh rate has changed on the same display.
   virtual void RefreshRateChangedOnSameDisplay() {}
+
+  // Notifies the source that new CALayerParams have been received from the GPU,
+  // indicating that a new frame has been swapped.
+  virtual void DidReceiveNewCALayerParams() {}
 #endif
 
   virtual void SetUpdateVSyncParametersCallback(
@@ -495,7 +502,6 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSource : public BeginFrameSource {
 
  private:
   BeginFrameArgs pending_begin_frame_args_;
-  base::MetricsSubSampler metrics_sub_sampler_;
 };
 
 }  // namespace viz

@@ -40,6 +40,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "services/network/public/mojom/url_loader.mojom-blink.h"
+#include "third_party/blink/public/common/loader/javascript_framework_detection.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_client.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_event_status.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_error.h"
@@ -177,7 +178,8 @@ void ServiceWorkerGlobalScopeProxy::WillEvaluateScript() {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
   TRACE_EVENT_BEGIN("ServiceWorker",
                     "ServiceWorkerGlobalScopeProxy::EvaluateTopLevelScript",
-                    perfetto::Track::FromPointer(this));
+                    perfetto::NamedTrack::FromPointer(
+                        "blink::ServiceWorkerGlobalScopeProxy", this));
   ScriptState::Scope scope(
       WorkerGlobalScope()->ScriptController()->GetScriptState());
   Client().WillEvaluateScript(
@@ -185,7 +187,9 @@ void ServiceWorkerGlobalScopeProxy::WillEvaluateScript() {
   top_level_script_evaluation_start_time_ = base::TimeTicks::Now();
 }
 
-void ServiceWorkerGlobalScopeProxy::DidEvaluateTopLevelScript(bool success) {
+void ServiceWorkerGlobalScopeProxy::DidEvaluateTopLevelScript(
+    bool success,
+    const JavaScriptFrameworkDetectionResult& result) {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
   base::UmaHistogramTimes(
       base::StrCat({"ServiceWorker.EvaluateTopLevelScript.",
@@ -193,7 +197,9 @@ void ServiceWorkerGlobalScopeProxy::DidEvaluateTopLevelScript(bool success) {
       base::TimeTicks::Now() - top_level_script_evaluation_start_time_);
   WorkerGlobalScope()->DidEvaluateScript();
   Client().DidEvaluateScript(success);
-  TRACE_EVENT_END("ServiceWorker", perfetto::Track::FromPointer(this),
+  TRACE_EVENT_END("ServiceWorker",
+                  perfetto::NamedTrack::FromPointer(
+                      "blink::ServiceWorkerGlobalScopeProxy", this),
                   "success", success);
 }
 
@@ -248,9 +254,11 @@ void ServiceWorkerGlobalScopeProxy::SetupNavigationPreload(
 }
 
 void ServiceWorkerGlobalScopeProxy::RequestTermination(
+    uint64_t observed_keepalive_sequence_number,
     CrossThreadOnceFunction<void(bool)> callback) {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
-  Client().RequestTermination(ConvertToBaseOnceCallback(std::move(callback)));
+  Client().RequestTermination(observed_keepalive_sequence_number,
+                              ConvertToBaseOnceCallback(std::move(callback)));
 }
 
 bool ServiceWorkerGlobalScopeProxy::

@@ -300,9 +300,6 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
     AppWindow.prototype.isFullscreen = function() {
       return appWindowData.fullscreen;
     };
-    AppWindow.prototype.isResizable = function() {
-      return appWindowData.resizable;
-    };
     AppWindow.prototype.isMinimized = function() {
       return appWindowData.minimized;
     };
@@ -364,7 +361,6 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
       minimized: params.minimized,
       maximized: params.maximized,
       alwaysOnTop: params.alwaysOnTop,
-      resizable: params.resizable,
       hasFrameColor: params.hasFrameColor,
       activeFrameColor: params.activeFrameColor,
       inactiveFrameColor: params.inactiveFrameColor,

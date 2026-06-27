@@ -43,7 +43,6 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -56,6 +55,7 @@
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
+#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
@@ -71,6 +71,7 @@
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
+#include "chrome/browser/web_applications/test/web_app_page_waiter.h"
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
@@ -221,6 +222,11 @@ using ::base::BucketsAre;
 
 class WebAppBrowserTest : public WebAppBrowserTestBase {
  public:
+  WebAppBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        ::features::kWebAppInstallDialog);
+  }
+
   GURL GetSecureAppURL() {
     return embedded_https_test_server().GetURL("app.com", "/ssl/google.html");
   }
@@ -265,8 +271,10 @@ class WebAppBrowserTest : public WebAppBrowserTestBase {
 
     content::WebContents* const web_contents =
         app_browser->tab_strip_model()->GetActiveWebContents();
-    EXPECT_TRUE(WaitForLoadStop(web_contents));
-    EXPECT_EQ(app_url, web_contents->GetVisibleURL());
+    EXPECT_TRUE(test::WebAppPageWaiter(web_contents)
+                    .ExpectUrl(app_url)
+                    .ManifestOrLoadedNoManifest()
+                    .WaitAndFlushCommands());
 
     const bool result = app_browser->app_controller()->HasMinimalUiButtons();
     EXPECT_EQ(
@@ -278,6 +286,9 @@ class WebAppBrowserTest : public WebAppBrowserTestBase {
 
     return result;
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 using WebAppLaunchUseCounterBrowserTest = WebAppBrowserTest;
@@ -444,15 +455,15 @@ IN_PROC_BROWSER_TEST_F(WebAppWebDXManifestBrowserTest, InvalidNotMeasured) {
                                      blink::mojom::WebDXFeature::kManifest, 0);
 }
 
-// A dedicated test fixture for Borderless, which requires a command
-// line switch to enable manifest parsing.
-class WebAppBrowserTest_Borderless : public WebAppBrowserTest {
+// A dedicated test fixture for unframed, which requires a command line switch
+// to enable manifest parsing.
+class WebAppBrowserTest_Unframed : public WebAppBrowserTest {
  public:
-  WebAppBrowserTest_Borderless() = default;
+  WebAppBrowserTest_Unframed() = default;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
-      blink::features::kWebAppBorderless};
+      blink::features::kUnframedIwa};
 };
 
 // A dedicated test fixture for tabbed display override, which requires a
@@ -1776,7 +1787,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ShortcutIconCorrectColor) {
   base::FilePath shortcut_path;
   auto* provider = WebAppProvider::GetForTest(profile());
   std::vector<SkColor> expected_pixel_colors = {SkColorSetRGB(92, 92, 92)};
-  std::optional<SkColor> icon_pixel_color = std::nullopt;
+  std::optional<SkColor> icon_pixel_color;
 #if BUILDFLAG(IS_MAC)
   icon_pixel_color = os_integration_override().GetShortcutIconTopLeftColor(
       profile(), os_integration_override().chrome_apps_folder(), app_id,
@@ -2653,10 +2664,10 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithDisplayStandalone) {
                    blink::mojom::WebFeature::kWebAppManifestDisplayStandalone));
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_Borderless, Borderless) {
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_Unframed, Unframed) {
   GURL test_url = embedded_https_test_server().GetURL(
       "/banners/"
-      "manifest_test_page.html?manifest=manifest_borderless.json");
+      "manifest_test_page.html?manifest=manifest_unframed.json");
   NavigateViaLinkClickToURLAndWait(browser(), test_url);
 
   const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
@@ -2671,7 +2682,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_Borderless, Borderless) {
   Browser* const app_browser = LaunchWebAppBrowser(app_id);
   app_browser->app_controller()->SetIsolatedWebAppTrueForTesting();
 
-  EXPECT_TRUE(app_browser->app_controller()->AppUsesBorderlessMode());
+  EXPECT_TRUE(app_browser->app_controller()->AppUsesUnframedMode());
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_Tabbed, TabbedDisplayOverride) {
@@ -2778,20 +2789,23 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_FileHandler, FileAssociation) {
   NavigateViaLinkClickToURLAndWait(browser(), app_url);
 
   // Wait for OS hooks and installation to complete.
-  SetAutoAcceptWebAppDialogForTesting(true, true);
-  base::RunLoop run_loop_install;
-  WebAppInstallManagerObserverAdapter observer(profile());
-  observer.SetWebAppInstalledWithOsHooksDelegate(
-      base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id) {
-        EXPECT_THAT(
-            tester.GetAllSamples("WebApp.FileHandlersRegistration.Result"),
-            BucketsAre(base::Bucket(true, 1)));
-        run_loop_install.Quit();
-      }));
-  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
-  run_loop_install.Run();
-  content::RunAllTasksUntilIdle();
-  SetAutoAcceptWebAppDialogForTesting(false, false);
+  webapps::AppId app_id;
+  {
+    web_app::test::ScopedAutoAcceptCreateShortcutDialog auto_accept;
+    web_app::test::ScopedAutoCheckChromeOsOpenInWindow auto_check;
+    base::RunLoop run_loop_install;
+    WebAppInstallManagerObserverAdapter observer(profile());
+    observer.SetWebAppInstalledWithOsHooksDelegate(
+        base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id) {
+          EXPECT_THAT(
+              tester.GetAllSamples("WebApp.FileHandlersRegistration.Result"),
+              BucketsAre(base::Bucket(true, 1)));
+          run_loop_install.Quit();
+        }));
+    app_id = test::InstallPwaForCurrentUrl(browser());
+    run_loop_install.Run();
+    content::RunAllTasksUntilIdle();
+  }
 
   for (auto extension : expected_extensions) {
     EXPECT_TRUE(os_integration_override().IsFileExtensionHandled(
@@ -2856,17 +2870,20 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_FileHandler,
   NavigateViaLinkClickToURLAndWait(browser(), app_url);
 
   // Wait for OS hooks and installation to complete.
-  SetAutoAcceptWebAppDialogForTesting(true, true);
-  base::RunLoop run_loop_install;
-  WebAppInstallManagerObserverAdapter observer(profile());
-  observer.SetWebAppInstalledWithOsHooksDelegate(
-      base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id) {
-        run_loop_install.Quit();
-      }));
-  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
-  run_loop_install.Run();
-  content::RunAllTasksUntilIdle();
-  SetAutoAcceptWebAppDialogForTesting(false, false);
+  webapps::AppId app_id;
+  {
+    web_app::test::ScopedAutoAcceptCreateShortcutDialog auto_accept;
+    web_app::test::ScopedAutoCheckChromeOsOpenInWindow auto_check;
+    base::RunLoop run_loop_install;
+    WebAppInstallManagerObserverAdapter observer(profile());
+    observer.SetWebAppInstalledWithOsHooksDelegate(
+        base::BindLambdaForTesting([&](const webapps::AppId& installed_app_id) {
+          run_loop_install.Quit();
+        }));
+    app_id = test::InstallPwaForCurrentUrl(browser());
+    run_loop_install.Run();
+    content::RunAllTasksUntilIdle();
+  }
 
   auto is_handling_extension = [&](const std::string& extension) {
     return os_integration_override().IsFileExtensionHandled(

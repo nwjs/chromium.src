@@ -14,6 +14,8 @@
 #include "base/barrier_closure.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
+#include "base/containers/flat_map.h"
+#include "base/feature.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
@@ -475,10 +477,13 @@ void PolicyUIHandler::HandleUploadReport(const base::ListValue& args) {
                                ->chrome_browser_cloud_management_controller()
                                ->report_scheduler();
 
-  auto* profile_report_scheduler =
+  auto* cloud_profile_reporting_service =
       enterprise_reporting::CloudProfileReportingServiceFactory::GetForProfile(
-          Profile::FromWebUI(web_ui()))
-          ->report_scheduler();
+          Profile::FromWebUI(web_ui()));
+  auto* profile_report_scheduler =
+      cloud_profile_reporting_service
+          ? cloud_profile_reporting_service->report_scheduler()
+          : nullptr;
 
   if (report_scheduler && profile_report_scheduler) {
     const auto on_report_uploaded = base::BarrierClosure(
@@ -523,13 +528,18 @@ void PolicyUIHandler::SendPolicies() {
 }
 
 void PolicyUIHandler::SendStatus() {
-  if (!IsJavascriptAllowed()) {
-    return;
-  }
+  if (IsMojoMigrationEnabled()) {
+    client_->StatusUpdated(
+        policy_value_and_status_aggregator_->GetAggregatedPolicyStatusMojo());
+  } else {
+    if (!IsJavascriptAllowed()) {
+      return;
+    }
 
-  FireWebUIListener(
-      "status-updated",
-      policy_value_and_status_aggregator_->GetAggregatedPolicyStatus());
+    FireWebUIListener(
+        "status-updated",
+        policy_value_and_status_aggregator_->GetAggregatedPolicyStatus());
+  }
 }
 
 #if !BUILDFLAG(IS_ANDROID)

@@ -31,6 +31,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/enterprise/reporting/cloud_profile_reporting_service.h"
+#include "chrome/browser/enterprise/reporting/cloud_profile_reporting_service_factory.h"
 #include "chrome/browser/policy/profile_policy_connector_builder.h"
 #include "chrome/browser/policy/schema_registry_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -45,6 +47,7 @@
 #include "components/policy/core/common/features.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
+#include "components/policy/core/common/policy_logger.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_namespace.h"
 #include "components/policy/core/common/policy_pref_names.h"
@@ -137,7 +140,8 @@ std::vector<std::string> PopulateExpectedPolicy(
     const std::string& value,
     const std::string& source,
     const policy::PolicyMap::Entry* policy_map_entry,
-    bool unknown) {
+    bool unknown,
+    const std::string& identifier = "chrome") {
   std::vector<std::string> expected_policy;
 
   // Populate expected policy name.
@@ -177,6 +181,10 @@ std::vector<std::string> PopulateExpectedPolicy(
   } else {
     expected_policy.push_back(l10n_util::GetStringUTF8(IDS_POLICY_OK));
   }
+
+  // Populate expected identifier.
+  expected_policy.push_back(identifier);
+
   return expected_policy;
 }
 }  // namespace
@@ -237,6 +245,7 @@ void PolicyUITestBase::VerifyPolicies(
       "    for(var k = 0; k < children.length - 1; ++k) {"
       "      values.push(children[k].textContent.trim());"
       "    }"
+      "    values.push(entries[i].dataModel.id || '');"
       "    policies.push(values);"
       "  }"
       "}"
@@ -536,7 +545,11 @@ IN_PROC_BROWSER_TEST_P(PolicyUITest, LogsPageRedirectsOnChromeOS) {
   EXPECT_TRUE(content::WaitForLoadStop(contents));
 
 #if BUILDFLAG(IS_CHROMEOS)
-  EXPECT_EQ(contents->GetLastCommittedURL(), policy_url);
+  if (policy::PolicyLogger::GetInstance()->IsPolicyLoggingEnabled()) {
+    EXPECT_EQ(contents->GetLastCommittedURL(), logs_url);
+  } else {
+    EXPECT_EQ(contents->GetLastCommittedURL(), policy_url);
+  }
 #else
   EXPECT_EQ(contents->GetLastCommittedURL(), logs_url);
 #endif
@@ -563,7 +576,7 @@ IN_PROC_BROWSER_TEST_P(PolicyUITest, SendPolicyNames) {
   // Add policies found in the Policy Precedence table.
   for (auto* policy : policy::metapolicy::kPrecedence) {
     expected_policies.push_back(PopulateExpectedPolicy(
-        policy, std::string(), std::string(), nullptr, false));
+        policy, std::string(), std::string(), nullptr, false, "precedence"));
   }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -658,8 +671,9 @@ IN_PROC_BROWSER_TEST_P(PolicyUITest, MAYBE_SendPolicyValues) {
 #if !BUILDFLAG(IS_CHROMEOS)
   // Add policies found in the Policy Precedence table.
   for (auto* policy : policy::metapolicy::kPrecedence) {
-    expected_policies.push_back(PopulateExpectedPolicy(
-        policy, std::string(), std::string(), values.Get(policy), false));
+    expected_policies.push_back(
+        PopulateExpectedPolicy(policy, std::string(), std::string(),
+                               values.Get(policy), false, "precedence"));
   }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -713,6 +727,41 @@ IN_PROC_BROWSER_TEST_P(PolicyUITest, ReportButtonWithProfileReporting) {
   provider_.UpdateChromePolicy(policy_map);
   VerifyReportButton(/*visible=*/false);
 }
+
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_P(PolicyUITest, ReportButtonOTRProfile) {
+  Browser* otr_browser = OpenURLOffTheRecord(browser()->profile(),
+                                             GURL(chrome::kChromeUIPolicyURL));
+  ASSERT_TRUE(otr_browser);
+  content::WebContents* otr_contents =
+      otr_browser->tab_strip_model()->GetActiveWebContents();
+
+  // Concretely assert that CloudProfileReportingServiceFactory returns nullptr
+  // for OTR profile, so no reporting service / scheduler is available.
+  EXPECT_EQ(
+      nullptr,
+      enterprise_reporting::CloudProfileReportingServiceFactory::GetForProfile(
+          otr_browser->profile()));
+
+  // Turn on the reporting policy.
+  policy::PolicyMap policy_map;
+  policy_map.Set(policy::key::kCloudProfileReportingEnabled,
+                 policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_MACHINE,
+                 policy::POLICY_SOURCE_CLOUD, base::Value(true), nullptr);
+  provider_.UpdateChromePolicy(policy_map);
+
+  // Verify the button is NOT visible in the OTR profile, even when enabled by
+  // policy.
+  const std::string kJavaScript = "getReportButtonVisibility();";
+  std::string visibility =
+      content::EvalJs(otr_contents, kJavaScript).ExtractString();
+  EXPECT_EQ("none", visibility);
+
+  // Verify that calling uploadReport does not crash and completes safely.
+  EXPECT_TRUE(content::ExecJs(otr_contents,
+                              "chrome.send('uploadReport', ['test_id']);"));
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_CHROMEOS)
 class PolicyPrecedenceUITest
@@ -950,27 +999,34 @@ IN_PROC_BROWSER_TEST_P(ExtensionPolicyUITest,
   // Add policies found in the precedence policy table.
   for (auto* policy : policy::metapolicy::kPrecedence) {
     expected_chrome_policies.push_back(PopulateExpectedPolicy(
-        policy, std::string(), std::string(), nullptr, false));
+        policy, std::string(), std::string(), nullptr, false, "precedence"));
   }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
   // Add extension policy to expected policy list.
   std::vector<std::vector<std::string>> expected_policies =
       expected_chrome_policies;
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kNormalBooleanPolicy, std::string(), std::string(), nullptr, false));
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kSensitiveArrayPolicy, std::string(), std::string(), nullptr, false));
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kSensitiveBooleanPolicy, std::string(), std::string(), nullptr, false));
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kSensitiveIntegerPolicy, std::string(), std::string(), nullptr, false));
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kSensitiveNumberPolicy, std::string(), std::string(), nullptr, false));
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kSensitiveObjectPolicy, std::string(), std::string(), nullptr, false));
-  expected_policies.push_back(PopulateExpectedPolicy(
-      kSensitiveStringPolicy, std::string(), std::string(), nullptr, false));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kNormalBooleanPolicy, std::string(), std::string(),
+                             nullptr, false, extension->id()));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kSensitiveArrayPolicy, std::string(),
+                             std::string(), nullptr, false, extension->id()));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kSensitiveBooleanPolicy, std::string(),
+                             std::string(), nullptr, false, extension->id()));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kSensitiveIntegerPolicy, std::string(),
+                             std::string(), nullptr, false, extension->id()));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kSensitiveNumberPolicy, std::string(),
+                             std::string(), nullptr, false, extension->id()));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kSensitiveObjectPolicy, std::string(),
+                             std::string(), nullptr, false, extension->id()));
+  expected_policies.push_back(
+      PopulateExpectedPolicy(kSensitiveStringPolicy, std::string(),
+                             std::string(), nullptr, false, extension->id()));
 
   // Verify if policy UI includes policy that extension have.
   VerifyPolicies(expected_policies);
@@ -1008,27 +1064,27 @@ IN_PROC_BROWSER_TEST_P(ExtensionPolicyUITest,
   const std::string mask_value = "********";
   std::vector<std::vector<std::string>> expected_policies_with_values =
       expected_chrome_policies;
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kNormalBooleanPolicy, "true", "Cloud",
-                             values.Get(kNormalBooleanPolicy), false));
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kSensitiveArrayPolicy, mask_value, "Cloud",
-                             values.Get(kSensitiveArrayPolicy), false));
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kSensitiveBooleanPolicy, mask_value, "Cloud",
-                             values.Get(kSensitiveBooleanPolicy), false));
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kSensitiveIntegerPolicy, mask_value, "Cloud",
-                             values.Get(kSensitiveIntegerPolicy), false));
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kSensitiveNumberPolicy, mask_value, "Cloud",
-                             values.Get(kSensitiveNumberPolicy), false));
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kSensitiveObjectPolicy, mask_value, "Cloud",
-                             values.Get(kSensitiveObjectPolicy), false));
-  expected_policies_with_values.push_back(
-      PopulateExpectedPolicy(kSensitiveStringPolicy, mask_value, "Cloud",
-                             values.Get(kSensitiveStringPolicy), false));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kNormalBooleanPolicy, "true", "Cloud", values.Get(kNormalBooleanPolicy),
+      false, extension->id()));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kSensitiveArrayPolicy, mask_value, "Cloud",
+      values.Get(kSensitiveArrayPolicy), false, extension->id()));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kSensitiveBooleanPolicy, mask_value, "Cloud",
+      values.Get(kSensitiveBooleanPolicy), false, extension->id()));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kSensitiveIntegerPolicy, mask_value, "Cloud",
+      values.Get(kSensitiveIntegerPolicy), false, extension->id()));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kSensitiveNumberPolicy, mask_value, "Cloud",
+      values.Get(kSensitiveNumberPolicy), false, extension->id()));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kSensitiveObjectPolicy, mask_value, "Cloud",
+      values.Get(kSensitiveObjectPolicy), false, extension->id()));
+  expected_policies_with_values.push_back(PopulateExpectedPolicy(
+      kSensitiveStringPolicy, mask_value, "Cloud",
+      values.Get(kSensitiveStringPolicy), false, extension->id()));
   VerifyPolicies(expected_policies_with_values);
 }
 

@@ -13,6 +13,7 @@
 #import "base/check.h"
 #import "base/check_deref.h"
 #import "base/check_op.h"
+#import "base/feature_list.h"
 #import "base/functional/callback_helpers.h"
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
@@ -35,7 +36,6 @@
 #import "components/infobars/core/infobar_manager.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/common/password_manager_features.h"
-#import "components/plus_addresses/core/common/features.h"
 #import "components/prefs/pref_service.h"
 #import "components/profile_metrics/browser_profile_type.h"
 #import "components/safe_browsing/core/common/features.h"
@@ -69,15 +69,15 @@
 #import "ios/chrome/browser/autofill/autofill_ai/error_dialog/model/autofill_ai_error_dialog_context.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/save_entity_params.h"
 #import "ios/chrome/browser/autofill/form_input_accessory/coordinator/form_input_accessory_coordinator.h"
+#import "ios/chrome/browser/autofill/manual_fill/coordinator/manual_fill_password_coordinator.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
+#import "ios/chrome/browser/autofill/payments/coordinator/payments_suggestion_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/autofill/scan_save_and_fill/coordinator/payments_scan_save_and_fill_offer_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/address_editor/autofill_edit_profile_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/bottom_sheet/infobar_autofill_edit_profile_bottom_sheet_handler.h"
-#import "ios/chrome/browser/autofill/ui_bundled/bottom_sheet/payments_suggestion_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/bottom_sheet/save_card_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/bottom_sheet/virtual_card_enrollment_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/error_dialog/autofill_error_dialog_coordinator.h"
-#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_password_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/progress_dialog/autofill_progress_dialog_coordinator.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/browser_content/model/edit_menu_builder.h"
@@ -101,6 +101,7 @@
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_coordinator.h"
+#import "ios/chrome/browser/composebox/menu/coordinator/composebox_menu_coordinator.h"
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
@@ -161,6 +162,7 @@
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_coordinator.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_view_finder_coordinator.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
+#import "ios/chrome/browser/level_up/coordinator/level_up_coordinator.h"
 #import "ios/chrome/browser/main/coordinator/browser_layout_coordinator.h"
 #import "ios/chrome/browser/main/ui/browser_layout_view_controller.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
@@ -187,7 +189,6 @@
 #import "ios/chrome/browser/phone_number/ui_bundled/country_code_picker_coordinator.h"
 #import "ios/chrome/browser/picture_in_picture/coordinator/picture_in_picture_coordinator.h"
 #import "ios/chrome/browser/picture_in_picture/public/picture_in_picture_configuration.h"
-#import "ios/chrome/browser/plus_addresses/coordinator/plus_address_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/popup_menu/coordinator/popup_menu_coordinator.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent_delegate.h"
@@ -235,6 +236,7 @@
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
@@ -268,6 +270,7 @@
 #import "ios/chrome/browser/shared/public/commands/google_one_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
+#import "ios/chrome/browser/shared/public/commands/level_up_commands.h"
 #import "ios/chrome/browser/shared/public/commands/mini_map_commands.h"
 #import "ios/chrome/browser/shared/public/commands/new_tab_page_commands.h"
 #import "ios/chrome/browser/shared/public/commands/non_modal_signin_promo_commands.h"
@@ -437,6 +440,7 @@ const char kChromeAppStoreUrl[] =
     BWGCommands,
     GoogleOneCommands,
     IOSPasskeyClientCommands,
+    LevelUpCommands,
     MiniMapCommands,
     NetExportTabHelperDelegate,
     NewTabPageCommands,
@@ -559,9 +563,6 @@ const char kChromeAppStoreUrl[] =
 // Coordinator for the authentication when unmasking card during autofill.
 @property(nonatomic, strong)
     CardUnmaskAuthenticationCoordinator* cardUnmaskAuthenticationCoordinator;
-
-@property(nonatomic, strong)
-    PlusAddressBottomSheetCoordinator* plusAddressBottomSheetCoordinator;
 
 @property(nonatomic, strong)
     AutofillEditProfileCoordinator* autofillEditProfileCoordinator;
@@ -712,6 +713,9 @@ const char kChromeAppStoreUrl[] =
 // The coordinator used for What's New feature.
 @property(nonatomic, strong) WhatsNewCoordinator* whatsNewCoordinator;
 
+// The coordinator used for Level Up feature.
+@property(nonatomic, strong) LevelUpCoordinator* levelUpCoordinator;
+
 // The manager used to display a default browser promo.
 @property(nonatomic, strong) DefaultBrowserGenericPromoCoordinator*
     defaultBrowserGenericPromoCoordinator;
@@ -753,8 +757,7 @@ const char kChromeAppStoreUrl[] =
   DockingPromoCoordinator* _dockingPromoCoordinator;
   // Used to display the Voice Search UI.  Nil if not visible.
   id<VoiceSearchController> _voiceSearchController;
-  raw_ptr<UrlLoadingNotifierBrowserAgent>
-      _urlLoadingNotifierBrowserAgent;
+  raw_ptr<UrlLoadingNotifierBrowserAgent> _urlLoadingNotifierBrowserAgent;
   id<OmniboxCommands> _omniboxCommandsHandler;
   LayoutGuideCenter* _layoutGuideCenter;
   raw_ptr<WebNavigationBrowserAgent> _webNavigationBrowserAgent;
@@ -857,6 +860,9 @@ const char kChromeAppStoreUrl[] =
 
   // The coordinator for Cobalt popups.
   ChromeCoordinator* _cobaltPopupCoordinator;
+
+  // The coordinator showing the multimodal composebox menu.
+  ComposeboxMenuCoordinator* _composeboxMenuCoordinator;
 }
 
 #pragma mark - SnackbarCoordinatorDelegate
@@ -874,9 +880,17 @@ const char kChromeAppStoreUrl[] =
   if (self.sceneState.controller.isTabGridVisible) {
     // The tab grid is being shown so use the tab grid bottom bar.
     // kTabGridBottomToolbarGuide is stored in the shared layout guide center.
-    UIView* tabGridBottomToolbarView = [LayoutGuideCenterForBrowser(nil)
-        referencedViewUnderName:kTabGridBottomToolbarGuide];
+    UIView* tabGridBottomToolbarView =
+        [LayoutGuideCenterForBrowser(self.browser)
+            referencedViewUnderName:kTabGridBottomToolbarGuide];
     if (IsChromeNextIaEnabled()) {
+      // On iPad, or if the bottom toolbar view is not yet installed in the
+      // active window hierarchy, return 0 offset to avoid undefined coordinate
+      // conversions.
+      if (!IsSplitToolbarMode(self.viewController) ||
+          !tabGridBottomToolbarView.window) {
+        return 0;
+      }
       CGPoint originOfBottomToolbar =
           [tabGridBottomToolbarView convertPoint:CGPointZero toView:nil];
       return windowHeight - originOfBottomToolbar.y;
@@ -915,6 +929,11 @@ const char kChromeAppStoreUrl[] =
   UIView* bottomToolbar = [LayoutGuideCenterForBrowser(self.browser)
       referencedViewUnderName:kSecondaryToolbarGuide];
   if (IsChromeNextIaEnabled()) {
+    // On iPad, or if the bottom toolbar view is not yet installed in the active
+    // window hierarchy (e.g. when bottom omnibox is disabled), return 0 offset.
+    if (!IsSplitToolbarMode(self.viewController) || !bottomToolbar.window) {
+      return 0;
+    }
     CGPoint originOfBottomToolbar = [bottomToolbar convertPoint:CGPointZero
                                                          toView:nil];
     return windowHeight - originOfBottomToolbar.y;
@@ -1371,6 +1390,7 @@ const char kChromeAppStoreUrl[] =
     @protocol(CountryCodePickerCommands),
     @protocol(WhatsNewCommands),
     @protocol(GoogleOneCommands),
+    @protocol(LevelUpCommands),
     @protocol(WelcomeBackPromoCommands),
     @protocol(DockingPromoCommands),
     @protocol(EnterpriseCommands),
@@ -1580,6 +1600,7 @@ const char kChromeAppStoreUrl[] =
 
   [_dispatcher startDispatchingToTarget:viewController
                             forProtocol:@protocol(BrowserCommands)];
+  viewController.layoutState = self.browser->GetSceneState().layoutState;
   _browserLayoutCoordinator.browserViewController = viewController;
 }
 
@@ -1839,9 +1860,6 @@ const char kChromeAppStoreUrl[] =
   [self.cardUnmaskAuthenticationCoordinator stop];
   self.cardUnmaskAuthenticationCoordinator = nil;
 
-  [self.plusAddressBottomSheetCoordinator stop];
-  self.plusAddressBottomSheetCoordinator = nil;
-
   [self dismissSaveCardBottomSheet];
 
   [self.virtualCardEnrollmentBottomSheetCoordinator stop];
@@ -1897,6 +1915,9 @@ const char kChromeAppStoreUrl[] =
 
   [self.whatsNewCoordinator stop];
   self.whatsNewCoordinator = nil;
+
+  [self.levelUpCoordinator stop];
+  self.levelUpCoordinator = nil;
 
   [_pictureInPictureCoordinator stop];
   _pictureInPictureCoordinator = nil;
@@ -1986,6 +2007,7 @@ const char kChromeAppStoreUrl[] =
   [self dismissDockingPromo];
   [self hideWelcomeBackPromo];
   [self hideComposeboxImmediately:YES completion:nil];
+  [self dismissMultimodalActionsMenu];
 }
 
 // Starts independent mediators owned by this coordinator.
@@ -2390,14 +2412,6 @@ const char kChromeAppStoreUrl[] =
   }
 }
 
-- (void)showPlusAddressesBottomSheet {
-  self.plusAddressBottomSheetCoordinator =
-      [[PlusAddressBottomSheetCoordinator alloc]
-          initWithBaseViewController:self.viewController
-                             browser:self.browser];
-  [self.plusAddressBottomSheetCoordinator start];
-}
-
 - (void)showSaveCardBottomSheetOnOriginWebState:(web::WebState*)originWebState {
   if (self.saveCardBottomSheetCoordinator) {
     [self.saveCardBottomSheetCoordinator stop];
@@ -2527,7 +2541,8 @@ const char kChromeAppStoreUrl[] =
 - (void)showSaveEntityDialog:(autofill::SaveEntityParams)params {
   if (_autofillAISaveEntityCoordinator) {
     std::move(params.callback)
-        .Run(autofill::AutofillClient::AutofillAiBubbleResult::kUnknown, {});
+        .Run(autofill::AutofillClient::AutofillAiBubbleResult::kUnknown,
+             std::nullopt, {});
     return;
   }
 
@@ -2911,11 +2926,6 @@ const char kChromeAppStoreUrl[] =
   self.cardUnmaskAuthenticationCoordinator = nil;
 }
 
-- (void)dismissPlusAddressBottomSheet {
-  [self.plusAddressBottomSheetCoordinator stop];
-  self.plusAddressBottomSheetCoordinator = nil;
-}
-
 - (void)dismissVirtualCardEnrollmentBottomSheet {
   [self.virtualCardEnrollmentBottomSheetCoordinator stop];
   self.virtualCardEnrollmentBottomSheetCoordinator = nil;
@@ -3063,6 +3073,25 @@ const char kChromeAppStoreUrl[] =
   [_signinCoordinator start];
 }
 
+- (void)showMultimodalActionsMenu {
+  if (IsComposeboxPlusButtonBottomSheet()) {
+    [_composeboxMenuCoordinator stop];
+    _composeboxMenuCoordinator = [[ComposeboxMenuCoordinator alloc]
+        initWithBaseViewController:self.viewController
+                           browser:self.browser
+                        entrypoint:ComposeboxEntrypoint::kNTPPlusButton];
+    [_composeboxMenuCoordinator start];
+  } else {
+    [self showComposeboxFromEntrypoint:ComposeboxEntrypoint::kNTPPlusButton
+                             withQuery:nil];
+  }
+}
+
+- (void)dismissMultimodalActionsMenu {
+  [_composeboxMenuCoordinator stop];
+  _composeboxMenuCoordinator = nil;
+}
+
 - (void)showComposebox {
   [self exitFullscreen];
 
@@ -3174,9 +3203,6 @@ const char kChromeAppStoreUrl[] =
   [self.paymentsSuggestionBottomSheetCoordinator stop];
   self.paymentsSuggestionBottomSheetCoordinator = nil;
 
-  [self.plusAddressBottomSheetCoordinator stop];
-  self.plusAddressBottomSheetCoordinator = nil;
-
   [self dismissSaveCardBottomSheet];
 
   [self.virtualCardEnrollmentBottomSheetCoordinator stop];
@@ -3243,7 +3269,7 @@ const char kChromeAppStoreUrl[] =
 
   [self cancelCollaborationFlows];
   [self.NTPCoordinator clearPresentedState];
-
+  [self dismissMultimodalActionsMenu];
   // The composebox replaces the omnibox.
   if (dismissOmnibox) {
     [self hideComposebox];
@@ -3864,6 +3890,21 @@ const char kChromeAppStoreUrl[] =
   [_geminiFirstRunCoordinator start];
 }
 
+- (void)startGeminiLiveFREWithCompletion:(void (^)(BOOL success))completion {
+  // TODO(crbug.com/513889315): Implement this.
+  if (completion) {
+    completion(NO);
+  }
+}
+
+- (void)showGeminiLiveMicrophoneAlertWithCompletion:
+    (void (^)(BOOL granted))completion {
+  // TODO(crbug.com/513889315): Implement this.
+  if (completion) {
+    completion(NO);
+  }
+}
+
 - (void)hideFloatyIfInvokedAnimated:(BOOL)animated
                          fromSource:(gemini::FloatyUpdateSource)source {
   GeminiBrowserAgent* geminiBrowserAgent =
@@ -3897,7 +3938,7 @@ const char kChromeAppStoreUrl[] =
   // isn't visible.
   // TODO(crbug.com/476145805): Move WebState related checks to tab helper.
   bool isWebStateVisible = self.activeWebState->IsVisible();
-  if (!isWebStateVisible) {
+  if (!isWebStateVisible && !IsChromeNextIaEnabled()) {
     geminiTabHelper->UpdatePresentedSource(source, /*is_presented=*/false);
     geminiBrowserAgent->HideFloatyIfInvoked(
         animated, gemini::FloatyUpdateSource::IneligibleSite);
@@ -3912,11 +3953,6 @@ const char kChromeAppStoreUrl[] =
     geminiTabHelper->UpdatePresentedSource(source, /*is_presented=*/false);
     gemini::FloatyUpdateSource hideSource =
         gemini::FloatyUpdateSource::IneligibleSite;
-    const GURL& url = self.activeWebState->GetVisibleURL();
-    if (google_util::IsGoogleSearchUrl(url) &&
-        IsGeminiCopresenceSRPCheckEnabled()) {
-      hideSource = gemini::FloatyUpdateSource::SearchRelatedPage;
-    }
     geminiBrowserAgent->HideFloatyIfInvoked(animated, hideSource);
     return;
   }
@@ -4310,6 +4346,10 @@ const char kChromeAppStoreUrl[] =
   if (readerModeBrowserAgent) {
     readerModeBrowserAgent->SetDelegate(nil);
   }
+
+  // Disconnect the presenter from the context to cancel active overlays.
+  OverlayPresenter::FromBrowser(self.browser, OverlayModality::kInfobarBanner)
+      ->SetPresentationContext(nullptr);
 }
 
 #pragma mark - ParentAccessCommands
@@ -5445,24 +5485,30 @@ const char kChromeAppStoreUrl[] =
 #pragma mark - MiniMapCommands
 
 - (void)presentMiniMapWithIPHForText:(NSString*)text {
+  MiniMapMode mode = base::FeatureList::IsEnabled(kIOSMiniMapLinkifiedAddress)
+                         ? MiniMapMode::kMapNativePreviewURL
+                         : MiniMapMode::kMap;
   self.miniMapCoordinator =
       [[MiniMapCoordinator alloc] initWithBaseViewController:self.viewController
                                                      browser:self.browser
                                                         text:text
                                                          URL:nil
                                                      withIPH:YES
-                                                        mode:MiniMapMode::kMap];
+                                                        mode:mode];
   [self.miniMapCoordinator start];
 }
 
 - (void)presentMiniMapForText:(NSString*)text {
+  MiniMapMode mode = base::FeatureList::IsEnabled(kIOSMiniMapLinkifiedAddress)
+                         ? MiniMapMode::kMapNativePreviewURL
+                         : MiniMapMode::kMap;
   self.miniMapCoordinator =
       [[MiniMapCoordinator alloc] initWithBaseViewController:self.viewController
                                                      browser:self.browser
                                                         text:text
                                                          URL:nil
                                                      withIPH:NO
-                                                        mode:MiniMapMode::kMap];
+                                                        mode:mode];
   [self.miniMapCoordinator start];
 }
 
@@ -5658,6 +5704,20 @@ const char kChromeAppStoreUrl[] =
   }
 }
 
+#pragma mark - LevelUpCommands
+
+- (void)showLevelUp {
+  self.levelUpCoordinator =
+      [[LevelUpCoordinator alloc] initWithBaseViewController:self.viewController
+                                                     browser:self.browser];
+  [self.levelUpCoordinator start];
+}
+
+- (void)dismissLevelUp {
+  [self.levelUpCoordinator stop];
+  self.levelUpCoordinator = nil;
+}
+
 - (void)showWhatsNewIPH {
   [HandlerForProtocol(_dispatcher, HelpCommands)
       presentInProductHelpWithType:InProductHelpType::kWhatsNew];
@@ -5791,6 +5851,9 @@ const char kChromeAppStoreUrl[] =
 }
 
 - (void)showDownloadList {
+  if (self.downloadListCoordinator) {
+    [self hideDownloadList];
+  }
   self.downloadListCoordinator = [[DownloadListCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser];

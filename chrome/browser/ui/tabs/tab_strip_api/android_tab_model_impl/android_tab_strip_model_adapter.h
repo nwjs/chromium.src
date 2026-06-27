@@ -6,8 +6,8 @@
 #define CHROME_BROWSER_UI_TABS_TAB_STRIP_API_ANDROID_TAB_MODEL_IMPL_ANDROID_TAB_STRIP_MODEL_ADAPTER_H_
 
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/adapters/tab_strip_model_adapter.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/types/tab_states.h"
+#include "components/browser_apis/tab_strip/adapters/tab_strip_model_adapter.h"
+#include "components/browser_apis/tab_strip/types/tab_states.h"
 
 namespace tabs_api {
 
@@ -65,13 +65,15 @@ class AndroidTabStripModelAdapter : public TabStripModelAdapter {
       tabs::TabCollectionHandle collection_handle) const override;
   InsertionParams CalculateInsertionParams(
       const std::optional<tabs_api::Position>& pos) const override;
-  void ReplaceTabInSplit(tabs::TabHandle tab_to_replace,
-                         int tab_to_insert_index) override;
+  base::expected<void, mojo_base::mojom::ErrorPtr> ReplaceTabInSplit(
+      tabs::TabHandle tab_to_replace,
+      int tab_to_insert_index) override;
   const tabs::TabCollection* GetRoot() const override;
   std::string GetWindowId() const override;
 
  private:
   friend class AndroidTabStripApiBrowserTest;
+  friend class AndroidTabStripApiEventsBrowserTest;
   static base::PassKey<AndroidTabStripModelAdapter> GetPassKey();
 
   raw_ref<TabModel> model_;

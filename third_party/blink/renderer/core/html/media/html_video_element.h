@@ -33,7 +33,7 @@
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap_source.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
 #include "third_party/blink/renderer/platform/timer.h"
 
 namespace blink {
@@ -87,7 +87,8 @@ class CORE_EXPORT HTMLVideoElement final
   // Used by canvas to gain raw pixel access.
   void PaintCurrentFrame(cc::PaintCanvas*,
                          const gfx::Rect&,
-                         const cc::PaintFlags&) const;
+                         const cc::PaintFlags&,
+                         bool force_pixel_readback) const;
 
   bool HasAvailableVideoFrame() const;
   bool HasReadableVideoFrame() const;
@@ -173,7 +174,9 @@ class CORE_EXPORT HTMLVideoElement final
   }
 
   // HTMLMediaElement overrides.
-  void OnEncryptedMediaInitData() final;
+  void OnCdmAttached(const media::CdmConfig& cdm_config) final;
+
+  void RequestSaveVideoFrame();
 
   bool poster_deferred_for_lazy_load_for_tests() const {
     return poster_deferred_for_lazy_load_;
@@ -230,6 +233,7 @@ class CORE_EXPORT HTMLVideoElement final
   void RequestVisibility(RequestVisibilityCallback request_visibility_cb) final;
 
   void DidMoveToNewDocument(Document& old_document) override;
+  void DidChangeIsCanvasOrInCanvasSubtree() override;
 
   void UpdatePictureInPictureAvailability();
 
@@ -289,8 +293,7 @@ class CORE_EXPORT HTMLVideoElement final
   // Used to fulfill blink::Image requests (CreateImage(),
   // GetSourceImageForCanvas(), etc). Created on demand.
   std::unique_ptr<CanvasNon2DResourceProviderSharedImage> snapshot_provider_;
-  std::optional<CanvasSnapshotProvider::Info> cached_draw_info_;
-  sk_sp<SkSurface> sw_draw_surface_;
+  std::optional<CanvasSnapshotInfo> cached_draw_info_;
   HeapTaskRunnerTimer<HTMLVideoElement> cache_deleting_timer_;
 
   // Paint flags set based on CSS properties, which must be propagated to the

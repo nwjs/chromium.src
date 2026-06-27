@@ -129,19 +129,6 @@ bool IsImageDescriptionsAlternateRoutingEnabled() {
       ::features::kImageDescriptionsAlternateRouting);
 }
 
-BASE_FEATURE(kAutoDisableAccessibility, base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsAutoDisableAccessibilityEnabled() {
-  return base::FeatureList::IsEnabled(::features::kAutoDisableAccessibility);
-}
-
-BASE_FEATURE(kEnableAccessibilityAriaVirtualContent,
-             "AccessibilityAriaVirtualContent",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsAccessibilityAriaVirtualContentEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kEnableAccessibilityAriaVirtualContent);
-}
-
 BASE_FEATURE(kEnableAccessibilityLanguageDetection,
              "AccessibilityLanguageDetection",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -156,8 +143,6 @@ bool IsExtensionManifestV3NetworkSpeechSynthesisEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kExtensionManifestV3NetworkSpeechSynthesis);
 }
-
-
 
 BASE_FEATURE(kUseAXPositionForDocumentMarkers,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -177,6 +162,30 @@ BASE_FEATURE(kAccessibilityOnScreenMode,
 
 bool IsAccessibilityOnScreenAXModeEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityOnScreenMode);
+}
+
+BASE_FEATURE(kAccessibilityCanvas, base::FEATURE_DISABLED_BY_DEFAULT);
+
+namespace {
+
+constexpr base::FeatureParam<CanvasAccessibilityMode>::Option
+    kAccessibilityCanvasParamOptions[2] = {
+        {CanvasAccessibilityMode::kBasic, "Basic"},
+        {CanvasAccessibilityMode::kAdvanced, "Advanced"}};
+
+BASE_FEATURE_ENUM_PARAM(CanvasAccessibilityMode,
+                        kCanvasAccessibilityMode,
+                        &kAccessibilityCanvas,
+                        CanvasAccessibilityMode::kBasic,
+                        &kAccessibilityCanvasParamOptions);
+
+}  // namespace
+
+CanvasAccessibilityMode GetCanvasAccessibilityMode() {
+  if (!base::FeatureList::IsEnabled(::features::kAccessibilityCanvas)) {
+    return CanvasAccessibilityMode::kDisabled;
+  }
+  return kCanvasAccessibilityMode.Get();
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -310,7 +319,7 @@ bool IsAccessibilityManifestV3EnabledForGoogleTts() {
 }
 
 BASE_FEATURE(kAccessibilityChromeVoxJapaneseBraille,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityChromeVoxJapaneseBrailleEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityChromeVoxJapaneseBraille);

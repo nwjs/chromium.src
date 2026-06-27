@@ -92,6 +92,14 @@ void SpeechRecognitionDispatcherHost::Start(
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   if (params->audio_forwarder.is_valid()) {
+#if BUILDFLAG(IS_ANDROID)
+    mojo::Remote<media::mojom::SpeechRecognitionSessionClient> client(
+        std::move(params->client));
+    client->ErrorOccurred(media::mojom::SpeechRecognitionError::New(
+        media::mojom::SpeechRecognitionErrorCode::kNotAllowed,
+        media::mojom::SpeechAudioErrorDetails::kNone));
+    return;
+#else
     if (params->channel_count <= 0) {
       mojo::ReportBadMessage("Channel count must be positive.");
       return;
@@ -100,6 +108,7 @@ void SpeechRecognitionDispatcherHost::Start(
       mojo::ReportBadMessage("Sample rate must be positive.");
       return;
     }
+#endif
   }
 
   GetUIThreadTaskRunner({})->PostTask(
@@ -162,10 +171,14 @@ void SpeechRecognitionDispatcherHost::StartRequestOnUI(
   StoragePartition* storage_partition =
       browser_context->GetStoragePartition(web_contents->GetSiteInstance());
 
+  bool is_valid_storage_context =
+      storage_partition == browser_context->GetDefaultStoragePartition() ||
+      !rfh->GetLastCommittedURL().SchemeIsHTTPOrHTTPS();
+  bool is_policy_enabled = rfh->IsFeatureEnabled(
+      network::mojom::PermissionsPolicyFeature::kOnDeviceSpeechRecognition);
+
   bool can_render_frame_use_on_device =
-      storage_partition == browser_context->GetDefaultStoragePartition()
-          ? true
-          : !rfh->GetLastCommittedURL().SchemeIsHTTPOrHTTPS();
+      is_valid_storage_context && is_policy_enabled;
   const std::string& language =
       SpeechRecognitionDispatcherHost::GetAcceptedLanguages(
           params->language,
@@ -218,6 +231,7 @@ void SpeechRecognitionDispatcherHost::StartSessionOnIO(
   config.filter_profanities = false;
   config.continuous = params->continuous;
   config.interim_results = params->interim_results;
+  config.unspoken_punctuation = params->unspoken_punctuation;
   config.on_device = params->on_device;
   config.on_device_available = on_device_available;
   config.allow_cloud_fallback = params->allow_cloud_fallback;

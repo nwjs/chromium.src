@@ -21,11 +21,13 @@ extern const base::FeatureParam<std::string>
     kPixAccountLinkingNativePromptVariant;
 extern const base::FeatureParam<int>
     kPixAccountLinkingNativeTriggerDelaySeconds;
+extern const base::FeatureParam<std::string> kVideoUrlOnPrompt;
 BASE_DECLARE_FEATURE(kEnableStaticQrCodeForPix);
 BASE_DECLARE_FEATURE(kEnableIframeForPix);
 BASE_DECLARE_FEATURE(kEnablePixInCct);
 BASE_DECLARE_FEATURE(kEwalletPayments);
 BASE_DECLARE_FEATURE(kFacilitatedPaymentsEnableA2APayment);
+BASE_DECLARE_FEATURE(kEnableEwalletNewAccountLinking);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace payments::facilitated

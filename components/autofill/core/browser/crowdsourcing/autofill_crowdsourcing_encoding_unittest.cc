@@ -49,6 +49,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace autofill {
 namespace {
@@ -946,6 +947,80 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_WithLabels) {
   EXPECT_THAT(EncodeUploadRequest(*form_structure, options),
               ElementsAre(EqualsIgnoringMetadataValues(upload)));
 }
+
+struct LabelOverrideTestParams {
+  FormFieldData::LabelSource label_source;
+  bool expect_override;
+};
+
+class AutofillCrowdsourcingEncodingLabelOverrideTest
+    : public AutofillCrowdsourcingEncoding,
+      public testing::WithParamInterface<LabelOverrideTestParams> {
+ public:
+  AutofillCrowdsourcingEncodingLabelOverrideTest() = default;
+};
+
+// Tests that the backwards compatibility for Label crowdsourcing works
+// as expected. `AutofillBetterLocalHeuristicPlaceholderSupport`
+// feature enabling needs to keep the crowdsourced Labels intact.
+TEST_P(AutofillCrowdsourcingEncodingLabelOverrideTest,
+       EncodeUploadRequest_LabelOverrideForBackwardsCompatibility) {
+  const LabelOverrideTestParams& params = GetParam();
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {features::kAutofillBetterLocalHeuristicPlaceholderSupport,
+       features::kAutofillServerUploadMoreData},
+      {});
+
+  std::u16string placeholder_value(u"Placeholder Label");
+  std::u16string label_value(u"Label value");
+  FormData form =
+      test::GetFormData({.fields = {{.label = label_value,
+                                     .placeholder = placeholder_value,
+                                     .label_source = params.label_source}}});
+
+  FormStructure form_structure(form);
+
+  EncodeUploadRequestOptions options;
+  options.encoder = RandomizedEncoder(
+      "seed for testing", AutofillRandomizedValue_EncodingType_ALL_BITS,
+      /*anonymous_url_collection_is_enabled=*/true);
+
+  std::vector<AutofillUploadContents> uploads =
+      EncodeUploadRequest(form_structure, options);
+  ASSERT_EQ(1u, uploads.size());
+  const AutofillUploadContents& upload = uploads.front();
+
+  ASSERT_EQ(upload.field_data_size(), 1);
+  const ThreeBitHashedFieldMetadata& three_bit_hashed_metadata =
+      upload.field_data(0).three_bit_hashed_field_metadata();
+  const AutofillRandomizedFieldMetadata& randomized_field_metadata =
+      upload.field_data(0).randomized_field_metadata();
+
+  std::u16string expected_label =
+      params.expect_override ? placeholder_value : label_value;
+
+  EXPECT_EQ(three_bit_hashed_metadata.label(), StrToHash3Bit(expected_label));
+
+  EXPECT_EQ(randomized_field_metadata.label().encoded_bits(),
+            options.encoder->EncodeForTesting(
+                form_structure.form_signature(),
+                form_structure.field(0)->GetFieldSignature(),
+                RandomizedEncoder::kFieldLabel, expected_label));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    AutofillCrowdsourcingEncodingLabelOverrideTest,
+    testing::Values(
+        LabelOverrideTestParams{FormFieldData::LabelSource::kValue,
+                                /*expect_override=*/true},
+        LabelOverrideTestParams{FormFieldData::LabelSource::kOverlayingLabel,
+                                /*expect_override=*/true},
+        LabelOverrideTestParams{FormFieldData::LabelSource::kLabelTag,
+                                /*expect_override=*/false},
+        LabelOverrideTestParams{FormFieldData::LabelSource::kForName,
+                                /*expect_override=*/false}));
 
 // Tests that when the form is the result of flattening multiple forms into one,
 // EncodeUploadRequest() returns multiple uploads: one for the entire form and
@@ -3130,6 +3205,96 @@ TEST_F(AutofillCrowdsourcingEncoding, ParseQueryResponse) {
   EXPECT_EQ(forms[1]->field(1)->server_type(), NO_SERVER_DATA);
   EXPECT_THAT(forms[1]->field(1)->server_predictions(),
               ElementsAre(EqualsPrediction(NO_SERVER_DATA)));
+}
+
+TEST_F(AutofillCrowdsourcingEncoding,
+       ParseQueryResponse_PasswordRequirements_CrossOrigin) {
+  constexpr char kMainFrameUrl[] = "https://mainframe.com";
+  constexpr char kPslMatchedUrl[] = "https://sub.mainframe.com";
+  constexpr char kCrossOriginUrl[] = "https://crossorigin.com";
+
+  url::Origin main_frame_origin = url::Origin::Create(GURL(kMainFrameUrl));
+
+  FormData form_data;
+  form_data.set_url(GURL(kMainFrameUrl));
+  form_data.set_main_frame_origin(main_frame_origin);
+
+  FormFieldData field = CreateTestFormField("password", "password", "",
+                                            FormControlType::kInputPassword);
+
+  // Case 1: Same-origin field.
+  {
+    field.set_origin(main_frame_origin);
+    form_data.set_fields({field});
+
+    FormStructure& form = SeeAndGetParsedForm(form_data);
+
+    AutofillQueryResponse response;
+    auto* form_suggestion = response.add_form_suggestions();
+    AddFieldPredictionToForm(form_data.fields()[0], ACCOUNT_CREATION_PASSWORD,
+                             form_suggestion);
+
+    auto* field_suggestion = form_suggestion->mutable_field_suggestions(0);
+    field_suggestion->mutable_password_requirements()->set_max_length(12);
+
+    test_api(autofill_manager())
+        .OnLoadedServerPredictions(SerializeAndEncode(response),
+                                   test::GetEncodedSignatures({form}),
+                                   {form_data});
+
+    ASSERT_EQ(form.field_count(), 1U);
+    EXPECT_TRUE(form.field(0)->password_requirements().has_value());
+    EXPECT_EQ(form.field(0)->password_requirements()->max_length(), 12u);
+  }
+
+  // Case 2: PSL-matched origin field.
+  {
+    field.set_origin(url::Origin::Create(GURL(kPslMatchedUrl)));
+    form_data.set_fields({field});
+
+    FormStructure& form = SeeAndGetParsedForm(form_data);
+
+    AutofillQueryResponse response;
+    auto* form_suggestion = response.add_form_suggestions();
+    AddFieldPredictionToForm(form_data.fields()[0], ACCOUNT_CREATION_PASSWORD,
+                             form_suggestion);
+
+    auto* field_suggestion = form_suggestion->mutable_field_suggestions(0);
+    field_suggestion->mutable_password_requirements()->set_max_length(12);
+
+    test_api(autofill_manager())
+        .OnLoadedServerPredictions(SerializeAndEncode(response),
+                                   test::GetEncodedSignatures({form}),
+                                   {form_data});
+
+    ASSERT_EQ(form.field_count(), 1U);
+    EXPECT_TRUE(form.field(0)->password_requirements().has_value());
+    EXPECT_EQ(form.field(0)->password_requirements()->max_length(), 12u);
+  }
+
+  // Case 3: Cross-origin non-PSL
+  {
+    field.set_origin(url::Origin::Create(GURL(kCrossOriginUrl)));
+    form_data.set_fields({field});
+
+    FormStructure& form = SeeAndGetParsedForm(form_data);
+
+    AutofillQueryResponse response;
+    auto* form_suggestion = response.add_form_suggestions();
+    AddFieldPredictionToForm(form_data.fields()[0], ACCOUNT_CREATION_PASSWORD,
+                             form_suggestion);
+
+    auto* field_suggestion = form_suggestion->mutable_field_suggestions(0);
+    field_suggestion->mutable_password_requirements()->set_max_length(12);
+
+    test_api(autofill_manager())
+        .OnLoadedServerPredictions(SerializeAndEncode(response),
+                                   test::GetEncodedSignatures({form}),
+                                   {form_data});
+
+    ASSERT_EQ(form.field_count(), 1U);
+    EXPECT_FALSE(form.field(0)->password_requirements().has_value());
+  }
 }
 
 #if !BUILDFLAG(IS_ANDROID)

@@ -48,6 +48,7 @@ public class ListItemBuilder {
     private @Nullable List<ListItem> mSubmenuItems;
     private @StyleRes int mTextAppearanceStyle;
     private @Nullable String mTitle;
+    private @Nullable String mSubtitle;
 
     /** Constructs a new builder for a {@link ListItem}. By default, the item is enabled. */
     public ListItemBuilder() {
@@ -67,6 +68,14 @@ public class ListItemBuilder {
      */
     public ListItemBuilder withTitle(String title) {
         mTitle = title;
+        return this;
+    }
+
+    /**
+     * @param subtitle The subtitle text on the menu item. By default, this is set to null.
+     */
+    public ListItemBuilder withSubtitle(String subtitle) {
+        mSubtitle = subtitle;
         return this;
     }
 
@@ -233,6 +242,10 @@ public class ListItemBuilder {
             builder.with(ListMenuItemProperties.TITLE_ID, mTitleRes);
         }
 
+        if (mSubtitle != null) {
+            builder.with(ListMenuItemProperties.SUBTITLE, mSubtitle);
+        }
+
         builder.with(ListMenuItemProperties.ENABLED, mEnabled);
 
         if (!hasSubmenu) {
@@ -240,7 +253,7 @@ public class ListItemBuilder {
                     .with(ListMenuItemProperties.START_ICON_ID, mStartIconRes)
                     .with(ListMenuItemProperties.END_ICON_ID, mEndIconRes);
         } else {
-            builder.with(ListMenuSubmenuItemProperties.SUBMENU_ITEMS, mSubmenuItems);
+            builder.with(ListMenuSubmenuItemProperties.SUBMENU_PROVIDER, () -> mSubmenuItems);
         }
 
         if (mShouldTintIcon) {

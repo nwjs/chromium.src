@@ -13,12 +13,27 @@
 @protocol SaveCardBottomSheetMutator;
 @protocol SaveCardBottomSheetDelegate;
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(ScanCardOfferToSaveAction)
+enum class ScanCardOfferToSaveAction {
+  kIgnore = 0,
+  kAccept = 1,
+  kReject = 2,
+  kMaxValue = kReject,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:ScanCardOfferToSaveAction)
+
 // View controller for the "Scan and Save" bottom sheet flow.
 // It allows users to scan a card and then edit/confirm the details before
 // saving.
 @interface PaymentsScanSaveAndFillEditViewController
-    : ChromeTableViewController <SaveCardBottomSheetConsumer,
-                                 CreditCardScannerConsumer>
+    : UIViewController <SaveCardBottomSheetConsumer,
+                        CreditCardScannerConsumer,
+                        UITableViewDelegate>
+
+// The table view containing the card details.
+@property(nonatomic, readonly) UITableView* tableView;
 
 // Mutator for handling user actions (e.g., saving the edited card).
 @property(nonatomic, weak) id<SaveCardBottomSheetMutator> mutator;
@@ -31,6 +46,11 @@
 @property(nonatomic, weak) id<SaveCardBottomSheetDataSource> dataSource;
 
 - (instancetype)init NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)initWithNibName:(NSString*)nibNameOrNil
+                         bundle:(NSBundle*)nibBundleOrNil NS_UNAVAILABLE;
+
+- (instancetype)initWithCoder:(NSCoder*)coder NS_UNAVAILABLE;
 
 - (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
 

@@ -21,10 +21,6 @@ import org.chromium.build.annotations.NullMarked;
 public class AndroidAutofillFeatures extends Features {
     public static final String ANDROID_AUTOFILL_LAZY_FRAMEWORK_WRAPPER_NAME =
             "AndroidAutofillLazyFrameworkWrapper";
-    public static final String ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_PASSKEY_LONG_PRESS_NAME =
-            "AutofillVirtualViewStructureAndroidPasskeyLongPress";
-    public static final String ANDROID_AUTOFILL_FORWARD_IFRAME_ORIGIN_NAME =
-            "AndroidAutofillForwardIframeOrigin";
     public static final String ANDROID_AUTOFILL_IMPROVED_VISIBILITY_DETECTION_NAME =
             "AndroidAutofillImprovedVisibilityDetection";
     public static final String ANDROID_AUTOFILL_FIELDS_UPDATED_ON_SELECT_NAME =
@@ -34,18 +30,12 @@ public class AndroidAutofillFeatures extends Features {
 
     public static final AndroidAutofillFeatures ANDROID_AUTOFILL_LAZY_FRAMEWORK_WRAPPER =
             new AndroidAutofillFeatures(0, ANDROID_AUTOFILL_LAZY_FRAMEWORK_WRAPPER_NAME);
-    public static final AndroidAutofillFeatures
-            ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_PASSKEY_LONG_PRESS =
-                    new AndroidAutofillFeatures(
-                            1, ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_PASSKEY_LONG_PRESS_NAME);
-    public static final AndroidAutofillFeatures ANDROID_AUTOFILL_FORWARD_IFRAME_ORIGIN =
-            new AndroidAutofillFeatures(2, ANDROID_AUTOFILL_FORWARD_IFRAME_ORIGIN_NAME);
     public static final AndroidAutofillFeatures ANDROID_AUTOFILL_IMPROVED_VISIBILITY_DETECTION =
-            new AndroidAutofillFeatures(3, ANDROID_AUTOFILL_IMPROVED_VISIBILITY_DETECTION_NAME);
+            new AndroidAutofillFeatures(1, ANDROID_AUTOFILL_IMPROVED_VISIBILITY_DETECTION_NAME);
     public static final AndroidAutofillFeatures ANDROID_AUTOFILL_FIELDS_UPDATED_ON_SELECT =
-            new AndroidAutofillFeatures(4, ANDROID_AUTOFILL_FIELDS_UPDATED_ON_SELECT_NAME);
+            new AndroidAutofillFeatures(2, ANDROID_AUTOFILL_FIELDS_UPDATED_ON_SELECT_NAME);
     public static final AndroidAutofillFeatures ANDROID_AUTOFILL_SUPPORT_FOR_HTTP_AUTH_ORIGIN =
-            new AndroidAutofillFeatures(5, ANDROID_AUTOFILL_SUPPORT_FOR_HTTP_AUTH_ORIGIN_NAME);
+            new AndroidAutofillFeatures(3, ANDROID_AUTOFILL_SUPPORT_FOR_HTTP_AUTH_ORIGIN_NAME);
 
     private final int mOrdinal;
 

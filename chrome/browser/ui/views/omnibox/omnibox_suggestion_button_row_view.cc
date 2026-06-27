@@ -31,6 +31,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/gfx/color_utils.h"
@@ -455,7 +456,10 @@ void OmniboxSuggestionButtonRowView::BuildViews() {
     keyword_button_ = AddChildView(std::make_unique<OmniboxSuggestionRowButton>(
         base::BindRepeating(&OmniboxSuggestionButtonRowView::ButtonPressed,
                             base::Unretained(this), selection),
-        CONTEXT_OMNIBOX_PRIMARY, vector_icons::kSearchChromeRefreshIcon,
+        CONTEXT_OMNIBOX_PRIMARY,
+        features::IsRoundedIconsEnabled()
+            ? vector_icons::kSearchIcon
+            : vector_icons::kSearchChromeRefreshOldIcon,
         gfx::Image(), popup_view_, selection));
   }
 
@@ -564,11 +568,11 @@ void OmniboxSuggestionButtonRowView::SelectionStateChanged() {
     return;
   }
   if (previous_active_button_) {
-    views::FocusRing::Get(previous_active_button_)->SchedulePaint();
+    views::FocusRing::Get(previous_active_button_)->Refresh();
     previous_active_button_->GetViewAccessibility().SetIsSelected(false);
   }
   if (active_button) {
-    views::FocusRing::Get(active_button)->SchedulePaint();
+    views::FocusRing::Get(active_button)->Refresh();
     active_button->GetViewAccessibility().SetIsSelected(true);
   }
   previous_active_button_ = active_button;

@@ -101,7 +101,6 @@ COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayTranslateButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLiveCaptionFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHMerchantTrustFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSavePrimingPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSaveRecoveryPromoFeature);
@@ -124,8 +123,12 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListEntryPointFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListInSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeKeyboardShortcutFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePageActionLabelFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePresentationModeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHShoppingCollectionFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingDefaultOnFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingTryItFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideBySidePinnableFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideBySideTabSwitchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVerticalTabsExpandOnHoverFeature);
@@ -161,7 +164,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHBackNavigationMenuFeature);
 // FEATURE_CONSTANTS_DECLARE_FEATURE_ANDROID_START
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAccountSettingsHistorySync);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationAddToBookmarksFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationGlicFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationOpenInBrowserFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationPageSummaryPdfFeature);
@@ -170,6 +172,9 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationRea
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationShareFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationTranslateFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationVoiceSearchFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonPinGlicToolbarButtonFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarGlic);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarNewTab);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidTabDeclutter);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAppRatingPromptFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAppSpecificHistory);
@@ -303,6 +308,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSDefaultBrowserOverflowMenuBadgeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSDownloadAutoDeletionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSLensKeyboardFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSBackendPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoAppStoreFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoWhatsNewFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoBackgroundCustomizationFeature);
@@ -372,9 +378,16 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSOneTimeDefaultBrowserNotificationFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiImageRemixFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSNewIAPromoFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiExternalAppStoreEvent);
 
 // FET feature flag that enables AI Hub "New" badge.
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSAIHubNewBadge);
+
+// FET feature flag that enables Gemini Live "New" badge.
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiLiveNewBadgeFeature);
+
+// FET feature flag that enables Gemini Live IPH.
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiLiveIPHFeature);
 
 // FET feature flag that enabled the Gemini fullscreen promo.
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiFullscreenPromoFeature);
@@ -414,6 +427,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCookieControlsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillEnableLoyaltyCardsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillDownstreamCardAwarenessFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillOmniboxPaymentChipFeature);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)
@@ -453,8 +467,13 @@ BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionArm);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionStoreUrl);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionExtensionId);
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionInstructionsUrl);
 
+inline constexpr char kSearchPromotionArmDefault[] = "disabled";
+inline constexpr char kSearchPromotionArmA[] = "arm_a";
+inline constexpr char kSearchPromotionArmB[] = "arm_b";
 #endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace feature_engagement

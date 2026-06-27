@@ -56,6 +56,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -71,7 +72,6 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.download.DownloadTestRule;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
-import org.chromium.chrome.browser.enterprise.util.DataProtectionBridgeJni;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -95,8 +95,6 @@ import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.browser.contextmenu.ContextMenuUtils;
 import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.browser_ui.widget.ContextMenuDialog;
-import org.chromium.components.embedder_support.contextmenu.ChipDelegate;
-import org.chromium.components.embedder_support.contextmenu.ChipRenderParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.policy.test.annotations.Policies;
@@ -116,7 +114,6 @@ import org.chromium.ui.hierarchicalmenu.FlyoutController;
 import org.chromium.ui.listmenu.MenuModelBridge;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.mojom.MenuSourceType;
-import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.url.GURL;
 
 import java.io.IOException;
@@ -134,6 +131,8 @@ import java.util.concurrent.atomic.AtomicReference;
 })
 @DisableFeatures({ContentFeatures.ANDROID_DESKTOP_ZOOM_SCALING})
 @Batch(Batch.PER_CLASS)
+@DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288174
+@DisableLeakChecks("crbug.com/512492353 (OfflineContentAggregatorBridge)")
 public class ContextMenuTest {
 
     @Mock private TabContextMenuItemDelegate mItemDelegate;
@@ -173,35 +172,6 @@ public class ContextMenuTest {
     private static final String TEST_GIF_IMAGE_FILE_EXTENSION = ".gif";
     private static final String TEST_JPG_IMAGE_FILE_EXTENSION = ".jpg";
 
-    // Test chip delegate that always returns valid chip render params.
-    private static final ChipDelegate FAKE_CHIP_DELEGATE =
-            new ChipDelegate() {
-                @Override
-                public boolean isChipSupported() {
-                    return true;
-                }
-
-                @Override
-                public void getChipRenderParams(Callback<ChipRenderParams> callback) {
-                    // Do nothing.
-                }
-
-                @Override
-                public void onMenuClosed() {
-                    // Do nothing.
-                }
-
-                @Override
-                public boolean isValidChipRenderParams(ChipRenderParams chipRenderParams) {
-                    return true;
-                }
-            };
-
-    // Test Lens chip delegate that always returns valid chip render params.
-    private void setupLensChipDelegate() {
-        LensChipDelegate.setShouldSkipIsEnabledCheckForTesting(true);
-    }
-
     private static final String[] TEST_FILES =
             new String[] {FILENAME_GIF, FILENAME_PNG, FILENAME_WEBM};
 
@@ -233,9 +203,8 @@ public class ContextMenuTest {
         CriteriaHelper.pollUiThread(() -> tab.isUserInteractable() && !tab.isLoading());
         mActivityTestRule.assertWaitForPageScaleFactorMatch(PAGE_SCALE_FACTOR);
 
-        setupLensChipDelegate();
         DownloadUtils.setIsDownloadRestrictedByPolicyForTesting(false);
-        DataProtectionBridgeJni.setInstanceForTesting(mDataProtectionBridgeMock);
+        DataProtectionBridge.setInstanceForTesting(mDataProtectionBridgeMock);
         when(mMenuModelBridge.populateModelList()).thenReturn(new MVCListAdapter.ModelList());
     }
 
@@ -501,170 +470,6 @@ public class ContextMenuTest {
 
     @Test
     @MediumTest
-    @Feature({"Browser"})
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_TRANSLATE_WITH_GOOGLE_LENS})
-    @DisableFeatures({ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU})
-    public void testLensTranslateChipNotShowingIfNotEnabled() throws Throwable {
-        Tab tab = mActivityTestRule.getActivityTab();
-        hardcodeTestImageForSharing(TEST_JPG_IMAGE_FILE_EXTENSION);
-
-        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
-        // Needs to run on UI thread so creation happens on same thread as dismissal.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    Assert.assertNull(
-                            "Chip popoup was initialized.",
-                            mMenuCoordinator.getCurrentPopupWindowForTesting());
-                });
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"Browser"})
-    @DisableFeatures({ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU})
-    public void testSelectLensTranslateChip() throws Throwable {
-        Tab tab = mActivityTestRule.getActivityTab();
-        hardcodeTestImageForSharing(TEST_JPG_IMAGE_FILE_EXTENSION);
-
-        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
-        // Needs to run on UI thread so creation happens on same thread as dismissal.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mMenuCoordinator.simulateTranslateImageClassificationForTesting();
-                    Assert.assertTrue(
-                            "Chip popoup not showing.",
-                            mMenuCoordinator.getCurrentPopupWindowForTesting().isShowing());
-                    mMenuCoordinator.clickChipForTesting();
-                });
-
-        Assert.assertFalse(
-                "Chip popoup still showing.",
-                mMenuCoordinator.getCurrentPopupWindowForTesting().isShowing());
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"Browser"})
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_TRANSLATE_WITH_GOOGLE_LENS})
-    @DisableFeatures({ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU})
-    @DisabledTest(message = "https://crbug.com/430777988")
-    public void testLensChipNotShowingAfterMenuDismissed() throws Throwable {
-        Tab tab = mActivityTestRule.getActivityTab();
-        hardcodeTestImageForSharing(TEST_JPG_IMAGE_FILE_EXTENSION);
-
-        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
-        // Dismiss context menu.
-        TestTouchUtils.singleClickView(
-                InstrumentationRegistry.getInstrumentation(),
-                tab.getView(),
-                tab.getView().getWidth() - 5,
-                tab.getView().getHeight() - 5);
-        // Needs to run on UI thread so creation happens on same thread as dismissal.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    ChipRenderParams chipRenderParams =
-                            mMenuCoordinator.simulateImageClassificationForTesting();
-                    mMenuCoordinator
-                            .getChipRenderParamsCallbackForTesting(FAKE_CHIP_DELEGATE)
-                            .bind(chipRenderParams)
-                            .run();
-                    Assert.assertNull(
-                            "Chip popoup was initialized.",
-                            mMenuCoordinator.getCurrentPopupWindowForTesting());
-                });
-    }
-
-    // Assert that focus is unchanged and that the chip popup does not block the dismissal of the
-    // context menu.
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_TRANSLATE_WITH_GOOGLE_LENS})
-    @DisableFeatures({ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU})
-    @DisabledTest(message = "https://crbug.com/430777988")
-    public void testDismissContextMenuOnClickLensTranslateChipEnabled() throws TimeoutException {
-        Tab tab = mActivityTestRule.getActivityTab();
-        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
-        // Needs to run on UI thread so creation happens on same thread as dismissal.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> mMenuCoordinator.simulateTranslateImageClassificationForTesting());
-        Assert.assertNotNull("Context menu was not properly created", mMenuCoordinator);
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    return !mActivityTestRule.getActivity().hasWindowFocus();
-                },
-                "Context menu did not have window focus");
-
-        TestTouchUtils.singleClickView(
-                InstrumentationRegistry.getInstrumentation(),
-                tab.getView(),
-                tab.getView().getWidth() - 5,
-                tab.getView().getHeight() - 5);
-
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    return mActivityTestRule.getActivity().hasWindowFocus();
-                },
-                "Activity did not regain focus.");
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"Browser"})
-    @DisableFeatures({ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU})
-    public void testSelectLensShoppingChip() throws Throwable {
-        Tab tab = mActivityTestRule.getActivityTab();
-        hardcodeTestImageForSharing(TEST_JPG_IMAGE_FILE_EXTENSION);
-
-        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
-        // Needs to run on UI thread so creation happens on same thread as dismissal.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mMenuCoordinator.simulateShoppyImageClassificationForTesting();
-                    Assert.assertTrue(
-                            "Chip popoup not showing.",
-                            mMenuCoordinator.getCurrentPopupWindowForTesting().isShowing());
-                    mMenuCoordinator.clickChipForTesting();
-                });
-
-        Assert.assertFalse(
-                "Chip popoup still showing.",
-                mMenuCoordinator.getCurrentPopupWindowForTesting().isShowing());
-    }
-
-    // Assert that focus is unchanged and that the chip popup does not block the dismissal of the
-    // context menu.
-    @Test
-    @MediumTest
-    @DisableFeatures({ContentFeatures.TOUCH_DRAG_AND_CONTEXT_MENU})
-    @DisabledTest(message = "https://crbug.com/430777988")
-    public void testDismissContextMenuOnClickShoppingLensChipEnabled() throws TimeoutException {
-        Tab tab = mActivityTestRule.getActivityTab();
-        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
-        // Needs to run on UI thread so creation happens on same thread as dismissal.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> mMenuCoordinator.simulateShoppyImageClassificationForTesting());
-        Assert.assertNotNull("Context menu was not properly created", mMenuCoordinator);
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    return !mActivityTestRule.getActivity().hasWindowFocus();
-                },
-                "Context menu did not have window focus");
-
-        TestTouchUtils.singleClickView(
-                InstrumentationRegistry.getInstrumentation(),
-                tab.getView(),
-                tab.getView().getWidth() - 5,
-                tab.getView().getHeight() - 5);
-
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    return mActivityTestRule.getActivity().hasWindowFocus();
-                },
-                "Activity did not regain focus.");
-    }
-
-    @Test
-    @MediumTest
     @DisabledTest(message = "https://crbug.com/430777988")
     public void testDismissContextMenuOnClick() throws TimeoutException {
         Tab tab = mActivityTestRule.getActivityTab();
@@ -738,11 +543,7 @@ public class ContextMenuTest {
 
     @Test
     @LargeTest
-    @Restriction({
-        DeviceFormFactor.DESKTOP, // Re-enable on tablets once the crbug.com/500650152 is fixed.
-        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO // crbug.com/502983881
-    })
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSavePageLongPress() throws TimeoutException {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
@@ -765,7 +566,6 @@ public class ContextMenuTest {
     @LargeTest
     @Restriction(DeviceFormFactor.DESKTOP)
     @DisabledTest(message = "https://crbug.com/445993228")
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSavePageRightClick() throws TimeoutException {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
@@ -1047,13 +847,19 @@ public class ContextMenuTest {
     @Test
     @SmallTest
     @Feature({"Browser", "ContextMenu"})
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_PICTURE_IN_PICTURE_ANDROID})
+    @EnableFeatures({
+        ChromeFeatureList.CONTEXT_MENU_COPY_VIDEO_FRAME_ANDROID,
+        ChromeFeatureList.CONTEXT_MENU_DOWNLOAD_VIDEO_FRAME_ANDROID,
+        ChromeFeatureList.CONTEXT_MENU_PICTURE_IN_PICTURE_ANDROID
+    })
     public void testContextMenuRetrievesVideoOptions() throws TimeoutException {
         Tab tab = mActivityTestRule.getActivityTab();
         DOMUtils.clickNode(mActivityTestRule.getWebContents(), "videoDOMElement");
         mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "videoDOMElement");
 
         Integer[] expectedItems = {R.id.contextmenu_save_video};
+        expectedItems = maybeAddCopyVideoFrameItem(expectedItems);
+        expectedItems = maybeAddDownloadVideoFrameItem(expectedItems);
         expectedItems = maybeAddPictureInPictureItem(expectedItems);
         expectedItems = maybeAddInspectElementItem(expectedItems);
         assertMenuItemsAreEqual(mMenuCoordinator, expectedItems);
@@ -1311,11 +1117,7 @@ public class ContextMenuTest {
 
     @Test
     @SmallTest
-    @Restriction({
-        DeviceFormFactor.DESKTOP, // Re-enable on tablets once the crbug.com/500650152 is fixed.
-        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO // crbug.com/502983881
-    })
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSharePageLongPress() throws Exception {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
@@ -1356,7 +1158,6 @@ public class ContextMenuTest {
     @Test
     @SmallTest
     @Restriction(DeviceFormFactor.DESKTOP)
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSharePageRightClick() throws Exception {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
@@ -1395,12 +1196,7 @@ public class ContextMenuTest {
 
     @Test
     @MediumTest
-    @Restriction({
-        DeviceFormFactor.DESKTOP, // Re-enable on tablets once the crbug.com/500650152 is fixed.
-        // Re-enable on automotive once crbug.com/504680967 is fixed
-        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO
-    })
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testPrintPageLongPress() throws Exception {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
@@ -1431,7 +1227,6 @@ public class ContextMenuTest {
     @MediumTest
     @Restriction(DeviceFormFactor.DESKTOP)
     @DisabledTest(message = "https://crbug.com/445993228")
-    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testPrintPageRightClick() throws Exception {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
@@ -1458,9 +1253,21 @@ public class ContextMenuTest {
     }
 
     private void switchToDesktopUserAgent(Tab tab) {
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> TabUtils.switchUserAgent(tab, /* switchToDesktop= */ true));
-        ChromeTabUtils.waitForTabPageLoaded(tab, mTestUrl);
+        boolean needsSwitch =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> !TabUtils.isUsingDesktopUserAgent(tab.getWebContents()));
+
+        if (needsSwitch) {
+            ChromeTabUtils.waitForTabPageLoaded(
+                    tab,
+                    mTestUrl,
+                    () ->
+                            ThreadUtils.runOnUiThreadBlocking(
+                                    () ->
+                                            TabUtils.switchUserAgent(
+                                                    tab, /* switchToDesktop= */ true)));
+        }
+        ChromeTabUtils.waitForInteractable(tab);
         mActivityTestRule.assertWaitForPageScaleFactorMatch(PAGE_SCALE_FACTOR);
     }
 
@@ -1545,6 +1352,20 @@ public class ContextMenuTest {
                                         && DeviceInput.supportsPrecisionPointer()),
                 baseItems,
                 new Integer[] {R.id.contextmenu_inspect_element});
+    }
+
+    private Integer[] maybeAddCopyVideoFrameItem(Integer[] baseItems) {
+        return addItemsIf(
+                ChromeFeatureList.sContextMenuCopyVideoFrame.isEnabled(),
+                baseItems,
+                new Integer[] {R.id.contextmenu_copy_video_frame});
+    }
+
+    private Integer[] maybeAddDownloadVideoFrameItem(Integer[] baseItems) {
+        return addItemsIf(
+                ChromeFeatureList.sContextMenuDownloadVideoFrame.isEnabled(),
+                baseItems,
+                new Integer[] {R.id.contextmenu_download_video_frame});
     }
 
     private void saveMediaFromContextMenu(

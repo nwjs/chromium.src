@@ -25,6 +25,7 @@
 #include "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #include "components/signin/public/identity_manager/diagnostics_provider.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -276,6 +277,16 @@ bool IdentityManager::HasAccountWithRefreshTokenInPersistentErrorState(
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+bool IdentityManager::GenerateBindingKeyRegistrationToken(
+    base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
+        supported_algorithms,
+    std::string_view auth_code,
+    base::OnceCallback<void(
+        std::optional<signin::BindingKeyRegistrationTokenResult>)> callback) {
+  return token_service_->GenerateBindingKeyRegistrationToken(
+      supported_algorithms, auth_code, std::move(callback));
+}
+
 bool IdentityManager::HasAccountWithBoundRefreshToken(
     const CoreAccountId& account_id) const {
   return !token_service_->GetWrappedBindingKey(account_id).empty();
@@ -371,6 +382,30 @@ AccountInfo IdentityManager::FindExtendedAccountInfoByGaiaId(
 
 AccountsInCookieJarInfo IdentityManager::GetAccountsInCookieJar() const {
   return gaia_cookie_manager_service_->ListAccounts();
+}
+
+AccountsInCookieJarInfo IdentityManager::GetCachedAccountsInCookieJar() const {
+  return gaia_cookie_manager_service_->GetCachedListAccounts();
+}
+
+std::optional<size_t> IdentityManager::GetSessionIndexForPrimaryAccount()
+    const {
+  CoreAccountInfo primary_account_info =
+      GetPrimaryAccountInfo(ConsentLevel::kSignin);
+  if (primary_account_info.gaia.empty()) {
+    return std::nullopt;
+  }
+
+  AccountsInCookieJarInfo accounts_in_cookie_jar = GetAccountsInCookieJar();
+  const std::vector<gaia::ListedAccount>& accounts =
+      accounts_in_cookie_jar.GetAllAccounts();
+  for (size_t i = 0; i < accounts.size(); ++i) {
+    if (accounts[i].gaia_id == primary_account_info.gaia) {
+      return i;
+    }
+  }
+
+  return std::nullopt;
 }
 
 PrimaryAccountMutator* IdentityManager::GetPrimaryAccountMutator() {
@@ -479,12 +514,9 @@ IdentityManager::GetPrimaryAccountInfo(JNIEnv* env) const {
   if (account_info.IsEmpty()) {
     return nullptr;
   }
-  // TODO(https://crbug.com/471185380): After M148 reaches Stable - change the
-  // return type for GetPrimaryAccountInfo to AccountInfo.
-  CHECK(!account_tracker_service_->GetAccountInfo(account_info.account_id)
-             .IsEmpty(),
-        base::NotFatalUntil::M148);
-  return ConvertToJavaCoreAccountInfo(env, account_info);
+  AccountInfo extended_info =
+      account_tracker_service_->GetAccountInfo(account_info.account_id);
+  return ConvertToJavaAccountInfo(env, extended_info);
 }
 
 base::android::ScopedJavaLocalRef<jobject>

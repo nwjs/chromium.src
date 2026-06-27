@@ -98,12 +98,9 @@ GURL GetURLForTitle(net::EmbeddedTestServer* test_server, NSString* title) {
 @implementation PinnedTabsGenericConsistencyTestCase
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
-  AppLaunchConfiguration config;
-  if ([self isRunningTest:@selector(testCloseAllRegularThenPinnedTabs)] ||
-      [self isRunningTest:@selector(testCloseAllPinnedThenRegularTabs)]) {
-    config.features_enabled.push_back(kTabSwitcherOverflowMenu);
-  }
-
+  AppLaunchConfiguration config = [super appConfigurationForTestCase];
+  // TODO(crbug.com/514608938): Fix test for Chrome Next.
+  config.features_disabled.push_back(kChromeNextIa);
   return config;
 }
 

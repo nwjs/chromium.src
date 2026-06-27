@@ -12,6 +12,7 @@
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
+#include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/animation/browser_animation_controller.h"
 #include "chrome/browser/ui/animation/browser_animation_types.h"
@@ -27,7 +28,6 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/themed_background.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_animation_perf_reporter.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_resize_area.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -65,20 +65,6 @@ namespace {
 constexpr BrowserAnimationGroup kAnimationGroup =
     SidePanelAnimations::kSidePanel;
 
-// Converts from animation motion to animation type.
-SidePanelAnimationType AnimationMotionToType(BrowserAnimationMotion motion) {
-  if (motion == SidePanelAnimations::kOpen) {
-    return SidePanelAnimationType::kOpen;
-  }
-  if (motion == SidePanelAnimations::kOpenWithContentTransition) {
-    return SidePanelAnimationType::kOpenWithContentTransition;
-  }
-  if (motion == SidePanelAnimations::kClose) {
-    return SidePanelAnimationType::kClose;
-  }
-  NOTREACHED();
-}
-
 // This thickness includes the solid-color background and the inner round-rect
 // border-color stroke. It does not include the outer-color separator.
 int GetBorderThickness() {
@@ -102,11 +88,20 @@ gfx::Insets GetBorderInsets() {
 
 SidePanel::HorizontalAlignment GetHorizontalAlignment(
     PrefService* pref_service,
-    bool use_default_horizontal_alignment) {
-  bool is_right_aligned =
-      pref_service->GetBoolean(prefs::kSidePanelHorizontalAlignment);
-  is_right_aligned =
-      use_default_horizontal_alignment ? is_right_aligned : !is_right_aligned;
+    std::optional<SidePanelEntryId> entry_id) {
+  const base::DictValue& overrides =
+      pref_service->GetDict(prefs::kSidePanelAlignmentOverrides);
+  std::optional<bool> override_value =
+      entry_id ? overrides.FindBool(SidePanelEntryIdToString(*entry_id))
+               : std::nullopt;
+
+  bool is_right_aligned;
+  if (override_value.has_value()) {
+    is_right_aligned = *override_value;
+  } else {
+    is_right_aligned =
+        pref_service->GetBoolean(prefs::kSidePanelHorizontalAlignment);
+  }
   return is_right_aligned ? SidePanel::HorizontalAlignment::kRight
                           : SidePanel::HorizontalAlignment::kLeft;
 }
@@ -299,9 +294,8 @@ SidePanel::SidePanel(BrowserView* browser_view)
     : browser_view_(browser_view),
       visible_bounds_view_clipper_(
           std::make_unique<VisibleBoundsViewClipper>(this)) {
-  horizontal_alignment_ =
-      GetHorizontalAlignment(browser_view->GetProfile()->GetPrefs(),
-                             use_default_horizontal_alignment_);
+  horizontal_alignment_ = GetHorizontalAlignment(
+      browser_view->GetProfile()->GetPrefs(), std::nullopt);
 
   // The default z-order is the order in which children were added to the
   // parent view. content_parent_view_ is added first so it exists behind
@@ -319,7 +313,11 @@ SidePanel::SidePanel(BrowserView* browser_view)
   pref_change_registrar_.Add(
       prefs::kSidePanelHorizontalAlignment,
       base::BindRepeating(&SidePanel::UpdateHorizontalAlignment,
-                          base::Unretained(this)));
+                          base::Unretained(this), std::nullopt));
+  pref_change_registrar_.Add(
+      prefs::kSidePanelAlignmentOverrides,
+      base::BindRepeating(&SidePanel::UpdateHorizontalAlignment,
+                          base::Unretained(this), std::nullopt));
 
   animation_subscription_ =
       BrowserAnimationController::From(browser_view_->browser())
@@ -348,8 +346,7 @@ bool SidePanel::ShouldRestrictMaxWidth() const {
   // TODO(crbug.com/394339052): Only restricting width for only non-read
   // anything content is a temporary solution and UX will investigate a better
   // long term solution.
-  SidePanelUI* side_panel_ui =
-      browser_view_->browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser_view_->browser());
   if (!side_panel_ui) {
     return true;
   }
@@ -365,8 +362,7 @@ void SidePanel::SetBackgroundRadii(const gfx::RoundedCornersF& radii) {
 }
 
 void SidePanel::UpdateWidthOnEntryChanged() {
-  SidePanelUI* side_panel_ui =
-      browser_view_->browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser_view_->browser());
   if (!side_panel_ui) {
     return;
   }
@@ -490,13 +486,7 @@ void SidePanel::OnBoundsChanged(const gfx::Rect& previous_bounds) {
 }
 
 double SidePanel::GetAnimationValue() const {
-  double result = GetAnimationValueFor(SidePanelAnimations::kPanelWidth);
-  if (BrowserAnimationController::From(browser_view_->browser())
-          ->GetCurrentMotion(kAnimationGroup) == SidePanelAnimations::kOpen) {
-    // Use the open starting point for open animations instead of zero.
-    result = open_starting_point_ + (1.0 - open_starting_point_) * result;
-  }
-  return result;
+  return GetAnimationValueFor(SidePanelAnimations::kPanelWidth);
 }
 
 void SidePanel::OnAnimationProgressed(
@@ -504,24 +494,13 @@ void SidePanel::OnAnimationProgressed(
     BrowserAnimationUpdate status) {
   switch (status) {
     case BrowserAnimationUpdate::kStarted:
-      animation_perf_reporter_ =
-          std::make_unique<SidePanelAnimationPerfReporter>(
-              GetCurrentEntryType(),
-              AnimationMotionToType(
-                  controller->GetCurrentMotion(kAnimationGroup)),
-              controller->GetMotionDuration(kAnimationGroup), GetWidget());
       break;
     case BrowserAnimationUpdate::kProgressed:
-      animation_perf_reporter_->OnAnimationProgressed();
       if (const auto width = controller->GetCurrentValue(
               kAnimationGroup, SidePanelAnimations::kPanelWidth)) {
         if (last_animation_values_[SidePanelAnimations::kPanelWidth] !=
             *width) {
           last_animation_values_[SidePanelAnimations::kPanelWidth] = *width;
-          if (controller->GetCurrentMotion(kAnimationGroup) !=
-              SidePanelAnimations::kOpen) {
-            open_starting_point_ = *width;
-          }
           InvalidateLayout();
         }
       }
@@ -536,16 +515,13 @@ void SidePanel::OnAnimationProgressed(
       }
       break;
     case BrowserAnimationUpdate::kEnded: {
-      animation_perf_reporter_.reset();
       const auto motion = controller->GetCurrentMotion(kAnimationGroup);
       if (motion == SidePanelAnimations::kClose) {
-        open_starting_point_ = 0.0;
         state_ = State::kClosed;
         views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
             kCloseAnimationCompletedEvent, this);
         SetVisible(false);
       } else if (motion) {
-        open_starting_point_ = 1.0;
         if (motion == SidePanelAnimations::kOpenWithContentTransition) {
           if (browser_view_->GetSidePanelAnimationContent()) {
             content_parent_view_->AddChildView(
@@ -562,7 +538,6 @@ void SidePanel::OnAnimationProgressed(
       break;
     }
     case BrowserAnimationUpdate::kCanceled:
-      animation_perf_reporter_.reset();
       last_animation_values_.clear();
       break;
   }
@@ -599,7 +574,7 @@ void SidePanel::OnResize(int resize_amount, bool done_resizing) {
 
   if (width() != proposed_width) {
     if (SidePanelUI* side_panel_ui =
-            browser_view_->browser()->GetFeatures().side_panel_ui()) {
+            SidePanelUI::From(browser_view_->browser())) {
       if (std::optional<SidePanelEntry::Id> entry =
               side_panel_ui->GetCurrentEntryId()) {
         std::string current_panel_id = SidePanelEntryIdToString(entry.value());
@@ -615,8 +590,7 @@ void SidePanel::OnResize(int resize_amount, bool done_resizing) {
 
 void SidePanel::RecordMetricsIfResized() {
   if (did_resize_) {
-    SidePanelUI* side_panel_ui =
-        browser_view_->browser()->GetFeatures().side_panel_ui();
+    SidePanelUI* side_panel_ui = SidePanelUI::From(browser_view_->browser());
     if (!side_panel_ui) {
       return;
     }
@@ -660,17 +634,8 @@ void SidePanel::ResetSidePanelAnimationContent() {
     browser_view_->SetSidePanelAnimationContent(nullptr);
     auto* const controller =
         BrowserAnimationController::From(browser_view_->browser());
-    controller->Cancel(kAnimationGroup);
+    controller->Clear(kAnimationGroup);
   }
-}
-
-void SidePanel::SetActiveEntryUsesDefaultHorizontalAlignment(
-    bool use_default_horizontal_alignment) {
-  if (use_default_horizontal_alignment_ == use_default_horizontal_alignment) {
-    return;
-  }
-  use_default_horizontal_alignment_ = use_default_horizontal_alignment;
-  UpdateHorizontalAlignment();
 }
 
 views::View* SidePanel::GetContentParentView() {
@@ -721,12 +686,16 @@ void SidePanel::UpdateVisibility(bool should_be_open, bool animate_transition) {
       motion = SidePanelAnimations::kClose;
     }
     if (motion) {
-      animation_controller->Start(kAnimationGroup, motion);
+      animation_controller->Start(
+          kAnimationGroup, motion,
+          /*group_histogram_override=*/
+          current_entry_type_ == SidePanelType::kToolbar
+              ? SidePanelMetrics::kSidePanelToolbarHeightHistogramName
+              : SidePanelMetrics::kSidePanelHistogramName);
     }
   } else {
-    animation_controller->Cancel(kAnimationGroup);
+    animation_controller->Clear(kAnimationGroup);
     SetVisible(should_be_open);
-    open_starting_point_ = should_be_open ? 1.0 : 0.0;
   }
 }
 
@@ -768,10 +737,17 @@ void SidePanel::AnnounceResize() {
       base::FormatPercent(side_panel_percentage)));
 }
 
-void SidePanel::UpdateHorizontalAlignment() {
+void SidePanel::UpdateHorizontalAlignment(
+    std::optional<SidePanelEntryId> entry_id) {
+  if (!entry_id) {
+    if (auto* side_panel_ui =
+            browser_view_->browser()->GetFeatures().side_panel_ui()) {
+      entry_id = side_panel_ui->GetCurrentEntryId();
+    }
+  }
+
   horizontal_alignment_ =
-      GetHorizontalAlignment(browser_view_->GetProfile()->GetPrefs(),
-                             use_default_horizontal_alignment_);
+      GetHorizontalAlignment(browser_view_->GetProfile()->GetPrefs(), entry_id);
 
   InvalidateLayout();
 }

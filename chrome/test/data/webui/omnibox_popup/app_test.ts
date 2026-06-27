@@ -4,22 +4,25 @@
 
 import 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 
-import {OmniboxPopupBrowserProxy, SearchboxBrowserProxy} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import type {OmniboxPopupPageRemote} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import {omniboxPopupBrowserProxyFactory, OmniboxPopupPageHandlerRemote, SearchboxBrowserProxy} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import type {OmniboxPopupAppElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SelectionDirection, SelectionLineState, SelectionStep} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {WindowOpenDisposition} from 'chrome://resources/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {$$, eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {TestOmniboxPopupBrowserProxy} from './test_omnibox_popup_browser_proxy.js';
 import {TestSearchboxBrowserProxy} from './test_searchbox_browser_proxy.js';
 
 suite('AppTest', function() {
   let app: OmniboxPopupAppElement;
   let testProxy: TestSearchboxBrowserProxy;
-  let omniboxPopupTestProxy: TestOmniboxPopupBrowserProxy;
+  let handler: TestMock<OmniboxPopupPageHandlerRemote>&
+      OmniboxPopupPageHandlerRemote;
+  let callbackRouter: OmniboxPopupPageRemote;
 
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -28,13 +31,17 @@ suite('AppTest', function() {
       composeboxShowContextMenuDescription: false,
       omniboxShowContextButtonSuggestionLabel: false,
       addContext: 'Add tabs and more',
+      contextButtonShapeIsOblong: false,
     });
 
     testProxy = new TestSearchboxBrowserProxy();
     SearchboxBrowserProxy.setInstance(testProxy);
 
-    omniboxPopupTestProxy = new TestOmniboxPopupBrowserProxy();
-    OmniboxPopupBrowserProxy.setInstance(omniboxPopupTestProxy);
+    handler = TestMock.fromClass(OmniboxPopupPageHandlerRemote);
+    const {instance, remote} =
+        omniboxPopupBrowserProxyFactory.createForTest(handler);
+    callbackRouter = remote;
+    omniboxPopupBrowserProxyFactory.setInstance(instance);
 
     app = document.createElement('omnibox-popup-app');
     document.body.appendChild(app);
@@ -151,46 +158,13 @@ suite('AppTest', function() {
       assertTrue(entrypointButton.matches(':focus-within'));
 
       // Act: Show the popup.
-      omniboxPopupTestProxy.page.onShow();
+      callbackRouter.onShow();
       await microtasksFinished();
 
       // Assert: The button is no longer focused.
       assertFalse(entrypointButton.matches(':focus-within'));
     });
 
-    test('RecentTabChipShown', async () => {
-      loadTimeData.overrideValues({
-        omniboxShowContextButtonSuggestionLabel: false,
-        searchboxLayoutMode: 'TallBottomContext',
-        composeboxShowRecentTabChip: true,
-        addTabUploadDelayOnRecentTabChipClick: true,
-      });
-      const tabInfo = {
-        tabId: 1,
-        title: 'Tab 1',
-        url: 'https://www.google.com/search?q=foo',
-        showInPreviousTabChip: true,
-      };
-      testProxy.handler.setResultFor(
-          'getRecentTabs', Promise.resolve({tabs: [tabInfo]}));
-      localApp.remove();
-      localApp = document.createElement('omnibox-popup-app');
-      document.body.appendChild(localApp);
-      testProxy.page.autocompleteResultChanged(
-          createAutocompleteResultForTesting());
-      await microtasksFinished();
-
-      testProxy.initVisibilityPrefs();
-      await microtasksFinished();
-
-      omniboxPopupTestProxy.page.onShow();
-      await microtasksFinished();
-
-      const recentTabChip = localApp.shadowRoot?.querySelector(
-          'composebox-recent-tab-chip');
-      // Assert chip shows.
-      assertTrue(!!recentTabChip);
-    });
 
     test('HideClassicContextButton', async () => {
       let contextualEntrypoint =
@@ -240,6 +214,28 @@ suite('AppTest', function() {
       const description = $$(contextualEntrypoint, '#description');
       assertTrue(!!description);
       assertEquals('Add tabs and more', description.textContent.trim());
+    });
+
+    test('ContextMenuEntrypointMenuOpenWorkaround', async () => {
+      const contextualEntrypoint =
+          localApp.shadowRoot?.querySelector<HTMLElement>('#context');
+      assertTrue(!!contextualEntrypoint);
+
+      // Click fires event and applies workaround.
+      contextualEntrypoint.dispatchEvent(
+          new CustomEvent('context-menu-entrypoint-click', {
+            detail: {x: 10, y: 20},
+            bubbles: true,
+            composed: true,
+          }));
+
+      assertTrue(contextualEntrypoint.classList.contains('menu-open'));
+
+      // Mojom callback clears class.
+      callbackRouter.onContextMenuClosed();
+      await microtasksFinished();
+
+      assertFalse(contextualEntrypoint.classList.contains('menu-open'));
     });
   });
 

@@ -148,14 +148,12 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset([
     'android-pixel4-perf',
     'android-pixel4_webview-perf',  # One of the mobile testers.
     'android-pixel4_webview-perf-pgo',
-    'android-pixel6-perf',
     'android-pixel6-perf-pgo',
-    'android-pixel6-pro-perf',
     'android-pixel9-perf',
     'android-pixel9-pro-perf',
     'android-pixel9-pro-xl-perf',
-    'android-pixel25-ultra-perf',
-    'android-pixel25-ultra-xl-perf',
+    'android-pixel10-perf',
+    'android-pixel10_webview-perf',
     'android-brya-kano-i5-8gb-perf',
     'android-corsola-steelix-8gb-perf',
     'android-nissa-uldren-8gb-perf',
@@ -198,12 +196,12 @@ PUBLIC_PERF_BUILDERS = [
     'android-pixel4-perf',
     'android-pixel4_webview-perf',  # One of the mobile testers.
     'android-pixel4_webview-perf-pgo',
-    'android-pixel6-perf',
     'android-pixel6-perf-pgo',
-    'android-pixel6-pro-perf',
     'android-pixel9-perf',
     'android-pixel9-pro-perf',
     'android-pixel9-pro-xl-perf',
+    'android-pixel10-perf',
+    'android-pixel10_webview-perf',
     'linux-builder-perf',
     'linux-falcon-rak-5070-perf',
     'linux-perf',
@@ -727,21 +725,6 @@ BUILDERS = {
             'device_os_flavor': 'google',
         },
     },
-    'android-pixel6-perf': {
-        'tests': [{
-            'isolate':
-            'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
-        }],
-        'platform':
-        'android-trichrome-chrome-google-64-32-bundle',
-        'dimension': {
-            'pool': 'chrome.tests.perf',
-            'os': 'Android',
-            'device_type': 'oriole',
-            'device_os': 'AP1A.240405.002',
-            'device_os_flavor': 'google',
-        },
-    },
     'android-pixel6-perf-pgo': {
         'tests': [{
             'isolate':
@@ -785,21 +768,6 @@ BUILDERS = {
             'pool': 'chrome.tests.perf',
             'os': 'Android',
             'device_type': 'tangorpro',
-            'device_os_flavor': 'google',
-        },
-    },
-    'android-pixel6-pro-perf': {
-        'tests': [{
-            'isolate':
-            'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
-        }],
-        'platform':
-        'android-trichrome-chrome-google-64-32-bundle',
-        'dimension': {
-            'pool': 'chrome.tests.perf',
-            'os': 'Android',
-            'device_type': 'raven',
-            'device_os': 'AP1A.240405.002',
             'device_os_flavor': 'google',
         },
     },
@@ -863,7 +831,7 @@ BUILDERS = {
             'device_os_flavor': 'google',
         },
     },
-    'android-pixel25-ultra-perf': {
+    'android-pixel10-perf': {
         'tests': [{
             'isolate':
             'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
@@ -873,23 +841,21 @@ BUILDERS = {
         'dimension': {
             'pool': 'chrome.tests.perf',
             'os': 'Android',
-            'device_type': 'mustang',
+            'device_type': 'frankel',
             'device_os': 'B',
             'device_os_flavor': 'google',
         },
     },
-    'android-pixel25-ultra-xl-perf': {
+    'android-pixel10_webview-perf': {
         'tests': [{
-            'isolate':
-            'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+            'isolate': 'performance_webview_test_suite',
         }],
-        'platform':
-        'android-trichrome-chrome-google-64-32-bundle',
+        'platform': 'android-webview-standalone-google',
         'dimension': {
-            'pool': 'chrome.tests.perf',
+            'pool': 'chrome.tests.perf-webview',
             'os': 'Android',
-            'device_type': 'blazer',
-            'device_os': 'B',
+            'device_type': 'frankel',
+            'device_os': 'BP4A.260105.004.E1',
             'device_os_flavor': 'google',
         },
     },

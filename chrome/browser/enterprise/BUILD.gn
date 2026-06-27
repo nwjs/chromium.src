@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/safe_browsing/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
@@ -62,6 +61,7 @@ source_set("enterprise") {
     "//components/enterprise/data_controls/core/browser",
     "//components/enterprise/data_protection",
     "//components/enterprise/encryption/cache",
+    "//components/enterprise/isolated_mode",
     "//components/enterprise/watermarking",
     "//components/keyed_service/content",
     "//components/keyed_service/core",
@@ -97,7 +97,6 @@ source_set("enterprise") {
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
       "//chrome/browser/ui/webui/signin:signin_utils",
       "//chrome/browser/upgrade_detector:build_state_observer",
-      "//extensions/common",
       "//ui/message_center/public/cpp",
       "//ui/views",
     ]
@@ -141,6 +140,7 @@ source_set("enterprise") {
 
   if (is_android) {
     public += [
+      "browser_management/platform_management_status_provider_android.h",
       "platform_auth/entra_provider_android.h",
       "reporting/browser_report_generator_android.h",
       "reporting/profile_report_generator_android.h",
@@ -422,6 +422,8 @@ source_set("impl") {
   deps = [
     "//chrome/app:command_ids",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
+    "//chrome/browser:file_util_service",
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/devtools",
@@ -507,7 +509,7 @@ source_set("impl") {
       "signals/device_info_fetcher.cc",
     ]
     deps += [
-      "//chrome/browser/extensions",
+      "//chrome/browser/lifetime",
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/sync",
       "//chrome/browser/themes",
@@ -523,6 +525,7 @@ source_set("impl") {
 
   if (is_android) {
     sources += [
+      "browser_management/platform_management_status_provider_android.cc",
       "platform_auth/entra_provider_android.cc",
       "reporting/browser_report_generator_android.cc",
       "reporting/profile_report_generator_android.cc",
@@ -787,7 +790,6 @@ source_set("impl") {
       "//chrome/browser/enterprise/connectors/device_trust/key_management/browser",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core/persistence",
-      "//chrome/browser/extensions",
       "//chrome/services/system_signals/public/cpp/browser",
     ]
   }
@@ -802,5 +804,9 @@ source_set("impl") {
 
   if (enable_extensions_core) {
     sources += [ "reporting/extension_info.cc" ]
+    deps += [
+      "//chrome/browser/extensions",
+      "//extensions/browser",
+    ]
   }
 }

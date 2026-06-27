@@ -22,17 +22,17 @@
 #include "components/sync/base/sync_invalidation.h"
 #include "components/sync/engine/cancelation_signal.h"
 #include "components/sync/engine/configure_reason.h"
+#include "components/sync/engine/cryptographer.h"
 #include "components/sync/engine/data_type_connector_proxy.h"
 #include "components/sync/engine/data_type_worker.h"
 #include "components/sync/engine/engine_components_factory.h"
+#include "components/sync/engine/keystore_keys_handler.h"
 #include "components/sync/engine/loopback_server/loopback_connection_manager.h"
 #include "components/sync/engine/net/http_post_provider_factory.h"
 #include "components/sync/engine/net/sync_server_connection_manager.h"
 #include "components/sync/engine/net/url_translator.h"
-#include "components/sync/engine/nigori/cryptographer.h"
-#include "components/sync/engine/nigori/key_derivation_params.h"
-#include "components/sync/engine/nigori/keystore_keys_handler.h"
 #include "components/sync/engine/polling_constants.h"
+#include "components/sync/engine/required_passphrase_verifier.h"
 #include "components/sync/engine/sync_scheduler.h"
 #include "components/sync/engine/update_handler.h"
 #include "components/sync/protocol/sync_enums.pb.h"
@@ -207,12 +207,12 @@ void SyncManagerImpl::Init(InitArgs* args) {
 }
 
 void SyncManagerImpl::OnPassphraseRequired(
-    const KeyDerivationParams& key_derivation_params,
-    const sync_pb::EncryptedData& pending_keys) {
+    std::unique_ptr<RequiredPassphraseVerifier> verifier) {
   // Does nothing.
 }
 
-void SyncManagerImpl::OnPassphraseAccepted() {
+void SyncManagerImpl::OnPassphraseAccepted(
+    const CustomPassphraseBootstrapToken& bootstrap_token) {
   // Does nothing.
 }
 
@@ -221,6 +221,14 @@ void SyncManagerImpl::OnTrustedVaultKeyRequired() {
 }
 
 void SyncManagerImpl::OnTrustedVaultKeyAccepted() {
+  // Does nothing.
+}
+
+void SyncManagerImpl::OnKeystoreKeysRequired() {
+  // Does nothing.
+}
+
+void SyncManagerImpl::OnKeystoreKeysAccepted() {
   // Does nothing.
 }
 

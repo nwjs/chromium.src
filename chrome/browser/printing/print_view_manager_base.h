@@ -123,8 +123,6 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
   void GetDefaultPrintSettings(
       GetDefaultPrintSettingsCallback callback) override;
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-  void UpdatePrintSettings(base::DictValue job_settings,
-                           UpdatePrintSettingsCallback callback) override;
   void SetAccessibilityTree(
       int32_t cookie,
       const ui::AXTreeUpdate& accessibility_tree) override;
@@ -275,19 +273,6 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
                           bool succeeded);
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-  // Helpers for UpdatePrintSettings().
-#if BUILDFLAG(IS_WIN)
-  void OnDidUpdatePrintableArea(std::unique_ptr<PrinterQuery> printer_query,
-                                base::DictValue job_settings,
-                                std::unique_ptr<PrintSettings> print_settings,
-                                UpdatePrintSettingsCallback callback,
-                                bool success);
-#endif
-  void CompleteUpdatePrintSettings(
-      base::DictValue job_settings,
-      std::unique_ptr<PrintSettings> print_settings,
-      UpdatePrintSettingsCallback callback);
-
   // Helpers for PrintForPrintPreview();
   void OnPrintSettingsDone(scoped_refptr<base::RefCountedMemory> print_data,
                            uint32_t page_count,

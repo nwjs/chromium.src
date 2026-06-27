@@ -21,6 +21,10 @@
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/android/glic_navigation_utils_android.h"
+#endif
+
 namespace glic {
 
 namespace {
@@ -121,10 +125,11 @@ AuthController::TokenState AuthController::GetTokenState() const {
 
   CoreAccountId account_id =
       identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
-  // If the user is signed-out, Glic shouldn't be running. Return an error
-  // to avoid crashing if sign-out happens while Glic is loading.
+  // If the user is signed-out, they need to sign in if the feature is enabled.
   if (account_id.empty()) {
-    return TokenState::kUnknownError;
+    return base::FeatureList::IsEnabled(features::kGlicShowForSignedOut)
+               ? TokenState::kRequiresSignIn
+               : TokenState::kUnknownError;
   }
 
   if (identity_manager_->HasAccountWithRefreshTokenInPersistentErrorState(
@@ -159,12 +164,6 @@ void AuthController::OnErrorStateOfRefreshTokenUpdatedForAccount(
     return;
   }
   profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync, true);
-  if (after_signin_callback_ &&
-      after_signin_callback_expiration_time_ > base::TimeTicks::Now()) {
-    if (GetTokenState() == TokenState::kOk) {
-      std::move(after_signin_callback_).Run();
-    }
-  }
 }
 
 void AuthController::OnRefreshTokenUpdatedForAccount(
@@ -191,6 +190,19 @@ void AuthController::OnClientError() {
   profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync, true);
 }
 
+void AuthController::OnClientTransientError(
+    mojo_base::mojom::AbslStatusCode status_code) {
+  switch (status_code) {
+    case mojo_base::mojom::AbslStatusCode::kUnauthenticated:
+    case mojo_base::mojom::AbslStatusCode::kInternal:
+      profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync,
+                                       true);
+      break;
+    default:
+      break;
+  }
+}
+
 bool AuthController::NeedsSyncForTesting() const {
   return profile_->GetPrefs()->GetBoolean(prefs::kGlicPartitionNeedsCookieSync);
 }
@@ -204,17 +216,15 @@ void AuthController::CookieSyncDone(base::OnceCallback<void(bool)> callback,
   std::move(callback).Run(sync_success);
 }
 
-void AuthController::ShowReauthForAccount(base::OnceClosure after_signin) {
-  after_signin_callback_ = std::move(after_signin);
-  // TODO(crbug.com/396500584): Check what timeout is appropriate.
-  after_signin_callback_expiration_time_ =
-      base::TimeTicks::Now() + base::Minutes(5);
+void AuthController::ShowReauthForAccount(content::WebContents* web_contents) {
   CoreAccountInfo primary_account_info =
       identity_manager_->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
-#if !BUILDFLAG(IS_ANDROID)  // TODO(b/477997050): Implement for android
+#if !BUILDFLAG(IS_ANDROID)
   signin_ui_util::ShowReauthForAccount(
       profile_, primary_account_info.email,
       signin_metrics::AccessPoint::kGlicLaunchButton);
+#else
+  glic::ShowSignIn(profile_, web_contents);
 #endif
 }
 

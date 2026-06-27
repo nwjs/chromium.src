@@ -34,8 +34,8 @@ static_library("lock") {
   deps = [
     "//ash/constants",
     "//base:i18n",
-    "//chrome/app:generated_resources",
     "//chrome/browser:browser_process",
+    "//chrome/browser:browser_process_platform_part",
     "//chrome/browser:global_features",
     "//chrome/browser:resources",
     "//chrome/browser/ash/certificate_provider",
@@ -182,6 +182,7 @@ source_set("unit_tests") {
     "//base",
     "//chrome/browser",
     "//chrome/browser/ash/certificate_provider",
+    "//chrome/browser/ash/login/quick_unlock",
     "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/settings:test_support",
     "//chrome/browser/ui/ash/assistant",

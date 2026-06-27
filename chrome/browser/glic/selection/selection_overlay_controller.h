@@ -56,6 +56,9 @@ class SelectionOverlayController
   static SelectionOverlayController* FromTabWebContents(
       content::WebContents* tab_web_contents);
 
+  size_t GetSelectedRegionCount() const { return selected_regions_.size(); }
+  std::vector<int> GetPolylineCounts() const;
+
   // This method is used to set up communication between this instance and the
   // overlay WebUI. This is called by the WebUIController when the WebUI is
   // executing javascript and ready to bind.
@@ -77,7 +80,8 @@ class SelectionOverlayController
   void Close();
 
   // `selection::SelectionOverlayPageHandler`:
-  void DeleteRegion(const base::UnguessableToken& id) override;
+  void DeleteRegion(const base::UnguessableToken& id,
+                    bool is_using_keyboard) override;
 
  private:
   void WillDiscardContents(tabs::TabInterface* tab,
@@ -100,10 +104,9 @@ class SelectionOverlayController
   void NotifyOverlayClosing() override;
   bool IsResultsSidePanelShowing() override;
   GURL GetInitialURL() override;
-  void NotifyIsOverlayShowing(bool is_showing) override;
+  void NotifyIsOverlayShowing(bool is_showing) override {}
   int GetToolResourceId() override;
-  ui::ElementIdentifier GetViewContainerId() override;
-  bool UsesContentsContainerView() override;
+  ui::ElementIdentifier GetViewContainerId() const override;
   SidePanelType GetSidePanelType() override;
   bool ShouldCloseSidePanel() override;
   bool ShouldShowPreselectionBubble() override;
@@ -116,7 +119,8 @@ class SelectionOverlayController
 
   // `selection::SelectionOverlayPageHandler`:
   void DismissOverlay(selection::DismissOverlayReason reason) override;
-  void AdjustRegion(selection::SelectedRegionPtr target) override;
+  void AdjustRegion(selection::SelectedRegionPtr target,
+                    bool is_using_keyboard) override;
   void ClosePreselectionBubble() override;
   void AddBackgroundBlur() override;
   void SetLiveBlur(bool enabled) override;
@@ -132,7 +136,7 @@ class SelectionOverlayController
   void SetScreenshot(const SkBitmap& screenshot, SkBitmap rgb_screenshot);
 
   // Render all the `selected_regions_` on top of `redacted_screenshot_`.
-  void RenderRegions();
+  void RenderRegions(bool should_focus_panel);
 
   void Reset();
   glic::mojom::AdditionalContextPtr CreateAdditionalContext(

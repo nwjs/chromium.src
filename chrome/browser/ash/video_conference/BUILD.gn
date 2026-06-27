@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
-
 assert(is_chromeos)
 
 static_library("video_conference") {
@@ -31,7 +29,6 @@ static_library("video_conference") {
 
   deps = [
     "//ash/constants",
-    "//ash/webui/system_apps/public:system_web_app_type",
     "//ash/webui/vc_background_ui",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/ash/borealis",
@@ -42,6 +39,7 @@ static_library("video_conference") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/ui/ash/system_web_apps",
+    "//chromeos/ash/components/system_web_apps:system_web_app_type",
     "//components/prefs",
     "//components/user_manager",
     "//services/metrics/public/cpp:metrics_cpp",

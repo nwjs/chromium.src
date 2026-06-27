@@ -47,6 +47,13 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
     WritableObjectPropertyKey<OmniboxSuggestionsDropdown.GestureObserver> GESTURE_OBSERVER =
             new WritableObjectPropertyKey<>();
 
+    /**
+     * The listener that will receive notifications when the user navigates the Suggestions list
+     * using tab or arrow keys.
+     */
+    WritableObjectPropertyKey<OmniboxSuggestionsDropdown.NavigationListener> NAVIGATION_LISTENER =
+            new WritableObjectPropertyKey<>();
+
     /** The listener that will receive the new height of the suggestion list in pixels. */
     WritableObjectPropertyKey<Callback<Integer>> DROPDOWN_HEIGHT_CHANGE_LISTENER =
             new WritableObjectPropertyKey<>();
@@ -64,6 +71,9 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 
     /** Whether the dropdown should draw over top of the anchor view. */
     WritableBooleanPropertyKey DRAW_OVER_ANCHOR = new WritableBooleanPropertyKey();
+
+    /** The layout mode of the fusebox; see {@link FuseboxLayoutMode} */
+    WritableIntPropertyKey FUSEBOX_LAYOUT_MODE = new WritableIntPropertyKey();
 
     /** On-screen placement of the Toolbar. */
     WritableIntPropertyKey TOOLBAR_POSITION = new WritableIntPropertyKey();
@@ -84,9 +94,12 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 
     WritableBooleanPropertyKey ROUND_TOP_CORNERS = new WritableBooleanPropertyKey();
 
+    WritableBooleanPropertyKey ALLOW_PARKING_AT_SENTINEL = new WritableBooleanPropertyKey();
+
     PropertyKey[] ALL_KEYS =
             new PropertyKey[] {
                 ACTIVITY_WINDOW_FOCUSED,
+                ALLOW_PARKING_AT_SENTINEL,
                 ALPHA,
                 CHILD_TRANSLATION_Y,
                 COLOR_SCHEME,
@@ -97,9 +110,11 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
                 DROPDOWN_SCROLL_LISTENER,
                 DROPDOWN_SCROLL_TO_TOP_LISTENER,
                 EMBEDDER,
+                FUSEBOX_LAYOUT_MODE,
                 GESTURE_OBSERVER,
                 IS_LARGE_SCREEN,
                 LIST_IS_FINAL,
+                NAVIGATION_LISTENER,
                 OMNIBOX_SESSION_ACTIVE,
                 ROUND_TOP_CORNERS,
                 SUGGESTION_MODELS,

@@ -229,7 +229,6 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/bookmarks/ShoppingAccessoryCoordinatorTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarButtonTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarCoordinatorTest.java",
-    "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarIphControllerTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarItemsLayoutManagerTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarItemsProviderTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarMediatorTest.java",
@@ -275,6 +274,7 @@ android_library("javatests") {
 
   deps = [
     "//chrome/android/javatests:chrome_test_java_helper",
+    "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/user_education:java",
   ]
 }

@@ -46,14 +46,12 @@ message PrivateAiResponse {
 
 // LINT.IfChange(FeatureName)
 enum FeatureName {
+  reserved 702;
+
   FEATURE_NAME_UNSPECIFIED = 0;
   FEATURE_NAME_DEMO_GEMINI_GENERATE_CONTENT = 3;
   FEATURE_NAME_CHROME_ZERO_STATE_SUGGESTION = 700;
   FEATURE_NAME_CHROME_FORMS_AI = 701;
-
-  // A generic feature name used exclusively for the initial
-  // AnonymousTokenRequest during client attestation.
-  FEATURE_NAME_CHROME_CLIENT_ATTESTATION = 702;
 
   FEATURE_NAME_CHROME_CONTEXTUAL_CUEING = 703;
 }
@@ -68,6 +66,8 @@ message PaicMessage {
   // fields instead which have the same serialized format.
   optimization_guide.proto.ExecuteRequest execute_request_ext = 530000002;
   optimization_guide.proto.ExecuteResponse execute_response_ext = 530000003;
+  optimization_guide.proto.PrivateExecuteRequest private_execute_request_ext =
+      530000016;
 }
 
 message GenerateContentRequest {

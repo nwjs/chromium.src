@@ -7,6 +7,8 @@
 namespace contextual_cueing {
 
 BASE_FEATURE(kContextualCueingV2, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kContextualCueingV2EnforceAgeRestriction,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<double> kEduClassifierThreshold(
     &kContextualCueingV2,
@@ -17,6 +19,11 @@ const base::FeatureParam<double> kShoppingClassifierThreshold(
     &kContextualCueingV2,
     "ContextualCueingV2ShoppingClassifierThreshold",
     0.5);
+
+const base::FeatureParam<bool> kDiscardShoppingPdfs(
+    &kContextualCueingV2,
+    "ContextualCueingV2DiscardShoppingPdfs",
+    true);
 
 const base::FeatureParam<int> kMaxNumBackgroundTabs(
     &kContextualCueingV2,
@@ -64,24 +71,41 @@ const base::FeatureParam<int> kVisitedOriginsLimit(
     "ContextualCueingV2VisitedOriginsLimit",
     20);
 
-const base::FeatureParam<base::TimeDelta> kBackoffTime(
+const base::FeatureParam<base::TimeDelta> kDismissBackoffTime(
     &kContextualCueingV2,
-    "ContextualCueingV2BackoffTime",
+    "ContextualCueingV2DismissBackoffTime",
     base::Hours(24));
 
-const base::FeatureParam<double> kBackoffMultiplierBase(
+const base::FeatureParam<double> kDismissBackoffMultiplierBase(
     &kContextualCueingV2,
-    "ContextualCueingV2BackoffMultiplierBase",
+    "ContextualCueingV2DismissBackoffMultiplierBase",
     2.0);
 
-const base::FeatureParam<bool> kUsePrivateAi(
+const base::FeatureParam<base::TimeDelta> kClickBackoffTime(
     &kContextualCueingV2,
-    "ContextualCueingV2UsePrivateAi",
-    false);
+    "ContextualCueingV2ClickBackoffTime",
+    base::Hours(1));
+
+const base::FeatureParam<bool> kUsePrivateAi(&kContextualCueingV2,
+                                             "ContextualCueingV2UsePrivateAi",
+                                             true);
 
 const base::FeatureParam<std::string> kHelpCenterArticleLink(
     &kContextualCueingV2,
     "ContextualCueingV2HelpCenterArticleLink",
     "https://support.google.com/chrome?p=");
+
+constexpr base::FeatureParam<TabListVisibility>::Option
+    kTabListVisibilityOptions[] = {
+        {TabListVisibility::kNever, "never"},
+        {TabListVisibility::kAlways, "always"},
+        {TabListVisibility::kOnlyIfMultiple, "only-if-multiple"},
+};
+
+const base::FeatureParam<TabListVisibility> kTabListVisibility(
+    &kContextualCueingV2,
+    "ContextualCueingV2TabListVisibility",
+    TabListVisibility::kNever,
+    &kTabListVisibilityOptions);
 
 }  // namespace contextual_cueing

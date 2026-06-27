@@ -141,7 +141,7 @@
   position: relative;
 }
 
-:host([energy-effect-enabled])::after {
+:host([energy-effect-animation-enabled])::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -218,7 +218,7 @@ search-animated-glow {
   max-height: 254px;
 }
 
-:host([energy-effect-animation-enabled_][animation-state='expanding']) #composebox {
+:host([energy-effect-animation-enabled][animation-state='expanding']) #composebox {
   will-change: opacity;
   animation: zero-state-composebox-fade-in 50ms
       var(--emphasized-accelerate-curve) both;
@@ -436,8 +436,9 @@ search-animated-glow {
 
 #contextEntrypoint {
   color: var(--color-searchbox-results-foreground);
-  padding-inline-start: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start, 8px);
-  padding-inline-end: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-end, 8px);
+  /* Do not set 'padding-inline-end/start' here. It is set in
+   * 'composebox_shared_style.css'.
+   */
 }
 
 #toolChipsContainer {
@@ -467,6 +468,11 @@ search-animated-glow {
 :host([searchbox-next-enabled][searchbox-layout-mode='Compact']) {
   --expanded-border-radius: var(--cr-composebox-expanded-border-radius, 30px);
   --input-bottom-spacing: 12px;
+}
+
+:host([searchbox-next-enabled][searchbox-layout-mode='Compact'][show-file-carousel]) {
+  /* Eliminate redundant bottom spacing above carousel */
+  --input-bottom-spacing: 0px;
 }
 
 :host([searchbox-next-enabled]) cr-composebox-submit::part(submit-icon) {
@@ -563,7 +569,7 @@ search-animated-glow {
   --cr-icon-button-size: 36px;
 }
 
-:host([searchbox-next-enabled][entrypoint-name='Omnibox']) #contextEntrypoint[is-oblong-shape_]::part(context-menu-entrypoint-icon) {
+:host([searchbox-next-enabled][entrypoint-name='Omnibox']) #contextEntrypoint[is-oblong-shape]::part(context-menu-entrypoint-icon) {
   --cr-icon-button-size: 32px;
 }
 
@@ -572,11 +578,12 @@ search-animated-glow {
 }
 
 :host([searchbox-next-enabled]) #carousel {
-  --context-non-top-carousel-bottom-margin: 4px;
+  --context-non-top-carousel-bottom-margin: 12px;
   --context-non-top-carousel-top-margin: 6px;
 }
 
 :host([is-omnibox-in-compact-mode_]) #carousel {
+  --context-non-top-carousel-bottom-margin: 12px;
   margin-top: 12px !important;
 }
 

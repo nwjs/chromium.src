@@ -6,10 +6,7 @@ source_set("glic") {
   sources = [ "glic_launcher_configuration.h" ]
 
   if (!is_android) {
-    sources += [
-      "glic_background_mode_manager.h",
-      "glic_controller.h",
-    ]
+    sources += [ "glic_background_mode_manager.h" ]
   }
 
   public_deps = [
@@ -32,9 +29,14 @@ source_set("impl") {
   if (!is_android) {
     sources += [
       "glic_background_mode_manager.cc",
-      "glic_controller.cc",
       "glic_status_icon.cc",
       "glic_status_icon.h",
+    ]
+  }
+  if (is_mac) {
+    sources += [
+      "os_icon_provider_mac.h",
+      "os_icon_provider_mac.mm",
     ]
   }
   if (is_win) {
@@ -97,6 +99,9 @@ source_set("unit_tests") {
       "glic_status_icon_unittest.cc",
     ]
   }
+  if (is_mac) {
+    sources += [ "os_icon_provider_mac_unittest.mm" ]
+  }
   deps = []
   if (!is_android) {
     deps += [
@@ -122,10 +127,7 @@ if (!is_android) {
   source_set("interactive_ui_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    sources = [
-      "glic_background_mode_manager_interactive_uitest.cc",
-      "glic_controller_interactive_uitest.cc",
-    ]
+    sources = [ "glic_background_mode_manager_interactive_uitest.cc" ]
     deps = [
       ":glic",
       ":impl",

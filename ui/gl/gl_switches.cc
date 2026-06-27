@@ -91,6 +91,11 @@ const char kEnableGPUServiceTracing[]       = "enable-gpu-service-tracing";
 //  gles: GLES renderer, ES2 and ES3.
 const char kUseANGLE[]                      = "use-angle";
 
+#if BUILDFLAG(USE_STATIC_ANGLE)
+// Use ANGLE shared libraries even if ANGLE is built as a static library.
+const char kUseDynamicAngle[] = "use-dynamic-angle";
+#endif
+
 // Use the Pass-through command decoder, skipping all validation and state
 // tracking. Switch lives in ui/gl because it affects the GL binding
 // initialization on platforms that would otherwise not default to using
@@ -137,9 +142,6 @@ const char kOverrideUseSoftwareGLForTests[] =
 
 // Disables specified comma separated GL Extensions if found.
 const char kDisableGLExtensions[] = "disable-gl-extensions";
-
-// Enables SwapBuffersWithBounds if it is supported.
-const char kEnableSwapBuffersWithBounds[] = "enable-swap-buffers-with-bounds";
 
 // Disable DirectComposition.
 const char kDisableDirectComposition[] = "disable-direct-composition";
@@ -188,7 +190,9 @@ const auto kGLSwitchesCopiedFromGpuProcessHostArray = std::to_array({
     kDisableGLDrawingForTests,
     kOverrideUseSoftwareGLForTests,
     kUseANGLE,
-    kEnableSwapBuffersWithBounds,
+#if BUILDFLAG(USE_STATIC_ANGLE)
+    kUseDynamicAngle,
+#endif
     kDisableDirectComposition,
     kEnableDirectCompositionVideoOverlays,
     kDirectCompositionVideoSwapChainFormat,

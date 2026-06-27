@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.chrome_item_picker;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
+import android.os.SystemClock;
 import android.view.ViewGroup;
 
 import androidx.activity.ComponentActivity;
@@ -34,20 +35,21 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxTabUtils;
 import org.chromium.chrome.browser.page_content_annotations.PageContentExtractionService;
 import org.chromium.chrome.browser.page_content_annotations.PageContentExtractionServiceFactory;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.utilities.TabLoadingService;
+import org.chromium.chrome.browser.tab.utilities.TabLoadingService.LoadIfNeededCallback;
+import org.chromium.chrome.browser.tab.utilities.TabLoadingService.LoadResult;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.IncognitoTabModel;
 import org.chromium.chrome.browser.tabmodel.IncognitoTabModelObserver;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelType;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
+import org.chromium.chrome.browser.tasks.tab_management.TabComponentId;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
@@ -59,12 +61,13 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
-import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -366,6 +369,7 @@ public class TabItemPickerCoordinator {
 
     public static class ItemPickerNavigationProvider
             implements TabListEditorCoordinator.NavigationProvider, ItemPickerSelectionHandler {
+
         private final SettableNonNullObservableSupplier<Boolean> mEnableDoneButtonSupplier =
                 ObservableSuppliers.createNonNull(false);
         private final Activity mActivity;
@@ -374,31 +378,8 @@ public class TabItemPickerCoordinator {
         private final TabContentManager mTabContentManager;
         private final Set<Integer> mCachedTabIds;
         private final Set<TabListEditorItemSelectionId> mInitialSelectedTabIds;
-        private final Set<Tab> mTabsBeingLoaded = new HashSet<>();
-        private final TabObserver mLoadObserver =
-                new EmptyTabObserver() {
-                    @Override
-                    public void onPageLoadFinished(Tab tab, GURL url) {
-                        // TODO(crbug.com/488046553): Consider adding a delay here for the page to
-                        // load more completely.
-                        onTabLoadFinished(tab);
-                    }
-
-                    @Override
-                    public void onPageLoadFailed(Tab tab, int errorCode) {
-                        onTabLoadFinished(tab);
-                    }
-
-                    @Override
-                    public void onCrash(Tab tab) {
-                        onTabLoadFinished(tab);
-                    }
-
-                    @Override
-                    public void onDestroyed(Tab tab) {
-                        onTabLoadFinished(tab);
-                    }
-                };
+        private final Map<Tab, Long> mLoadingTabsToStartTimes = new HashMap<>();
+        private final LoadIfNeededCallback mLoadIfNeededCallback = this::onTabLoadFinished;
 
         private boolean mIsDestroyed;
 
@@ -450,23 +431,17 @@ public class TabItemPickerCoordinator {
                 return;
             }
 
-            // If everything is working as expected the current tab should always be active
-            // and therefore not loaded on demand, but just in case we still allow it to be
-            // loaded here.
-            if (!tab.loadIfNeeded(/* forceBackingSize= */ true)) return;
-
-            // If the tab finished loading immediately (e.g. it was already in memory),
-            // exit immediately.
-            if (!tab.isLoading()) return;
-
             // Avoid double-observing the same tab if it's already being loaded.
-            if (mTabsBeingLoaded.contains(tab)) return;
+            if (mLoadingTabsToStartTimes.containsKey(tab)) return;
+
+            TabLoadingService tabLoadingService = TabLoadingService.getInstance();
+            if (!tabLoadingService.queueLoadIfNeeded(tab)) return;
 
             // Clear the thumbnail to avoid showing a stale thumbnail immediately after selection.
             mTabContentManager.removeTabThumbnail(tab.getId(), /* forceRemoval= */ true);
 
-            mTabsBeingLoaded.add(tab);
-            tab.addObserver(mLoadObserver);
+            mLoadingTabsToStartTimes.put(tab, SystemClock.elapsedRealtime());
+            tabLoadingService.addLoadIfNeededCallback(tab, mLoadIfNeededCallback);
 
             // Show a spinner while the thumbnail is being fetched/generated.
             var controller = mControllerSupplier.get();
@@ -475,17 +450,50 @@ public class TabItemPickerCoordinator {
             }
         }
 
-        private void onTabLoadFinished(Tab tab) {
+        private static String getLoadResultString(@LoadResult int result) {
+            switch (result) {
+                case LoadResult.SUCCESS:
+                    return "Success";
+                case LoadResult.FAILURE:
+                    return "Failure";
+                case LoadResult.CRASH:
+                    return "Crash";
+                case LoadResult.DESTROYED:
+                    return "Destroyed";
+                default:
+                    return "Unknown";
+            }
+        }
+
+        private void onTabLoadFinished(Tab tab, @LoadResult int result) {
             if (mIsDestroyed) return;
 
-            tab.removeObserver(mLoadObserver);
-            if (!mTabsBeingLoaded.remove(tab)) return;
+            long startTime = assumeNonNull(mLoadingTabsToStartTimes.remove(tab));
 
+            long duration = SystemClock.elapsedRealtime() - startTime;
+            String resultStr = getLoadResultString(result);
+            RecordHistogram.recordMediumTimesHistogram(
+                    "Android.TabItemPicker.OnDemandLoadDuration." + resultStr, duration);
+
+            if (result != LoadResult.SUCCESS) {
+                var controller = mControllerSupplier.get();
+                if (controller != null) {
+                    controller.setThumbnailSpinnerVisibility(tab, /* isVisible= */ false);
+                }
+                return;
+            }
+
+            long thumbnailStartTime = SystemClock.elapsedRealtime();
             mTabContentManager.cacheTabThumbnailWithCallback(
                     tab,
                     /* returnBitmap= */ false,
                     (unused) -> {
                         if (mIsDestroyed) return;
+
+                        long thumbnailDuration = SystemClock.elapsedRealtime() - thumbnailStartTime;
+                        RecordHistogram.recordMediumTimesHistogram(
+                                "Android.TabItemPicker.OnDemandThumbnailFetchDuration",
+                                thumbnailDuration);
 
                         var controller = mControllerSupplier.get();
                         if (controller != null) {
@@ -496,10 +504,19 @@ public class TabItemPickerCoordinator {
 
         /** Cleans up observers and state. */
         public void destroy() {
-            for (Tab tab : mTabsBeingLoaded) {
-                if (tab != null) tab.removeObserver(mLoadObserver);
+            long currentTime = SystemClock.elapsedRealtime();
+            TabLoadingService tabLoadingService = TabLoadingService.getInstance();
+            for (var entry : mLoadingTabsToStartTimes.entrySet()) {
+                Tab tab = entry.getKey();
+                if (tab != null) {
+                    tabLoadingService.removeLoadIfNeededCallback(tab, mLoadIfNeededCallback);
+                }
+
+                long duration = currentTime - entry.getValue();
+                RecordHistogram.recordMediumTimesHistogram(
+                        "Android.TabItemPicker.OnDemandLoadDuration.Abandoned", duration);
             }
-            mTabsBeingLoaded.clear();
+            mLoadingTabsToStartTimes.clear();
             if (mTabContentManager != null) {
                 mTabContentManager.destroy();
             }
@@ -560,8 +577,8 @@ public class TabItemPickerCoordinator {
         }
     }
 
-    /** Creates a TabGroupModelFilter instance required by the TabListEditorCoordinator. */
-    private NullableObservableSupplier<TabGroupModelFilter> createTabGroupModelFilterSupplier(
+    /** Creates a TabModel supplier required by the TabListEditorCoordinator. */
+    private NullableObservableSupplier<TabModel> createTabModelSupplier(
             TabModelSelector tabModelSelector) {
         boolean isIncognito = assumeNonNull(mProfileSupplier.get()).isIncognitoBranded();
         TabModel curTabModel = tabModelSelector.getModel(isIncognito);
@@ -612,8 +629,7 @@ public class TabItemPickerCoordinator {
     /** Creates a TabListEditorCoordinator with set configurations for the Tab Picker UI. */
     @VisibleForTesting
     TabListEditorCoordinator createTabListEditorCoordinator(TabModelSelector selector) {
-        NullableObservableSupplier<TabGroupModelFilter> tabGroupModelFilterSupplier =
-                createTabGroupModelFilterSupplier(selector);
+        NullableObservableSupplier<TabModel> tabModelSupplier = createTabModelSupplier(selector);
         BrowserControlsStateProvider browserControlStateProvider =
                 new HeadlessBrowserControlsStateProvider();
         TabContentManager tabContentManager =
@@ -638,7 +654,7 @@ public class TabItemPickerCoordinator {
                         mRootView,
                         mContainerView,
                         browserControlStateProvider,
-                        tabGroupModelFilterSupplier,
+                        tabModelSupplier,
                         tabContentManager,
                         CallbackUtils.emptyCallback(),
                         TabListMode.GRID,
@@ -646,14 +662,14 @@ public class TabItemPickerCoordinator {
                         mSnackbarManager,
                         /* bottomSheetController= */ null,
                         TabProperties.TabActionState.SELECTABLE,
-                        /* gridCardOnClickListenerProvider= */ null,
+                        /* tabListItemOnClickListenerProvider= */ null,
                         modalDialogManager,
                         /* desktopWindowStateManager= */ null,
                         /* edgeToEdgeSupplier= */ null,
                         CreationMode.ITEM_PICKER,
                         mNavigationProvider,
                         /* undoBarExplicitTrigger= */ null,
-                        /* componentName= */ "TabItemPickerCoordinator",
+                        TabComponentId.TAB_LIST_EDITOR,
                         mAllowedSelectionCount,
                         mIsSingleContextMode);
 

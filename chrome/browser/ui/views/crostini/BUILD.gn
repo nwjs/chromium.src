@@ -19,7 +19,7 @@ static_library("crostini") {
   ]
 
   deps = [
-    "//chrome/app:generated_resources",
+    "//ash/strings",
     "//chrome/browser/ash/crostini",
     "//chrome/browser/ash/guest_os",
     "//chrome/browser/ash/guest_os/public",
@@ -45,6 +45,7 @@ static_library("browser_test_support") {
     "//base",
     "//chrome/browser",
     "//chrome/browser:browser_process",
+    "//chrome/browser:chrome_browser_main",
     "//chrome/browser/ash/crostini",
     "//chrome/browser/ash/crostini:browser_test_support",
     "//chrome/browser/ash/crostini:test_support",
@@ -90,7 +91,6 @@ source_set("browser_tests") {
     ":crostini",
     "//base",
     "//base/test:test_support",
-    "//chrome/app:generated_resources",
     "//chrome/browser/ash/app_list",
     "//chrome/browser/ash/app_list/test:test_support",
     "//chrome/browser/ash/crostini:test_support",

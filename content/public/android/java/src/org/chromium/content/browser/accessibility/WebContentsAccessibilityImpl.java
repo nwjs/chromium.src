@@ -5,6 +5,7 @@
 package org.chromium.content.browser.accessibility;
 
 import static androidx.core.view.accessibility.AccessibilityEventCompat.CONTENT_CHANGE_TYPE_PANE_APPEARED;
+import static androidx.core.view.accessibility.AccessibilityEventCompat.CONTENT_CHANGE_TYPE_SORT_DIRECTION;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.ACTION_ARGUMENT_HTML_ELEMENT_STRING;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.ACTION_ARGUMENT_MOVEMENT_GRANULARITY_INT;
@@ -122,6 +123,8 @@ import org.chromium.content_public.browser.WebContents.UserDataFactory;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.common.ContentFeatures;
+import org.chromium.ui.accessibility.AccessibilityFeatures;
+import org.chromium.ui.accessibility.AccessibilityFeaturesMap;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
@@ -342,6 +345,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         if (ContentFeatureMap.isEnabled(
                         ContentFeatures.ACCESSIBILITY_REQUEST_SCOPED_CONTENT_CHANGED_EVENTS)
+                && AccessibilityState.isAccessibilityToolPresent()
                 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             mFakeAndroidCache = new FakeAndroidCache(this, mHistogramRecorder);
         }
@@ -591,6 +595,25 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         return mNativeObj != 0;
     }
 
+    @Override
+    @Nullable
+    public AccessibilityNodeInfoCompat findFocus(int focus) {
+        if (!isAccessibilityEnabled()) return null;
+
+        if (focus == AccessibilityNodeInfoCompat.FOCUS_ACCESSIBILITY) {
+            if (mAccessibilityFocusId != View.NO_ID) {
+                return createAccessibilityNodeInfo(mAccessibilityFocusId);
+            }
+        } else if (focus == AccessibilityNodeInfoCompat.FOCUS_INPUT) {
+            int id = WebContentsAccessibilityImplJni.get().getFocus(mNativeObj);
+            if (id != 0) {
+                return createAccessibilityNodeInfo(id);
+            }
+        }
+
+        return null;
+    }
+
     private boolean isRootManagerConnected() {
         return isNativeInitialized()
                 && WebContentsAccessibilityImplJni.get().isRootManagerConnected(mNativeObj);
@@ -614,6 +637,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     public void setMaxContentChangedEventsToFireForTesting(int maxEvents) {
         WebContentsAccessibilityImplJni.get()
                 .setMaxContentChangedEventsToFireForTesting(mNativeObj, maxEvents);
+    }
+
+    public SparseArray<Rect> getOccludingRectsForTesting() {
+        return mOccludingRects;
     }
 
     public int @Nullable [] getChildIdsForTesting(int virtualViewId) {
@@ -682,6 +709,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         ResettersForTesting.register(() -> mTracker = oldValue);
     }
 
+    public float getScrollYForTesting() {
+        return mDelegate.getAccessibilityCoordinates().getScrollY();
+    }
+
     public void setIsAutoDisableAccessibilityCandidateForTesting(
             boolean isAutoDisableAccessibilityCandidate) {
         mIsAutoDisableAccessibilityCandidate = isAutoDisableAccessibilityCandidate;
@@ -719,10 +750,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         mHistogramRecorder.recordTotalTimeCreateAccessibilityNodeInfoHistogram();
     }
 
-    public void forceRecordCreateAccessibilityNodeInfoCountHistogramsForTesting() {
-        mHistogramRecorder.recordCreateAccessibilityNodeInfoCountHistogram();
-    }
-
     public void forceRecordFakeCacheHistogramsForTesting() {
         mHistogramRecorder.recordFakeCacheHistograms();
     }
@@ -747,12 +774,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         return new Object[] {startNode, startOffset, endNode, endOffset};
     }
 
-    public boolean setExtendedSelectionForTesting( // IN-TEST
-            int id, int startNodeId, int startNodeOffset, int endNodeId, int endNodeOffset) {
-        return WebContentsAccessibilityImplJni.get()
-                .setExtendedSelection(
-                        mNativeObj, id, startNodeId, startNodeOffset, endNodeId, endNodeOffset);
-    }
 
     @CalledByNative
     public void handleEndOfTestSignal() {
@@ -1205,7 +1226,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             return null;
         }
 
-        mHistogramRecorder.incrementCreateAccessibilityNodeInfoCount();
         mHistogramRecorder.beginAccessibilityNodeInfoConstruction();
 
         // This was previously behind a check `mCurrentRootId == View.NO_ID`, but this was causing
@@ -2087,7 +2107,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         sendWindowContentChangedEvent(View.NO_ID, /* setSubtreeChanged= */ true);
     }
 
-    private void sendAccessibilityEvent(int virtualViewId, int eventType) {
+    @VisibleForTesting
+    protected void sendAccessibilityEvent(int virtualViewId, int eventType) {
         mDidSendAnyEvent = true;
 
         // The container view is indicated by a virtualViewId of NO_ID; post these events directly
@@ -2430,6 +2451,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     @CalledByNative
+    @SuppressLint("WrongConstant")
     protected void handleSortDirectionChanged(int id) {
         AccessibilityEvent event =
                 buildAccessibilityEvent(
@@ -2438,21 +2460,32 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                         /* setSubtreeChanged= */ true);
         if (event == null) return;
 
-        AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
-        if (delegate != null) {
-            // The delegate will attempt to add the specific content change type.
-            if (!delegate.setSortDirectionContentChangeType(event)) {
-                return;
-            }
-        }
+        event.setContentChangeTypes(CONTENT_CHANGE_TYPE_SORT_DIRECTION);
 
         requestSendAccessibilityEvent(event);
     }
 
     @CalledByNative
-    private void handleHover(int id) {
+    protected void handleHover(int id) {
         if (mLastHoverId == id) return;
         if (!mIsHovering) return;
+
+        if (AccessibilityFeaturesMap.isEnabled(
+                AccessibilityFeatures.ACCESSIBILITY_HANDLE_OCCLUDING_VIEWS)) {
+            Rect rect = getAbsolutePositionForNode(id);
+            if (rect != null) {
+                AccessibilityNodeInfoBuilder.convertWebRectToAndroidCoordinates(
+                        rect,
+                        /* extras= */ null,
+                        mDelegate.getAccessibilityCoordinates(),
+                        mView,
+                        /* isScreenCoordinates= */ true);
+                if (AccessibilityNodeInfoUtils.computeUnoccludedRect(rect, mOccludingRects)
+                        == null) {
+                    return;
+                }
+            }
+        }
 
         sendAccessibilityEvent(id, AccessibilityEvent.TYPE_VIEW_HOVER_ENTER);
         // The above call doesn't work reliably for nodes that weren't in the viewport when
@@ -2711,7 +2744,18 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                     mDelegate.getAccessibilityCoordinates(),
                     mView,
                     isScreenCoordinates);
-            boundingRects[i] = new RectF(rect);
+            if (AccessibilityFeaturesMap.isEnabled(
+                    AccessibilityFeatures.ACCESSIBILITY_HANDLE_OCCLUDING_VIEWS)) {
+                Rect resizedRect =
+                        AccessibilityNodeInfoUtils.computeUnoccludedRect(rect, mOccludingRects);
+                if (resizedRect != null) {
+                    boundingRects[i] = new RectF(resizedRect);
+                } else {
+                    boundingRects[i] = new RectF();
+                }
+            } else {
+                boundingRects[i] = new RectF(rect);
+            }
         }
 
         info.getExtras()
@@ -2827,6 +2871,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         void focus(long nativeWebContentsAccessibilityAndroid, int id);
 
         void blur(long nativeWebContentsAccessibilityAndroid);
+
+        int getFocus(long nativeWebContentsAccessibilityAndroid);
 
         void scrollToMakeNodeVisible(long nativeWebContentsAccessibilityAndroid, int id);
 

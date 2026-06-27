@@ -30,6 +30,7 @@
 #include <memory>
 
 #include "base/check_op.h"
+#include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/values_equivalent.h"
 #include "base/types/pass_key.h"
@@ -666,7 +667,7 @@ class ComputedStyle final : public ComputedStyleBase {
         return WebkitLineClamp();
       }
     } else if (IsEffectiveContinueCollapse()) {
-      return MaxLines();
+      return MaxLines().Lines();
     }
     return 0;
   }
@@ -867,18 +868,19 @@ class ComputedStyle final : public ComputedStyleBase {
            (StyleType() == kPseudoIdFirstLetter && !InitialLetter().IsNormal());
   }
 
-  template <typename Functor>
-  bool HasCachedPseudoElementStyle(Functor& func) const {
-    if (!func || !HasCachedPseudoElementStyles()) {
-      return false;
-    }
-
+  bool DependsOnFunc(base::FunctionRef<bool(const ComputedStyle&)> func) const {
     DCHECK_EQ(StyleType(), kPseudoIdNone);
 
-    for (const auto& [key, pseudo_style] : *GetPseudoElementStyleCache()) {
-      if (func(*pseudo_style)) {
-        return true;
+    if (HasCachedPseudoElementStyles()) {
+      for (const auto& [key, pseudo_style] : *GetPseudoElementStyleCache()) {
+        if (func(*pseudo_style)) {
+          return true;
+        }
       }
+    }
+
+    if (HighlightData().StylesDependOnFunc(func)) {
+      return true;
     }
 
     return false;
@@ -886,7 +888,6 @@ class ComputedStyle final : public ComputedStyleBase {
 
   bool HighlightPseudoElementStylesDependOnRelativeUnits() const;
   bool HighlightPseudoElementStylesDependOnContainerUnits() const;
-  bool HighlightPseudoElementStylesDependOnViewportUnits() const;
   bool HighlightPseudoElementStylesHaveVariableReferences() const;
 
   // font-size
@@ -981,6 +982,12 @@ class ComputedStyle final : public ComputedStyleBase {
   }
 
   bool IsCaretColorAuto() const { return CaretColor().IsAutoColor(); }
+  bool IsCaretTextColorAuto() const {
+    return CaretColor().TextColor().IsAutoColor();
+  }
+  // Returns the resolved the second value of caret-color for the color of
+  // the text that under block caret shape or nullopt if the value is 'auto'.
+  CORE_EXPORT std::optional<blink::Color> ResolvedCaretTextColor() const;
 
   // accent-color
   // An empty optional means the accent-color is 'auto'
@@ -1084,8 +1091,8 @@ class ComputedStyle final : public ComputedStyleBase {
   bool IsGapDecorationsContainer() const {
     // `SpecifiesColumns()` signifies we are in a multicol context. Return false
     // if we are not in a multicol, grid, or flex context.
-    return SpecifiesColumns() || IsDisplayFlexibleBox(Display()) ||
-           IsDisplayGridBox(Display());
+    return SpecifiesColumns() || IsDisplayFlex() || IsDisplayWebkitBox() ||
+           IsDisplayGrid();
   }
 
   // Flex utility functions.
@@ -1221,10 +1228,10 @@ class ComputedStyle final : public ComputedStyleBase {
   // For grid, both axes always have grid tracks. For grid-lanes, only the grid
   // axis has grid tracks (the stacking axis does not).
   bool HasGridTrackAxis(GridTrackSizingDirection track_direction) const {
-    if (IsDisplayGridBox()) {
+    if (IsDisplayGrid()) {
       return true;
     }
-    DCHECK(IsDisplayGridLanesBox());
+    DCHECK(IsDisplayGridLanes());
     return GridLanesTrackSizingDirection() == track_direction;
   }
 
@@ -1768,33 +1775,24 @@ class ComputedStyle final : public ComputedStyleBase {
     return IsDisplayBlockContainer(Display());
   }
   bool IsDisplayListItem() const { return IsDisplayListItem(Display()); }
-  static bool IsDisplayListItem(EDisplay display) {
-    return display == EDisplay::kListItem ||
-           display == EDisplay::kInlineListItem ||
-           display == EDisplay::kFlowRootListItem ||
-           display == EDisplay::kInlineFlowRootListItem;
-  }
-  bool IsDisplayTableBox() const { return IsDisplayTableBox(Display()); }
-  bool IsDisplayFlexibleBox() const { return IsDisplayFlexibleBox(Display()); }
-  bool IsDisplayGridBox() const { return IsDisplayGridBox(Display()); }
-  bool IsDisplayGridLanesBox() const {
-    return IsDisplayGridLanesBox(Display());
-  }
-  bool IsDisplayFlexibleOrGridBox() const {
-    return IsDisplayFlexibleBox(Display()) || IsDisplayGridBox(Display());
-  }
-  bool IsDisplayLayoutCustomBox() const {
-    return IsDisplayLayoutCustomBox(Display());
+  bool IsDisplayTable() const { return IsDisplayTable(Display()); }
+  bool IsDisplayFlex() const { return IsDisplayFlex(Display()); }
+  bool IsDisplayWebkitBox() const { return IsDisplayWebkitBox(Display()); }
+  bool IsDisplayGrid() const { return IsDisplayGrid(Display()); }
+  bool IsDisplayGridLanes() const { return IsDisplayGridLanes(Display()); }
+  bool IsDisplayLayoutCustom() const {
+    return IsDisplayLayoutCustom(Display());
   }
 
   bool IsDisplayTableType() const { return IsDisplayTableType(Display()); }
 
-  bool IsDisplayMathType() const { return IsDisplayMathBox(Display()); }
+  bool IsDisplayMath() const { return IsDisplayMath(Display()); }
 
   bool BlockifiesChildren() const {
-    return IsDisplayFlexibleOrGridBox() || IsDisplayGridLanesBox() ||
-           IsDisplayMathType() || IsDisplayLayoutCustomBox() ||
-           (Display() == EDisplay::kContents && IsInBlockifyingDisplay());
+    return IsDisplayFlex() || IsDisplayWebkitBox() || IsDisplayGrid() ||
+           IsDisplayGridLanes() || IsDisplayMath() || IsDisplayLayoutCustom() ||
+           (Display() == EDisplay::kContents && IsInBlockifyingDisplay()) ||
+           ForcesBlockifiesChildren();
   }
 
   bool InlinifiesChildren() const {
@@ -1810,12 +1808,6 @@ class ComputedStyle final : public ComputedStyleBase {
     return IsInInlinifyingDisplay() &&
            (display == EDisplay::kContents || display == EDisplay::kInline ||
             display == EDisplay::kInlineListItem);
-  }
-
-  // Return true if an element with this computed style requires LayoutNG
-  // (i.e. has no legacy layout implementation).
-  bool DisplayTypeRequiresLayoutNG() const {
-    return IsDisplayMathType() || IsDisplayLayoutCustomBox();
   }
 
   // Isolation utility functions.
@@ -2462,9 +2454,13 @@ class ComputedStyle final : public ComputedStyleBase {
       const Longhand& color_property,
       bool* is_current_color = nullptr) const;
 
+  CORE_EXPORT blink::Color VisitedDependentColor(
+      const blink::Color& unvisited_color,
+      const Longhand& color_property,
+      bool* is_current_color = nullptr) const;
+
   // Used to resolve gap decoration colors for painting.
   CORE_EXPORT blink::Color VisitedDependentGapColor(const StyleColor& gap_color,
-                                                    const ComputedStyle& style,
                                                     bool is_column_rule) const;
 
   // Used to resolve 'context-fill' and 'context-stroke' paints
@@ -2520,7 +2516,11 @@ class ComputedStyle final : public ComputedStyleBase {
     if (pseudo == kPseudoIdMarker) {
       return IsDisplayListItem();
     }
-    if (pseudo == kPseudoIdBackdrop && Overlay() == EOverlay::kNone) {
+    // ::backdrop is generated for top layer elements (where Overlay is not
+    // none) or for overscroll targets (which have
+    // -internal-overscroll-position: auto).
+    if (pseudo == kPseudoIdBackdrop && Overlay() == EOverlay::kNone &&
+        !IsInternalOverscrollPositionAuto()) {
       return false;
     }
     if (pseudo == kPseudoIdScrollMarkerGroupBefore) {
@@ -2688,28 +2688,40 @@ class ComputedStyle final : public ComputedStyleBase {
            display == EDisplay::kTableCaption;
   }
 
-  static bool IsDisplayTableBox(EDisplay display) {
+  static bool IsDisplayListItem(EDisplay display) {
+    return display == EDisplay::kListItem ||
+           display == EDisplay::kInlineListItem ||
+           display == EDisplay::kFlowRootListItem ||
+           display == EDisplay::kInlineFlowRootListItem;
+  }
+
+  static bool IsDisplayTable(EDisplay display) {
     return display == EDisplay::kTable || display == EDisplay::kInlineTable;
   }
 
-  static bool IsDisplayFlexibleBox(EDisplay display) {
+  static bool IsDisplayFlex(EDisplay display) {
     return display == EDisplay::kFlex || display == EDisplay::kInlineFlex;
   }
 
-  static bool IsDisplayGridBox(EDisplay display) {
+  static bool IsDisplayWebkitBox(EDisplay display) {
+    return display == EDisplay::kWebkitBox ||
+           display == EDisplay::kWebkitInlineBox;
+  }
+
+  static bool IsDisplayGrid(EDisplay display) {
     return display == EDisplay::kGrid || display == EDisplay::kInlineGrid;
   }
 
-  static bool IsDisplayGridLanesBox(EDisplay display) {
+  static bool IsDisplayGridLanes(EDisplay display) {
     return display == EDisplay::kGridLanes ||
            display == EDisplay::kInlineGridLanes;
   }
 
-  static bool IsDisplayMathBox(EDisplay display) {
+  static bool IsDisplayMath(EDisplay display) {
     return display == EDisplay::kMath || display == EDisplay::kBlockMath;
   }
 
-  static bool IsDisplayLayoutCustomBox(EDisplay display) {
+  static bool IsDisplayLayoutCustom(EDisplay display) {
     return display == EDisplay::kLayoutCustom ||
            display == EDisplay::kInlineLayoutCustom;
   }
@@ -2872,11 +2884,6 @@ class ComputedStyle final : public ComputedStyleBase {
     return PhysicalToLogical<EBorderStyle>(
         GetWritingDirection(), BorderTopStyle(), BorderRightStyle(),
         BorderBottomStyle(), BorderLeftStyle());
-  }
-
-  PhysicalToLogical<const Length&> PhysicalBoundsToLogical() const {
-    return PhysicalToLogical<const Length&>(GetWritingDirection(), Top(),
-                                            Right(), Bottom(), Left());
   }
 
   static Difference ComputeDifferenceIgnoringInheritedFirstLineStyle(
@@ -3256,11 +3263,9 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   bool IsAtomicInlineDisplayType() const {
     return ComputedStyle::IsAtomicInlineDisplayType(Display());
   }
-  bool IsDisplayMathType() const {
-    return ComputedStyle::IsDisplayMathBox(Display());
-  }
-  bool IsDisplayTableBox() const {
-    return ComputedStyle::IsDisplayTableBox(Display());
+  bool IsDisplayMath() const { return ComputedStyle::IsDisplayMath(Display()); }
+  bool IsDisplayTable() const {
+    return ComputedStyle::IsDisplayTable(Display());
   }
   bool IsDisplayTableRowOrColumnType() const {
     return Display() == EDisplay::kTableRow ||

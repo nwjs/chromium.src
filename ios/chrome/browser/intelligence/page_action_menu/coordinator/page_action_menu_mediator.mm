@@ -43,7 +43,6 @@
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
 #import "ios/chrome/browser/web/model/blocked_popup_tab_helper.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
 #import "ios/web/public/permissions/permissions.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_observer_bridge.h"
@@ -117,9 +116,6 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
     _hostContentSettingsMap = hostContentSettingsMap;
     _webStateObserver = std::make_unique<web::WebStateObserverBridge>(self);
     _webState->AddObserver(_webStateObserver.get());
-    if (IsZeroStateSuggestionsAIHubEnabled()) {
-      [self executeGeminiZeroStateSuggestions];
-    }
   }
   return self;
 }
@@ -160,6 +156,10 @@ bool SigninIsPossible(AuthenticationService* auth_service) {
 }
 
 - (PageActionMenuContentEntryPoint*)geminiEntryPoint {
+  if (_webState && _webState->GetBrowserState()->IsOffTheRecord()) {
+    return [[PageActionMenuContentEntryPoint alloc] initWithEnabled:NO];
+  }
+
   if (!_geminiService || !_geminiTabHelper) {
     return [[PageActionMenuContentEntryPoint alloc] initWithEnabled:NO];
   }
@@ -679,23 +679,6 @@ std::string GetTargetLanguageCode(ChromeIOSTranslateClient* translate_client) {
 
   InfobarOverlayRequestInserter::FromWebState(webState)->InsertOverlayRequest(
       params);
-}
-
-// Fetches zero-state suggestions from the BWG tab helper and pass them to the
-// UI provider through a callback.
-- (void)executeGeminiZeroStateSuggestions {
-  if (!IsZeroStateSuggestionsAIHubEnabled()) {
-    return;
-  }
-  GeminiTabHelper* tabHelper = GeminiTabHelper::FromWebState(_webState);
-  if (!tabHelper) {
-    return;
-  }
-
-  tabHelper->ExecuteZeroStateSuggestions(
-      base::BindOnce(^(NSArray<NSString*>* suggestions){
-          // No-op.
-      }));
 }
 
 // Finds the translate client depending on whether Reader mode is active.

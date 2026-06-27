@@ -18,6 +18,7 @@
 #include "google_apis/classroom/classroom_api_list_course_work_request.h"
 #include "google_apis/classroom/classroom_api_list_courses_request.h"
 #include "google_apis/classroom/classroom_api_list_students_request.h"
+#include "google_apis/classroom/classroom_api_material_response_types.h"
 #include "google_apis/classroom/classroom_api_students_response_types.h"
 #include "google_apis/common/auth_service.h"
 #include "google_apis/common/request_sender.h"
@@ -82,6 +83,9 @@ std::vector<mojom::MaterialPtr> MaterialsApiToMojom(
       case google_apis::classroom::Material::Type::kForm:
         material->type = mojom::MaterialType::kForm;
         break;
+      case google_apis::classroom::Material::Type::kGuidedLearning:
+        material->type = mojom::MaterialType::kGuidedLearning;
+        break;
       case google_apis::classroom::Material::Type::kUnknown:
       default:
         material->type = mojom::MaterialType::kUnknown;
@@ -122,6 +126,9 @@ void ClassroomPageHandlerImpl::ListStudents(const std::string& course_id,
 void ClassroomPageHandlerImpl::ListAssignments(
     const std::string& course_id,
     ListAssignmentsCallback callback) {
+  if (valid_course_ids_.find(course_id) == valid_course_ids_.end()) {
+    return std::move(callback).Run(AssignmentList());
+  }
   ListAssignmentsHelper(course_id, /*page_token=*/"",
                         std::make_unique<AssignmentList>(),
                         std::move(callback));

@@ -229,6 +229,41 @@ TEST_F(AccessibilityTest, UpdateAXForAllDocumentsAfterPausedUpdates) {
   CHECK(!root->NeedsToUpdateCachedValues());
 }
 
+TEST_F(AccessibilityTest,
+       FinalizeTreeClearsDirtyDescendantsBelowCleanIgnoredObject) {
+  SetBodyInnerHTML(R"HTML(
+      <p id="before">before</p>
+      <div>
+        <p id="paragraph">paragraph</p>
+      </div>
+      <p id="after">after</p>)HTML");
+
+  auto& cache = GetAXObjectCache();
+  AXObject* body = GetAXBodyObject();
+  ASSERT_NE(nullptr, body);
+  ASSERT_EQ(3, body->ChildCountIncludingIgnored());
+  AXObject* ignored_div = body->ChildAtIncludingIgnored(1);
+  ASSERT_NE(nullptr, ignored_div);
+  ASSERT_TRUE(ignored_div->IsIgnored());
+  AXObject* paragraph = GetAXObjectByElementId("paragraph");
+  ASSERT_NE(nullptr, paragraph);
+  ASSERT_EQ(ignored_div, paragraph->ParentObjectIncludedInTree());
+  AXObject* text = paragraph->FirstChildIncludingIgnored();
+  ASSERT_NE(nullptr, text);
+  ASSERT_EQ(ax::mojom::Role::kStaticText, text->RoleValue());
+
+  text->SetNeedsToUpdateChildren();
+  ASSERT_TRUE(paragraph->HasDirtyDescendants());
+  ASSERT_TRUE(ignored_div->HasDirtyDescendants());
+
+  // Simulate a state that can occur mid-finalization: the ignored ancestor was
+  // already processed and had its dirty-descendant bit cleared, but a
+  // descendant below it was dirtied later in the same tree update.
+  ignored_div->SetHasDirtyDescendants(false);
+  cache.UpdateAXForAllDocuments();
+  EXPECT_FALSE(paragraph->HasDirtyDescendants());
+}
+
 TEST_F(AccessibilityTest, AccessibilityFocus) {
   String test_content =
       "<body>"
@@ -556,6 +591,71 @@ TEST_F(AccessibilityTest, ValidationMessageIncludedInRootChildren) {
   AXObject* message = GetAXObjectCache().ValidationMessageObjectIfInvalid();
   ASSERT_TRUE(message);
   EXPECT_TRUE(root->CachedChildrenIncludingIgnored().Contains(message));
+}
+
+TEST_F(AccessibilityTest, RestoreAriaOwnsAfterAriaHiddenRemoved) {
+  SetBodyInnerHTML(R"HTML(
+      <div id="container">
+        <ul id="list" aria-owns="item1 item2"></ul>
+      </div>
+      <li id="item1">Item 1</li>
+      <li id="item2">Item 2</li>
+  )HTML");
+
+  AXObject* list = GetAXObjectByElementId("list");
+  ASSERT_NE(nullptr, list);
+
+  AXObject* item1 = GetAXObjectByElementId("item1");
+  ASSERT_NE(nullptr, item1);
+
+  AXObject* item2 = GetAXObjectByElementId("item2");
+  ASSERT_NE(nullptr, item2);
+
+  // Initial state: list owns item1 and item2.
+  EXPECT_EQ(2u, list->ChildrenIncludingIgnored().size());
+  EXPECT_EQ(list, item1->ParentObject());
+  EXPECT_EQ(list, item2->ParentObject());
+
+  // Set aria-hidden on container.
+  Element* container = GetElementById("container");
+  ASSERT_NE(nullptr, container);
+  container->setAttribute(html_names::kAriaHiddenAttr, AtomicString("true"));
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+
+  // list should now be hidden/ignored, and the items should not be owned by it.
+  list = GetAXObjectByElementId("list");
+  if (list) {
+    EXPECT_TRUE(list->IsIgnored());
+    EXPECT_EQ(0u, list->ChildrenIncludingIgnored().size());
+  }
+
+  // item1 and item2 should have their parent restored.
+  item1 = GetAXObjectByElementId("item1");
+  ASSERT_NE(nullptr, item1);
+  EXPECT_NE(list, item1->ParentObject());
+
+  item2 = GetAXObjectByElementId("item2");
+  ASSERT_NE(nullptr, item2);
+  EXPECT_NE(list, item2->ParentObject());
+
+  // Remove aria-hidden from container.
+  container->removeAttribute(html_names::kAriaHiddenAttr);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+
+  // list should be restored and own the items again.
+  list = GetAXObjectByElementId("list");
+  ASSERT_NE(nullptr, list);
+  EXPECT_FALSE(list->IsIgnored());
+
+  item1 = GetAXObjectByElementId("item1");
+  ASSERT_NE(nullptr, item1);
+
+  item2 = GetAXObjectByElementId("item2");
+  ASSERT_NE(nullptr, item2);
+
+  EXPECT_EQ(2u, list->ChildrenIncludingIgnored().size());
+  EXPECT_EQ(list, item1->ParentObject());
+  EXPECT_EQ(list, item2->ParentObject());
 }
 
 }  // namespace blink

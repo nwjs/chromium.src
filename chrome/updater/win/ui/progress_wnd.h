@@ -7,15 +7,6 @@
 
 #include <windows.h>
 
-// clang-format off
-// This needs to be included before ATL headers.
-#include "base/win/atl.h"
-// clang-format on
-
-#include <atlapp.h>
-#include <atlcrack.h>
-#include <atlgdi.h>
-
 #include <array>
 #include <memory>
 #include <optional>
@@ -26,10 +17,13 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/sequence_checker.h"
+#include "base/win/scoped_gdi_object.h"
 #include "chrome/updater/app/app_install_progress.h"
 #include "chrome/updater/win/ui/complete_wnd.h"
+#include "chrome/updater/win/ui/message_loop.h"
 #include "chrome/updater/win/ui/owner_draw_controls.h"
 #include "chrome/updater/win/ui/resources/resources.grh"
+#include "ui/gfx/win/msg_util.h"
 #include "url/gurl.h"
 
 namespace base {
@@ -56,23 +50,25 @@ class ProgressWndEvents : public CompleteWndEvents {
 // Implements the UI progress window.
 class ProgressWnd : public CompleteWnd, public AppInstallProgress {
  public:
-  ProgressWnd(WTL::CMessageLoop* message_loop, HWND parent);
+  ProgressWnd(MessageLoop* message_loop, HWND parent);
   ProgressWnd(const ProgressWnd&) = delete;
   ProgressWnd& operator=(const ProgressWnd&) = delete;
   ~ProgressWnd() override;
 
   void SetEventSink(ProgressWndEvents* ev);
 
-  BEGIN_MSG_MAP(ProgressWnd)
-    MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
-    MESSAGE_HANDLER(WM_ERASEBKGND, OnEraseBkgnd)
-    MESSAGE_HANDLER(WM_SYSCOLORCHANGE, OnSysColorChange)
-    MSG_WM_CTLCOLORSTATIC(OnCtlColorStatic)
-    COMMAND_HANDLER(IDC_BUTTON1, BN_CLICKED, OnClickedButton)
-    COMMAND_HANDLER(IDC_BUTTON2, BN_CLICKED, OnClickedButton)
-    COMMAND_HANDLER(IDC_CLOSE, BN_CLICKED, OnClickedButton)
-    CHAIN_MSG_MAP(CompleteWnd)
-  END_MSG_MAP()
+  CR_BEGIN_MSG_MAP_EX(ProgressWnd)
+    CR_MESSAGE_HANDLER_EX(WM_INITDIALOG, OnInitDialog)
+    CR_MESSAGE_HANDLER_EX(WM_SIZE, OnSize)
+    CR_MESSAGE_HANDLER_EX(WM_ERASEBKGND, OnEraseBkgnd)
+    CR_MESSAGE_HANDLER_EX(WM_SYSCOLORCHANGE, OnSysColorChange)
+    CR_MESSAGE_HANDLER_EX(WM_SETTINGCHANGE, OnSettingChange)
+    CR_MSG_WM_CTLCOLORSTATIC(OnCtlColorStatic)
+    CR_COMMAND_HANDLER_EX(IDC_BUTTON1, BN_CLICKED, OnClickedButton)
+    CR_COMMAND_HANDLER_EX(IDC_BUTTON2, BN_CLICKED, OnClickedButton)
+    CR_COMMAND_HANDLER_EX(IDC_CLOSE, BN_CLICKED, OnClickedButton)
+    CR_CHAIN_MSG_MAP(CompleteWnd)
+  CR_END_MSG_MAP()
 
  private:
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, ClickedButton);
@@ -132,23 +128,13 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   void OnPause() override;
   void OnComplete(const ObserverCompletionInfo& observer_info) override;
 
-  LRESULT OnInitDialog(UINT msg,
-                       WPARAM wparam,
-                       LPARAM lparam,
-                       BOOL& handled);  // NOLINT
-  LRESULT OnClickedButton(WORD notify_code,
-                          WORD id,
-                          HWND wnd_ctl,
-                          BOOL& handled);  // NOLINT
-  LRESULT OnEraseBkgnd(UINT msg,
-                       WPARAM wparam,
-                       LPARAM lparam,
-                       BOOL& handled);  // NOLINT
-  LRESULT OnSysColorChange(UINT msg,
-                           WPARAM wparam,
-                           LPARAM lparam,
-                           BOOL& handled);  // NOLINT
-  HBRUSH OnCtlColorStatic(WTL::CDCHandle dc, WTL::CStatic wndStatic);
+  LRESULT OnInitDialog(UINT msg, WPARAM wparam, LPARAM lparam);
+  LRESULT OnSize(UINT msg, WPARAM wparam, LPARAM lparam);
+  void OnClickedButton(UINT notify_code, int id, HWND wnd_ctl);
+  LRESULT OnEraseBkgnd(UINT msg, WPARAM wparam, LPARAM lparam);
+  LRESULT OnSysColorChange(UINT msg, WPARAM wparam, LPARAM lparam);
+  LRESULT OnSettingChange(UINT msg, WPARAM wparam, LPARAM lparam);
+  HBRUSH OnCtlColorStatic(HDC dc, HWND ctl_hwnd);
 
   void SetControlText(int id, const std::wstring& text);
 
@@ -159,6 +145,7 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   HRESULT SetMarqueeMode(bool is_marquee);
 
   void HandleCancelRequest();
+  void UpdateWindowRgn();
 
   void DeterminePostInstallUrls(const ObserverCompletionInfo& info);
 
@@ -182,8 +169,16 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
 
   static const ControlState ctls_[];
 
+  // Background image cache for both light and dark themes.
+  base::win::ScopedGDIObject<HBITMAP> light_bg_bmp_;
+  base::win::ScopedGDIObject<HBITMAP> dark_bg_bmp_;
+
+  HBITMAP GetBackgroundBitmap();
+
   // The speed by which the progress bar moves in marquee mode.
-  static constexpr int kMarqueeModeUpdatesMs = 75;
+  static constexpr int kMarqueeModeUpdatesMs = 15;
+
+  CR_MSG_MAP_CLASS_DECLARATIONS(ProgressWnd)
 };
 
 }  // namespace updater::ui

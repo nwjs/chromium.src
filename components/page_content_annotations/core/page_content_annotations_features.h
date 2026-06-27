@@ -5,6 +5,9 @@
 #ifndef COMPONENTS_PAGE_CONTENT_ANNOTATIONS_CORE_PAGE_CONTENT_ANNOTATIONS_FEATURES_H_
 #define COMPONENTS_PAGE_CONTENT_ANNOTATIONS_CORE_PAGE_CONTENT_ANNOTATIONS_FEATURES_H_
 
+#include <cstddef>
+#include <cstdint>
+
 #include "base/component_export.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
@@ -24,6 +27,17 @@ BASE_DECLARE_FEATURE(kExtractRelatedSearchesFromPrefetchedZPSResponse);
 // Enables extraction of AnnotatedPageContent for every page load.
 COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
 BASE_DECLARE_FEATURE(kAnnotatedPageContentExtraction);
+
+// Fixes an issue where visibility changes trigger extraction on hide, even when
+// not configured to do so, when an observer is added after load is complete and
+// the page is stable.
+COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
+BASE_DECLARE_FEATURE(kAnnotatedPageContentExtractionOnHideFix);
+
+// Allows on-demand extraction requests to bypass observer registration
+// requirement.
+COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
+BASE_DECLARE_FEATURE(kPageContentExtractionAllowOnDemandWithoutObservers);
 
 // When enabled, extractions initiated by the PageContentExtractionService will
 // apply non-salient content filtering based on the feature parameters.
@@ -96,6 +110,12 @@ extern const base::FeatureParam<base::TimeDelta> kObservationDelayTimeout;
 // loading.
 COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kObservationDelayLcp;
+
+// Enables the use of PageSettledMonitor for PCES extractions to better
+// determine when a page is stable enough for content extraction. This replaces
+// the legacy load/FCP plus a fixed-delay.
+COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
+BASE_DECLARE_FEATURE(kPageContentExtractionUsingPageSettledMonitor);
 
 // If enabled, observation for page load excludes load in ad frames.
 COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
@@ -217,6 +237,10 @@ std::string AnnotatedPageContentMode();
 COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
 bool ShouldAnnotatedPageContentExcludeAdRelated();
 
+// The maximum size in bytes of the text extracted from a PDF.
+COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
+uint32_t MaxPDFTextExtractionByteSize();
+
 // The triggering mode for page content extraction.
 enum class PageContentExtractionTriggeringMode {
   kOnLoad,
@@ -227,6 +251,11 @@ enum class PageContentExtractionTriggeringMode {
 // Returns the triggering mode for page content extraction.
 COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
 PageContentExtractionTriggeringMode GetPageContentExtractionTriggeringMode();
+
+// Allows heuristically delaying the extraction for AnnotatedPageContent once
+// the page has been settled using PageSettledMonitor.
+COMPONENT_EXPORT(PAGE_CONTENT_ANNOTATIONS_FEATURES)
+base::TimeDelta GetPageSettledCaptureDelay();
 
 // Returns whether |locale| is a supported locale for |feature|.
 //

@@ -129,7 +129,6 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.HYPERLINK_CONTEXT_MENU_ITEMS + Features.DEV_SUFFIX,
                 Features.ASYNC_WEBVIEW_STARTUP_ASYNC_STARTUP_LOCATIONS,
                 Features.CUSTOM_REQUEST_HEADERS,
-                Features.RENDERER_LIBRARY_PREFETCH_MODE + Features.DEV_SUFFIX,
                 Features.ASYNC_WEBVIEW_STARTUP_V2,
                 Features.WEB_VIEW_NAVIGATION_LISTENER_V1,
                 Features.ADD_QUIC_HINTS_V1,
@@ -143,6 +142,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.NAVIGATION_GET_WEB_RESOURCE_ERROR,
                 Features.BACK_FORWARD_CACHE_SETTINGS_V4,
                 Features.IGNORE_DUPLICATE_NAV + Features.DEV_SUFFIX,
+                Features.WEBVIEW_NAVIGATE_V1,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The final
                 // feature should have a trailing comma for cleaner diffs.
@@ -338,6 +338,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.GET_MAX_PRERENDERS,
         ApiCall.CLEAR_MAX_PREFETCHES,
         ApiCall.CLEAR_PREFETCH_TTL,
+        ApiCall.NAVIGATE,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -436,7 +437,6 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int GET_PROFILE_WEB_STORAGE = 90;
         int GET_PROFILE_GEO_LOCATION_PERMISSIONS = 91;
         int GET_PROFILE_SERVICE_WORKER_CONTROLLER = 92;
-
         int SET_WEBVIEW_PROFILE = 93;
         int GET_WEBVIEW_PROFILE = 94;
         int SET_ATTRIBUTION_BEHAVIOR = 95;
@@ -510,8 +510,8 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         @Deprecated int PAGE_IS_PRERENDERING = 161;
         int ADD_ORIGIN_MATCHED_HEADER = 162;
         int GET_ORIGIN_MATCHED_HEADERS = 163;
-        int SET_RENDERER_LIBRARY_PREFETCH_MODE = 164;
-        int GET_RENDERER_LIBRARY_PREFETCH_MODE = 165;
+        @Deprecated int SET_RENDERER_LIBRARY_PREFETCH_MODE = 164;
+        @Deprecated int GET_RENDERER_LIBRARY_PREFETCH_MODE = 165;
         int BACK_FORWARD_CACHE_SETTINGS_SET_TIMEOUT_IN_SECONDS = 166;
         int BACK_FORWARD_CACHE_SETTINGS_SET_MAX_PAGES_IN_CACHE = 167;
         int ADD_NAVIGATION_LISTENER = 168;
@@ -540,8 +540,9 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int CLEAR_MAX_PREFETCHES = 191;
         int CLEAR_PREFETCH_TTL = 192;
         int CLEAR_MAX_PRERENDERS = 193;
+        int NAVIGATE = 194;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 194;
+        int COUNT = 195;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)
@@ -685,25 +686,6 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
             }
         }
 
-        @Override
-        public void setRendererLibraryPrefetchMode(int mode) {
-            try (TraceEvent event =
-                    TraceEvent.scoped(
-                            "WebView.APICall.AndroidX.SET_RENDERER_LIBRARY_PREFETCH_MODE")) {
-                recordApiCall(ApiCall.SET_RENDERER_LIBRARY_PREFETCH_MODE);
-                mSharedStatics.setRendererLibraryPrefetchMode(mode);
-            }
-        }
-
-        @Override
-        public int getRendererLibraryPrefetchMode() {
-            try (TraceEvent event =
-                    TraceEvent.scoped(
-                            "WebView.APICall.AndroidX.GET_RENDERER_LIBRARY_PREFETCH_MODE")) {
-                recordApiCall(ApiCall.GET_RENDERER_LIBRARY_PREFETCH_MODE);
-                return mSharedStatics.getRendererLibraryPrefetchMode();
-            }
-        }
     }
 
     @Override

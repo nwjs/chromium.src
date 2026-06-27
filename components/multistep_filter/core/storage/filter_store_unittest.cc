@@ -21,7 +21,10 @@ namespace multistep_filter {
 
 namespace {
 
+using testing::Optional;
 using testing::SizeIs;
+
+constexpr size_t kMaxResults = 100;
 
 class FilterStoreTest : public testing::Test {
  public:
@@ -37,7 +40,8 @@ class FilterStoreTest : public testing::Test {
   FilterStore* store() { return store_.get(); }
 
  protected:
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<FilterStore> store_;
 };
 
@@ -53,12 +57,97 @@ TEST_F(FilterStoreTest, StoreAndRetrieveAnnotation) {
 
   store()->StoreAnnotation(annotation, store_future.GetCallback());
   store()->GetAnnotationsForTaskSortedByCreationTimestamp(
-      "task1", get_future.GetCallback());
+      "task1", get_future.GetCallback(), kMaxResults, base::Time());
 
   std::vector<FilterAnnotation> result = get_future.Get();
   ASSERT_THAT(result, SizeIs(1));
 
   EXPECT_EQ(result.front(), annotation);
+}
+
+TEST_F(FilterStoreTest, StoreAndRetrieveAnnotation_FiltersByCreationTime) {
+  base::test::TestFuture<bool> store_future1;
+  base::test::TestFuture<bool> store_future2;
+  base::test::TestFuture<std::vector<FilterAnnotation>> get_future;
+
+  base::Uuid id1 = base::Uuid::GenerateRandomV4();
+  FilterAnnotation old_annotation(id1, "task1", "example.com",
+                                  base::Time::Now() - base::Minutes(31), {});
+
+  base::Uuid id2 = base::Uuid::GenerateRandomV4();
+  FilterAnnotation recent_annotation(id2, "task1", "example.com",
+                                     base::Time::Now(), {});
+
+  store()->StoreAnnotation(old_annotation, store_future1.GetCallback());
+  store()->StoreAnnotation(recent_annotation, store_future2.GetCallback());
+  ASSERT_TRUE(store_future1.Get());
+  ASSERT_TRUE(store_future2.Get());
+
+  store()->GetAnnotationsForTaskSortedByCreationTimestamp(
+      "task1", get_future.GetCallback(), kMaxResults,
+      base::Time::Now() - base::Minutes(30));
+
+  std::vector<FilterAnnotation> result = get_future.Get();
+  ASSERT_THAT(result, SizeIs(1));
+  EXPECT_EQ(result.front(), recent_annotation);
+}
+
+TEST_F(FilterStoreTest, DeleteAnnotationsForTask) {
+  base::test::TestFuture<bool> store_future1;
+  base::test::TestFuture<bool> store_future2;
+  base::test::TestFuture<bool> store_future3;
+  base::test::TestFuture<std::optional<int64_t>> expire_future;
+  base::test::TestFuture<std::vector<FilterAnnotation>> get_future1;
+  base::test::TestFuture<std::vector<FilterAnnotation>> get_future2;
+
+  const base::Uuid id1 = base::Uuid::GenerateRandomV4();
+  const FilterAnnotation annotation1(id1, "task1", "example1.com",
+                                     base::Time::Now(), {});
+  const base::Uuid id2 = base::Uuid::GenerateRandomV4();
+  const FilterAnnotation annotation2(id2, "task1", "example2.com",
+                                     base::Time::Now(), {});
+  const base::Uuid id3 = base::Uuid::GenerateRandomV4();
+  const FilterAnnotation annotation3(id3, "task2", "example3.com",
+                                     base::Time::Now(), {});
+
+  store()->StoreAnnotation(annotation1, store_future1.GetCallback());
+  store()->StoreAnnotation(annotation2, store_future2.GetCallback());
+  store()->StoreAnnotation(annotation3, store_future3.GetCallback());
+  ASSERT_TRUE(store_future1.Get());
+  ASSERT_TRUE(store_future2.Get());
+  ASSERT_TRUE(store_future3.Get());
+
+  store()->DeleteAnnotationsForTask("task1", expire_future.GetCallback());
+  EXPECT_THAT(expire_future.Get(), Optional(2));
+
+  store()->GetAnnotationsForTaskSortedByCreationTimestamp(
+      "task1", get_future1.GetCallback(), kMaxResults, base::Time());
+  EXPECT_THAT(get_future1.Get(), SizeIs(0));
+
+  store()->GetAnnotationsForTaskSortedByCreationTimestamp(
+      "task2", get_future2.GetCallback(), kMaxResults, base::Time());
+  EXPECT_THAT(get_future2.Get(), SizeIs(1));
+}
+
+TEST_F(FilterStoreTest,
+       GetAnnotationsForTaskSortedByCreationTimestamp_ExcludesDeleted) {
+  base::test::TestFuture<bool> store_future;
+  base::test::TestFuture<std::optional<int64_t>> expire_future;
+  base::test::TestFuture<std::vector<FilterAnnotation>> get_future;
+
+  const base::Uuid id = base::Uuid::GenerateRandomV4();
+  const FilterAnnotation annotation(id, "task1", "example.com",
+                                    base::Time::Now(), {});
+
+  store()->StoreAnnotation(annotation, store_future.GetCallback());
+  ASSERT_TRUE(store_future.Get());
+
+  store()->DeleteAnnotationsForTask("task1", expire_future.GetCallback());
+  EXPECT_THAT(expire_future.Get(), Optional(1));
+
+  store()->GetAnnotationsForTaskSortedByCreationTimestamp(
+      "task1", get_future.GetCallback(), kMaxResults, base::Time());
+  EXPECT_THAT(get_future.Get(), SizeIs(0));
 }
 
 }  // namespace

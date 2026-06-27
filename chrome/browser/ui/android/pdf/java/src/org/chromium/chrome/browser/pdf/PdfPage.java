@@ -15,12 +15,13 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.native_page.BasicNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
+import org.chromium.chrome.modules.on_demand.OnDemandModule;
 import org.chromium.components.embedder_support.util.UrlConstants;
 
 /** Native page that displays pdf file. */
 @NullMarked
 public class PdfPage extends BasicNativePage {
-    @VisibleForTesting public final PdfCoordinator mPdfCoordinator;
+    @VisibleForTesting public final PdfCoordinatorInterface mPdfCoordinator;
     private String mTitle;
     private final String mUrl;
     private final boolean mIsIncognito;
@@ -37,31 +38,44 @@ public class PdfPage extends BasicNativePage {
      * @param pdfInfo Information of the pdf.
      * @param defaultTitle Default title of the pdf page.
      * @param tabId The id of the tab.
+     * @param pdfFragmentViewTracker Tracks PdfViewerFragment's View to assign to the right PdfPage.
      */
     public PdfPage(
             NativePageHost host,
             Profile profile,
+            boolean isIncognito,
             Activity activity,
             String url,
             PdfInfo pdfInfo,
             String defaultTitle,
-            int tabId) {
+            int tabId,
+            PdfFragmentViewTracker pdfFragmentViewTracker) {
         super(host);
 
         mIsDownloadSafe = pdfInfo.isDownloadSafe;
         String decodedUrl = PdfUtils.decodePdfPageUrl(url);
         String filepath =
-                pdfInfo.filepath == null
-                        ? PdfUtils.getFilePathFromUrl(decodedUrl)
-                        : pdfInfo.filepath;
+            pdfInfo.filepath == null
+                ? PdfUtils.getFilePathFromUrl(decodedUrl)
+                : pdfInfo.filepath;
         mTitle =
-                pdfInfo.filename == null
-                        ? PdfUtils.getFileNameFromUrl(decodedUrl, defaultTitle)
-                        : pdfInfo.filename;
+            pdfInfo.filename == null
+                ? PdfUtils.getFileNameFromUrl(decodedUrl, defaultTitle)
+                : pdfInfo.filename;
         mUrl = url;
         mPdfCoordinator =
-                new PdfCoordinator(host, profile, activity, filepath, mTitle, tabId, url);
-        mIsIncognito = profile.isOffTheRecord();
+                OnDemandModule.getImpl()
+                        .getPdfEntryPoint()
+                        .createPdfCoordinator(
+                                host,
+                                profile,
+                                activity,
+                                url,
+                                filepath,
+                                mTitle,
+                                tabId,
+                                pdfFragmentViewTracker);
+        mIsIncognito = isIncognito;
         initWithView(mPdfCoordinator.getView());
         // PDF is downloading when the filepath is null.
         if (filepath == null) {
@@ -128,7 +142,7 @@ public class PdfPage extends BasicNativePage {
         mTitle = pdfFileName;
         mIsDownloadSafe = isDownloadSafe;
         PdfUtils.recordPdfTransientDownloadTime(
-                SystemClock.elapsedRealtime() - mTransientDownloadStartTimestamp);
+            SystemClock.elapsedRealtime() - mTransientDownloadStartTimestamp);
         // TODO(b/348701300): check if pdf should be opened inline.
         if (mIsIncognito) {
             Uri uri = PdfContentProvider.createContentUri(pdfFilePath, pdfFileName);
@@ -138,7 +152,7 @@ public class PdfPage extends BasicNativePage {
             }
             pdfFilePath = uri.toString();
         }
-        mPdfCoordinator.onDownloadComplete(pdfFilePath, mTitle);
+        mPdfCoordinator.onDownloadComplete(pdfFilePath, pdfFileName);
     }
 
     /**

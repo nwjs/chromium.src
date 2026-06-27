@@ -14,7 +14,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/image_fetcher/image_decoder_impl.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
@@ -37,6 +36,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/insets.h"
@@ -523,7 +523,10 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateHeaderView() {
       header->AddChildView(views::CreateVectorImageButtonWithNativeTheme(
           base::BindRepeating(&FedCmAccountSelectionView::OnBackButtonClicked,
                               base::Unretained(owner_)),
-          vector_icons::kArrowBackIcon));
+          features::IsRoundedIconsEnabled() ? kArrowBackIcon
+          : features::IsRoundedIconsEnabled()
+              ? vector_icons::kArrowBackIcon
+              : vector_icons::kArrowBackOldIcon));
   views::InstallCircleHighlightPathGenerator(back_button_.get());
   back_button_->SetTooltipText(l10n_util::GetStringUTF16(IDS_ACCNAME_BACK));
   back_button_->SetVisible(false);
@@ -759,7 +762,9 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateMultiIdpLoginRow(
       /*subtitle=*/std::u16string(),
       /*secondary_view=*/
       std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-          kOpenInNewIcon, ui::kColorMenuIcon, kBubbleIdpIconSize)));
+          features::IsRoundedIconsEnabled() ? kOpenInNewIcon
+                                            : kOpenInNewOldIcon,
+          ui::kColorMenuIcon, kBubbleIdpIconSize)));
   button->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(
       /*vertical=*/kMultiIdpVerticalSpacing,
       /*horizontal=*/kLeftRightPadding)));
@@ -777,7 +782,9 @@ AccountSelectionBubbleView::CreateSingleIdpUseOtherAccountButton(
     int icon_margin) {
   auto icon_view =
       std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-          kOpenInNewIcon, ui::kColorMenuIcon, kIdpLoginIconSize));
+          features::IsRoundedIconsEnabled() ? kOpenInNewIcon
+                                            : kOpenInNewOldIcon,
+          ui::kColorMenuIcon, kIdpLoginIconSize));
   auto button = std::make_unique<HoverButton>(
       base::BindRepeating(&FedCmAccountSelectionView::OnLoginToIdP,
                           base::Unretained(owner_), idp_metadata.config_url,

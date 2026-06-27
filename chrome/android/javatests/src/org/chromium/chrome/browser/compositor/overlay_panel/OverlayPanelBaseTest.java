@@ -42,8 +42,8 @@ import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerT
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
-import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.PanelState;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.StateChangeReason;
+import org.chromium.chrome.browser.overlay_panel.PanelState;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -450,7 +450,7 @@ public class OverlayPanelBaseTest {
                 "Panel should be shown at the bottom of the tab",
                 tabHeight - overlayHeight,
                 mNoExpandPanel.calculateOverlayPanelY(),
-                /*delta*/ 0.1);
+                /* delta= */ 0.1);
 
         // Toolbar at the bottom
         when(mBrowserControlsStateProvider.getControlsPosition())
@@ -461,7 +461,7 @@ public class OverlayPanelBaseTest {
                 "Panel should be shown right above the bottom toolbar",
                 tabHeight - overlayHeight,
                 mNoExpandPanel.calculateOverlayPanelY(),
-                /*delta*/ 0.1);
+                /* delta= */ 0.1);
 
         // Toolbar partially hidden
         when(mBrowserControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(0.4f);
@@ -469,7 +469,7 @@ public class OverlayPanelBaseTest {
                 "Panel should be shown right above the bottom toolbar",
                 tabHeight - overlayHeight,
                 mNoExpandPanel.calculateOverlayPanelY(),
-                /*delta*/ 0.1);
+                /* delta= */ 0.1);
 
         // Hide toolbar
         when(mBrowserControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.f);
@@ -477,7 +477,7 @@ public class OverlayPanelBaseTest {
                 "Panel should be shown at the bottom of the tab when toolbar is hiden",
                 tabHeight - overlayHeight,
                 mNoExpandPanel.calculateOverlayPanelY(),
-                /*delta*/ 0.1);
+                /* delta= */ 0.1);
     }
 
     @Test
@@ -491,18 +491,26 @@ public class OverlayPanelBaseTest {
         mExpandPanel.setIsFullWidthSizePanelForTesting(true);
         when(mBrowserControlsStateProvider.getControlsPosition())
                 .thenReturn(ControlsPosition.BOTTOM);
-        when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_TOOLBAR))
-                .thenReturn(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
+        when(mBottomControlsStacker.getTotalHeight()).thenReturn(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
         when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_CHIN))
                 .thenReturn(CHIN_HEIGHT);
 
-        float peekHeight = mExpandPanel.getPeekedHeight();
-        float expandedHeight = mExpandPanel.getExpandedHeight();
+        float peekHeight = mExpandPanel.getPanelHeightFromState(PanelState.PEEKED);
+        float expandedHeight = mExpandPanel.getPanelHeightFromState(PanelState.EXPANDED);
         float maxedHeight = mExpandPanel.getMaximizedHeight();
 
         mExpandPanel.setPanelHeight(peekHeight);
         Assert.assertEquals(
                 tabHeight - peekHeight - (MOCK_TOOLBAR_HEIGHT * mExpandPanel.mPxToDp),
+                mExpandPanel.getOffsetY(),
+                MathUtils.EPSILON);
+
+        // Test continuity between peeked and expanded states (interpolation).
+        float midHeight = (peekHeight + expandedHeight) / 2.f;
+        mExpandPanel.setPanelHeight(midHeight);
+        float expectedOffset = (MOCK_TOOLBAR_HEIGHT * mExpandPanel.mPxToDp) * 0.5f;
+        Assert.assertEquals(
+                tabHeight - midHeight - expectedOffset,
                 mExpandPanel.getOffsetY(),
                 MathUtils.EPSILON);
 
@@ -525,15 +533,14 @@ public class OverlayPanelBaseTest {
 
         when(mBrowserControlsStateProvider.getControlsPosition()).thenReturn(ControlsPosition.TOP);
 
-        float peekHeight = mExpandPanel.getPeekedHeight();
+        float peekHeight = mExpandPanel.getPanelHeightFromState(PanelState.PEEKED);
         mExpandPanel.setPanelState(PanelState.PEEKED, StateChangeReason.UNKNOWN);
         mExpandPanel.setPanelHeight(peekHeight);
         Assert.assertEquals(tabHeight - peekHeight, mExpandPanel.getOffsetY(), MathUtils.EPSILON);
 
         when(mBrowserControlsStateProvider.getControlsPosition())
                 .thenReturn(ControlsPosition.BOTTOM);
-        when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_TOOLBAR))
-                .thenReturn(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
+        when(mBottomControlsStacker.getTotalHeight()).thenReturn(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
         when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_CHIN))
                 .thenReturn(CHIN_HEIGHT);
 
@@ -550,28 +557,52 @@ public class OverlayPanelBaseTest {
     @SmallTest
     @Feature({"OverlayPanelBase"})
     @UiThreadTest
-    public void testCalculateOverlayPanelY_readaloud() {
+    public void testResizeOnBottomControlsHeightChange() {
         final float tabHeight = 1000;
         mExpandPanel.onLayoutChanged(400, tabHeight, 100);
-
         mExpandPanel.setIsFullWidthSizePanelForTesting(true);
+
+        when(mBrowserControlsStateProvider.getControlsPosition()).thenReturn(ControlsPosition.TOP);
+
+        float peekHeight = mExpandPanel.getPanelHeightFromState(PanelState.PEEKED);
+        mExpandPanel.setPanelState(PanelState.PEEKED, StateChangeReason.UNKNOWN);
+        mExpandPanel.setPanelHeight(peekHeight);
+        Assert.assertEquals(tabHeight - peekHeight, mExpandPanel.getOffsetY(), MathUtils.EPSILON);
+
         when(mBrowserControlsStateProvider.getControlsPosition())
                 .thenReturn(ControlsPosition.BOTTOM);
-        when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.READ_ALOUD_PLAYER))
-                .thenReturn(READALOUD_HEIGHT + MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
-        when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_TOOLBAR))
-                .thenReturn(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
+        when(mBottomControlsStacker.getTotalHeight()).thenReturn(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT);
         when(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.BOTTOM_CHIN))
                 .thenReturn(CHIN_HEIGHT);
-        when(mBottomControlsStacker.isLayerVisible(LayerType.READ_ALOUD_PLAYER)).thenReturn(true);
 
-        float bottomControlsHeight = MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT + READALOUD_HEIGHT;
-        float peekHeight = mExpandPanel.getPeekedHeight();
-        mExpandPanel.setPanelHeight(peekHeight);
-
+        mBrowserControlsStateProviderObserverCaptor
+                .getValue()
+                .onBottomControlsHeightChanged(MOCK_TOOLBAR_HEIGHT + CHIN_HEIGHT, 0);
         Assert.assertEquals(
-                tabHeight - peekHeight - (bottomControlsHeight * mExpandPanel.mPxToDp),
+                tabHeight - peekHeight - (MOCK_TOOLBAR_HEIGHT * mExpandPanel.mPxToDp),
                 mExpandPanel.getOffsetY(),
                 MathUtils.EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"OverlayPanelBase"})
+    @UiThreadTest
+    public void testSetClampedPanelHeight() {
+        float peekHeight = mExpandPanel.getPanelHeightFromState(PanelState.PEEKED);
+        float maxedHeight = mExpandPanel.getPanelHeightFromState(PanelState.MAXIMIZED);
+
+        // Test clamping below peek. Note that clamp expects min=PEEKED and max=MAXIMIZED.
+        mExpandPanel.setClampedPanelHeight(peekHeight - 10);
+        Assert.assertEquals(peekHeight, mExpandPanel.getHeight(), MathUtils.EPSILON);
+
+        // Test clamping above max
+        mExpandPanel.setClampedPanelHeight(maxedHeight + 10);
+        Assert.assertEquals(maxedHeight, mExpandPanel.getHeight(), MathUtils.EPSILON);
+
+        // Test within range
+        float midHeight = (peekHeight + maxedHeight) / 2.f;
+        mExpandPanel.setClampedPanelHeight(midHeight);
+        Assert.assertEquals(midHeight, mExpandPanel.getHeight(), MathUtils.EPSILON);
     }
 }

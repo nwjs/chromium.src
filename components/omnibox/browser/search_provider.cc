@@ -661,7 +661,7 @@ void SearchProvider::Run(bool query_is_private) {
   // Start a new request with the current input.
   time_suggest_request_sent_ = base::TimeTicks::Now();
 
-  if (!query_is_private && !input_.InKeywordMode()) {
+  if (!query_is_private && !input_.in_keyword_mode()) {
     default_loader_ =
         CreateSuggestLoader(providers_.GetDefaultProviderURL(), input_);
   }
@@ -950,6 +950,7 @@ std::unique_ptr<network::SimpleURLLoader> SearchProvider::CreateSuggestLoader(
   search_term_args.lens_overlay_suggest_inputs =
       input.lens_overlay_suggest_inputs();
   search_term_args.input_state = input.input_state();
+  search_term_args.previous_query = input.previous_query();
 
   const SearchTermsData& search_terms_data =
       client()->GetTemplateURLService()->search_terms_data();
@@ -1130,6 +1131,16 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
   // answers after the first.
   RemoveExtraAnswers(&matches);
 
+#if !BUILDFLAG(IS_IOS)
+  // Only allow adding a location signaling suggestion on non-iOS, when the
+  // feature is enabled, and the `GeolocationHeaderService` has a cached
+  // location.
+  bool can_add_location_signaling_suggestion =
+      base::FeatureList::IsEnabled(omnibox::kInlineLocationSignaling) &&
+      client()->GetGeolocationHeaderService() &&
+      client()->GetGeolocationHeaderService()->HasCachedLocation();
+#endif
+
   matches_.clear();
   size_t num_suggestions = 0;
   for (ACMatches::const_iterator i(matches.begin());
@@ -1145,7 +1156,7 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
       // this isn't a server-scored suggestion we can add, skip it.
       // TODO (manukh): `GetAdditionalInfoForDebugging()` shouldn't be used for
       //   non-debugging purposes.
-      if ((num_suggestions >= provider_max_matches_) &&
+      if (num_suggestions >= provider_max_matches_ &&
           (i->GetAdditionalInfoForDebugging(kRelevanceFromServerKey) !=
            kTrue)) {
         continue;
@@ -1155,6 +1166,25 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
     }
 
     matches_.push_back(std::move(*i));
+
+#if !BUILDFLAG(IS_IOS)
+    // If this is the first `SUBTYPE_LOCATION_SUGGEST_TRIGGER` and there is
+    // room, create a duplicate location signaling suggestion.
+    if (can_add_location_signaling_suggestion &&
+        matches_.back().subtypes.contains(
+            omnibox::SUBTYPE_LOCATION_SUGGEST_TRIGGER) &&
+        matches_.size() < AutocompleteResult::GetDynamicMaxMatches()) {
+      std::unique_ptr<AutocompleteMatch> signaling_match =
+          CreateLocationSignalingMatch(matches_.back());
+      if (signaling_match) {
+        matches_.push_back(std::move(*signaling_match));
+        // There can only be one location signaling match, no more matches will
+        // be added.
+        can_add_location_signaling_suggestion = false;
+        ++num_suggestions;
+      }
+    }
+#endif
   }
 }
 
@@ -1646,3 +1676,58 @@ void SearchProvider::PrefetchImages(SearchSuggestionParser::Results* results) {
   for (const GURL& url : prefetch_image_urls)
     client()->PrefetchImage(url);
 }
+
+#if !BUILDFLAG(IS_IOS)
+std::unique_ptr<AutocompleteMatch> SearchProvider::CreateLocationSignalingMatch(
+    const AutocompleteMatch& match) {
+  auto* geo_service = client()->GetGeolocationHeaderService();
+  if (!geo_service) {
+    return nullptr;
+  }
+
+  std::optional<GeolocationAccuracy> accuracy =
+      geo_service->GetCachedLocationAccuracy();
+  if (!accuracy.has_value()) {
+    return nullptr;
+  }
+
+  std::optional<std::string> location_header =
+      geo_service->GetLocationHeader(match.destination_url,
+                                     /*for_automatic_sending=*/false);
+  if (!location_header.has_value()) {
+    return nullptr;
+  }
+
+  AutocompleteMatch signaling_match = match;
+  signaling_match.allowed_to_be_default_match = false;
+  signaling_match.extra_headers[kXGeoHeader] = *location_header;
+
+  std::u16string description_text;
+  if (*accuracy == GeolocationAccuracy::kPrecise) {
+    description_text =
+        l10n_util::GetStringUTF16(IDS_OMNIBOX_ILLS_USE_PRECISE_LOCATION);
+  } else {
+    omnibox::InlineLocationSignalingWording wording =
+        omnibox::kInlineLocationSignalingWording.Get();
+    switch (wording) {
+      case omnibox::InlineLocationSignalingWording::kUseLocation:
+        description_text =
+            l10n_util::GetStringUTF16(IDS_OMNIBOX_ILLS_USE_LOCATION);
+        break;
+      case omnibox::InlineLocationSignalingWording::kUseApproximateLocation:
+        description_text = l10n_util::GetStringUTF16(
+            IDS_OMNIBOX_ILLS_USE_APPROXIMATE_LOCATION);
+        break;
+    }
+  }
+  signaling_match.description = description_text;
+
+  // Ensure the description has a non-empty classification to pass validation
+  // requirements checking overall length constraints on matching segments.
+  signaling_match.description_class.clear();
+  signaling_match.description_class.emplace_back(0, ACMatchClassification::DIM);
+  signaling_match.relevance = match.relevance;
+
+  return std::make_unique<AutocompleteMatch>(std::move(signaling_match));
+}
+#endif

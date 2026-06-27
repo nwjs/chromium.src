@@ -96,13 +96,13 @@ ui::ImageModel GetHandleVectorIcon(gfx::SelectionBound::Type bound_type) {
   const gfx::VectorIcon* icon = nullptr;
   switch (bound_type) {
     case gfx::SelectionBound::LEFT:
-      icon = &ui::kTextSelectionHandleLeftIcon;
+      icon = &ui::kTextSelectionHandleLeftCustomIcon;
       break;
     case gfx::SelectionBound::CENTER:
-      icon = &ui::kTextSelectionHandleCenterIcon;
+      icon = &ui::kTextSelectionHandleCenterCustomIcon;
       break;
     case gfx::SelectionBound::RIGHT:
-      icon = &ui::kTextSelectionHandleRightIcon;
+      icon = &ui::kTextSelectionHandleRightCustomIcon;
       break;
     default:
       NOTREACHED() << "Invalid touch handle bound type: " << bound_type;
@@ -601,11 +601,7 @@ bool TouchSelectionControllerImpl::ShouldShowHandleFor(
 
 bool TouchSelectionControllerImpl::IsCommandIdEnabled(int command_id,
                                                       bool can_paste) const {
-  if (command_id ==
-      std::to_underlying(ui::TouchEditable::MenuCommands::kPaste)) {
-    return can_paste && client_view_->IsCommandIdEnabled(command_id);
-  }
-  return client_view_->IsCommandIdEnabled(command_id);
+  return client_view_->IsCommandIdEnabled(command_id, can_paste);
 }
 
 void TouchSelectionControllerImpl::ExecuteCommand(int command_id,

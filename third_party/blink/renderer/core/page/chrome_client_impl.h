@@ -93,11 +93,11 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void RegisterForCommitObservation(CommitObserver*) override;
   void UnregisterFromCommitObservation(CommitObserver*) override;
   void WillCommitCompositorFrame() override;
+  void RequestFrameWithoutVSyncFromRoot(LocalFrame& frame) override;
   bool StartDeferringCommits(LocalFrame& main_frame,
                              base::TimeDelta timeout,
                              cc::PaintHoldingReason reason) override;
-  void StopDeferringCommits(LocalFrame& main_frame,
-                            cc::PaintHoldingCommitTrigger) override;
+  void StopDeferringCommits(LocalFrame& main_frame) override;
   void SetShouldThrottleFrameRate(bool flag, LocalFrame& main_frame) override;
   void RequestMainFrameOnCompositorAnimation(
       LocalFrame&,
@@ -160,6 +160,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   bool TabsToLinks() override;
   void InvalidateContainer() override;
   void ScheduleAnimation(const LocalFrameView*,
+                         cc::BeginMainFrameReason,
                          base::TimeDelta delay,
                          bool urgent) override;
   gfx::Rect LocalRootToScreenDIPs(const gfx::Rect&,
@@ -291,6 +292,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void JavaScriptChangedValue(HTMLFormControlElement&,
                               const String& old_value,
                               bool was_autofilled) override;
+  bool IsAutofillableElement(const HTMLFormControlElement&) override;
 
   void ShowVirtualKeyboardOnElementFocus(LocalFrame&) override;
 

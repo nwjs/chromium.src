@@ -264,6 +264,23 @@ mojo_base::BigBuffer SystemClipboard::ReadPng(
   return png;
 }
 
+void SystemClipboard::ReadPng(
+    mojom::blink::ClipboardBuffer buffer,
+    mojom::blink::ClipboardHost::ReadPngCallback callback) {
+  if (!IsValidBufferType(buffer) || !clipboard_.is_bound()) {
+    std::move(callback).Run(mojo_base::BigBuffer());
+    return;
+  }
+  // The async overload intentionally does not consult or populate
+  // `snapshot_`. `snapshot_` is only entered via
+  // ScopedSystemClipboardSnapshot, used by the synchronous DataTransfer
+  // paste pipeline; mixing the two would require thread-hopping the
+  // BigBuffer back into the snapshot before the outer scope exits, with
+  // no observable benefit (Async Clipboard callers do not enter a
+  // snapshot scope).
+  clipboard_->ReadPng(buffer, std::move(callback));
+}
+
 String SystemClipboard::ReadImageAsImageMarkup(
     mojom::blink::ClipboardBuffer buffer) {
   mojo_base::BigBuffer png_data = ReadPng(buffer);
@@ -377,7 +394,7 @@ void SystemClipboard::WriteDataObject(DataObject* data_object) {
   // allow receiving side to extract the data required.
   // TODO(crbug.com/332571415): Properly support text/uri-list here.
   HashMap<String, String> custom_data;
-  WebDragData data = data_object->ToWebDragData();
+  WebDragData data = data_object->ToWebDragData(nullptr);
   for (const WebDragData::Item& item : data.Items()) {
     if (const auto* string_item = std::get_if<WebDragData::StringItem>(&item)) {
       if (string_item->type == ui::kMimeTypePlainText) {

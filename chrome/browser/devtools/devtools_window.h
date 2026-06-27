@@ -32,6 +32,7 @@
 class Browser;
 class BrowserWindowInterface;
 class BrowserWindow;
+class Profile;
 class DevToolsWindowTesting;
 class DevToolsEventForwarder;
 class DevToolsEyeDropper;
@@ -316,6 +317,9 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   raw_ptr<content::WebContents> GetDevToolsWebContents();
   bool IsDocked() { return is_docked_; }
   bool OpenNewWindowForPopups() const { return open_new_window_for_popups_; }
+
+  // Attaches this devtools window to the given browser.
+  void AttachToBrowser(BrowserWindowInterface* browser);
 
   void Close();
 
@@ -609,7 +613,9 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   raw_ptr<infobars::InfoBar> sharing_infobar_ = nullptr;
   int checked_sharing_process_id_ = content::ChildProcessHost::kInvalidUniqueID;
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  bool launched_activity_ = false;
+#else
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};
 #endif

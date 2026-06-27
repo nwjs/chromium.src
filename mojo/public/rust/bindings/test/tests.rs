@@ -23,7 +23,7 @@ use bindings_unittests_mojom_rust::bindings_unittests as test_mojom;
 use run_loop::RunLoop;
 use system::mojo_types::UntypedHandle;
 
-use test_mojom::{HandleService, MathService, TwoInts};
+use test_mojom::{HandleService, MathService, TwoInts, TypemapService};
 
 use crate::state_objects::*;
 
@@ -31,6 +31,7 @@ use crate::state_objects::*;
 fn test_watcher_basic() {
     // Exercise the various watcher methods so we have some coverage
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     use bindings::message_pipe_watcher::{MessagePipeWatcher, ResponseSender};
     use system::message::RawMojoMessage;
@@ -63,8 +64,8 @@ fn test_watcher_basic() {
         }
     };
 
-    let sender = MessagePipeWatcher::new(sender, sender_msg_handler, None).unwrap();
-    let receiver = MessagePipeWatcher::new(receiver, receiver_msg_handler, None).unwrap();
+    let sender = MessagePipeWatcher::new(sender, sender_msg_handler, None, true).unwrap();
+    let receiver = MessagePipeWatcher::new(receiver, receiver_msg_handler, None, true).unwrap();
 
     // Send some messages through; this should trigger the handler twice
     sender.send_message(RawMojoMessage::new_with_bytes(b"Message 1").unwrap()).unwrap();
@@ -83,6 +84,7 @@ fn test_watcher_basic() {
 #[gtest(RustBindingsAPI, MessagePipeWatcherDisconnectTests)]
 fn test_watcher_disconnect() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     use bindings::message_pipe_watcher::MessagePipeWatcher;
     use system::message_pipe::MessageEndpoint;
@@ -101,6 +103,7 @@ fn test_watcher_disconnect() {
         receiver,
         receiver_msg_handler,
         Some(Box::new(receiver_disconnect_handler)),
+        true,
     )
     .unwrap();
 
@@ -121,6 +124,7 @@ fn test_watcher_disconnect_immediately() {
     // Make sure things work fine if a watcher is constructed with an endpoint
     // whose counterpoint has already been dropped.
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     use bindings::message_pipe_watcher::MessagePipeWatcher;
     use system::message_pipe::MessageEndpoint;
@@ -139,9 +143,13 @@ fn test_watcher_disconnect_immediately() {
     };
 
     drop(sender);
-    let receiver =
-        MessagePipeWatcher::new(receiver, |_, _| {}, Some(Box::new(receiver_disconnect_handler)))
-            .unwrap();
+    let receiver = MessagePipeWatcher::new(
+        receiver,
+        |_, _| {},
+        Some(Box::new(receiver_disconnect_handler)),
+        true,
+    )
+    .unwrap();
 
     run_loop.run();
 
@@ -152,6 +160,7 @@ fn test_watcher_disconnect_immediately() {
 #[gtest(RustBindingsAPI, RemoteReceiverWrapMathTest)]
 fn test_remote_receiver_wrapping() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     let (pending_remote, pending_receiver) = PendingRemote::<dyn MathService>::new_pipe().unwrap();
 
@@ -175,6 +184,7 @@ fn test_remote_receiver_wrapping() {
 #[gtest(RustBindingsAPI, RemoteReceiverSatMathTest)]
 fn test_remote_receiver_saturating() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     // We can use the same constructor call as in the previous test,
     // but for a different type of state object!
@@ -200,6 +210,7 @@ fn test_remote_receiver_saturating() {
 #[gtest(RustBindingsAPI, RemoteReceiverNotifMathTest)]
 fn test_remote_receiver_notifying() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     let (pending_remote, pending_receiver) = PendingRemote::<dyn MathService>::new_pipe().unwrap();
 
@@ -232,6 +243,7 @@ fn test_remote_receiver_notifying() {
 #[gtest(RustBindingsAPI, CppReceiverTest)]
 fn test_cpp_receiver() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     let (pending_remote, pending_receiver) = PendingRemote::<dyn MathService>::new_pipe().unwrap();
 
@@ -262,6 +274,7 @@ fn test_cpp_receiver() {
 #[gtest(RustBindingsAPI, CppRemoteTest)]
 fn test_cpp_remote() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     let (pending_remote, pending_receiver) = PendingRemote::<dyn MathService>::new_pipe().unwrap();
 
@@ -301,6 +314,7 @@ fn test_cpp_remote() {
 #[gtest(RustBindingsAPI, HandlePassingTest)]
 fn test_handle_passing() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     let (handle_pending_remote, handle_pending_receiver) =
         PendingRemote::<dyn test_mojom::HandleService>::new_pipe().unwrap();
@@ -389,6 +403,7 @@ fn test_handle_passing() {
 #[gtest(RustBindingsAPI, DisconnectHandlersTest)]
 fn test_disconnect_handlers() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     // Test Receiver disconnect handler
     let run_loop = RunLoop::new();
@@ -419,6 +434,7 @@ fn test_disconnect_handlers() {
 #[gtest(RustBindingsAPI, SelfOwnedReceiverTest)]
 fn test_self_owned_receiver() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     let (pending_remote, pending_receiver) = PendingRemote::<dyn MathService>::new_pipe().unwrap();
 
@@ -446,6 +462,7 @@ fn test_self_owned_receiver() {
 #[gtest(RustBindingsAPI, CppToRustHandoverTest)]
 fn test_cpp_to_rust_handover() {
     let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
 
     // Create a PlusSevenMathService and bind it, all in C++.
     let mut _service = cxx::UniquePtr::null();
@@ -469,6 +486,29 @@ fn test_cpp_to_rust_handover() {
     // Simple test message
     remote.Add(5, 10, move |n| {
         expect_eq!(n, 22); // PlusSevenMathService adds 7 to all its operations.
+        quit();
+    });
+
+    run_loop.run();
+}
+
+#[gtest(RustBindingsAPI, TypemappingTest)]
+fn test_typemapping() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
+
+    let (pending_remote, pending_receiver) =
+        PendingRemote::<dyn TypemapService>::new_pipe().unwrap();
+
+    let run_loop = RunLoop::new();
+    let quit = run_loop.get_quit_closure();
+
+    let mut remote = pending_remote.bind();
+
+    let _receiver = pending_receiver.bind(TypemapServiceImpl {});
+
+    remote.Echo(test_mojom::MyCustomStruct { value: 42 }, move |res| {
+        expect_eq!(res.value, 42);
         quit();
     });
 

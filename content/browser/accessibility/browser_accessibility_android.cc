@@ -414,7 +414,29 @@ bool BrowserAccessibilityAndroid::IsFocusable() const {
     return HasStringAttribute(ax::mojom::StringAttribute::kName);
   }
 
-  return BrowserAccessibility::IsFocusable();
+  if (!BrowserAccessibility::IsFocusable()) {
+    return false;
+  }
+
+  // Suppress focusability for generic container nodes that have no explicit
+  // name and only contain collection/list items, to prevent TalkBack from
+  // announcing them as 'Page.Page' when they wrap carousels/pagers.
+  if (GetRole() == ax::mojom::Role::kGenericContainer &&
+      !HasStringAttribute(ax::mojom::StringAttribute::kName)) {
+    bool has_only_collection_children = true;
+    for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
+      if (!static_cast<const BrowserAccessibilityAndroid*>(it.get())
+               ->IsCollection()) {
+        has_only_collection_children = false;
+        break;
+      }
+    }
+    if (has_only_collection_children && InternalChildCount() > 0) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool BrowserAccessibilityAndroid::IsFormDescendant() const {
@@ -778,14 +800,16 @@ bool BrowserAccessibilityAndroid::IsLeaf() const {
     return GetLeafMap()[this];
   }
 
-  // Non-atomic text fields (e.g. contenteditable) should not be leaves when
-  // this flag is enabled, allowing their internal structure to be exposed.
-  // Atomic text fields like <textarea> remain leaves to maintain existing
-  // behavior.
-  if (base::FeatureList::IsEnabled(
-          features::kAccessibilityExposeNonAtomicTextFieldChildren) &&
-      GetData().IsNonAtomicTextField()) {
-    return false;
+  if (GetData().IsNonAtomicTextField()) {
+    // Non-atomic text fields (e.g. contenteditable) should not be leaves when
+    // this flag is enabled, allowing their internal structure to be exposed.
+    // Atomic text fields like <textarea> remain leaves to maintain existing
+    // behavior.
+    if (base::FeatureList::IsEnabled(
+            features::kAccessibilityExposeNonAtomicTextFieldChildren)) {
+      return false;
+    }
+    return !HasFocusableChild();
   }
 
   if (BrowserAccessibility::IsLeaf()) {
@@ -840,35 +864,37 @@ bool BrowserAccessibilityAndroid::IsLeaf() const {
     }
   }
 
-  BrowserAccessibilityManagerAndroid* manager_android =
-      static_cast<BrowserAccessibilityManagerAndroid*>(manager());
-  if (manager_android->prune_tree_for_screen_reader()) {
-    // For some nodes, we will consider children before determining if the node
-    // is a leaf. For nodes with relevant children, we will return false here
-    // and allow the child nodes to be set as a leaf.
+  // For some nodes, we will consider children before determining if the node
+  // is a leaf. For nodes with relevant children, we will return false here
+  // and allow the child nodes to be set as a leaf.
 
-    // Headings with text can drop their children (with exceptions).
-    std::u16string name = GetSubstringTextContentUTF16(1);
-    if (GetRole() == ax::mojom::Role::kHeading && !name.empty()) {
-      bool ret = IsLeafConsideringChildren();
-      GetLeafMap()[this] = ret;
-      return ret;
-    }
-
-    // Focusable nodes with text can drop their children (with exceptions).
-    if (HasState(ax::mojom::State::kFocusable) && !name.empty()) {
-      bool ret = IsLeafConsideringChildren();
-      GetLeafMap()[this] = ret;
-      return ret;
-    }
-
-    // Nodes with only static text can drop their children, with the exception
-    // that list markers have a different role and should not be dropped.
-    if (HasOnlyTextChildren() && !HasListMarkerChild()) {
-      GetLeafMap()[this] = true;
-      return true;
-    }
+  if (GetRole() == ax::mojom::Role::kComboBoxSelect) {
+    GetLeafMap()[this] = true;
+    return true;
   }
+
+  // Headings with text can drop their children (with exceptions).
+  std::u16string name = GetSubstringTextContentUTF16(1);
+  if (GetRole() == ax::mojom::Role::kHeading && !name.empty()) {
+    bool ret = IsLeafConsideringChildren();
+    GetLeafMap()[this] = ret;
+    return ret;
+  }
+
+  // Focusable nodes with text can drop their children (with exceptions).
+  if (HasState(ax::mojom::State::kFocusable) && !name.empty()) {
+    bool ret = IsLeafConsideringChildren();
+    GetLeafMap()[this] = ret;
+    return ret;
+  }
+
+  // Nodes with only static text can drop their children, with the exception
+  // that list markers have a different role and should not be dropped.
+  if (HasOnlyTextChildren() && !HasListMarkerChild()) {
+    GetLeafMap()[this] = true;
+    return true;
+  }
+
   GetLeafMap()[this] = false;
   return false;
 }
@@ -883,14 +909,13 @@ bool BrowserAccessibilityAndroid::IsLeafConsideringChildren() const {
   //
   // If a node has a child that meets any of these criteria, it is NOT a leaf:
   //
-  //   * child is focusable, and NOT a menu option
+  //   * child is focusable
   //   * child is a table, cell, or row
   //
   for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
     BrowserAccessibility* child = it.get();
 
-    if (child->HasState(ax::mojom::State::kFocusable) &&
-        child->GetRole() != ax::mojom::Role::kMenuListOption) {
+    if (child->HasState(ax::mojom::State::kFocusable)) {
       return false;
     }
 
@@ -914,6 +939,21 @@ bool BrowserAccessibilityAndroid::IsLeafConsideringChildren() const {
   // If no such children were found, return true signaling the parent node can
   // be the leaf node.
   return true;
+}
+
+bool BrowserAccessibilityAndroid::HasFocusableChild() const {
+  // This is called from IsLeaf, so don't call PlatformChildCount
+  // from within this!
+  for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
+    BrowserAccessibility* child = it.get();
+    if (child->HasState(ax::mojom::State::kFocusable)) {
+      return true;
+    }
+    if (static_cast<BrowserAccessibilityAndroid*>(child)->HasFocusableChild()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::u16string BrowserAccessibilityAndroid::GetBrailleLabel() const {
@@ -2239,24 +2279,25 @@ void BrowserAccessibilityAndroid::GetLineBoundaries(
   // If this is a static text node, get the line boundaries from the
   // inline text boxes if possible.
   if (GetRole() == ax::mojom::Role::kStaticText) {
-    int last_y = 0;
-    bool is_first = true;
+    BrowserAccessibilityAndroid* previous_child = nullptr;
     for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
       BrowserAccessibilityAndroid* child =
           static_cast<BrowserAccessibilityAndroid*>(it.get());
       CHECK_EQ(ax::mojom::Role::kInlineTextBox, child->GetRole());
-      // TODO(dmazzoni): replace this with a proper API to determine
-      // if two inline text boxes are on the same line. http://crbug.com/421771
-      int y = child->GetClippedRootFrameBoundsRect().y();
-      if (is_first) {
-        is_first = false;
+      if (!previous_child) {
         line_starts->push_back(offset);
-      } else if (y != last_y) {
-        line_ends->push_back(offset);
-        line_starts->push_back(offset);
+      } else {
+        // Having no next-on-line link from Blink indicates a line break.
+        bool is_line_break =
+            previous_child->GetIntAttribute(
+                ax::mojom::IntAttribute::kNextOnLineId) != child->GetId();
+        if (is_line_break) {
+          line_ends->push_back(offset);
+          line_starts->push_back(offset);
+        }
       }
       offset += child->GetTextContentLengthUTF16();
-      last_y = y;
+      previous_child = child;
     }
     line_ends->push_back(offset);
     return;
@@ -2798,6 +2839,10 @@ const std::vector<int> BrowserAccessibilityAndroid::GetLabelledByAndroidIds()
         static_cast<BrowserAccessibilityAndroid*>(node)->GetUniqueId());
   }
   return android_ids;
+}
+
+void BrowserAccessibilityAndroid::EraseLeafCacheDataForNode() {
+  GetLeafMap().erase(this);
 }
 
 bool BrowserAccessibilityAndroid::ShouldExposeEditableValue() const {

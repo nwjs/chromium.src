@@ -230,9 +230,36 @@ class WTF_EXPORT String {
   }
 
   // Returns the Unicode code point starting at the specified offset of this
-  // string. If the offset points an unpaired surrogate, this function returns
-  // 0.
-  UChar32 CodePointAtOrZero(size_type) const;
+  // string.
+  //
+  // If the offset points to an unpaired surrogate, this function returns the
+  // surrogate code unit as is. If you'd like to check such surrogates, use
+  // U_IS_SURROGATE() defined in unicode/utf.h.
+  // If `i` is out of bounds, it crashes by CHECK().
+  //
+  // CodePointAt() is slightly faster than CodePointAtOrZero().
+  UChar32 CodePointAt(size_type i) const;
+
+  // Returns the Unicode code point starting at the specified offset of this
+  // string.
+  //
+  // If the offset points to an unpaired surrogate or `i` is out of bounds,
+  // this function returns 0.
+  UChar32 CodePointAtOrZero(size_type i) const;
+
+  // Returns the Unicode code point ending with text[i - 1]. That is to say,
+  //  - Returns a code point computed from text[i - 2] and text[i - 1] if i-1 is
+  //    greater than start_offset and text[i - 2] is a leading surrogate and
+  //    text[i - 1] is a trailing surrogate.
+  //  - Otherwise, text[i - 1] is returned.
+  //
+  // `i` argument is updated to point the first code unit of the read character.
+  // `start_offset` should be smaller than `i`.
+  UChar32 CodePointAtAndPrevious(size_type start_offset, size_type& i) const;
+
+  // Returns the Unicode code point starting at the specified offset of this
+  // string. `i` argument is updated to point the next of the read character.
+  UChar32 CodePointAtAndNext(size_type& i) const;
 
   // [string.modifiers] ---------------------------------------------
 

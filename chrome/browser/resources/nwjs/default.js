@@ -1,7 +1,6 @@
 //console.log("NWJS/DEFAULT.JS");
 var manifest = chrome.runtime.getManifest();
 var options = {};
-var title = null;
 if (manifest.window) {
   if (manifest.window.id)
     options.id = manifest.window.id;
@@ -32,15 +31,6 @@ if (manifest.window) {
     options.alwaysOnTop = true;
   if (manifest.window['visible_on_all_workspaces'] === true)
     options.visibleOnAllWorkspaces = true;
-  if (manifest.window.transparent)
-    options.alphaEnabled = true;
-  if (manifest.window.kiosk === true)
-    options.kiosk = true;
-  if (manifest.window.position)
-    options.position = manifest.window.position;
-  if (manifest.window.title)
-    options.title = manifest.window.title;
 }
+chrome.app.window.create(manifest.main, options);
 
-chrome.app.window.create(manifest.main, options, function(win) {
-});

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {HAS_BEEN_PASSWORD_SYMBOL} from '//components/autofill/ios/form_util/resources/fill_constants.js';
+import {HAS_BEEN_PASSWORD_SYMBOL, ID_SYMBOL} from '//components/autofill/ios/form_util/resources/fill_constants.js';
 import {APC_NODE_DEPTH_COST, getRemoteFrameRemoteToken, NONCE_ATTR} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/common.js';
 import {getNodeId, getOrCreateNodeId} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/dom_node_ids.js';
 import {AxRole, FormControlType, PageContentAnchorRel, PageContentAnnotatedRole, PageContentAttributeType, PageContentClickabilityReason, PageContentInteractionDisabledReason, PageContentMediaType, PageContentRedactionDecision, PageContentTableRowType, PageContentTextSize} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
@@ -27,6 +27,12 @@ interface PasswordTrackedElement extends HTMLInputElement {
   [HAS_BEEN_PASSWORD_SYMBOL]?: boolean;
 }
 
+// An HTMLInputElement that can hold an Autofill node id via the designated
+// symbol property.
+interface HtmlElementWithAutofillId extends HTMLElement {
+  [ID_SYMBOL]?: number;
+}
+
 // Cache that stores computed style for the latest walked element to avoid
 // repeated computations during the extraction.
 interface StyleCache {
@@ -47,7 +53,6 @@ interface StyleCache {
   window?: Window;
 }
 
-// The last known pointer position.
 // Tags that we fundamentally do not support or that contain non-content data.
 const TAG_STYLE = 'STYLE';
 const TAG_SCRIPT = 'SCRIPT';
@@ -60,6 +65,11 @@ const TAG_OBJECT = 'OBJECT';
 const TAG_DATALIST = 'DATALIST';
 const TAG_HEAD = 'HEAD';
 const TAG_CAPTION = 'CAPTION';
+
+// The ratio of element height to font size above which an inline element is
+// likely to be multi-line. The HEURISTIC_HEIGHT_RATIO accounts for
+// typical line-height and minor padding/borders.
+const HEURISTIC_HEIGHT_RATIO = 1.5;
 
 // Media tags.
 const TAG_SVG = 'SVG';
@@ -212,6 +222,8 @@ const ATTR_KEY_ONKEYDOWN = 'onkeydown';
 const ATTR_KEY_ONKEYUP = 'onkeyup';
 const ATTR_KEY_ONKEYPRESS = 'onkeypress';
 const ATTR_KEY_HREF = 'href';
+const ATTR_KEY_ACTION = 'action';
+const ATTR_KEY_NAME = 'name';
 
 // Attribute and style values.
 const ATTR_VALUE_TRUE = 'true';
@@ -301,6 +313,14 @@ const SPACE_SEPARATOR = /\s+/;
  */
 function isPageContextIPCOptimizationEnabled() {
   return (window as any).gCrWebPlaceholderPageContextIPCOptimization ?? false;
+}
+
+/**
+ * Returns true if page context actionable optimization is enabled.
+ */
+function isPageContextActionableOptimizationEnabled() {
+  return (window as any).gCrWebPlaceholderPageContextActionableOptimization ??
+      false;
 }
 
 /**
@@ -454,7 +474,7 @@ const HEADING_6_FONT_SIZE_MULTIPLIER = 0.67;
  *
  * @param fontSize The font size string (e.g., "16px").
  * @param doc The document to use for root font size reference.
- * @param styleCache The style cache to use for computing styles.
+ * @param styleCache The style cache to use for computed styles.
  * @return The corresponding PageContentTextSize category.
  */
 function getTextSizeCategory(
@@ -595,6 +615,54 @@ function getFormControlType(element: HTMLElement): FormControlType|undefined {
 }
 
 /**
+ * Checks whether the form control element may contain sensitive payment
+ * information.
+ *
+ * Matches Blink's `MayContainSensitiveData` in
+ * third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.cc.
+ *
+ * @param element The DOM element to check.
+ * @return True if the form control may contain sensitive payments.
+ */
+function mayContainSensitivePayment(element: HTMLElement): boolean {
+  const formControlType = getFormControlType(element);
+  if (formControlType === undefined) {
+    return false;
+  }
+
+  switch (formControlType) {
+    case FormControlType.INPUT_EMAIL:
+    case FormControlType.INPUT_MONTH:
+    case FormControlType.INPUT_NUMBER:
+    case FormControlType.INPUT_PASSWORD:
+    case FormControlType.INPUT_SEARCH:
+    case FormControlType.INPUT_TELEPHONE:
+    case FormControlType.INPUT_TEXT:
+    case FormControlType.INPUT_URL:
+    case FormControlType.SELECT_ONE:
+    case FormControlType.TEXT_AREA:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Checks whether geometry should be extracted for sensitive payment redaction.
+ *
+ * @param element The DOM element to check.
+ * @param includeSensitivePaymentsForRedaction Whether the configuration is
+ *     enabled.
+ * @return True if geometry should be extracted for sensitive payment.
+ */
+function shouldExtractGeometryForSensitivePayment(
+    element: HTMLElement,
+    includeSensitivePaymentsForRedaction: boolean): boolean {
+  return includeSensitivePaymentsForRedaction &&
+      mayContainSensitivePayment(element);
+}
+
+/**
  * Extracts the relationships (rel attribute) from an anchor element.
  *
  * @param anchorElement The anchor element to extract relationships from.
@@ -675,12 +743,33 @@ function isRenderedInTopLayer(element: HTMLElement): boolean {
  */
 function getFormData(form: HTMLFormElement): PageContentFormData {
   const formData: PageContentFormData = {};
-  if (form.name) {
-    formData.formName = form.name;
+
+  // Forms can contain nested elements with name="name" or name="action", which
+  // pollute and override direct property access or standard methods on the
+  // HTMLFormElement object (DOM stomping/clobbering). Bypassing direct calls
+  // by going through prototypes ensures we retrieve original values safely.
+  const formName = Element.prototype.getAttribute.call(form, ATTR_KEY_NAME);
+  if (formName) {
+    formData.formName = formName;
   }
-  if (form.action) {
-    formData.actionUrl = form.action;
+
+  const actionGetter =
+      Object
+          .getOwnPropertyDescriptor(HTMLFormElement.prototype, ATTR_KEY_ACTION)
+          ?.get;
+  if (actionGetter) {
+    try {
+      formData.actionUrl = actionGetter.call(form);
+    } catch (e) {
+      // In case of invalid URLs, APC extraction on Blink ends up with an empty
+      // string in the APC. See the wrapper here:
+      // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.cc;l=1132;drc=cd8f8edbd3e6254df081d9f9c3dd9a37d05bcfc6
+      // and the mojo parsing here:
+      // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/platform/mojo/kurl_mojom_traits.h;l=19-22;drc=f74b62f9c21559b6cf0e079b0830a903026f6210
+      formData.actionUrl = '';
+    }
   }
+
   return formData;
 }
 
@@ -972,7 +1061,8 @@ function getNodeInteractionInfo(
   // Check 'disabled' property for form elements.
   // Note: we cast to any because the 'disabled' property is not on HTMLElement
   // but specific subclasses like HTMLInputElement, HTMLButtonElement, etc.
-  if ('disabled' in element && (element as HtmlElementWithDisabled).disabled) {
+  if ('disabled' in element &&
+      (element as HtmlElementWithDisabled).disabled === true) {
     interactionDisabledReasons.push(
         PageContentInteractionDisabledReason.DISABLED);
     isDisabled = true;
@@ -1422,6 +1512,7 @@ function extractFrameData(
 
   frameData.frameInteractionInfo = extractFrameInteractionInfo(document);
   frameData.mediaData = extractMediaData(document);
+  frameData.isFocusedDocument = isDeepestFocusedDocument(document);
 
   return frameData;
 }
@@ -1588,7 +1679,8 @@ function getAttributesForTextNode(
 function getContentForIframeNode(
     iframeElement: HTMLIFrameElement, nonce: string, depth: number,
     maxDepth: number, actionableMode: boolean,
-    paidContentContext: PaidContentExtractionContext): PageContentNode|null {
+    paidContentContext: PaidContentExtractionContext,
+    includeSensitivePaymentsForRedaction: boolean): PageContentNode|null {
   const attributes: PageContentAttributes = {
     attributeType: PageContentAttributeType.IFRAME,
     annotatedRoles: [],
@@ -1597,6 +1689,7 @@ function getContentForIframeNode(
 
   let childTree: PageContentNode|null = null;
   let localFrameData: PageContentFrameData|undefined;
+  let localFrameId: string|undefined;
 
   // Always register the frame to get a remote token, even for same-origin
   // frames. This allows identification of the frame document in the browser.
@@ -1605,13 +1698,18 @@ function getContentForIframeNode(
   try {
     const contentDoc = iframeElement.contentDocument;
     if (contentDoc && contentDoc.body) {
+      const contentWindow = iframeElement.contentWindow;
+      if (contentWindow) {
+        localFrameId = (contentWindow as any).__gCrWeb?.getFrameId();
+      }
       // Recurse to start a new tree walk on the iframe content when available
       // (i.e. when on the same origin) because the TreeWalker doesn't walk
       // through iframe content.
       const pageContent = extractAnnotatedPageContent(
           contentDoc, nonce, depth + APC_NODE_DEPTH_COST, maxDepth,
           actionableMode, paidContentContext.extractPaidContent,
-          paidContentContext.attemptPaidContentJsonFixing);
+          paidContentContext.attemptPaidContentJsonFixing,
+          includeSensitivePaymentsForRedaction);
       if (pageContent) {
         childTree = pageContent.rootNode;
         localFrameData = pageContent.frameData;
@@ -1640,7 +1738,8 @@ function getContentForIframeNode(
   // site (domain and one level of subdomain). Only populate the remote token if
   // grafting is needed to get the iframe content.
   attributes.iframeData = {
-    frameToken: {value: childTree ? '' : remoteToken},
+    remoteFrameToken: {value: childTree ? '' : remoteToken},
+    localFrameToken: localFrameId ? {value: localFrameId} : undefined,
     content: {
       localFrameData: localFrameData,
     },
@@ -1673,9 +1772,11 @@ function getContentForIframeNode(
  * these two fields if both are present.
  *
  * @param element - The DOM element to extract labels from.
+ * @param styleCache - Optional style cache for computing styles.
  * @returns The resulting string or undefined if none found.
  */
-function getAriaLabel(element: HTMLElement): string | undefined {
+function getAriaLabel(element: HTMLElement, styleCache?: StyleCache): string|
+    undefined {
   const accumulatedTexts: string[] = [];
 
   // Process aria-labelledby.
@@ -1695,8 +1796,15 @@ function getAriaLabel(element: HTMLElement): string | undefined {
       const labelElement = rootNode.getElementById?.(id);
       // We use textContent instead of innerText
       // because elements referenced by aria-labelledby may not be visible.
-      const textContent = labelElement?.textContent;
-      if (textContent && textContent.trim().length > 0) {
+      let textContent = labelElement?.textContent;
+      if (labelElement && textContent && textContent.trim().length > 0) {
+        const style = getComputedStyleForElement(labelElement, styleCache);
+        // TODO(crbug.com/513835087): Consider covering nested blocks with
+        // similar text protections. Though note that this would appear to go
+        // beyond the Blink APC implementation.
+        if (style) {
+          textContent = applyTextTransformAndMasking(textContent, style);
+        }
         accumulatedTexts.push(textContent);
       }
     }
@@ -1704,8 +1812,12 @@ function getAriaLabel(element: HTMLElement): string | undefined {
 
   // Process aria-label if aria-labelledby is not present.
   if (accumulatedTexts.length === 0) {
-    const ariaLabel = element.getAttribute(ARIA_LABEL);
+    let ariaLabel = element.getAttribute(ARIA_LABEL);
     if (ariaLabel && ariaLabel.trim().length > 0) {
+      const style = getComputedStyleForElement(element, styleCache);
+      if (style) {
+        ariaLabel = applyTextTransformAndMasking(ariaLabel, style);
+      }
       accumulatedTexts.push(ariaLabel);
     }
   }
@@ -1872,6 +1984,20 @@ function isPasswordField(
 }
 
 /**
+ * Gets the autofill node ID for the `element` if one is available.
+ *
+ * @param element The DOM element to process.
+ * @return The autofill node ID, or undefined if there is no ID.
+ */
+function getAutofillNodeId(element: HTMLElement): number|undefined {
+  const id = (element as HtmlElementWithAutofillId)[ID_SYMBOL];
+  if (Number.isFinite(id)) {
+    return id;
+  }
+  return undefined;
+}
+
+/**
  * Extracts form control specific content attributes from a given DOM element.
  * Handles inputs, textareas, selects, and buttons.
  *
@@ -1965,6 +2091,8 @@ function getFormControlData(
     }
   }
 
+  formControlData.autofillNodeId = getAutofillNodeId(domNode);
+
   return formControlData as PageContentFormControlData;
 }
 
@@ -1972,17 +2100,29 @@ function getFormControlData(
  * Extracts table name from a given table DOM Node.
  *
  * @param domNode The table element to process.
+ * @param styleCache The style cache to use for computing styles.
  * @return The populated PageContentTableData.
  */
-function getTableNameForTableNode(domNode: HTMLElement): PageContentTableData {
+function getTableNameForTableNode(
+    domNode: HTMLElement, styleCache?: StyleCache): PageContentTableData {
   const tableData: PageContentTableData = {};
   const tableElement = domNode as HTMLTableElement;
   // NOTE: Table names will appear twice in the APC tree(once as a part of a
   // table node and once as a part of a text node). This matches Blink's
   // behavior.
-  const tableName = tableElement.caption?.innerText?.trim();
-  if (tableName) {
-    tableData.tableName = tableName;
+  const caption = tableElement.caption;
+  if (caption) {
+    let tableName = caption.innerText?.trim();
+    if (tableName) {
+      const style = getComputedStyleForElement(caption, styleCache);
+      if (style) {
+        // TODO(crbug.com/513835087): Consider covering nested blocks with
+        // similar text protections. Though note that this would appear to go
+        // beyond the Blink APC implementation.
+        tableName = applyTextTransformAndMasking(tableName, style);
+      }
+      tableData.tableName = tableName;
+    }
   }
   return tableData;
 }
@@ -2003,6 +2143,7 @@ function getTableNameForTableNode(domNode: HTMLElement): PageContentTableData {
 function getBasicContentForNonGenericElement(
     domNode: HTMLElement, nonce: string, depth: number, maxDepth: number,
     actionableMode: boolean, paidContentContext: PaidContentExtractionContext,
+    includeSensitivePaymentsForRedaction: boolean,
     styleCache?: StyleCache): PageContentNode|null {
   const tagName = getStandardTagName(domNode);
 
@@ -2011,7 +2152,7 @@ function getBasicContentForNonGenericElement(
     case TAG_IFRAME:
       return getContentForIframeNode(
           domNode as HTMLIFrameElement, nonce, depth, maxDepth, actionableMode,
-          paidContentContext);
+          paidContentContext, includeSensitivePaymentsForRedaction);
     case TAG_IMG:
       return {
         childrenNodes: [],
@@ -2089,7 +2230,7 @@ function getBasicContentForNonGenericElement(
         contentAttributes: {
           ...BASIC_CONTENT_ATTRIBUTES,
           attributeType: PageContentAttributeType.TABLE,
-          tableData: getTableNameForTableNode(domNode),
+          tableData: getTableNameForTableNode(domNode, styleCache),
         },
       };
     }
@@ -2206,6 +2347,53 @@ function getBasicContentForNonGenericElement(
 // TODO(crbug.com/468852704): Extract the missing data to reach parity with
 // third_party/blink/renderer/modules/content_extraction/
 // ai_page_content_agent.cc.
+
+/**
+ * Populates common attributes for a PageContentNode, such as interaction info,
+ * annotated roles, ARIA roles, and labels.
+ *
+ * @param element The HTML element to extract attributes from.
+ * @param attributes The PageContentAttributes object to populate.
+ * @param interactionInfo Pre-calculated interaction info, if available.
+ * @param paidContentContext Context regarding paid content extraction.
+ * @param actionableMode Whether to extract actionable information.
+ * @param annotatedRoles Pre-calculated annotated roles, if available.
+ * @param styleCache The style cache to use for computing styles.
+ */
+function populateCommonAttributes(
+    element: HTMLElement,
+    attributes: PageContentAttributes,
+    interactionInfo: PageContentNodeInteractionInfo | undefined,
+    paidContentContext: PaidContentExtractionContext,
+    actionableMode: boolean,
+    annotatedRoles?: PageContentAnnotatedRole[],
+    styleCache?: StyleCache) {
+
+  if (interactionInfo) {
+    attributes.nodeInteractionInfo = interactionInfo;
+  }
+
+  const rolesToAdd = annotatedRoles ?? [];
+  if (!annotatedRoles) {
+    addAnnotatedRoles(element, rolesToAdd, paidContentContext, styleCache);
+  }
+
+  if (rolesToAdd.length > 0) {
+    attributes.annotatedRoles ??= [];
+    attributes.annotatedRoles.push(...rolesToAdd);
+  }
+  if (actionableMode) {
+    const roleStr = element.getAttribute(ATTR_KEY_ROLE);
+    attributes.ariaRole =
+        roleStr ? getAXRoleForAriaRole(roleStr) : AxRole.AX_ROLE_UNKNOWN;
+  }
+
+  const ariaLabel = getAriaLabel(element, styleCache);
+  if (ariaLabel) {
+    attributes.label = ariaLabel;
+  }
+}
+
 /**
  * Generates content for an element node.
  *
@@ -2214,8 +2402,6 @@ function getBasicContentForNonGenericElement(
  * @param depth Current recursion depth.
  * @param maxDepth Maximal depth for nesting json objects beyond which content
  *     is truncated.
- * @param annotatedRoles The pre-calculated annotated roles which will be merged
- *     into the content attributes of the generated node.
  * @param interactionInfo The pre-calculated interaction info which will be
  *     merged into the content attributes of the generated node.
  * @param actionableMode Whether to extract actionable information.
@@ -2226,10 +2412,10 @@ function getBasicContentForNonGenericElement(
  */
 function getContentForElementNode(
     domNode: HTMLElement, nonce: string, depth: number, maxDepth: number,
-    annotatedRoles: PageContentAnnotatedRole[],
     interactionInfo: PageContentNodeInteractionInfo|undefined,
     actionableMode: boolean, interactiveNodeIds: InteractiveNodeIds,
     paidContentContext: PaidContentExtractionContext,
+    includeSensitivePaymentsForRedaction: boolean,
     styleCache?: StyleCache): PageContentNode|null {
   let labelForDOMNodeID: number | undefined = undefined;
   if (actionableMode && getStandardTagName(domNode) === TAG_LABEL) {
@@ -2242,7 +2428,10 @@ function getContentForElementNode(
   // 1. Try to get basic content for non-generic elements.
   contentNode = getBasicContentForNonGenericElement(
       domNode, nonce, depth, maxDepth, actionableMode, paidContentContext,
-      styleCache);
+      includeSensitivePaymentsForRedaction, styleCache);
+
+  const annotatedRoles: PageContentAnnotatedRole[] = [];
+  addAnnotatedRoles(domNode, annotatedRoles, paidContentContext, styleCache);
 
   // 2. Fallback: Generic Container.
   if (!contentNode &&
@@ -2264,20 +2453,11 @@ function getContentForElementNode(
   // `basicAttributes`.
 
   if (contentNode) {
-    if (annotatedRoles.length > 0) {
-      contentNode.contentAttributes.annotatedRoles = annotatedRoles;
-    }
-    if (interactionInfo) {
-      contentNode.contentAttributes.nodeInteractionInfo = interactionInfo;
-    }
-
+    populateCommonAttributes(
+        domNode, contentNode.contentAttributes, interactionInfo,
+        paidContentContext, actionableMode, annotatedRoles, styleCache);
     if (labelForDOMNodeID !== undefined) {
       contentNode.contentAttributes.labelForDomNodeId = labelForDOMNodeID;
-    }
-
-    const ariaLabel = getAriaLabel(domNode);
-    if (ariaLabel) {
-      contentNode.contentAttributes.label = ariaLabel;
     }
   }
 
@@ -2400,6 +2580,75 @@ function toEnclosingRect(rect: Rect): Rect {
 }
 
 /**
+ * Populates fragmentVisibleBoundingBoxes in geometry if the element is found
+ * to be fragmented.
+ *
+ * @param element The HTML element to check and extract client rects from.
+ * @param style The element's computed style.
+ * @param elementRect The element's bounding box.
+ * @param clipToUse The clip rect to use, if any.
+ * @param geometry The geometry object to populate.
+ */
+function populateFragmentsIfNeeded(
+    element: HTMLElement, style: CSSStyleDeclaration|undefined,
+    elementRect: Rect, clipToUse: Rect|null, geometry: PageContentGeometry) {
+  if (isPageContextActionableOptimizationEnabled()) {
+    // Handle fragmentation (e.g., text wrapping across multiple lines).
+    // We only need to check for inline as inline-block, inline-flex,
+    // inline-grid are not fragmented: they return 1 client rect.
+    if (style?.display !== ATTR_DISPLAY_INLINE) {
+      return;
+    }
+
+    // To limit the number of calls to getClientRects, we apply a heuristic
+    // that checks if the element is likely single-line based on its bounding
+    // box height and font size: two lines of text require at least 2x the font
+    // size in height.
+    //
+    // False negatives occurs when a multi-line inline element has a very small
+    // CSS line-height (e.g., < 1.0) that causes lines to overlap. This makes
+    // the total height fail the threshold, but it is extremely rare as it
+    // renders the content unreadable.
+    //
+    // False positives occur when a single-line element has large vertical
+    // padding, large borders, or a very high CSS line-height, causing its
+    // bounding box height to exceed the threshold. This is safe because we
+    // subsequently evaluate `getClientRects()` and will correctly find that
+    // there is only 1 client rect, causing the function to return early with no
+    // side effects.
+    const fontSize = parseFloat(style.fontSize);
+
+    // Evaluate whether it is likely multiple lines. The HEURISTIC_HEIGHT_RATIO
+    // accounts for typical line-height and minor padding/borders. Note that
+    // margin are not included. If fontSize is NaN, it falls back to
+    // getClientRects.
+    if (elementRect.height < fontSize * HEURISTIC_HEIGHT_RATIO) {
+      return;
+    }
+  }
+
+  const clientRects = element.getClientRects();
+  // Fragmentation only happens if there is more than 1 rectangles.
+  if (clientRects.length <= 1) {
+    return;
+  }
+
+  const fragmentVisibleBoundingBoxes: Rect[] = [];
+  for (let i = 0; i < clientRects.length; i++) {
+    const rect = clientRects[i]!;
+    const fragmentRect = createRect(rect.x, rect.y, rect.width, rect.height);
+    const visibleFragmentRect =
+        clipToUse ? intersection(fragmentRect, clipToUse) : fragmentRect;
+    if (visibleFragmentRect.width > 0 && visibleFragmentRect.height > 0) {
+      fragmentVisibleBoundingBoxes.push(toEnclosingRect(visibleFragmentRect));
+    }
+  }
+  if (fragmentVisibleBoundingBoxes.length > 0) {
+    geometry.fragmentVisibleBoundingBoxes = fragmentVisibleBoundingBoxes;
+  }
+}
+
+/**
  * Calculates and adds geometry information to a node's content attributes.
  * This includes the element's bounding box and visible bounding box, adjusted
  * for any clipping from parent elements.
@@ -2415,10 +2664,13 @@ function toEnclosingRect(rect: Rect): Rect {
 function addNodeGeometry(
     element: HTMLElement, attributes: PageContentAttributes,
     context: ClippingContext, actionableMode: boolean,
+    includeSensitivePaymentsForRedaction: boolean,
     styleCache?: StyleCache): ClippingContext {
-  // Only process element nodes when in actionable mode and return incoming
-  // context in that case since the resulting rectangle isn't needed.
-  if (!actionableMode) {
+  // Process element nodes when in actionable mode, or if it may contain
+  // sensitive payments and they should be redacted.
+  if (!actionableMode &&
+      !shouldExtractGeometryForSensitivePayment(
+          element, includeSensitivePaymentsForRedaction)) {
     return context;
   }
 
@@ -2464,30 +2716,7 @@ function addNodeGeometry(
       geometry.visibleBoundingBox = toEnclosingRect(visibleRect);
     }
 
-    // Handle fragmentation (e.g., text wrapping across multiple lines).
-    // We only need to check for inline as inline-block, inline-flex,
-    // inline-grid are not fragmented: they return 1 client rect.
-    if (style?.display === ATTR_DISPLAY_INLINE) {
-      const clientRects = element.getClientRects();
-      if (clientRects.length > 1) {
-        const fragmentVisibleBoundingBoxes: Rect[] = [];
-
-        for (let i = 0; i < clientRects.length; i++) {
-          const rect = clientRects[i]!;
-          const fragmentRect =
-              createRect(rect.x, rect.y, rect.width, rect.height);
-          const visibleFragmentRect = intersection(fragmentRect, clipToUse);
-          if (visibleFragmentRect.width > 0 && visibleFragmentRect.height > 0) {
-            fragmentVisibleBoundingBoxes.push(
-                toEnclosingRect(visibleFragmentRect));
-          }
-        }
-
-        if (fragmentVisibleBoundingBoxes.length > 0) {
-          geometry.fragmentVisibleBoundingBoxes = fragmentVisibleBoundingBoxes;
-        }
-      }
-    }
+    populateFragmentsIfNeeded(element, style, elementRect, clipToUse, geometry);
   }
 
   attributes.geometry = geometry;
@@ -2544,7 +2773,8 @@ function maybeGenerateContentNode(
     domNode: Node, nonce: string, depth: number, maxDepth: number,
     interactiveNodeIds: InteractiveNodeIds, actionableMode: boolean,
     paidContentContext: PaidContentExtractionContext, hasCanvas: boolean,
-    parentContext: ClippingContext, styleCache?: StyleCache): {
+    parentContext: ClippingContext,
+    includeSensitivePaymentsForRedaction: boolean, styleCache?: StyleCache): {
   node: PageContentNode|null,
   nextClippingContext: ClippingContext,
 } {
@@ -2568,29 +2798,23 @@ function maybeGenerateContentNode(
     }
   } else if (domNode.nodeType === Node.ELEMENT_NODE) {
     const element = domNode as HTMLElement;
-    const annotatedRoles: PageContentAnnotatedRole[] = [];
-    addAnnotatedRoles(element, annotatedRoles, paidContentContext, styleCache);
     const interactionInfo =
         getNodeInteractionInfo(element, actionableMode, hasCanvas, styleCache);
 
     const contentNode = getContentForElementNode(
-        element, nonce, depth, maxDepth, annotatedRoles, interactionInfo,
-        actionableMode, interactiveNodeIds, paidContentContext, styleCache);
+        element, nonce, depth, maxDepth, interactionInfo, actionableMode,
+        interactiveNodeIds, paidContentContext,
+        includeSensitivePaymentsForRedaction, styleCache);
     if (contentNode) {
       const domNodeId = getOrCreateNodeId(domNode);
       if (domNodeId !== null) {
         contentNode.contentAttributes.domNodeId = domNodeId;
       }
 
-      if (actionableMode) {
-        const roleStr = element.getAttribute(ATTR_KEY_ROLE);
-        contentNode.contentAttributes.ariaRole =
-            roleStr ? getAXRoleForAriaRole(roleStr) : AxRole.AX_ROLE_UNKNOWN;
-      }
 
       const nextClippingContext = addNodeGeometry(
           element, contentNode.contentAttributes, parentContext, actionableMode,
-          styleCache);
+          includeSensitivePaymentsForRedaction, styleCache);
       return {node: contentNode, nextClippingContext};
     }
   }
@@ -2697,7 +2921,8 @@ function generateAndPushContentNode(
     node: Node, nonce: string, maxDepth: number,
     ancestorStack: AncestorStackItem[], interactiveNodeIds: InteractiveNodeIds,
     actionableMode: boolean, paidContentContext: PaidContentExtractionContext,
-    hasCanvas: boolean, styleCache?: StyleCache) {
+    hasCanvas: boolean, includeSensitivePaymentsForRedaction: boolean,
+    styleCache?: StyleCache) {
   const parentStackItem = ancestorStack[ancestorStack.length - 1]!;
 
   // 2. Generate Content Node. Skip nodes that are too deep while keep
@@ -2712,7 +2937,8 @@ function generateAndPushContentNode(
 
   const result = maybeGenerateContentNode(
       node, nonce, currentDepth, maxDepth, interactiveNodeIds, actionableMode,
-      paidContentContext, hasCanvas, parentContext, styleCache);
+      paidContentContext, hasCanvas, parentContext,
+      includeSensitivePaymentsForRedaction, styleCache);
   if (!result.node) {
     // Ignore the node if it can't be parsed. That node cannot be a parent
     // either where another node in the ancestor stack will be picked as the
@@ -2743,6 +2969,19 @@ function generateAndPushContentNode(
   });
 }
 
+/**
+ * Checks if the current document is the deepest focused document.
+ *
+ * @param document The document to check.
+ * @return True if the document has focus and its active element is not an
+ *     iframe or frame.
+ */
+function isDeepestFocusedDocument(document: Document): boolean {
+  return document.hasFocus() &&
+      !(document.activeElement instanceof HTMLIFrameElement ||
+        document.activeElement instanceof HTMLFrameElement);
+}
+
 // TODO(crbug.com/485799759): Assess if we need the mouse position.
 /**
  * Extracts the page interaction info (focus, pointer position).
@@ -2756,6 +2995,8 @@ function extractPageInteractionInfo(document: Document):
 
   const focusedId = getFocusedNodeId(document);
   if (focusedId !== undefined) {
+    // TODO(crbug.com/507089815): Avoid dangling focusedDomNodeId for rejected
+    // elements.
     pageInteractionInfo.focusedDomNodeId = focusedId;
   }
 
@@ -3193,7 +3434,8 @@ function computeZOrder(rootNode: PageContentNode, rootDoc: Document) {
 export function extractAnnotatedPageContent(
     document: Document, nonce: string, depth: number = 0, maxDepth: number,
     actionableMode: boolean, extractPaidContent: boolean,
-    attemptPaidContentJsonFixing: boolean): PageContent|null {
+    attemptPaidContentJsonFixing: boolean,
+    includeSensitivePaymentsForRedaction: boolean): PageContent|null {
   if (depth > maxDepth) {
     return null;
   }
@@ -3261,6 +3503,11 @@ export function extractAnnotatedPageContent(
     childrenNodes: [],
   };
 
+  const rootInteractionInfo =
+      getNodeInteractionInfo(root, actionableMode, hasCanvas, styleCache);
+  populateCommonAttributes(
+      root, rootNode.contentAttributes, rootInteractionInfo, paidContentContext,
+      actionableMode, undefined, styleCache);
 
   // Stack to track the current ancestry chain. At this point it is known that
   // that there is at least a root node that is walkable.
@@ -3276,7 +3523,7 @@ export function extractAnnotatedPageContent(
           normalClip: getViewportRect(document),
           absoluteClip: getViewportRect(document),
         },
-        actionableMode, styleCache),
+        actionableMode, includeSensitivePaymentsForRedaction, styleCache),
   }];
 
   // Collect interactive nodes (focused element, selection start/end).
@@ -3377,7 +3624,8 @@ export function extractAnnotatedPageContent(
     // walking the tree since future nodes might be shallow enough.
     generateAndPushContentNode(
         currentNode, nonce, maxDepth, ancestorStack, interactiveNodeIds,
-        actionableMode, paidContentContext, hasCanvas, styleCache);
+        actionableMode, paidContentContext, hasCanvas,
+        includeSensitivePaymentsForRedaction, styleCache);
 
     currentNode = walker.nextNode();
   }

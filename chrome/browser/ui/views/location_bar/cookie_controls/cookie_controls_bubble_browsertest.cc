@@ -281,8 +281,11 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
               SetCookiesLabel(l10n_util::GetStringUTF16(
                   IDS_TRACKING_PROTECTION_BUBBLE_3PC_BLOCKED_SUBTITLE)));
   EXPECT_CALL(*mock_content_view(),
-              SetToggleIcon(testing::Field(
-                  &gfx::VectorIcon::name, views::kEyeCrossedRefreshIcon.name)));
+              SetToggleIcon(
+                  testing::Field(&gfx::VectorIcon::name,
+                                 features::IsRoundedIconsEnabled()
+                                     ? views::kVisibilityOffIcon.name
+                                     : views::kEyeCrossedRefreshOldIcon.name)));
   OnStatusChanged();
 }
 
@@ -303,9 +306,11 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
   EXPECT_CALL(*mock_content_view(),
               SetCookiesLabel(l10n_util::GetStringUTF16(
                   IDS_TRACKING_PROTECTION_BUBBLE_3PC_ALLOWED_SUBTITLE)));
-  EXPECT_CALL(*mock_content_view(),
-              SetToggleIcon(testing::Field(&gfx::VectorIcon::name,
-                                           views::kEyeRefreshIcon.name)));
+  EXPECT_CALL(*mock_content_view(), SetToggleIcon(testing::Field(
+                                        &gfx::VectorIcon::name,
+                                        features::IsRoundedIconsEnabled()
+                                            ? views::kVisibilityIcon.name
+                                            : views::kEyeRefreshOldIcon.name)));
   controls_state_ = CookieControlsState::kAllowed3pc;
   OnStatusChanged();
 }
@@ -327,9 +332,11 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewControllerPre3pcdBrowserTest,
   EXPECT_CALL(*mock_content_view(),
               SetCookiesLabel(l10n_util::GetStringUTF16(
                   IDS_TRACKING_PROTECTION_BUBBLE_3PC_ALLOWED_SUBTITLE)));
-  EXPECT_CALL(*mock_content_view(),
-              SetToggleIcon(testing::Field(&gfx::VectorIcon::name,
-                                           views::kEyeRefreshIcon.name)));
+  EXPECT_CALL(*mock_content_view(), SetToggleIcon(testing::Field(
+                                        &gfx::VectorIcon::name,
+                                        features::IsRoundedIconsEnabled()
+                                            ? views::kVisibilityIcon.name
+                                            : views::kEyeRefreshOldIcon.name)));
   controls_state_ = CookieControlsState::kAllowed3pc;
 
   OnStatusChanged();

@@ -19,6 +19,7 @@
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
+#include "base/notimplemented.h"
 #include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -57,6 +58,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_select_file_dialog_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -138,6 +140,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/devtools/devtools_policy_dialog.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -148,8 +151,12 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include <windows.h>
+
 #include "base/win/windows_version.h"
 #include "content/public/browser/gpu_data_manager.h"
+#include "ui/aura/window.h"
+#include "ui/aura/window_tree_host.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -757,7 +764,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_NEW_SPLIT_TAB:
       if (!browser_->tab_strip_model()->GetActiveTab()->IsSplit()) {
-        NewSplitTab(browser_,
+        NewSplitTab(browser_, split_tabs::SplitTabLayout::kSideBySide,
                     split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
       }
       break;
@@ -780,7 +787,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
 #endif
 
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
     case IDC_MINIMIZE_WINDOW:
       browser_->window()->Minimize();
       break;
@@ -790,13 +797,38 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_RESTORE_WINDOW:
       browser_->window()->Restore();
       break;
+
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_LINUX)
     case IDC_USE_SYSTEM_TITLE_BAR: {
       PrefService* prefs = profile()->GetPrefs();
       prefs->SetBoolean(prefs::kUseCustomChromeFrame,
                         !prefs->GetBoolean(prefs::kUseCustomChromeFrame));
       break;
     }
-#endif
+#endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN)
+    case IDC_MOVE_WINDOW: {
+      HWND hwnd = BrowserView::GetBrowserViewForBrowser(browser_)
+                      ->GetWidget()
+                      ->GetNativeWindow()
+                      ->GetHost()
+                      ->GetAcceleratedWidget();
+      PostMessage(hwnd, WM_SYSCOMMAND, SC_MOVE, 0);
+      break;
+    }
+    case IDC_SIZE_WINDOW: {
+      HWND hwnd = BrowserView::GetBrowserViewForBrowser(browser_)
+                      ->GetWidget()
+                      ->GetNativeWindow()
+                      ->GetHost()
+                      ->GetAcceleratedWidget();
+      PostMessage(hwnd, WM_SYSCOMMAND, SC_SIZE, 0);
+      break;
+    }
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
     case IDC_TOGGLE_FULLSCREEN_TOOLBAR:
@@ -1016,7 +1048,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
 
     // Show various bits of UI
     case IDC_OPEN_FILE:
-      browser_->OpenFile();
+      browser_->GetFeatures()
+          .browser_select_file_dialog_controller()
+          ->OpenFile();
       break;
     case IDC_CREATE_SHORTCUT:
       base::RecordAction(base::UserMetricsAction("CreateShortcut"));
@@ -1617,20 +1651,28 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_VISIT_DESKTOP_OF_LRU_USER_4, true);
   command_updater_.UpdateCommandEnabled(IDC_VISIT_DESKTOP_OF_LRU_USER_5, true);
 #endif
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
   command_updater_.UpdateCommandEnabled(IDC_MINIMIZE_WINDOW, true);
   command_updater_.UpdateCommandEnabled(IDC_MAXIMIZE_WINDOW, true);
   command_updater_.UpdateCommandEnabled(IDC_RESTORE_WINDOW, true);
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_LINUX)
   bool use_system_title_bar = true;
 #if BUILDFLAG(IS_OZONE)
   use_system_title_bar = ui::OzonePlatform::GetInstance()
                              ->GetPlatformRuntimeProperties()
                              .supports_server_side_window_decorations;
-#endif
+#endif  // BUILDFLAG(IS_OZONE)
   command_updater_.UpdateCommandEnabled(IDC_USE_SYSTEM_TITLE_BAR,
                                         use_system_title_bar);
 #endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN)
+  command_updater_.UpdateCommandEnabled(IDC_MOVE_WINDOW, true);
+  command_updater_.UpdateCommandEnabled(IDC_SIZE_WINDOW, true);
+#endif  // BUILDFLAG(IS_WIN)
+
   command_updater_.UpdateCommandEnabled(IDC_OPEN_IN_PWA_WINDOW,
                                         web_app::CanPopOutWebApp(profile()));
 
@@ -2324,6 +2366,10 @@ void BrowserCommandController::UpdateGlicState() {
       command_updater_.UpdateCommandEnabled(
           IDC_OPEN_GLIC,
           glic::GlicEnabling::IsEnabledForProfile(profile()) && !glic_active);
+
+      if (auto* const action = FindAction(kActionSidePanelShowGlic)) {
+        action->SetVisible(glic::GlicEnabling::ShouldShowGlicButton(profile()));
+      }
     }
   }
 }
@@ -2496,6 +2542,12 @@ void BrowserCommandController::UpdateCommandAndActionEnabled(
 void BrowserCommandController::UpdateCommandsForEnableGlicChanged() {
   command_updater_.UpdateCommandEnabled(
       IDC_OPEN_GLIC, glic::GlicEnabling::IsEnabledForProfile(profile()));
+
+  if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
+    if (auto* const action = FindAction(kActionSidePanelShowGlic)) {
+      action->SetVisible(glic::GlicEnabling::ShouldShowGlicButton(profile()));
+    }
+  }
 }
 
 BrowserWindow* BrowserCommandController::window() {

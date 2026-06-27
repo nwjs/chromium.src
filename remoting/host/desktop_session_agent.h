@@ -37,6 +37,7 @@
 #include "remoting/proto/coordinates.pb.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/proto/url_forwarder_control.pb.h"
+#include "remoting/protocol/audio_sample_info.h"
 #include "remoting/protocol/clipboard_stub.h"
 #include "remoting/protocol/mouse_cursor_monitor.h"
 #include "ui/events/types/event_type.h"
@@ -151,9 +152,11 @@ class DesktopSessionAgent
   void BeginFileWrite(const base::FilePath& file_path,
                       BeginFileWriteCallback callback) override;
   void SetHostCursorRenderedByClient() override;
-  void StartAudioInjector() override;
-  void InjectAudioPacket(
-      std::unique_ptr<remoting::AudioPacket> packet) override;
+  void StartAudioInjector(
+      std::unique_ptr<IpcFifoBufferReader> audio_reader) override;
+  void SetAudioInjectorSampleInfo(
+      const protocol::AudioSampleInfo& info,
+      SetAudioInjectorSampleInfoCallback callback) override;
 
   // Creates desktop integration components and a connected IPC channel to be
   // used to access them. The client end of the channel is returned.
@@ -242,6 +245,8 @@ class DesktopSessionAgent
 
   // Injects microphone input.
   std::unique_ptr<AudioInjector> audio_injector_;
+  std::optional<protocol::AudioSampleInfo> pending_audio_sample_info_;
+  SetAudioInjectorSampleInfoCallback pending_audio_sample_info_callback_;
 
   // Used to apply client-requested changes in screen resolution.
   std::unique_ptr<ScreenControls> screen_controls_;

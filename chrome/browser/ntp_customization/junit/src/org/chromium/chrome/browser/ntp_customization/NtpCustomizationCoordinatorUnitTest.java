@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +20,7 @@ import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoor
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.SINGLE_THEME_COLLECTION;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME_COLLECTIONS;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME_TIP;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -47,8 +49,10 @@ import org.chromium.chrome.browser.feed.FeedServiceBridgeJni;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.ntp_customization.ntp_cards.NtpCardsCoordinator;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpThemeCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme.tip.NtpThemeTipCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.prefs.PrefService;
@@ -72,6 +76,7 @@ public class NtpCustomizationCoordinatorUnitTest {
     @Mock private FeedServiceBridge.Natives mMockFeedServiceBridgeJni;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private ModuleRegistry mModuleRegistry;
+    @Mock private SnackbarManager mSnackbarManager;
 
     private Context mContext;
     private NtpCustomizationCoordinator mNtpCustomizationCoordinator;
@@ -106,7 +111,8 @@ public class NtpCustomizationCoordinatorUnitTest {
                         mProfileSupplier,
                         MAIN,
                         mWindowAndroid,
-                        mModuleRegistry);
+                        mModuleRegistry,
+                        mSnackbarManager);
         mNtpCustomizationCoordinator.setViewFlipperForTesting(mViewFlipper);
         mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
     }
@@ -115,6 +121,22 @@ public class NtpCustomizationCoordinatorUnitTest {
     public void testShowBottomSheet() {
         mNtpCustomizationCoordinator.showBottomSheet();
         verify(mMediator).showBottomSheet(eq(MAIN));
+    }
+
+    @Test
+    public void testShowThemeTipBottomSheet() {
+        mNtpCustomizationCoordinator =
+                new NtpCustomizationCoordinator(
+                        mContext,
+                        mBottomSheetController,
+                        mProfileSupplier,
+                        THEME_TIP,
+                        mWindowAndroid,
+                        mModuleRegistry,
+                        mSnackbarManager);
+        mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
+        mNtpCustomizationCoordinator.showBottomSheet();
+        verify(mMediator).showBottomSheet(eq(THEME_TIP));
     }
 
     @Test
@@ -147,7 +169,8 @@ public class NtpCustomizationCoordinatorUnitTest {
                         mProfileSupplier,
                         NTP_CARDS,
                         mWindowAndroid,
-                        mModuleRegistry);
+                        mModuleRegistry,
+                        mSnackbarManager);
         assertTrue(
                 mNtpCustomizationCoordinator.getBottomSheetDelegateForTesting().shouldShowAlone());
 
@@ -160,7 +183,8 @@ public class NtpCustomizationCoordinatorUnitTest {
                         mProfileSupplier,
                         FEED,
                         mWindowAndroid,
-                        mModuleRegistry);
+                        mModuleRegistry,
+                        mSnackbarManager);
         assertTrue(
                 mNtpCustomizationCoordinator.getBottomSheetDelegateForTesting().shouldShowAlone());
     }
@@ -176,15 +200,32 @@ public class NtpCustomizationCoordinatorUnitTest {
                         mProfileSupplier,
                         MAIN,
                         mWindowAndroid,
-                        mModuleRegistry);
+                        mModuleRegistry,
+                        mSnackbarManager);
         mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
         BottomSheetContent bottomSheetContent =
                 mNtpCustomizationCoordinator.initBottomSheetContent(mContentView);
         bottomSheetContent.handleBackPress();
         verify(mMediator).backPressOnCurrentBottomSheet();
 
-        // Verifies that if the bottom sheet type is not MAIN, dismissBottomSheet() is called
-        // to handle back presses.
+        // Verifies that if the bottom sheet type is THEME_TIP, backPressOnCurrentBottomSheet() is
+        // called to handle back presses.
+        mNtpCustomizationCoordinator =
+                new NtpCustomizationCoordinator(
+                        mContext,
+                        mBottomSheetController,
+                        mProfileSupplier,
+                        THEME_TIP,
+                        mWindowAndroid,
+                        mModuleRegistry,
+                        mSnackbarManager);
+        mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
+        bottomSheetContent = mNtpCustomizationCoordinator.initBottomSheetContent(mContentView);
+        bottomSheetContent.handleBackPress();
+        verify(mMediator, times(2)).backPressOnCurrentBottomSheet();
+
+        // Verifies that if the bottom sheet type is not MAIN or THEME_TIP, dismissBottomSheet() is
+        // called to handle back presses.
         mNtpCustomizationCoordinator =
                 new NtpCustomizationCoordinator(
                         mContext,
@@ -192,7 +233,8 @@ public class NtpCustomizationCoordinatorUnitTest {
                         mProfileSupplier,
                         NTP_CARDS,
                         mWindowAndroid,
-                        mModuleRegistry);
+                        mModuleRegistry,
+                        mSnackbarManager);
         mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
         bottomSheetContent = mNtpCustomizationCoordinator.initBottomSheetContent(mContentView);
         bottomSheetContent.handleBackPress();
@@ -206,7 +248,8 @@ public class NtpCustomizationCoordinatorUnitTest {
                         mProfileSupplier,
                         FEED,
                         mWindowAndroid,
-                        mModuleRegistry);
+                        mModuleRegistry,
+                        mSnackbarManager);
         mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
         bottomSheetContent = mNtpCustomizationCoordinator.initBottomSheetContent(mContentView);
         bottomSheetContent.handleBackPress();
@@ -227,12 +270,15 @@ public class NtpCustomizationCoordinatorUnitTest {
     public void testDestroy() {
         NtpCardsCoordinator ntpCardsCoordinator = mock(NtpCardsCoordinator.class);
         mNtpCustomizationCoordinator.setNtpCardsCoordinatorForTesting(ntpCardsCoordinator);
+        NtpThemeTipCoordinator ntpThemeTipCoordinator = mock(NtpThemeTipCoordinator.class);
+        mNtpCustomizationCoordinator.setNtpThemeTipCoordinatorForTesting(ntpThemeTipCoordinator);
 
         mNtpCustomizationCoordinator.destroy();
 
         verify(mViewFlipper).removeAllViews();
         verify(mMediator).destroy();
         verify(ntpCardsCoordinator).destroy();
+        verify(ntpThemeTipCoordinator).destroy();
     }
 
     @Test

@@ -170,13 +170,17 @@ class DeviceInfo {
     kTv = 6,
   };
 
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
   // LINT.IfChange(GlicExperimentalTriggeringState)
   enum class GlicExperimentalTriggeringState {
     kUnavailable = 0,
     kNeedsOptIn = 1,
     kReady = 2,
+    kMaxValue = kReady,
   };
-  // LINT.ThenChange(//components/sync/protocol/sync_enums.proto:GlicExperimentalTriggeringState)
+  // LINT.ThenChange(//components/sync/protocol/sync_enums.proto:GlicExperimentalTriggeringState,
+  // //tools/metrics/histograms/metadata/glic/enums.xml:GlicExperimentalTriggeringState)
 
   DeviceInfo(
       const std::string& guid,
@@ -204,10 +208,11 @@ class DeviceInfo {
           desktop_to_ios_promo_receiving_types,
       GlicExperimentalTriggeringState glic_experimental_triggering_state);
 
-  DeviceInfo(const DeviceInfo&) = delete;
   DeviceInfo& operator=(const DeviceInfo&) = delete;
 
   ~DeviceInfo();
+
+  std::unique_ptr<DeviceInfo> DeepCopyForTesting() const;
 
   // Sync specific unique identifier for the device. Note if a device
   // is wiped and sync is set up again this id WILL be different.
@@ -325,6 +330,9 @@ class DeviceInfo {
       GlicExperimentalTriggeringState state);
 
  private:
+  // Used by DeepCopyForTesting().
+  DeviceInfo(const DeviceInfo& other);
+
   const std::string guid_;
 
   std::string client_name_;

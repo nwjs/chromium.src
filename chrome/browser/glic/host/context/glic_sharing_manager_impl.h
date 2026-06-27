@@ -9,6 +9,7 @@
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/host/context/glic_focused_browser_manager.h"
 #include "chrome/browser/glic/host/context/glic_focused_tab_manager_interface.h"
+#include "chrome/browser/glic/host/context/glic_pin_candidate_provider.h"
 #include "chrome/browser/glic/host/context/glic_pinned_tab_manager.h"
 #include "chrome/browser/glic/host/context/glic_tab_data.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
@@ -22,7 +23,8 @@ class GlicStablePinningDelegatingSharingManager;
 // Implements GlicSharingManager and provides additional functionality needed
 // by chrome/browser/glic. It also provides some common sharing-related
 // functionality.
-class GlicSharingManagerImpl : public GlicSharingManager {
+class GlicSharingManagerImpl : public GlicSharingManager,
+                               public GlicPinCandidateProvider {
  public:
   GlicSharingManagerImpl(
       std::unique_ptr<GlicFocusedTabManagerInterface> focused_tab_manager,
@@ -64,7 +66,7 @@ class GlicSharingManagerImpl : public GlicSharingManager {
       TabPinningStatusChangedCallback callback) override;
 
   using PinnedTabsChangedCallback =
-      base::RepeatingCallback<void(const std::vector<content::WebContents*>&)>;
+      base::RepeatingCallback<void(const std::vector<tabs::TabInterface*>&)>;
   base::CallbackListSubscription AddPinnedTabsChangedCallback(
       PinnedTabsChangedCallback callback) override;
 
@@ -81,6 +83,9 @@ class GlicSharingManagerImpl : public GlicSharingManager {
 
   bool PinTabs(base::span<const tabs::TabHandle> tab_handles,
                GlicPinTrigger trigger) override;
+
+  void SetPinTrigger(tabs::TabHandle tab_handle,
+                     GlicPinTrigger trigger) override;
 
   bool UnpinTabs(base::span<const tabs::TabHandle> tab_handles,
                  GlicUnpinTrigger trigger) override;
@@ -100,7 +105,7 @@ class GlicSharingManagerImpl : public GlicSharingManager {
 
   int32_t SetMaxPinnedTabs(uint32_t max_pinned_tabs) override;
 
-  std::vector<content::WebContents*> GetPinnedTabs() const override;
+  std::vector<tabs::TabInterface*> GetPinnedTabs() const override;
 
   std::optional<GlicGetContextError> CheckPreliminaryContextSharingEligibility(
       tabs::TabHandle tab_handle) const override;
@@ -120,7 +125,6 @@ class GlicSharingManagerImpl : public GlicSharingManager {
       mojo::PendingRemote<mojom::PinCandidatesObserver> observer) override;
 
   void OnConversationTurnSubmitted() override;
-
 
   base::WeakPtr<GlicSharingManager> GetWeakPtr() override;
 

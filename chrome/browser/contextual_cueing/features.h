@@ -12,8 +12,13 @@
 namespace contextual_cueing {
 
 BASE_DECLARE_FEATURE(kContextualCueingV2);
+BASE_DECLARE_FEATURE(kContextualCueingV2EnforceAgeRestriction);
+
 extern const base::FeatureParam<double> kEduClassifierThreshold;
 extern const base::FeatureParam<double> kShoppingClassifierThreshold;
+
+// If true, discard shopping PDFs from being eligible for cues.
+extern const base::FeatureParam<bool> kDiscardShoppingPdfs;
 extern const base::FeatureParam<int> kMaxNumBackgroundTabs;
 
 // If true, disable the cue backoff logic.
@@ -41,15 +46,27 @@ extern const base::FeatureParam<int> kVisitedOriginsLimit;
 
 // The amount of time to wait when a nudge is dismissed following the
 // exponential back off rule. The amount of the time to back off each time can
-// be computed as: kBackoffTime * (kBackoffMultiplierBase ^ dismissCount).
-extern const base::FeatureParam<base::TimeDelta> kBackoffTime;
-extern const base::FeatureParam<double> kBackoffMultiplierBase;
+// be computed as: kDismissBackoffTime * (kDismissBackoffMultiplierBase ^
+// dismissCount).
+extern const base::FeatureParam<base::TimeDelta> kDismissBackoffTime;
+extern const base::FeatureParam<double> kDismissBackoffMultiplierBase;
+
+// The amount of time to wait when a nudge is clicked on.
+extern const base::FeatureParam<base::TimeDelta> kClickBackoffTime;
 
 // If true, uses private AI to generate cues.
 extern const base::FeatureParam<bool> kUsePrivateAi;
 
 // The help center article link.
 extern const base::FeatureParam<std::string> kHelpCenterArticleLink;
+
+// Visibility mode for the tab list.
+enum class TabListVisibility {
+  kNever = 0,
+  kAlways = 1,
+  kOnlyIfMultiple = 2,
+};
+extern const base::FeatureParam<TabListVisibility> kTabListVisibility;
 
 }  // namespace contextual_cueing
 

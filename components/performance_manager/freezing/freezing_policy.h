@@ -235,7 +235,7 @@ class FreezingPolicy : public PageNodeObserver,
 
   // Invoked by the OptOutChecker when the opt-out policy for
   // `browser_context_id` changes.
-  void OnOptOutPolicyChanged(std::string_view browser_context_id);
+  void OnOptOutPolicyChanged(const base::UnguessableToken& browser_context_id);
 
   // Removes the last page from the most recently used list if needed, to keep
   // its size below the limit.
@@ -318,9 +318,6 @@ class FreezingPolicy : public PageNodeObserver,
   // belong to the same [browsing instance, origin] over an interval, based on
   // cumulative measurements from `resource_usage_query_`.
   resource_attribution::CPUProportionTracker cpu_proportion_tracker_;
-
-  // Used to subsample the emission of UKM events.
-  base::MetricsSubSampler metrics_subsampler_;
 
   // List of most recently used hidden tabs. A tab becomes the most recently
   // used when it transitions from visible to hidden, or when it's created in a

@@ -392,8 +392,13 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
                                 (view) -> mMenuBridge.executeAction(entry.id))
                         .with(
                                 ExtensionsMenuItemProperties.SITE_ACCESS_TOGGLE_ON_CLICK,
-                                (buttonView, isOn) ->
-                                        mMenuBridge.onExtensionToggleSelected(entry.id, isOn))
+                                (buttonView, isOn) -> {
+                                    mMenuBridge.onExtensionToggleSelected(
+                                            entry.id, entry.origin, isOn);
+                                    if (!isOn) {
+                                        mOnDismissMenu.run();
+                                    }
+                                })
                         .with(
                                 ExtensionsMenuItemProperties.SITE_PERMISSIONS_BUTTON_ON_CLICK,
                                 (view) -> onSitePermissionsButtonClicked(entry.id))
@@ -468,6 +473,9 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
         itemModel.set(ExtensionsMenuItemProperties.ICON, itemState.actionButton.icon);
         itemModel.set(ExtensionsMenuItemProperties.IS_PINNED, itemState.contextMenuButton.isOn);
         itemModel.set(
+                ExtensionsMenuItemProperties.CONTEXT_MENU_BUTTON_ACCESSIBLE_NAME,
+                itemState.contextMenuButton.accessibleName);
+        itemModel.set(
                 ExtensionsMenuItemProperties.SITE_ACCESS_TOGGLE_CHECKED,
                 itemState.siteAccessToggle.isOn);
         itemModel.set(
@@ -485,6 +493,9 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
         itemModel.set(
                 ExtensionsMenuItemProperties.SITE_PERMISSIONS_BUTTON_TEXT,
                 itemState.sitePermissionsButton.text);
+        itemModel.set(
+                ExtensionsMenuItemProperties.SITE_PERMISSIONS_BUTTON_TOOLTIP,
+                itemState.sitePermissionsButton.tooltipText);
         itemModel.set(ExtensionsMenuItemProperties.IS_ENTERPRISE, itemState.isEnterprise);
     }
 
@@ -534,6 +545,11 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
     private void updateSitePermissionsPage(String extensionId) {
         ExtensionsMenuTypes.ExtensionSitePermissionsState sitePermissionsState =
                 mMenuBridge.getExtensionSitePermissionsState(extensionId);
+        if (sitePermissionsState == null) {
+            mMainPageModel.set(
+                    ExtensionsMenuProperties.CURRENT_PAGE, ExtensionsMenuProperties.Page.MAIN);
+            return;
+        }
 
         mSitePermissionsPageModel.set(
                 SitePermissionsPageProperties.EXTENSION_NAME, sitePermissionsState.extensionName);
@@ -547,9 +563,12 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
         mSitePermissionsPageModel.set(
                 SitePermissionsPageProperties.ON_ALL_SITES_STATE,
                 sitePermissionsState.onAllSitesOption);
+
         mSitePermissionsPageModel.set(
                 SitePermissionsPageProperties.ON_SITE_ACCESS_SELECTED_LISTENER,
-                (siteAccess) -> mMenuBridge.onExtensionSiteAccessSelected(extensionId, siteAccess));
+                (siteAccess) ->
+                        mMenuBridge.onExtensionSiteAccessSelected(
+                                extensionId, sitePermissionsState.origin, siteAccess));
 
         mSitePermissionsPageModel.set(
                 SitePermissionsPageProperties.SHOW_REQUESTS_TOGGLE_CHECKED,
@@ -565,8 +584,9 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
         boolean isZeroState = mActionModels.size() == 0;
         mMainPageModel.set(ExtensionsMenuProperties.IS_ZERO_STATE, isZeroState);
         if (isZeroState) {
-            // If we are in zero state, hide the site settings toggle to keep the empty state clean.
-            mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE, false);
+            // If we are in zero state, hide the site settings container to keep the empty state
+            // clean.
+            mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_CONTAINER_VISIBLE, false);
             // We also hide the discover extensions button in the main page, as there is already an
             // open web store button present in the zero state view.
             mMainPageModel.set(ExtensionsMenuProperties.DISCOVER_EXTENSIONS_VISIBLE, false);
@@ -581,6 +601,7 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
     void updateSiteSettingsToggle() {
         ExtensionsMenuTypes.SiteSettingsState siteSettingsState =
                 mMenuBridge.getSiteSettingsState();
+        mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_CONTAINER_VISIBLE, true);
         mMainPageModel.set(
                 ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_VISIBLE,
                 siteSettingsState.toggle.status != ExtensionsMenuTypes.ControlState.Status.HIDDEN);
@@ -591,5 +612,8 @@ class ExtensionsMenuMediator implements Destroyable, ExtensionsMenuBridge.Observ
                 ExtensionsMenuProperties.SITE_SETTINGS_TOGGLE_TOOLTIP,
                 siteSettingsState.toggle.tooltipText);
         mMainPageModel.set(ExtensionsMenuProperties.SITE_SETTINGS_LABEL, siteSettingsState.label);
+        mMainPageModel.set(
+                ExtensionsMenuProperties.SITE_SETTINGS_INFO_ICON_VISIBLE,
+                siteSettingsState.hasTooltip);
     }
 }

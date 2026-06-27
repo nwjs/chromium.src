@@ -10,7 +10,6 @@
 #include "ash/webui/os_feedback_ui/backend/histogram_util.h"
 #include "ash/webui/os_feedback_ui/backend/os_feedback_delegate.h"
 #include "ash/webui/os_feedback_ui/mojom/os_feedback_ui.mojom.h"
-#include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -30,13 +29,10 @@ constexpr char kSignedInUserEmail[] = "test_user_email@test.com";
 constexpr char kSignedInInternalUserEmail[] = "test_user_email@google.com";
 constexpr char kFeedbackAppPostSubmitAction[] =
     "Feedback.ChromeOSApp.PostSubmitAction";
-constexpr char kTestMacAddress[] = "12:34:56:78:AB";
 // Set this flag true to use kSignedInInternalUserEmail as signed in email,
 // set false to use kSignedInUserEmail as signed in email.
 bool kUseInternalUserEmail = false;
-bool kHasLinkedCrossDevicePhone = false;
 constexpr bool kIsInternalEmail = true;
-constexpr bool kIsNotInternalEmail = false;
 constexpr int kPerformanceTraceId = 1;
 const std::vector<uint8_t> kFakePngData = {42, 22, 26, 13, 7, 16, 8, 2};
 
@@ -61,11 +57,6 @@ class TestOsFeedbackDelegate : public OsFeedbackDelegate {
   bool IsChildAccount() override { return false; }
 
   std::optional<GURL> GetLastActivePageUrl() override { return GURL(kPageUrl); }
-
-  std::optional<std::string> GetLinkedPhoneMacAddress() override {
-    return kHasLinkedCrossDevicePhone ? std::make_optional(kTestMacAddress)
-                                      : std::nullopt;
-  }
 
   std::optional<std::string> GetSignedInUserEmail() const override {
     return kUseInternalUserEmail ? kSignedInInternalUserEmail
@@ -142,11 +133,7 @@ class FeedbackServiceProviderTest : public testing::Test {
 // Test that GetFeedbackContext returns a response with correct feedback
 // context.
 TEST_F(FeedbackServiceProviderTest, GetFeedbackContext) {
-  base::test::ScopedFeatureList feature_list{
-      ash::features::kLinkCrossDeviceDogfoodFeedback};
-
   kUseInternalUserEmail = true;
-  kHasLinkedCrossDevicePhone = true;
   auto internal_feedback_context = GetFeedbackContextAndWait();
 
   EXPECT_EQ(kSignedInInternalUserEmail,
@@ -154,22 +141,16 @@ TEST_F(FeedbackServiceProviderTest, GetFeedbackContext) {
   EXPECT_EQ(kPageUrl, internal_feedback_context->page_url.value().spec());
   EXPECT_EQ(kIsInternalEmail, internal_feedback_context->is_internal_account);
   EXPECT_EQ(kPerformanceTraceId, internal_feedback_context->trace_id);
-  EXPECT_EQ(kHasLinkedCrossDevicePhone,
-            internal_feedback_context->has_linked_cross_device_phone);
 
   kUseInternalUserEmail = false;
-  kHasLinkedCrossDevicePhone = false;
   auto feedback_context = GetFeedbackContextAndWait();
 
   EXPECT_EQ(kSignedInUserEmail, feedback_context->email.value());
   EXPECT_EQ(kPageUrl, feedback_context->page_url.value().spec());
-  EXPECT_EQ(kIsNotInternalEmail, feedback_context->is_internal_account);
+  EXPECT_FALSE(feedback_context->is_internal_account);
   EXPECT_EQ(kPerformanceTraceId, feedback_context->trace_id);
-  EXPECT_EQ(kHasLinkedCrossDevicePhone,
-            feedback_context->has_linked_cross_device_phone);
   EXPECT_FALSE(feedback_context->wifi_debug_logs_allowed);
 }
-
 // Test that GetScreenshotPng returns a response with correct status.
 TEST_F(FeedbackServiceProviderTest, GetScreenshotPng) {
   auto png_data = GetScreenshotPngAndWait();
@@ -204,7 +185,7 @@ TEST_F(FeedbackServiceProviderTest, ResetReceiverOnBindInterface) {
   // DCHECK error from mojo::Receiver
   provider_remote_.reset();  // reset the binding done in Setup.
   provider_.BindInterface(provider_remote_.BindNewPipeAndPassReceiver());
-  base::RunLoop().RunUntilIdle();
+  provider_remote_.FlushForTesting();
 }
 
 }  // namespace feedback

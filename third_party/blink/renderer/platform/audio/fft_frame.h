@@ -61,10 +61,10 @@ class PLATFORM_EXPORT FFTFrame final {
   // have platform-dependent implementations.
 
   explicit FFTFrame(unsigned fft_size);
-  // creates a blank/empty frame for later use with createInterpolatedFrame()
-  FFTFrame();
-  FFTFrame(const FFTFrame& frame);
-  ~FFTFrame();
+  FFTFrame() = delete;
+  FFTFrame(const FFTFrame&) = delete;
+  FFTFrame& operator=(const FFTFrame&) = delete;
+  ~FFTFrame() = default;
 
   // Returns the smallest and largest supported FFT lengths.
   static unsigned MinFFTSize();
@@ -76,12 +76,12 @@ class PLATFORM_EXPORT FFTFrame final {
 
   // Compute the FFT of |data|, storing the resulting FFT in |real_data_| and
   // |imag_data_|.  |data| MUST have size at least |fft_size_| elements.
-  void DoFFT(const float* data);
+  void DoFFT(base::span<const float> data);
 
   // Compute the inverse FFT using the FFT data in |real_data_| and
   // |imag_data_|.  The inverse is saved in |data|.  |data| MUST have size at
   // least |fft_size_| elements.
-  void DoInverseFFT(float* data);
+  void DoInverseFFT(base::span<float> data);
 
   AudioFloatArray& RealData() { return real_data_; }
   const AudioFloatArray& RealData() const { return real_data_; }
@@ -112,6 +112,14 @@ class PLATFORM_EXPORT FFTFrame final {
   void InterpolateFrequencyComponents(const FFTFrame& frame1,
                                       const FFTFrame& frame2,
                                       double x);
+
+  void PlatformConstruct();
+  static unsigned PlatformMinFFTSize();
+  static unsigned PlatformMaxFFTSize();
+  static void PlatformInitialize(float sample_rate);
+  static void PlatformCleanup();
+  void PlatformDoFFT(base::span<const float> data);
+  void PlatformDoInverseFFT(base::span<float> data);
 
   unsigned fft_size_ = 0;
 

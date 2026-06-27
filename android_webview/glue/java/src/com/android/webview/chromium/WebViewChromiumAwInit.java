@@ -367,11 +367,10 @@ public class WebViewChromiumAwInit {
         CallSite.STATIC_GET_SAFE_BROWSING_PRIVACY_POLICY_URL,
         CallSite.STATIC_IS_MULTI_PROCESS_ENABLED,
         CallSite.STATIC_GET_VARIATIONS_HEADER,
-        CallSite.STATIC_SET_RENDERER_LIBRARY_PREFETCH_MODE,
-        CallSite.STATIC_GET_RENDERER_LIBRARY_PREFETCH_MODE,
         CallSite.GET_DEFAULT_COOKIE_MANAGER,
         CallSite.GET_PROFILE_STORE,
         CallSite.WEBVIEW_INSTANCE_GET_SETTINGS,
+        CallSite.WEBVIEW_INSTANCE_GET_AW_CONTENTS,
         CallSite.COUNT,
     })
     public @interface CallSite {
@@ -479,14 +478,14 @@ public class WebViewChromiumAwInit {
         int STATIC_GET_SAFE_BROWSING_PRIVACY_POLICY_URL = 100;
         int STATIC_IS_MULTI_PROCESS_ENABLED = 101;
         int STATIC_GET_VARIATIONS_HEADER = 102;
-        // Values 103 and 104 were used for traffic stats, which no longer start up chromium.
-        int STATIC_SET_RENDERER_LIBRARY_PREFETCH_MODE = 105;
-        int STATIC_GET_RENDERER_LIBRARY_PREFETCH_MODE = 106;
+        // Values 103 and 104 were used for traffic stats, which no longer start up Chromium.
+        // Values 105 and 106 were used for {get,set}RendererLibraryPrefetchMode.
         int GET_DEFAULT_COOKIE_MANAGER = 107;
         int GET_PROFILE_STORE = 108;
         int WEBVIEW_INSTANCE_GET_SETTINGS = 109;
+        int WEBVIEW_INSTANCE_GET_AW_CONTENTS = 110;
         // Remember to update WebViewStartupCallSite in enums.xml when adding new values here.
-        int COUNT = 110;
+        int COUNT = 111;
     };
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:WebViewStartupCallSite)
@@ -697,9 +696,6 @@ public class WebViewChromiumAwInit {
         addBrowserProcessStartTasksToQueue(
                 preBrowserProcessStartTasks, postBrowserProcessStartTasks);
 
-        // This has to be done after variations are initialized, so components could
-        // be registered or not depending on the variations flags.
-        postBrowserProcessStartTasks.addLast(AwBrowserProcess::loadComponents);
         postBrowserProcessStartTasks.addLast(
                 () -> {
                     AwBrowserProcess.initializeMetricsLogUploader();
@@ -734,12 +730,10 @@ public class WebViewChromiumAwInit {
                         AwDarkMode.enableSimplifiedDarkMode();
                     }
 
-                    if (AwBrowserProcess.shouldDeferGmsCalls()) {
-                        AwBrowserProcess.maybeEnableSafeBrowsingFromGms();
-                        AwBrowserProcess.setupSupervisedUser();
-                        AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(
-                                /* updateMetricsConsent= */ true);
-                    }
+                    AwBrowserProcess.maybeEnableSafeBrowsingFromGms();
+                    AwBrowserProcess.setupSupervisedUser();
+                    AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(
+                            /* updateMetricsConsent= */ true);
 
                     AwBrowserProcess.postBackgroundTasks(
                             mFactory.isSafeModeEnabled(), mFactory.getWebViewPrefs());
@@ -823,10 +817,11 @@ public class WebViewChromiumAwInit {
     // Run the next startup task following BrowserProcess init.
     private void runImmediateTaskAfterBrowserProcessInit() {
         // TODO(crbug.com/332706093): See if this can be moved before loading native.
-        AwClassPreloader.preloadClasses();
-        if (!AwBrowserProcess.shouldDeferGmsCalls()) {
-            AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(/* updateMetricsConsent= */ true);
+        if (!WebViewCachedFlags.get()
+                .isCachedFeatureEnabled(AwFeatures.WEBVIEW_BACKGROUND_CLASS_PRELOADING)) {
+            AwClassPreloader.preloadClasses();
         }
+
         AwBrowserProcess.doNetworkInitializations(ContextUtils.getApplicationContext());
     }
 

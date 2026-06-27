@@ -37,7 +37,7 @@ class NinePatchLayer;
 class SolidColorLayer;
 class SurfaceLayer;
 class TextureLayer;
-}
+}  // namespace cc
 
 namespace gfx {
 class RoundedCornersF;
@@ -48,9 +48,18 @@ class LinearGradient;
 namespace viz {
 class CopyOutputRequest;
 struct TransferableResource;
-}
+}  // namespace viz
 
 namespace ui {
+
+enum class LayerRequestType {
+  kPaint,
+  kCacheRenderSurface,
+  kTrilinearFiltering,
+};
+
+template <LayerRequestType>
+class ScopedLayerRequest;
 
 class Compositor;
 class LayerAnimator;
@@ -549,6 +558,14 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   // needs to be created.
   void SetScrollable(const gfx::Size& container_bounds);
 
+  // When set to true, disables optimizations to apply scrolls directly to the
+  // compositor's "Impl" tree, prioritizing the ability to synchronize other
+  // layout updates with scroll updates.
+  void SetMainSideScrollingEnabled(bool enabled);
+  bool main_side_scrolling_enabled() const {
+    return main_side_scrolling_enabled_;
+  }
+
   // Gets and sets the current scroll offset of the layer.
   gfx::PointF CurrentScrollOffset() const;
   void SetScrollOffset(const gfx::PointF& offset);
@@ -580,17 +597,6 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
     return frame_size_in_dip_;
   }
 
-  // Force use of and cache render surface. Note that this also disables
-  // occlusion culling in favor of efficient caching. This should
-  // only be used when paying the cost of creating a render
-  // surface even if layer is invisible is not a problem.
-  void AddCacheRenderSurfaceRequest();
-  void RemoveCacheRenderSurfaceRequest();
-
-  // Request deferring painting for layer.
-  void AddDeferredPaintRequest();
-  void RemoveDeferredPaintRequest();
-
   // |quality| is used as a multiplier to scale the temporary surface
   // that might be created by the compositor to apply the backdrop filters.
   // The filter will be applied on a surface |quality|^2 times the area of the
@@ -600,10 +606,6 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   void SetBackdropFilterQuality(const float quality);
 
   bool IsPaintDeferredForTesting() const { return deferred_paint_requests_; }
-
-  // Request trilinear filtering for layer.
-  void AddTrilinearFilteringRequest();
-  void RemoveTrilinearFilteringRequest();
 
   // The back link from the mask layer to it's associated masked layer.
   // We keep this reference for the case that if the mask layer gets deleted
@@ -629,8 +631,26 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
 
  private:
   friend class LayerOwner;
+  friend class ScopedLayerRequest<LayerRequestType::kPaint>;
+  friend class ScopedLayerRequest<LayerRequestType::kTrilinearFiltering>;
+  friend class ScopedLayerRequest<LayerRequestType::kCacheRenderSurface>;
   class LayerMirror;
   class SubpixelPositionOffsetCache;
+
+  // Force use of and cache render surface. Note that this also disables
+  // occlusion culling in favor of efficient caching. This should
+  // only be used when paying the cost of creating a render
+  // surface even if layer is invisible is not a problem.
+  void AddCacheRenderSurfaceRequest();
+  void RemoveCacheRenderSurfaceRequest();
+
+  // Request deferring painting for layer.
+  void AddDeferredPaintRequest();
+  void RemoveDeferredPaintRequest();
+
+  // Request trilinear filtering for layer.
+  void AddTrilinearFilteringRequest();
+  void RemoveTrilinearFilteringRequest();
 
   void CollectAnimators(std::vector<scoped_refptr<LayerAnimator>>* animators);
 
@@ -899,6 +919,10 @@ class COMPOSITOR_EXPORT Layer : public LayerAnimationDelegate,
   // If the value == 0, means we should not perform trilinear filtering on the
   // layer.
   unsigned trilinear_filtering_request_;
+
+  // If true, scroll updates will not use the impl-side fast-path, and will be
+  // applied to the main layer tree.
+  bool main_side_scrolling_enabled_ = false;
 
   base::WeakPtrFactory<Layer> weak_ptr_factory_{this};
 };

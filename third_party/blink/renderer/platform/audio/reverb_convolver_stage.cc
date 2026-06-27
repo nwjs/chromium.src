@@ -33,6 +33,7 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/platform/audio/reverb_accumulation_buffer.h"
 #include "third_party/blink/renderer/platform/audio/reverb_convolver.h"
 #include "third_party/blink/renderer/platform/audio/reverb_input_buffer.h"
@@ -82,8 +83,8 @@ ReverbConvolverStage::ReverbConvolverStage(
         .copy_from(impulse_response.first(stage_length));
     // Account for the normalization (if any) of the convolver node.
     if (scale != 1) {
-      vector_math::Vsmul(direct_kernel->Data(), 1, &scale,
-                         direct_kernel->Data(), 1, stage_length);
+      vector_math::Vsmul(direct_kernel->as_span(), scale,
+                         direct_kernel->as_span(), stage_length);
     }
     direct_convolver_ = std::make_unique<DirectConvolver>(
         render_slice_size, std::move(direct_kernel));
@@ -132,7 +133,7 @@ void ReverbConvolverStage::ProcessInBackground(ReverbConvolver* convolver,
 }
 
 void ReverbConvolverStage::Process(base::span<const float> source) {
-  uint32_t frames_to_process = source.size();
+  uint32_t frames_to_process = base::checked_cast<uint32_t>(source.size());
 
   // Deal with pre-delay stream : note special handling of zero delay.
   base::span<const float> pre_delayed_source;

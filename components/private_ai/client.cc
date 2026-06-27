@@ -18,6 +18,7 @@
 #include "components/private_ai/phosphor/token_manager.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "url/gurl.h"
+#include "url/url_constants.h"
 
 namespace private_ai {
 
@@ -29,12 +30,15 @@ std::unique_ptr<Client> Client::Create(
     bool use_token_attestation,
     network::mojom::NetworkContext* network_context,
     phosphor::TokenManager* token_manager,
-    PrivateAiLogger* logger) {
+    PrivateAiLogger* logger,
+    PrivateAiOakSessionDriver* oak_session_driver,
+    PrivateAiNetworkDriver* network_driver) {
   CHECK(!api_key.empty());
   GURL formatted_url = Client::FormatUrl(url, api_key);
 
   auto connection_factory = std::make_unique<ConnectionFactoryImpl>(
-      formatted_url, network_context, logger);
+      formatted_url, network_context, logger, oak_session_driver,
+      network_driver);
 
   if (use_token_attestation) {
     connection_factory->EnableTokenAttestation(token_manager);
@@ -44,6 +48,11 @@ std::unique_ptr<Client> Client::Create(
     GURL proxy_url(proxy_url_string);
     if (!proxy_url.SchemeIsHTTPOrHTTPS()) {
       proxy_url = GURL(base::StrCat({"https://", proxy_url_string}));
+    }
+    if (proxy_url.SchemeIs(url::kHttpScheme)) {
+      GURL::Replacements replacements;
+      replacements.SetSchemeStr(url::kHttpsScheme);
+      proxy_url = proxy_url.ReplaceComponents(replacements);
     }
     connection_factory->EnableProxy(proxy_url);
   }

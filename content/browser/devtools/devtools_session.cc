@@ -85,6 +85,7 @@ bool TerminateOnCrossProcessNavigation(crdtp::span<uint8_t> method) {
       crdtp::SpanFrom("Runtime.evaluate"),
       crdtp::SpanFrom("Runtime.runScript"),
       crdtp::SpanFrom("Runtime.terminateExecution"),
+      crdtp::SpanFrom("WebMCP.invokeTool"),
   };
   DCHECK(std::is_sorted(kEntries->begin(), kEntries->end(), crdtp::SpanLt()));
   return std::binary_search(kEntries->begin(), kEntries->end(), method,
@@ -120,6 +121,11 @@ int DevToolsSession::GetRootSessionCount() {
 DevToolsSession::DevToolsSession(DevToolsAgentHostClient* client, Mode mode)
     : client_(client), mode_(mode) {
   ++g_root_session_count;
+  session_state_cookie_ = blink::mojom::DevToolsSessionState::New();
+  session_state_cookie_->browser_originating_session_state =
+      blink::mojom::BrowserOriginatingSessionState::New();
+  handle_command_callback_ = base::BindRepeating(
+      &DevToolsSession::HandleCommand, weak_factory_.GetWeakPtr());
 }
 
 DevToolsSession::DevToolsSession(DevToolsAgentHostClient* client,
@@ -132,6 +138,11 @@ DevToolsSession::DevToolsSession(DevToolsAgentHostClient* client,
       mode_(mode) {
   DCHECK(root_session_);
   DCHECK(!session_id_.empty());
+  session_state_cookie_ = blink::mojom::DevToolsSessionState::New();
+  session_state_cookie_->browser_originating_session_state =
+      blink::mojom::BrowserOriginatingSessionState::New();
+  handle_command_callback_ = base::BindRepeating(
+      &DevToolsSession::HandleCommand, weak_factory_.GetWeakPtr());
 }
 
 DevToolsSession::~DevToolsSession() {
@@ -219,8 +230,10 @@ void DevToolsSession::AttachToAgent(blink::mojom::DevToolsAgent* agent,
       &DevToolsSession::MojoConnectionDestroyed, base::Unretained(this)));
 
   // Set cookie to an empty struct to reattach next time instead of attaching.
-  if (!session_state_cookie_)
-    session_state_cookie_ = blink::mojom::DevToolsSessionState::New();
+  if (!session_state_cookie_->renderer_originating_session_state) {
+    session_state_cookie_->renderer_originating_session_state =
+        blink::mojom::RendererOriginatingSessionState::New();
+  }
 
   // Only use script_to_evaluate_on_load_ once.
   script_to_evaluate_on_load_.clear();
@@ -319,7 +332,14 @@ void DevToolsSession::DispatchProtocolMessage(
     message = converted_cbor_message;
   }
   // At this point |message| is CBOR.
-  crdtp::Dispatchable dispatchable(crdtp::SpanFrom(message));
+  crdtp::Dispatchable dispatchable(
+      crdtp::SpanFrom(message), std::string_view(),
+      [cb = base::BindRepeating(&DevToolsSession::FallThrough,
+                                weak_factory_.GetWeakPtr())](
+          int call_id, crdtp::span<uint8_t> method,
+          crdtp::span<uint8_t> message, std::string_view fallthrough_data) {
+        cb.Run(call_id, method, message);
+      });
   if (!dispatchable.ok()) {
     DispatchProtocolMessageToClient(
         (dispatchable.HasCallId()
@@ -372,41 +392,43 @@ void DevToolsSession::DispatchProtocolMessageInternal(
   DevToolsManagerDelegate* delegate =
       DevToolsManager::GetInstance()->delegate();
   if (delegate && !dispatchable.Method().empty()) {
-    delegate->HandleCommand(this, message,
-                            base::BindOnce(&DevToolsSession::HandleCommand,
-                                           weak_factory_.GetWeakPtr()));
+    delegate->HandleCommand(this, message, handle_command_callback_);
   } else {
     HandleCommandInternal(std::move(dispatchable), message);
   }
 }
 
 void DevToolsSession::HandleCommand(base::span<const uint8_t> message) {
-  HandleCommandInternal(crdtp::Dispatchable(crdtp::SpanFrom(message)), message);
+  HandleCommandInternal(
+      crdtp::Dispatchable(
+          crdtp::SpanFrom(message), std::string_view(),
+          [cb = base::BindRepeating(&DevToolsSession::FallThrough,
+                                    weak_factory_.GetWeakPtr())](
+              int call_id, crdtp::span<uint8_t> method,
+              crdtp::span<uint8_t> message, std::string_view fallthrough_data) {
+            cb.Run(call_id, method, message);
+          }),
+      message);
 }
 
 void DevToolsSession::HandleCommandInternal(crdtp::Dispatchable dispatchable,
                                             base::span<const uint8_t> message) {
   DCHECK(dispatchable.ok());
-  crdtp::UberDispatcher::DispatchResult dispatched =
-      dispatcher_->Dispatch(dispatchable);
-  if (browser_only_ || dispatched.MethodFound()) {
-    TRACE_EVENT(
-        "devtools", "DevToolsSession::HandleCommand in Browser",
-        perfetto::Flow::ProcessScoped(dispatchable.CallId()), "method",
-        std::string(dispatchable.Method().begin(), dispatchable.Method().end()),
-        "call_id", dispatchable.CallId());
-    dispatched.Run();
-  } else {
-    FallThrough(dispatchable.CallId(), dispatchable.Method(),
-                crdtp::SpanFrom(message));
-  }
+  TRACE_EVENT(
+      "devtools", "DevToolsSession::HandleCommand in Browser",
+      perfetto::Flow::ProcessScoped(dispatchable.CallId()), "method",
+      std::string(dispatchable.Method().begin(), dispatchable.Method().end()),
+      "call_id", dispatchable.CallId());
+  dispatcher_->Dispatch(dispatchable);
 }
 
 void DevToolsSession::FallThrough(int call_id,
                                   crdtp::span<uint8_t> method,
                                   crdtp::span<uint8_t> message) {
-  // In browser-only mode, we should've handled everything in dispatcher.
-  DCHECK(!browser_only_);
+  if (browser_only_) {
+    dispatcher_->SendMethodNotFound(call_id, method);
+    return;
+  }
 
   if (waiting_for_response_.contains(call_id)) {
     DispatchProtocolMessageToClient(
@@ -543,9 +565,11 @@ void DevToolsSession::DispatchProtocolResponseOrNotification(
     DevToolsAgentHostClient* client,
     DevToolsAgentHostImpl* agent_host,
     blink::mojom::DevToolsMessagePtr message,
-    const std::string& session_id) {
+    const std::string& session_id,
+    const bool& is_notification) {
   base::span<const uint8_t> message_span = message->data;
-  if (!ValidateSessionId(session_id, message_span)) {
+  if (!ValidateMessage(session_id, /*expected_has_id=*/!is_notification,
+                       message_span)) {
     if (RenderProcessHost* process_host = agent_host->GetProcessHost()) {
       bad_message::ReceivedBadMessage(
           process_host, bad_message::RFH_INCONSISTENT_DEVTOOLS_MESSAGE);
@@ -558,7 +582,7 @@ void DevToolsSession::DispatchProtocolResponseOrNotification(
 void DevToolsSession::DispatchProtocolResponse(
     blink::mojom::DevToolsMessagePtr message,
     int call_id,
-    blink::mojom::DevToolsSessionStatePtr updates) {
+    blink::mojom::RendererOriginatingSessionStatePtr updates) {
   TRACE_EVENT("devtools", "DevToolsSession::DispatchProtocolResponse",
               perfetto::TerminatingFlow::ProcessScoped(call_id), "call_id",
               call_id);
@@ -571,16 +595,18 @@ void DevToolsSession::DispatchProtocolResponse(
   pending_messages_.erase(it->second);
   waiting_for_response_.erase(it);
   DispatchProtocolResponseOrNotification(client_, agent_host_,
-                                         std::move(message), session_id_);
+                                         std::move(message), session_id_,
+                                         /*is_notification=*/false);
   // |this| may be deleted at this point.
 }
 
 void DevToolsSession::DispatchProtocolNotification(
     blink::mojom::DevToolsMessagePtr message,
-    blink::mojom::DevToolsSessionStatePtr updates) {
+    blink::mojom::RendererOriginatingSessionStatePtr updates) {
   ApplySessionStateUpdates(std::move(updates));
   DispatchProtocolResponseOrNotification(client_, agent_host_,
-                                         std::move(message), session_id_);
+                                         std::move(message), session_id_,
+                                         /*is_notification=*/true);
   // |this| may be deleted at this point.
 }
 
@@ -613,16 +639,21 @@ void DevToolsSession::ConnectionClosed() {
 }
 
 void DevToolsSession::ApplySessionStateUpdates(
-    blink::mojom::DevToolsSessionStatePtr updates) {
+    blink::mojom::RendererOriginatingSessionStatePtr updates) {
   if (!updates)
     return;
-  if (!session_state_cookie_)
-    session_state_cookie_ = blink::mojom::DevToolsSessionState::New();
+  if (!session_state_cookie_->renderer_originating_session_state) {
+    session_state_cookie_->renderer_originating_session_state =
+        blink::mojom::RendererOriginatingSessionState::New();
+  }
   for (auto& entry : updates->entries) {
-    if (entry.second.has_value())
-      session_state_cookie_->entries[entry.first] = std::move(*entry.second);
-    else
-      session_state_cookie_->entries.erase(entry.first);
+    if (entry.second.has_value()) {
+      session_state_cookie_->renderer_originating_session_state
+          ->entries[entry.first] = std::move(*entry.second);
+    } else {
+      session_state_cookie_->renderer_originating_session_state->entries.erase(
+          entry.first);
+    }
   }
 }
 
@@ -665,6 +696,26 @@ void DevToolsSession::AddObserver(ChildObserver* obs) {
 
 void DevToolsSession::RemoveObserver(ChildObserver* obs) {
   child_observers_.RemoveObserver(obs);
+}
+
+void DevToolsSession::AddScriptToEvaluateOnNewDocument(
+    const std::string& identifier,
+    blink::mojom::ScriptToEvaluateOnNewDocumentPtr script,
+    bool run_immediately,
+    base::OnceClosure callback) {
+  if (session_.is_bound()) {
+    session_->AddScriptToEvaluateOnNewDocument(
+        identifier, std::move(script), run_immediately, std::move(callback));
+  } else {
+    std::move(callback).Run();
+  }
+}
+
+void DevToolsSession::RemoveScriptToEvaluateOnNewDocument(
+    const std::string& identifier) {
+  if (session_.is_bound()) {
+    session_->RemoveScriptToEvaluateOnNewDocument(identifier);
+  }
 }
 
 void DevToolsSession::PrepareForReload(std::string script_to_evaluate_on_load) {
@@ -711,8 +762,9 @@ DevToolsSession* DevToolsSession::GetSessionById(const std::string& session_id) 
 }
 
 // static
-bool DevToolsSession::ValidateSessionId(const std::string& expected_session_id,
-                                        base::span<const uint8_t> message) {
+bool DevToolsSession::ValidateMessage(const std::string& expected_session_id,
+                                      const bool expected_has_id,
+                                      base::span<const uint8_t> message) {
   std::vector<uint8_t> cbor_message;
   crdtp::span<uint8_t> span_message = crdtp::SpanFrom(message);
 
@@ -728,6 +780,12 @@ bool DevToolsSession::ValidateSessionId(const std::string& expected_session_id,
   crdtp::span<uint8_t> extracted_session_id =
       crdtp::cbor::GetString8ValueFromMap(span_message,
                                           crdtp::SpanFrom("sessionId"));
+
+  if (!expected_has_id &&
+      crdtp::cbor::HasKeyInMap(span_message, crdtp::SpanFrom("id"))) {
+    DLOG(ERROR) << "Expected no id in the message but received one";
+    return false;
+  }
 
   if (expected_session_id.empty()) {
     if (!extracted_session_id.empty()) {

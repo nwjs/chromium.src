@@ -145,19 +145,8 @@ class CONTENT_EXPORT RenderWidgetHostView {
   // Returns true if the View currently has the focus.
   virtual bool HasFocus() = 0;
 
-  // Shows/hides the view.  These must always be called together in pairs.
-  // It is not legal to call Hide() multiple times in a row.
-  virtual void Show() = 0;
-  virtual void Hide() = 0;
-
   // Whether the view is showing.
   virtual bool IsShowing() = 0;
-
-  // Indicates if the view is currently occluded (e.g, not visible because it's
-  // covered up by other windows), and as a result the view's renderer may be
-  // suspended. Calling Show()/Hide() overrides the state set by these methods.
-  virtual void WasUnOccluded() = 0;
-  virtual void WasOccluded() = 0;
 
   // Retrieve the bounds of the View, in screen coordinates.
   virtual gfx::Rect GetViewBounds() = 0;
@@ -339,6 +328,18 @@ class CONTENT_EXPORT RenderWidgetHostView {
 
   // Returns true if this view has a saved compositor frame.
   virtual bool HasSavedCompositorFrame() const = 0;
+
+  // Tells the View if it should use default deadline policy when resizing.
+  virtual void SetShouldUseDefaultDeadlineOnResize(bool enable) = 0;
+
+  // Forces a specified deadline for the next surface embedding. If the optional
+  // has a value, overrides the embedding deadline to the specified duration
+  // (unit: frames). If set to std::nullopt, clears any active override and
+  // restores default resize deadline policies.
+  virtual void SetForceSpecifiedDeadline(
+      std::optional<uint32_t> deadline_in_frames) {}
+
+  virtual std::optional<uint32_t> GetForceSpecifiedDeadlineForTesting();
 };
 
 }  // namespace content

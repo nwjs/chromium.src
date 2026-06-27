@@ -11,6 +11,7 @@ import androidx.annotation.ColorInt;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -50,6 +51,9 @@ class SuggestionListViewBinder {
                     model.get(SuggestionListProperties.OMNIBOX_SESSION_ACTIVE));
         } else if (SuggestionListProperties.GESTURE_OBSERVER.equals(propertyKey)) {
             view.dropdown.setGestureObserver(model.get(SuggestionListProperties.GESTURE_OBSERVER));
+        } else if (SuggestionListProperties.NAVIGATION_LISTENER.equals(propertyKey)) {
+            view.dropdown.setNavigationListener(
+                    model.get(SuggestionListProperties.NAVIGATION_LISTENER));
         } else if (SuggestionListProperties.DROPDOWN_HEIGHT_CHANGE_LISTENER.equals(propertyKey)) {
             view.container.setHeightChangeListener(
                     model.get(SuggestionListProperties.DROPDOWN_HEIGHT_CHANGE_LISTENER));
@@ -118,21 +122,30 @@ class SuggestionListViewBinder {
             updateColorScheme(model, view);
             view.container.setShouldClipToOutline(
                     model.get(SuggestionListProperties.IS_LARGE_SCREEN));
-        } else if (SuggestionListProperties.TOOLBAR_POSITION == propertyKey) {
-            view.dropdown.setToolbarPosition(model.get(SuggestionListProperties.TOOLBAR_POSITION));
+        } else if (SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL.equals(propertyKey)) {
+            view.dropdown.setAllowParkingAtSentinel(
+                    model.get(SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL));
         }
     }
 
     private static void updateColorScheme(PropertyModel model, SuggestionListViewHolder holder) {
+        @FuseboxLayoutMode int layoutMode = model.get(SuggestionListProperties.FUSEBOX_LAYOUT_MODE);
         @ColorInt
         int backgroundColor =
                 OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
                         holder.dropdown.getContext(),
                         model.get(SuggestionListProperties.COLOR_SCHEME));
+        if (layoutMode == FuseboxLayoutMode.SUGGESTIONS_POPOVER) {
+            backgroundColor =
+                    OmniboxResourceProvider.getStandardSuggestionBackgroundColor(
+                            holder.dropdown.getContext(),
+                            model.get(SuggestionListProperties.COLOR_SCHEME));
+        }
 
         holder.dropdown.setBackgroundColor(backgroundColor);
 
-        if (model.get(SuggestionListProperties.IS_LARGE_SCREEN)) {
+        if (model.get(SuggestionListProperties.IS_LARGE_SCREEN)
+                && layoutMode != FuseboxLayoutMode.SUGGESTIONS_POPOVER) {
             holder.container.setBackgroundColor(Color.TRANSPARENT);
         } else {
             holder.container.setBackgroundColor(backgroundColor);

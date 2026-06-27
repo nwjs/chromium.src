@@ -9,13 +9,14 @@ from typing import Tuple
 
 import setup_modules  # pylint: disable=unused-import
 
+import chromium_src.PRESUBMIT_test_mocks as PRESUBMIT_test_mocks
+import chromium_src.tools.metrics.common.path_util as path_util
+import chromium_src.tools.metrics.common.presubmit_util as presubmit_util
 import chromium_src.tools.metrics.histograms.PRESUBMIT as PRESUBMIT
-from chromium_src.tools.metrics.histograms.presubmit_caching_support import PresubmitCache
 
-from chromium_src.PRESUBMIT_test_mocks import MockAffectedFile, MockInputApi, MockOutputApi
-
-_BASE_DIR = os.path.dirname(__file__)
-_TOP_LEVEL_ENUMS_PATH = (f'{os.path.dirname(__file__)}/enums.xml')
+_BASE_DIR = str(path_util.METRICS_TOOLS_PATH / 'histograms')
+_TOP_LEVEL_ENUMS_PATH = str(path_util.METRICS_TOOLS_PATH / 'histograms' /
+                            'enums.xml')
 
 
 _INITIAL_HISTOGRAMS_CONTENT = '<histogram name="Foo" enum="Boolean" />'
@@ -33,7 +34,8 @@ def _PrepareTestWorkingDirectory():
   return test_dir, histograms_path
 
 
-def _MockInputFromTestFile(relative_path: str) -> Tuple[MockInputApi, str]:
+def _MockInputFromTestFile(
+    relative_path: str) -> Tuple[PRESUBMIT_test_mocks.MockInputApi, str]:
   """ Returns a MockInputApi that list a file relative to test_data/ as changed.
 
   The provided file is read and its contents are provided to the MockInputApi.
@@ -45,21 +47,23 @@ def _MockInputFromTestFile(relative_path: str) -> Tuple[MockInputApi, str]:
     A MockInputApi that lists the provided file as only one changed and full
     path to that file.
   """
-  full_path = f'{os.path.dirname(__file__)}/test_data/{relative_path}'
+  full_path = str(path_util.METRICS_TOOLS_PATH / 'histograms' / 'test_data' /
+                  relative_path)
   with open(full_path, 'r') as f:
     contents = f.read()
 
-  mock_input_api = MockInputApi()
+  mock_input_api = PRESUBMIT_test_mocks.MockInputApi()
   mock_input_api.presubmit_local_path = _BASE_DIR
   mock_input_api.files = [
-      MockAffectedFile(full_path, [contents]),
+      PRESUBMIT_test_mocks.MockAffectedFile(full_path, [contents]),
   ]
   return (mock_input_api, full_path)
 
 
-def _MockInputFromString(path: str,
-                         contents: str,
-                         test_directory_path: str = _BASE_DIR) -> MockInputApi:
+def _MockInputFromString(
+    path: str,
+    contents: str,
+    test_directory_path: str = _BASE_DIR) -> PRESUBMIT_test_mocks.MockInputApi:
   """ Returns a MockInputApi with single changed file with given contents.Api.
 
   Args:
@@ -69,10 +73,10 @@ def _MockInputFromString(path: str,
   Returns:
     A MockInputApi that lists the provided file as only one changed.
   """
-  mock_input_api = MockInputApi()
+  mock_input_api = PRESUBMIT_test_mocks.MockInputApi()
   mock_input_api.presubmit_local_path = test_directory_path
   mock_input_api.files = [
-      MockAffectedFile(path, [contents]),
+      PRESUBMIT_test_mocks.MockAffectedFile(path, [contents]),
   ]
   return mock_input_api
 
@@ -85,7 +89,7 @@ class MetricsPresubmitTest(unittest.TestCase):
 
     results = PRESUBMIT.ExecuteCheckHistogramFormatting(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allow_test_paths=True,
         xml_paths_override=[malformed_histograms_path, _TOP_LEVEL_ENUMS_PATH])
 
@@ -106,19 +110,15 @@ class MetricsPresubmitTest(unittest.TestCase):
         ' fix the reported errors.')
 
   def testCheckWebViewHistogramsAllowlistOnUploadFailureIsDetected(self):
-    valid_enums_path = (f'{os.path.dirname(__file__)}'
-                        '/test_data'
-                        '/example_valid_enums.xml')
-    example_allowlist_path = (f'{os.path.dirname(__file__)}'
-                              '/test_data'
-                              '/AllowlistExample.java')
+    valid_enums_path = _BASE_DIR + '/test_data/example_valid_enums.xml'
+    example_allowlist_path = _BASE_DIR + '/test_data/AllowlistExample.java'
 
     (mock_input_api, missing_allow_list_entries_histograms_path
      ) = _MockInputFromTestFile('no_allowlist_entries_histograms.xml')
 
     results = PRESUBMIT.ExecuteCheckWebViewHistogramsAllowlistOnUpload(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allowlist_path_override=example_allowlist_path,
         xml_paths_override=[
             missing_allow_list_entries_histograms_path, valid_enums_path,
@@ -135,8 +135,8 @@ class MetricsPresubmitTest(unittest.TestCase):
     mock_input_api = _MockInputFromString(
         'histograms.xml', '<histogram name="Foo" units="Boolean" />')
 
-    results = PRESUBMIT.ExecuteCheckBooleansAreEnums(mock_input_api,
-                                                     MockOutputApi())
+    results = PRESUBMIT.ExecuteCheckBooleansAreEnums(
+        mock_input_api, PRESUBMIT_test_mocks.MockOutputApi())
     self.assertEqual(len(results), 1)
     self.assertRegex(
         results[0].message.replace('\n', ' '),
@@ -145,16 +145,14 @@ class MetricsPresubmitTest(unittest.TestCase):
     self.assertEqual(results[0].type, 'promptOrNotify')
 
   def testCheckHistogramFormattingPasses(self):
-    valid_enums_path = (f'{os.path.dirname(__file__)}'
-                        '/test_data'
-                        '/example_valid_enums.xml')
+    valid_enums_path = _BASE_DIR + '/test_data/example_valid_enums.xml'
 
     (mock_input_api, valid_histograms_path
      ) = _MockInputFromTestFile('example_valid_histograms.xml')
 
     results = PRESUBMIT.ExecuteCheckHistogramFormatting(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allow_test_paths=True,
         xml_paths_override=[
             valid_histograms_path, valid_enums_path, _TOP_LEVEL_ENUMS_PATH
@@ -163,19 +161,15 @@ class MetricsPresubmitTest(unittest.TestCase):
     self.assertEqual(len(results), 0)
 
   def testCheckWebViewHistogramsAllowlistOnUploadPasses(self):
-    valid_enums_path = (f'{os.path.dirname(__file__)}'
-                        '/test_data'
-                        '/example_valid_enums.xml')
-    example_allowlist_path = (f'{os.path.dirname(__file__)}'
-                              '/test_data'
-                              '/AllowlistExample.java')
+    valid_enums_path = _BASE_DIR + '/test_data/example_valid_enums.xml'
+    example_allowlist_path = _BASE_DIR + '/test_data/AllowlistExample.java'
 
     (mock_input_api, valid_histograms_path
      ) = _MockInputFromTestFile('example_valid_histograms.xml')
 
     results = PRESUBMIT.ExecuteCheckWebViewHistogramsAllowlistOnUpload(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allowlist_path_override=example_allowlist_path,
         xml_paths_override=[
             valid_histograms_path, valid_enums_path, _TOP_LEVEL_ENUMS_PATH
@@ -187,13 +181,14 @@ class MetricsPresubmitTest(unittest.TestCase):
     mock_input_api = _MockInputFromString(
         'histograms.xml', '<histogram name="Foo" enum="Boolean" />')
 
-    results = PRESUBMIT.ExecuteCheckBooleansAreEnums(mock_input_api,
-                                                     MockOutputApi())
+    results = PRESUBMIT.ExecuteCheckBooleansAreEnums(
+        mock_input_api, PRESUBMIT_test_mocks.MockOutputApi())
     # Zero results mean that there were no errors reported.
     self.assertEqual(len(results), 0)
 
   def _CacheSize(self, cache_file_path, observed_directory_path):
-    cache = PresubmitCache(cache_file_path, observed_directory_path)
+    cache = presubmit_util.PresubmitCache(cache_file_path,
+                                          observed_directory_path)
     return len(cache.InspectCacheForTesting().data)
 
   def testSecondCheckOnTheSameDataReturnsSameResult(self):
@@ -207,9 +202,10 @@ class MetricsPresubmitTest(unittest.TestCase):
     # The cache should be empty before we run any presubmit checks.
     self.assertEqual(self._CacheSize(test_cache_file, test_dir_path), 0)
 
-    results = PRESUBMIT.CheckBooleansAreEnums(mock_input_api,
-                                              MockOutputApi(),
-                                              cache_file_path=test_cache_file)
+    results = PRESUBMIT.CheckBooleansAreEnums(
+        mock_input_api,
+        PRESUBMIT_test_mocks.MockOutputApi(),
+        cache_file_path=test_cache_file)
     self.assertEqual(len(results), 1)
     self.assertRegex(
         results[0].message.replace('\n', ' '),
@@ -221,7 +217,9 @@ class MetricsPresubmitTest(unittest.TestCase):
     self.assertEqual(self._CacheSize(test_cache_file, test_dir_path), 1)
 
     second_results = PRESUBMIT.CheckBooleansAreEnums(
-        mock_input_api, MockOutputApi(), cache_file_path=test_cache_file)
+        mock_input_api,
+        PRESUBMIT_test_mocks.MockOutputApi(),
+        cache_file_path=test_cache_file)
     self.assertEqual(len(second_results), 1)
     self.assertEqual(results[0].message, second_results[0].message)
     self.assertEqual(results[0].type, second_results[0].type)
@@ -241,9 +239,10 @@ class MetricsPresubmitTest(unittest.TestCase):
     # The cache should be empty before we run any presubmit checks.
     self.assertEqual(self._CacheSize(test_cache_file, test_dir_path), 0)
 
-    results = PRESUBMIT.CheckBooleansAreEnums(mock_input_api,
-                                              MockOutputApi(),
-                                              cache_file_path=test_cache_file)
+    results = PRESUBMIT.CheckBooleansAreEnums(
+        mock_input_api,
+        PRESUBMIT_test_mocks.MockOutputApi(),
+        cache_file_path=test_cache_file)
     # Zero results mean that there were no errors reported.
     self.assertEqual(len(results), 0)
 
@@ -251,7 +250,9 @@ class MetricsPresubmitTest(unittest.TestCase):
     self.assertEqual(self._CacheSize(test_cache_file, test_dir_path), 1)
 
     second_results = PRESUBMIT.CheckBooleansAreEnums(
-        mock_input_api, MockOutputApi(), cache_file_path=test_cache_file)
+        mock_input_api,
+        PRESUBMIT_test_mocks.MockOutputApi(),
+        cache_file_path=test_cache_file)
     # Zero results mean that there were no errors reported.
     self.assertEqual(len(second_results), 0)
 
@@ -263,18 +264,20 @@ class MetricsPresubmitTest(unittest.TestCase):
     test_dir_path, histograms_path = _PrepareTestWorkingDirectory()
 
     test_cache_file = _TempCacheDir()
-    mock_input_api = MockInputApi()
+    mock_input_api = PRESUBMIT_test_mocks.MockInputApi()
     mock_input_api.presubmit_local_path = test_dir_path
     mock_input_api.files = [
-        MockAffectedFile('histograms.xml', [_INITIAL_HISTOGRAMS_CONTENT]),
+        PRESUBMIT_test_mocks.MockAffectedFile('histograms.xml',
+                                              [_INITIAL_HISTOGRAMS_CONTENT]),
     ]
 
     # The cache should be empty before we run any presubmit checks.
     self.assertEqual(self._CacheSize(test_cache_file, test_dir_path), 0)
 
-    results = PRESUBMIT.CheckBooleansAreEnums(mock_input_api,
-                                              MockOutputApi(),
-                                              cache_file_path=test_cache_file)
+    results = PRESUBMIT.CheckBooleansAreEnums(
+        mock_input_api,
+        PRESUBMIT_test_mocks.MockOutputApi(),
+        cache_file_path=test_cache_file)
     # Zero results mean that there were no errors reported.
     self.assertEqual(len(results), 0)
 
@@ -285,11 +288,14 @@ class MetricsPresubmitTest(unittest.TestCase):
       f.write(_MODIFIED_HISTOGRAMS_CONTENT)
 
     mock_input_api.files = [
-        MockAffectedFile('histograms.xml', [_MODIFIED_HISTOGRAMS_CONTENT]),
+        PRESUBMIT_test_mocks.MockAffectedFile('histograms.xml',
+                                              [_MODIFIED_HISTOGRAMS_CONTENT]),
     ]
 
     second_results = PRESUBMIT.CheckBooleansAreEnums(
-        mock_input_api, MockOutputApi(), cache_file_path=test_cache_file)
+        mock_input_api,
+        PRESUBMIT_test_mocks.MockOutputApi(),
+        cache_file_path=test_cache_file)
 
     self.assertEqual(len(second_results), 1)
     self.assertRegex(
@@ -313,7 +319,7 @@ class MetricsPresubmitTest(unittest.TestCase):
 
       results = PRESUBMIT.ExecuteCheckHistogramFormatting(
           mock_input_api,
-          MockOutputApi(),
+          PRESUBMIT_test_mocks.MockOutputApi(),
           allow_test_paths=True,
           xml_paths_override=[input_path])
 
@@ -325,7 +331,7 @@ class MetricsPresubmitTest(unittest.TestCase):
 
     results = PRESUBMIT.ExecuteCheckHistogramFormatting(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allow_test_paths=True,
         xml_paths_override=[input_path, _TOP_LEVEL_ENUMS_PATH])
 
@@ -341,33 +347,32 @@ class MetricsPresubmitTest(unittest.TestCase):
         ' fix the reported errors.')
 
   def testDeletedFileIsIgnoredByBooleansAreEnumsCheck(self):
-    mock_input_api = MockInputApi()
+    mock_input_api = PRESUBMIT_test_mocks.MockInputApi()
     mock_input_api.presubmit_local_path = _BASE_DIR
     mock_input_api.files = [
-        MockAffectedFile('histograms.xml',
-                         ['<histogram name="Foo" units="Boolean" />'],
-                         action='D'),
+        PRESUBMIT_test_mocks.MockAffectedFile(
+            'histograms.xml', ['<histogram name="Foo" units="Boolean" />'],
+            action='D'),
     ]
 
-    results = PRESUBMIT.ExecuteCheckBooleansAreEnums(mock_input_api,
-                                                     MockOutputApi())
+    results = PRESUBMIT.ExecuteCheckBooleansAreEnums(
+        mock_input_api, PRESUBMIT_test_mocks.MockOutputApi())
 
     # Zero results mean that there were no errors reported.
     self.assertEqual(len(results), 0)
 
   def testDeletedFileIsIgnoredByHistogramFormattingCheck(self):
-    full_path = (f'{os.path.dirname(__file__)}'
-                 '/test_data/non_existing_histograms.xml')
+    full_path = _BASE_DIR + '/test_data/non_existing_histograms.xml'
 
-    mock_input_api = MockInputApi()
+    mock_input_api = PRESUBMIT_test_mocks.MockInputApi()
     mock_input_api.presubmit_local_path = _BASE_DIR
     mock_input_api.files = [
-        MockAffectedFile(full_path, [], action='D'),
+        PRESUBMIT_test_mocks.MockAffectedFile(full_path, [], action='D'),
     ]
 
     results = PRESUBMIT.ExecuteCheckHistogramFormatting(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allow_test_paths=True,
         xml_paths_override=[_TOP_LEVEL_ENUMS_PATH])
 
@@ -375,30 +380,25 @@ class MetricsPresubmitTest(unittest.TestCase):
     self.assertEqual(len(results), 0)
 
   def testDeletedFileIsIgnoredByAllowlistCheck(self):
-    non_existing_histograms_path = (f'{os.path.dirname(__file__)}'
-                                    '/test_data/non_existing_histograms.xml')
-    valid_histograms_path = (f'{os.path.dirname(__file__)}'
-                             '/test_data'
-                             '/example_valid_histograms.xml')
-    valid_enums_path = (f'{os.path.dirname(__file__)}'
-                        '/test_data'
-                        '/example_valid_enums.xml')
-    example_allowlist_path = (f'{os.path.dirname(__file__)}'
-                              '/test_data'
-                              '/AllowlistExample.java')
+    non_existing_histograms_path = _BASE_DIR + '/test_data/non_existing_histograms.xml'
+    valid_histograms_path = _BASE_DIR + '/test_data/example_valid_histograms.xml'
+    valid_enums_path = _BASE_DIR + '/test_data/example_valid_enums.xml'
+    example_allowlist_path = _BASE_DIR + '/test_data/AllowlistExample.java'
 
     with open(valid_histograms_path, 'r') as f:
       valid_histograms_contents = f.read()
-    mock_input_api = MockInputApi()
+    mock_input_api = PRESUBMIT_test_mocks.MockInputApi()
     mock_input_api.presubmit_local_path = _BASE_DIR
     mock_input_api.files = [
-        MockAffectedFile(non_existing_histograms_path, [], action='D'),
-        MockAffectedFile(valid_histograms_path, [valid_histograms_contents]),
+        PRESUBMIT_test_mocks.MockAffectedFile(non_existing_histograms_path, [],
+                                              action='D'),
+        PRESUBMIT_test_mocks.MockAffectedFile(valid_histograms_path,
+                                              [valid_histograms_contents]),
     ]
 
     results = PRESUBMIT.ExecuteCheckWebViewHistogramsAllowlistOnUpload(
         mock_input_api,
-        MockOutputApi(),
+        PRESUBMIT_test_mocks.MockOutputApi(),
         allowlist_path_override=example_allowlist_path,
         xml_paths_override=[
             valid_histograms_path, valid_enums_path, _TOP_LEVEL_ENUMS_PATH

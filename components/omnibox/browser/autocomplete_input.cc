@@ -114,7 +114,7 @@ AutocompleteInput::AutocompleteInput()
       prevent_inline_autocomplete_(false),
       prefer_keyword_(false),
       allow_exact_keyword_match_(true),
-      keyword_mode_entry_method_(metrics::OmniboxEventProto::INVALID),
+      in_keyword_mode_(false),
       omit_asynchronous_matches_(false),
       should_use_https_as_default_scheme_(false),
       added_default_scheme_to_typed_url_(false),
@@ -968,6 +968,7 @@ void AutocompleteInput::Clear() {
   use_fake_https_for_https_upgrade_testing_ = false;
   context_tab_title_.clear();
   context_tab_url_ = GURL();
+  previous_query_.clear();
 }
 
 size_t AutocompleteInput::EstimateMemoryUsage() const {
@@ -984,6 +985,7 @@ size_t AutocompleteInput::EstimateMemoryUsage() const {
   res += base::trace_event::EstimateMemoryUsage(input_state_);
   res += base::trace_event::EstimateMemoryUsage(context_tab_title_);
   res += base::trace_event::EstimateMemoryUsage(context_tab_url_);
+  res += base::trace_event::EstimateMemoryUsage(previous_query_);
 
   return res;
 }
@@ -995,10 +997,6 @@ void AutocompleteInput::WriteIntoTrace(perfetto::TracedValue context) const {
 
 bool AutocompleteInput::IsZeroSuggest() const {
   return focus_type_ != metrics::OmniboxFocusType::INTERACTION_DEFAULT;
-}
-
-bool AutocompleteInput::InKeywordMode() const {
-  return keyword_mode_entry_method_ != metrics::OmniboxEventProto::INVALID;
 }
 
 AutocompleteInput::FeaturedKeywordMode

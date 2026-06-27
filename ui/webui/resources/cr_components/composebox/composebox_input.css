@@ -46,6 +46,16 @@
   display: none;
 }
 
+:host-context([searchbox-next-enabled][searchbox-layout-mode='Compact']):host(.has-tabs:not([entrypoint-name='Omnibox'])) #iconContainer {
+  display: flex;
+  margin-inline-start: -24px;
+}
+
+:host-context([searchbox-next-enabled][searchbox-layout-mode='Compact']):host(.has-tabs:not([entrypoint-name='Omnibox'])) #aimIcon {
+  width: 24px;
+  height: 24px;
+}
+
 :host-context([searchbox-next-enabled]) #iconContainer {
   height: 44px;
 }
@@ -147,6 +157,14 @@
 
 #caret.at-start {
   left: anchor(start);
+}
+
+:host-context([dir='rtl']) #caret {
+  left: anchor(left);
+}
+
+:host-context([dir='rtl']) #caret.at-start {
+  left: anchor(right);
 }
 
 :host([entrypoint-name='Omnibox']) #caret {

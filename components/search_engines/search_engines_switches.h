@@ -95,11 +95,23 @@ BASE_DECLARE_FEATURE(kResetTamperedDefaultSearchEngine);
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kClankDefaultSearchApi);
 
+// Whether DumpWithoutCrashing-based debugging should be enabled on
+// some select keyword database refresh code paths.
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_DECLARE_FEATURE(kKwdbRefreshDebugging);
+
 #if !BUILDFLAG(IS_ANDROID)
 // Restructuring of the search settings pages.
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kSearchSettingsUpdate);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_WIN)
+// When enabled, will reject encrypted keyword table hashes that are weakly
+// encrypted.
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_DECLARE_FEATURE(kRejectWeakKeywordHashes);
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace switches
 

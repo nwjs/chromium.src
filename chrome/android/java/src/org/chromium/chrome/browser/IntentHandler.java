@@ -36,7 +36,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
-import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
@@ -76,7 +75,6 @@ import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.net.HttpUtil;
@@ -322,6 +320,14 @@ public class IntentHandler {
             "org.chromium.chrome.browser.reparent_start_time";
 
     public static final String EXTRA_CCT_EARLY_NAV = "org.chromium.chrome.browser.cct_early_nav";
+
+    /**
+     * Intent extra indicating that the tab is being reparented from another activity. When this is
+     * true, the initial navigation in the new activity should be skipped to preserve the existing
+     * state and ongoing navigations of the reparented tab.
+     */
+    public static final String EXTRA_SKIP_LOAD_ON_REPARENTING =
+            "org.chromium.chrome.browser.skip_load_on_reparenting";
 
     /**
      * Used to determine the {@link TipsNotificationFeatureType} that the tip is attempting to show.
@@ -955,12 +961,9 @@ public class IntentHandler {
             // If the intent contains a list of tabs to reparent, it's a valid intent from Chrome.
             @Nullable MultiTabMetadata multiTabMetadata = getMultiTabMetadata(intent);
             if (multiTabMetadata != null) {
-                // Exit early if the incognito intent is not allowed.
-                if (IntentUtils.safeGetBooleanExtra(intent, EXTRA_OPEN_NEW_INCOGNITO_TAB, false)
-                        && !isAllowedIncognitoIntent(
-                                wasIntentSenderChrome(intent), isCustomTab, intent)) {
-                    return true;
-                }
+                // Multi-tab metadata intents should only be from Chrome.
+                if (!wasIntentSenderChrome(intent)) return true;
+
                 ArrayList<Integer> tabIds = multiTabMetadata.tabIds;
                 ArrayList<String> urls = multiTabMetadata.urls;
 
@@ -982,20 +985,15 @@ public class IntentHandler {
             // Ignore all invalid URLs, regardless of what the intent was.
             @Nullable TabGroupMetadata tabGroupMetadata = IntentHandler.getTabGroupMetadata(intent);
             if (tabGroupMetadata != null) {
-                // Exit early if the incognito intent is not allowed.
-                if (tabGroupMetadata.isIncognito
-                        && !isAllowedIncognitoIntent(
-                                wasIntentSenderChrome(intent), isCustomTab, intent)) {
-                    return true;
-                }
+                // Tab group metadata intents should only be from Chrome.
+                if (!wasIntentSenderChrome(intent)) return true;
 
                 // Check url validity and remove invalid urls if needed.
                 List<Entry<Integer, String>> tabIdsToUrls = tabGroupMetadata.tabIdsToUrls;
                 Iterator<Entry<Integer, String>> iterator = tabIdsToUrls.iterator();
                 while (iterator.hasNext()) {
                     Map.Entry<Integer, String> entry = iterator.next();
-                    String url = entry.getValue();
-                    if (shouldIgnoreIntentUrl(intent, context, url, isCustomTab)) {
+                    if (shouldIgnoreIntentUrl(intent, context, entry.getValue(), isCustomTab)) {
                         iterator.remove();
                     }
                 }
@@ -1013,7 +1011,7 @@ public class IntentHandler {
 
     private static boolean shouldIgnoreIntentUrl(
             Intent intent, @Nullable Context context, @Nullable String url, boolean isCustomTab) {
-        if (!isValidUrl(url)) {
+        if (!isSchemeValid(url)) {
             return true;
         }
 
@@ -1040,7 +1038,7 @@ public class IntentHandler {
 
         // Ignore all intents that specify a Chrome internal scheme if they did not come from
         // a trustworthy source.
-        if (intentHasUnsafeUrl(url, intent)) {
+        if (isUrlUnsafe(url)) {
             Log.w(TAG, "Ignoring internal Chrome URL from untrustworthy source.");
             return true;
         }
@@ -1070,45 +1068,31 @@ public class IntentHandler {
         return pendingUrl != null && pendingUrl.equals(intent.getDataString());
     }
 
-    @Contract("null, _ -> false")
-    private static boolean intentHasUnsafeUrl(@Nullable String url, Intent intent) {
-        if (url != null
-                && (intent.hasCategory(Intent.CATEGORY_BROWSABLE)
-                        || intent.hasCategory(Intent.CATEGORY_DEFAULT)
-                        || intent.getCategories() == null)) {
-            // The native library may be uninitialized at this point. Ensure it's initialized before
-            // calling a native function validateLaunchUrl().
-            LibraryLoader.getInstance().ensureInitialized();
-            if (!IntentHandlerJni.get().validateLaunchUrl(new GURL(url))) {
-                // Allow certain "safe" internal URLs to be launched by external
-                // applications.
-                assumeNonNull(url);
-                String lowerCaseUrl = url.toLowerCase(Locale.US);
-                if (ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL.equals(lowerCaseUrl)
-                        || ContentUrlConstants.ABOUT_BLANK_URL.equals(lowerCaseUrl)
-                        || UrlConstants.CHROME_DINO_URL.equals(lowerCaseUrl)
-                        || lowerCaseUrl.startsWith(UrlConstants.CHROME_EXTENSIONS_URL)
-                        || lowerCaseUrl.startsWith(UrlConstants.PDF_URL)) {
-                    return false;
-                }
-
-                return true;
-            }
-        }
-        return false;
+    @Contract("null -> false")
+    private static boolean isUrlUnsafe(@Nullable String url) {
+        if (url == null) return false;
+        return ExternalIntentUrlChecker.isUnsafeExternalIntentUrl(new GURL(url));
     }
 
+    /**
+     * @param url The URL to check.
+     * @return Whether the URL has a valid scheme. This sanitizes URL scheme first and allows
+     *     ExternalIntentUrlChecker#isUnsafeExternalSchemeas rejects {@link #GOOGLECHROME_SCHEME} as
+     *     unsafe.
+     */
     @VisibleForTesting
-    static boolean isValidUrl(@Nullable String url) {
+    static boolean isSchemeValid(@Nullable String url) {
         // Check if this is a valid googlechrome:// URL.
         if (isGoogleChromeScheme(url)) {
             url = ExternalNavigationHandler.getUrlFromSelfSchemeUrl(GOOGLECHROME_SCHEME, url);
             if (url == null) return false;
         }
 
-        // Always drop insecure urls.
-        if (url != null && isJavascriptSchemeOrInvalidUrl(url)) {
-            return false;
+        if (url != null) {
+            String urlScheme = ExternalNavigationHandler.getSanitizedUrlScheme(url);
+            if (ExternalIntentUrlChecker.isUnsafeExternalScheme(urlScheme)) {
+                return false;
+            }
         }
 
         return true;
@@ -1208,17 +1192,6 @@ public class IntentHandler {
         return ContextUtils.getApplicationContext().getPackageName().equals(appId)
                 ? TabOpenType.CLOBBER_CURRENT_TAB
                 : TabOpenType.REUSE_APP_ID_MATCHING_TAB_ELSE_NEW_TAB;
-    }
-
-    private static boolean isInvalidScheme(@Nullable String scheme) {
-        return scheme != null
-                && (scheme.toLowerCase(Locale.US).equals(UrlConstants.JAVASCRIPT_SCHEME)
-                        || scheme.toLowerCase(Locale.US).equals(UrlConstants.JAR_SCHEME));
-    }
-
-    private static boolean isJavascriptSchemeOrInvalidUrl(String url) {
-        String urlScheme = ExternalNavigationHandler.getSanitizedUrlScheme(url);
-        return isInvalidScheme(urlScheme);
     }
 
     /**
@@ -1419,7 +1392,7 @@ public class IntentHandler {
     public static boolean isGoogleChromeScheme(@Nullable String url) {
         if (url == null) return false;
         String urlScheme = Uri.parse(url).getScheme();
-        return urlScheme != null && urlScheme.equals(GOOGLECHROME_SCHEME);
+        return GOOGLECHROME_SCHEME.equalsIgnoreCase(urlScheme);
     }
 
     // TODO(mariakhomenko): pending referrer and pending incognito intent could potentially
@@ -1896,10 +1869,10 @@ public class IntentHandler {
                             intent, IntentHandler.EXTRA_PAGE_TRANSITION_BOOKMARK_ID);
             if (!TextUtils.isEmpty(bookmarkIdString)) {
                 BookmarkId bookmarkId = BookmarkId.getBookmarkIdFromString(bookmarkIdString);
-                ChromeNavigationUiData navData = new ChromeNavigationUiData();
-                navData.setBookmarkId(
-                        bookmarkId.getType() == BookmarkType.NORMAL ? bookmarkId.getId() : -1);
-                loadUrlParams.setNavigationUIDataSupplier(navData::createUnownedNativeCopy);
+                if (bookmarkId.getType() == BookmarkType.NORMAL) {
+                    ChromeNavigationUiData.getOrCreate(loadUrlParams)
+                            .setBookmarkId(bookmarkId.getId());
+                }
             }
         } else {
             // Intent is not coming from Chrome, the sender can't be trusted.
@@ -1943,7 +1916,5 @@ public class IntentHandler {
         boolean isCorsSafelistedHeader(
                 @JniType("std::string") String name,
                 @JniType("std::string") @Nullable String value);
-
-        boolean validateLaunchUrl(GURL rul);
     }
 }

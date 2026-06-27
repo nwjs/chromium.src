@@ -16,7 +16,7 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/indigo/resources/grit/indigo_browser_resources.h"
 #include "chrome/browser/indigo/resources/grit/indigo_browser_resources_map.h"
-#include "chrome/grit/branded_strings.h"
+#include "chrome/browser/indigo/resources/grit/indigo_strings.h"
 #include "chrome/grit/indigo_resources.h"
 #include "chrome/grit/indigo_resources_map.h"
 #include "components/application_locale_storage/application_locale_storage.h"
@@ -47,6 +47,10 @@ base::DictValue GetStrings() {
            l10n_util::GetStringUTF16(IDS_INDIGO_TEXT_LAYER_STEP_2));
   dict.Set("textLayerStep3",
            l10n_util::GetStringUTF16(IDS_INDIGO_TEXT_LAYER_STEP_3));
+  dict.Set("disclaimerLine1",
+           l10n_util::GetStringUTF16(IDS_INDIGO_DISCLAIMER_LINE_1));
+  dict.Set("disclaimerLine2",
+           l10n_util::GetStringUTF16(IDS_INDIGO_DISCLAIMER_LINE_2));
   return dict;
 }
 

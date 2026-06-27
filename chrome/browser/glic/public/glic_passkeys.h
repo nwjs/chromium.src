@@ -10,7 +10,6 @@
 #include "chrome/browser/glic/public/glic_context_menu_invocation_helper.h"
 
 class GlicExperimentalTriggeringMessageHandler;
-class TabStripActionContainer;
 namespace tabs {
 class TabInterface;
 }
@@ -20,14 +19,24 @@ class GlicPrivateInvokeFunction;
 class PdfViewerPrivateGlicSummarizeFunction;
 }
 
+namespace indigo {
+class IndigoPageActionController;
+}
+
 class PasswordChangeFromCheckupDelegate;
 
 namespace ttc {
 class AiOverlayTools;
 }
 
+namespace skills {
+class SkillsUiTabController;
+class SkillsInvocationInteractiveUiTest;
+}  // namespace skills
+
 namespace glic {
 
+class AnchoredNudgeController;
 class GlicInternalsPageHandler;
 
 template <mojom::InvocationSource Source>
@@ -45,7 +54,7 @@ class InvokeWithAutoSubmitPasskeyProvider {
   // Example of how to add new friends:
   // friend class SomeClassThatNeedsAutoSubmit;
   // friend void SomeClass::SomeFunctionThatNeedsAutoSubmit();
-  friend class ::TabStripActionContainer;
+  friend class AnchoredNudgeController;
   friend void GlicContextMenuInvocationHelper::HandleContextualMenuClick(
       tabs::TabInterface* tab);
   friend class extensions::GlicPrivateInvokeFunction;
@@ -53,11 +62,15 @@ class InvokeWithAutoSubmitPasskeyProvider {
   friend class ::PasswordChangeFromCheckupDelegate;
   friend class GlicInternalsPageHandler;
   friend class GlicInstanceCoordinatorBrowserTest;
+  friend class GlicInvokeBrowserTest;
   friend class GlicInstanceCoordinatorTrustFirstOnboardingArm1BrowserTest;
   friend class GlicApiTestPasskeys;
   friend class ::GlicExperimentalTriggeringMessageHandler;
   friend class GlicCueTarget;
+  friend class ::indigo::IndigoPageActionController;
   friend class ::ttc::AiOverlayTools;
+  friend class ::skills::SkillsUiTabController;
+  friend class ::skills::SkillsInvocationInteractiveUiTest;
   friend class AndroidAutoSubmitPasskeyHelper<
       mojom::InvocationSource::kUniversalCart>;
 };

@@ -85,10 +85,10 @@
 #include "third_party/blink/renderer/core/timing/performance_paint_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_resource_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_server_timing.h"
+#include "third_party/blink/renderer/core/timing/performance_soft_navigation.h"
 #include "third_party/blink/renderer/core/timing/performance_user_timing.h"
 #include "third_party/blink/renderer/core/timing/profiler.h"
 #include "third_party/blink/renderer/core/timing/profiler_group.h"
-#include "third_party/blink/renderer/core/timing/soft_navigation_entry.h"
 #include "third_party/blink/renderer/core/timing/time_clamper.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
@@ -528,6 +528,12 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
     case PerformanceEntry::kScript:
       break;
 
+    // TODO(crbug.com/504094429): Scroll entries are not emitted yet. A
+    // follow-up CL will add scroll instrumentation that delivers entries
+    // through PerformanceObserver.
+    case PerformanceEntry::kScroll:
+      break;
+
     case PerformanceEntry::kLayoutShift:
       entries = &layout_shift_buffer_;
       break;
@@ -754,7 +760,7 @@ void Performance::AddInteractionContentfulPaint(
 }
 
 void Performance::AddSoftNavigationToPerformanceTimeline(
-    SoftNavigationEntry* entry) {
+    PerformanceSoftNavigation* entry) {
   probe::PerformanceEntryAdded(GetExecutionContext(), entry);
   if (soft_navigation_buffer_.size() < kDefaultSoftNavigationBufferSize) {
     InsertEntryIntoSortedBuffer(soft_navigation_buffer_, *entry);

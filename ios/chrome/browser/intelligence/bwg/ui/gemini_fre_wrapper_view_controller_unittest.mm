@@ -8,11 +8,11 @@
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/task_environment.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_configuration.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_mutator.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_view_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_promo_view_controller.h"
 #import "ios/chrome/common/ui/button_stack/button_stack_action_delegate.h"
-#import "ios/chrome/common/ui/button_stack/button_stack_constants.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -24,14 +24,20 @@
 // Test fixture for GeminiFREWrapperViewController.
 class GeminiFREWrapperViewControllerTest : public PlatformTest {
  public:
-  GeminiFREWrapperViewController* CreateController(bool with_promo,
-                                                   bool is_account_managed) {
+  GeminiFREWrapperViewController* CreateController(
+      bool with_promo,
+      bool is_account_managed,
+      bool use_strict_consent = false) {
+    GeminiConsentConfiguration* consent_config = [GeminiConsentConfiguration
+        configurationForManaged:is_account_managed
+                         strict:use_strict_consent
+                           type:GeminiFREType::kNewUser
+                        country:@"us"];
     GeminiFREWrapperViewController* view_controller =
         [[GeminiFREWrapperViewController alloc]
-               initWithPromo:with_promo
-            isAccountManaged:is_account_managed
-                     FREType:GeminiFREType::kNewUser
-                     country:@"us"];
+                   initWithPromo:with_promo
+                         FREType:GeminiFREType::kNewUser
+            consentConfiguration:consent_config];
     mock_mutator_ =
         [OCMockObject mockForProtocol:@protocol(GeminiConsentMutator)];
     [[[mock_mutator_ stub] andReturnValue:@NO] shouldShowImageRemixRow];

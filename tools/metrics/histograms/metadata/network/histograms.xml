@@ -111,7 +111,7 @@ chromium-metrics-reviews@google.com.
   <variant name="Throttled"/>
 </variants>
 
-<!-- LINT.ThenChange(//services/network/scheduler/network_service_task_queues.cc:PriorityToString) -->
+<!-- LINT.ThenChange(//net/base/scheduler/net_task_queues.cc:PriorityToString) -->
 
 <!-- LINT.IfChange(RequestPriority) -->
 
@@ -2471,7 +2471,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Network.SharedDictionary.CreateBrotliSourceStreamWithDictionary"
-    units="microseconds" expires_after="2026-08-30">
+    units="microseconds" expires_after="2026-11-01">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2485,7 +2485,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SharedDictionary.CreateZstdSourceStreamWithDictionary"
-    units="microseconds" expires_after="2026-08-30">
+    units="microseconds" expires_after="2026-11-01">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2503,7 +2503,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Network.SharedDictionary.DocumentRequestCacheResult"
     enum="SharedDictionaryDocumentRequestCacheResult"
-    expires_after="2026-09-06">
+    expires_after="2026-11-08">
   <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -4961,7 +4961,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SyntheticResponse.IsHeaderConsistent" enum="Boolean"
-    expires_after="2026-09-20">
+    expires_after="2026-11-22">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
@@ -5153,7 +5153,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.CorsURLLoaderFactory.CreateLoaderAndStart2.Duration"
-    units="microseconds" expires_after="2026-09-20">
+    units="microseconds" expires_after="2026-11-22">
   <owner>olivier@chromium.org</owner>
   <owner>cduvall@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -5231,7 +5231,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.NetworkLoaderCompletionTime2.{Source}"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2026-11-08">
   <owner>hayato@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5284,7 +5284,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Scheduler.IOThread.NumberOfPendingTasks.{QueueName}Queue"
-    units="count" expires_after="2026-09-06">
+    units="count" expires_after="2026-11-08">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5297,7 +5297,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Scheduler.IOThread.QueuingTime.{QueueName}Queue"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2026-11-08">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5309,7 +5309,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.Scheduler.IOThread.TaskOffCpuDuration"
-    units="ms" expires_after="2026-07-01">
+    units="ms" expires_after="2026-12-01">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5320,7 +5320,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.Scheduler.IOThread.TaskOnCpuDuration"
-    units="ms" expires_after="2026-07-01">
+    units="ms" expires_after="2026-12-01">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5331,7 +5331,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.Scheduler.IOThread.TaskOnCpuPercentage"
-    units="%" expires_after="2026-07-01">
+    units="%" expires_after="2026-12-01">
   <owner>hayato@chromium.org</owner>
   <owner>net-dev@chromium.org</owner>
   <summary>
@@ -5490,6 +5490,32 @@ chromium-metrics-reviews@google.com.
     This could include several logs from the same client for the same network
     context if the migration fails, since this is reported each time the
     migration is attempted.
+  </summary>
+</histogram>
+
+<histogram name="NetworkTime.EstimatedTimeUncertainty" units="ms"
+    expires_after="2027-05-20">
+  <owner>rogerm@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
+  <summary>
+    The uncertainty of the estimated network time, recorded when the current
+    network time is estimated based on a previous network time synchronization.
+    The uncertainty is calculated based on the uncertainty inherent in the
+    previous network time update and any skew detected between the local wall
+    and tick clocks since that update.
+  </summary>
+</histogram>
+
+<histogram name="NetworkTime.NetworkTimeUncertainty" units="ms"
+    expires_after="2027-05-20">
+  <owner>rogerm@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
+  <summary>
+    The uncertainty of the network time, recorded when the network time is
+    successfully synchronized. The uncertainty is calculated based on the
+    resolution of the time source, the latency of the query, and the resolution
+    of the local tick clock. This is the uncertainty in the data which will
+    later be used to estimate/calculate network time.
   </summary>
 </histogram>
 

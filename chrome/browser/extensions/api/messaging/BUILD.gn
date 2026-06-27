@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 
@@ -21,13 +20,6 @@ source_set("messaging") {
     "native_messaging_host_manifest.cc",
     "native_messaging_host_manifest.h",
   ]
-
-  if (is_android) {
-    sources += [
-      "native_message_android_host.cc",
-      "native_message_android_host.h",
-    ]
-  }
 
   if (!is_chromeos) {
     sources += [
@@ -107,7 +99,14 @@ source_set("messaging") {
   }
 
   if (is_win) {
-    deps += [ "//components/app_launch_prefetch" ]
+    deps += [
+      "//components/app_launch_prefetch",
+      "//ui/views",
+    ]
+  }
+
+  if (is_android) {
+    deps += [ "android" ]
   }
 }
 

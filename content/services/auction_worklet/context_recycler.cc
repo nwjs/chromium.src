@@ -23,7 +23,6 @@
 #include "content/services/auction_worklet/set_priority_bindings.h"
 #include "content/services/auction_worklet/set_priority_signals_override_bindings.h"
 #include "content/services/auction_worklet/shared_storage_bindings.h"
-#include "content/services/auction_worklet/text_conversion_helpers.h"
 #include "v8/include/v8-context.h"
 
 namespace auction_worklet {
@@ -33,8 +32,9 @@ Bindings::~Bindings() = default;
 
 PersistedLazyFiller::~PersistedLazyFiller() = default;
 
-PersistedLazyFiller::PersistedLazyFiller(AuctionV8Helper* v8_helper)
-    : LazyFiller(v8_helper) {}
+PersistedLazyFiller::PersistedLazyFiller(AuctionV8Helper* v8_helper,
+                                         gin::ExternalPointerTypeTag tag)
+    : LazyFiller(v8_helper, tag) {}
 
 ContextRecycler::ContextRecycler(AuctionV8Helper* v8_helper)
     : v8_helper_(v8_helper) {}
@@ -117,13 +117,6 @@ void ContextRecycler::AddSharedStorageBindings(
   AddBindings(shared_storage_bindings_.get());
 }
 
-void ContextRecycler::AddTextConversionHelpers() {
-  DCHECK(!text_conversion_helpers_);
-  text_conversion_helpers_ =
-      std::make_unique<TextConversionHelpers>(v8_helper_);
-  AddBindings(text_conversion_helpers_.get());
-}
-
 void ContextRecycler::AddInterestGroupLazyFiller() {
   DCHECK(!interest_group_lazy_filler_);
   interest_group_lazy_filler_ =
@@ -190,6 +183,12 @@ v8::Local<v8::Context> ContextRecycler::GetContext() {
 }
 
 void ContextRecycler::ResetForReuse() {
+  // Make sure that microtasks get flushed as they would not on timeout.
+  {
+    AuctionV8Helper::TimeLimitScope time_scope(v8_helper_->GetTimeLimit());
+    v8_helper_->isolate()->PerformMicrotaskCheckpoint();
+  }
+
   for (Bindings* bindings : bindings_list_) {
     bindings->Reset();
   }

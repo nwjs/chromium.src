@@ -14,6 +14,8 @@ import static org.chromium.ui.base.KeyNavigationUtil.isButtonActivate;
 import static org.chromium.ui.base.KeyNavigationUtil.isMoveFocusBackward;
 import static org.chromium.ui.base.KeyNavigationUtil.isMoveFocusForward;
 
+import static java.util.Collections.emptySet;
+
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
@@ -23,6 +25,9 @@ import android.graphics.RectF;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.transition.ChangeBounds;
+import android.transition.Transition;
+import android.transition.TransitionSet;
 import android.util.AttributeSet;
 import android.util.Size;
 import android.view.DragAndDropPermissions;
@@ -36,7 +41,6 @@ import android.view.Window;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
-import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -81,10 +85,10 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.theme.ThemeColorProvider;
-import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
+import org.chromium.chrome.browser.theme.ToolbarThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
@@ -97,10 +101,10 @@ import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.animation.transition.IntegerValueTransition;
 import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.EventOffsetHandler;
-import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.SPenSupport;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.ViewportInsets;
@@ -114,6 +118,7 @@ import org.chromium.ui.util.MotionEventUtils;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -277,7 +282,7 @@ public class CompositorViewHolder extends FrameLayout
 
     private boolean mHasDrawnOnce;
 
-    private @Nullable TopUiThemeColorProvider mTopUiThemeColorProvider;
+    private @Nullable ToolbarThemeColorProvider mToolbarThemeColorProvider;
 
     // Permissions are requested on a drop event, and are released when another drag starts
     // (drag-started event) or when the current page navigates to a new URL or the tab changes.
@@ -422,9 +427,7 @@ public class CompositorViewHolder extends FrameLayout
     @Override
     public @Nullable PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
 
-        if (mView != null
-                && mView.getVisibility() == View.VISIBLE
-                && ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
+        if (mView != null && mView.getVisibility() == View.VISIBLE) {
 
             // Delegate to standard Android behavior (View Group). This internally loops through the
             // children of the CompositorViewHolder and calculates the correct offsets.
@@ -704,10 +707,10 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     /**
-     * @param themeColorProvider {@link ThemeColorProvider} for top UI part.
+     * @param themeColorProvider {@link ToolbarThemeColorProvider} for the toolbar.
      */
-    public void setTopUiThemeColorProvider(TopUiThemeColorProvider themeColorProvider) {
-        mTopUiThemeColorProvider = themeColorProvider;
+    public void setToolbarThemeColorProvider(ToolbarThemeColorProvider themeColorProvider) {
+        mToolbarThemeColorProvider = themeColorProvider;
     }
 
     /**
@@ -1102,6 +1105,14 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     /**
+     * @see #updateWebContentsSize(Tab, Integer)
+     */
+    @VisibleForTesting
+    void updateWebContentsSize(@Nullable Tab tab) {
+        updateWebContentsSize(tab, /* widthOverride= */ null);
+    }
+
+    /**
      * Ensures the tab-backed webContents' size is up to date.
      *
      * <p>Using this view's current size, taking into account the current state of UI like the
@@ -1110,9 +1121,11 @@ public class CompositorViewHolder extends FrameLayout
      * the Window, this method will force it to layout and use that size.
      *
      * @param tab {@link Tab} for which the size of the view is set.
+     * @param widthOverride The width that should be used for the web contents, regardless of
+     *     viewport size.
      */
     @VisibleForTesting
-    void updateWebContentsSize(@Nullable Tab tab) {
+    void updateWebContentsSize(@Nullable Tab tab, @Nullable Integer widthOverride) {
         if (tab == null) return;
 
         WebContents webContents = tab.getWebContents();
@@ -1120,7 +1133,7 @@ public class CompositorViewHolder extends FrameLayout
         if (webContents == null || view == null) return;
 
         Point viewportSize = getViewportSize();
-        int width = viewportSize.x;
+        int width = widthOverride != null ? widthOverride : viewportSize.x;
         int height = viewportSize.y;
 
         if (ChromeFeatureList.sVirtualKeyboardTransientInnerHeightFix.isEnabled()
@@ -1133,11 +1146,16 @@ public class CompositorViewHolder extends FrameLayout
 
         // The view size takes into account side-anchored UI whose width should be subtracted from
         // the view if they are visible, therefore shrinking the Blink-side view size.
+        //
+        // Note that a non-null widthOverride already considered side-anchored UI (see callers of
+        // this method), so we only need to consider side-anchored UI when widthOverride is null.
         int horizontalViewportInsets = 0;
-        if (AndroidSidePanelEnabledFn.isEnabled() && mSideUiStateProvider != null) {
+        if (AndroidSidePanelEnabledFn.isEnabled()
+                && mSideUiStateProvider != null
+                && widthOverride == null) {
             SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
             horizontalViewportInsets =
-                    sideUiSpecs.mStartContainerWidth + sideUiSpecs.mEndContainerWidth;
+                    sideUiSpecs.getWidth(AnchorSide.LEFT) + sideUiSpecs.getWidth(AnchorSide.RIGHT);
         }
 
         // The view size takes into account of the browser controls whose height should be
@@ -1170,14 +1188,16 @@ public class CompositorViewHolder extends FrameLayout
             boolean keyboardInsetTransitionInProgress =
                     mDeferredWebContentsHeightInsetUpdate != null
                             || rawKeyboardInset != mAppliedWebContentsHeightInset;
+            boolean keyboardVisible =
+                    KeyboardVisibilityDelegate.getInstance().isKeyboardShowing(this);
 
-            if (!keyboardCompensationActive && !keyboardInsetTransitionInProgress) {
+            if (!keyboardCompensationActive
+                    && !keyboardInsetTransitionInProgress
+                    && !keyboardVisible) {
+                // Only refresh the baseline once keyboard state has fully settled.
                 mLastStableOutsetModeWebContentsHeight = webContentsHeight;
-            } else if (keyboardCompensationActive
-                    && mLastStableOutsetModeWebContentsHeight != null
-                    && webContentsHeight > mLastStableOutsetModeWebContentsHeight) {
-                // While keyboard compensation is active, WebContents height should never exceed
-                // the last stable baseline captured with compensation inactive.
+            } else if (mLastStableOutsetModeWebContentsHeight != null) {
+                // Clamp both directions while keyboard state is in flight.
                 webContentsHeight = mLastStableOutsetModeWebContentsHeight;
             }
         }
@@ -1388,19 +1408,75 @@ public class CompositorViewHolder extends FrameLayout
         }
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                 Start of SideUiObserver Implementation                                    //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public @Nullable Transition onPreSideUiSpecsChange(SideUiSpecs sideUiSpecs) {
+        if (mSideUiStateProvider == null) return null;
+
+        Tab currentTab = getCurrentTab();
+        if (currentTab == null) return null;
+
+        WebContents webContents = currentTab.getWebContents();
+        if (webContents == null) return null;
+
+        Point viewportSize = getViewportSize();
+        int sideUiTotalWidth =
+                sideUiSpecs.getWidth(AnchorSide.LEFT) + sideUiSpecs.getWidth(AnchorSide.RIGHT);
+        int startWidth = ViewUtils.dpToPx(mActivity, webContents.getWidth());
+        int targetWidth = viewportSize.x - sideUiTotalWidth;
+
+        TransitionSet transitionSet = new TransitionSet();
+
+        // TODO(crbug.com/513304704): Add tests covering the Java View Transitions.
+        if (mView != null) {
+            // Apply a ChangeBounds() to the view and all its descendants to make sure any changes
+            // are properly animated. If this isn't applied to all the descendant Views, the
+            // animation may not be triggered at all.
+            ChangeBounds changeBounds = new ChangeBounds();
+            Collection<View> descendants = new ArrayList<>();
+            changeBounds.addTarget(mView);
+            ViewUtils.getAllDescendants(mView, descendants, emptySet());
+            for (View view : descendants) {
+                changeBounds.addTarget(view);
+            }
+            transitionSet.addTransition(changeBounds);
+        }
+
+        transitionSet.addTransition(
+                new IntegerValueTransition(
+                        this,
+                        startWidth,
+                        targetWidth,
+                        (desiredWidth) -> updateWebContentsSize(getCurrentTab(), desiredWidth)));
+        return transitionSet;
+    }
+
+    @Override
+    public void onTransitionBegun(SideUiSpecs sideUiSpecs) {
+        // Trigger changes to Java Views, but delay any direct changes to composited views until
+        // #onSideUiSpecsChanged().
+        repositionTabViewForSideUi(sideUiSpecs);
+    }
+
+    @Override
+    public void onTransitionEnded(SideUiSpecs sideUiSpecs) {
+        onSideUiSpecsChanged(sideUiSpecs);
+    }
+
     @Override
     public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
-        // Rather than using the specs provided here, instead pull directly from
-        // mSideUiStateProvider. This is done, since we need the offset every time we update the
-        // WebContents size and we want to avoid caching the specs here.
-        updateWebContentsSize(getCurrentTab());
-        @Px
-        int contentOffsetX =
-                LocalizationUtils.isLayoutRtl()
-                        ? sideUiSpecs.mEndContainerWidth
-                        : sideUiSpecs.mStartContainerWidth;
-        mLayoutManager.setContentOffsetX(contentOffsetX);
-        repositionTabViewForSideUi();
+        int sideUiTotalWidth =
+                sideUiSpecs.getWidth(AnchorSide.RIGHT) + sideUiSpecs.getWidth(AnchorSide.LEFT);
+        int webContentsWidth = getViewportSize().x - sideUiTotalWidth;
+        updateWebContentsSize(getCurrentTab(), webContentsWidth);
+
+        // TODO(crbug.com/514774842): Account for offset X for animations.
+        mLayoutManager.setContentOffsetX(sideUiSpecs.getWidth(AnchorSide.LEFT));
+
+        repositionTabViewForSideUi(sideUiSpecs);
         onViewportChanged();
         // TODO(crbug.com/483748424): Update #getWindowViewport and #getVisibleViewport through
         //  #onViewportChanged as well. This change is not trivial, since other items, such as
@@ -1409,22 +1485,31 @@ public class CompositorViewHolder extends FrameLayout
         //  the viewport bounds from these items.
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //                 End of SideUiObserver Implementation                                      //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     private void repositionTabViewForSideUi() {
+        if (mSideUiStateProvider != null) {
+            repositionTabViewForSideUi(mSideUiStateProvider.getCurrentSideUiSpecs());
+        }
+    }
+
+    private void repositionTabViewForSideUi(SideUiSpecs sideUiSpecs) {
         Tab currentTab = getCurrentTab();
         if (mSideUiStateProvider == null || mView == null || currentTab == null) return;
 
         // Only reposition custom views and native pages. Do not reposition ContentView.
         if (!currentTab.isShowingCustomView() && !currentTab.isNativePage()) return;
 
-        SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
         MarginLayoutParams layoutParams = (MarginLayoutParams) mView.getLayoutParams();
         // Layout parameters can be null if the view is not yet attached to the view hierarchy
         // or fully initialized (e.g. during tab reparenting).
         // TODO(b/496307238): verify if need to explicitly trigger repositionTabViewForSideUi again
         // after layout params are set.
         if (layoutParams == null) return;
-        layoutParams.setMarginStart(sideUiSpecs.mStartContainerWidth);
-        layoutParams.setMarginEnd(sideUiSpecs.mEndContainerWidth);
+        layoutParams.leftMargin = sideUiSpecs.getWidth(AnchorSide.LEFT);
+        layoutParams.rightMargin = sideUiSpecs.getWidth(AnchorSide.RIGHT);
         mView.setLayoutParams(layoutParams);
     }
 
@@ -1544,16 +1629,8 @@ public class CompositorViewHolder extends FrameLayout
     private void adjustRectForSideUi(RectF outRect) {
         if (mSideUiStateProvider != null) {
             SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
-            int leftOffset =
-                    LocalizationUtils.isLayoutRtl()
-                            ? sideUiSpecs.mEndContainerWidth
-                            : sideUiSpecs.mStartContainerWidth;
-            int rightOffset =
-                    LocalizationUtils.isLayoutRtl()
-                            ? sideUiSpecs.mStartContainerWidth
-                            : sideUiSpecs.mEndContainerWidth;
-            outRect.left += leftOffset;
-            outRect.right -= rightOffset;
+            outRect.left += sideUiSpecs.getWidth(AnchorSide.LEFT);
+            outRect.right -= sideUiSpecs.getWidth(AnchorSide.RIGHT);
         }
     }
 
@@ -1746,13 +1823,13 @@ public class CompositorViewHolder extends FrameLayout
             TabCreatorManager tabCreatorManager,
             NonNullObservableSupplier<Integer> bottomControlsOffsetSupplier) {
         assert mLayoutManager != null;
-        assert mTopUiThemeColorProvider != null;
+        assert mToolbarThemeColorProvider != null;
         mLayoutManager.init(
                 tabModelSelector,
                 tabCreatorManager,
                 mControlContainer,
                 mCompositorView.getResourceManager().getDynamicResourceLoader(),
-                mTopUiThemeColorProvider,
+                mToolbarThemeColorProvider,
                 bottomControlsOffsetSupplier);
 
         mTabModelSelector = tabModelSelector;

@@ -123,7 +123,7 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
     this.addWebUiListener('search-engines-changed', updateSearchEngines);
   }
 
-  private onDisableExtension_() {
+  private onDisableExtensionClick_() {
     this.dispatchEvent(new CustomEvent('refresh-pref', {
       bubbles: true,
       composed: true,
@@ -192,7 +192,9 @@ export class SettingsSearchPageElement extends SettingsSearchPageElementBase {
     assert(childViewId === 'searchEngines');
     const control =
         this.shadowRoot!.querySelector<HTMLElement>('#enginesSubpageTrigger');
-    assert(control);
+    assert(
+        control,
+        `Failed to find associated control for child '${childViewId}'`);
     return control;
   }
 }

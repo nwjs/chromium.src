@@ -9,6 +9,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/base_switches.h"
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
@@ -1108,7 +1109,7 @@ class PrerenderBrowserTestFallbackEnabledDisabled
                       {
                           features::kPrerender2FallbackPrefetchSchedulerPolicy
                               .name,
-                          "NotUse",
+                          "Burst",
                       },
                   },
               },
@@ -2656,7 +2657,7 @@ class PrerenderTargetAgnosticBrowserTest
                       {
                           features::kPrerender2FallbackPrefetchSchedulerPolicy
                               .name,
-                          "NotUse",
+                          "Burst",
                       },
                   },
               },
@@ -7812,7 +7813,7 @@ class SSLPrerenderBrowserTest
                       {
                           features::kPrerender2FallbackPrefetchSchedulerPolicy
                               .name,
-                          "NotUse",
+                          "Burst",
                       },
                   },
               },
@@ -8771,7 +8772,7 @@ class PrerenderLowMemoryBrowserTest
     // Set the value of memory threshold more than the physical memory.  The
     // test will expect that prerendering does not occur.
     std::string memory_threshold = base::NumberToString(
-        base::SysInfo::AmountOfPhysicalMemory().InMiB() + 1);
+        base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() + 1);
     feature_list_.InitWithFeaturesAndParameters(
         {{blink::features::kPrerender2MemoryControls,
           {{blink::features::kPrerender2MemoryThresholdParamName,
@@ -8793,7 +8794,7 @@ class PrerenderLowMemoryBrowserTest
                       {
                           features::kPrerender2FallbackPrefetchSchedulerPolicy
                               .name,
-                          "NotUse",
+                          "Burst",
                       },
                   },
               },
@@ -12998,6 +12999,9 @@ class MultiplePrerendersWithLimitedMemoryBrowserTest
   base::test::ScopedFeatureList feature_list_;
 };
 
+// Memory pressure notifications to PrerenderHostRegistry are disabled on
+// Android only.
+#if !BUILDFLAG(IS_ANDROID)
 // Tests that moderate-level memory pressure doesn't cancel prerendering on
 // trigger.
 IN_PROC_BROWSER_TEST_F(MultiplePrerendersBrowserTest,
@@ -13106,6 +13110,7 @@ IN_PROC_BROWSER_TEST_F(MultiplePrerendersBrowserTest,
       PrerenderFinalStatus::kMemoryPressureAfterTriggered,
       prerender_urls.size());
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Tests that PrerenderHostRegistry only starts prerender speculation rules
 // up to `max_num_of_running_speculation_rules` defined by a Finch param.
@@ -14305,19 +14310,9 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, VerifyPrerenderProcessVisibility) {
             base::Process::Priority::kBestEffort);
 }
 
-class PrerenderSpecificRequestHeadersBrowserTest
-    : public PrerenderBrowserTest,
-      public testing::WithParamInterface<bool> {
+class PrerenderSpecificRequestHeadersBrowserTest : public PrerenderBrowserTest {
  public:
-  PrerenderSpecificRequestHeadersBrowserTest() {
-    if (GetParam()) {
-      feature_list_.InitAndEnableFeature(
-          blink::features::kRemovePurposeHeaderForPrefetch);
-    } else {
-      feature_list_.InitAndDisableFeature(
-          blink::features::kRemovePurposeHeaderForPrefetch);
-    }
-  }
+  PrerenderSpecificRequestHeadersBrowserTest() = default;
   ~PrerenderSpecificRequestHeadersBrowserTest() override = default;
 
   void SetUp() override {
@@ -14325,8 +14320,6 @@ class PrerenderSpecificRequestHeadersBrowserTest
         base::BindRepeating(&HandleCorsRequest));
     PrerenderBrowserTest::SetUp();
   }
-
-  bool IsRemovePurposeHeaderEnabled() const { return GetParam(); }
 
   static std::unique_ptr<net::test_server::HttpResponse> HandleCorsRequest(
       const net::test_server::HttpRequest& request) {
@@ -14356,17 +14349,9 @@ class PrerenderSpecificRequestHeadersBrowserTest
 
     // Test Purpose headers based on feature flag state
     auto purpose_it = headers.find(blink::kPurposeHeaderName);
-    if (IsRemovePurposeHeaderEnabled()) {
-      // When feature is enabled, legacy Purpose header should be removed
-      EXPECT_EQ(headers.end(), purpose_it)
-          << "Purpose header should not be present when feature is enabled";
-    } else {
-      // When feature is disabled, legacy Purpose header should be present
-      if (purpose_it == headers.end()) {
-        return false;
-      }
-      EXPECT_EQ(blink::kSecPurposePrefetchHeaderValue, purpose_it->second);
-    }
+    // Legacy Purpose header should be removed
+    EXPECT_EQ(headers.end(), purpose_it)
+        << "Purpose header should not be present when feature is enabled";
 
     auto sec_purpose_it = headers.find(blink::kSecPurposeHeaderName);
     if (sec_purpose_it == headers.end()) {
@@ -14387,14 +14372,11 @@ class PrerenderSpecificRequestHeadersBrowserTest
     EXPECT_TRUE(headers.contains(blink::kSecSpeculationTagsHeaderName));
     return headers[blink::kSecSpeculationTagsHeaderName];
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 // Tests that a request for the initial prerender navigation has the
 // Purpose and Sec-Purpose headers, but not the Sec-Speculation-Tags header.
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest,
                        InitialNavigation_Embedder) {
   // Navigate to an initial page.
   ASSERT_TRUE(NavigateToURL(shell(), GetUrl("/empty.html")));
@@ -14416,7 +14398,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
 //
 // TODO(nhiroki/domenic): Move this test to WPT.
 // speculation-rules/prerender/headers.https.html is a good starting point.
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest,
                        RedirectionOnInitialNavigation) {
   // Navigate to an initial page.
   ASSERT_TRUE(NavigateToURL(shell(), GetUrl("/empty.html")));
@@ -14442,7 +14424,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
   EXPECT_EQ(GetSecSpeculationTagsHeader(kRedirectedUrl), "null");
 }
 
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest,
                        SpeculationRulesTagsMergingForImmediateCandidates) {
   const GURL initial_url =
       GetUrl("/prerender/multiple_prerender_with_tags.html");
@@ -14456,7 +14438,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
   EXPECT_EQ(GetSecSpeculationTagsHeader(prerender_url), "\"tag1\", \"tag2\"");
 }
 
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest,
                        SpeculationRulesTagForSameSiteCrossOrigin) {
   const GURL initial_url = GetUrl("/prerender/empty.html");
   const GURL prerender_url =
@@ -14474,7 +14456,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
 
 // This prefetch test is tentatively implemented here to reuse the test infra.
 // TODO(crbug.com/381687257): Move this test to prefetch browser tests.
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest, Prefetch) {
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest, Prefetch) {
   // Navigate to an initial page.
   ASSERT_TRUE(NavigateToURL(shell(), GetUrl("/empty.html")));
 
@@ -14495,7 +14477,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest, Prefetch) {
 }
 
 // Test that there is no tags merging if both of the candidates are enacted.
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest,
                        SpeculationRulesTagsMergingForNonImmediateCandidates) {
 #if !BUILDFLAG(IS_ANDROID)
   const GURL initial_url = GetUrl(
@@ -14517,7 +14499,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
 }
 
 // Test that there is no tags merging if only one of the candidates is enacted.
-IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
+IN_PROC_BROWSER_TEST_F(PrerenderSpecificRequestHeadersBrowserTest,
                        SpeculationRulesTagsNoMergingForNonImmediateCandidates) {
 #if !BUILDFLAG(IS_ANDROID)
   const GURL initial_url = GetUrl(
@@ -14536,10 +14518,6 @@ IN_PROC_BROWSER_TEST_P(PrerenderSpecificRequestHeadersBrowserTest,
   GTEST_SKIP();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
-
-INSTANTIATE_TEST_SUITE_P(RemovePurposeHeaderVariations,
-                         PrerenderSpecificRequestHeadersBrowserTest,
-                         ::testing::Bool());
 
 class PrerenderUserAgentOverrideBrowserTest : public PrerenderBrowserTest {
  public:
@@ -15001,7 +14979,7 @@ class PrerenderSpeculationRulesHoldbackBrowserTest
                       {
                           features::kPrerender2FallbackPrefetchSchedulerPolicy
                               .name,
-                          "NotUse",
+                          "Burst",
                       },
                   },
               },

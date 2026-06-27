@@ -4,9 +4,12 @@
 
 #include "content/browser/surface_embed/surface_embed_connector_impl.h"
 
+#include "base/check_is_test.h"
+#include "build/build_config.h"
 #include "components/input/cursor_manager.h"
 #include "components/input/render_widget_host_input_event_router.h"
 #include "content/browser/renderer_host/render_frame_host_delegate.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_frame_host_manager.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
@@ -19,9 +22,16 @@
 #include "mojo/public/cpp/bindings/message.h"
 #include "third_party/blink/public/common/frame/frame_visual_properties.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/compositor/compositor.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "ui/android/view_android.h"
+#include "ui/android/window_android.h"
+#include "ui/android/window_android_compositor.h"
+#endif
 
 namespace content {
 
@@ -50,20 +60,42 @@ class SurfaceEmbedConnectorImpl::WCObserver : public WebContentsObserver {
 
 // static
 void SurfaceEmbedConnector::Attach(WebContents* child_web_contents,
-                                   WebContents* parent_web_contents,
+                                   RenderFrameHost* outer_document_rfh,
                                    SurfaceEmbedConnector::Delegate* delegate) {
   CHECK(child_web_contents);
+  CHECK(outer_document_rfh);
+  WebContents* parent_web_contents =
+      WebContents::FromRenderFrameHost(outer_document_rfh);
   CHECK(parent_web_contents);
   // Must Detach the child before re-Attaching.
   CHECK(!child_web_contents->GetSurfaceEmbedConnector());
   auto connector = base::WrapUnique(new SurfaceEmbedConnectorImpl(
-      child_web_contents, parent_web_contents, delegate));
+      child_web_contents, parent_web_contents, outer_document_rfh, delegate));
   static_cast<WebContentsImpl*>(child_web_contents)
       ->SetSurfaceEmbedConnector(std::move(connector));
+
+  static_cast<WebContentsImpl*>(parent_web_contents)
+      ->SurfaceEmbedChildWebContentsAttached(child_web_contents,
+                                             outer_document_rfh);
 }
 
 // static
 void SurfaceEmbedConnector::Detach(WebContents* child_web_contents) {
+  if (auto* connector = static_cast<SurfaceEmbedConnectorImpl*>(
+          child_web_contents->GetSurfaceEmbedConnector())) {
+    // Note: we set visibility to not-rendered prior to detachment because if
+    // the WebContents isn't attached to any surface, it won't be rendered so it
+    // SHOULD have the visibility of kNotRendered, to prevent
+    // visibility/intersection notifications from being sent to it.
+    connector->OnVisibilityChanged(blink::mojom::FrameVisibility::kNotRendered);
+
+    if (WebContentsImpl* parent_web_contents =
+            connector->parent_web_contents()) {
+      parent_web_contents->SurfaceEmbedChildWebContentsDetached(
+          child_web_contents);
+    }
+  }
+
   // Connector will be freed by ClearSurfaceEmbedConnector().
   static_cast<WebContentsImpl*>(child_web_contents)
       ->ClearSurfaceEmbedConnector();
@@ -72,6 +104,7 @@ void SurfaceEmbedConnector::Detach(WebContents* child_web_contents) {
 SurfaceEmbedConnectorImpl::SurfaceEmbedConnectorImpl(
     WebContents* child_web_contents,
     WebContents* parent_web_contents,
+    RenderFrameHost* embedder_rfh,
     SurfaceEmbedConnector::Delegate* delegate)
     : delegate_(delegate),
       child_web_contents_(static_cast<WebContentsImpl*>(child_web_contents)),
@@ -139,6 +172,95 @@ void SurfaceEmbedConnectorImpl::OnSynchronizeVisualProperties(
   SynchronizeVisualProperties(visual_properties, true);
 }
 
+// static
+WebContentsImpl* SurfaceEmbedConnectorImpl::GetParentWebContents(
+    WebContentsImpl* web_contents) {
+  if (SurfaceEmbedConnector* connector =
+          web_contents->GetSurfaceEmbedConnector()) {
+    return static_cast<SurfaceEmbedConnectorImpl*>(connector)
+        ->parent_web_contents();
+  }
+  return web_contents->GetOuterWebContents();
+}
+
+// static
+WebContentsImpl* SurfaceEmbedConnectorImpl::GetRootWebContents(
+    WebContentsImpl* web_contents) {
+  auto* root = web_contents;
+  while (auto* parent = GetParentWebContents(root)) {
+    root = parent;
+  }
+  return root;
+}
+
+// static
+bool SurfaceEmbedConnectorImpl::ContainsOrIsFocusedWebContents(
+    WebContentsImpl* web_contents) {
+  // Focused frame tree is managed by root WebContents, so retrieve it from the
+  // root WebContents.
+  WebContentsImpl* root_web_contents = GetRootWebContents(web_contents);
+  WebContentsImpl* focused_web_contents =
+      root_web_contents->GetFocusedWebContents();
+  while (focused_web_contents) {
+    if (focused_web_contents == web_contents) {
+      return true;
+    }
+    focused_web_contents = GetParentWebContents(focused_web_contents);
+  }
+
+  return false;
+}
+
+FrameTree* SurfaceEmbedConnectorImpl::GetFocusFrameTreeIfContainsFocus() {
+  if (!parent_web_contents_ ||
+      !ContainsOrIsFocusedWebContents(child_web_contents())) {
+    return nullptr;
+  }
+  return GetRootWebContents(parent_web_contents())->GetFocusedFrameTree();
+}
+
+void SurfaceEmbedConnectorImpl::SetFocusedFrameTree(
+    FrameTree* frame_tree_to_focus) {
+  if (!parent_web_contents_) {
+    return;
+  }
+
+  // Update focused frame tree stored in the embedder.
+  parent_web_contents()->SetFocusedFrameTree(frame_tree_to_focus);
+  // The `frame_tree_to_focus` must belong to this WebContents
+  // or an inner WebContents in the subtree. Otherwise, this object's
+  // SetFocusedFrameTree should not be involved.
+  CHECK(ContainsOrIsFocusedWebContents(child_web_contents()));
+
+  // Ensure that outer frame trees are focused.
+  parent_web_contents()->GetPrimaryFrameTree().FocusOuterFrameTrees();
+
+  // Ensure that the embedder's page has focus so that it can display active UI
+  // and therefore the embedded plugin is also active.
+  parent_web_contents()
+      ->GetPrimaryMainFrame()
+      ->GetRenderWidgetHost()
+      ->SetPageFocus(true);
+}
+
+void SurfaceEmbedConnectorImpl::ClearFocusOnInnerWebContents() {
+  if (!parent_web_contents_) {
+    // Don't expect parent to be destroyed before child outside of tests.
+    CHECK_IS_TEST();
+    return;
+  }
+
+  if (!ContainsOrIsFocusedWebContents(child_web_contents())) {
+    return;
+  }
+
+  // Using the same logic as the one for inner WebContents in WebContentsImpl
+  // destructor to unset focus for child WebContents by setting focus on the
+  // root WebContents.
+  GetRootWebContents(parent_web_contents())
+      ->SetAsFocusedWebContentsIfNecessary();
+}
+
 WebContentsImpl* SurfaceEmbedConnectorImpl::parent_web_contents() const {
   return static_cast<WebContentsImpl*>(parent_web_contents_.get());
 }
@@ -196,6 +318,8 @@ void SurfaceEmbedConnectorImpl::SetView(RenderWidgetHostViewChildFrame* view,
     if (delegate_) {
       delegate_->SetFrameSinkId(frame_sink_id_);
     }
+
+    MaybeRefreshKeepSurfaceAlive();
   }
 }
 
@@ -236,7 +360,9 @@ void SurfaceEmbedConnectorImpl::RenderProcessGone() {
 }
 
 void SurfaceEmbedConnectorImpl::FirstSurfaceActivation(
-    const viz::SurfaceInfo& surface_info) {}
+    const viz::SurfaceInfo& surface_info) {
+  MaybeRefreshKeepSurfaceAlive();
+}
 
 void SurfaceEmbedConnectorImpl::SendIntrinsicSizingInfoToParent(
     blink::mojom::IntrinsicSizingInfoPtr) {}
@@ -248,6 +374,8 @@ void SurfaceEmbedConnectorImpl::SynchronizeVisualProperties(
   last_received_css_zoom_factor_ = visual_properties.css_zoom_factor;
   last_received_local_frame_size_ = visual_properties.local_frame_size;
   screen_infos_ = visual_properties.screen_infos;
+  bool local_surface_id_changed =
+      (local_surface_id_ != visual_properties.local_surface_id);
   local_surface_id_ = visual_properties.local_surface_id;
   capture_sequence_number_ = visual_properties.capture_sequence_number;
 
@@ -275,9 +403,21 @@ void SurfaceEmbedConnectorImpl::SynchronizeVisualProperties(
       visual_properties.root_widget_viewport_segments);
 
   render_widget_host->UpdateVisualProperties(propagate);
+
+  if (local_surface_id_changed) {
+    MaybeRefreshKeepSurfaceAlive();
+  }
 }
 
-void SurfaceEmbedConnectorImpl::UpdateCursor(const ui::Cursor& cursor) {}
+void SurfaceEmbedConnectorImpl::UpdateCursor(const ui::Cursor& cursor) {
+  RenderWidgetHostViewBase* root_view = GetRootRenderWidgetHostView();
+
+  // UpdateCursor messages are ignored if the root view does not support
+  // cursors.
+  if (root_view && root_view->GetCursorManager()) {
+    root_view->GetCursorManager()->UpdateCursor(view_, cursor);
+  }
+}
 
 FrameConnector::RootViewFocusState SurfaceEmbedConnectorImpl::HasFocus() {
   return RootViewFocusState::kNullView;
@@ -390,6 +530,46 @@ void SurfaceEmbedConnectorImpl::SetVisibilityForChildViews(bool visible) {
   }
 }
 
+void SurfaceEmbedConnectorImpl::SetKeepSurfaceAlive(bool keep_alive) {
+  should_keep_alive_ = keep_alive;
+  // We may be force-shown by WebContents to enable tab capture, even if we're
+  // in background. To enable that, we want to create a reference to the
+  // surface, to help the compositor notice its capture; this won't be created
+  // by the parent renderer unless it gets actually painted.
+  if (!view_) {
+    keep_surface_alive_.RunAndReset();
+    return;
+  }
+
+  auto surface_id = view_->GetCurrentSurfaceId();
+#if BUILDFLAG(IS_ANDROID)
+  ui::WindowAndroidCompositor* compositor = nullptr;
+  if (view_->GetNativeView() && view_->GetNativeView()->GetWindowAndroid()) {
+    compositor = view_->GetNativeView()->GetWindowAndroid()->GetCompositor();
+  }
+  if (should_keep_alive_ && compositor && surface_id.is_valid()) {
+    keep_surface_alive_ = base::ScopedClosureRunner(
+        compositor->TakeScopedKeepSurfaceAliveCallback(surface_id));
+#else
+  if (should_keep_alive_ && view_->GetCompositor() && surface_id.is_valid()) {
+    keep_surface_alive_ =
+        view_->GetCompositor()->TakeScopedKeepSurfaceAliveCallback(surface_id);
+#endif
+  } else {
+    keep_surface_alive_.RunAndReset();
+  }
+}
+
+bool SurfaceEmbedConnectorImpl::IsKeepingAlive() const {
+  return should_keep_alive_;
+}
+
+void SurfaceEmbedConnectorImpl::MaybeRefreshKeepSurfaceAlive() {
+  if (should_keep_alive_) {
+    SetKeepSurfaceAlive(true);
+  }
+}
+
 void SurfaceEmbedConnectorImpl::SetLocalFrameSize(
     const gfx::Size& local_frame_size) {
   has_size_ = true;
@@ -423,11 +603,9 @@ void SurfaceEmbedConnectorImpl::OnVisibilityChanged(
     return;
   }
 
-  // TODO(crbug.com/496266441): Once we have upstreamed the fix to "Teach
-  // performance manager about our things" so that it can find the parent frame,
-  // propagate the change in visibility to the current child render frame host
-  // (if there is one).
-  // current_child_frame_host()->VisibilityChanged(visibility_);
+  if (current_child_frame_host()) {
+    current_child_frame_host()->VisibilityChanged(visibility_);
+  }
 
   switch (visibility) {
     case blink::mojom::FrameVisibility::kRenderedInViewport:

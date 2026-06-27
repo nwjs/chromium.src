@@ -36,7 +36,7 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
 
     private static final String TAG = "TopControlsStacker";
 
-    private static boolean sDumpStatusForTesting;
+    private static boolean sDumpStatusLogs;
 
     /** Enums that defines the types of top controls. */
     @Target(ElementType.TYPE_USE)
@@ -173,6 +173,8 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
         mBrowserControlsSizer.addObserver(this);
         mBrowserControlsVisibilityDelegate.addSyncObserverAndPostIfNonNull(
                 mBrowserControlsStateCallback);
+        // TODO (crbug.com/510433799): Remove this once the bug is fixed.
+        sDumpStatusLogs = ChromeFeatureList.sDebugToolbarPositioning.isEnabled();
     }
 
     /**
@@ -263,8 +265,6 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
 
     @VisibleForTesting
     void updateLayersInternally(boolean animate, boolean shouldUpdateOffsets) {
-        if (!ChromeFeatureList.sTopControlsRefactor.isEnabled()) return;
-
         recalculateHeights();
         recalculateLayerRestingOffsets();
         prepForAnimation(animate);
@@ -412,10 +412,8 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
             int initialTopOffset,
             int initialTopControlsMinHeightOffset,
             boolean offsetsAppliedByBrowser) {
-        if (!BrowserControlsUtils.isTopControlsRefactorOffsetEnabled()) return;
-
-        if (sDumpStatusForTesting) {
-            Log.d(
+        if (sDumpStatusLogs) {
+            Log.i(
                     TAG,
                     "*** repositionLayers *** initialTopOffset="
                             + initialTopOffset
@@ -554,7 +552,7 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
             }
             layer.onBrowserControlsOffsetUpdate(yOffset, controlsAtResting);
 
-            if (sDumpStatusForTesting) {
+            if (sDumpStatusLogs) {
                 dumpLayerStatus(layer, yOffset);
             }
         }
@@ -696,9 +694,6 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
 
     @Override
     public void onTopControlsHeightChanged(int topControlsHeight, int topControlsMinHeight) {
-        // No-op by default until refactor work is enabled.
-        if (!ChromeFeatureList.sTopControlsRefactor.isEnabled()) return;
-
         // Inform any controls that there was a change to the top controls height.
         for (TopControlLayer topControlLayer : mControls.values()) {
             topControlLayer.onTopControlLayerHeightChanged(topControlsHeight, topControlsMinHeight);
@@ -711,8 +706,6 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
             BrowserControlsOffsetTagsInfo offsetTagsInfo,
             @BrowserControlsState int constraints,
             boolean shouldUpdateOffsets) {
-        if (!ChromeFeatureList.sTopControlsRefactor.isEnabled()) return;
-
         if (mTopControlsOffsetTagInfo == offsetTagsInfo && mBrowserControlsState == constraints) {
             return;
         }
@@ -768,7 +761,7 @@ public class TopControlsStacker implements BrowserControlsStateProvider.Observer
     }
 
     private void dumpLayerStatus(TopControlLayer layer, int yOffset) {
-        Log.d(
+        Log.i(
                 TAG,
                 "["
                         + getName(layer.getTopControlType())

@@ -44,7 +44,8 @@ class ComposeboxQueryControllerBridge
   explicit ComposeboxQueryControllerBridge(
       const base::android::JavaRef<jobject>& java_obj,
       Profile* profile,
-      content::WebContents* contextual_tasks_web_contents);
+      content::WebContents* web_contents,
+      bool is_task_scoped);
   ~ComposeboxQueryControllerBridge() override;
   void Destroy(JNIEnv* env);
   void OnWebUIDestroyed(JNIEnv* env);
@@ -110,7 +111,7 @@ class ComposeboxQueryControllerBridge
       const contextual_tasks::SuggestedTabInfo* suggested_tab) override;
   void OnTaskChanged() override;
   void InitializeInputStateModel() override;
-  void UpdateModelFromUrl(const GURL& url) override;
+  void UpdateStateFromUrl(const GURL& url) override;
 
   // contextual_tasks::QueryContextualizer::Delegate:
   GURL GetTabUrl(contextual_tasks::QueryContextualizer::TabId id) override;

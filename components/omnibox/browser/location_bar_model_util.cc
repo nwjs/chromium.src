@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/omnibox/browser/buildflags.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -31,34 +32,89 @@ const gfx::VectorIcon& GetSecurityVectorIcon(
 
   switch (security_level) {
     case security_state::NONE:
-      return omnibox::kHttpChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kInfoIcon
+                 : omnibox::kHttpChromeRefreshOldIcon;
     case security_state::SECURE:
-      return omnibox::kSecurePageInfoChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? omnibox::kPageInfoIcon
+                 : omnibox::kSecurePageInfoChromeRefreshOldIcon;
     case security_state::WARNING:
       if (base::FeatureList::IsEnabled(
               security_interstitials::features::kHttpsFirstDialogUi) &&
           visible_security_state->is_https_only_mode_upgraded) {
-        return vector_icons::kNoEncryptionIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? vector_icons::kNoEncryptionIcon
+                   : vector_icons::kNoEncryptionOldIcon;
       }
-      return vector_icons::kNotSecureWarningChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kWarningIcon
+                 : vector_icons::kNotSecureWarningChromeRefreshOldIcon;
     case security_state::DANGEROUS:
       if (malicious_content_status ==
               security_state::MALICIOUS_CONTENT_STATUS_MANAGED_POLICY_WARN ||
           malicious_content_status ==
               security_state::MALICIOUS_CONTENT_STATUS_MANAGED_POLICY_BLOCK) {
-        return vector_icons::kBusinessChromeRefreshIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? vector_icons::kDomainIcon
+                   : vector_icons::kBusinessChromeRefreshOldIcon;
       }
       if (malicious_content_status !=
           security_state::MALICIOUS_CONTENT_STATUS_BILLING) {
-        return vector_icons::kDangerousChromeRefreshIcon;
+        return features::IsRoundedIconsEnabled()
+                   ? vector_icons::kDangerousFilledIcon
+                   : vector_icons::kDangerousChromeRefreshOldIcon;
       }
-      return vector_icons::kNotSecureWarningChromeRefreshIcon;
+      return features::IsRoundedIconsEnabled()
+                 ? vector_icons::kWarningIcon
+                 : vector_icons::kNotSecureWarningChromeRefreshOldIcon;
 
     case security_state::SECURITY_LEVEL_COUNT:
       NOTREACHED();
   }
 #endif
   NOTREACHED();
+}
+
+GURL GetContextualTasksDisplayURL(const GURL& inner_frame_url) {
+  if (!inner_frame_url.is_valid()) {
+    return GURL();
+  }
+
+  GURL::Replacements replacements;
+
+  std::string display_url_scheme =
+      contextual_tasks::GetContextualTasksDisplayUrlScheme();
+  replacements.SetSchemeStr(display_url_scheme);
+
+  std::string display_url_host =
+      contextual_tasks::GetContextualTasksDisplayUrlHost();
+  replacements.SetHostStr(display_url_host);
+
+  std::string display_url_path =
+      contextual_tasks::GetContextualTasksDisplayUrlPath();
+  replacements.SetPathStr(display_url_path);
+
+  return inner_frame_url.ReplaceComponents(replacements);
+}
+
+GURL AdjustContextualTasksURLForCopy(const GURL& url_from_text,
+                                     const GURL& functional_url) {
+  if (url_from_text.is_valid() && functional_url.is_valid() &&
+      url_from_text.SchemeIs(
+          contextual_tasks::GetContextualTasksDisplayUrlScheme()) &&
+      url_from_text.host() ==
+          contextual_tasks::GetContextualTasksDisplayUrlHost() &&
+      url_from_text.path() ==
+          contextual_tasks::GetContextualTasksDisplayUrlPath()) {
+    GURL::Replacements replacements;
+    replacements.SetSchemeStr(functional_url.scheme());
+    replacements.SetHostStr(functional_url.host());
+    replacements.SetPathStr(functional_url.path());
+
+    return url_from_text.ReplaceComponents(replacements);
+  }
+  return GURL();
 }
 
 }  // namespace location_bar_model

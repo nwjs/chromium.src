@@ -133,7 +133,7 @@ ResponsivenessMetrics::~ResponsivenessMetrics() = default;
 void ResponsivenessMetrics::TryAssignInteractionId(
     PerformanceEventTiming* new_entry) {
   CHECK(new_entry);
-  CHECK(!new_entry->HasKnownInteractionID());
+  CHECK(!new_entry->HasInteractionId());
 
   const AtomicString& event_type = new_entry->name();
   if (!IsEventTypeForInteractionId(event_type)) {
@@ -262,7 +262,7 @@ void ResponsivenessMetrics::HandleNavigationInteraction(
     // If this navigation related event is perfectly nested inside another
     // interaction we simply reuse its interactionId (e.g. clicks).
     if (auto* scoped_entry = window_performance_->GetTopMostEventTimingEntry();
-        scoped_entry && scoped_entry->IsKnownToBeAnInteraction()) {
+        scoped_entry && scoped_entry->IsInteraction()) {
       SetInteractionId(new_entry, *scoped_entry->GetInteractionIdInfo());
     } else {
       SetInteractionId(new_entry, AssignNewNavigationInteractionId());
@@ -292,7 +292,7 @@ void ResponsivenessMetrics::HandleNavigationInteraction(
       // within another interaction event, in case this is triggered by a click.
       if (auto* scoped_entry =
               window_performance_->GetTopMostEventTimingEntry();
-          scoped_entry && scoped_entry->IsKnownToBeAnInteraction()) {
+          scoped_entry && scoped_entry->IsInteraction()) {
         last_navigate_interaction_id_ = *scoped_entry->GetInteractionIdInfo();
       }
       // Rare: Otherwise, we leave the last navigate interaction id |kNone|.
@@ -495,6 +495,16 @@ void ResponsivenessMetrics::HandlePointerInteraction(
                        *interaction_id_for_pointerid);
       SetInteractionId(new_entry, *interaction_id_for_pointerid);
       pending_pointerdown_entries_.erase(pointer_id);
+      return;
+    }
+    // Uncommon: Click event is nested in another click event. This happens when
+    // clicking on the label of a labeled form control, which forwards the event
+    // to the control. This gets an id of 0. Note: the duration is also
+    // attributed to the outermost event.
+    if (auto* scoped_entry = window_performance_->GetTopMostEventTimingEntry();
+        scoped_entry && scoped_entry->IsInteraction() &&
+        scoped_entry->name() == event_type_names::kClick) {
+      SetInteractionId(new_entry, PerformanceTimelineEntryIdInfo::kNone);
       return;
     }
     // Uncommon: Click event all on its own. Still gets a new id.

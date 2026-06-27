@@ -93,9 +93,9 @@ void CrOSPreConsentMetricsManager::Enable() {
 
   // Force enable metrics. This will enable metrics and populate all appropriate
   // preferences.
-  ChangeMetricsReportingState(
-      is_enabled_,
-      ChangeMetricsReportingStateCalledFrom::kCrosMetricsPreConsent);
+  metrics::ChangeMetricsReportingState(
+      metrics::MetricsReportingLevel::kBasic,
+      metrics::ChangeMetricsReportingStateCalledFrom::kCrosMetricsPreConsent);
 
   // Propagate the change to metrics services. This will create the Client ID
   // that will be used if the user consents to metrics. If pre-consent is being

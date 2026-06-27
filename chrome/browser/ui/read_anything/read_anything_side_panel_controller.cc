@@ -17,9 +17,8 @@
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
-#include "chrome/browser/ui/page_actions/page_action_observer.h"
+#include "chrome/browser/ui/page_action/page_action_observer.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_omnibox_controller.h"
@@ -39,7 +38,6 @@
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_page_handler.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/accessibility/reading/distillable_pages.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/language/core/browser/language_model.h"
@@ -191,7 +189,9 @@ void ReadAnythingSidePanelController::OnEntryShown(SidePanelEntry* entry) {
     CHECK(controller);
     controller->OnEntryShown(read_anything_trigger);
   } else {
-    observers_.Notify(&Observer::Activate, true, read_anything_trigger);
+    observers_.Notify(&Observer::Activate, /*active=*/true,
+                      read_anything_trigger,
+                      /*completed_session_duration=*/std::nullopt);
   }
 }
 
@@ -227,8 +227,9 @@ void ReadAnythingSidePanelController::OnEntryHidden(SidePanelEntry* entry) {
     CHECK(controller);
     controller->OnEntryHidden();
   } else {
-    observers_.Notify(&Observer::Activate, false,
-                      std::optional<ReadAnythingOpenTrigger>());
+    observers_.Notify(&Observer::Activate, /*active=*/false,
+                      /*trigger=*/std::optional<ReadAnythingOpenTrigger>(),
+                      /*completed_session_duration=*/std::nullopt);
   }
 
   // When the reading mode side panel is replaced with another side panel,

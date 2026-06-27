@@ -7,6 +7,7 @@
 
 // The reason `AutocompleteController::Stop()` or `AutocompleteProvider::Stop()`
 // were called.
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.omnibox
 enum class AutocompleteStopReason {
 
   // - Called when: Significant change occurred and the existing state is no
@@ -33,6 +34,13 @@ enum class AutocompleteStopReason {
   //   request.
   // - Example calls: `stop_timer_` triggers.
   kInactivity,
+};
+
+// State of the keyword.
+enum class KeywordState {
+  kNone,     // Not in keyword mode.
+  kHint,     // Show chip to enter keyword mode.
+  kKeyword,  // In keyword mode.
 };
 
 #endif  // COMPONENTS_OMNIBOX_BROWSER_AUTOCOMPLETE_ENUMS_H_

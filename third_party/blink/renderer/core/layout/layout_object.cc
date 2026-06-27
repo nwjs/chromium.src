@@ -1653,7 +1653,11 @@ void LayoutObject::MarkParentForSpannerOrOutOfFlowPositionedChange() {
   //
   // Note that this isn't necessary if we're dealing with a column spanner here,
   // but in order to keep things simple, we'll make no difference.
-  object->SetNeedsCollectInlines();
+  if (RuntimeEnabledFeatures::LayoutOOFCollectInlinesFixEnabled()) {
+    object->SetChildNeedsCollectInlines();
+  } else {
+    object->SetNeedsCollectInlines();
+  }
 
   const LayoutBlock* containing_block = ContainingBlock();
   while (object != containing_block) {
@@ -2125,6 +2129,16 @@ bool LayoutObject::HasDistortingVisualEffects() const {
   auto& root_fragment = local_frame_root.ContentLayoutObject()->FirstFragment();
   CHECK(root_fragment.HasLocalBorderBoxProperties());
   const auto& root_properties = root_fragment.LocalBorderBoxProperties();
+
+  // We conservatively consider any 3D transform in the container chain to be
+  // disqualifying here, even if the net transform flattens out to an
+  // acceptable 2D matrix. This could be relaxed, but would require an update
+  // to IsHitCandidateForDepthOrder in the hit testing code. This must be
+  // checked before `SourceToDestinationProjection`, which flattens.
+  if (!paint_properties.Transform().Unalias().IsCoplanarWith(
+          root_properties.Transform().Unalias())) {
+    return true;
+  }
 
   // The only allowed transforms are 2D translation and proportional up-scaling.
   gfx::Transform projection = GeometryMapper::SourceToDestinationProjection(

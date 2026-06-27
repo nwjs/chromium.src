@@ -8,10 +8,13 @@
 #import <Foundation/Foundation.h>
 
 #import <memory>
+#import <optional>
+#import <vector>
 
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_consumer.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_mutator.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_url_loader.h"
+#import "third_party/lens_server_proto/aim_communication.pb.h"
 
 @protocol AssistantContainerCommands;
 @class CobrowseContext;
@@ -19,7 +22,7 @@
 namespace contextual_tasks {
 class ContextualTasksService;
 }
-
+class UrlLoadingBrowserAgent;
 namespace web {
 class WebState;
 }
@@ -42,20 +45,29 @@ class WebState;
 @property(nonatomic, weak) id<AssistantAIMConsumer> consumer;
 
 // Initializes the mediator with a web state and a cobrowse context that defines
-// the AI mode assistant state, a container handler, and the contextual tasks
-// service.
+// the AI mode assistant state, a container handler, the contextual tasks
+// service, and the URL loader.
 - (instancetype)initWithWebState:(std::unique_ptr<web::WebState>)webState
                          context:(CobrowseContext*)context
                 containerHandler:
                     (id<AssistantContainerCommands>)containerHandler
           contextualTasksService:
               (contextual_tasks::ContextualTasksService*)contextualTasksService
+                       URLLoader:(UrlLoadingBrowserAgent*)URLLoader
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 
 // The delegate of the mediator.
 @property(nonatomic, weak) id<AssistantAIMMediatorDelegate> delegate;
+
+// Returns YES if the AIM page supports the given capability. Returns NO if
+// the handshake has not completed yet or the capability is not supported.
+- (BOOL)supportsCapability:(lens::FeatureCapability)capability;
+
+// Returns the active capabilities of the current AIM page. Returns std::nullopt
+// if the handshake has not completed yet.
+- (const std::optional<std::vector<lens::FeatureCapability>>&)capabilities;
 
 // Disconnects the mediator.
 - (void)disconnect;

@@ -9,10 +9,13 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/notreached.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/webui/intro/intro_handler.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -24,6 +27,7 @@
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_branded_strings.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -43,7 +47,8 @@ int GetBackupCardDescriptionId(bool is_first_run_desktop_refresh_enabled) {
 }
 }  // namespace
 
-IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
+IntroUI::IntroUI(content::WebUI* web_ui)
+    : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true) {
   auto* profile = Profile::FromWebUI(web_ui);
 
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
@@ -55,6 +60,9 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
           .IsInSearchEngineChoiceScreenRegion();
   const bool is_first_run_desktop_refresh_enabled =
       switches::IsFirstRunDesktopRefreshEnabled(
+          is_in_search_engine_choice_region);
+  const bool is_first_run_desktop_revamp_enabled =
+      switches::IsFirstRunDesktopRevampEnabled(
           is_in_search_engine_choice_region);
   webui::SetupWebUIDataSource(source, kIntroResources,
                               is_first_run_desktop_refresh_enabled
@@ -101,6 +109,12 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
        IDS_FRE_REFRESH_DEFAULT_BROWSER_SET_AS_DEFAULT},
       {"refreshDefaultBrowserNoThanks",
        IDS_FRE_REFRESH_DEFAULT_BROWSER_NO_THANKS},
+      // Strings for finish or continue subpage.
+      {"finishOrContinueTitle", IDS_FRE_FINISH_OR_CONTINUE_TITLE},
+      {"seeMoreTipsButtonLabel",
+       IDS_FRE_FINISH_OR_CONTINUE_SEE_MORE_TIPS_BUTTON_LABEL},
+      {"startBrowsingButtonLabel",
+       IDS_FRE_FINISH_OR_CONTINUE_START_BROWSING_BUTTON_LABEL},
   };
   source->AddLocalizedStrings(localized_strings);
 
@@ -134,7 +148,15 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
   source->AddResourcePath("tangible_sync_style_shared.css.js",
                           IDR_SIGNIN_TANGIBLE_SYNC_STYLE_SHARED_CSS_JS);
   source->AddResourcePath("signin_vars.css.js", IDR_SIGNIN_SIGNIN_VARS_CSS_JS);
+  source->AddResourcePath(
+      "animations/avatar_sign_in_celebration.json",
+      IDR_SIGNIN_ANIMATIONS_AVATAR_SIGN_IN_CELEBRATION_JSON);
+  source->AddResourcePath(
+      "animations/avatar_sign_in_celebration_dark.json",
+      IDR_SIGNIN_ANIMATIONS_AVATAR_SIGN_IN_CELEBRATION_DARK_JSON);
 
+  source->AddString("accountPicturePlaceholderUrl",
+                    profiles::GetPlaceholderAvatarIconUrl());
   source->AddBoolean("isDeviceManaged", is_device_managed);
   source->AddBoolean("usePrimaryAndTonalButtonsForPromos",
                      base::FeatureList::IsEnabled(
@@ -160,11 +182,13 @@ IntroUI::IntroUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
           ? IDR_INTRO_DEFAULT_BROWSER_DEFAULT_BROWSER_REFRESH_HTML
           : IDR_INTRO_DEFAULT_BROWSER_DEFAULT_BROWSER_HTML);
 
-  if (switches::IsFirstRunDesktopRevampEnabled(
-          is_in_search_engine_choice_region)) {
+  if (is_first_run_desktop_revamp_enabled) {
     source->AddResourcePath(
         chrome::kChromeUIIntroSignInCelebrationSubPage,
         IDR_INTRO_SIGN_IN_CELEBRATION_SIGN_IN_CELEBRATION_HTML);
+    source->AddResourcePath(
+        chrome::kChromeUIIntroFinishOrContinueSubPage,
+        IDR_INTRO_FINISH_OR_CONTINUE_FINISH_OR_CONTINUE_HTML);
   }
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -240,6 +264,46 @@ void IntroUI::HandleDefaultBrowserChoice(DefaultBrowserChoice choice) {
 
 void IntroUI::SetCanPinToTaskbar(bool can_pin) {
   intro_handler_->SetCanPinToTaskbar(can_pin);
+}
+
+void IntroUI::SetSignInCelebrationFinishedCallback(
+    base::OnceClosure celebration_finished_callback) {
+  initialize_handler_callback_ = base::BindOnce(
+      &IntroUI::OnSignInCelebrationMojoHandlerReady,
+      weak_ptr_factory_.GetWeakPtr(), std::move(celebration_finished_callback));
+}
+
+void IntroUI::BindInterface(
+    mojo::PendingReceiver<intro::mojom::SignInCelebrationPageHandlerFactory>
+        receiver) {
+  sign_in_celebration_factory_receiver_.reset();
+  sign_in_celebration_factory_receiver_.Bind(std::move(receiver));
+}
+
+void IntroUI::CreateSignInCelebrationPageHandler(
+    mojo::PendingRemote<intro::mojom::SignInCelebrationPage> page,
+    mojo::PendingReceiver<intro::mojom::SignInCelebrationPageHandler>
+        receiver) {
+  CHECK(page);
+  CHECK(receiver);
+  if (!initialize_handler_callback_) {
+    SetSignInCelebrationFinishedCallback(base::DoNothing());
+  }
+  std::move(initialize_handler_callback_)
+      .Run(std::move(page), std::move(receiver));
+}
+
+void IntroUI::OnSignInCelebrationMojoHandlerReady(
+    base::OnceClosure celebration_finished_callback,
+    mojo::PendingRemote<intro::mojom::SignInCelebrationPage> page,
+    mojo::PendingReceiver<intro::mojom::SignInCelebrationPageHandler>
+        receiver) {
+  CHECK(!intro_sign_in_celebration_handler_);
+  Profile* profile = Profile::FromWebUI(web_ui());
+  intro_sign_in_celebration_handler_ =
+      std::make_unique<SignInCelebrationHandler>(
+          IdentityManagerFactory::GetForProfile(profile), std::move(page),
+          std::move(receiver), std::move(celebration_finished_callback));
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(IntroUI)

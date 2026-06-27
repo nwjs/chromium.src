@@ -38,7 +38,7 @@ namespace extensions {
 namespace {
 
 // Whether to override the MV2 deprecation for testing purposes.
-bool g_allow_mv2_for_testing = false;
+bool g_allow_mv2_for_testing = true;
 
 // Returns the suffix to use for histograms related to the manifest location
 // grouping.
@@ -63,12 +63,6 @@ const char* GetHistogramManifestLocation(mojom::ManifestLocation location) {
       NOTREACHED();
   }
 }
-
-// Stores the bit for whether the user has acknowledged the MV2 deprecation
-// notice for a given extension in the warning stage.
-constexpr PrefMap kMV2DeprecationExtensionWarningAcknowledgedPref = {
-    "mv2_deprecation_warning_ack", PrefType::kBool,
-    PrefScope::kExtensionSpecific};
 
 // Stores the bit for whether the user has acknowledged the MV2 deprecation
 // notice for a given extension in the disabled stage.
@@ -157,20 +151,13 @@ MV2ExperimentStage CalculateCurrentExperimentStage() {
     return MV2ExperimentStage::kUnsupported;
   }
 
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kExtensionManifestV2Disabled)) {
-    return MV2ExperimentStage::kDisableWithReEnable;
-  }
-
-  return MV2ExperimentStage::kWarning;
+  return MV2ExperimentStage::kDisableWithReEnable;
 }
 
 // Returns the pref that stores whether the user has acknowledged the MV2
 // deprecation notice for a given extension in `experiment_stage`.
 PrefMap GetExtensionAcknowledgedPrefFor(MV2ExperimentStage experiment_stage) {
   switch (experiment_stage) {
-    case MV2ExperimentStage::kWarning:
-      return kMV2DeprecationExtensionWarningAcknowledgedPref;
     case MV2ExperimentStage::kDisableWithReEnable:
       return kMV2DeprecationExtensionDisabledAcknowledgedPref;
     case MV2ExperimentStage::kUnsupported:
@@ -183,8 +170,6 @@ PrefMap GetExtensionAcknowledgedPrefFor(MV2ExperimentStage experiment_stage) {
 PrefMap GetGlobalNoticeAcknowledgedPrefFor(
     MV2ExperimentStage experiment_stage) {
   switch (experiment_stage) {
-    case MV2ExperimentStage::kWarning:
-      return kMV2DeprecationWarningAcknowledgedGloballyPref;
     case MV2ExperimentStage::kDisableWithReEnable:
       return kMV2DeprecationDisabledAcknowledgedGloballyPref;
     case MV2ExperimentStage::kUnsupported:
@@ -200,13 +185,7 @@ bool ShouldDisableLegacyExtensions(MV2ExperimentStage stage) {
     return false;
   }
 
-  switch (stage) {
-    case MV2ExperimentStage::kWarning:
-      return false;
-    case MV2ExperimentStage::kDisableWithReEnable:
-    case MV2ExperimentStage::kUnsupported:
-      return true;
-  }
+  return true;
 }
 
 // Returns true if the given `stage` is one in which extension enablement should
@@ -221,7 +200,6 @@ bool ShouldBlockLegacyExtensionEnableForStage(MV2ExperimentStage stage) {
   // We only block extension enablement in the `kUnsupported` phase.
   // (We use a switch just to ensure compile errors if we ever add a new phase.)
   switch (stage) {
-    case MV2ExperimentStage::kWarning:
     case MV2ExperimentStage::kDisableWithReEnable:
       return false;
     case MV2ExperimentStage::kUnsupported:
@@ -251,7 +229,6 @@ bool ShouldBlockUnpackedExtensions(MV2ExperimentStage stage) {
 // given experiment `stage`.
 bool UserCanReEnableExtensionsForStage(MV2ExperimentStage stage) {
   switch (stage) {
-    case MV2ExperimentStage::kWarning:
     case MV2ExperimentStage::kDisableWithReEnable:
       return true;
     case MV2ExperimentStage::kUnsupported:
@@ -548,8 +525,8 @@ void ManifestV2ExperimentManager::EmitMetricsForProfileReady() {
       return;
     }
 
-    if (extension.GetType() != Manifest::TYPE_EXTENSION &&
-        extension.GetType() != Manifest::TYPE_LOGIN_SCREEN_EXTENSION) {
+    if (extension.GetType() != Manifest::Type::kExtension &&
+        extension.GetType() != Manifest::Type::kLoginScreenExtension) {
       return;
     }
 

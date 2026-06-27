@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
+import static org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetUtils.isActivityInactive;
 import static org.chromium.ui.animation.AnimationListeners.onAnimationEnd;
 
 import android.animation.ValueAnimator;
@@ -13,15 +14,19 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Px;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.context_sharing.R;
 import org.chromium.components.thinwebview.ThinWebView;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.animation.AnimationHandler;
+import org.chromium.ui.base.WindowAndroid;
 
 /** Helper class for showing placeholders while resizing the Web View in the Tab Bottom Sheet. */
 @NullMarked
@@ -40,17 +45,32 @@ public class WebViewResizingHelper {
     private final FrameLayout mResizingContainer;
     private final View mResizingPlaceholder;
     private @Nullable ThinWebView mThinWebView;
+    private @Nullable WebContents mWebContents;
     private final View mExpandedContentGroup;
+    private final WindowAndroid mWindowAndroid;
+
+    private boolean mIsViewportSizeFixed;
 
     /**
      * @param containerView The root view for the co-browse content.
+     * @param windowAndroid The WindowAndroid of the activity.
      * @param backgroundColor The background color used for the placeholder.
      */
-    public WebViewResizingHelper(View containerView, @ColorInt int backgroundColor) {
+    public WebViewResizingHelper(
+            View containerView, WindowAndroid windowAndroid, @ColorInt int backgroundColor) {
         mContext = containerView.getContext();
+        mWindowAndroid = windowAndroid;
         mExpandedContentGroup = containerView.findViewById(R.id.expanded_content_group);
 
         mResizingContainer = new FrameLayout(mContext);
+        mResizingContainer.setClipChildren(true);
+        mResizingContainer.addOnLayoutChangeListener(
+                (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+                    if (!mIsViewportSizeFixed) {
+                        updateBounds();
+                    }
+                });
+
         mResizingPlaceholder =
                 LayoutInflater.from(mContext)
                         .inflate(R.layout.tab_bottom_sheet_resizing_view, null);
@@ -62,25 +82,57 @@ public class WebViewResizingHelper {
         mResizingPlaceholder.setBackground(background);
     }
 
-    /** Resets the helper to its initial state. */
-    public void reset() {
-        if (mThinWebView == null) return;
-        mResizingContainer.removeAllViews();
-        mResizingContainer.addView(mResizingPlaceholder);
-        mThinWebView = null;
+    /** Destroys the helper and releases the WebContents. */
+    public void destroy() {
+        reset();
+        mWebContents = null;
     }
 
-    /** Sets the ThinWebView which will be resized. */
-    public void setThinWebView(ThinWebView thinWebView) {
-        reset();
-        mThinWebView = thinWebView;
-        makeWebViewResizable();
+    /** Resets the helper to its initial state without resetting the WebContents. */
+    public void reset() {
+        mResizingContainer.removeAllViews();
+        mResizingContainer.addView(mResizingPlaceholder);
+        mResizingPlaceholder.setVisibility(View.GONE);
+        mThinWebView = null;
+        mIsViewportSizeFixed = false;
+    }
 
-        FrameLayout.LayoutParams layoutParams =
-                new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        layoutParams.gravity = Gravity.BOTTOM;
-        mResizingContainer.addView(mThinWebView.getView(), layoutParams);
+    /** Sets the ThinWebView and WebContents which will be resized. */
+    public void setThinWebView(
+            @Nullable ThinWebView thinWebView, @Nullable WebContents webContents) {
+        reset();
+
+        if (thinWebView != null && mThinWebView != thinWebView) {
+            // Use MATCH_PARENT so the initial layout uses the container height instead of the
+            // decor height, which can cause incorrect sizing.
+            FrameLayout.LayoutParams layoutParams =
+                    new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT);
+            layoutParams.gravity = Gravity.TOP;
+            mResizingContainer.addView(thinWebView.getView(), layoutParams);
+        }
+
+        mWebContents = webContents;
+        mThinWebView = thinWebView;
+
+        updateBounds();
+    }
+
+    private @Px int getDecorViewHeight() {
+        Window window = mWindowAndroid.getWindow();
+        if (window == null) {
+            return 0;
+        }
+        return window.getDecorView().getHeight();
+    }
+
+    private @Px int getDecorViewWidth() {
+        Window window = mWindowAndroid.getWindow();
+        if (window == null) {
+            return 0;
+        }
+        return window.getDecorView().getWidth();
     }
 
     /** Returns the resizing container. This holds the ThinWebView and the placeholder. */
@@ -119,7 +171,7 @@ public class WebViewResizingHelper {
     }
 
     private void enableResizingMode() {
-        assert mThinWebView != null;
+        if (mThinWebView == null) return;
 
         View webView = mThinWebView.getView();
 
@@ -140,15 +192,14 @@ public class WebViewResizingHelper {
 
         mAnimationHandler.startAnimation(valueAnimator);
 
-        makeWebViewFixedSize();
+        mIsViewportSizeFixed = true;
 
         mResizingPlaceholder.setVisibility(View.VISIBLE);
         mResizingPlaceholder.setAlpha(0f);
     }
 
     private void disableResizingMode() {
-        assert mThinWebView != null;
-        if (mResizingPlaceholder.getVisibility() != View.VISIBLE) return;
+        if (mThinWebView == null) return;
 
         View webView = mThinWebView.getView();
 
@@ -165,29 +216,45 @@ public class WebViewResizingHelper {
 
         mAnimationHandler.startAnimation(valueAnimator);
 
-        makeWebViewResizable();
+        mIsViewportSizeFixed = false;
+        updateBounds();
 
         webView.setAlpha(0f);
         webView.setVisibility(View.VISIBLE);
     }
 
-    private void makeWebViewFixedSize() {
-        assert mThinWebView != null;
-        View webView = mThinWebView.getView();
-        ViewGroup.LayoutParams params = webView.getLayoutParams();
-        if (params != null) {
-            params.height = webView.getHeight();
-            webView.setLayoutParams(params);
+    private void updateBounds() {
+        if (isActivityInactive(mWindowAndroid)) {
+            return;
         }
-    }
 
-    private void makeWebViewResizable() {
-        assert mThinWebView != null;
-        View webView = mThinWebView.getView();
-        ViewGroup.LayoutParams params = webView.getLayoutParams();
-        if (params != null) {
-            params.height = ViewGroup.LayoutParams.MATCH_PARENT;
-            webView.setLayoutParams(params);
+        if (mThinWebView != null) {
+            @Px int newDecorHeight = getDecorViewHeight();
+            @Px int newDecorWidth = getDecorViewWidth();
+            ViewGroup.LayoutParams params = mThinWebView.getView().getLayoutParams();
+            if (params != null
+                    && (params.height != newDecorHeight || params.width != newDecorWidth)) {
+                params.height = newDecorHeight;
+                params.width = newDecorWidth;
+                mThinWebView.getView().setLayoutParams(params);
+            }
+        }
+
+        @Px int width = mResizingContainer.getWidth();
+        @Px int height = mResizingContainer.getHeight();
+
+        if (mWebContents == null
+                || mWebContents.isDestroyed()
+                || (width == mWebContents.getWidth() && height == mWebContents.getHeight())
+                || width == 0
+                || height == 0) {
+            return;
+        }
+
+        if (mThinWebView != null) {
+            mThinWebView.resizeWebContents(width, height);
+        } else {
+            mWebContents.setSize(width, height);
         }
     }
 }

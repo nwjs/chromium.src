@@ -32,7 +32,7 @@ class ContextImplTflite final : public WebNNContextImpl {
       mojom::CreateContextOptionsPtr options,
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
-      std::unique_ptr<ScopedGpuSequence> gpu_sequence,
+      std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
       scoped_refptr<gpu::MemoryTracker> memory_tracker,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
       gpu::SharedImageManager* shared_image_manager,
@@ -44,7 +44,7 @@ class ContextImplTflite final : public WebNNContextImpl {
   // process).
   static WebNNContextImplPtr CreateForRenderer(
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
-      base::WeakPtr<ContextProviderTflite> context_provider,
+      base::WeakPtr<WebNNContextProviderInRenderer> context_provider,
       mojom::CreateContextOptionsPtr options,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner);
@@ -55,7 +55,7 @@ class ContextImplTflite final : public WebNNContextImpl {
       mojom::CreateContextOptionsPtr options,
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
-      std::unique_ptr<ScopedGpuSequence> gpu_sequence,
+      std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
       scoped_refptr<gpu::MemoryTracker> memory_tracker,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
       gpu::SharedImageManager* shared_image_manager,
@@ -68,7 +68,7 @@ class ContextImplTflite final : public WebNNContextImpl {
   // Constructor for running without GPU dependencies.
   ContextImplTflite(
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
-      base::WeakPtr<ContextProviderTflite> context_provider,
+      base::WeakPtr<WebNNContextProviderInRenderer> context_provider,
       mojom::CreateContextOptionsPtr options,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner);
@@ -80,7 +80,7 @@ class ContextImplTflite final : public WebNNContextImpl {
   ~ContextImplTflite() override;
 
   void CreateGraphImpl(
-      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
       base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
@@ -90,7 +90,7 @@ class ContextImplTflite final : public WebNNContextImpl {
       CreateGraphImplCallback callback) override;
 
   void DidCreateWeightsFile(
-      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      mojo::PendingReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
       base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>

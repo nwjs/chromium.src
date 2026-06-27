@@ -191,7 +191,6 @@ blink::mojom::DragDataPtr DropDataToDragData(
     scoped_refptr<ChromeBlobStorageContext> chrome_blob_storage_context) {
   // These fields are currently unused when dragging into Blink.
   DCHECK(!drop_data.download_metadata.has_value());
-  DCHECK(drop_data.file_contents_content_disposition.empty());
 
   std::vector<blink::mojom::DragItemPtr> items;
   if (drop_data.text) {
@@ -239,14 +238,21 @@ blink::mojom::DragDataPtr DropDataToDragData(
     items.push_back(
         blink::mojom::DragItem::NewFileSystemFile(std::move(file_system_file)));
   }
-  if (drop_data.file_contents_source_url.is_valid()) {
+  if (!drop_data.file_contents.empty()) {
     blink::mojom::DragItemBinaryPtr item = blink::mojom::DragItemBinary::New();
-    item->data =
-        mojo_base::BigBuffer(base::as_byte_span(drop_data.file_contents));
+    item->data = mojo_base::BigBuffer(drop_data.file_contents);
     item->is_image_accessible = drop_data.file_contents_image_accessible;
-    item->source_url = drop_data.file_contents_source_url;
+    // source_url is synthesized from Content-Disposition for JS-constructed
+    // File objects. If absent (e.g. dropped from a non-Chromium app), leave
+    // it empty; the renderer will produce a File with an empty name.
+    if (drop_data.file_contents_source_url.is_valid()) {
+      item->source_url = drop_data.file_contents_source_url;
+    }
     item->filename_extension =
         base::FilePath(drop_data.file_contents_filename_extension);
+    if (!drop_data.file_contents_content_disposition.empty()) {
+      item->content_disposition = drop_data.file_contents_content_disposition;
+    }
     items.push_back(blink::mojom::DragItem::NewBinary(std::move(item)));
   }
   for (const std::pair<const std::u16string, std::u16string>& data :
@@ -389,7 +395,11 @@ DropData DragDataToDropData(const blink::mojom::DragData& drag_data) {
         break;
       }
       case blink::mojom::DragItemDataView::Tag::kBinary: {
-        DCHECK(result.file_contents.empty());
+        // DropData only supports a single file_contents entry.
+        // Skip additional binary items until multi-file support is added.
+        if (!result.file_contents.empty()) {
+          break;
+        }
 
         const blink::mojom::DragItemBinaryPtr& binary_item = item->get_binary();
         base::span<const uint8_t> contents(binary_item->data);

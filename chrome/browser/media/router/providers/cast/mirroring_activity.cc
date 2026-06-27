@@ -77,24 +77,14 @@ constexpr char kHistogramSessionLaunch[] =
     "MediaRouter.CastStreaming.Session.Launch";
 constexpr char kHistogramSessionLength[] =
     "MediaRouter.CastStreaming.Session.Length";
-constexpr char kHistogramSessionLengthAccessCode[] =
-    "MediaRouter.CastStreaming.Session.Length.AccessCode";
 constexpr char kHistogramSessionLengthOffscreenTab[] =
     "MediaRouter.CastStreaming.Session.Length.OffscreenTab";
 constexpr char kHistogramSessionLengthScreen[] =
     "MediaRouter.CastStreaming.Session.Length.Screen";
 constexpr char kHistogramSessionLengthTab[] =
     "MediaRouter.CastStreaming.Session.Length.Tab";
-constexpr char kHistogramStartFailureAccessCodeManualEntry[] =
-    "MediaRouter.CastStreaming.Start.Failure.AccessCodeManualEntry";
-constexpr char kHistogramStartFailureAccessCodeRememberedDevice[] =
-    "MediaRouter.CastStreaming.Start.Failure.AccessCodeRememberedDevice";
 constexpr char kHistogramStartSuccess[] =
     "MediaRouter.CastStreaming.Start.Success";
-constexpr char kHistogramStartSuccessAccessCodeManualEntry[] =
-    "MediaRouter.CastStreaming.Start.Success.AccessCodeManualEntry";
-constexpr char kHistogramStartSuccessAccessCodeRememberedDevice[] =
-    "MediaRouter.CastStreaming.Start.Success.AccessCodeRememberedDevice";
 
 const char kHistogramTypeAudio[] = "Audio";
 const char kHistogramTypeVideo[] = "Video";
@@ -397,6 +387,12 @@ MirroringActivity::~MirroringActivity() {
       target_playout_delay_.has_value()
           ? target_playout_delay_->InMilliseconds()
           : media::cast::kDefaultTargetPlayoutDelay.InMilliseconds();
+  if (VLOG_IS_ON(2)) {
+    std::string stats_json;
+    if (base::JSONWriter::Write(most_recent_mirroring_stats_, &stats_json)) {
+      VLOG(2) << "Final Mirroring Stats: " << stats_json;
+    }
+  }
   RecordCastStreamingSenderUma(
       most_recent_mirroring_stats_,
       media::cast::StatsEventSubscriber::kAudioStatsDictKey,
@@ -422,12 +418,6 @@ MirroringActivity::~MirroringActivity() {
       base::UmaHistogramLongTimes(kHistogramSessionLengthOffscreenTab,
                                   cast_duration);
       break;
-  }
-  CastDiscoveryType discovery_type = cast_data_.discovery_type;
-  if (discovery_type == CastDiscoveryType::kAccessCodeManualEntry ||
-      discovery_type == CastDiscoveryType::kAccessCodeRememberedDevice) {
-    base::UmaHistogramLongTimes(kHistogramSessionLengthAccessCode,
-                                cast_duration);
   }
 }
 
@@ -493,17 +483,6 @@ void MirroringActivity::OnError(SessionError error) {
       route_.media_sink_id(), route_.media_source().id(),
       route_.presentation_id());
   if (will_start_mirroring_timestamp_) {
-    // Record the error for access code discovery types.
-    CastDiscoveryType discovery_type = cast_data_.discovery_type;
-    if (discovery_type == CastDiscoveryType::kAccessCodeManualEntry) {
-      base::UmaHistogramEnumeration(kHistogramStartFailureAccessCodeManualEntry,
-                                    error);
-    } else if (discovery_type ==
-               CastDiscoveryType::kAccessCodeRememberedDevice) {
-      base::UmaHistogramEnumeration(
-          kHistogramStartFailureAccessCodeRememberedDevice, error);
-    }
-
     will_start_mirroring_timestamp_.reset();
   }
   // Metrics for general errors are captured by the mirroring service in
@@ -523,16 +502,6 @@ void MirroringActivity::DidStart() {
       *did_start_mirroring_timestamp_ - *will_start_mirroring_timestamp_);
   DCHECK(mirroring_type_);
   base::UmaHistogramEnumeration(kHistogramStartSuccess, *mirroring_type_);
-
-  // Record successes to access code discovery types.
-  CastDiscoveryType discovery_type = cast_data_.discovery_type;
-  if (discovery_type == CastDiscoveryType::kAccessCodeManualEntry) {
-    base::UmaHistogramEnumeration(kHistogramStartSuccessAccessCodeManualEntry,
-                                  *mirroring_type_);
-  } else if (discovery_type == CastDiscoveryType::kAccessCodeRememberedDevice) {
-    base::UmaHistogramEnumeration(
-        kHistogramStartSuccessAccessCodeRememberedDevice, *mirroring_type_);
-  }
 
   will_start_mirroring_timestamp_.reset();
 

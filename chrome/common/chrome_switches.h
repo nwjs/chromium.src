@@ -42,9 +42,10 @@ extern const char kAllowAppShimSignatureMismatchForTests[];
 #endif
 extern const char kAllowCrossOriginAuthPrompt[];
 extern const char kAllowHttpScreenCapture[];
-extern const char kAllowUnsafeDevToolsRemoteFileLoading[];
 extern const char kAllowRunningInsecureContent[];
 extern const char kAllowSilentPush[];
+extern const char kAllowUnpackedPerfettoExtension[];
+extern const char kAllowUnsafeDevToolsRemoteFileLoading[];
 extern const char kApp[];
 extern const char kAppId[];
 extern const char kAppLaunchUrlForShortcutsMenuItem[];
@@ -126,6 +127,7 @@ extern const char kForceWhatsNew[];
 extern const char kHideCrashRestoreBubble[];
 extern const char kHomePage[];
 #if !BUILDFLAG(IS_ANDROID)
+extern const char kSimulateLockScreenSmartRestart[];
 extern const char kImportPasswords[];
 #endif
 extern const char kIncognito[];
@@ -291,9 +293,11 @@ extern const char kGuest[];
 #endif
 
 extern const char kGlicGuestURL[];
+extern const char kGlicGeminiEnterpriseSettingsOverride[];
 extern const char kGlicAlwaysOpenFre[];
 extern const char kGlicAlwaysSkipFre[];
 extern const char kGlicFreURL[];
+extern const char kGlicExperimentalFreURL[];
 extern const char kGlicShortcutsLearnMoreURL[];
 extern const char kGlicOpenOnStartup[];
 extern const char kGlicAllowedOrigins[];

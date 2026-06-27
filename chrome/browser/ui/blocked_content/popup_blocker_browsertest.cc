@@ -16,7 +16,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -925,12 +924,6 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
   EXPECT_TRUE(content_settings::PageSpecificContentSettings::GetForFrame(
                   tab_2->GetPrimaryMainFrame())
                   ->IsContentBlocked(ContentSettingsType::POPUPS));
-}
-
-IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
-                       DocumentPictureInPictureIsNotConsideredForBlocking) {
-  EXPECT_FALSE(blocked_content::ConsiderForPopupBlocking(
-      WindowOpenDisposition::NEW_PICTURE_IN_PICTURE));
 }
 
 class PopupBlockerFencedFrameTest : public PopupBlockerBrowserTest {

@@ -13,10 +13,10 @@
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/journal_details_builder.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
@@ -24,18 +24,24 @@
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/web_contents.h"
 #include "net/http/http_response_headers.h"
+#include "third_party/blink/public/common/mime_util/mime_util.h"
+#include "ui/base/page_transition_types.h"
 
 namespace actor {
 namespace {
-constexpr auto kBlockedMimeTypes = base::MakeFixedFlatSet<std::string_view>({
-    "application/javascript",
-    "application/json",
-    "application/xml",
-    "text/javascript",
-    "text/csv",
-    "text/json",
-    "text/xml",
-});
+bool IsDangerousMimeType(std::string_view mime_type) {
+  static constexpr auto kBlockedTabularTypes =
+      base::MakeFixedFlatSet<std::string_view>({
+          "text/csv",
+          "text/comma-separated-values",
+          "text/tsv",
+          "text/tab-separated-values",
+      });
+  return kBlockedTabularTypes.contains(mime_type) ||
+         blink::IsJSONMimeType(mime_type) ||
+         blink::IsXMLMimeType(mime_type) ||
+         blink::IsSupportedJavascriptMimeType(mime_type);
+}
 }  // namespace
 
 // static
@@ -118,8 +124,7 @@ ActorNavigationThrottle::WillProcessResponse() {
             navigation_handle()->GetResponseHeaders();
         headers) {
       std::string mime_type;
-      if (headers->GetMimeType(&mime_type) &&
-          kBlockedMimeTypes.contains(mime_type)) {
+      if (headers->GetMimeType(&mime_type) && IsDangerousMimeType(mime_type)) {
         GetJournal().Log(navigation_handle()->GetURL(), task_id_, "NavThrottle",
                          JournalDetailsBuilder()
                              .AddError("Navigate to disallowed content-type")
@@ -186,26 +191,112 @@ void ActorNavigationThrottle::OnNavigationConfirmationDecision(
   }
 }
 
+void ActorNavigationThrottle::OnUserLeaveDialogDecision(bool may_continue) {
+  CHECK(!navigation_handle()->IsInPrerenderedMainFrame())
+      << "We should not be prompting for pre-rendered frame navigations.";
+
+  AggregatedJournal& journal = GetJournal();
+  if (may_continue) {
+    // User agreed to navigate away. Resume navigation, and stop Actor task.
+    journal.Log(navigation_handle()->GetURL(), task_id_, "NavThrottle",
+                JournalDetailsBuilder()
+                    .Add("navigate", "User allowed navigation (Leaving task)")
+                    .Build());
+
+    // Mark the fact that the user confirmed to leave so the throttle doesn't
+    // trigger this again during resume.
+    was_user_confirmed_leave_ = true;
+
+    // Stop the task BEFORE resuming the navigation. This ensures that the task
+    // is fully cleaned up and Java receives the "clear UI" signal while the
+    // page is still active, preventing any post-resume cleanup from killing the
+    // navigation or missing the UI cleanup signal due to page unloading.
+    if (auto* service = ActorKeyedService::Get(GetProfile())) {
+      service->StopTask(task_id_, ActorTask::StoppedReason::kUserNavigatedAway);
+    }
+
+    Resume();
+    return;
+  }
+  // User refused to leave (stayed). Cancel navigation, do NOT fail tool.
+  journal.Log(navigation_handle()->GetURL(), task_id_, "NavThrottle",
+              JournalDetailsBuilder()
+                  .AddError("User cancelled navigation (Stayed)")
+                  .Build());
+  CancelDeferredNavigation(CANCEL_AND_IGNORE);
+}
+
 content::NavigationThrottle::ThrottleCheckResult
 ActorNavigationThrottle::WillStartOrRedirectRequest(bool is_redirection) {
   const GURL& navigation_url = navigation_handle()->GetURL();
-
   AggregatedJournal& journal = GetJournal();
+
+  actor::ActorTask* task =
+      ActorKeyedService::Get(GetProfile())->GetTask(task_id_);
+  if (!task) {
+    if (was_user_confirmed_leave_) {
+      journal.Log(
+          navigation_url, task_id_, "NavThrottle",
+          JournalDetailsBuilder()
+              .Add("navigate", "User allowed navigation (Task cancelled)")
+              .Build());
+      return content::NavigationThrottle::PROCEED;
+    }
+
+    journal.Log(navigation_url, task_id_, "NavThrottle",
+                JournalDetailsBuilder().AddError("TaskWentAway").Build());
+    return content::NavigationThrottle::CANCEL_AND_IGNORE;
+  }
 
   if (!is_redirection && !navigation_handle()->IsRendererInitiated()) {
     journal.Log(navigation_url, task_id_, "NavThrottle",
                 JournalDetailsBuilder()
                     .Add("navigate", "Not triggered by page")
                     .Build());
-    return content::NavigationThrottle::PROCEED;
-  }
+    // This is a browser-initiated navigation. It could be a user action in the
+    // Chrome UI (Home button, Omnibox, bookmarks) OR a navigation initiated by
+    // the Glic Actor itself via its tools.
+    //
+    // We want to intercept only explicit user-initiated UI navigations that
+    // take the user away from the active task, while allowing Glic's own
+    // background navigations (which do not carry these user UI transition
+    // qualifiers) to proceed without prompting.
+    ::ui::PageTransition transition = navigation_handle()->GetPageTransition();
+    // We explicitly list the transition types to intercept. We cannot use
+    // !::ui::PageTransitionIsWebTriggerable(transition) here because that
+    // would also include PAGE_TRANSITION_AUTO_TOPLEVEL (which is
+    // browser-initiated). Since Actor's own programmatic navigations use
+    // AUTO_TOPLEVEL, using !IsWebTriggerable would cause Actor's own
+    // navigations to be intercepted and deferred!
+    // TODO(crbug.com/500826418): Consider ignoring same-origin/same-site
+    // navigations here since they are less disruptive to active tasks.
+    bool is_user_ui_navigation =
+        ::ui::PageTransitionCoreTypeIs(transition,
+                                       ::ui::PAGE_TRANSITION_TYPED) ||
+        ::ui::PageTransitionCoreTypeIs(transition,
+                                       ::ui::PAGE_TRANSITION_GENERATED) ||
+        ::ui::PageTransitionCoreTypeIs(transition,
+                                       ::ui::PAGE_TRANSITION_AUTO_BOOKMARK) ||
+        (transition & ::ui::PAGE_TRANSITION_HOME_PAGE);
 
-  actor::ActorTask* task =
-      ActorKeyedService::Get(GetProfile())->GetTask(task_id_);
-  if (!task) {
-    journal.Log(navigation_url, task_id_, "NavThrottle",
-                JournalDetailsBuilder().AddError("TaskWentAway").Build());
-    return content::NavigationThrottle::CANCEL_AND_IGNORE;
+    if (!is_user_ui_navigation) {
+      return content::NavigationThrottle::PROCEED;
+    }
+
+    if (task->navigation_delegate()) {
+      if (task->navigation_delegate()->MaybeDeferNavigation(
+              navigation_url,
+              base::BindOnce(
+                  &ActorNavigationThrottle::OnUserLeaveDialogDecision,
+                  weak_factory_.GetWeakPtr()))) {
+        journal.Log(navigation_url, task_id_, "NavThrottle",
+                    JournalDetailsBuilder()
+                        .Add("navigate", "Deferred by delegate")
+                        .Build());
+        return content::NavigationThrottle::DEFER;
+      }
+    }
+    return content::NavigationThrottle::PROCEED;
   }
 
   auto journal_entry = journal.CreatePendingAsyncEntry(

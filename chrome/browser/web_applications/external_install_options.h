@@ -20,7 +20,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ash/webui/system_apps/public/system_web_app_type.h"
+#include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #endif
 
 namespace web_app {
@@ -74,6 +74,9 @@ struct ExternalInstallOptions {
 
   // URL of an icon that replaces the app's real icons.
   std::optional<GURL> override_icon_url;
+
+  // SHA256 hash of an icon that replaces the app's real icons.
+  std::optional<std::string> override_icon_hash;
 
   // If true, a shortcut is added to the Applications folder on macOS, and Start
   // Menu on Linux and Windows and launcher on Chrome OS. If false, we skip
@@ -212,7 +215,7 @@ struct ExternalInstallOptions {
 
 #if BUILDFLAG(IS_CHROMEOS)
   // The type of SystemWebApp, if this app is a System Web App.
-  std::optional<ash::SystemWebAppType> system_app_type = std::nullopt;
+  std::optional<ash::SystemWebAppType> system_app_type;
 #endif
 
   // Whether the app was installed by an OEM and should be placed in a special

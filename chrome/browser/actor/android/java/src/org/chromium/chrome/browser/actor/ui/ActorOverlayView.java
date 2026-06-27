@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.util.AttributeSet;
+import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.FrameLayout;
 
@@ -43,17 +44,31 @@ public class ActorOverlayView extends FrameLayout {
     }
 
     /**
-     * Sets the top and bottom margins of the view.
+     * Sets the margins of the view.
      *
+     * @param left The left margin in pixels.
      * @param top The top margin in pixels.
+     * @param right The right margin in pixels.
      * @param bottom The bottom margin in pixels.
      */
-    public void setMargins(int top, int bottom) {
+    public void setMargins(int left, int top, int right, int bottom) {
         MarginLayoutParams params = (MarginLayoutParams) getLayoutParams();
-        if (params.topMargin != top || params.bottomMargin != bottom) {
+        if (params == null) return;
+
+        if (params.leftMargin != left
+                || params.topMargin != top
+                || params.rightMargin != right
+                || params.bottomMargin != bottom) {
+            params.leftMargin = left;
             params.topMargin = top;
+            params.rightMargin = right;
             params.bottomMargin = bottom;
             setLayoutParams(params);
         }
+    }
+
+    /** Returns the take over task button. */
+    public View getTakeOverButton() {
+        return findViewById(R.id.take_over_task_button);
     }
 }

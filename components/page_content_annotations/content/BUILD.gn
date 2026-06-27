@@ -4,6 +4,16 @@
 
 import("//pdf/features.gni")
 
+source_set("metrics") {
+  sources = [
+    "annotate_page_content_request_metrics.cc",
+    "annotate_page_content_request_metrics.h",
+    "page_context_fetcher_metrics.cc",
+    "page_context_fetcher_metrics.h",
+  ]
+  deps = [ "//base" ]
+}
+
 source_set("content") {
   sources = [
     "annotate_page_content_request.cc",
@@ -16,6 +26,8 @@ source_set("content") {
     "page_content_screenshot_service.h",
     "page_context_fetcher.cc",
     "page_context_fetcher.h",
+    "page_context_fetcher_options.cc",
+    "page_context_fetcher_options.h",
   ]
 
   public_deps = [
@@ -24,10 +36,12 @@ source_set("content") {
     "//components/feature_engagement/public",
     "//components/feature_engagement/public:feature_constants",
     "//components/optimization_guide/content/browser",
+    "//components/page_content_annotations/content/browser",
     "//components/paint_preview/browser",
     "//components/paint_preview/common",
     "//components/paint_preview/common/mojom",
     "//components/paint_preview/public",
+    "//components/viz/common",
     "//content/public/browser",
     "//skia",
     "//ui/gfx/geometry",
@@ -35,13 +49,14 @@ source_set("content") {
   ]
 
   deps = [
+    ":metrics",
     "//components/continuous_search/browser",
     "//components/optimization_guide/content/browser:page_context_eligibility",
+    "//components/optimization_guide/core:page_content",
     "//components/page_content_annotations/core",
     "//components/pdf/common:constants",
     "//components/performance_manager/scenario_api",
     "//components/services/paint_preview_compositor/public/mojom",
-    "//components/viz/common",
     "//pdf:buildflags",
   ]
 
@@ -112,15 +127,23 @@ source_set("unit_tests") {
   ]
   deps = [
     ":content",
+    ":metrics",
     ":page_embeddings",
     "//components/feature_engagement/public:feature_constants",
     "//components/feature_engagement/test:test_support",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/os_crypt/async/browser:test_support",
+    "//components/page_content_annotations/core",
     "//components/page_content_annotations/core:features",
     "//components/passage_embeddings/core:passage_embeddings_types",
+    "//components/passage_embeddings/core:test_support",
+    "//components/ukm:test_support",
     "//content/test:test_support",
+    "//pdf:buildflags",
     "//testing/gmock",
     "//testing/gtest",
   ]
+  if (enable_pdf) {
+    deps += [ "//components/pdf/browser" ]
+  }
 }

@@ -55,6 +55,9 @@ class GlicView : public views::WebView {
       const std::vector<blink::mojom::DraggableRegionPtr>& regions,
       content::WebContents* contents) override;
 
+  // views::View:
+  void OnThemeChanged() override;
+
   bool IsPointWithinDraggableRegion(const gfx::Point& point);
 
   // Try to get the background color from the web UI and use it as this view's
@@ -73,7 +76,7 @@ class GlicView : public views::WebView {
   }
 
  private:
-  void SetDraggableRegion(const SkRegion& region);
+  void SetDraggableRegion(const SkRegion& region, bool for_webview);
 
   std::optional<SkColor> GetClientBackgroundColor();
 
@@ -83,6 +86,7 @@ class GlicView : public views::WebView {
 
   // Defines the region of the view from which it can be dragged.
   SkRegion draggable_region_;
+  SkRegion webview_draggable_region_;
 
   views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
   base::WeakPtrFactory<GlicView> weak_ptr_factory_{this};

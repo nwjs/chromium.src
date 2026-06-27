@@ -207,10 +207,22 @@ WebXrSharedBuffer* XrImageTransportBase::TransferFrame(
 
 void XrImageTransportBase::CreateGpuFenceForSyncToken(
     const gpu::SyncToken& sync_token,
+    const std::vector<gpu::SyncToken>& camera_sync_tokens,
     base::OnceCallback<void(std::unique_ptr<gfx::GpuFence>)> callback) {
   CHECK(IsOnGlThread());
   DVLOG(2) << __func__;
-  mailbox_bridge_->CreateGpuFence(sync_token, std::move(callback));
+  mailbox_bridge_->WaitSyncToken(sync_token);
+  for (auto& camera_sync_token : camera_sync_tokens) {
+    mailbox_bridge_->WaitSyncToken(camera_sync_token);
+  }
+  mailbox_bridge_->CreateGpuFence(std::move(callback));
+}
+
+gpu::SyncToken XrImageTransportBase::GenSyncToken() {
+  CHECK(IsOnGlThread());
+  gpu::SyncToken sync_token;
+  mailbox_bridge_->GenSyncToken(&sync_token);
+  return sync_token;
 }
 
 void XrImageTransportBase::WaitSyncToken(const gpu::SyncToken& sync_token) {
@@ -224,6 +236,10 @@ void XrImageTransportBase::ServerWaitForGpuFence(
   std::unique_ptr<gl::GLFence> local_fence =
       gl::GLFence::CreateFromGpuFence(*gpu_fence);
   local_fence->ServerWait();
+}
+
+viz::ContextProvider* XrImageTransportBase::GetContextProvider() {
+  return mailbox_bridge_->GetContextProvider();
 }
 
 LocalTexture XrImageTransportBase::GetRenderingTexture(

@@ -123,6 +123,8 @@ BASE_FEATURE(kAllowLCDTextWithFilter, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreventDuplicateImageDecodes, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kResolveLargeImageDecodes, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kInitImageDecodeLastUseTime, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enabled on Android, after a field trial showed improvements.
@@ -211,8 +213,9 @@ BASE_FEATURE(kSlimDirectReceiverIpc, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kOverscrollEffectOnNonRootScrollers,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSkipFinishDuringReleaseLayerTreeFrameSink,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSnapFlingNearExtremes, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSnapFlingDecayPrediction, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kScrollJankV4Metric, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -260,5 +263,15 @@ BASE_FEATURE(kBrowserControlsScrollSnapAnimation,
 
 BASE_FEATURE(kSelectionEdgeVisibilityUsesFullEdge,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kResourcePoolPreferExactSizeReuse,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Killswitch for disabling SendEarlyBeginMainFrame function in cc/scheduler.
+BASE_FEATURE(kSendEarlyFinalBeginMainFrame, base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool SendEarlyFinalBeginMainFrameIsEnabled() {
+  return base::FeatureList::IsEnabled(kSendEarlyFinalBeginMainFrame);
+}
 
 }  // namespace features

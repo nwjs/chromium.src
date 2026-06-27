@@ -6,6 +6,8 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_SUGGESTIONS_SUGGESTION_TYPE_H_
 
 #include <ostream>
+#include <string>
+#include <string_view>
 
 namespace autofill {
 
@@ -193,8 +195,18 @@ enum class SuggestionType {
   // Suggestion to open Gemini in the sidebar.
   kOpenGemini = 82,
 
-  // Next ID: 83
-  kMaxValue = kOpenGemini
+  // Suggestion to display when @memory search fails to connect to the server.
+  kAtMemoryNoConnection = 83,
+
+  // Suggestion that triggers AtMemory search when accepted.
+  kAtMemorySearchAffordance = 84,
+
+  // Personal context notice. This is a footer note rather than a real
+  // selectable suggestion.
+  kPersonalContextNotice = 85,
+
+  // Next ID: 86
+  kMaxValue = kPersonalContextNotice
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:SuggestionType)
 

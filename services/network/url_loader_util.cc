@@ -472,10 +472,18 @@ void ConfigureUrlRequest(const ResourceRequest& request,
                          net::URLRequest& url_request,
                          SharedResourceChecker& shared_resource_checker) {
   url_request.set_method(request.method);
-  url_request.set_site_for_cookies(request.site_for_cookies);
-  url_request.set_force_ignore_site_for_cookies(ShouldForceIgnoreSiteForCookies(
-      request.url, request.request_initiator, request.site_for_cookies,
-      origin_access_list));
+
+  // When the factory holds an authoritative `site_for_cookies` that the
+  // renderer cannot compute (e.g., a subframe whose effective top frame
+  // for storage partitioning differs from the actual top frame), use it
+  // instead of the renderer-provided value.
+  net::SiteForCookies effective_site_for_cookies = request.site_for_cookies;
+  if (factory_params.prefer_factory_site_for_cookies &&
+      !factory_params.isolation_info.site_for_cookies().IsNull()) {
+    effective_site_for_cookies =
+        factory_params.isolation_info.site_for_cookies();
+  }
+  url_request.set_site_for_cookies(effective_site_for_cookies);
   if (!request.navigation_redirect_chain.empty()) {
     DCHECK_EQ(request.mode, mojom::RequestMode::kNavigate);
     url_request.SetURLChain(request.navigation_redirect_chain);

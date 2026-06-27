@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/common/chrome_features.h"
@@ -24,6 +25,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "ui/webui/tracked_element/tracked_element_web_ui.h"
 #include "url/gurl.h"
 
@@ -52,15 +54,18 @@ class WebUILocationBarBrowserTest : public InProcessBrowserTest {
         {});
   }
 
-  bool WaitForInitialLoad() {
-    return base::test::RunUntil([browser = browser()]() {
-      InitialWebUIManager* manager = InitialWebUIManager::From(browser);
-      return !manager || !manager->RequestDeferShow(base::DoNothing());
-    });
-  }
-
   LocationBar* GetLocationBar() {
     return BrowserView::GetBrowserViewForBrowser(browser())->GetLocationBar();
+  }
+
+  WebUIToolbarWebView* GetWebUIToolbarWebView() {
+    return BrowserView::GetBrowserViewForBrowser(browser())
+        ->toolbar_button_provider()
+        ->GetWebUIToolbarViewForTesting();
+  }
+
+  content::WebContents* GetWebUIToolbarWebContents() {
+    return GetWebUIToolbarWebView()->web_contents();
   }
 
  private:
@@ -68,7 +73,7 @@ class WebUILocationBarBrowserTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(WebUILocationBarBrowserTest, GetAnchor) {
-  ASSERT_TRUE(WaitForInitialLoad());
+  WaitForInitialWebUIToolbar(browser());
 
   auto* location_bar = GetLocationBar();
 
@@ -103,7 +108,7 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarBrowserTest, Bounds) {
   auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   auto* location_bar = GetLocationBar();
 
-  ASSERT_TRUE(WaitForInitialLoad());
+  WaitForInitialWebUIToolbar(browser());
 
   // Wait until visible.
   ASSERT_TRUE(
@@ -140,7 +145,7 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarBrowserTest, Bounds) {
 // Test that basic state management of the omnibox works --- e.g. it gets
 // the URL as its state when navigating and switching tabs.
 IN_PROC_BROWSER_TEST_F(WebUILocationBarBrowserTest, BasicOmniboxState) {
-  ASSERT_TRUE(WaitForInitialLoad());
+  WaitForInitialWebUIToolbar(browser());
   LocationBar* location_bar = GetLocationBar();
   auto* tab_strip_model = browser()->tab_strip_model();
 
@@ -163,6 +168,33 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarBrowserTest, BasicOmniboxState) {
 
   tab_strip_model->SelectTabAt(1);
   EXPECT_EQ("chrome://version", base::UTF16ToUTF8(omnibox->GetText()));
+}
+
+IN_PROC_BROWSER_TEST_F(WebUILocationBarBrowserTest, LocationIcon) {
+  WaitForInitialWebUIToolbar(browser());
+  LocationBar* location_bar = GetLocationBar();
+  auto* omnibox = location_bar->GetOmniboxView();
+  ASSERT_TRUE(omnibox);
+  EXPECT_EQ("about:blank", base::UTF16ToUTF8(omnibox->GetText()));
+
+  const char kGetIcon[] = R"(
+    document.querySelector('toolbar-app')?.
+      shadowRoot?.querySelector('location-bar')?.
+      shadowRoot?.querySelector('location-icon')?.
+      shadowRoot?.querySelector('icon-from-table')?.
+      shadowRoot?.querySelector('#maskIconContainer')?.
+      getAttribute('style');
+  )";
+
+  EXPECT_EQ("mask-image: url(lhs_icons/http_chrome_refresh.svg);",
+            content::EvalJs(GetWebUIToolbarWebContents(), kGetIcon));
+
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("chrome://version")));
+  EXPECT_EQ("chrome://version", base::UTF16ToUTF8(omnibox->GetText()));
+
+  EXPECT_EQ("mask-image: url(lhs_icons/product_chrome_refresh_icon.svg);",
+            content::EvalJs(GetWebUIToolbarWebContents(), kGetIcon));
 }
 
 }  // namespace

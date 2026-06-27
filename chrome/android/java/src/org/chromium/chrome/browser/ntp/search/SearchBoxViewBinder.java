@@ -46,8 +46,7 @@ class SearchBoxViewBinder
                     model.get(SearchBoxProperties.PLUS_BUTTON_CLICK_CALLBACK));
         } else if (SearchBoxProperties.PLUS_BUTTON_VISIBILITY == propertyKey) {
             boolean visible = model.get(SearchBoxProperties.PLUS_BUTTON_VISIBILITY);
-            view.mPlusButton.setVisibility(visible ? View.VISIBLE : View.GONE);
-            view.mDseIconView.setVisibility(visible ? View.GONE : View.VISIBLE);
+            view.updateStartIconVisibility(visible);
         } else if (SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK == propertyKey) {
             var searchBoxClickListener = model.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK);
             view.mHintTextView.setOnClickListener(searchBoxClickListener);
@@ -65,11 +64,11 @@ class SearchBoxViewBinder
             view.mHintTextView.setOnDragListener(
                     model.get(SearchBoxProperties.SEARCH_BOX_DRAG_CALLBACK));
         } else if (SearchBoxProperties.SEARCH_BOX_END_PADDING == propertyKey) {
-            view.mSearchBoxContainer.setPadding(
-                    view.mSearchBoxContainer.getPaddingLeft(),
-                    view.mSearchBoxContainer.getPaddingTop(),
+            view.setPadding(
+                    view.getPaddingLeft(),
+                    view.getPaddingTop(),
                     model.get(SearchBoxProperties.SEARCH_BOX_END_PADDING),
-                    view.mSearchBoxContainer.getPaddingBottom());
+                    view.getPaddingBottom());
         } else if (SearchBoxProperties.SEARCH_BOX_HEIGHT == propertyKey) {
             ViewGroup.LayoutParams lp = view.getLayoutParams();
             lp.height = model.get(SearchBoxProperties.SEARCH_BOX_HEIGHT);
