@@ -114,11 +114,18 @@ grit_info_script = "//tools/grit/grit_info.py"
 
 # TODO(asvitkine): Add predetermined ids files for other platforms.
 grit_predetermined_resource_ids_file = ""
-if (is_mac) {
+# NW.js: disable the startup predetermined resource-id ordering files. NW adds
+# its own .grd entries (e.g. nwjs_resources.grd) to resource_ids.spec, which
+# shifts auto-assigned resource ids relative to upstream. The upstream
+# startup_resources_{win,mac}.txt are generated from a pristine Chrome build and
+# go stale against our shifted ids, producing grit IdRangeOverlap failures when
+# a newly-added upstream string collides with a pinned id. These files are only
+# a startup page-fault optimization, so dropping them is safe.
+if (false && is_mac) {
   grit_predetermined_resource_ids_file =
       "//tools/gritsettings/startup_resources_mac.txt"
 }
-if (is_win) {
+if (false && is_win) {
   grit_predetermined_resource_ids_file =
       "//tools/gritsettings/startup_resources_win.txt"
 }
