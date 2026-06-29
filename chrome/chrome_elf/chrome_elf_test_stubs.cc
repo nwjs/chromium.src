@@ -19,9 +19,15 @@
 // This function is a temporary workaround for https://crbug.com/41280821. We
 // need to come up with a better way to initialize crash reporting that can
 // happen inside DllMain().
-void SignalInitializeCrashReporting() {}
+void SignalInitializeCrashReporting(void*, void*) {}
 
 void SignalChromeElf() {}
+
+// NW.js: test stub for the chrome_elf export used by ChromeMainDelegate to wire
+// up crash reporting. Tests don't use the real crash reporter client.
+void* ElfGetReporterClient() {
+  return nullptr;
+}
 
 bool GetUserDataDirectoryThunk(wchar_t* user_data_dir,
                                size_t user_data_dir_length,
