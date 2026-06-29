@@ -6410,9 +6410,13 @@ if (!is_android) {
         "//net:test_support",
         "//testing/gmock",
         "//testing/gtest",
-        "//ui/aura:test_support",
         "//ui/views",
       ]
+      if (use_aura) {
+        # //ui/aura:test_support pulls in //ui/wm, which asserts use_aura.
+        # use_aura is false on Mac, so guard this dep.
+        deps += [ "//ui/aura:test_support" ]
+      }
     }
   }
 }
